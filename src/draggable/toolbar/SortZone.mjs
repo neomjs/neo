@@ -32,6 +32,11 @@ class SortZone extends DragZone {
          */
         indexMap: null,
         /**
+         * @member {String|null} itemMargin=null
+         * @protected
+         */
+        itemMargin: null,
+        /**
          * @member {Array|null} itemRects=null
          * @protected
          */
@@ -96,11 +101,12 @@ class SortZone extends DragZone {
             owner.style = ownerStyle;
 
             owner.items.forEach((item, index) => {
-                itemStyle = item.style || {};
+                itemStyle = item.wrapperStyle || {};
 
                 Object.assign(itemStyle, {
                     height  : itemStyles[index].height || null,
                     left    : null,
+                    margin  : null,
                     position: null,
                     top     : null,
                     width   : itemStyles[index].width || null
@@ -110,7 +116,7 @@ class SortZone extends DragZone {
                     itemStyle.visibility = null
                 }
 
-                item.style = itemStyle
+                item.wrapperStyle = itemStyle
             });
 
             if (me.startIndex !== me.currentIndex) {
@@ -202,8 +208,8 @@ class SortZone extends DragZone {
                 indexMap[index] = index;
 
                 itemStyles.push({
-                    height: item.style?.height,
-                    width : item.style?.width
+                    height: item.height ? `${item.height}px` :  item.style?.height,
+                    width : item.width  ? `${item.width}px`  :  item.style?.width
                 })
             });
 
@@ -221,12 +227,15 @@ class SortZone extends DragZone {
                 me.itemRects = itemRects;
 
                 owner.items.forEach((item, index) => {
-                    itemStyle = item.style || {};
+                    itemStyle = item.wrapperStyle || {};
                     rect      = itemRects[index];
 
-                    item.style = Object.assign(itemStyle, {
+                    me.adjustProxyRectToParent?.(rect, me.ownerRect);
+
+                    item.wrapperStyle = Object.assign(itemStyle, {
                         height  : `${rect.height}px`,
                         left    : `${rect.left}px`,
+                        margin  : me.itemMargin,
                         position: 'absolute',
                         top     : `${rect.top}px`,
                         width   : `${rect.width}px`
@@ -235,9 +244,9 @@ class SortZone extends DragZone {
 
                 // we need to add a short (1 frame) delay to ensure the item has switched to an absolute position
                 me.timeout(5).then(() => {
-                    itemStyle = button.style || {};
+                    itemStyle = button.wrapperStyle || {};
                     itemStyle.visibility = 'hidden';
-                    button.style = itemStyle
+                    button.wrapperStyle = itemStyle
                 })
             })
         }
@@ -288,14 +297,14 @@ class SortZone extends DragZone {
      * @param {Object} rect
      */
     updateItem(index, rect) {
-        let me      = this,
-            item    = me.owner.items[me.indexMap[index]],
-            {style} = item;
+        let me             = this,
+            item           = me.owner.items[me.indexMap[index]],
+            {wrapperStyle} = item;
 
-        style.left = `${rect.left}px`;
-        style.top  = `${rect.top}px`;
+        wrapperStyle.left = `${rect.left}px`;
+        wrapperStyle.top  = `${rect.top}px`;
 
-        item.style = style
+        item.wrapperStyle = wrapperStyle
     }
 }
 

@@ -196,16 +196,12 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onDragEnd(event) {
         let me          = this,
             parsedEvent = me.getEventData(event),
             isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath);
-
-        DomAccess.setBodyCls({
-            remove: ['neo-unselectable']
-        });
 
         if (me.bodyCursorStyle) {
             DomAccess.setStyle({
@@ -254,7 +250,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onDragMove(event) {
         let me        = this,
@@ -290,17 +286,14 @@ class DragDrop extends Base {
                 }
             }
 
-            if (!me.moveHorizontal) {
-                left = me.dragProxyRect.x
+            if (me.moveHorizontal) {
+                me.dragProxyElement.style.left = `${left}px`
             }
 
-            me.dragProxyElement.style.left = `${left}px`;
 
-            if (!me.moveVertical) {
-                top = me.dragProxyRect.y
+            if (me.moveVertical) {
+                me.dragProxyElement.style.top = `${top}px`
             }
-
-            me.dragProxyElement.style.top = `${top}px`
         }
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
@@ -318,15 +311,11 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onDragStart(event) {
         let me   = this,
             rect = event.target.getBoundingClientRect();
-
-        DomAccess.setBodyCls({
-            add: ['neo-unselectable']
-        });
 
         Object.assign(me, {
             dragProxyRect: rect,
@@ -341,7 +330,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onMouseEnter(event) {
         let me = this;
@@ -356,7 +345,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onMouseLeave(event) {
         let me = this;

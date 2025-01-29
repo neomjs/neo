@@ -17,9 +17,13 @@ class Toolbar extends BaseToolbar {
          */
         ntype: 'table-header-toolbar',
         /**
-         * @member {String[]} baseCls=['table-header-toolbar']
+         * @member {String[]} baseCls=['neo-table-header-toolbar']
          */
-        baseCls: ['table-header-toolbar'],
+        baseCls: ['neo-table-header-toolbar'],
+        /**
+         * @member {Boolean} draggable_=true
+         */
+        draggable_: true,
         /**
          * @member {String} layout='base'
          */
@@ -35,6 +39,8 @@ class Toolbar extends BaseToolbar {
          */
         showHeaderFilters_: false,
         /**
+         * Convenience shortcut to pass sortable to all toolbar items.
+         * If set to true, header clicks will sort the matching column (ASC, DESC, null)
          * @member {Boolean} sortable=true
          */
         sortable: true,
@@ -45,6 +51,31 @@ class Toolbar extends BaseToolbar {
         {tag: 'thead', cn: [
             {tag: 'tr', cn: []}
         ]}
+    }
+
+    /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        let me = this;
+
+        if (value && !me.sortZone) {
+            import('../../draggable/table/header/toolbar/SortZone.mjs').then(module => {
+                let {appName, id, windowId} = me;
+
+                me.sortZone = Neo.create({
+                    module             : module.default,
+                    appName,
+                    boundaryContainerId: id,
+                    owner              : me,
+                    windowId,
+                    ...me.sortZoneConfig
+                })
+            })
+        }
     }
 
     /**
@@ -84,6 +115,7 @@ class Toolbar extends BaseToolbar {
                 })
             });
 
+            me.updateDepth = 2;
             me.update()
         }
     }
