@@ -309,7 +309,7 @@ export default class Rectangle extends DOMRect {
 
     /**
      * Returns a clone of this Rectangle expanded according to the edges array.
-     * @param {Number}Number[]} edges
+     * @param {Number[]} edges
      * @returns {Rectangle}
      */
     expand(edges) {
