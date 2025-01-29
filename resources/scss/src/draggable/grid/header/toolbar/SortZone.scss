@@ -1,6 +1,17 @@
-.neo-grid-header-toolbar.neo-dragproxy {
-    .neo-button {
-        border-right: 1px solid var(--grid-container-border-color);
-        margin      : 1px;
+.neo-grid-header-toolbar {
+    &.neo-dragproxy {
+        // Hack to increase the height by the border-bottom height (29 + 1)
+        height: 30px !important;
+
+        .neo-button {
+            border-right: 1px solid var(--grid-container-border-color);
+        }
+    }
+
+    &.neo-is-dragging {
+        .neo-button {
+            // Would be missing for the last button otherwise
+            border-right: 1px solid var(--grid-container-border-color);
+        }
     }
 }

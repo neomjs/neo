@@ -16,7 +16,11 @@ class SortZone extends BaseSortZone {
          * @member {String} ntype='grid-header-toolbar-sortzone'
          * @protected
          */
-        ntype: 'grid-header-toolbar-sortzone'
+        ntype: 'grid-header-toolbar-sortzone',
+        /**
+         * @member {Boolean} moveVertical=false
+         */
+        moveVertical: false
     }
 
     /**
@@ -69,6 +73,8 @@ class SortZone extends BaseSortZone {
             owner.getDomRect([owner.id].concat(owner.items.map(e => e.id))).then(itemRects => {
                 me.ownerRect = ownerRect = itemRects[0];
 
+                console.log(ownerRect.height, itemRects[0].height);
+
                 ownerStyle.height = `${itemRects[0].height}px`;
                 ownerStyle.width  = `${itemRects[0].width}px`;
 
@@ -83,8 +89,8 @@ class SortZone extends BaseSortZone {
                     itemStyle = item.style || {};
                     rect      = itemRects[index];
 
-                    rect.x -= ownerRect.x;
-                    rect.y -= ownerRect.y;
+                    rect.x = rect.x - ownerRect.x - 1;
+                    rect.y = rect.y - ownerRect.y - 1;
 
                     item.style = Object.assign(itemStyle, {
                         height       : `${rect.height}px`,
