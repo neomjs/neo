@@ -44,10 +44,13 @@ class DragZone extends BaseDragZone {
     /**
      * @param {Boolean} draggable
      */
-    adjustToolbarItemCls(draggable) {
+    async adjustToolbarItemCls(draggable) {
         let me      = this,
             {owner} = me,
             wrapperCls;
+
+        // todo: Without the delay, the wrapperCls does not always get applied. Review it once style updates are fully vdom based
+        await me.timeout(10);
 
         owner.items.forEach(item => {
             wrapperCls = item.wrapperCls || [];
