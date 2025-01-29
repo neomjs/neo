@@ -1119,11 +1119,7 @@ class Component extends Base {
             }
         }
 
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
-            me.needsVdomUpdate = true
-        } else if (me.mounted) {
-            me.updateCls(value, oldValue)
-        }
+        me.update()
     }
 
     /**
