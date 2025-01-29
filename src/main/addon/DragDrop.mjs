@@ -290,17 +290,14 @@ class DragDrop extends Base {
                 }
             }
 
-            if (!me.moveHorizontal) {
-                left = me.dragProxyRect.x
+            if (me.moveHorizontal) {
+                me.dragProxyElement.style.left = `${left}px`
             }
 
-            me.dragProxyElement.style.left = `${left}px`;
 
-            if (!me.moveVertical) {
-                top = me.dragProxyRect.y
+            if (me.moveVertical) {
+                me.dragProxyElement.style.top = `${top}px`
             }
-
-            me.dragProxyElement.style.top = `${top}px`
         }
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
