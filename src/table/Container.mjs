@@ -192,7 +192,7 @@ class Container extends BaseContainer {
                 headerToolbar.createItems()
             }
 
-            me.view?.createViewData(me.store.items)
+            me.view?.createViewData()
         }
     }
 
@@ -407,12 +407,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Array} inputData
+     *
      */
-    createViewData(inputData) {
+    createViewData() {
         let me = this;
 
-        me.view.createViewData(inputData);
+        me.view.createViewData();
 
         if (me.useCustomScrollbars && me.scrollbarsCssApplied === false) {
             me.applyCustomScrollbarsCss()
@@ -478,7 +478,7 @@ class Container extends BaseContainer {
         let me = this;
 
         if (me.rendered) {
-            me.createViewData(data);
+            me.createViewData();
 
             if (me.store.sorters.length < 1) {
                 me.removeSortingCss()
@@ -486,7 +486,7 @@ class Container extends BaseContainer {
         } else {
             me.on('rendered', () => {
                 me.timeout(50).then(() => {
-                    me.createViewData(data)
+                    me.createViewData()
                 })
             }, me, {once: true})
         }

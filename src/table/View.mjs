@@ -310,17 +310,17 @@ class View extends Component {
     }
 
     /**
-     * @param {Object[]} inputData
+     *
      */
-    createViewData(inputData) {
-        let me             = this,
-            amountRows     = inputData.length,
-            i              = 0,
-            rows           = [],
-            {selectedRows} = me;
+    createViewData() {
+        let me                    = this,
+            {selectedRows, store} = me,
+            countRecords          = store.getCount(),
+            i                     = 0,
+            rows                  = [];
 
-        for (; i < amountRows; i++) {
-            rows.push(me.createRow({record: inputData[i], rowIndex: i}))
+        for (; i < countRecords; i++) {
+            rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
 
         me.vdom.cn = rows;
