@@ -196,7 +196,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onDragEnd(event) {
         let me          = this,
@@ -250,7 +250,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onDragMove(event) {
         let me        = this,
@@ -311,7 +311,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onDragStart(event) {
         let me   = this,
@@ -330,7 +330,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onMouseEnter(event) {
         let me = this;
@@ -345,7 +345,7 @@ class DragDrop extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {Event} event
      */
     onMouseLeave(event) {
         let me = this;
