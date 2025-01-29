@@ -100,13 +100,12 @@ class SortZone extends BaseSortZone {
                     rect.y = rect.y - ownerRect.y - 1;
 
                     item.style = Object.assign(itemStyle, {
-                        height       : `${rect.height}px`,
-                        left         : `${rect.left}px`,
-                        margin       : '1px',
-                        pointerEvents: 'none',
-                        position     : 'absolute',
-                        top          : `${rect.top}px`,
-                        width        : `${rect.width}px`
+                        height  : `${rect.height}px`,
+                        left    : `${rect.left}px`,
+                        margin  : '1px',
+                        position: 'absolute',
+                        top     : `${rect.top}px`,
+                        width   : `${rect.width}px`
                     })
                 });
 
