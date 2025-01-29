@@ -29,13 +29,22 @@ class SortZone extends BaseSortZone {
     async onDragEnd(data) {
         await super.onDragEnd(data);
 
-        this.owner.parent.view.createViewData()
+        let {owner} = this;
+
+        owner.items.forEach((item, index) => {
+            item.vdom['aria-colindex'] = index + 1; // 1 based
+        });
+
+        owner.updateDepth = 2;
+        owner.update();
+
+        owner.parent.view.createViewData()
     }
 
     /**
      * @param {Object} data
      */
-    onDragStart(data) {console.log('onDragStart');
+    onDragStart(data) {
         let me         = this,
             button     = Neo.getComponent(data.path[0].id),
             {owner}    = me,
@@ -72,8 +81,6 @@ class SortZone extends BaseSortZone {
 
             owner.getDomRect([owner.id].concat(owner.items.map(e => e.id))).then(itemRects => {
                 me.ownerRect = ownerRect = itemRects[0];
-
-                console.log(ownerRect.height, itemRects[0].height);
 
                 ownerStyle.height = `${itemRects[0].height}px`;
                 ownerStyle.width  = `${itemRects[0].width}px`;
