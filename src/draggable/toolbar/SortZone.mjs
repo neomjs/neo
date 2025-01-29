@@ -18,6 +18,14 @@ class SortZone extends DragZone {
          */
         ntype: 'toolbar-sortzone',
         /**
+         * Depending on the parent tree positioning (especially using position: relative),
+         * it might be required to subtract the parent height & width from the proxy element position.
+         * draggable.grid.header.toolbar.SortZone needs it
+         * draggable.tab.header.toolbar.SortZone does not need it
+         * @member {Boolean} adjustProxyRectToParent=false
+         */
+        adjustProxyRectToParent: false,
+        /**
          * @member {Boolean} alwaysFireDragMove=true
          */
         alwaysFireDragMove: true,
@@ -31,6 +39,11 @@ class SortZone extends DragZone {
          * @protected
          */
         indexMap: null,
+        /**
+         * @member {String|null} itemMargin=null
+         * @protected
+         */
+        itemMargin: null,
         /**
          * @member {Array|null} itemRects=null
          * @protected
@@ -225,9 +238,15 @@ class SortZone extends DragZone {
                     itemStyle = item.style || {};
                     rect      = itemRects[index];
 
+                    if (me.adjustProxyRectToParent) {
+                        rect.x = rect.x - me.ownerRect.x - 1;
+                        rect.y = rect.y - me.ownerRect.y - 1
+                    }
+
                     item.style = Object.assign(itemStyle, {
                         height  : `${rect.height}px`,
                         left    : `${rect.left}px`,
+                        margin  : me.itemMargin,
                         position: 'absolute',
                         top     : `${rect.top}px`,
                         width   : `${rect.width}px`
