@@ -74,14 +74,17 @@ class SortZone extends BaseSortZone {
                     itemStyle = item.style || {};
                     rect      = itemRects[index];
 
-                    console.log(me.ownerRect.left, rect.left);
+                    rect.x -= ownerRect.x;
+                    rect.y -= ownerRect.y;
 
                     item.style = Object.assign(itemStyle, {
-                        height  : `${rect.height}px`,
-                        left    : `${rect.left - ownerRect.left}px`,
-                        position: 'absolute',
-                        top     : `${rect.top - ownerRect.top}px`,
-                        width   : `${rect.width}px`
+                        height       : `${rect.height}px`,
+                        left         : `${rect.left}px`,
+                        margin       : '1px',
+                        pointerEvents: 'none',
+                        position     : 'absolute',
+                        top          : `${rect.top}px`,
+                        width        : `${rect.width}px`
                     })
                 });
 

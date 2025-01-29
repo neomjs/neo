@@ -92,7 +92,7 @@ class Toolbar extends BaseToolbar {
         let me = this;
 
         if (value && !me.sortZone) {
-            import('../../draggable/toolbar/SortZone.mjs').then(module => {
+            import('../../draggable/grid/header/toolbar/SortZone.mjs').then(module => {
                 let {appName, id, windowId} = me;
 
                 me.sortZone = Neo.create({
