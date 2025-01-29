@@ -203,10 +203,6 @@ class DragDrop extends Base {
             parsedEvent = me.getEventData(event),
             isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath);
 
-        DomAccess.setBodyCls({
-            remove: ['neo-unselectable']
-        });
-
         if (me.bodyCursorStyle) {
             DomAccess.setStyle({
                 id   : 'document.body',
@@ -320,10 +316,6 @@ class DragDrop extends Base {
     onDragStart(event) {
         let me   = this,
             rect = event.target.getBoundingClientRect();
-
-        DomAccess.setBodyCls({
-            add: ['neo-unselectable']
-        });
 
         Object.assign(me, {
             dragProxyRect: rect,

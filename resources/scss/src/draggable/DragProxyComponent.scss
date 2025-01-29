@@ -1,3 +1,12 @@
+body:has(.neo-is-dragging) {
+    cursor: move !important;
+
+    // We can not put pointer-events: none on the same level as cursor, since it prevents cursor changes
+    * {
+        pointer-events: none !important;
+    }
+}
+
 .neo-dragproxy {
     pointer-events     : none;
     position           : absolute !important;
