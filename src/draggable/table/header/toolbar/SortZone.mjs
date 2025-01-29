@@ -1,4 +1,5 @@
 import BaseSortZone from '../../../toolbar/SortZone.mjs';
+import NeoArray     from  '../../../../util/Array.mjs';
 
 /**
  * @class Neo.draggable.table.header.toolbar.SortZone
@@ -38,6 +39,17 @@ class SortZone extends BaseSortZone {
     adjustProxyRectToParent(rect, parentRect) {
         rect.x = rect.x - parentRect.x - 1;
         rect.y = rect.y - parentRect.y
+    }
+
+    /**
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    moveTo(fromIndex, toIndex) {
+        super.moveTo(fromIndex, toIndex);
+
+        // It is crucial to use _columns to not get a shallow copy
+        NeoArray.move(this.owner.parent._columns, fromIndex, toIndex);
     }
 
     /**
