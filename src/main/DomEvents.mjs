@@ -194,7 +194,7 @@ class DomEvents extends Base {
 
     /**
      * Local domEvent listener
-     * @param {Object} event
+     * @param {Event} event
      */
     domEventListener(event) {
         let me       = this,
@@ -211,40 +211,7 @@ class DomEvents extends Base {
                 }
             };
 
-        // console.log('domEventListener', event.type, target.id, target.value, event);
-
         switch (event.type) {
-            case 'dragend':
-                me.dragElementId = null;
-                break
-            case 'dragenter':
-                if (me.dragElementId === target.id) {
-                    return // ignore target and source to be the same
-                }
-                break
-            case 'dragleave':
-                if (me.dragElementId === target.id) {
-                    return // ignore target and source to be the same
-                }
-                break
-            case 'dragover':
-                me.onDragOver(event);
-                event.preventDefault();
-                break
-            case 'dragstart':
-                me.dragElementId = target.id;
-                break
-            case 'drop':
-                if (!me.dragElementId || me.dragElementId === target.id) {
-                    return // drop fires twice by default & drop should not trigger on the drag element
-                }
-                if (event.stopPropagation) {
-                    event.stopPropagation() // stops the browser from redirecting.
-                }
-                event.preventDefault();
-                config.data.srcId = me.dragElementId;
-                me.dragElementId = null;
-                break
             case 'mousemove':
                 Object.assign(config.data, me.getMouseEventData(event));
                 break
@@ -427,10 +394,10 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onBeforeUnload(event) {
-        let manager = Neo.worker.Manager;
+        let {Manager} = Neo.worker;
 
-        manager.appNames.forEach(appName => {
-            manager.broadcast({action: 'disconnect', appName, windowId: manager.windowId})
+        Manager.appNames.forEach(appName => {
+            Manager.broadcast({action: 'disconnect', appName, windowId: Manager.windowId})
         })
     }
 
@@ -496,13 +463,6 @@ class DomEvents extends Base {
         me.sendMessageToApp(me.getMouseEventData(event));
 
         me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
-    }
-
-    /**
-     * @param {Object} event
-     */
-    onDragOver(event) {
-        event.dataTransfer.dropEffect = 'move'
     }
 
     /**
@@ -616,13 +576,11 @@ class DomEvents extends Base {
      * @param {Event} event
      */
     onOrientationChange(event) {
-        const
-            {orientation} = screen,
+        let {orientation} = screen,
             {angle, type} = orientation,
-            layout        = angle === 0 || angle === 180 ? 'portrait' : 'landscape',
-            {Manager}     = Neo.worker;
+            layout        = angle === 0 || angle === 180 ? 'portrait' : 'landscape';
 
-        Manager.sendMessage('app', {
+        Neo.worker.Manager.sendMessage('app', {
             action: 'orientationChange',
             data  : {angle, layout, type}
         })
@@ -633,7 +591,9 @@ class DomEvents extends Base {
      */
     onScroll(event) {
         let {clientHeight, clientWidth, scrollLeft, scrollTop} = event.target;
-event.preventDefault();
+
+        event.preventDefault();
+
         this.sendMessageToApp({
             ...this.getEventData(event),
             clientHeight,
