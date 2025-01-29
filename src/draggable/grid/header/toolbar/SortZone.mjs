@@ -1,4 +1,5 @@
 import BaseSortZone from '../../../toolbar/SortZone.mjs';
+import NeoArray     from  '../../../../util/Array.mjs';
 
 /**
  * @class Neo.draggable.grid.header.toolbar.SortZone
@@ -37,6 +38,17 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    moveTo(fromIndex, toIndex) {
+        super.moveTo(fromIndex, toIndex);
+
+        // It is crucial to use _columns to not get a shallow copy
+        NeoArray.move(this.owner.parent._columns, fromIndex, toIndex);
+    }
+
+    /**
      * @param {Object} data
      */
     async onDragEnd(data) {
@@ -50,6 +62,10 @@ class SortZone extends BaseSortZone {
 
         owner.updateDepth = 2;
         owner.update();
+
+        await owner.passSizeToView();
+
+        await this.timeout(20);
 
         owner.parent.view.createViewData()
     }
