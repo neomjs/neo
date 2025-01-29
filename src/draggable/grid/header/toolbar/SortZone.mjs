@@ -22,6 +22,15 @@ class SortZone extends BaseSortZone {
     /**
      * @param {Object} data
      */
+    async onDragEnd(data) {
+        await super.onDragEnd(data);
+
+        this.owner.parent.view.createViewData()
+    }
+
+    /**
+     * @param {Object} data
+     */
     onDragStart(data) {
         let me         = this,
             button     = Neo.getComponent(data.path[0].id),
