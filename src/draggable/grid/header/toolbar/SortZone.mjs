@@ -52,8 +52,8 @@ class SortZone extends BaseSortZone {
                 indexMap[index] = index;
 
                 itemStyles.push({
-                    height: item.style?.height,
-                    width : item.style?.width
+                    height: item.height ? `${item.height}px` :  item.style?.height,
+                    width : item.width  ? `${item.width}px`  :  item.style?.width
                 })
             });
 
