@@ -10,7 +10,7 @@
     &.neo-is-dragging {
         .neo-button {
             border-right: 1px solid var(--grid-container-border-color); // Would be missing for the last button otherwise
-            opacity     : 0.7;
+            opacity     : var(--grid-header-button-opacity-is-dragging);
         }
     }
 }
