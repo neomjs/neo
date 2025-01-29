@@ -331,7 +331,7 @@ class Component extends Base {
          */
         style_: null,
         /**
-         * You can pass an used theme directly to any component,
+         * You can pass a used theme directly to any component,
          * to style specific component trees differently from your main view.
          * @member {String|null} theme_=null
          */
