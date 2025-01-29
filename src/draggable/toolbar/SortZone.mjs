@@ -99,11 +99,13 @@ class SortZone extends DragZone {
                 itemStyle = item.style || {};
 
                 Object.assign(itemStyle, {
-                    height  : itemStyles[index].height || null,
-                    left    : null,
-                    position: null,
-                    top     : null,
-                    width   : itemStyles[index].width || null
+                    height       : itemStyles[index].height || null,
+                    left         : null,
+                    margin       : null,
+                    pointerEvents: null,
+                    position     : null,
+                    top          : null,
+                    width        : itemStyles[index].width || null
                 });
 
                 if (index === me.startIndex) {
@@ -225,11 +227,12 @@ class SortZone extends DragZone {
                     rect      = itemRects[index];
 
                     item.style = Object.assign(itemStyle, {
-                        height  : `${rect.height}px`,
-                        left    : `${rect.left}px`,
-                        position: 'absolute',
-                        top     : `${rect.top}px`,
-                        width   : `${rect.width}px`
+                        height       : `${rect.height}px`,
+                        left         : `${rect.left}px`,
+                        pointerEvents: 'none',
+                        position     : 'absolute',
+                        top          : `${rect.top}px`,
+                        width        : `${rect.width}px`
                     })
                 });
 

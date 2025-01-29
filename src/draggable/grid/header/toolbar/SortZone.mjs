@@ -31,7 +31,7 @@ class SortZone extends BaseSortZone {
     /**
      * @param {Object} data
      */
-    onDragStart(data) {
+    onDragStart(data) {console.log('onDragStart');
         let me         = this,
             button     = Neo.getComponent(data.path[0].id),
             {owner}    = me,
