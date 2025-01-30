@@ -57,7 +57,7 @@ class TableContainer extends Container {
                     dock     : 'left',
                     minWidth : 40,
                     text     : '#',
-                    renderer : data => ({cls: ['neo-index-column', 'neo-table-cell'], html: data.index + 1}),
+                    renderer : data => ({cls: ['neo-index-column', 'neo-table-cell'], html: data.rowIndex + 1}),
                     width    : 40
                 }],
                 currentChar;

@@ -28,15 +28,15 @@ class AmCharts extends Base {
          */
         dataMap: {},
         /**
-         * @member {String} downloadPath='https//www.amcharts.com/lib/4/'
+         * @member {String} downloadPath='https//cdn.amcharts.com/lib/4/'
          * @protected
          */
-        downloadPath: 'https://www.amcharts.com/lib/4/',
+        downloadPath: 'https://cdn.amcharts.com/lib/4/',
         /**
-         * @member {String} fallbackPath='https://neomjs.github.io/pages/resources_pub/amCharts/'
+         * @member {String} fallbackPath='https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/amCharts'
          * @protected
          */
-        fallbackPath: 'https://neomjs.github.io/pages/resources_pub/amCharts/',
+        fallbackPath: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/amCharts/',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -51,7 +51,13 @@ class AmCharts extends Base {
                 'setProperty',
                 'updateData'
             ]
-        }
+        },
+        /**
+         * Enforce using the fallbackPath
+         * @member {Boolean} useFallbackPath=false
+         * @protected
+         */
+        useFallbackPath: false
     }
 
     /**
@@ -187,8 +193,19 @@ class AmCharts extends Base {
      * @param {Boolean} useFallback=false
      */
     loadFiles(useFallback=false) {
-        let me       = this,
-            basePath = useFallback ? me.fallbackPath : me.downloadPath;
+        let me              = this,
+            useFallbackPath = me.useFallbackPath || useFallback,
+            basePath;
+
+        if (useFallbackPath && Neo.config.isGitHubPages) {
+            basePath = '../../../../resources_pub/amCharts/';
+
+            if (Neo.config.environment !== 'development') {
+                basePath = `../../${basePath}`
+            }
+        } else {
+            basePath = useFallbackPath ? me.fallbackPath : me.downloadPath
+        }
 
         me.isLoading = true;
 
@@ -203,8 +220,10 @@ class AmCharts extends Base {
                 me.isReady   = true
             })
         }).catch(e => {
-            console.log('Download from amcharts.com failed, switching to fallback', e);
-            me.loadFiles(true)
+            if (!useFallback && !me.useFallbackPath) {
+                console.log('Download from amcharts.com failed, switching to fallback', e);
+                me.loadFiles(true)
+            }
         })
     }
 

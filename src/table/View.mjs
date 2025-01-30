@@ -116,13 +116,14 @@ class View extends Component {
      * @param {Object} data
      * @param {String} [data.cellId]
      * @param {Object} data.column
+     * @param {Number} data.columnIndex
      * @param {Object} data.record
-     * @param {Number} data.index
+     * @param {Number} data.rowIndex
      * @param {Neo.table.Container} data.tableContainer
      * @returns {Object}
      */
     applyRendererOutput(data) {
-        let {cellId, column, record, index, tableContainer} = data,
+        let {cellId, column, columnIndex, record, rowIndex, tableContainer} = data,
             me          = this,
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
@@ -138,9 +139,10 @@ class View extends Component {
 
         rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
             column,
+            columnIndex,
             dataField,
-            index,
             record,
+            rowIndex,
             tableContainer,
             value: fieldValue
         });
@@ -184,7 +186,7 @@ class View extends Component {
             if (hasStore) {
                 cellId = me.getCellId(record, column.dataField)
             } else {
-                cellId = vdom.cn[index]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
+                cellId = vdom.cn[rowIndex]?.cn[me.getColumn(column.dataField, true)]?.id || Neo.getId('td')
             }
         }
 
@@ -267,7 +269,7 @@ class View extends Component {
 
         for (i=0; i < colCount; i++) {
             column = columns[i];
-            config = me.applyRendererOutput({column, record, index: rowIndex, tableContainer});
+            config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex, tableContainer});
 
             if (column.dock) {
                 config.cls = ['neo-locked', ...config.cls || []];
@@ -522,17 +524,16 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange({fields, model, record}) {
-        let me               = this,
-            fieldNames       = fields.map(field => field.name),
-            needsUpdate      = false,
-            tableContainer   = me.parent,
-            {selectionModel} = tableContainer,
-            {vdom}           = me,
-            cellId, cellNode, column, index, scope;
+        let me                     = this,
+            fieldNames             = fields.map(field => field.name),
+            needsUpdate            = false,
+            tableContainer         = me.parent,
+            rowIndex               = me.store.indexOf(record),
+            {selectionModel, vdom} = me,
+            cellId, cellNode, cellVdom, column, columnIndex, scope;
 
         if (fieldNames.includes(me.colspanField)) {
-            index = me.store.indexOf(record);
-            me.vdom.cn[index] = me.createRow({record, rowIndex: index});
+            me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
             me.update()
         } else {
             fields.forEach(field => {
@@ -547,11 +548,12 @@ class View extends Component {
                     // the vdom might not exist yet => nothing to do in this case
                     if (cellNode?.vdom) {
                         column      = me.getColumn(field.name);
-                        index       = cellNode.index;
+                        columnIndex = cellNode.index;
                         needsUpdate = true;
                         scope       = column.rendererScope || tableContainer;
+                        cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex, tableContainer});
 
-                        cellNode.parentNode.cn[index] = me.applyRendererOutput({cellId, column, record, index, tableContainer})
+                        cellNode.parentNode.cn[columnIndex] = cellVdom
                     }
                 }
             })

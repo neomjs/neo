@@ -24,6 +24,14 @@ class RowModel extends BaseModel {
     }
 
     /**
+     * @param {Record} record
+     * @returns {Boolean}
+     */
+    hasAnnotations(record) {
+        return !!Object.getOwnPropertyDescriptor(record.__proto__, this.view.selectedRecordField)
+    }
+
+    /**
      *
      */
     addDomListener() {
@@ -64,28 +72,31 @@ class RowModel extends BaseModel {
         let me           = this,
             {view}       = me,
             {store}      = view,
+            countRecords = store.getCount(),
             currentIndex = 0,
-            newIndex, newRecord, rowId;
+            newIndex, record, rowId;
 
         if (me.hasSelection()) {
             currentIndex = store.indexOf(view.getRecordByRowId(me.items[0]))
         }
 
-        newIndex = (currentIndex + step) % store.getCount();
+        newIndex = (currentIndex + step) % countRecords;
 
         while (newIndex < 0) {
-            newIndex += store.getCount()
+            newIndex += countRecords
         }
 
-        newRecord = store.getAt(newIndex);
-        rowId     = view.getRowId(newRecord);
+        record = store.getAt(newIndex);
 
-        if (rowId) {
-            me.select(rowId);
+        if (me.hasAnnotations(record)) {
+            me.updateAnnotations(record)
+        } else {
+            rowId = view.getRowId(record);
 
-            view.fire('select', {
-                record: store.getAt(newIndex)
-            })
+            if (rowId) {
+                me.select(rowId);
+                view.fire('select', {record})
+            }
         }
     }
 
@@ -99,16 +110,19 @@ class RowModel extends BaseModel {
             isSelected, record;
 
         if (id) {
-            me.toggleSelection(id);
+            record = view.getRecord(id);
 
-            isSelected = me.isSelected(id);
-            record     = view.getRecord(id);
+            if (me.hasAnnotations(record)) {
+                me.updateAnnotations(record)
+            } else {
+                me.toggleSelection(id);
 
-            !isSelected && view.onDeselect?.(record);
+                isSelected = me.isSelected(id);
 
-            view.fire(isSelected ? 'select' : 'deselect', {
-                record
-            })
+                !isSelected && view.onDeselect?.(record);
+
+                view.fire(isSelected ? 'select' : 'deselect', {record})
+            }
         }
     }
 
@@ -138,6 +152,32 @@ class RowModel extends BaseModel {
         ]);
 
         super.unregister()
+    }
+
+    /**
+     * @param {Record} record
+     */
+    updateAnnotations(record) {
+        let me               = this,
+            {view}           = me,
+            rowId            = view.getRowId(record),
+            isSelected       = me.isSelected(rowId),
+            annotationsField = view.selectedRecordField;
+
+        if (me.singleSelect) {
+            if (isSelected) {
+                record[annotationsField] = false
+            } else {
+                me.items.forEach(rowId => {
+                    // We can use setSilent(), since the last change will trigger a view update
+                    view.getRecordByRowId(rowId).setSilent({[annotationsField]: false})
+                });
+
+                record[annotationsField] = true
+            }
+        } else {
+            record[annotationsField] = !record[annotationsField]
+        }
     }
 }
 

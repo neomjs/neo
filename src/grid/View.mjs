@@ -381,13 +381,14 @@ class GridView extends Component {
      * @param {Object} data
      * @param {String} [data.cellId]
      * @param {Object} data.column
+     * @param {Number} data.columnIndex
      * @param {Neo.grid.Container} data.gridContainer
-     * @param {Number} data.index
      * @param {Object} data.record
+     * @param {Number} data.rowIndex
      * @returns {Object}
      */
     applyRendererOutput(data) {
-        let {cellId, column, gridContainer, index, record} = data,
+        let {cellId, column, columnIndex, gridContainer, record, rowIndex} = data,
             me          = this,
             cellCls     = ['neo-grid-cell'],
             colspan     = record[me.colspanField],
@@ -401,10 +402,11 @@ class GridView extends Component {
 
         rendererOutput = column.renderer.call(column.rendererScope || gridContainer, {
             column,
+            columnIndex,
             dataField,
             gridContainer,
-            index,
             record,
+            rowIndex,
             value: fieldValue
         });
 
@@ -447,7 +449,7 @@ class GridView extends Component {
         }
 
         cellConfig = {
-            'aria-colindex': index + 1, // 1 based
+            'aria-colindex': columnIndex + 1, // 1 based
             id             : cellId,
             cls            : cellCls,
             role           : 'gridcell',
@@ -511,10 +513,7 @@ class GridView extends Component {
 
         if (selectedRows?.includes(id)) {
             trCls.push('neo-selected');
-
-            gridContainer.fire('select', {
-                record
-            })
+            gridContainer.fire('select', {record})
         }
 
         gridRow = {
@@ -535,7 +534,7 @@ class GridView extends Component {
 
         for (i=startIndex; i <= endIndex; i++) {
             column = columns[i];
-            config = me.applyRendererOutput({column, gridContainer, index: rowIndex, record});
+            config = me.applyRendererOutput({column, columnIndex: i, gridContainer, record, rowIndex});
 
             if (column.dock) {
                 config.cls = ['neo-locked', ...config.cls || []]
@@ -817,17 +816,16 @@ class GridView extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange({fields, record}) {
-        let me               = this,
-            fieldNames       = fields.map(field => field.name),
-            needsUpdate      = false,
-            {gridContainer}  = me,
-            {selectionModel} = gridContainer.view,
-            {vdom}           = me,
-            cellId, cellNode, cellStyle, cellVdom, column, index;
+        let me                     = this,
+            fieldNames             = fields.map(field => field.name),
+            needsUpdate            = false,
+            {gridContainer}        = me,
+            rowIndex               = me.store.indexOf(record),
+            {selectionModel, vdom} = me,
+            cellId, cellNode, cellStyle, cellVdom, column, columnIndex;
 
         if (fieldNames.includes(me.colspanField)) {
-            index = me.store.indexOf(record);
-            me.vdom.cn[index] = me.createRow({record, rowIndex: index});
+            me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
             me.update()
         } else {
             fields.forEach(field => {
@@ -843,8 +841,8 @@ class GridView extends Component {
                     if (cellNode?.vdom) {
                         cellStyle   = cellNode.vdom.style;
                         column      = me.getColumn(field.name);
-                        index       = cellNode.index;
-                        cellVdom    = me.applyRendererOutput({cellId, column, gridContainer, index, record});
+                        columnIndex = cellNode.index;
+                        cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, gridContainer, record, rowIndex});
                         needsUpdate = true;
 
                         // The cell-positioning logic happens outside applyRendererOutput()
@@ -854,7 +852,7 @@ class GridView extends Component {
                             width: cellStyle.width
                         });
 
-                        cellNode.parentNode.cn[index] = cellVdom
+                        cellNode.parentNode.cn[columnIndex] = cellVdom
                     }
                 }
             })
