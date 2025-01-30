@@ -28,15 +28,15 @@ class AmCharts extends Base {
          */
         dataMap: {},
         /**
-         * @member {String} downloadPath='https//www.amcharts.com/lib/4/'
+         * @member {String} downloadPath='https//cdn.amcharts.com/lib/4/'
          * @protected
          */
-        downloadPath: 'https://www.amcharts.com/lib/4/',
+        downloadPath: 'https://cdn.amcharts.com/lib/4/',
         /**
-         * @member {String} fallbackPath='https://neomjs.github.io/pages/resources_pub/amCharts/'
+         * @member {String} fallbackPath='https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/amCharts'
          * @protected
          */
-        fallbackPath: 'https://neomjs.github.io/pages/resources_pub/amCharts/',
+        fallbackPath: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/amCharts/',
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -51,7 +51,13 @@ class AmCharts extends Base {
                 'setProperty',
                 'updateData'
             ]
-        }
+        },
+        /**
+         * Enforce using the fallbackPath
+         * @member {Boolean} useFallbackPath=false
+         * @protected
+         */
+        useFallbackPath: false
     }
 
     /**
@@ -188,23 +194,25 @@ class AmCharts extends Base {
      */
     loadFiles(useFallback=false) {
         let me       = this,
-            basePath = useFallback ? me.fallbackPath : me.downloadPath;
+            basePath = (me.useFallbackPath || useFallback) ? me.fallbackPath : me.downloadPath;
 
         me.isLoading = true;
 
-        DomAccess.loadScript(basePath + 'core.js').then(() => {
+        DomAccess.loadScript(basePath + 'core.js').then(() => {console.log('core loaded');
             Promise.all([
                 DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
                 DomAccess.loadScript(basePath + 'themes/dark.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
-            ]).then(() => {
+            ]).then(() => {console.log('resolve')
                 me.isLoading = false;
                 me.isReady   = true
             })
         }).catch(e => {
-            console.log('Download from amcharts.com failed, switching to fallback', e);
-            me.loadFiles(true)
+            if (!useFallback && !me.useFallbackPath) {
+                console.log('Download from amcharts.com failed, switching to fallback', e);
+                me.loadFiles(true)
+            }
         })
     }
 

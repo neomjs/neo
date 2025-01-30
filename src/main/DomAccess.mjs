@@ -576,7 +576,7 @@ class DomAccess extends Base {
      * Include a script into the document.head
      * You can add more attributes if needed. See: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script
      * @param {String} src
-     * @param {Object} opts=defer:true}
+     * @param {Object} opts={defer:true}
      * @param {Boolean} [opts.async]
      * @param {Boolean} [opts.defer]
      * @returns {Promise<unknown>}
