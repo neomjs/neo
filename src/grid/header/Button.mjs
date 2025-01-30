@@ -230,10 +230,11 @@ class Button extends BaseButton {
     /**
      * @param {Object} data
      * @param {Neo.button.Base} data.column
+     * @param {Number} data.columnIndex
      * @param {String} data.dataField
      * @param {Neo.grid.Container} data.gridContainer
-     * @param {Number} data.index
      * @param {Object} data.record
+     * @param {Number} data.rowIndex
      * @param {Number|String} data.value
      * @returns {*}
      */
