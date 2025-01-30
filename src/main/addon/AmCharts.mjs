@@ -193,8 +193,19 @@ class AmCharts extends Base {
      * @param {Boolean} useFallback=false
      */
     loadFiles(useFallback=false) {
-        let me       = this,
-            basePath = (me.useFallbackPath || useFallback) ? me.fallbackPath : me.downloadPath;
+        let me              = this,
+            useFallbackPath = me.useFallbackPath || useFallback,
+            basePath;
+
+        if (useFallbackPath && Neo.config.isGitHubPages) {
+            basePath = '../../../../resources_pub/amCharts/';
+
+            if (Neo.config.environment !== 'development') {
+                basePath = `../../${basePath}`
+            }
+        } else {
+            basePath = useFallbackPath ? me.fallbackPath : me.downloadPath
+        }
 
         me.isLoading = true;
 
