@@ -115,18 +115,24 @@ class DeltaUpdates extends Base {
      * @param {String} delta.index
      * @param {String} delta.parentId
      */
-    du_moveNode(delta) {
-        let {index}    = delta,
-            node       = this.getElement(delta.id),
-            parentNode = this.getElement(delta.parentId);
+    du_moveNode({id, index, parentId}) {
+        let node       = this.getElement(id),
+            parentNode = this.getElement(parentId),
+            currentNode;
 
         if (node && parentNode) {
             if (index >= parentNode.children.length) {
                 parentNode.appendChild(node)
             } else {
-                //index++; // todo?: increase the index in case same parent, oldIndex < newIndex, direct swap
-                if (node && parentNode.children[index].id !== delta.id) {
-                    parentNode.insertBefore(node, parentNode.children[index])
+                currentNode = parentNode.children[index];
+
+                if (node && currentNode.id !== id) {
+                    // Check for a direct swap OP
+                    if (node === currentNode.nextElementSibling) {
+                        node.replaceWith(currentNode)
+                    }
+
+                    parentNode.insertBefore(node, currentNode)
                 }
             }
         }
