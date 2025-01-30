@@ -204,7 +204,7 @@ class AmCharts extends Base {
                 DomAccess.loadScript(basePath + 'maps.js'),
                 DomAccess.loadScript(basePath + 'themes/dark.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
-            ]).then(() => {console.log('resolve')
+            ]).then(() => {
                 me.isLoading = false;
                 me.isReady   = true
             })
