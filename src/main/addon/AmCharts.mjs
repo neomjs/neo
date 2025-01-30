@@ -198,7 +198,7 @@ class AmCharts extends Base {
 
         me.isLoading = true;
 
-        DomAccess.loadScript(basePath + 'core.js').then(() => {console.log('core loaded');
+        DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
                 DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
