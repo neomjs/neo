@@ -72,6 +72,7 @@ class RowModel extends BaseModel {
         let me           = this,
             {view}       = me,
             {store}      = view,
+            countRecords = store.getCount(),
             currentIndex = 0,
             newIndex, record, rowId;
 
@@ -79,10 +80,10 @@ class RowModel extends BaseModel {
             currentIndex = store.indexOf(view.getRecordByRowId(me.items[0]))
         }
 
-        newIndex = (currentIndex + step) % store.getCount();
+        newIndex = (currentIndex + step) % countRecords;
 
         while (newIndex < 0) {
-            newIndex += store.getCount()
+            newIndex += countRecords
         }
 
         record = store.getAt(newIndex);

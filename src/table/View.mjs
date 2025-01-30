@@ -524,17 +524,16 @@ class View extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange({fields, model, record}) {
-        let me               = this,
-            fieldNames       = fields.map(field => field.name),
-            needsUpdate      = false,
-            tableContainer   = me.parent,
-            rowIndex         = me.store.indexOf(record),
-            {selectionModel} = tableContainer,
-            {vdom}           = me,
+        let me                     = this,
+            fieldNames             = fields.map(field => field.name),
+            needsUpdate            = false,
+            tableContainer         = me.parent,
+            rowIndex               = me.store.indexOf(record),
+            {selectionModel, vdom} = me,
             cellId, cellNode, cellVdom, column, columnIndex, scope;
 
         if (fieldNames.includes(me.colspanField)) {
-            me.vdom.cn[index] = me.createRow({record, rowIndex});
+            me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
             me.update()
         } else {
             fields.forEach(field => {

@@ -816,13 +816,12 @@ class GridView extends Component {
      * @param {Object} opts.record
      */
     onStoreRecordChange({fields, record}) {
-        let me               = this,
-            fieldNames       = fields.map(field => field.name),
-            needsUpdate      = false,
-            {gridContainer}  = me,
-            rowIndex         = me.store.indexOf(record),
-            {selectionModel} = gridContainer.view,
-            {vdom}           = me,
+        let me                     = this,
+            fieldNames             = fields.map(field => field.name),
+            needsUpdate            = false,
+            {gridContainer}        = me,
+            rowIndex               = me.store.indexOf(record),
+            {selectionModel, vdom} = me,
             cellId, cellNode, cellStyle, cellVdom, column, columnIndex;
 
         if (fieldNames.includes(me.colspanField)) {
