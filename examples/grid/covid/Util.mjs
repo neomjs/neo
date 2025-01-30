@@ -147,13 +147,13 @@ class Util extends Base {
 
     /**
      * @param {Object} data
-     * @param {Number} data.index
+     * @param {Number} data.rowIndex
      * @returns {Object}
      */
     static indexRenderer(data) {
         return {
-            cls : ['neo-index-column', 'neo-grid-cell'],
-            html: data.index + 1
+            cls : ['neo-index-column', 'neo-table-cell'],
+            html: data.rowIndex + 1
         }
     }
 }
