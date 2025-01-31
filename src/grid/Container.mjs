@@ -162,9 +162,8 @@ class GridContainer extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module     : GridView,
-            containerId: me.id,
-            id         : me.viewId,
+            module: GridView,
+            id    : me.viewId,
             rowHeight,
             store,
             ...me.viewConfig
