@@ -26,10 +26,6 @@ class Toolbar extends BaseToolbar {
          */
         draggable_: true,
         /**
-         * @member {Neo.grid.Container|null} gridContainer=null
-         */
-        gridContainer: null,
-        /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          */
         itemDefaults: {
@@ -208,7 +204,7 @@ class Toolbar extends BaseToolbar {
             await me.timeout(100);
             await me.passSizeToView(silent)
         } else {
-            me.gridContainer.view[silent ? 'setSilent' : 'set']({
+            me.parent.view[silent ? 'setSilent' : 'set']({
                 availableWidth: lastItem.x + lastItem.width - rects[0].x,
                 columnPositions
             })
