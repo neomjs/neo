@@ -66,7 +66,7 @@ class SortZone extends BaseSortZone {
 
         config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
 
-        config.style.height = rect.height + 'px !important';
+        config.style.height = rect.height + 'px';
 
         cells.forEach((cell, index) => {
             row = VdomUtil.clone({cls: gridRows[index].cls, cn: [cell]}); // clone to remove ids
