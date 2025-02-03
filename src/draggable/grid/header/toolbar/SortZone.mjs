@@ -23,6 +23,10 @@ class SortZone extends BaseSortZone {
          */
         itemMargin: '1px',
         /**
+         * @member {Boolean} moveColumnContent=true
+         */
+        moveColumnContent: true,
+        /**
          * @member {Boolean} moveVertical=false
          */
         moveVertical: false
@@ -68,6 +72,38 @@ class SortZone extends BaseSortZone {
         await this.timeout(20);
 
         owner.parent.view.createViewData()
+    }
+
+    /**
+     * @param {Number} index1
+     * @param {Number} index2
+     */
+    switchItems(index1, index2) {
+        if (this.moveColumnContent) {
+            let {view}          = this.owner.parent,
+                columnPositions = view._columnPositions, // no clone
+                column1Cells    = view.getColumnCells(columnPositions[index1].dataField),
+                column2Cells    = view.getColumnCells(columnPositions[index2].dataField),
+                x;
+
+            x = columnPositions[index1].x;
+            columnPositions[index1].x = columnPositions[index2].x;
+            columnPositions[index2].x = x;
+
+            NeoArray.move(columnPositions, index1, index2);
+
+            column1Cells.forEach(node => {
+                node.style.left = columnPositions[index2].x + 'px'
+            });
+
+            column2Cells.forEach(node => {
+                node.style.left = columnPositions[index1].x + 'px'
+            });
+
+            view.update()
+        }
+
+        super.switchItems(index1, index2);
     }
 }
 

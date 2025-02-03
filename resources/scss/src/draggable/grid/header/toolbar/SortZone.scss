@@ -1,3 +1,16 @@
+.neo-grid-container {
+    &:has(.neo-is-dragging) {
+        .neo-grid-cell {
+            opacity     : .8;
+            transition  : left 200ms ease-out;
+
+            &:last-child {
+                border-right-width : 1px;
+            }
+        }
+    }
+}
+
 .neo-grid-header-toolbar {
     &.neo-dragproxy {
         height: 30px !important; // Hack to increase the height by the border-bottom height (29 + 1)
