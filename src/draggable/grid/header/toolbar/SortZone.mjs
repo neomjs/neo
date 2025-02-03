@@ -64,7 +64,7 @@ class SortZone extends BaseSortZone {
             rect        = await grid.getDomRect(),
             row;
 
-        config.cls = ['neo-grid-wrapper'];
+        config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
 
         config.style.height = rect.height + 'px !important';
 
