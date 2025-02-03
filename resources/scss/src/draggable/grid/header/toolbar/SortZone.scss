@@ -1,8 +1,8 @@
 .neo-grid-container {
     &:has(.neo-is-dragging) {
         .neo-grid-cell {
-            opacity     : .8;
-            transition  : left 200ms ease-out;
+            opacity   : .8;
+            transition: left 200ms ease-out;
 
             &:last-child {
                 border-right-width : 1px;
