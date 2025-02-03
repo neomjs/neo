@@ -12,6 +12,10 @@
 }
 
 .neo-dragproxy {
+    .neo-grid-container {
+        border: none;
+    }
+
     .neo-grid-header-toolbar {
         height: 30px !important; // Hack to increase the height by the border-bottom height (29 + 1)
 
