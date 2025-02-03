@@ -1,5 +1,6 @@
 import BaseSortZone from '../../../toolbar/SortZone.mjs';
 import NeoArray     from  '../../../../util/Array.mjs';
+import VdomUtil     from  '../../../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.grid.header.toolbar.SortZone
@@ -39,6 +40,59 @@ class SortZone extends BaseSortZone {
     adjustProxyRectToParent(rect, parentRect) {
         rect.x = rect.x - parentRect.x - 1;
         rect.y = rect.y - parentRect.y - 1
+    }
+
+    /**
+     * @param {Object}  data
+     * @param {Boolean} createComponent=true
+     * @returns {Object|Neo.draggable.DragProxyComponent}
+     */
+    async createDragProxy(data, createComponent=true) {
+        if (!this.moveColumnContent) {
+            return await super.createDragProxy(data, createComponent)
+        }
+
+        let me          = this,
+            grid        = me.owner.parent,
+            {view}      = grid,
+            gridRows    = view.getVdomRoot().cn,
+            columnIndex = me.dragElement['aria-colindex'] - 1,
+            {dataField} = view.columnPositions[columnIndex],
+            cells       = view.getColumnCells(dataField),
+            rows        = [],
+            config      = await super.createDragProxy(data, false),
+            rect        = await grid.getDomRect(),
+            row;
+
+        config.cls = ['neo-grid-wrapper'];
+
+        config.style.height = rect.height + 'px !important';
+
+        cells.forEach((cell, index) => {
+            row = VdomUtil.clone({cls: gridRows[index].cls, cn: [cell]}); // clone to remove ids
+
+            row.style = {
+                height: view.rowHeight + 'px'
+            };
+
+            delete row.cn[0].style.left;
+
+            rows.push(row)
+        });
+
+        config.vdom =
+        {cn: [
+            {cls: ['neo-grid-container'], cn: [
+                config.vdom, // header toolbar
+                {cls: ['neo-grid-view'], cn: rows}
+            ]}
+        ]};
+
+        if (createComponent) {
+            return me.dragProxy = Neo.create(config)
+        }
+
+        return config
     }
 
     /**
