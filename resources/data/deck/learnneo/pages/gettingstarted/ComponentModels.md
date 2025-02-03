@@ -1,6 +1,6 @@
 Neo has a feature that allows shared, bindable, data.
 
-A _view model_ &mdash; `Neo.model.Component` &mdash; instance holds properties that 
+A _state provider_ &mdash; `Neo.state.Provider` &mdash; instance holds properties that 
 can be bound to component properties.
 
 <pre data-neo>
@@ -12,7 +12,7 @@ class MainView extends Container {
     static config = {
         className: 'GS.data1.MainView',
 
-        model: {
+        stateProvider: {
             data: {
                 foo: 'Hi there!'
             }
@@ -83,7 +83,7 @@ class MainView extends Container {
     static config = {
         className: 'GS.data2.MainView',
 
-        model: {
+        stateProvider: {
             data: {
                 foo: 'parent'
             }
@@ -95,8 +95,9 @@ class MainView extends Container {
             module: MyPanel
         }, {
             module: MyPanel,
-            // You wouldn't normally configure a view model. We're doing it here to illustrate view model scope.
-            model: {
+            // You wouldn't normally configure a state provider.
+            // We're doing it here to illustrate state provider scope.
+            stateProvider: {
                 data: {
                     foo: 'child'
                 }
@@ -109,7 +110,7 @@ MainView = Neo.setupClass(MainView);
 </pre>
 
 In this case, the main view has three child items of type `MyPanel`, each containing a label. 
-The main view has a view model with a `foo` property, and the third child has its own view model with a `foo` property.
+The main view has a state provider with a `foo` property, and the third child has its own state provider with a `foo` property.
 
 <img width="75%" src="https://s3.amazonaws.com/mjs.neo.learning.images/gettingStarted/vm/VisualHierarchyFooShadowed.png"></img>
 
@@ -124,5 +125,5 @@ because the third copy of `MyPanel` has its own view model with the `foo` proper
 
 ## Conclusion
 
-The Neo.mjs view model and binding approach is simple and powerful. It gives you easy control 
+The Neo.mjs state provider and binding approach is simple and powerful. It gives you easy control 
 over the scope of a value, which means you can share properties as globally or narrowly as needed.
