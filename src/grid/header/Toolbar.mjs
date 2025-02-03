@@ -1,5 +1,4 @@
 import BaseToolbar from '../../toolbar/Base.mjs';
-import NeoArray    from '../../util/Array.mjs';
 
 /**
  * @class Neo.grid.header.Toolbar
@@ -184,9 +183,10 @@ class Toolbar extends BaseToolbar {
      */
     async passSizeToView(silent=false) {
         let me              = this,
-            rects           = await me.getDomRect(me.items.map(item => item.id)),
+            {items}         = me,
+            rects           = await me.getDomRect(items.map(item => item.id)),
             lastItem        = rects[rects.length - 1],
-            columnPositions = rects.map(item => ({width: item.width, x: item.x - rects[0].x})),
+            columnPositions = rects.map((item, index) => ({dataField: items[index].dataField, width: item.width, x: item.x - rects[0].x})),
             i               = 1,
             len             = columnPositions.length,
             layoutFinished  = true;
