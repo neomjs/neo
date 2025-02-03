@@ -647,6 +647,35 @@ class GridView extends Component {
     }
 
     /**
+     * Get all painted column cells (visible + buffer range)
+     * @param {String} dataField
+     * @returns {Object[]}
+     */
+    getColumnCells(dataField) {
+        let me       = this,
+            cells    = [],
+            vdomRoot = me.getVdomRoot(),
+            firstRow = vdomRoot.cn[0],
+            i        = 0,
+            len      = firstRow.cn.length,
+            columnIndex;
+
+        // Columns might get moved via drag&drop, so let's check for the current match
+        for (; i < len; i++) {
+            if (dataField === me.getDataField(firstRow.cn[i].id)) {
+                columnIndex = i;
+                break;
+            }
+        }
+
+        vdomRoot.cn.forEach(row => {
+            cells.push(row.cn[columnIndex])
+        });
+
+        return cells
+    }
+
+    /**
      * @param {String} cellId
      * @returns {String}
      */
