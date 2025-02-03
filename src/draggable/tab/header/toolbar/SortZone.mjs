@@ -53,7 +53,7 @@ class SortZone extends BaseSortZone {
     /**
      * @param {Object} data
      */
-    onDragStart(data) {
+    async onDragStart(data) {
         let me      = this,
             {owner} = me,
             cls     = owner.cls || [];
@@ -61,7 +61,7 @@ class SortZone extends BaseSortZone {
         NeoArray.add(cls, 'neo-no-animation');
         owner.cls = cls;
 
-        super.onDragStart(data)
+        await super.onDragStart(data)
     }
 }
 

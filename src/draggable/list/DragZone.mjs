@@ -114,12 +114,12 @@ class DragZone extends BaseDragZone {
     /**
      * @param {Object} data
      */
-    onDragStart(data) {
+    async onDragStart(data) {
         let me = this;
 
         if (me.owner.draggable) {
             me.dragElement = VDomUtil.find(me.owner.vdom, data.path[0].id).vdom;
-            me.dragStart(data)
+            await me.dragStart(data)
         }
     }
 

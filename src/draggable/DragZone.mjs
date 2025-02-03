@@ -186,8 +186,9 @@ class DragZone extends Base {
     /**
      * @param {Object}  data
      * @param {Boolean} createComponent=true
+     * @returns {Object|Neo.draggable.DragProxyComponent}
      */
-    createDragProxy(data, createComponent=true) {
+    async createDragProxy(data, createComponent=true) {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             rect      = me.dragElementRect,
@@ -309,7 +310,7 @@ class DragZone extends Base {
     /**
      * @param {Object} data
      */
-    dragStart(data) {
+    async dragStart(data) {
         let me                         = this,
             {appName, owner, windowId} = me,
             {cls}                      = owner,
@@ -336,7 +337,7 @@ class DragZone extends Base {
             offsetY
         });
 
-        me.createDragProxy(rect);
+        await me.createDragProxy(rect);
 
         me.fire('dragStart', {
             clientX        : data.clientX,

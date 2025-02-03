@@ -178,7 +178,7 @@ class SortZone extends DragZone {
     /**
      * @param {Object} data
      */
-    onDragStart(data) {
+    async onDragStart(data) {
         let me         = this,
             button     = Neo.getComponent(data.path[0].id),
             {owner}    = me,
@@ -202,7 +202,7 @@ class SortZone extends DragZone {
                 startIndex             : index
             });
 
-            me.dragStart(data); // we do not want to trigger the super class call here
+            await me.dragStart(data); // we do not want to trigger the super class call here
 
             owner.items.forEach((item, index) => {
                 indexMap[index] = index;

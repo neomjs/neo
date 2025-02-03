@@ -175,7 +175,7 @@ class DragDrop extends Base {
     /**
      * @param {Object} data
      */
-    onColumnDragStart(data) {
+    async onColumnDragStart(data) {
         let me = this;
 
         if (me.isActiveCalendar() && me.isTopLevelColumn(data.targetPath)) {
@@ -214,26 +214,26 @@ class DragDrop extends Base {
             me[newRecordSymbol] = record;
 
             // wait until the new event got mounted
-            me.timeout(50).then(() => {
-                eventId     = owner.getEventId(record.id);
-                dragElement = VDomUtil.find(owner.vdom, eventId).vdom;
+            await me.timeout(50);
 
-                eventDragZone = me.getEventDragZone({
-                    dragElement,
-                    enableResizingAcrossOppositeEdge: true,
-                    eventRecord                     : record,
-                    proxyParentId                   : data.path[0].id
-                });
+            eventId     = owner.getEventId(record.id);
+            dragElement = VDomUtil.find(owner.vdom, eventId).vdom;
 
-                owner.getPlugin(me.resizablePluginType).onDragStart(data);
-                eventDragZone.dragStart(data);
+            eventDragZone = me.getEventDragZone({
+                dragElement,
+                enableResizingAcrossOppositeEdge: true,
+                eventRecord                     : record,
+                proxyParentId                   : data.path[0].id
+            });
 
-                me.timeout(50).then(() => {
-                    me.isDragging && Neo.applyDeltas(me.appName, {
-                        id   : eventId,
-                        style: {opacity: 0}
-                    })
-                })
+            owner.getPlugin(me.resizablePluginType).onDragStart(data);
+            await eventDragZone.dragStart(data);
+
+            await me.timeout(50);
+
+            me.isDragging && Neo.applyDeltas(me.appName, {
+                id   : eventId,
+                style: {opacity: 0}
             })
         }
     }
