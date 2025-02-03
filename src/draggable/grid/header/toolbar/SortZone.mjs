@@ -19,7 +19,7 @@ class SortZone extends BaseSortZone {
          */
         ntype: 'grid-header-toolbar-sortzone',
         /**
-         * @member {String|null} itemMargin=null
+         * @member {String|null} itemMargin='1px'
          * @protected
          */
         itemMargin: '1px',
