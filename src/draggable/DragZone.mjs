@@ -184,9 +184,10 @@ class DragZone extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object}  data
+     * @param {Boolean} createComponent=true
      */
-    createDragProxy(data) {
+    createDragProxy(data, createComponent=true) {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             rect      = me.dragElementRect,
@@ -228,7 +229,11 @@ class DragZone extends Base {
             width : `${data.width}px`
         });
 
-        me.dragProxy = Neo.create(config)
+        if (createComponent) {
+            return me.dragProxy = Neo.create(config)
+        }
+
+        return config
     }
 
     /**
