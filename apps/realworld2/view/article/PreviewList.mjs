@@ -46,8 +46,8 @@ class PreviewList extends List {
 
         if (!silent) {
             me.promiseUpdate().then(() => {
-                me.fire('createItems');
-            });
+                me.fire('createItems')
+            })
         }
     }
 }

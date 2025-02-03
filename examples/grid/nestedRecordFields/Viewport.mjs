@@ -32,13 +32,19 @@ class Viewport extends BaseViewport {
             style    : {marginBottom: '1em'},
 
             items: ['->', {
+                handler: 'up.onSwitchDragModeButtonClick',
+                iconCls: 'far fa-square',
+                style  : {marginRight: '1em'},
+                text   : 'Drag column headers only'
+            }, {
                 handler: 'up.onSwitchThemeButtonClick',
                 iconCls: 'fas fa-sun',
                 text   : 'Light Theme'
             }]
         }, {
-            module: GridContainer,
-            bind  : {store : 'stores.mainStore'},
+            module   : GridContainer,
+            bind     : {store : 'stores.mainStore'},
+            reference: 'grid',
 
             columnDefaults: {
                 width: 200
@@ -108,10 +114,10 @@ class Viewport extends BaseViewport {
     /**
      * @param {Object} data
      */
-    editRenderer({column, gridContainer, index, record}) {
+    editRenderer({column, gridContainer, record, rowIndex}) {
         let me                  = this,
             {appName, windowId} = me,
-            widgetId            = `${column.id}-widget-${index}`,
+            widgetId            = `${column.id}-widget-${rowIndex}`,
             button              = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
                 module  : Button,
                 appName,
@@ -125,6 +131,23 @@ class Viewport extends BaseViewport {
         me.view.updateDepth = -1;
 
         return button.createVdomReference()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSwitchDragModeButtonClick(data) {
+        let button     = data.component,
+            grid       = this.getReference('grid'),
+            {sortZone} = grid.headerToolbar;
+
+        if (button.iconCls === 'fas fa-check') {
+            button.set({iconCls: 'far fa-square'});
+            sortZone.moveColumnContent = true
+        } else {
+            button.set({iconCls: 'fas fa-check'});
+            sortZone.moveColumnContent = false
+        }
     }
 
     /**

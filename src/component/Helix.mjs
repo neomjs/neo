@@ -597,7 +597,7 @@ class Helix extends Component {
 
             me[lockWheel] = true;
 
-            me.promiseUpdate(vdom).then(() => {
+            me.promiseUpdate().then(() => {
                 me[itemsMounted] = true;
                 me.fire('itemsMounted');
 

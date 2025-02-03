@@ -701,7 +701,7 @@ function autoGenerateGetSet(proto, key) {
                 // every set call has to delete the matching symbol
                 delete me[configSymbol][key];
 
-                if (key !== 'items') {
+                if (key !== 'items' && key !== 'vnode') {
                     value = Neo.clone(value, true, true)
                 }
 

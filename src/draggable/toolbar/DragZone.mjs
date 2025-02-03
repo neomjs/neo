@@ -52,7 +52,7 @@ class DragZone extends BaseDragZone {
         owner.items.forEach(item => {
             wrapperCls = item.wrapperCls || [];
 
-            NeoArray[draggable ? 'add' : 'remove'](wrapperCls, 'neo-draggable');
+            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
             item.wrapperCls = wrapperCls
         })
     }
@@ -88,12 +88,12 @@ class DragZone extends BaseDragZone {
     /**
      * @param {Object} data
      */
-    onDragStart(data) {
+    async onDragStart(data) {
         let me = this;
 
         if (me.owner.draggable) {
             me.dragElement = VDomUtil.find(me.owner.vdom, data.path[0].id).vdom;
-            me.dragStart(data)
+            await me.dragStart(data)
         }
     }
 

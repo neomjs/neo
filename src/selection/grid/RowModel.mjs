@@ -29,7 +29,7 @@ class RowModel extends BaseModel {
     addDomListener() {
         let me = this;
 
-        me.view.gridContainer.on('rowClick', me.onRowClick, me)
+        me.view.parent.on('rowClick', me.onRowClick, me)
     }
 
     /**
@@ -38,7 +38,7 @@ class RowModel extends BaseModel {
     destroy(...args) {
         let me = this;
 
-        me.view.gridContainer.un('rowClick', me.onRowClick, me);
+        me.view.parent.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
     }

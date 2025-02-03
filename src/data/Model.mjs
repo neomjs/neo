@@ -51,14 +51,6 @@ class Model extends Base {
     hasNestedFields = false
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        RecordFactory.createRecordClass(this)
-    }
-
-    /**
      Triggered after the fields config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue

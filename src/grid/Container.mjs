@@ -71,11 +71,6 @@ class GridContainer extends BaseContainer {
          */
         rowHeight_: 32,
         /**
-         * @member {String|null} scrollbarId_=null
-         * @protected
-         */
-        scrollbarId_: null,
-        /**
          * @member {Boolean} showHeaderFilters_=false
          */
         showHeaderFilters_: false,
@@ -126,14 +121,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Convenience method to access the Neo.grid.Scrollbar
-     * @returns {Neo.grid.Scrollbar|null}
-     */
-    get scrollbar() {
-        return Neo.getComponent(this.scrollbarId) || Neo.get(this.scrollbarId)
-    }
-
-    /**
      * Convenience method to access the Neo.grid.View
      * @returns {Neo.grid.View|null}
      */
@@ -151,20 +138,17 @@ class GridContainer extends BaseContainer {
             {rowHeight, store} = me;
 
         me.headerToolbarId = Neo.getId('grid-header-toolbar');
-        me.scrollbarId     = Neo.getId('grid-scrollbar');
         me.viewId          = Neo.getId('grid-view');
 
         me.items = [{
             module           : header.Toolbar,
-            gridContainer    : me,
             id               : me.headerToolbarId,
             showHeaderFilters: me.showHeaderFilters,
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module     : GridView,
-            containerId: me.id,
-            id         : me.viewId,
+            module: GridView,
+            id    : me.viewId,
             rowHeight,
             store,
             ...me.viewConfig

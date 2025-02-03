@@ -58,11 +58,6 @@ class GridView extends Component {
          */
         colspanField: 'colspan',
         /**
-         * @member {String|null} containerId=null
-         * @protected
-         */
-        containerId: null,
-        /**
          * Internal flag. Gets calculated after mounting grid.View rows
          * @member {Number} containerWidth_=0
          */
@@ -138,13 +133,6 @@ class GridView extends Component {
      * @member {Number|null}} scrollTimeoutId=null
      */
     scrollTimeoutId = null
-
-    /**
-     * @member {Neo.grid.Container|null} gridContainer
-     */
-    get gridContainer() {
-        return Neo.getComponent(this.containerId)
-    }
 
     /**
      * @member {String[]} selectedRows
@@ -496,11 +484,12 @@ class GridView extends Component {
             rowIndex = this.store.indexOf(record)
         }
 
-        let me       = this,
-            {bufferColumnRange, gridContainer, selectedRows, visibleColumns} = me,
-            columns  = gridContainer.items[0].items,
-            id       = me.getRowId(record, rowIndex),
-            trCls    = me.getTrClass(record, rowIndex),
+        let me            = this,
+            {bufferColumnRange, selectedRows, visibleColumns} = me,
+            gridContainer = me.parent,
+            columns       = gridContainer.headerToolbar.items,
+            id            = me.getRowId(record, rowIndex),
+            trCls         = me.getTrClass(record, rowIndex),
             config, column, endIndex, gridRow, i, startIndex;
 
         if (rowIndex % 2 !== 0) {
@@ -602,7 +591,7 @@ class GridView extends Component {
             dataField = me.getCellDataField(id),
             record    = me.getRecord(id);
 
-        me.gridContainer.fire(eventName, {data, dataField, record, view: me})
+        me.parent.fire(eventName, {data, dataField, record, view: me})
     }
 
     /**
@@ -614,7 +603,7 @@ class GridView extends Component {
             id     = data.currentTarget,
             record = me.getRecord(id);
 
-        me.gridContainer.fire(eventName, {data, record, view: me})
+        me.parent.fire(eventName, {data, record, view: me})
     }
 
     /**
@@ -641,10 +630,9 @@ class GridView extends Component {
      * @returns {Object|Number|null}
      */
     getColumn(field, returnIndex=false) {
-        let {gridContainer} = this,
-            columns         = gridContainer.headerToolbar.items,
-            i               = 0,
-            len             = columns.length,
+        let columns = this.parent.headerToolbar.items,
+            i       = 0,
+            len     = columns.length,
             column;
 
         for (; i < len; i++) {
@@ -656,6 +644,35 @@ class GridView extends Component {
         }
 
         return null
+    }
+
+    /**
+     * Get all painted column cells (visible + buffer range)
+     * @param {String} dataField
+     * @returns {Object[]}
+     */
+    getColumnCells(dataField) {
+        let me       = this,
+            cells    = [],
+            vdomRoot = me.getVdomRoot(),
+            firstRow = vdomRoot.cn[0],
+            i        = 0,
+            len      = firstRow.cn.length,
+            columnIndex;
+
+        // Columns might get moved via drag&drop, so let's check for the current match
+        for (; i < len; i++) {
+            if (dataField === me.getDataField(firstRow.cn[i].id)) {
+                columnIndex = i;
+                break;
+            }
+        }
+
+        vdomRoot.cn.forEach(row => {
+            cells.push(row.cn[columnIndex])
+        });
+
+        return cells
     }
 
     /**
@@ -819,7 +836,7 @@ class GridView extends Component {
         let me                     = this,
             fieldNames             = fields.map(field => field.name),
             needsUpdate            = false,
-            {gridContainer}        = me,
+            gridContainer          = me.parent,
             rowIndex               = me.store.indexOf(record),
             {selectionModel, vdom} = me,
             cellId, cellNode, cellStyle, cellVdom, column, columnIndex;

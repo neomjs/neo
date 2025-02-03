@@ -156,8 +156,10 @@ class EventDragZone extends DragZone {
 
     /**
      * @param {Object} data
+     * @param {Boolean} createComponent=true
+     * @returns {Object|Neo.draggable.DragProxyComponent}
      */
-    createDragProxy(data) {
+    async createDragProxy(data, createComponent=true) {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             vdom      = me.dragProxyConfig?.vdom,
@@ -199,7 +201,11 @@ class EventDragZone extends DragZone {
             width : `${data.width}px`
         });
 
-        me.dragProxy = Neo.create(config)
+        if (createComponent) {
+            return me.dragProxy = Neo.create(config)
+        }
+
+        return config
     }
 
     /**
@@ -491,35 +497,32 @@ class EventDragZone extends DragZone {
     /**
      * @param {Object} data
      */
-    dragStart(data) {
-        let me = this,
-            eventDuration, offsetX, offsetY;
-
-        me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id]).then(rects => {
-            eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000;
-            offsetX       = data.clientX - rects[0].left;
+    async dragStart(data) {
+        let me            = this,
+            rects         = await me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id]),
+            eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
+            offsetX       = data.clientX - rects[0].left,
             offsetY       = data.clientY - rects[0].top;
 
-            Object.assign(me, {
-                columnHeight   : rects[1].height,
-                columnTop      : rects[1].top,
-                dragElementRect: rects[0],
-                eventDuration  : Math.round(eventDuration / me.intervalSize) * me.intervalSize,
-                offsetX,
-                offsetY
-            });
+        Object.assign(me, {
+            columnHeight   : rects[1].height,
+            columnTop      : rects[1].top,
+            dragElementRect: rects[0],
+            eventDuration  : Math.round(eventDuration / me.intervalSize) * me.intervalSize,
+            offsetX,
+            offsetY
+        });
 
-            me.createDragProxy(rects[0]);
+        await me.createDragProxy(rects[0]);
 
-            me.fire('dragStart', {
-                dragElementRect: rects[0],
-                id             : me.id,
-                offsetX,
-                offsetY
-            });
+        me.fire('dragStart', {
+            dragElementRect: rects[0],
+            id             : me.id,
+            offsetX,
+            offsetY
+        });
 
-            me.dragMove(data)
-        })
+        me.dragMove(data)
     }
 
     /**

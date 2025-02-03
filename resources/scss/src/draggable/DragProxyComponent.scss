@@ -1,9 +1,11 @@
 body:has(.neo-is-dragging) {
-    cursor: move !important;
+    cursor     : move !important;
+    user-select: none !important;
 
     // We can not put pointer-events: none on the same level as cursor, since it prevents cursor changes
     * {
         pointer-events: none !important;
+        user-select   : none !important;
     }
 }
 
@@ -13,6 +15,7 @@ body:has(.neo-is-dragging) {
     transform          : none !important;
     transition-duration: 0ms;
     transition-property: none;
+    user-select        : none !important;
     will-change        : left, top;
     z-index            : 1000;
 

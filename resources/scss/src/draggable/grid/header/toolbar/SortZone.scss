@@ -1,5 +1,22 @@
-.neo-grid-header-toolbar {
-    &.neo-dragproxy {
+.neo-grid-container {
+    &:has(.neo-is-dragging) {
+        .neo-grid-cell {
+            opacity   : .8;
+            transition: left 200ms ease-out;
+
+            &:last-child {
+                border-right-width : 1px;
+            }
+        }
+    }
+}
+
+.neo-dragproxy {
+    .neo-grid-container {
+        border: none;
+    }
+
+    .neo-grid-header-toolbar {
         height: 30px !important; // Hack to increase the height by the border-bottom height (29 + 1)
 
         .neo-button {
@@ -7,6 +24,12 @@
         }
     }
 
+    .neo-grid-row {
+        position: unset;
+    }
+}
+
+.neo-grid-header-toolbar {
     &.neo-is-dragging {
         .neo-button {
             border-right: 1px solid var(--grid-container-border-color); // Would be missing for the last button otherwise

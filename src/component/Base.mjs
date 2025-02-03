@@ -488,7 +488,7 @@ class Component extends Base {
      * @param {String} value
      */
     addCls(value) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray.add(cls, value);
         this.cls = cls
@@ -527,6 +527,17 @@ class Component extends Base {
     }
 
     /**
+     * Add a new wrapperCls to the top level node
+     * @param {String} value
+     */
+    addWrapperCls(value) {
+        let {wrapperCls} = this;
+
+        NeoArray.add(wrapperCls, value);
+        this.wrapperCls = wrapperCls
+    }
+
+    /**
      * Triggered after the appName config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -560,11 +571,7 @@ class Component extends Base {
             vdom.cls = cls
         }
 
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
-            me.needsVdomUpdate = true
-        } else if (me.mounted && me.vnode) {
-            me.updateCls(value, oldValue, vdomRoot.id)
-        }
+        me.update()
     }
 
     /**
@@ -1038,7 +1045,7 @@ class Component extends Base {
      * @protected
      */
     afterSetVdom(value, oldValue) {
-        this.updateVdom(value)
+        this.updateVdom()
     }
 
     /**
@@ -1098,9 +1105,9 @@ class Component extends Base {
         value    = value    || [];
 
         let me       = this,
-            vdom     = me.vdom,
+            {vdom}   = me,
             vdomRoot = me.getVdomRoot(),
-            cls      = me.vdom?.cls || [];
+            cls      = vdom.cls || [];
 
         if (vdom === vdomRoot) {
             // we need to merge changes
@@ -1114,9 +1121,7 @@ class Component extends Base {
             oldValue && NeoArray.remove(cls, oldValue);
             NeoArray.add(cls, value);
 
-            if (vdom) {
-                vdom.cls = cls
-            }
+            vdom.cls = cls
         }
 
         me.update()
@@ -1545,15 +1550,14 @@ class Component extends Base {
 
     /**
      * Internal method to send update requests to the vdom worker
-     * @param {Object} vdom
-     * @param {Neo.vdom.VNode} vnode
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
      * @private
      */
-    #executeVdomUpdate(vdom, vnode, resolve, reject) {
-        let me   = this,
-            opts = {},
+    #executeVdomUpdate(resolve, reject) {
+        let me            = this,
+            {vdom, vnode} = me,
+            opts          = {},
             deltas;
 
         if (currentWorker.isSharedWorker) {
@@ -1576,8 +1580,6 @@ class Component extends Base {
 
         Neo.vdom.Helper.update(opts).catch(err => {
             me.isVdomUpdating = false;
-            console.log('Error attempting to update component dom', err, me);
-
             reject?.()
         }).then(data => {
             me.isVdomUpdating = false;
@@ -2197,8 +2199,6 @@ class Component extends Base {
             me._rendered = true; // silent update
             me.fire('rendered', me.id);
 
-            // console.log('rendered: ' + me.appName + ' ' + me.id, me);
-
             if (autoMount) {
                 me.mounted = true;
 
@@ -2212,13 +2212,11 @@ class Component extends Base {
 
     /**
      * Promise based vdom update
-     * @param {Object} vdom=this.vdom
-     * @param {Neo.vdom.VNode} vnode= this.vnode
      * @returns {Promise<any>}
      */
-    promiseUpdate(vdom=this.vdom, vnode=this.vnode) {
+    promiseUpdate() {
         return new Promise((resolve, reject) => {
-            this.updateVdom(vdom, vnode, resolve, reject)
+            this.updateVdom(resolve, reject)
         })
     }
 
@@ -2587,34 +2585,6 @@ class Component extends Base {
     }
 
     /**
-     * Delta updates for the cls config. Gets called after the cls config gets changed in case the component is mounted.
-     * @param {String[]} cls
-     * @param {String[]} oldCls
-     * @param {String} id=this.id
-     * @protected
-     */
-    updateCls(cls, oldCls, id=this.id) {
-        let me          = this,
-            {vnode}     = me,
-            vnodeTarget = vnode && VNodeUtil.find(me.vnode, {id})?.vnode;
-
-        if (vnode && !Neo.isEqual(cls, oldCls)) {
-            if (vnodeTarget) {
-                vnodeTarget.className = cls; // keep the vnode in sync
-                me.vnode = vnode;
-            }
-
-            Neo.applyDeltas(me.appName, {
-                id,
-                cls: {
-                    add   : NeoArray.difference(cls, oldCls),
-                    remove: NeoArray.difference(oldCls, cls)
-                }
-            })
-        }
-    }
-
-    /**
      * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
      * @param {Object|String} value
      * @param {Object|String} oldValue
@@ -2668,15 +2638,13 @@ class Component extends Base {
 
     /**
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
-     * @param {Object} vdom=this.vdom
-     * @param {Neo.vdom.VNode} vnode=this.vnode
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
      * @protected
      */
-    updateVdom(vdom=this.vdom, vnode=this.vnode, resolve, reject) {
-        let me                       = this,
-            {app, mounted, parentId} = me,
+    updateVdom(resolve, reject) {
+        let me                              = this,
+            {app, mounted, parentId, vnode} = me,
             listenerId;
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
@@ -2690,7 +2658,7 @@ class Component extends Base {
                     app.un('mounted', listenerId);
 
                     me.timeout(50).then(() => {
-                        me.vnode && me.updateVdom(me.vdom, me.vnode, resolve, reject)
+                        me.vnode && me.updateVdom(resolve, reject)
                     })
                 })
             } else {
@@ -2707,10 +2675,10 @@ class Component extends Base {
                     // Verify that the critical rendering path => CSS files for the new tree is in place
                     if (currentWorker.countLoadingThemeFiles !== 0) {
                         currentWorker.on('themeFilesLoaded', function() {
-                            me.updateVdom(vdom, vnode, resolve, reject)
+                            me.updateVdom(resolve, reject)
                         }, me, {once: true})
                     } else {
-                        me.#executeVdomUpdate(vdom, vnode, resolve, reject)
+                        me.#executeVdomUpdate(resolve, reject)
                     }
                 }
             }

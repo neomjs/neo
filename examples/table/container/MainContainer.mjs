@@ -127,10 +127,10 @@ class MainContainer extends ConfigurationViewport {
                 {
                     dataField: 'edit',
                     text     : 'Edit Action',
-                    renderer({column, index}) {
+                    renderer({column, rowIndex}) {
                         const
                             me       = this,
-                            widgetId = `${column.id}-widget-${index}`,
+                            widgetId = `${column.id}-widget-${rowIndex}`,
                             button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
                                 module  : Button,
                                 appName : me.appName,
@@ -146,10 +146,10 @@ class MainContainer extends ConfigurationViewport {
                 }, {
                     dataField: 'menu',
                     text     : 'Menu',
-                    renderer({column, record, index}) {
+                    renderer({column, record, rowIndex}) {
                         const
                             me       = this,
-                            widgetId = `${column.id}-widget-${index}`,
+                            widgetId = `${column.id}-widget-${rowIndex}`,
                             button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create('Neo.button.Base', {
                                 ntype   : 'button',
                                 appName : me.appName,
