@@ -52,7 +52,7 @@ class DragZone extends BaseDragZone {
         owner.items.forEach(item => {
             wrapperCls = item.wrapperCls || [];
 
-            NeoArray[draggable ? 'add' : 'remove'](wrapperCls, 'neo-draggable');
+            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
             item.wrapperCls = wrapperCls
         })
     }

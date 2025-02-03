@@ -441,7 +441,7 @@ class Gallery extends Component {
             itemsRoot.cn.push(vdomItem)
         }
 
-        me.promiseUpdate(vdom).then(() => {
+        me.promiseUpdate().then(() => {
             me[itemsMounted] = true
         })
     }
