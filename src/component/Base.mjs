@@ -2300,7 +2300,7 @@ class Component extends Base {
         // Verify that the critical rendering path => CSS files for the new tree is in place
         if (currentWorker.countLoadingThemeFiles !== 0) {
             currentWorker.on('themeFilesLoaded', function() {
-                me.render(mount)
+                !me.mounted && me.render(mount)
             }, me, {once: true});
 
             return
