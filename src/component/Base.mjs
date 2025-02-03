@@ -488,7 +488,7 @@ class Component extends Base {
      * @param {String} value
      */
     addCls(value) {
-        let cls = this.cls;
+        let {cls} = this;
 
         NeoArray.add(cls, value);
         this.cls = cls
@@ -524,6 +524,17 @@ class Component extends Base {
         // todo: add a check if something has changed
 
         return this.style = Object.assign(this.style, value)
+    }
+
+    /**
+     * Add a new wrapperCls to the top level node
+     * @param {String} value
+     */
+    addWrapperCls(value) {
+        let {wrapperCls} = this;
+
+        NeoArray.add(wrapperCls, value);
+        this.wrapperCls = wrapperCls
     }
 
     /**
