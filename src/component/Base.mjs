@@ -1582,6 +1582,8 @@ class Component extends Base {
         opts.vdom  = ComponentManager.getVdomTree(vdom, me.updateDepth);
         opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
 
+        me.id === 'neo-grid-view-1' && console.log('update', me.id, me.updateDepth, Neo.isEqual(opts.vnode, me.vnode), Neo.clone(opts.vnode, true), Neo.clone(me.vnode, true));
+
         // Reset the updateDepth to the default value for the next update cycle
         me._updateDepth = me.constructor.config.updateDepth;
 
@@ -1591,6 +1593,7 @@ class Component extends Base {
 
             reject?.()
         }).then(data => {
+            this.id === 'neo-grid-view-1' && console.log('update DONE', this.id, data.deltas);
             me.isVdomUpdating = false;
 
             // checking if the component got destroyed before the update cycle is done

@@ -104,10 +104,10 @@ class Viewport extends BaseViewport {
     /**
      * @param {Object} data
      */
-    editRenderer({column, index, record, tableContainer}) {
+    editRenderer({column, record, rowIndex, tableContainer}) {
         let me                  = this,
             {appName, windowId} = me,
-            widgetId            = `${column.id}-widget-${index}`,
+            widgetId            = `${column.id}-widget-${rowIndex}`,
             button              = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
                 module  : Button,
                 appName,
