@@ -129,6 +129,27 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @param {Object} data
+     */
+    async onDragStart(data) {
+        await super.onDragStart(data);
+
+        if (this.moveColumnContent) {
+            let me          = this,
+                {view}      = me.owner.parent,
+                columnIndex = me.dragElement['aria-colindex'] - 1,
+                {dataField} = view.columnPositions[columnIndex],
+                cells       = view.getColumnCells(dataField);
+
+            cells.forEach(cell => {
+                cell.style.display = 'none'
+            });
+
+            view.update()
+        }
+    }
+
+    /**
      * @param {Number} index1
      * @param {Number} index2
      */
