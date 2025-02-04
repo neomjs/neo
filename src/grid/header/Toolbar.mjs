@@ -35,6 +35,10 @@ class Toolbar extends BaseToolbar {
          */
         role: 'row',
         /**
+         * @member {Number} scrollLeft_=0
+         */
+        scrollLeft_: 0,
+        /**
          * @member {Boolean} showHeaderFilters_=false
          */
         showHeaderFilters_: false,
@@ -62,13 +66,14 @@ class Toolbar extends BaseToolbar {
 
         if (value && !me.sortZone) {
             import('../../draggable/grid/header/toolbar/SortZone.mjs').then(module => {
-                let {appName, id, windowId} = me;
+                let {appName, id, scrollLeft, windowId} = me;
 
                 me.sortZone = Neo.create({
                     module             : module.default,
                     appName,
                     boundaryContainerId: id,
                     owner              : me,
+                    scrollLeft,
                     windowId,
                     ...me.sortZoneConfig
                 })
@@ -105,6 +110,18 @@ class Toolbar extends BaseToolbar {
 
             me.updateDepth = -1; // filters can be deeply nested
             me.update()
+        }
+    }
+
+    /**
+     * Triggered after the scrollLeft config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetScrollLeft(value, oldValue) {
+        if (oldValue !== undefined && this.sortZone) {
+            this.sortZone.scrollLeft = value
         }
     }
 

@@ -272,11 +272,11 @@ class Container extends Component {
 
                 item.reference = ref;
                 result.push(item);
-                hasWeight ||= ('weight' in item);
+                hasWeight ||= ('weight' in item)
             }
 
             if (hasWeight) {
-                result.sort(byWeight);
+                result.sort(byWeight)
             }
 
             value = result
@@ -413,7 +413,9 @@ class Container extends Component {
 
         // We need to add items into the vdom
         me.updateDepth = -1;
-        me.update()
+        me.update();
+
+        me.fire('itemsCreated', {id: me.id, items})
     }
 
     /**

@@ -506,8 +506,11 @@ class GridContainer extends BaseContainer {
     /**
      * @param {Object} data
      */
-    onScroll(data) {
-        this.view.scrollPosition = {x: data.scrollLeft, y: this.view.scrollPosition.y}
+    onScroll({scrollLeft}) {
+        let me = this;
+
+        me.headerToolbar.scrollLeft = scrollLeft;
+        me.view.scrollPosition = {x: scrollLeft, y: me.view.scrollPosition.y}
     }
 
     /**

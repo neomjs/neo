@@ -62,6 +62,14 @@ class SortZone extends DragZone {
          */
         reversedLayoutDirection: false,
         /**
+         * @member {Number} scrollLeft=0
+         */
+        scrollLeft: 0,
+        /**
+         * @member {Number} scrollTop=0
+         */
+        scrollTop: 0,
+        /**
          * Internal flag: onDragStart() will set the value to horizontal or vertical, depending on the current layout.
          * @member {String} sortDirection='horizontal'
          * @protected
@@ -142,35 +150,38 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragMove(data) {
-        if (this.itemRects) { // the method can trigger before we got the client rects from the main thread
-            let me          = this,
-                moveFactor  = 0.55, // we can not use 0.5, since items would jump back & forth
-                index       = me.currentIndex,
-                {itemRects} = me,
-                maxItems    = itemRects.length - 1,
-                reversed    = me.reversedLayoutDirection,
-                delta, itemWidth;
+        // the method can trigger before we got the client rects from the main thread
+        if (!this.itemRects) {
+            return
+        }
 
-            if (me.sortDirection === 'horizontal') {
-                delta     = data.clientX - me.offsetX - itemRects[index].left;
-                itemWidth = 'width'
-            } else {
-                delta     = data.clientY - me.offsetY - itemRects[index].top;
-                itemWidth = 'height'
+        let me          = this,
+            moveFactor  = 0.55, // we can not use 0.5, since items would jump back & forth
+            index       = me.currentIndex,
+            {itemRects} = me,
+            maxItems    = itemRects.length - 1,
+            reversed    = me.reversedLayoutDirection,
+            delta, itemWidth;
+
+        if (me.sortDirection === 'horizontal') {
+            delta     = data.clientX + me.scrollLeft - me.offsetX - itemRects[index].left;
+            itemWidth = 'width'
+        } else {
+            delta     = data.clientY + me.scrollTop  - me.offsetY - itemRects[index].top;
+            itemWidth = 'height'
+        }
+
+        if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
+            if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
+                me.currentIndex--;
+                me.switchItems(index, me.currentIndex)
             }
+        }
 
-            if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
-                if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
-                    me.currentIndex--;
-                    me.switchItems(index, me.currentIndex)
-                }
-            }
-
-            else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
-                if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
-                    me.currentIndex++;
-                    me.switchItems(index, me.currentIndex)
-                }
+        else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
+            if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
+                me.currentIndex++;
+                me.switchItems(index, me.currentIndex)
             }
         }
     }
