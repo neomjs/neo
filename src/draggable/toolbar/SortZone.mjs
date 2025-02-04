@@ -267,7 +267,7 @@ class SortZone extends DragZone {
      * @param {Number} index1
      * @param {Number} index2
      */
-    switchItems(index1, index2) {console.log('switchItems', index1, index2);
+    switchItems(index1, index2) {
         let me       = this,
             reversed = me.reversedLayoutDirection,
             tmp;

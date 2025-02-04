@@ -36,8 +36,13 @@ class DragZone extends BaseDragZone {
             {'drag:start': me.onDragStart, ...opts}
         ]);
 
-        owner.on('insert', me.onItemInsert, me);
+        owner.on({
+            insert      : me.onItemInsert,
+            itemsCreated: me.onItemsCreated,
+            scope       : me
+        });
 
+        // The toolbar items can already be created
         me.adjustToolbarItemCls(true)
     }
 
@@ -98,8 +103,8 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     * @param {Object} data
-     * @param {Number} data.index
+     * @param {Object}             data
+     * @param {Number}             data.index
      * @param {Neo.component.Base} data.item
      */
     onItemInsert(data) {
@@ -108,6 +113,15 @@ class DragZone extends BaseDragZone {
 
         NeoArray.add(wrapperCls, 'neo-draggable');
         item.wrapperCls = wrapperCls
+    }
+
+    /**
+     * @param {Object}               data
+     * @param {String}               data.id
+     * @param {Neo.component.Base[]} data.items
+     */
+    onItemsCreated(data) {console.log('onItemsCreated');
+        this.adjustToolbarItemCls(true)
     }
 }
 
