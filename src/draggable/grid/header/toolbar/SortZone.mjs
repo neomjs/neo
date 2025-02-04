@@ -95,10 +95,9 @@ class SortZone extends BaseSortZone {
         config.listeners = {
             mounted() {
                 Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id       : viewWrapperId,
-                    value    : view.scrollPosition.y,
-                    windowId : this.windowId
+                    id      : viewWrapperId,
+                    value   : view.scrollPosition.y,
+                    windowId: this.windowId
                 })
             }
         };
