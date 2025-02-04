@@ -154,31 +154,40 @@ class SortZone extends BaseSortZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
+        super.switchItems(index1, index2);
+
         if (this.moveColumnContent) {
-            let {view}          = this.owner.parent,
+            let me              = this,
+                {itemRects}     = me,
+                {view}          = me.owner.parent,
                 columnPositions = view._columnPositions, // no clone
                 column1Cells    = view.getColumnCells(columnPositions[index1].dataField),
-                column2Cells    = view.getColumnCells(columnPositions[index2].dataField),
-                x;
+                column2Cells    = view.getColumnCells(columnPositions[index2].dataField);
 
-            x = columnPositions[index1].x;
-            columnPositions[index1].x = columnPositions[index2].x;
-            columnPositions[index2].x = x;
+            Object.assign(columnPositions[index1], {
+                width: itemRects[index2].width,
+                x    : itemRects[index2].x + 1
+            });
+
+            Object.assign(columnPositions[index2], {
+                width: itemRects[index1].width,
+                x    : itemRects[index1].x + 1
+            });
 
             NeoArray.move(columnPositions, index1, index2);
 
             column1Cells.forEach(node => {
-                node.style.left = columnPositions[index2].x + 'px'
+                node.style.left  = columnPositions[index2].x     + 'px';
+                node.style.width = columnPositions[index2].width + 'px'
             });
 
             column2Cells.forEach(node => {
-                node.style.left = columnPositions[index1].x + 'px'
+                node.style.left  = columnPositions[index1].x + 'px';
+                node.style.width = columnPositions[index1].width + 'px'
             });
 
             view.update()
         }
-
-        super.switchItems(index1, index2);
     }
 }
 
