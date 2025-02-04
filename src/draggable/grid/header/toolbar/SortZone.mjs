@@ -19,7 +19,7 @@ class SortZone extends BaseSortZone {
          */
         ntype: 'grid-header-toolbar-sortzone',
         /**
-         * @member {String|null} itemMargin=null
+         * @member {String|null} itemMargin='1px'
          * @protected
          */
         itemMargin: '1px',
@@ -52,28 +52,29 @@ class SortZone extends BaseSortZone {
             return await super.createDragProxy(data, createComponent)
         }
 
-        let me          = this,
-            grid        = me.owner.parent,
-            {view}      = grid,
-            gridRows    = view.getVdomRoot().cn,
-            columnIndex = me.dragElement['aria-colindex'] - 1,
-            {dataField} = view.columnPositions[columnIndex],
-            cells       = view.getColumnCells(dataField),
-            rows        = [],
-            config      = await super.createDragProxy(data, false),
-            rect        = await grid.getDomRect(),
+        let me            = this,
+            grid          = me.owner.parent,
+            {view}        = grid,
+            gridRows      = view.getVdomRoot().cn,
+            columnIndex   = me.dragElement['aria-colindex'] - 1,
+            {dataField}   = view.columnPositions[columnIndex],
+            cells         = view.getColumnCells(dataField),
+            rows          = [],
+            config        = await super.createDragProxy(data, false),
+            rect          = await grid.getDomRect(),
+            viewWrapperId = Neo.getId('grid-view-wrapper'),
             row;
 
         config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
 
-        config.style.height = rect.height + 'px';
+        config.style.height = `${rect.height - 2}px`; // minus border-bottom & border-top
 
         cells.forEach((cell, index) => {
-            row = VdomUtil.clone({cls: gridRows[index].cls, cn: [cell]}); // clone to remove ids
-
-            row.style = {
-                height: view.rowHeight + 'px'
-            };
+            row = VdomUtil.clone({ // clone to remove ids
+                cls  : gridRows[index].cls,
+                cn   : [cell],
+                style: gridRows[index].style
+            });
 
             delete row.cn[0].style.left;
 
@@ -84,9 +85,23 @@ class SortZone extends BaseSortZone {
         {cn: [
             {cls: ['neo-grid-container'], cn: [
                 {...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']},
-                {cls: ['neo-grid-view'], cn: rows}
+                {cls: ['neo-grid-view-wrapper'], id: viewWrapperId, cn: [
+                    {cls: ['neo-grid-view'], cn: rows},
+                    {cls: ['neo-grid-scrollbar'], style: {height: view.vdom.cn[1].height}}
+                ]}
             ]}
         ]};
+
+        config.listeners = {
+            mounted() {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : viewWrapperId,
+                    value    : view.scrollPosition.y,
+                    windowId : this.windowId
+                })
+            }
+        };
 
         if (createComponent) {
             return me.dragProxy = Neo.create(config)
@@ -154,31 +169,40 @@ class SortZone extends BaseSortZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
+        super.switchItems(index1, index2);
+
         if (this.moveColumnContent) {
-            let {view}          = this.owner.parent,
+            let me              = this,
+                {itemRects}     = me,
+                {view}          = me.owner.parent,
                 columnPositions = view._columnPositions, // no clone
                 column1Cells    = view.getColumnCells(columnPositions[index1].dataField),
-                column2Cells    = view.getColumnCells(columnPositions[index2].dataField),
-                x;
+                column2Cells    = view.getColumnCells(columnPositions[index2].dataField);
 
-            x = columnPositions[index1].x;
-            columnPositions[index1].x = columnPositions[index2].x;
-            columnPositions[index2].x = x;
+            Object.assign(columnPositions[index1], {
+                width: itemRects[index2].width,
+                x    : itemRects[index2].x + 1
+            });
+
+            Object.assign(columnPositions[index2], {
+                width: itemRects[index1].width,
+                x    : itemRects[index1].x + 1
+            });
 
             NeoArray.move(columnPositions, index1, index2);
 
             column1Cells.forEach(node => {
-                node.style.left = columnPositions[index2].x + 'px'
+                node.style.left  = columnPositions[index2].x     + 'px';
+                node.style.width = columnPositions[index2].width + 'px'
             });
 
             column2Cells.forEach(node => {
-                node.style.left = columnPositions[index1].x + 'px'
+                node.style.left  = columnPositions[index1].x + 'px';
+                node.style.width = columnPositions[index1].width + 'px'
             });
 
             view.update()
         }
-
-        super.switchItems(index1, index2);
     }
 }
 
