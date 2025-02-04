@@ -14,6 +14,10 @@
 .neo-dragproxy {
     .neo-grid-container {
         border: none;
+
+        * {
+            scrollbar-width: none;
+        }
     }
 
     .neo-grid-header-toolbar {
@@ -22,10 +26,6 @@
         .neo-button {
             border-right: 1px solid var(--grid-container-border-color);
         }
-    }
-
-    .neo-grid-row {
-        position: unset;
     }
 }
 

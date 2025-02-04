@@ -52,16 +52,17 @@ class SortZone extends BaseSortZone {
             return await super.createDragProxy(data, createComponent)
         }
 
-        let me          = this,
-            grid        = me.owner.parent,
-            {view}      = grid,
-            gridRows    = view.getVdomRoot().cn,
-            columnIndex = me.dragElement['aria-colindex'] - 1,
-            {dataField} = view.columnPositions[columnIndex],
-            cells       = view.getColumnCells(dataField),
-            rows        = [],
-            config      = await super.createDragProxy(data, false),
-            rect        = await grid.getDomRect(),
+        let me            = this,
+            grid          = me.owner.parent,
+            {view}        = grid,
+            gridRows      = view.getVdomRoot().cn,
+            columnIndex   = me.dragElement['aria-colindex'] - 1,
+            {dataField}   = view.columnPositions[columnIndex],
+            cells         = view.getColumnCells(dataField),
+            rows          = [],
+            config        = await super.createDragProxy(data, false),
+            rect          = await grid.getDomRect(),
+            viewWrapperId = Neo.getId('grid-view-wrapper'),
             row;
 
         config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
@@ -69,11 +70,11 @@ class SortZone extends BaseSortZone {
         config.style.height = `${rect.height - 2}px`; // minus border-bottom & border-top
 
         cells.forEach((cell, index) => {
-            row = VdomUtil.clone({cls: gridRows[index].cls, cn: [cell]}); // clone to remove ids
-
-            row.style = {
-                height: view.rowHeight + 'px'
-            };
+            row = VdomUtil.clone({ // clone to remove ids
+                cls  : gridRows[index].cls,
+                cn   : [cell],
+                style: gridRows[index].style
+            });
 
             delete row.cn[0].style.left;
 
@@ -84,9 +85,23 @@ class SortZone extends BaseSortZone {
         {cn: [
             {cls: ['neo-grid-container'], cn: [
                 {...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']},
-                {cls: ['neo-grid-view'], cn: rows}
+                {cls: ['neo-grid-view-wrapper'], id: viewWrapperId, cn: [
+                    {cls: ['neo-grid-view'], cn: rows},
+                    {cls: ['neo-grid-scrollbar'], style: {height: view.vdom.cn[1].height}}
+                ]}
             ]}
         ]};
+
+        config.listeners = {
+            mounted() {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : viewWrapperId,
+                    value    : view.scrollPosition.y,
+                    windowId : this.windowId
+                })
+            }
+        };
 
         if (createComponent) {
             return me.dragProxy = Neo.create(config)
