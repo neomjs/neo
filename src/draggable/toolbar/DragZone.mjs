@@ -103,11 +103,11 @@ class DragZone extends BaseDragZone {
      * @param {Neo.component.Base} data.item
      */
     onItemInsert(data) {
-        let {item} = data,
-            cls    = item.cls || [];
+        let {item}     = data,
+            wrapperCls = item.wrapperCls || [];
 
-        NeoArray.add(cls, 'neo-draggable');
-        item.cls = cls
+        NeoArray.add(wrapperCls, 'neo-draggable');
+        item.wrapperCls = wrapperCls
     }
 }
 
