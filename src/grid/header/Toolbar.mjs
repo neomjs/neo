@@ -227,6 +227,19 @@ class Toolbar extends BaseToolbar {
             })
         }
     }
+
+    /**
+     * @param {Number}  index
+     * @param {DOMRect} itemRect
+     * @returns {Promise<void>}
+     */
+    async scrollToIndex(index, itemRect) {
+        await Neo.main.DomAccess.scrollIntoView({
+            delay   : 200,
+            id      : this.items[index].id,
+            windowId: this.windowId
+        })
+    }
 }
 
 export default Neo.setupClass(Toolbar);

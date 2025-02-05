@@ -189,6 +189,7 @@ class SortZone extends BaseSortZone {
             });
 
             NeoArray.move(columnPositions, index1, index2);
+            // console.log(index1, columnPositions[index1].dataField, index2, columnPositions[index2].dataField);
 
             column1Cells.forEach(node => {
                 node.style.left  = columnPositions[index2].x     + 'px';

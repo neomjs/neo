@@ -652,13 +652,14 @@ class GridView extends Component {
      * @returns {Object[]}
      */
     getColumnCells(dataField) {
-        let me       = this,
-            cells    = [],
-            vdomRoot = me.getVdomRoot(),
-            firstRow = vdomRoot.cn[0],
-            i        = 0,
-            len      = firstRow.cn.length,
-            cell, columnIndex;
+        let me          = this,
+            cells       = [],
+            columnIndex = -1,
+            vdomRoot    = me.getVdomRoot(),
+            firstRow    = vdomRoot.cn[0],
+            i           = 0,
+            len         = firstRow.cn.length,
+            cell;
 
         // Columns might get moved via drag&drop, so let's check for the current match
         for (; i < len; i++) {
@@ -668,10 +669,14 @@ class GridView extends Component {
             }
         }
 
-        vdomRoot.cn.forEach(row => {
-            cell = row.cn[columnIndex];
-            cell && cells.push(cell)
-        });
+        if (columnIndex > -1) {
+            vdomRoot.cn.forEach(row => {
+                cell = row.cn[columnIndex];
+                cell && cells.push(cell)
+            })
+        }
+
+        console.log('getColumnCells', dataField, columnIndex, cells, Neo.clone(firstRow.cn, true));
 
         return cells
     }
