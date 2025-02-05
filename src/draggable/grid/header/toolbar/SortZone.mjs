@@ -57,7 +57,7 @@ class SortZone extends BaseSortZone {
             {view}        = grid,
             gridRows      = view.getVdomRoot().cn,
             columnIndex   = me.dragElement['aria-colindex'] - 1,
-            {dataField}   = view.columnPositions[columnIndex],
+            {dataField}   = view.columnPositions.getAt(columnIndex),
             cells         = view.getColumnCells(dataField),
             rows          = [],
             config        = await super.createDragProxy(data, false),
@@ -152,7 +152,7 @@ class SortZone extends BaseSortZone {
             let me          = this,
                 {view}      = me.owner.parent,
                 columnIndex = me.dragElement['aria-colindex'] - 1,
-                {dataField} = view.columnPositions[columnIndex],
+                {dataField} = view.columnPositions.getAt(columnIndex),
                 cells       = view.getColumnCells(dataField);
 
             cells.forEach(cell => {
@@ -171,34 +171,36 @@ class SortZone extends BaseSortZone {
         super.switchItems(index1, index2);
 
         if (this.moveColumnContent) {
-            let me              = this,
-                {itemRects}     = me,
-                {view}          = me.owner.parent,
-                columnPositions = view._columnPositions, // no clone
-                column1Cells    = view.getColumnCells(columnPositions[index1].dataField),
-                column2Cells    = view.getColumnCells(columnPositions[index2].dataField);
+            let me                = this,
+                {itemRects}       = me,
+                {view}            = me.owner.parent,
+                {columnPositions} = view,
+                column1Position   = columnPositions.getAt(index1),
+                column2Position   = columnPositions.getAt(index2),
+                column1Cells    = view.getColumnCells(column1Position.dataField),
+                column2Cells    = view.getColumnCells(column2Position.dataField);
 
-            Object.assign(columnPositions[index1], {
+            Object.assign(column1Position, {
                 width: itemRects[index2].width,
                 x    : itemRects[index2].x + 1
             });
 
-            Object.assign(columnPositions[index2], {
+            Object.assign(column2Position, {
                 width: itemRects[index1].width,
                 x    : itemRects[index1].x + 1
             });
 
-            NeoArray.move(columnPositions, index1, index2);
+            columnPositions.move(index1, index2);
             // console.log(index1, columnPositions[index1].dataField, index2, columnPositions[index2].dataField);
 
             column1Cells.forEach(node => {
-                node.style.left  = columnPositions[index2].x     + 'px';
-                node.style.width = columnPositions[index2].width + 'px'
+                node.style.left  = column1Position.x     + 'px';
+                node.style.width = column1Position.width + 'px'
             });
 
             column2Cells.forEach(node => {
-                node.style.left  = columnPositions[index1].x + 'px';
-                node.style.width = columnPositions[index1].width + 'px'
+                node.style.left  = column2Position.x     + 'px';
+                node.style.width = column2Position.width + 'px'
             });
 
             view.update()
