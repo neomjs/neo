@@ -658,7 +658,7 @@ class GridView extends Component {
             firstRow = vdomRoot.cn[0],
             i        = 0,
             len      = firstRow.cn.length,
-            columnIndex;
+            cell, columnIndex;
 
         // Columns might get moved via drag&drop, so let's check for the current match
         for (; i < len; i++) {
@@ -669,7 +669,8 @@ class GridView extends Component {
         }
 
         vdomRoot.cn.forEach(row => {
-            cells.push(row.cn[columnIndex])
+            cell = row.cn[columnIndex];
+            cell && cells.push(cell)
         });
 
         return cells
