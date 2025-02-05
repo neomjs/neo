@@ -177,8 +177,8 @@ class SortZone extends BaseSortZone {
                 {columnPositions} = view,
                 column1Position   = columnPositions.getAt(index1),
                 column2Position   = columnPositions.getAt(index2),
-                column1Cells    = view.getColumnCells(column1Position.dataField),
-                column2Cells    = view.getColumnCells(column2Position.dataField);
+                column1Cells      = view.getColumnCells(column1Position.dataField),
+                column2Cells      = view.getColumnCells(column2Position.dataField);
 
             Object.assign(column1Position, {
                 width: itemRects[index2].width,
