@@ -445,6 +445,7 @@ class DragDrop extends Base {
      * @param {String|null}          data.scrollContainerId
      * @param {Number}               data.scrollFactorLeft
      * @param {Number}               data.scrollFactorTop
+     * @returns {Object} return the boundaryContainerRect
      */
     setConfigs(data) {
         let me                    = this,
@@ -495,6 +496,10 @@ class DragDrop extends Base {
                     cursor: me.bodyCursorStyle
                 }
             })
+        }
+
+        return {
+            boundaryContainerRect: me.boundaryContainerRect || null
         }
     }
 

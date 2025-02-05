@@ -57,6 +57,12 @@ class DragZone extends Base {
          */
         boundaryContainerId: null,
         /**
+         * Stores the DOMRect matching this.boundaryContainerId
+         * @member {DOMRect|null} data=null
+         * @protected
+         */
+        boundaryContainerRect: null,
+        /**
          * Store data which you want to pass to drop related events here
          * @member {Object|null} data=null
          */
@@ -318,15 +324,17 @@ class DragZone extends Base {
             {appName, owner, windowId} = me,
             {cls}                      = owner,
             rect                       = me.getDragElementRect(data),
-            offsetX, offsetY;
+            mainData, offsetX, offsetY;
 
         me.setData();
 
-        Neo.main.addon.DragDrop.setConfigs({
+        mainData = await Neo.main.addon.DragDrop.setConfigs({
             appName,
             windowId,
             ...me.getMainThreadConfigs()
         });
+
+        me.boundaryContainerRect = mainData.boundaryContainerRect
 
         NeoArray.add(cls, 'neo-is-dragging');
         owner.cls = cls;

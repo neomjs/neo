@@ -180,8 +180,12 @@ class SortZone extends DragZone {
 
         else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
             if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
-                me.currentIndex++;
-                me.switchItems(index, me.currentIndex)
+                if (data.clientX > me.boundaryContainerRect.right) {
+                    console.log(delta, me.currentIndex, data, me.boundaryContainerRect);
+                } else {
+                    me.currentIndex++;
+                    me.switchItems(index, me.currentIndex)
+                }
             }
         }
     }
