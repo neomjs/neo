@@ -178,7 +178,6 @@ class SortZone extends DragZone {
                 if (data.clientX < me.boundaryContainerRect.left) {
                     me.isScrolling = true;
                     await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
-                    await me.timeout(50);
                     me.isScrolling = false
                 }
 
@@ -193,7 +192,6 @@ class SortZone extends DragZone {
                 if (data.clientX > me.boundaryContainerRect.right) {
                     me.isScrolling = true;
                     await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
-                    await me.timeout(50);
                     me.isScrolling = false
                 }
 
