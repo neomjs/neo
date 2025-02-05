@@ -71,7 +71,7 @@ class Toolbar extends BaseToolbar {
                 me.sortZone = Neo.create({
                     module             : module.default,
                     appName,
-                    boundaryContainerId: id,
+                    boundaryContainerId: [id, me.parent.id],
                     owner              : me,
                     scrollLeft,
                     windowId,

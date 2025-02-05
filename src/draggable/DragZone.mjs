@@ -50,7 +50,10 @@ class DragZone extends Base {
          */
         bodyCursorStyle: null,
         /**
-         * @member {String|null} boundaryContainerId=null
+         * Limit the zone in which you can drag an element.
+         * You can pass a node id, or an array of 2 node ids, in case you need an intersection.
+         * Example for 2 ids: grid.header.Toolbar => boundaryContainerId: [id, me.parent.id]
+         * @member {String|String[]|null} boundaryContainerId=null
          */
         boundaryContainerId: null,
         /**

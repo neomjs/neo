@@ -464,7 +464,7 @@ class DomAccess extends Base {
             returnData;
 
         if (Array.isArray(data.id)) {
-            return data.id.map(id => me.getBoundingClientRect({ id }));
+            return data.id.map(id => me.getBoundingClientRect({id}))
         } else {
             let node = me.getElementOrBody(data.nodeType ? data : data.id),
                 rect = {},
