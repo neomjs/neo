@@ -111,30 +111,24 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
-     * Returns the overlapping area of rect1 & rect2
-     * @param {Object} rect1
-     * @param {Object} rect2
-     * @returns {Number} The area (x * y)
+     * Returns the overlapping area of rect1 & rect2 as a new Rectangle
+     * @param {DOMRect|Neo.util.Rectangle} rect1
+     * @param {DOMRect|Neo.util.Rectangle} rect2
+     * @returns {Neo.util.Rectangle|null} The intersecting rect
      */
     static getIntersection(rect1, rect2) {
-        return Rectangle.getIntersectionDetails(rect1, rect2).area;
-    }
+        let x      = Math.max(rect1.x,      rect2.x),
+            y      = Math.max(rect1.y,      rect2.y),
+            right  = Math.min(rect1.right,  rect2.right),
+            bottom = Math.min(rect1.bottom, rect2.bottom),
+            width  = Math.max(0, right  - x),
+            height = Math.max(0, bottom - y);
 
-    /**
-     * Returns the overlapping area of rect1 & rect2
-     * @param {Object} rect1
-     * @param {Object} rect2
-     * @returns {Object} x, y & area
-     */
-    static getIntersectionDetails(rect1, rect2) {
-        let width  = Math.max(0, Math.min(rect1.right,  rect2.right)  - Math.max(rect1.left, rect2.left)),
-            height = Math.max(0, Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top,  rect2.top));
+        if (height < 1 || width < 1) {
+            return null
+        }
 
-        return {
-            area: height * width,
-            height,
-            width
-        };
+        return new Rectangle(x, y, width, height)
     }
 
     /**
