@@ -149,14 +149,17 @@ class SortZone extends BaseSortZone {
         await super.onDragStart(data);
 
         if (this.moveColumnContent) {
-            let me          = this,
-                {view}      = me.owner.parent,
-                columnIndex = me.dragElement['aria-colindex'] - 1,
-                {dataField} = view.columnPositions.getAt(columnIndex),
-                cells       = view.getColumnCells(dataField);
+            let me             = this,
+                {view}         = me.owner.parent,
+                columnIndex    = me.dragElement['aria-colindex'] - 1,
+                columnPosition = view.columnPositions.getAt(columnIndex),
+                {dataField}    = columnPosition,
+                cells          = view.getColumnCells(dataField);
+
+            columnPosition.hidden = true;
 
             cells.forEach(cell => {
-                cell.style.display = 'none'
+                cell.style.visibility = 'hidden'
             });
 
             view.update()
@@ -191,7 +194,6 @@ class SortZone extends BaseSortZone {
             });
 
             columnPositions.move(index1, index2);
-            // console.log(index1, columnPositions[index1].dataField, index2, columnPositions[index2].dataField);
 
             column1Cells.forEach(node => {
                 node.style.left  = column1Position.x     + 'px';

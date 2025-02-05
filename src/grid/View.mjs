@@ -542,6 +542,11 @@ class GridView extends Component {
                 width: columnPosition.width + 'px'
             }
 
+            // Happens during a column header drag OP, when leaving the painted range
+            if (columnPosition.hidden) {
+                config.style.visibility = 'hidden'
+            }
+
             gridRow.cn.push(config)
         }
 
