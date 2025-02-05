@@ -534,7 +534,7 @@ class GridView extends Component {
                 config.cls = ['neo-locked', ...config.cls || []]
             }
 
-            columnPosition = me.columnPositions.getAt(i);
+            columnPosition = me.columnPositions.get(column.dataField);
 
             config.style = {
                 ...config.style,
