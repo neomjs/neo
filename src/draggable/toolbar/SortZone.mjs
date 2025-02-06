@@ -83,6 +83,12 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @member {Boolean} isOverDragging=false
+     * @protected
+     */
+    isOverDragging = false
+
+    /**
      * Override this method for class extensions (e.g. tab.header.Toolbar)
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -196,9 +202,14 @@ class SortZone extends DragZone {
             }
         }
 
-        if (isOverDragging) {
+        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
+
+        if (me.isOverDragging) {
             await me.timeout(20); // wait for 1 frame
-            await me.onDragMove(data)
+
+            if (me.isOverDragging) {
+                await me.onDragMove(data)
+            }
         }
     }
 
