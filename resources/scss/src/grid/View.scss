@@ -15,6 +15,7 @@
         top           : 0;
         visibility    : hidden;
         width         : 1px;
+        z-index       : 1001; // Above the column dragProxy element
     }
 }
 
