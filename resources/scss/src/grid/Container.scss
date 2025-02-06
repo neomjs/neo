@@ -5,6 +5,20 @@
     overscroll-behavior: none;
     position           : relative;
 
+    .neo-grid-container {
+        border             : 1px solid var(--grid-container-border-color);
+        border-spacing     : 0;
+        color              : var(--grid-container-color);
+        font-size          : 13px;
+        font-weight        : 400;
+        height             : 100%;
+        line-height        : 19px;
+        overscroll-behavior: none;
+        overflow-y         : hidden;
+        position           : absolute;
+        width              : 100%;
+    }
+
     .neo-grid-scrollbar {
         background-color: red;
         bottom          : 0;
@@ -13,69 +27,5 @@
         top             : 31px; // header-toolbar height
         width           : 16px;
         z-index         : 2;
-    }
-}
-
-.neo-grid-container {
-    border             : 1px solid var(--grid-container-border-color);
-    border-spacing     : 0;
-    color              : var(--grid-container-color);
-    font-size          : 13px;
-    font-weight        : 400;
-    height             : 100%;
-    line-height        : 19px;
-    overscroll-behavior: none;
-    overflow-y         : hidden;
-    position           : absolute;
-    width              : 100%;
-
-    .neo-grid-row {
-        display: flex;
-        width  : 100%;
-    }
-
-    .neo-grid-header-toolbar .neo-grid-row:nth-child(1) .neo-grid-header-cell {
-        z-index : 10;
-    }
-
-    .neo-grid-row:last-child {
-        .neo-grid-cell {
-            border-bottom-width: 0 !important;
-        }
-    }
-
-    .neo-grid-row.neo-even {
-        .neo-grid-cell {
-            background-color: var(--grid-container-cell-background-color-even);
-        }
-    }
-
-    .neo-grid-header-cell {
-        position: sticky;
-        top     : 0;
-        z-index : 5;
-    }
-
-    .neo-grid-cell, .neo-grid-header-cell {
-        border-bottom: 1px solid var(--grid-container-border-color);
-        border-right : 1px solid var(--grid-container-border-color);
-        height       : inherit;
-        min-width    : 300px;
-
-        &:last-child {
-            border-right-width : 0;
-        }
-
-        &.neo-locked {
-            left: 0;
-        }
-    }
-
-    .neo-grid-cell {
-        align-items     : center;
-        background-color: var(--grid-container-cell-background-color);
-        display         : flex;
-        padding         : 2px 10px 2px;
-        width           : fit-content;
     }
 }
