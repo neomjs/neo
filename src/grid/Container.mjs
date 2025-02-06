@@ -1,5 +1,6 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import GridScrollbar   from './Scrollbar.mjs';
 import GridView        from './View.mjs';
 import Store           from '../data/Store.mjs';
 import * as header     from './header/_export.mjs';
@@ -71,6 +72,11 @@ class GridContainer extends BaseContainer {
          */
         rowHeight_: 32,
         /**
+         * @member {Neo.grid.Scrollbar|null} scrollbar=null
+         * @protected
+         */
+        scrollbar: null,
+        /**
          * @member {Boolean} showHeaderFilters_=false
          */
         showHeaderFilters_: false,
@@ -98,14 +104,11 @@ class GridContainer extends BaseContainer {
          */
         items: null,
         /**
-         * @member {Object} _vdom={cls:['neo-grid-wrapper'],cn:[{cn:[]}]}
+         * @member {Object} _vdom
          */
         _vdom:
         {cls: ['neo-grid-wrapper'], cn: [
-            {'aria-rowcount': 1, cn: []}, // aria-rowcount includes the column headers
-            {cls: ['neo-grid-scrollbar'], cn: [
-                {cls: ['neo-grid-scrollbar-content']}
-            ]}
+            {'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
         ]}
     }
 
@@ -137,8 +140,8 @@ class GridContainer extends BaseContainer {
     construct(config) {
         super.construct(config);
 
-        let me                 = this,
-            {rowHeight, store} = me;
+        let me = this,
+            {appName, rowHeight, store, windowId} = me;
 
         me.headerToolbarId = Neo.getId('grid-header-toolbar');
         me.viewId          = Neo.getId('grid-view');
@@ -158,6 +161,17 @@ class GridContainer extends BaseContainer {
             store,
             ...me.viewConfig
         }];
+
+        me.scrollbar = Neo.create({
+            module  : GridScrollbar,
+            appName,
+            parentId: me,
+            rowHeight,
+            store,
+            windowId
+        });
+
+        me.vdom.cn.push(me.scrollbar.createVdomReference())
 
         me.vdom.id = me.getWrapperId();
 
