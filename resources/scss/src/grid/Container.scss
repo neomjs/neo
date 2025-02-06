@@ -4,6 +4,16 @@
     overflow-y         : hidden;
     overscroll-behavior: none;
     position           : relative;
+
+    .neo-grid-scrollbar {
+        background-color: red;
+        bottom          : 0;
+        position        : absolute;
+        right           : 0;
+        top             : 31px; // header-toolbar height
+        width           : 16px;
+        z-index         : 2;
+    }
 }
 
 .neo-grid-container {
@@ -26,12 +36,6 @@
 
     .neo-grid-header-toolbar .neo-grid-row:nth-child(1) .neo-grid-header-cell {
         z-index : 10;
-    }
-
-    .neo-grid-body {
-        display   : block;
-        max-height: 300px; // an initial dummy value to reduce the flickering until the real height is available
-        overflow-y: scroll;
     }
 
     .neo-grid-row:last-child {

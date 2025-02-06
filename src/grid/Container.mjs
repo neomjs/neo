@@ -102,7 +102,10 @@ class GridContainer extends BaseContainer {
          */
         _vdom:
         {cls: ['neo-grid-wrapper'], cn: [
-            {'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
+            {'aria-rowcount': 1, cn: []}, // aria-rowcount includes the column headers
+            {cls: ['neo-grid-scrollbar'], cn: [
+                {cls: ['neo-grid-scrollbar-content']}
+            ]}
         ]}
     }
 
@@ -147,8 +150,10 @@ class GridContainer extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module: GridView,
-            id    : me.viewId,
+            module       : GridView,
+            flex         : 1,
+            gridContainer: me,
+            id           : me.viewId,
             rowHeight,
             store,
             ...me.viewConfig
