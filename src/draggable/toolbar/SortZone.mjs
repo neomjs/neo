@@ -161,13 +161,15 @@ class SortZone extends DragZone {
             return
         }
 
-        let me             = this,
-            index          = me.currentIndex,
-            isOverDragging = data.clientX < me.boundaryContainerRect.left || data.clientX > me.boundaryContainerRect.right,
-            moveFactor     = isOverDragging ? 0.02 : 0.55, // We can not use 0.5, since items would jump back & forth
-            {itemRects}    = me,
-            maxItems       = itemRects.length - 1,
-            reversed       = me.reversedLayoutDirection,
+        let me                  = this,
+            index               = me.currentIndex,
+            isOverDraggingLeft  = data.clientX < me.boundaryContainerRect.left,
+            isOverDraggingRight = data.clientX > me.boundaryContainerRect.right,
+            isOverDragging      = isOverDraggingLeft || isOverDraggingRight,
+            moveFactor          = isOverDragging ? 0.02 : 0.55, // We can not use 0.5, since items would jump back & forth
+            {itemRects}         = me,
+            maxItems            = itemRects.length - 1,
+            reversed            = me.reversedLayoutDirection,
             delta, itemWidth;
 
         if (me.sortDirection === 'horizontal') {
@@ -178,14 +180,25 @@ class SortZone extends DragZone {
             itemWidth = 'height'
         }
 
-        if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
+        if (isOverDraggingLeft) {
+            if (index > 0) {
+                me.currentIndex--;
+                await me.scrollToIndex();
+                me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        else if (isOverDraggingRight) {
+            if (index < maxItems) {
+                me.currentIndex++;
+                await me.scrollToIndex();
+                me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
             if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
                 me.currentIndex--;
-
-                if (isOverDragging) {
-                    await me.scrollToIndex()
-                }
-
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -193,11 +206,6 @@ class SortZone extends DragZone {
         else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
             if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
                 me.currentIndex++;
-
-                if (isOverDragging) {
-                    await me.scrollToIndex()
-                }
-
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -205,7 +213,7 @@ class SortZone extends DragZone {
         me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
 
         if (me.isOverDragging) {
-            await me.timeout(20); // wait for 1 frame
+            await me.timeout(30); // wait for 1 frame
 
             if (me.isOverDragging) {
                 await me.onDragMove(data)
