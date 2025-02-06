@@ -1,4 +1,5 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Collection      from '../collection/Base.mjs';
 import Component       from '../component/Base.mjs';
 import NeoArray        from '../util/Array.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
@@ -63,10 +64,10 @@ class GridView extends Component {
          */
         containerWidth_: 0,
         /**
-         * @member {Object[]} columnPositions_=[]
+         * @member {Neo.collection.Base|null} columnPositions_=null
          * @protected
          */
-        columnPositions_: [],
+        columnPositions_: null,
         /**
          * @member {Boolean} highlightModifiedCells_=false
          */
@@ -238,19 +239,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetContainerWidth(value, oldValue) {
-        if (value > 0 && this.columnPositions.length > 0) {
-            this.updateVisibleColumns()
-        }
-    }
-
-    /**
-     * Triggered after the columnPositions config got changed
-     * @param {Object[]} value
-     * @param {Object[]} oldValue
-     * @protected
-     */
-    afterSetColumnPositions(value, oldValue) {
-        if (value.length > 0 && this.containerWidth > 0) {
+        if (value > 0) {
             this.updateVisibleColumns()
         }
     }
@@ -299,7 +288,7 @@ class GridView extends Component {
             {bufferRowRange} = me,
             newStartIndex;
 
-        if (value.x !== oldValue?.x && me.columnPositions.length > 0) {
+        if (value.x !== oldValue?.x) {
             me.updateVisibleColumns()
         }
 
@@ -462,6 +451,22 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered when accessing the columnPositions config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetColumnPositions(value) {
+        if (!value) {
+            this._columnPositions = value = Neo.create({
+                module     : Collection,
+                keyProperty: 'dataField'
+            })
+        }
+
+        return value
+    }
+
+    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -490,7 +495,7 @@ class GridView extends Component {
             columns       = gridContainer.headerToolbar.items,
             id            = me.getRowId(record, rowIndex),
             trCls         = me.getTrClass(record, rowIndex),
-            config, column, endIndex, gridRow, i, startIndex;
+            config, column, columnPosition, endIndex, gridRow, i, startIndex;
 
         if (rowIndex % 2 !== 0) {
             trCls.push('neo-even')
@@ -529,10 +534,17 @@ class GridView extends Component {
                 config.cls = ['neo-locked', ...config.cls || []]
             }
 
+            columnPosition = me.columnPositions.get(column.dataField);
+
             config.style = {
                 ...config.style,
-                left : me.columnPositions[i].x     + 'px',
-                width: me.columnPositions[i].width + 'px'
+                left : columnPosition.x     + 'px',
+                width: columnPosition.width + 'px'
+            }
+
+            // Happens during a column header drag OP, when leaving the painted range
+            if (columnPosition.hidden) {
+                config.style.visibility = 'hidden'
             }
 
             gridRow.cn.push(config)
@@ -552,11 +564,11 @@ class GridView extends Component {
             endIndex, i;
 
         if (
-            countRecords              < 1 ||
-            me.availableRows          < 1 ||
-            me._containerWidth        < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
-            me.columnPositions.length < 1 ||
-            me.visibleColumns[1]      < 1
+            countRecords                  < 1 ||
+            me.availableRows              < 1 ||
+            me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
+            me.columnPositions.getCount() < 1 ||
+            me.visibleColumns[1]          < 1
         ) {
             return
         }
@@ -652,13 +664,14 @@ class GridView extends Component {
      * @returns {Object[]}
      */
     getColumnCells(dataField) {
-        let me       = this,
-            cells    = [],
-            vdomRoot = me.getVdomRoot(),
-            firstRow = vdomRoot.cn[0],
-            i        = 0,
-            len      = firstRow.cn.length,
-            columnIndex;
+        let me          = this,
+            cells       = [],
+            columnIndex = -1,
+            vdomRoot    = me.getVdomRoot(),
+            firstRow    = vdomRoot.cn[0],
+            i           = 0,
+            len         = firstRow.cn.length,
+            cell;
 
         // Columns might get moved via drag&drop, so let's check for the current match
         for (; i < len; i++) {
@@ -668,9 +681,12 @@ class GridView extends Component {
             }
         }
 
-        vdomRoot.cn.forEach(row => {
-            cells.push(row.cn[columnIndex])
-        });
+        if (columnIndex > -1) {
+            vdomRoot.cn.forEach(row => {
+                cell = row.cn[columnIndex];
+                cell && cells.push(cell)
+            })
+        }
 
         return cells
     }
@@ -900,12 +916,16 @@ class GridView extends Component {
             {columnPositions} = me,
             {x}               = me.scrollPosition,
             i                 = 0,
-            len               = columnPositions.length,
+            len               = columnPositions.getCount(),
             endIndex          = len - 1,
             column, startIndex;
 
+        if (len < 1) {
+            return
+        }
+
         for (; i < len; i++) {
-            column = columnPositions[i];
+            column = columnPositions.getAt(i);
 
             if (x >= column.x && x <= column.x + column.width) {
                 startIndex = i

@@ -1,4 +1,3 @@
-import Component           from '../../../src/component/Base.mjs';
 import ComponentController from '../../../src/controller/Component.mjs';
 import ComponentManager    from '../../../src/manager/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
@@ -127,14 +126,15 @@ class MainContainerController extends ComponentController {
      * @param {Object} proxyRect
      */
     dropDialogBetweenWindows(proxyRect) {
-        let me           = this,
-            dialog       = me.dialog,
-            intersection = Rectangle.getIntersectionDetails(me.dragStartWindowRect, proxyRect),
-            side         = me.dockedWindowSide,
-            size         = proxyRect.height * proxyRect.width,
+        let me               = this,
+            dialog           = me.dialog,
+            intersection     = Rectangle.getIntersection(me.dragStartWindowRect, proxyRect),
+            intersectionSize = intersection?.height * intersection?.width,
+            side             = me.dockedWindowSide,
+            size             = proxyRect.height * proxyRect.width,
             wrapperStyle;
 
-        if (intersection.area > size / 2) { // drop the dialog fully into the dragStart window
+        if (intersectionSize > size / 2) { // drop the dialog fully into the dragStart window
             me.destroyDockedWindowProxy();
 
             wrapperStyle = dialog.wrapperStyle;

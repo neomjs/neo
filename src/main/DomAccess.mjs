@@ -464,7 +464,7 @@ class DomAccess extends Base {
             returnData;
 
         if (Array.isArray(data.id)) {
-            return data.id.map(id => me.getBoundingClientRect({ id }));
+            return data.id.map(id => me.getBoundingClientRect({id}))
         } else {
             let node = me.getElementOrBody(data.nodeType ? data : data.id),
                 rect = {},
@@ -897,19 +897,16 @@ class DomAccess extends Base {
      * @param {String} [data.id]
      * @param {String} data.behavior='smooth'
      * @param {String} data.block='start'
+     * @param {Number} data.delay=500
      * @param {String} data.inline='nearest'
      * @param {String} [data.querySelector]
      * @returns {Promise<any>}
      */
-    scrollIntoView(data) {
-        let node = data.id ? this.getElement(data.id) : document.querySelector(data.querySelector),
-            opts = {
-                behavior: data.behavior || 'smooth',
-                block   : data.block    || 'start',
-                inline  : data.inline   || 'nearest'
-            };
+    scrollIntoView({id, behavior='smooth', block='start', delay=500, inline='nearest', querySelector}) {
+        let node = id ? this.getElement(id) : document.querySelector(querySelector),
+            opts = {behavior, block, inline};
 
-        if (opts.behavior !== 'smooth') {
+        if (behavior !== 'smooth') {
             node.scrollIntoView(opts)
         } else {
             // scrollIntoView() does not provide a callback yet.
@@ -918,11 +915,11 @@ class DomAccess extends Base {
                 if (node) {
                     let hasListener = 'scrollend' in window;
 
-                    hasListener && document.addEventListener('scrollend', () =>resolve(), {capture : true, once: true});
+                    hasListener && document.addEventListener('scrollend', () =>resolve(), {capture: true, once: true});
 
                     node.scrollIntoView(opts);
 
-                    !hasListener && this.timeout(500).then(() => {resolve()})
+                    !hasListener && this.timeout(delay).then(() => {resolve()})
                 } else {
                     resolve()
                 }

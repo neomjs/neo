@@ -71,7 +71,7 @@ class Toolbar extends BaseToolbar {
                 me.sortZone = Neo.create({
                     module             : module.default,
                     appName,
-                    boundaryContainerId: id,
+                    boundaryContainerId: [id, me.parent.id],
                     owner              : me,
                     scrollLeft,
                     windowId,
@@ -201,6 +201,7 @@ class Toolbar extends BaseToolbar {
     async passSizeToView(silent=false) {
         let me              = this,
             {items}         = me,
+            {view}          = me.parent,
             rects           = await me.getDomRect(items.map(item => item.id)),
             lastItem        = rects[rects.length - 1],
             columnPositions = rects.map((item, index) => ({dataField: items[index].dataField, width: item.width, x: item.x - rects[0].x})),
@@ -221,11 +222,28 @@ class Toolbar extends BaseToolbar {
             await me.timeout(100);
             await me.passSizeToView(silent)
         } else {
-            me.parent.view[silent ? 'setSilent' : 'set']({
-                availableWidth: lastItem.x + lastItem.width - rects[0].x,
-                columnPositions
-            })
+            view.columnPositions.clear();
+            view.columnPositions.add(columnPositions);
+
+            view[silent ? 'setSilent' : 'set']({
+                availableWidth: lastItem.x + lastItem.width - rects[0].x
+            });
+
+            !silent && view.updateVisibleColumns()
         }
+    }
+
+    /**
+     * @param {Number}  index
+     * @param {DOMRect} itemRect
+     * @returns {Promise<void>}
+     */
+    async scrollToIndex(index, itemRect) {
+        await Neo.main.DomAccess.scrollIntoView({
+            delay   : 125,
+            id      : this.items[index].id,
+            windowId: this.windowId
+        })
     }
 }
 

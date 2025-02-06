@@ -1,6 +1,7 @@
 import Base       from '../core/Base.mjs';
 import Filter     from './Filter.mjs';
 import Logger     from '../util/Logger.mjs';
+import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
 import Sorter     from './Sorter.mjs';
 
@@ -1013,6 +1014,25 @@ class Collection extends Base {
      */
     last() {
         return this._items[this.getCount() -1]
+    }
+
+    /**
+     * Moves an item from fromIndex to toIndex
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    move(fromIndex, toIndex) {
+        if (fromIndex === toIndex) {
+            return
+        }
+
+        let {items} = this;
+
+        if (fromIndex >= items.length) {
+            fromIndex = items.length - 1
+        }
+
+        items.splice(toIndex, 0, items.splice(fromIndex, 1)[0])
     }
 
     /**

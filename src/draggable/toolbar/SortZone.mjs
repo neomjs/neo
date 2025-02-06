@@ -149,9 +149,9 @@ class SortZone extends DragZone {
     /**
      * @param {Object} data
      */
-    onDragMove(data) {
+    async onDragMove(data) {
         // the method can trigger before we got the client rects from the main thread
-        if (!this.itemRects) {
+        if (!this.itemRects || this.isScrolling) {
             return
         }
 
@@ -174,6 +174,13 @@ class SortZone extends DragZone {
         if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
             if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
                 me.currentIndex--;
+
+                if (data.clientX < me.boundaryContainerRect.left) {
+                    me.isScrolling = true;
+                    await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
+                    me.isScrolling = false
+                }
+
                 me.switchItems(index, me.currentIndex)
             }
         }
@@ -181,6 +188,13 @@ class SortZone extends DragZone {
         else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
             if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
                 me.currentIndex++;
+
+                if (data.clientX > me.boundaryContainerRect.right) {
+                    me.isScrolling = true;
+                    await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
+                    me.isScrolling = false
+                }
+
                 me.switchItems(index, me.currentIndex)
             }
         }

@@ -1,6 +1,7 @@
 import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
+import Rectangle from '../../util/Rectangle.mjs';
 
 /**
  * @class Neo.main.addon.DragDrop
@@ -438,23 +439,30 @@ class DragDrop extends Base {
     /**
      * DragZones will set these configs inside their dragStart() method.
      * They only persist until the end of a drag OP.
-     * @param {Object}  data
-     * @param {Boolean} data.alwaysFireDragMove
-     * @param {String}  data.boundaryContainerId
-     * @param {String}  data.scrollContainerId
-     * @param {Number}  data.scrollFactorLeft
-     * @param {Number}  data.scrollFactorTop
+     * @param {Object}               data
+     * @param {Boolean}              data.alwaysFireDragMove
+     * @param {String|String[]|null} data.boundaryContainerId
+     * @param {String|null}          data.scrollContainerId
+     * @param {Number}               data.scrollFactorLeft
+     * @param {Number}               data.scrollFactorTop
+     * @returns {Object} return the boundaryContainerRect
      */
     setConfigs(data) {
-        let me = this,
-            node;
+        let me                    = this,
+            {boundaryContainerId} = data,
+            node, rects;
 
         delete data.appName;
         delete data.windowId;
 
-        if (data.boundaryContainerId) {
-            node = DomAccess.getElementOrBody(data.boundaryContainerId);
-            me.boundaryContainerRect = node.getBoundingClientRect()
+        if (boundaryContainerId) {
+            rects = DomAccess.getBoundingClientRect({id: boundaryContainerId});
+
+            if (Array.isArray(boundaryContainerId)) {
+                me.boundaryContainerRect = Rectangle.getIntersection(...rects)
+            } else {
+                me.boundaryContainerRect = rects
+            }
         }
 
         delete data.boundaryContainerId;
@@ -488,6 +496,10 @@ class DragDrop extends Base {
                     cursor: me.bodyCursorStyle
                 }
             })
+        }
+
+        return {
+            boundaryContainerRect: me.boundaryContainerRect || null
         }
     }
 
