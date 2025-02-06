@@ -150,7 +150,7 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async onDragMove(data) {
-        // the method can trigger before we got the client rects from the main thread
+        // The method can trigger before we got the client rects from the main thread
         if (!this.itemRects || this.isScrolling) {
             return
         }
@@ -158,7 +158,7 @@ class SortZone extends DragZone {
         let me             = this,
             index          = me.currentIndex,
             isOverDragging = data.clientX < me.boundaryContainerRect.left || data.clientX > me.boundaryContainerRect.right,
-            moveFactor     = isOverDragging ? 0.02 : 0.55, // we can not use 0.5, since items would jump back & forth
+            moveFactor     = isOverDragging ? 0.02 : 0.55, // We can not use 0.5, since items would jump back & forth
             {itemRects}    = me,
             maxItems       = itemRects.length - 1,
             reversed       = me.reversedLayoutDirection,
@@ -177,9 +177,7 @@ class SortZone extends DragZone {
                 me.currentIndex--;
 
                 if (isOverDragging) {
-                    me.isScrolling = true;
-                    await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
-                    me.isScrolling = false
+                    await me.scrollToIndex()
                 }
 
                 me.switchItems(index, me.currentIndex)
@@ -191,9 +189,7 @@ class SortZone extends DragZone {
                 me.currentIndex++;
 
                 if (isOverDragging) {
-                    me.isScrolling = true;
-                    await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
-                    me.isScrolling = false
+                    await me.scrollToIndex()
                 }
 
                 me.switchItems(index, me.currentIndex)
@@ -233,7 +229,7 @@ class SortZone extends DragZone {
                 startIndex             : index
             });
 
-            await me.dragStart(data); // we do not want to trigger the super class call here
+            await me.dragStart(data); // We do not want to trigger the super class call here
 
             owner.items.forEach((item, index) => {
                 indexMap[index] = index;
@@ -250,7 +246,7 @@ class SortZone extends DragZone {
                 ownerStyle.height = `${itemRects[0].height}px`;
                 ownerStyle.width  = `${itemRects[0].width}px`;
 
-                // the only reason we are adjusting the toolbar style is that there is no min height or width present.
+                // The only reason we are adjusting the toolbar style is that there is no min height or width present.
                 // removing items from the layout could trigger a change in size.
                 owner.style = ownerStyle;
 
@@ -281,6 +277,17 @@ class SortZone extends DragZone {
                 })
             })
         }
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async scrollToIndex() {
+        let me = this;
+
+        me.isScrolling = true;
+        await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
+        me.isScrolling = false
     }
 
     /**
