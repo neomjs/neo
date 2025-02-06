@@ -83,6 +83,12 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @member {Boolean} isOverDragging=false
+     * @protected
+     */
+    isOverDragging = false
+
+    /**
      * Override this method for class extensions (e.g. tab.header.Toolbar)
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -150,52 +156,70 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async onDragMove(data) {
-        // the method can trigger before we got the client rects from the main thread
+        // The method can trigger before we got the client rects from the main thread
         if (!this.itemRects || this.isScrolling) {
             return
         }
 
         let me          = this,
-            moveFactor  = 0.55, // we can not use 0.5, since items would jump back & forth
             index       = me.currentIndex,
             {itemRects} = me,
             maxItems    = itemRects.length - 1,
             reversed    = me.reversedLayoutDirection,
-            delta, itemWidth;
+            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
 
         if (me.sortDirection === 'horizontal') {
-            delta     = data.clientX + me.scrollLeft - me.offsetX - itemRects[index].left;
-            itemWidth = 'width'
+            delta               = data.clientX + me.scrollLeft - me.offsetX - itemRects[index].left;
+            isOverDraggingEnd   = data.clientX > me.boundaryContainerRect.right;
+            isOverDraggingStart = data.clientX < me.boundaryContainerRect.left;
+            itemHeightOrWidth   = 'width'
         } else {
-            delta     = data.clientY + me.scrollTop  - me.offsetY - itemRects[index].top;
-            itemWidth = 'height'
+            delta               = data.clientY + me.scrollTop - me.offsetY - itemRects[index].top;
+            isOverDraggingEnd   = data.clientY > me.boundaryContainerRect.bottom;
+            isOverDraggingStart = data.clientY < me.boundaryContainerRect.top;
+            itemHeightOrWidth   = 'height'
         }
 
-        if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
-            if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
+        isOverDragging = isOverDraggingEnd || isOverDraggingStart;
+        moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
+
+        if (isOverDraggingStart) {
+            if (index > 0) {
                 me.currentIndex--;
+                await me.scrollToIndex();
+                me.switchItems(index, me.currentIndex)
+            }
+        }
 
-                if (data.clientX < me.boundaryContainerRect.left) {
-                    me.isScrolling = true;
-                    await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
-                    me.isScrolling = false
-                }
+        else if (isOverDraggingEnd) {
+            if (index < maxItems) {
+                me.currentIndex++;
+                await me.scrollToIndex();
+                me.switchItems(index, me.currentIndex)
+            }
+        }
 
+        else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
+            if (Math.abs(delta) > itemRects[index - 1][itemHeightOrWidth] * moveFactor) {
+                me.currentIndex--;
                 me.switchItems(index, me.currentIndex)
             }
         }
 
         else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
-            if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
+            if (Math.abs(delta) > itemRects[index + 1][itemHeightOrWidth] * moveFactor) {
                 me.currentIndex++;
-
-                if (data.clientX > me.boundaryContainerRect.right) {
-                    me.isScrolling = true;
-                    await me.owner.scrollToIndex?.(me.currentIndex, itemRects[me.currentIndex]);
-                    me.isScrolling = false
-                }
-
                 me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
+
+        if (me.isOverDragging) {
+            await me.timeout(30); // wait for 1 frame
+
+            if (me.isOverDragging) {
+                await me.onDragMove(data)
             }
         }
     }
@@ -227,7 +251,7 @@ class SortZone extends DragZone {
                 startIndex             : index
             });
 
-            await me.dragStart(data); // we do not want to trigger the super class call here
+            await me.dragStart(data); // We do not want to trigger the super class call here
 
             owner.items.forEach((item, index) => {
                 indexMap[index] = index;
@@ -244,7 +268,7 @@ class SortZone extends DragZone {
                 ownerStyle.height = `${itemRects[0].height}px`;
                 ownerStyle.width  = `${itemRects[0].width}px`;
 
-                // the only reason we are adjusting the toolbar style is that there is no min height or width present.
+                // The only reason we are adjusting the toolbar style is that there is no min height or width present.
                 // removing items from the layout could trigger a change in size.
                 owner.style = ownerStyle;
 
@@ -275,6 +299,17 @@ class SortZone extends DragZone {
                 })
             })
         }
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async scrollToIndex() {
+        let me = this;
+
+        me.isScrolling = true;
+        await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
+        me.isScrolling = false
     }
 
     /**
