@@ -40,6 +40,39 @@ class GridScrollbar extends Component {
     }
 
     /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addScrollSync(mounted) {
+        let me         = this,
+            ScrollSync = Neo.main?.addon?.ScrollSync,
+            {windowId} = me,
+            params     = {id: me.id, windowId};
+
+        if (!ScrollSync) {
+            await Neo.Main.importAddon({name: 'ScrollSync', windowId});
+            ScrollSync = Neo.main.addon.ScrollSync
+        }
+
+        if (mounted) {
+            ScrollSync.register(params)
+        } else {
+            ScrollSync.unregister(params)
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        oldValue !== undefined && this.addScrollSync(value)
+    }
+
+    /**
      * Triggered after the rowHeight config got changed
      * @param {Number} value
      * @param {Number} oldValue
