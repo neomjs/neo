@@ -126,7 +126,7 @@ class GridView extends Component {
         _vdom:
         {tabIndex: '-1', cn: [
             {cn: []},
-            {cls: 'neo-grid-scrollbar'}
+            {cls: 'neo-grid-stretcher'}
         ]}
     }
 
