@@ -18,14 +18,4 @@
         position           : absolute;
         width              : 100%;
     }
-
-    .neo-grid-scrollbar {
-        background-color: red;
-        bottom          : 0;
-        position        : absolute;
-        right           : 0;
-        top             : 31px; // header-toolbar height
-        width           : 16px;
-        z-index         : 2;
-    }
 }
