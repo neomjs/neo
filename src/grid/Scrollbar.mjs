@@ -109,7 +109,7 @@ class GridScrollbar extends Component {
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[0].height = `${countRecords * rowHeight}px`;
+            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
             me.update()
         }
     }
