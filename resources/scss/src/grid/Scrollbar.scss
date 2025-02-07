@@ -1,11 +1,11 @@
 .neo-grid-scrollbar {
-    bottom          : 0;
+    bottom          : 1px;
     opacity         : 0;
     overflow-y      : scroll;
     position        : absolute;
     right           : 0;
     top             : 31px; // header-toolbar height
-    transition      : opacity .4s;
+    transition      : opacity 1s ease-out;
     width           : 16px;
     z-index         : 2;
 

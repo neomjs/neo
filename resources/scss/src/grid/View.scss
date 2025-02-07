@@ -4,6 +4,7 @@
     overflow-x     : hidden;
     overflow-y     : auto;
     position       : relative;
+    scrollbar-width: none;
 
     &:focus {
         outline: none;
