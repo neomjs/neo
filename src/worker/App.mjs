@@ -246,7 +246,7 @@ class App extends Base {
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
      * @param {String} name
      * @param {Number} windowId
-     * @returns {Promise<Neo.main.addon.Base>}
+     * @returns {Promise<Neo.main.addon.Base>} The namespace of the addon to use via remote method access
      */
     async getAddon(name, windowId) {
         let addon = Neo.main?.addon?.[name];
