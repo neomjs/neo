@@ -45,14 +45,9 @@ class GridScrollbar extends Component {
      */
     async addScrollSync(mounted) {
         let me         = this,
-            ScrollSync = Neo.main?.addon?.ScrollSync,
             {windowId} = me,
+            ScrollSync = await Neo.currentWorker.getAddon('ScrollSync', windowId),
             params     = {id: me.id, windowId};
-
-        if (!ScrollSync) {
-            await Neo.Main.importAddon({name: 'ScrollSync', windowId});
-            ScrollSync = Neo.main.addon.ScrollSync
-        }
 
         if (mounted) {
             ScrollSync.register(params)

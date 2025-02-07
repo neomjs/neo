@@ -238,14 +238,9 @@ class GridContainer extends BaseContainer {
      */
     async addResizeObserver(mounted) {
         let me             = this,
-            ResizeObserver = Neo.main?.addon?.ResizeObserver,
             {windowId}     = me,
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
             resizeParams   = {id: me.id, windowId};
-
-        if (!ResizeObserver) {
-            await Neo.Main.importAddon({name: 'ResizeObserver', windowId});
-            ResizeObserver = Neo.main.addon.ResizeObserver
-        }
 
         if (mounted) {
             ResizeObserver.register(resizeParams);
