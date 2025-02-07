@@ -165,7 +165,7 @@ class GridContainer extends BaseContainer {
         me.scrollbar = Neo.create({
             module  : GridScrollbar,
             appName,
-            parentId: me,
+            parentId: me.id,
             rowHeight,
             store,
             windowId

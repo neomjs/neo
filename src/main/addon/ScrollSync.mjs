@@ -26,10 +26,15 @@ class ScrollSync extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object}  data
+     * @param {String}  direction='vertical' 'horizontal', 'vertical' or 'both'
+     * @param {String}  fromId
+     * @param {String}  id                   The owner id (e.g. component id)
+     * @param {String}  toId
+     * @param {Boolean} twoWay=true          Sync the target's scroll state back to the source node
      */
-    register(data) {
-        console.log('register', data)
+    register({direction='vertical', fromId, id, toId, twoWay=true}) {
+        console.log('register', direction, fromId, id, toId, twoWay);
     }
 
     /**
