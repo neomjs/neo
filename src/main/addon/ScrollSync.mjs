@@ -68,8 +68,6 @@ class ScrollSync extends Base {
      * @param {Boolean} twoWay=true          Sync the target's scroll state back to the source node
      */
     register({direction='vertical', fromId, id, toId, twoWay=true}) {
-        console.log('register', direction, fromId, id, toId, twoWay);
-
         let me = this;
 
         me.addScrollListener(fromId, toId, direction);
