@@ -243,6 +243,23 @@ class App extends Base {
     }
 
     /**
+     * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
+     * @param {String} name
+     * @param {Number} windowId
+     * @returns {Promise<Neo.main.addon.Base>} The namespace of the addon to use via remote method access
+     */
+    async getAddon(name, windowId) {
+        let addon = Neo.main?.addon?.[name];
+
+        if (!addon) {
+            await Neo.Main.importAddon({name, windowId});
+            addon = Neo.main.addon[name]
+        }
+
+        return addon
+    }
+
+    /**
      * Get configs of any app realm based Neo instance from main
      * @param {Object} data
      * @param {String} data.id

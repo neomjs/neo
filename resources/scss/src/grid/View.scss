@@ -4,17 +4,19 @@
     overflow-x     : hidden;
     overflow-y     : auto;
     position       : relative;
+    scrollbar-width: none;
 
     &:focus {
         outline: none;
     }
 
-    .neo-grid-scrollbar {
+    .neo-grid-stretcher {
         height        : 1px;
         position      : absolute;
         top           : 0;
         visibility    : hidden;
         width         : 1px;
+        z-index       : 1001; // Above the column dragProxy element
     }
 }
 
@@ -52,12 +54,25 @@
 
     .neo-grid-row {
         position: absolute;
+        width   : 100%;
+
+        &:last-child {
+            .neo-grid-cell {
+                border-bottom-width: 0 !important;
+            }
+        }
 
          &:hover {
              .neo-grid-cell {
                  background-color: var(--grid-cell-background-color-hover);
              }
          }
+
+        &.neo-even {
+            .neo-grid-cell {
+                background-color: var(--grid-container-cell-background-color-even);
+            }
+        }
 
          // selection.RowModel
          &.neo-selected {
@@ -68,7 +83,19 @@
          }
 
          .neo-grid-cell {
-             position: absolute;
+             align-items     : center;
+             background-color: var(--grid-container-cell-background-color);
+             border-bottom   : 1px solid var(--grid-container-border-color);
+             border-right    : 1px solid var(--grid-container-border-color);
+             display         : flex;
+             height          : inherit;
+             padding         : 2px 10px 2px;
+             position        : absolute;
+             width           : fit-content;
+
+             &:last-child {
+                 border-right-width : 0;
+             }
 
              // selection.CellModel
              &.neo-selected {
