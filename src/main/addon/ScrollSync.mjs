@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base      from './Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Syncs the scroll state of 2 DOM nodes
@@ -26,6 +27,39 @@ class ScrollSync extends Base {
     }
 
     /**
+     * @param {String} fromId
+     * @param {String} toId
+     * @param {String} direction
+     */
+    addScrollListener(fromId, toId, direction) {
+        DomAccess.getElement(fromId)?.addEventListener('scroll', this.onScroll.bind(this, toId, direction))
+    }
+
+    /**
+     * @param {String} toId
+     * @param {String} direction
+     * @param {Event}  event
+     */
+    onScroll(toId, direction, event) {
+        let node                    = DomAccess.getElement(toId),
+            {scrollLeft, scrollTop} = event.target;
+
+        if (node) {
+            if (direction === 'both') {
+                node.scrollTo({
+                    behavior: 'instant',
+                    left    : scrollLeft,
+                    top     : scrollTop
+                })
+            } else if (direction === 'horizontal') {
+                node.scrollLeft = scrollLeft
+            } else if (direction === 'vertical') {
+                node.scrollTop = scrollTop
+            }
+        }
+    }
+
+    /**
      * @param {Object}  data
      * @param {String}  direction='vertical' 'horizontal', 'vertical' or 'both'
      * @param {String}  fromId
@@ -35,6 +69,14 @@ class ScrollSync extends Base {
      */
     register({direction='vertical', fromId, id, toId, twoWay=true}) {
         console.log('register', direction, fromId, id, toId, twoWay);
+
+        let me = this;
+
+        me.addScrollListener(fromId, toId, direction);
+
+        if (twoWay) {
+            me.addScrollListener(toId, fromId, direction)
+        }
     }
 
     /**

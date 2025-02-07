@@ -51,8 +51,8 @@ class GridScrollbar extends Component {
 
         if (mounted) {
             ScrollSync.register({
-                fromId: me.parent.view.vdom.cn[1].id, // todo: add a scroller getter
-                toId  : me.vdom.cn[0].id,
+                fromId: me.parent.view.vdom.id,
+                toId  : me.id,
                 ...params
             })
         } else {
