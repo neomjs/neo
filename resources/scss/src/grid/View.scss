@@ -62,15 +62,15 @@
             }
         }
 
-         &:hover {
-             .neo-grid-cell {
-                 background-color: var(--grid-cell-background-color-hover);
-             }
-         }
-
         &.neo-even {
             .neo-grid-cell {
                 background-color: var(--grid-container-cell-background-color-even);
+            }
+        }
+
+        &:hover {
+            .neo-grid-cell {
+                background-color: var(--grid-cell-background-color-hover);
             }
         }
 
