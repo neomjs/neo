@@ -447,20 +447,22 @@ class ComboBox extends Picker {
      * @param {*} oldValue
      * @override
      */
-    fireChangeEvent(value, oldValue) {
+    async fireChangeEvent(value, oldValue) {
         let me            = this,
             FormContainer = Neo.form?.Container,
             params        = {component: me, oldValue, value};
 
-            me.fire('change', params);
+        await me.timeout(10);
 
-            if (!me.suspendEvents) {
-                ComponentManager.getParents(me).forEach(parent => {
-                    if (FormContainer && parent instanceof FormContainer) {
-                        parent.fire('fieldChange', params)
-                    }
-                })
-            }
+        me.fire('change', params);
+
+        if (!me.suspendEvents) {
+            ComponentManager.getParents(me).forEach(parent => {
+                if (FormContainer && parent instanceof FormContainer) {
+                    parent.fire('fieldChange', params)
+                }
+            })
+        }
     }
 
     /**
@@ -557,7 +559,7 @@ class ComboBox extends Picker {
      * @param {Object[]} selectionChangeEvent.selection
      * @protected
      */
-    async onListItemSelectionChange({ selection }) {
+    async onListItemSelectionChange({selection}) {
         if (selection?.length) {
             let me       = this,
                 selected = selection[0],
@@ -567,19 +569,15 @@ class ComboBox extends Picker {
 
             me.updateTypeAheadValue(null, true);
 
+            await me.hidePicker();
+
             me.preventFiltering = true;
             me.value            = record;
             me.preventFiltering = false;
 
             me.fire('select', {
                 value: record
-            });
-
-            // Short delay to let selection DOM updates get applied.
-            // Alternatively, we could hide the picker before the selection happen and limit updates to the vdom.
-            await me.timeout(20);
-
-            await me.hidePicker()
+            })
         }
     }
 
