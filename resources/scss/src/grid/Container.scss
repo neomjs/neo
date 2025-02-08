@@ -5,6 +5,26 @@
     overscroll-behavior: none;
     position           : relative;
 
+    &.neo-masked {
+        .neo-grid-container {
+            opacity: .3;
+        }
+
+        .neo-load-mask {
+            .neo-load-mask-body {
+                .fa-spinner {
+                    height     : 3em;
+                    font-size  : 3em;
+                    line-height: 3em;
+                }
+
+                .neo-loading-message {
+                    font-size: 2.5em;
+                }
+            }
+        }
+    }
+
     .neo-grid-container {
         border             : 1px solid var(--grid-container-border-color);
         border-spacing     : 0;

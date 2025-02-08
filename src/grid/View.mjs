@@ -494,11 +494,11 @@ class GridView extends Component {
             gridContainer = me.parent,
             columns       = gridContainer.headerToolbar.items,
             id            = me.getRowId(record, rowIndex),
-            trCls         = me.getTrClass(record, rowIndex),
+            rowCls        = me.getRowClass(record, rowIndex),
             config, column, columnPosition, endIndex, gridRow, i, startIndex;
 
         if (rowIndex % 2 !== 0) {
-            trCls.push('neo-even')
+            rowCls.push('neo-even')
         }
 
         if (selectedRows && record[me.selectedRecordField]) {
@@ -506,14 +506,14 @@ class GridView extends Component {
         }
 
         if (selectedRows?.includes(id)) {
-            trCls.push('neo-selected');
+            rowCls.push('neo-selected');
             gridContainer.fire('select', {record})
         }
 
         gridRow = {
             id,
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            cls            : trCls,
+            cls            : rowCls,
             cn             : [],
             role           : 'row',
 
@@ -581,6 +581,8 @@ class GridView extends Component {
         }
 
         me.getVdomRoot().cn = rows;
+
+        me.parent.isLoading = false;
 
         me.update()
     }
@@ -745,21 +747,21 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object} record
-     * @returns {String}
-     */
-    getRowId(record) {
-        return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
-    }
-
-    /**
      * Override this method to apply custom CSS rules to grid rows
      * @param {Object} record
      * @param {Number} rowIndex
      * @returns {String[]}
      */
-    getTrClass(record, rowIndex) {
+    getRowClass(record, rowIndex) {
         return ['neo-grid-row']
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {String}
+     */
+    getRowId(record) {
+        return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
     }
 
     /**

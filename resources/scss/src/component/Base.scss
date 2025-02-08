@@ -29,35 +29,32 @@
 }
 
 .neo-masked {
-    font-family : inherit;
-    font-size   : inherit;
-    font-weight : var(--button-text-font-weight);
-    position    : relative;
-    color       : var(--button-text-color);
+    position: relative;
 
     .neo-load-mask {
-        position         : absolute;
-        inset            : 0;
-        background-color : inherit;
-        border-radius    : inherit;
-        z-index          : 4;
-        display          : grid;
-        justify-content  : center;
-        align-content    : center;
-        overflow         : clip;
+        align-content   : center;
+        background-color: inherit;
+        border-radius   : inherit;
+        display         : grid;
+        inset           : 0;
+        justify-content : center;
+        overflow        : clip;
+        position        : absolute;
+        z-index         : 4;
 
         .neo-load-mask-body {
-            align-items : center;
-            display     : flex;
-            flex-flow   : row nowrap;
-            gap         : 0.7em;
+            align-items: center;
+            display    : flex;
+            flex-flow  : row nowrap;
+            gap        : 0.7em;
+
+            .fa-spinner {
+                height: 1em;
+                width : 1em;
+            }
 
             .neo-loading-message {
                 color: inherit;
-            }
-            .fa-spinner {
-                width  : 1em;
-                height : 1em;
             }
         }
     }

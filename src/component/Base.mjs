@@ -749,8 +749,8 @@ class Component extends Base {
      */
     afterSetIsLoading(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let me          = this,
-                {cls, vdom} = me,
+            let me                 = this,
+                {wrapperCls, vdom} = me,
                 maskIndex;
 
             if (oldValue !== undefined && vdom.cn) {
@@ -770,8 +770,8 @@ class Component extends Base {
                 vdom.cn.push(me.createLoadingMask(value))
             }
 
-            NeoArray.toggle(cls, 'neo-masked', value);
-            me.set({cls, vdom})
+            NeoArray.toggle(wrapperCls, 'neo-masked', value);
+            me.set({vdom, wrapperCls})
         }
     }
 

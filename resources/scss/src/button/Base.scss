@@ -161,6 +161,13 @@
         }
     }
 
+    &.neo-masked {
+        font-family: inherit;
+        font-size  : inherit;
+        font-weight: var(--button-text-font-weight);
+        color      : var(--button-text-color);
+    }
+
     &.neo-button-ghost {
         background-color: var(--button-ghost-background-color);
         background-image: var(--button-ghost-background-image);
