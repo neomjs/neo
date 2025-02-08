@@ -120,7 +120,7 @@ class DragZone extends BaseDragZone {
      * @param {String}               data.id
      * @param {Neo.component.Base[]} data.items
      */
-    onItemsCreated(data) {console.log('onItemsCreated');
+    onItemsCreated(data) {
         this.adjustToolbarItemCls(true)
     }
 }
