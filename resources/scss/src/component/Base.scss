@@ -32,15 +32,15 @@
     position: relative;
 
     .neo-load-mask {
-        position        : absolute;
-        inset           : 0;
+        align-content   : center;
         background-color: inherit;
         border-radius   : inherit;
-        z-index         : 4;
         display         : grid;
+        inset           : 0;
         justify-content : center;
-        align-content   : center;
         overflow        : clip;
+        position        : absolute;
+        z-index         : 4;
 
         .neo-load-mask-body {
             align-items: center;
@@ -52,8 +52,8 @@
                 color: inherit;
             }
             .fa-spinner {
-                width : 1em;
                 height: 1em;
+                width : 1em;
             }
         }
     }
