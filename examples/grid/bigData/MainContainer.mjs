@@ -1,7 +1,8 @@
-import ComboBox      from '../../../src/form/field/ComboBox.mjs';
-import GridContainer from './GridContainer.mjs';
-import Toolbar       from '../../../src/toolbar/Base.mjs';
-import Viewport      from '../../../src/container/Viewport.mjs';
+import ComboBox          from '../../../src/form/field/ComboBox.mjs';
+import ControlsContainer from './ControlsContainer.mjs';
+import GridContainer     from './GridContainer.mjs';
+import Toolbar           from '../../../src/toolbar/Base.mjs';
+import Viewport          from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.MainContainer
@@ -21,7 +22,7 @@ class MainContainer extends Viewport {
         /**
          * @member {Object[]} items
          */
-        items: [{
+        items: [/*, {
             module: Toolbar,
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch', wrap: 'wrap'},
@@ -63,21 +64,19 @@ class MainContainer extends Viewport {
                 value     : '0',
                 width     : 185
             }]
-        }, {
+        }*/ {
             module    : GridContainer,
             reference : 'grid',
             viewConfig: {
                 bufferRowRange: 5
             }
+        }, {
+            module: ControlsContainer
         }],
         /**
-         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @member {Object} layout={ntype:'hbox',align:'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * @member {Object} style={padding:'20px'}
-         */
-        style: {padding: '20px'}
+        layout: {ntype: 'hbox', align: 'stretch'}
     }
 
     get grid() {

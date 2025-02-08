@@ -28,7 +28,11 @@ class GridContainer extends BaseGridContainer {
         /**
          * @member {Object[]} store=MainStore
          */
-        store: MainStore
+        store: MainStore,
+        /**
+         * @member {Object} style={padding:'20px'}
+         */
+        wrapperStyle: {margin: '3.5em 1em 1em 1em'}
     }
 
     /**
