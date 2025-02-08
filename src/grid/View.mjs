@@ -582,6 +582,8 @@ class GridView extends Component {
 
         me.getVdomRoot().cn = rows;
 
+        me.parent.isLoading = false;
+
         me.update()
     }
 

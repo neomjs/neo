@@ -48,12 +48,13 @@
             flex-flow  : row nowrap;
             gap        : 0.7em;
 
-            .neo-loading-message {
-                color: inherit;
-            }
             .fa-spinner {
                 height: 1em;
                 width : 1em;
+            }
+
+            .neo-loading-message {
+                color: inherit;
             }
         }
     }

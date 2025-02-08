@@ -89,6 +89,7 @@ class MainContainer extends Viewport {
      */
     onAmountColumnsChange(data) {
         if (data.oldValue) {
+            this.grid.isLoading = 'Is Loading';
             this.grid.amountColumns = parseInt(data.value.id)
         }
     }
@@ -98,6 +99,7 @@ class MainContainer extends Viewport {
      */
     onAmountRowsChange(data) {
         if (data.oldValue) {
+            this.grid.isLoading = 'Is Loading';
             this.grid.store.amountRows = parseInt(data.value.id)
         }
     }
