@@ -452,7 +452,7 @@ class ComboBox extends Picker {
             FormContainer = Neo.form?.Container,
             params        = {component: me, oldValue, value};
 
-        await me.timeout(10);
+        await me.timeout(30);
 
         me.fire('change', params);
 
