@@ -31,6 +31,13 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'}
     }
+
+    /**
+     * @param {Object} opts
+     */
+    onThemeRadioChange({value}) {
+        this.theme = value
+    }
 }
 
 export default Neo.setupClass(MainContainer);

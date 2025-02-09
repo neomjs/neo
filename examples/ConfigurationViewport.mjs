@@ -190,7 +190,7 @@ class ConfigurationViewport extends Viewport {
         let me          = this,
             button      = data.component,
             countThemes = themes.length,
-            futureIndex, newTheme, oldIndex, oldTheme, themeIndex;
+            futureIndex, newTheme, themeIndex;
 
         themes.forEach((theme, index) => {
             if (button.text === theme.label) {
@@ -200,8 +200,6 @@ class ConfigurationViewport extends Viewport {
         });
 
         futureIndex = (themeIndex + countThemes +1) % countThemes;
-        oldIndex    = (themeIndex + countThemes -1) % countThemes;
-        oldTheme    = themes[oldIndex].name;
 
         button.text = themes[futureIndex].label;
 

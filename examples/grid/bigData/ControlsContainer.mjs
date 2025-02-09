@@ -1,5 +1,6 @@
 import ComboBox  from '../../../src/form/field/ComboBox.mjs';
 import Container from '../../../src/container/Base.mjs';
+import Radio     from '../../../src/form/field/Radio.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.ControlsContainer
@@ -62,6 +63,25 @@ class ControlsContainer extends Container {
                 store     : ['0', '3', '5', '10', '20'],
                 value     : '3',
                 width     : 200
+            }, {
+                module        : Radio,
+                checked       : true,
+                labelText     : 'Theme',
+                labelWidth    : 80,
+                listeners     : {change: 'up.onThemeRadioChange'},
+                name          : 'theme',
+                style         : {marginTop: '2em'},
+                value         : 'neo-theme-dark',
+                valueLabelText: 'Dark'
+            }, {
+                module        : Radio,
+                labelText     : '',
+                labelWidth    : 80,
+                listeners     : {change: 'up.onThemeRadioChange'},
+                name          : 'theme',
+                style         : {marginTop: '.3em'},
+                value         : 'neo-theme-light',
+                valueLabelText: 'Light'
             }]
         }],
         /**
