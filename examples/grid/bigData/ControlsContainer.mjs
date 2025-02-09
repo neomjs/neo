@@ -27,6 +27,8 @@ class ControlsContainer extends Container {
             iconCls: 'fas fa-bars'
         }, {
             module: Container,
+            cls   : ['neo-examples-bigdata-controls-container-content'],
+            layout: 'vbox',
 
             itemDefaults: {
                 module      : ComboBox,
@@ -87,7 +89,7 @@ class ControlsContainer extends Container {
         /**
          * @member {Object} layout={ntype:'vbox'}
          */
-        layout: {ntype: 'vbox'},
+        layout: {ntype: 'fit'},
         /**
          * @member {String} tag='aside'
          */
