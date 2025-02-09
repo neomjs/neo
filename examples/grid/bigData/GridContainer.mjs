@@ -28,7 +28,14 @@ class GridContainer extends BaseGridContainer {
         /**
          * @member {Object[]} store=MainStore
          */
-        store: MainStore
+        store: MainStore,
+        /**
+         * @member {Object} viewConfig
+         */
+        viewConfig: {
+            bufferColumnRange: 3,
+            bufferRowRange   : 5
+        }
     }
 
     /**

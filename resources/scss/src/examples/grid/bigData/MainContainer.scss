@@ -1,7 +1,9 @@
 .neo-examples-bigdata-maincontainer {
-    .neo-toolbar {
-        .neo-combobox {
-            margin: 2px 1em;
+    .neo-grid-wrapper {
+        margin: 3.5em 1em 1em 1em;
+
+        &:has(.neo-extend-margin-right) {
+            margin-right: calc(235px + 1em);
         }
     }
 }
