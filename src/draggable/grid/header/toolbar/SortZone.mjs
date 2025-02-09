@@ -87,7 +87,7 @@ class SortZone extends BaseSortZone {
                 {...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']},
                 {cls: ['neo-grid-view-wrapper'], id: viewWrapperId, cn: [
                     {cls: ['neo-grid-view'], cn: rows},
-                    {cls: ['neo-grid-scrollbar'], style: {height: view.vdom.cn[1].height}}
+                    {cls: ['neo-grid-scrollbar'], style: {height: view.vdom.cn[0].height}}
                 ]}
             ]}
         ]};
