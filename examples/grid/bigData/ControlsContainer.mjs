@@ -1,3 +1,4 @@
+import ComboBox  from '../../../src/form/field/ComboBox.mjs';
 import Container from '../../../src/container/Base.mjs';
 
 /**
@@ -23,9 +24,45 @@ class ControlsContainer extends Container {
             cls    : ['sections-container-button'],
             handler: 'up.onControlsToggleButtonClick',
             iconCls: 'fas fa-bars'
-            //ui     : 'secondary'
         }, {
-            module   : Container
+            module: Container,
+
+            itemDefaults: {
+                module      : ComboBox,
+                clearable   : false,
+                displayField: 'id',
+                editable    : false
+            },
+
+            items: [{
+                labelText : 'Amount Rows',
+                labelWidth: 120,
+                listeners : {change: 'up.onAmountRowsChange'},
+                store     : ['1000', '5000', '10000', '20000', '50000'],
+                value     : '1000',
+                width     : 200
+            }, {
+                labelText : 'Amount Columns',
+                labelWidth: 145,
+                listeners : {change: 'up.onAmountColumnsChange'},
+                store     : ['10', '25', '50', '75', '100'],
+                value     : '50',
+                width     : 200
+            }, {
+                labelText : 'Buffer Rows',
+                labelWidth: 145,
+                listeners : {change: 'up.onBufferRowRangeChange'},
+                store     : ['0', '3', '5', '10', '25', '50'],
+                value     : '5',
+                width     : 200
+            }, {
+                labelText : 'Buffer Columns',
+                labelWidth: 145,
+                listeners : {change: 'up.onBufferColumnRangeChange'},
+                store     : ['0', '3', '5', '10', '20'],
+                value     : '3',
+                width     : 200
+            }]
         }],
         /**
          * @member {Object} layout={ntype:'vbox'}
@@ -37,11 +74,63 @@ class ControlsContainer extends Container {
         tag: 'aside'
     }
 
+    get grid() {
+        return this.parent.getItem('grid')
+    }
+
     /**
      * @param {Object} data
      */
-    onControlsToggleButtonClick(data) {
-        this.toggleCls('neo-expanded')
+    onAmountColumnsChange(data) {
+        if (data.oldValue) {
+            this.grid.isLoading = 'Is Loading';
+            this.grid.amountColumns = parseInt(data.value.id)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onAmountRowsChange(data) {
+        if (data.oldValue) {
+            this.grid.isLoading = 'Is Loading';
+            this.grid.store.amountRows = parseInt(data.value.id)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onBufferColumnRangeChange(data) {
+        if (data.oldValue) {
+            this.grid.view.bufferColumnRange = parseInt(data.value.id)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onBufferRowRangeChange(data) {
+        if (data.oldValue) {
+            this.grid.view.bufferRowRange = parseInt(data.value.id)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onControlsToggleButtonClick(data) {
+        let me     = this,
+            button = data.component;
+
+        // Custom flag to track the state
+        button.expanded = !button.expanded;
+
+        me.toggleCls('neo-expanded');
+
+        await me.timeout(button.expanded ? 250 : 0);
+
+        me.grid.toggleCls('neo-extend-margin-right');
     }
 }
 

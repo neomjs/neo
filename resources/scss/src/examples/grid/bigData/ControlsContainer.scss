@@ -1,16 +1,17 @@
 .neo-examples-bigdata-controls-container {
-    background-color: #323232;
+    background-color: #2b2b2b;
     border          : none; // reset the default 1px
     bottom          : .5em;
     box-shadow      : 0 5px 10px rgba(75,75,75,.3);
     display         : block;
     flex-shrink     : 0;
-    min-width       : 300px;
+    min-width       : 250px;
     overflow        : visible;
+    padding         : .5em 1.5em;
     position        : fixed;
-    right           : -300px;
+    right           : -250px;
     top             : .5em;
-    width           : 300px;
+    width           : 250px;
     transition      : right 250ms ease-out;
     z-index         : 100;
 

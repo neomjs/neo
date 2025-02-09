@@ -17,9 +17,9 @@ class MainStore extends Store {
          */
         amountColumns_: 50,
         /**
-         * @member {Number} amountRows_=10000
+         * @member {Number} amountRows_=1000
          */
-        amountRows_: 10000,
+        amountRows_: 1000,
         /**
          * @member {Neo.data.Model} model=Model
          */

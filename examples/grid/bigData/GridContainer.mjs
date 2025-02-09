@@ -30,9 +30,12 @@ class GridContainer extends BaseGridContainer {
          */
         store: MainStore,
         /**
-         * @member {Object} style={padding:'20px'}
+         * @member {Object} viewConfig
          */
-        wrapperStyle: {margin: '3.5em 1em 1em 1em'}
+        viewConfig: {
+            bufferColumnRange: 3,
+            bufferRowRange   : 5
+        }
     }
 
     /**
