@@ -104,17 +104,24 @@ class ControlsContainer extends Container {
     }
 
     /**
-     *
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
      */
-    onConstructed() {
-        super.onConstructed();
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
 
-        Neo.main.DomAccess.addScript({
-            async   : true,
-            defer   : true,
-            src     : 'https://buttons.github.io/buttons.js',
-            windowId: this.windowId
-        })
+        if (value) {
+            this.timeout(200).then(() => {
+                Neo.main.DomAccess.addScript({
+                    async   : true,
+                    defer   : true,
+                    src     : 'https://buttons.github.io/buttons.js',
+                    windowId: this.windowId
+                })
+            })
+        }
     }
 
     /**
