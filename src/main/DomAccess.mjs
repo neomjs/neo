@@ -737,7 +737,8 @@ class DomAccess extends Base {
      *
      */
     onDomContentLoaded() {
-        Neo.config.applyBodyCls && this.applyBodyCls({cls: ['neo-body']})
+        Neo.config.applyBodyCls && this.applyBodyCls({cls: ['neo-body']});
+        Neo.config.applyFixedPositionToHtmlTag && document.documentElement.style.setProperty('position', 'fixed')
     }
 
     /**

@@ -19,6 +19,15 @@ const DefaultConfig = {
      */
     applyBodyCls: true,
     /**
+     * true will apply 'position: fixed' to the html tag itself
+     * See: https://github.com/neomjs/neo/issues/6429
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.applyFixedPositionToHtmlTag
+     * @type Boolean
+     */
+    applyFixedPositionToHtmlTag: true,
+    /**
      * Path to your app.mjs file. You can create multiple apps there if needed.
      * @default null
      * @memberOf! module:Neo
