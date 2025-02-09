@@ -22,7 +22,7 @@ class ControlsContainer extends Container {
          */
         items: [{
             ntype  : 'button',
-            cls    : ['sections-container-button'],
+            cls    : ['controls-container-button'],
             handler: 'up.onControlsToggleButtonClick',
             iconCls: 'fas fa-bars'
         }, {

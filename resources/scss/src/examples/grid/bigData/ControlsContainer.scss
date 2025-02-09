@@ -27,8 +27,7 @@
         }
     }
 
-    .sections-container-button {
-        //background-color: #fff;
+    .controls-container-button {
         border-radius: 8px;
         box-shadow   : 0 5px 10px rgba(75,75,75,.3);
         display      : flex;
@@ -41,6 +40,10 @@
 
         .neo-button-glyph {
             font-size: 13px;
+        }
+
+        .neo-button-ripple-wrapper {
+            border-radius: 8px;
         }
     }
 }
