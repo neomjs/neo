@@ -130,6 +130,12 @@ class GridView extends Component {
     }
 
     /**
+     * Flag for identifying the ownership of a touchmove operation
+     * @member {Boolean} isTouchMoveOwner=false
+     * @protected
+     */
+    isTouchMoveOwner = false
+    /**
      * Storing touchmove position for mobile envs
      * @member {Number} lastTouchX=0
      * @protected
@@ -163,8 +169,8 @@ class GridView extends Component {
 
         me.addDomListeners([{
             scroll     : me.onScroll,
-            touchcancel: me.onTouchcancel,
-            touchend   : me.onTouchend,
+            touchcancel: me.onTouchCancel,
+            touchend   : me.onTouchEnd,
             scope      : me
         }, {
             click   : me.onCellClick,
@@ -850,16 +856,22 @@ class GridView extends Component {
         });
 
         if (touches) {
-            lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
-            deltaX     = me.lastTouchX - lastTouchX;
+            if (!me.parent.isTouchMoveOwner) {
+                me.isTouchMoveOwner = true
+            }
 
-            deltaX !== 0 && Neo.main.DomAccess.scrollTo({
-                direction: 'left',
-                id       : me.parent.id,
-                value    : me.scrollPosition.x + deltaX
-            })
+            if (me.isTouchMoveOwner) {
+                lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
+                deltaX     = me.lastTouchX - lastTouchX;
 
-            me.lastTouchX = lastTouchX;
+                deltaX !== 0 && Neo.main.DomAccess.scrollTo({
+                    direction: 'left',
+                    id       : me.parent.id,
+                    value    : me.scrollPosition.x + deltaX
+                })
+
+                me.lastTouchX = lastTouchX
+            }
         }
     }
 
@@ -920,15 +932,29 @@ class GridView extends Component {
     /**
      * @param {Object} data
      */
-    onTouchcancel(data) {
-        this.lastTouchX = 0
+    onTouchCancel(data) {
+        let me       = this,
+            {parent} = me;
+
+        me.isTouchMoveOwner = false;
+        me.lastTouchX       = 0;
+
+        parent.isTouchMoveOwner = false;
+        parent.lastTouchY       = 0
     }
 
     /**
      * @param {Object} data
      */
-    onTouchend(data) {
-        this.lastTouchX = 0
+    onTouchEnd(data) {
+        let me       = this,
+            {parent} = me;
+
+        me.isTouchMoveOwner = false;
+        me.lastTouchX       = 0;
+
+        parent.isTouchMoveOwner = false;
+        parent.lastTouchY       = 0
     }
 
     /**

@@ -119,6 +119,12 @@ class GridContainer extends BaseContainer {
      */
     initialResizeEvent = true
     /**
+     * Flag for identifying the ownership of a touchmove operation
+     * @member {Boolean} isTouchMoveOwner=false
+     * @protected
+     */
+    isTouchMoveOwner = false
+    /**
      * Storing touchmove position for mobile envs
      * @member {Number} lastTouchY=0
      * @protected
@@ -185,11 +191,9 @@ class GridContainer extends BaseContainer {
         me.createColumns(me.columns);
 
         me.addDomListeners({
-            resize     : me.onResize,
-            scroll     : me.onScroll,
-            touchcancel: me.onTouchcancel,
-            touchend   : me.onTouchend,
-            scope      : me
+            resize: me.onResize,
+            scroll: me.onScroll,
+            scope : me
         })
     }
 
@@ -542,16 +546,22 @@ class GridContainer extends BaseContainer {
             me.view.scrollPosition = {x: scrollLeft, y: me.view.scrollPosition.y};
 
             if (touches) {
-                lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
-                deltaY     = me.lastTouchY - lastTouchY;
+                if (!me.view.isTouchMoveOwner) {
+                    me.isTouchMoveOwner = true
+                }
 
-                deltaY !== 0 && Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id       : me.view.vdom.id,
-                    value    : me.view.scrollPosition.y + deltaY
-                })
+                if (me.isTouchMoveOwner) {
+                    lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
+                    deltaY     = me.lastTouchY - lastTouchY;
 
-                me.lastTouchY = lastTouchY;
+                    deltaY !== 0 && Neo.main.DomAccess.scrollTo({
+                        direction: 'top',
+                        id       : me.view.vdom.id,
+                        value    : me.view.scrollPosition.y + deltaY
+                    })
+
+                    me.lastTouchY = lastTouchY
+                }
             }
 
         }
@@ -614,20 +624,6 @@ class GridContainer extends BaseContainer {
      */
     onStoreRecordChange(opts) {
         this.view.onStoreRecordChange(opts)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTouchcancel(data) {
-        this.lastTouchY = 0
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTouchend(data) {
-        this.lastTouchY = 0
     }
 
     /**
