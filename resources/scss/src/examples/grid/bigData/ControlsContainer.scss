@@ -4,14 +4,14 @@
     box-shadow      : 0 5px 10px rgba(75,75,75,.3);
     display         : block;
     flex-shrink     : 0;
-    min-width       : 250px;
+    min-width       : 235px;
     overflow        : visible;
-    padding         : .5em 1.5em;
+    padding         : .5em 1em;
     position        : absolute;
-    right           : -250px;
+    right           : -235px;
     top             : .5em;
     transition      : right 250ms ease-out;
-    width           : 250px;
+    width           : 235px;
     z-index         : 100;
 
     &.neo-expanded {

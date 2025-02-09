@@ -36,10 +36,15 @@ class ControlsContainer extends Container {
             },
 
             items: [{
+                ntype: 'component',
+                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+                style: {marginLeft: 'auto'}
+            }, {
                 labelText : 'Amount Rows',
                 labelWidth: 120,
                 listeners : {change: 'up.onAmountRowsChange'},
                 store     : ['1000', '5000', '10000', '20000', '50000'],
+                style     : {marginTop: '2em'},
                 value     : '1000',
                 width     : 200
             }, {
@@ -67,7 +72,7 @@ class ControlsContainer extends Container {
                 module        : Radio,
                 checked       : true,
                 labelText     : 'Theme',
-                labelWidth    : 80,
+                labelWidth    : 70,
                 listeners     : {change: 'up.onThemeRadioChange'},
                 name          : 'theme',
                 style         : {marginTop: '2em'},
@@ -76,7 +81,7 @@ class ControlsContainer extends Container {
             }, {
                 module        : Radio,
                 labelText     : '',
-                labelWidth    : 80,
+                labelWidth    : 70,
                 listeners     : {change: 'up.onThemeRadioChange'},
                 name          : 'theme',
                 style         : {marginTop: '.3em'},
@@ -96,6 +101,20 @@ class ControlsContainer extends Container {
 
     get grid() {
         return this.parent.getItem('grid')
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        Neo.main.DomAccess.addScript({
+            async   : true,
+            defer   : true,
+            src     : 'https://buttons.github.io/buttons.js',
+            windowId: this.windowId
+        })
     }
 
     /**
