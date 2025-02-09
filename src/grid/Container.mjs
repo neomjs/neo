@@ -543,7 +543,7 @@ class GridContainer extends BaseContainer {
 
             if (touches) {
                 lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
-                deltaY     = lastTouchY - me.lastTouchY;
+                deltaY     = me.lastTouchY - lastTouchY;
 
                 deltaY !== 0 && Neo.main.DomAccess.scrollTo({
                     direction: 'top',
