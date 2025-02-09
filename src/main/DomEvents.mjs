@@ -590,17 +590,29 @@ class DomEvents extends Base {
      * @param {Event} event
      */
     onScroll(event) {
-        let {clientHeight, clientWidth, scrollLeft, scrollTop} = event.target;
+        let me = this,
+            {firstTouch, lastTouch} = me,
+            {clientHeight, clientWidth, scrollLeft, scrollTop} = event.target,
+            data;
 
         event.preventDefault();
 
-        this.sendMessageToApp({
-            ...this.getEventData(event),
+        data = {
+            ...me.getEventData(event),
             clientHeight,
             clientWidth,
             scrollLeft,
             scrollTop
-        })
+        };
+
+        if (firstTouch) {
+            data.touches = {
+                firstTouch: {clientX: firstTouch.clientX, clientY: firstTouch.clientY},
+                lastTouch : {clientX: lastTouch .clientX, clientY: lastTouch .clientY}
+            }
+        }
+
+        me.sendMessageToApp(data)
     }
 
     /**
