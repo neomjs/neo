@@ -114,9 +114,22 @@ class GridContainer extends BaseContainer {
 
     /**
      * We do not need the first event to trigger logic, since afterSetMounted() handles this
-     * @member {Boolean}} initialResizeEvent=true
+     * @member {Boolean} initialResizeEvent=true
+     * @protected
      */
     initialResizeEvent = true
+    /**
+     * Flag for identifying the ownership of a touchmove operation
+     * @member {Boolean} isTouchMoveOwner=false
+     * @protected
+     */
+    isTouchMoveOwner = false
+    /**
+     * Storing touchmove position for mobile envs
+     * @member {Number} lastTouchY=0
+     * @protected
+     */
+    lastTouchY = 0
 
     /**
      * Convenience method to access the Neo.grid.header.Toolbar
@@ -521,14 +534,36 @@ class GridContainer extends BaseContainer {
      * @param {Object} data
      * @param {Number} data.scrollLeft
      * @param {Object} data.target
+     * @param {Object} data.touches
      */
-    onScroll({scrollLeft, target}) {
-        let me = this;
+    onScroll({scrollLeft, target, touches}) {
+        let me = this,
+            deltaY, lastTouchY;
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
             me.headerToolbar.scrollLeft = scrollLeft;
-            me.view.scrollPosition = {x: scrollLeft, y: me.view.scrollPosition.y}
+            me.view.scrollPosition = {x: scrollLeft, y: me.view.scrollPosition.y};
+
+            if (touches) {
+                if (!me.view.isTouchMoveOwner) {
+                    me.isTouchMoveOwner = true
+                }
+
+                if (me.isTouchMoveOwner) {
+                    lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
+                    deltaY     = me.lastTouchY - lastTouchY;
+
+                    deltaY !== 0 && Neo.main.DomAccess.scrollTo({
+                        direction: 'top',
+                        id       : me.view.vdom.id,
+                        value    : me.view.scrollPosition.y + deltaY
+                    })
+
+                    me.lastTouchY = lastTouchY
+                }
+            }
+
         }
     }
 

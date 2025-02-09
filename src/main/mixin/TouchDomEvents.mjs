@@ -22,7 +22,8 @@ class TouchDomEvents extends Base {
         let me = this;
 
         me.sendMessageToApp(me.getEventData(event));
-        me.lastTouch = null
+        me.firstTouch = null;
+        me.lastTouch  = null
     }
 
     /**
@@ -32,7 +33,8 @@ class TouchDomEvents extends Base {
         let me = this;
 
         me.sendMessageToApp(me.getEventData(event));
-        me.lastTouch = null
+        me.firstTouch = null;
+        me.lastTouch  = null
     }
 
     /**
@@ -80,7 +82,8 @@ class TouchDomEvents extends Base {
     onTouchStart(event) {
         let me = this;
 
-        me.lastTouch = event.touches[0];
+        me.firstTouch = event.touches[0];
+        me.lastTouch  = event.touches[0];
 
         me.sendMessageToApp(me.getEventData(event))
     }

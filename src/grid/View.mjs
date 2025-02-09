@@ -130,6 +130,18 @@ class GridView extends Component {
     }
 
     /**
+     * Flag for identifying the ownership of a touchmove operation
+     * @member {Boolean} isTouchMoveOwner=false
+     * @protected
+     */
+    isTouchMoveOwner = false
+    /**
+     * Storing touchmove position for mobile envs
+     * @member {Number} lastTouchX=0
+     * @protected
+     */
+    lastTouchX = 0
+    /**
      * @member {Number|null}} scrollTimeoutId=null
      */
     scrollTimeoutId = null
@@ -156,8 +168,10 @@ class GridView extends Component {
         let me = this;
 
         me.addDomListeners([{
-            scroll: me.onScroll,
-            scope : me
+            scroll     : me.onScroll,
+            touchcancel: me.onTouchCancel,
+            touchend   : me.onTouchEnd,
+            scope      : me
         }, {
             click   : me.onCellClick,
             dblclick: me.onCellDoubleClick,
@@ -826,8 +840,9 @@ class GridView extends Component {
      * Only triggers for vertical scrolling
      * @param {Object} data
      */
-    onScroll(data) {
-        let me = this;
+    onScroll({scrollTop, touches}) {
+        let me = this,
+            deltaX, lastTouchX;
 
         me.scrollTimeoutId && clearTimeout(me.scrollTimeoutId);
 
@@ -837,8 +852,27 @@ class GridView extends Component {
 
         me.set({
             isScrolling   : true,
-            scrollPosition: {x: me.scrollPosition.x, y: data.scrollTop}
-        })
+            scrollPosition: {x: me.scrollPosition.x, y: scrollTop}
+        });
+
+        if (touches) {
+            if (!me.parent.isTouchMoveOwner) {
+                me.isTouchMoveOwner = true
+            }
+
+            if (me.isTouchMoveOwner) {
+                lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
+                deltaX     = me.lastTouchX - lastTouchX;
+
+                deltaX !== 0 && Neo.main.DomAccess.scrollTo({
+                    direction: 'left',
+                    id       : me.parent.id,
+                    value    : me.scrollPosition.x + deltaX
+                })
+
+                me.lastTouchX = lastTouchX
+            }
+        }
     }
 
     /**
@@ -893,6 +927,34 @@ class GridView extends Component {
         }
 
         needsUpdate && me.update()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTouchCancel(data) {
+        let me       = this,
+            {parent} = me;
+
+        me.isTouchMoveOwner = false;
+        me.lastTouchX       = 0;
+
+        parent.isTouchMoveOwner = false;
+        parent.lastTouchY       = 0
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTouchEnd(data) {
+        let me       = this,
+            {parent} = me;
+
+        me.isTouchMoveOwner = false;
+        me.lastTouchX       = 0;
+
+        parent.isTouchMoveOwner = false;
+        parent.lastTouchY       = 0
     }
 
     /**
