@@ -1,38 +1,49 @@
 .neo-examples-bigdata-controls-container {
-    border          : none; // reset the default 1px
-    bottom          : .5em;
-    box-shadow      : 0 5px 10px rgba(75,75,75,.3);
-    display         : block;
-    flex-shrink     : 0;
-    min-width       : 235px;
-    overflow        : visible;
-    padding         : .5em 1em;
-    position        : absolute;
-    right           : -235px;
-    top             : .5em;
-    transition      : right 250ms ease-out;
-    width           : 235px;
-    z-index         : 100;
+    border     : none; // reset the default 1px
+    bottom     : .5em;
+    display    : block;
+    flex-shrink: 0;
+    min-width  : 235px;
+    overflow   : visible;
+    position   : absolute;
+    right      : -235px;
+    top        : .5em;
+    transition : right 250ms ease-out;
+    width      : 235px;
+    z-index    : 100;
+
+    .neo-examples-bigdata-controls-container-content {
+        box-shadow: 0 5px 10px rgba(75,75,75,.3);
+        opacity   : 0;
+        padding   : .5em 1em;
+        transition: opacity 250ms ease-out;
+    }
 
     &.neo-expanded {
         right: 0;
+
+        .neo-examples-bigdata-controls-container-content {
+            opacity: 1;
+        }
     }
 
-    .sections-container-button {
-        //background-color: #fff;
-        border-radius   : 8px;
-        box-shadow      : 0 5px 10px rgba(75,75,75,.3);
-        display         : flex;
-        height          : 35px;
-        min-width       : 35px;
-        position        : absolute;
-        left            : -53px;
-        top             : .2em;
-        width           : 35px;
+    .controls-container-button {
+        border-radius: 8px;
+        box-shadow   : 0 5px 10px rgba(75,75,75,.3);
+        display      : flex;
+        height       : 35px;
+        min-width    : 35px;
+        position     : absolute;
+        left         : -53px;
+        top          : .2em;
+        width        : 35px;
 
         .neo-button-glyph {
-            // color    : #000; // required for mobile
             font-size: 13px;
+        }
+
+        .neo-button-ripple-wrapper {
+            border-radius: 8px;
         }
     }
 }
