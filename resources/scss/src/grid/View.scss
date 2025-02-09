@@ -9,15 +9,6 @@
     &:focus {
         outline: none;
     }
-
-    .neo-grid-stretcher {
-        height        : 1px;
-        position      : absolute;
-        top           : 0;
-        visibility    : hidden;
-        width         : 1px;
-        z-index       : 1001; // Above the column dragProxy element
-    }
 }
 
 .neo-grid-view {

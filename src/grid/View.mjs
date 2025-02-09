@@ -125,8 +125,7 @@ class GridView extends Component {
          */
         _vdom:
         {tabIndex: '-1', cn: [
-            {cn: []},
-            {cls: 'neo-grid-stretcher'}
+            {cn: []}
         ]}
     }
 
@@ -207,7 +206,7 @@ class GridView extends Component {
             let me = this;
 
             me.vdom.width = value + 'px';
-            me.vdom.cn[1].width = value + 'px';
+            me.vdom.cn[0].width = value + 'px';
             me.update()
         }
     }
@@ -905,7 +904,7 @@ class GridView extends Component {
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[1].height = `${(countRecords + 1) * rowHeight}px`;
+            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
             me.update()
         }
     }
