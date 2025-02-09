@@ -235,6 +235,7 @@ class Button extends BaseButton {
      * @param {Neo.grid.Container} data.gridContainer
      * @param {Object}             data.record
      * @param {Number}             data.rowIndex
+     * @param {Neo.data.Store}     data.store
      * @param {Number|String}      data.value
      * @returns {*}
      */
