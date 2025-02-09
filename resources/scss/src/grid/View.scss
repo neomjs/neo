@@ -59,12 +59,6 @@
             }
         }
 
-        &:hover {
-            .neo-grid-cell {
-                background-color: var(--grid-cell-background-color-hover);
-            }
-        }
-
          // selection.RowModel
          &.neo-selected {
              .neo-grid-cell {
@@ -100,6 +94,16 @@
              }
          }
      }
+}
+
+.neo-mouse {
+    .neo-grid-row {
+        &:hover {
+            .neo-grid-cell {
+                background-color: var(--grid-cell-background-color-hover);
+            }
+        }
+    }
 }
 
 .neo-selection-cellrowmodel,
