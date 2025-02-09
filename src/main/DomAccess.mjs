@@ -166,47 +166,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
-     */
-    initGlobalListeners() {
-        let me = this;
-
-        document.addEventListener('blur',      me.onDocumentBlur     .bind(me), capturePassive);
-        document.addEventListener('keydown',   me.onDocumentKeyDown  .bind(me), capturePassive);
-        document.addEventListener('keyup',     me.onDocumentKeyUp    .bind(me), capturePassive);
-        document.addEventListener('mousedown', me.onDocumentMouseDown.bind(me), {capture : true})
-    }
-
-    onDocumentMouseDown(e) {
-        let focusController = e.target?.closest('[data-focus]');
-
-        // data-focus on an element means reject mousedown gestures, and move focus
-        // to the referenced element.
-        if (focusController) {
-            e.preventDefault();
-            document.getElementById(focusController.dataset.focus)?.focus()
-        }
-    }
-
-    onDocumentKeyDown(keyEvent) {
-        if (modifierKeys[keyEvent.key]) {
-            // e.g. Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
-            // Selection can consult this value
-            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = true;
-        }
-    }
-
-    onDocumentKeyUp(keyEvent) {
-        if (modifierKeys[keyEvent.key]) {
-            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = false;
-        }
-    }
-
-    onDocumentBlur() {
-        Neo.altKeyDown = Neo.controlKeyDown = Neo.metaKeyDown = Neo.shiftKeyDown = false;
-    }
-
-    /**
      * @param {Object} alignSpec
      */
     addAligned(alignSpec) {
@@ -565,6 +524,18 @@ class DomAccess extends Base {
     }
 
     /**
+     *
+     */
+    initGlobalListeners() {
+        let me = this;
+
+        document.addEventListener('blur',      me.onDocumentBlur     .bind(me), capturePassive);
+        document.addEventListener('keydown',   me.onDocumentKeyDown  .bind(me), capturePassive);
+        document.addEventListener('keyup',     me.onDocumentKeyUp    .bind(me), capturePassive);
+        document.addEventListener('mousedown', me.onDocumentMouseDown.bind(me), {capture : true})
+    }
+
+    /**
      * @param {HTMLElement} el
      * @returns {Boolean}
      */
@@ -716,6 +687,33 @@ class DomAccess extends Base {
     }
 
     /**
+     *
+     */
+    onDocumentBlur() {
+        Neo.altKeyDown = Neo.controlKeyDown = Neo.metaKeyDown = Neo.shiftKeyDown = false
+    }
+
+    /**
+     * @param {KeyboardEvent} keyEvent
+     */
+    onDocumentKeyDown(keyEvent) {
+        if (modifierKeys[keyEvent.key]) {
+            // e.g. Neo.isShiftKeyDown = true or Neo.isControlKeyDown = true.
+            // Selection can consult this value
+            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = true
+        }
+    }
+
+    /**
+     * @param {KeyboardEvent} keyEvent
+     */
+    onDocumentKeyUp(keyEvent) {
+        if (modifierKeys[keyEvent.key]) {
+            Neo[`${StringUtil.uncapitalize(keyEvent.key)}KeyDown`] = false
+        }
+    }
+
+    /**
      * @param {Array} mutations
      */
     onDocumentMutation(mutations) {
@@ -734,10 +732,25 @@ class DomAccess extends Base {
     }
 
     /**
+     * @param {MouseEvent} e
+     */
+    onDocumentMouseDown(e) {
+        let focusController = e.target?.closest('[data-focus]');
+
+        // data-focus on an element means reject mousedown gestures, and move focus
+        // to the referenced element.
+        if (focusController) {
+            e.preventDefault();
+            document.getElementById(focusController.dataset.focus)?.focus()
+        }
+    }
+
+    /**
      *
      */
     onDomContentLoaded() {
-        Neo.config.applyBodyCls && this.applyBodyCls({cls: ['neo-body']})
+        Neo.config.applyBodyCls && this.applyBodyCls({cls: ['neo-body']});
+        Neo.config.applyFixedPositionToHtmlTag && document.documentElement.style.setProperty('position', 'fixed')
     }
 
     /**

@@ -372,18 +372,19 @@ class GridView extends Component {
      * @param {String} [data.cellId]
      * @param {Object} data.column
      * @param {Number} data.columnIndex
-     * @param {Neo.grid.Container} data.gridContainer
      * @param {Object} data.record
      * @param {Number} data.rowIndex
      * @returns {Object}
      */
     applyRendererOutput(data) {
-        let {cellId, column, columnIndex, gridContainer, record, rowIndex} = data,
-            me          = this,
-            cellCls     = ['neo-grid-cell'],
-            colspan     = record[me.colspanField],
-            {dataField} = column,
-            fieldValue  = record[dataField],
+        let {cellId, column, columnIndex, record, rowIndex} = data,
+            me            = this,
+            gridContainer = me.parent,
+            {store}       = me,
+            cellCls       = ['neo-grid-cell'],
+            colspan       = record[me.colspanField],
+            {dataField}   = column,
+            fieldValue    = record[dataField],
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -397,6 +398,7 @@ class GridView extends Component {
             gridContainer,
             record,
             rowIndex,
+            store,
             value: fieldValue
         });
 
@@ -541,7 +543,7 @@ class GridView extends Component {
 
         for (i=startIndex; i <= endIndex; i++) {
             column = columns[i];
-            config = me.applyRendererOutput({column, columnIndex: i, gridContainer, record, rowIndex});
+            config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
 
             if (column.dock) {
                 config.cls = ['neo-locked', ...config.cls || []]
@@ -910,7 +912,7 @@ class GridView extends Component {
                         cellStyle   = cellNode.vdom.style;
                         column      = me.getColumn(field.name);
                         columnIndex = cellNode.index;
-                        cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, gridContainer, record, rowIndex});
+                        cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex});
                         needsUpdate = true;
 
                         // The cell-positioning logic happens outside applyRendererOutput()

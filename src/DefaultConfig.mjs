@@ -19,6 +19,15 @@ const DefaultConfig = {
      */
     applyBodyCls: true,
     /**
+     * true will apply 'position: fixed' to the html tag itself
+     * See: https://github.com/neomjs/neo/issues/6429
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.applyFixedPositionToHtmlTag
+     * @type Boolean
+     */
+    applyFixedPositionToHtmlTag: true,
+    /**
      * Path to your app.mjs file. You can create multiple apps there if needed.
      * @default null
      * @memberOf! module:Neo
@@ -262,12 +271,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '8.20.1'
+     * @default '8.20.2'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '8.20.1'
+    version: '8.20.2'
 };
 
 Object.assign(DefaultConfig, {
