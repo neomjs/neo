@@ -120,7 +120,7 @@ class GridContainer extends BaseContainer {
     initialResizeEvent = true
     /**
      * Storing touchmove position for mobile envs
-     * @member {Number} lastTouch=0
+     * @member {Number} lastTouchY=0
      * @protected
      */
     lastTouchY = 0
@@ -620,14 +620,14 @@ class GridContainer extends BaseContainer {
      * @param {Object} data
      */
     onTouchcancel(data) {
-        this.lastTouchY = 0;
+        this.lastTouchY = 0
     }
 
     /**
      * @param {Object} data
      */
     onTouchend(data) {
-        this.lastTouchY = 0;
+        this.lastTouchY = 0
     }
 
     /**
