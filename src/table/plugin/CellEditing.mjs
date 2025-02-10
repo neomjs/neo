@@ -29,7 +29,11 @@ class CellEditing extends Plugin {
         /**
          * @member {String[]} editorCls=['neo-table-editor']
          */
-        editorCls: ['neo-table-editor']
+        editorCls: ['neo-table-editor'],
+        /**
+         * @member {Boolean} focusCells=true
+         */
+        focusCells: true
     }
 
     /**
@@ -283,7 +287,7 @@ class CellEditing extends Plugin {
         if (cellId) {
             selectionModel?.deselect(cellId, true); // the cell might still count as selected => silent deselect first
             selectionModel?.select(cellId);
-            me.owner.focus(cellId)
+            me.focusCells && me.owner.focus(cellId)
         }
     }
 
