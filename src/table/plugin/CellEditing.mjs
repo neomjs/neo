@@ -114,7 +114,8 @@ class CellEditing extends Plugin {
             cellNode            = VdomUtil.find(view.vdom, cellId).vdom,
             column              = me.owner.headerToolbar.getColumn(dataField),
             editor              = me.editors[dataField],
-            value               = record[dataField];
+            value               = record[dataField],
+            keys;
 
         if (me.mountedEditor) {
             await me.unmountEditor();
@@ -140,12 +141,18 @@ class CellEditing extends Plugin {
                 ...column.editor
             });
 
-            editor.keys.add({
+            keys = {
                 Enter : 'onEditorKeyEnter',
                 Escape: 'onEditorKeyEscape',
                 Tab   : 'onEditorKeyTab',
                 scope : me
-            })
+            };
+
+            if (editor.keys) {
+                editor.keys.add(keys)
+            } else {
+                editor.keys = keys
+            }
         } else {
             editor.originalConfig.value = value;
             editor.setSilent({record, value})
