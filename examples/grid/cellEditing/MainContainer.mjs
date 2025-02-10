@@ -67,23 +67,23 @@ class MainContainer extends ConfigurationViewport {
             ...selectionModelRadioDefaults,
             checked       : selectionModel.ntype === 'selection-grid-cellmodel',
             labelText     : 'selectionModel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellModel)},
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellModel)},
             style         : {marginTop: '10px'},
             valueLabelText: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
             checked       : selectionModel.ntype === 'selection-grid-cellcolumnmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnModel)},
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnModel)},
             valueLabelText: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
             checked       : selectionModel.ntype === 'selection-grid-cellrowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellRowModel)},
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellRowModel)},
             valueLabelText: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
             checked       : selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
-            listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
+            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }, {
             module        : CheckBox,
@@ -173,6 +173,17 @@ class MainContainer extends ConfigurationViewport {
      */
     onPluginConfigChange(config, opts) {
         this.exampleComponent.getPlugin('grid-cell-editing')[config] = opts.value
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onRadioViewChange(config, value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.exampleComponent.view[config] = value
+        }
     }
 }
 
