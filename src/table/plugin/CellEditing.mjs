@@ -249,14 +249,14 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async onTableKeyDown(data) {
-        let me        = this,
-            {target}  = data,
-            tableView = me.owner.view,
+        let me       = this,
+            {target} = data,
+            {view}   = me.owner,
             dataField, record;
 
         if (!me.mountedEditor && target.cls?.includes('neo-selected')) {
-            dataField = tableView.getCellDataField(target.id);
-            record    = tableView.getRecord(target.id);
+            dataField = view.getCellDataField(target.id);
+            record    = view.getRecord(target.id);
 
             await me.mountEditor(record, dataField)
         }
@@ -315,15 +315,15 @@ class CellEditing extends Plugin {
             return
         }
 
-        let me        = this,
-            record    = me.mountedEditor.record,
-            tableView = me.owner.view,
-            rowIndex  = tableView.store.indexOf(record);
+        let me       = this,
+            record   = me.mountedEditor.record,
+            {view}   = me.owner,
+            rowIndex = view.store.indexOf(record);
 
         me.mountedEditor = null;
 
-        tableView.vdom.cn[rowIndex] = tableView.createRow({record, rowIndex});
-        await tableView.promiseUpdate()
+        view.getVdomRoot().cn[rowIndex] = view.createRow({record, rowIndex});
+        await view.promiseUpdate()
     }
 }
 
