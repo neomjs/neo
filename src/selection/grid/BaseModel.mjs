@@ -22,6 +22,22 @@ class BaseModel extends Model {
     get dataFields() {
         return this.view.parent.columns.map(column => column.dataField)
     }
+
+    /**
+     * Checks if an event path contains a grid cell editor
+     * @param {Object}   data
+     * @param {Object[]} data.path
+     * @returns {Boolean}
+     */
+    hasEditorFocus({path}) {
+        for (const node of path) {
+            if (node.cls?.includes('neo-grid-editor')) {
+                return true
+            }
+        }
+
+        return false
+    }
 }
 
 export default Neo.setupClass(BaseModel);

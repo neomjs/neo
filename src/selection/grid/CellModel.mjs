@@ -54,28 +54,28 @@ class CellModel extends BaseModel {
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(1)
+        !this.hasEditorFocus(data) && this.onNavKeyRow(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.onNavKeyColumn(-1)
+        !this.hasEditorFocus(data) && this.onNavKeyColumn(-1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownRight(data) {
-        this.onNavKeyColumn(1)
+        !this.hasEditorFocus(data) && this.onNavKeyColumn(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(-1)
+        !this.hasEditorFocus(data) && this.onNavKeyRow(-1)
     }
 
     /**
