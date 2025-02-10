@@ -137,14 +137,14 @@ class CellEditing extends Plugin {
                 value,
                 windowId,
 
-                keys: {
-                    Enter : 'onEditorKeyEnter',
-                    Escape: 'onEditorKeyEscape',
-                    Tab   : 'onEditorKeyTab',
-                    scope : me
-                },
-
                 ...column.editor
+            });
+
+            editor.keys.add({
+                Enter : 'onEditorKeyEnter',
+                Escape: 'onEditorKeyEscape',
+                Tab   : 'onEditorKeyTab',
+                scope : me
             })
         } else {
             editor.originalConfig.value = value;
