@@ -44,7 +44,8 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Object[]}
      */
     createConfigurationComponents() {
-        let me = this;
+        let me               = this,
+            {selectionModel} = me.exampleComponent.view;
 
         const selectionModelRadioDefaults = {
             module        : Radio,
@@ -64,24 +65,24 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellmodel',
+            checked       : selectionModel.ntype === 'selection-grid-cellmodel',
             labelText     : 'selectionModel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellModel)},
             style         : {marginTop: '10px'},
             valueLabelText: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnmodel',
+            checked       : selectionModel.ntype === 'selection-grid-cellcolumnmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnModel)},
             valueLabelText: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellrowmodel',
+            checked       : selectionModel.ntype === 'selection-grid-cellrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellRowModel)},
             valueLabelText: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : me.exampleComponent.selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
+            checked       : selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
             listeners     : {change: me.onRadioChange.bind(me, 'selectionModel', CellColumnRowModel)},
             valueLabelText: 'Cell & Column & Row'
         }, {
