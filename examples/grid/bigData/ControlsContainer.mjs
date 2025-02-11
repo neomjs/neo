@@ -183,15 +183,34 @@ class ControlsContainer extends Container {
         me.grid.toggleCls('neo-extend-margin-right');
     }
 
+    onConstructed() {
+        super.onConstructed();
+
+        let me      = this,
+            {store} = me.grid;
+
+        store.on({
+            filter: me.updateRowsLabel,
+            load  : me.updateRowsLabel,
+            scope : me
+        });
+
+        store.getCount() > 0 && me.updateRowsLabel()
+    }
+
     /**
      * @param {Object} data
      */
     onFilterFieldChange(data) {
+        this.grid.store.getFilter(data.component.name).value = data.value
+    }
+
+    updateRowsLabel() {
         let {store} = this.grid;
 
-        store.getFilter(data.component.name).value = data.value;
-
-        this.getReference('count-rows-label').text = 'Rows: ' + store.getCount()
+        if (!store.isLoading) {
+            this.getItem('count-rows-label').text = 'Rows: ' + store.getCount()
+        }
     }
 }
 
