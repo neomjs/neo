@@ -110,9 +110,8 @@ class ControlsContainer extends Container {
             }, {
                 ntype    : 'label',
                 reference: 'count-rows-label',
-                style    : {marginTop: '1em'},
-                text     : 'Rows'
-            },]
+                style    : {marginTop: '1em'}
+            }]
         }],
         /**
          * @member {Object} layout={ntype:'vbox'}
@@ -209,7 +208,7 @@ class ControlsContainer extends Container {
         let {store} = this.grid;
 
         if (!store.isLoading) {
-            this.getItem('count-rows-label').text = 'Rows: ' + store.getCount()
+            this.getItem('count-rows-label').text = 'Filtered rows: ' + store.getCount()
         }
     }
 }
