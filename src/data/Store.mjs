@@ -388,8 +388,7 @@ class Store extends Base {
     onCollectionMutate(opts) {
         let me = this;
 
-        if (me.configsApplied) {
-            // console.log('onCollectionMutate', opts);
+        if (me.configsApplied && !me.isLoading) {
             me.fire('load', me.items)
         }
     }
