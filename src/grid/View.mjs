@@ -599,6 +599,7 @@ class GridView extends Component {
 
         me.parent.isLoading = false;
 
+        me.updateScrollHeight(true); // silent
         me.update()
     }
 
@@ -889,7 +890,6 @@ class GridView extends Component {
         let me                     = this,
             fieldNames             = fields.map(field => field.name),
             needsUpdate            = false,
-            gridContainer          = me.parent,
             rowIndex               = me.store.indexOf(record),
             {selectionModel, vdom} = me,
             cellId, cellNode, cellStyle, cellVdom, column, columnIndex;
@@ -960,16 +960,16 @@ class GridView extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent=false
      */
-    updateScrollHeight() {
+    updateScrollHeight(silent=false) {
         let me           = this,
             countRecords = me.store.getCount(),
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
             me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
-            me.update()
+            !silent && me.update()
         }
     }
 
