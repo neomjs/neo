@@ -579,7 +579,6 @@ class GridView extends Component {
             endIndex, i;
 
         if (
-            countRecords                  < 1 ||
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
