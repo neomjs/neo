@@ -21,6 +21,18 @@ class MainStore extends Store {
          */
         amountRows_: 1000,
         /**
+         * @member {Object[]} filters
+         */
+        filters: [{
+            property: 'firstname',
+            operator: 'like',
+            value   : null
+        }, {
+            property: 'lastname',
+            operator: 'like',
+            value   : null
+        }],
+        /**
          * @member {Neo.data.Model} model=Model
          */
         model: Model

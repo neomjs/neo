@@ -514,7 +514,7 @@ class DomEvents extends Base {
             if (
                 isInput &&
                 event.key === 'Tab' &&
-                me.testPathInclusion(event, ['neo-table-editor'], true)
+                me.testPathInclusion(event, ['neo-grid-editor', 'neo-table-editor'], true)
             ) {
                 event.preventDefault()
             }

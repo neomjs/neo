@@ -34,6 +34,10 @@ class Field extends Component {
          */
         formGroup_: null,
         /**
+         * @member {String|null} keys={}
+         */
+        keys: {},
+        /**
          * True indicates that a user has interacted with the form field
          * @member {Boolean} isTouched_=false
          */

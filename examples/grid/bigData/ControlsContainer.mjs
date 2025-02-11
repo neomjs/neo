@@ -84,6 +84,33 @@ class ControlsContainer extends Container {
                 style         : {marginTop: '.3em'},
                 value         : 'neo-theme-light',
                 valueLabelText: 'Light'
+            }, {
+                ntype: 'label',
+                style: {marginTop: '2em'},
+                text : 'Filters'
+            }, {
+                ntype     : 'textfield',
+                clearable : true,
+                editable  : true,
+                labelText : 'Firstname',
+                labelWidth: 90,
+                listeners : {change: 'up.onFilterFieldChange'},
+                name      : 'firstname',
+                style     : {marginTop: '.3em'},
+                width     : 200
+            }, {
+                ntype     : 'textfield',
+                clearable : true,
+                editable  : true,
+                labelText : 'Lastname',
+                labelWidth: 90,
+                listeners : {change: 'up.onFilterFieldChange'},
+                name      : 'lastname',
+                width     : 200
+            }, {
+                ntype    : 'label',
+                reference: 'count-rows-label',
+                style    : {marginTop: '1em'}
             }]
         }],
         /**
@@ -153,6 +180,36 @@ class ControlsContainer extends Container {
         await me.timeout(button.expanded ? 250 : 0);
 
         me.grid.toggleCls('neo-extend-margin-right');
+    }
+
+    onConstructed() {
+        super.onConstructed();
+
+        let me      = this,
+            {store} = me.grid;
+
+        store.on({
+            filter: me.updateRowsLabel,
+            load  : me.updateRowsLabel,
+            scope : me
+        });
+
+        store.getCount() > 0 && me.updateRowsLabel()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onFilterFieldChange(data) {
+        this.grid.store.getFilter(data.component.name).value = data.value
+    }
+
+    updateRowsLabel() {
+        let {store} = this.grid;
+
+        if (!store.isLoading) {
+            this.getItem('count-rows-label').text = 'Filtered rows: ' + store.getCount()
+        }
     }
 }
 

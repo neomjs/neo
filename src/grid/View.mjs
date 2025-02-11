@@ -337,25 +337,6 @@ class GridView extends Component {
     }
 
     /**
-     * Triggered after the store config got changed
-     * @param {Neo.data.Store|null} value
-     * @param {Neo.data.Store|null} oldValue
-     * @protected
-     */
-    afterSetStore(value, oldValue) {
-        if (value) {
-            let me = this;
-
-            value.on({
-                load : me.updateScrollHeight,
-                scope: me
-            });
-
-            value.getCount() > 0 && me.updateScrollHeight()
-        }
-    }
-
-    /**
      * Triggered after the visibleColumns config got changed
      * @param {Number[]} value
      * @param {Number[]} oldValue
@@ -579,7 +560,7 @@ class GridView extends Component {
             endIndex, i;
 
         if (
-            countRecords                  < 1 ||
+            store.isLoading                   ||
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
@@ -599,6 +580,7 @@ class GridView extends Component {
 
         me.parent.isLoading = false;
 
+        me.updateScrollHeight(true); // silent
         me.update()
     }
 
@@ -889,7 +871,6 @@ class GridView extends Component {
         let me                     = this,
             fieldNames             = fields.map(field => field.name),
             needsUpdate            = false,
-            gridContainer          = me.parent,
             rowIndex               = me.store.indexOf(record),
             {selectionModel, vdom} = me,
             cellId, cellNode, cellStyle, cellVdom, column, columnIndex;
@@ -960,16 +941,16 @@ class GridView extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent=false
      */
-    updateScrollHeight() {
+    updateScrollHeight(silent=false) {
         let me           = this,
             countRecords = me.store.getCount(),
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
             me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
-            me.update()
+            !silent && me.update()
         }
     }
 

@@ -29,7 +29,11 @@ class CellEditing extends Plugin {
         /**
          * @member {String[]} editorCls=['neo-table-editor']
          */
-        editorCls: ['neo-table-editor']
+        editorCls: ['neo-table-editor'],
+        /**
+         * @member {Boolean} focusCells=true
+         */
+        focusCells: true
     }
 
     /**
@@ -110,7 +114,8 @@ class CellEditing extends Plugin {
             cellNode            = VdomUtil.find(view.vdom, cellId).vdom,
             column              = me.owner.headerToolbar.getColumn(dataField),
             editor              = me.editors[dataField],
-            value               = record[dataField];
+            value               = record[dataField],
+            keys;
 
         if (me.mountedEditor) {
             await me.unmountEditor();
@@ -133,15 +138,21 @@ class CellEditing extends Plugin {
                 value,
                 windowId,
 
-                keys: {
-                    Enter : 'onEditorKeyEnter',
-                    Escape: 'onEditorKeyEscape',
-                    Tab   : 'onEditorKeyTab',
-                    scope : me
-                },
-
                 ...column.editor
-            })
+            });
+
+            keys = {
+                Enter : 'onEditorKeyEnter',
+                Escape: 'onEditorKeyEscape',
+                Tab   : 'onEditorKeyTab',
+                scope : me
+            };
+
+            if (editor.keys) {
+                editor.keys.add(keys)
+            } else {
+                editor.keys = keys
+            }
         } else {
             editor.originalConfig.value = value;
             editor.setSilent({record, value})
@@ -249,14 +260,14 @@ class CellEditing extends Plugin {
      * @returns {Promise<void>}
      */
     async onTableKeyDown(data) {
-        let me        = this,
-            {target}  = data,
-            tableView = me.owner.view,
+        let me       = this,
+            {target} = data,
+            {view}   = me.owner,
             dataField, record;
 
         if (!me.mountedEditor && target.cls?.includes('neo-selected')) {
-            dataField = tableView.getCellDataField(target.id);
-            record    = tableView.getRecord(target.id);
+            dataField = view.getCellDataField(target.id);
+            record    = view.getRecord(target.id);
 
             await me.mountEditor(record, dataField)
         }
@@ -283,7 +294,7 @@ class CellEditing extends Plugin {
         if (cellId) {
             selectionModel?.deselect(cellId, true); // the cell might still count as selected => silent deselect first
             selectionModel?.select(cellId);
-            me.owner.focus(cellId)
+            me.focusCells && me.owner.focus(cellId)
         }
     }
 
@@ -315,15 +326,15 @@ class CellEditing extends Plugin {
             return
         }
 
-        let me        = this,
-            record    = me.mountedEditor.record,
-            tableView = me.owner.view,
-            rowIndex  = tableView.store.indexOf(record);
+        let me       = this,
+            record   = me.mountedEditor.record,
+            {view}   = me.owner,
+            rowIndex = view.store.indexOf(record);
 
         me.mountedEditor = null;
 
-        tableView.vdom.cn[rowIndex] = tableView.createRow({record, rowIndex});
-        await tableView.promiseUpdate()
+        view.getVdomRoot().cn[rowIndex] = view.createRow({record, rowIndex});
+        await view.promiseUpdate()
     }
 }
 

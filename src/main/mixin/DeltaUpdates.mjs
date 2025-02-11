@@ -26,14 +26,16 @@ class DeltaUpdates extends Base {
             len          = attributes.length,
             attribute;
 
-        for (; i < len; i++) {
-            attribute = attributes.item(i);
-            clone.setAttribute(attribute.nodeName, attribute.nodeValue)
+        if (node) {
+            for (; i < len; i++) {
+                attribute = attributes.item(i);
+                clone.setAttribute(attribute.nodeName, attribute.nodeValue)
+            }
+
+            clone.innerHTML= node.innerHTML;
+
+            node.parentNode.replaceChild(clone, node)
         }
-
-        clone.innerHTML= node.innerHTML;
-
-        node.parentNode.replaceChild(clone, node)
     }
 
     /**
@@ -41,7 +43,7 @@ class DeltaUpdates extends Base {
      * @param {String} delta.id
      */
     du_focusNode(delta) {
-        this.getElement(delta.id).focus()
+        this.getElement(delta.id)?.focus()
     }
 
     /**
@@ -183,7 +185,7 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = me.getElement(delta.parentId);
 
-        node.replaceChild(me.getElement(delta.toId), me.getElement(delta.fromId))
+        node?.replaceChild(me.getElement(delta.toId), me.getElement(delta.fromId))
     }
 
     /**
@@ -195,7 +197,9 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = me.getElement(delta.id);
 
-        node.textContent = delta.value
+        if (node) {
+            node.textContent = delta.value
+        }
     }
 
     /**
@@ -211,11 +215,7 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = me.getElementOrBody(delta.id);
 
-        if (!node) {
-            if (Neo.config.environment === 'development') {
-                console.warn('du_updateNode: node not found for id', delta.id)
-            }
-        } else {
+        if (node) {
             Object.entries(delta).forEach(([prop, value]) => {
                 switch(prop) {
                     case 'attributes':

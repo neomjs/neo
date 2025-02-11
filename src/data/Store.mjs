@@ -132,7 +132,7 @@ class Store extends Base {
      * @returns {Number} the collection count
      */
     add(item) {
-        return super.add(this.beforeSetData(item))
+        return super.add(this.createRecord(item))
     }
 
     /**
@@ -160,6 +160,8 @@ class Store extends Base {
                 } else {
                     me.initialData = [...value]
                 }
+
+                me.isLoading = false;
 
                 me.add(value)
             }
@@ -256,22 +258,9 @@ class Store extends Base {
      */
     beforeSetData(value, oldValue) {
         if (value) {
-            if (!Array.isArray(value)) {
-                value = [value]
-            }
+            this.isLoading = true;
 
-            let me  = this,
-                i   = 0,
-                len = value.length,
-                item;
-
-            for (; i < len; i++) {
-                item = value[i]
-
-                if (!RecordFactory.isRecord(item)) {
-                    value[i] = RecordFactory.createRecord(me.model, item)
-                }
-            }
+            value = this.createRecord(value)
         }
 
         return value
@@ -304,10 +293,34 @@ class Store extends Base {
     }
 
     /**
-     * @param {Object} config
+     * Converts an object or array of objects into records
+     * @param {Object|Object[]} config
+     * @returns {Object|Object[]} Array in case an array was passed
      */
     createRecord(config) {
-        RecordFactory.createRecord(config)
+        let isArray = true;
+
+        if (config) {
+            if (!Array.isArray(config)) {
+                isArray = false;
+                config  = [config]
+            }
+
+            let me  = this,
+                i   = 0,
+                len = config.length,
+                item;
+
+            for (; i < len; i++) {
+                item = config[i]
+
+                if (!RecordFactory.isRecord(item)) {
+                    config[i] = RecordFactory.createRecord(me.model, item)
+                }
+            }
+        }
+
+        return isArray ? config : config[0]
     }
 
     /**
@@ -375,8 +388,7 @@ class Store extends Base {
     onCollectionMutate(opts) {
         let me = this;
 
-        if (me.configsApplied) {
-            // console.log('onCollectionMutate', opts);
+        if (me.configsApplied && !me.isLoading) {
             me.fire('load', me.items)
         }
     }

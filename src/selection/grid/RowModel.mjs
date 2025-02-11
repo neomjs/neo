@@ -55,14 +55,14 @@ class RowModel extends BaseModel {
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        this.onNavKeyRow(1)
+        !this.hasEditorFocus(data) && this.onNavKeyRow(1)
     }
 
     /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        this.onNavKeyRow(-1)
+        !this.hasEditorFocus(data) && this.onNavKeyRow(-1)
     }
 
     /**

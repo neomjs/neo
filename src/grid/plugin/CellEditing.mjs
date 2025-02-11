@@ -23,7 +23,11 @@ class CellEditing extends BaseCellEditing {
         /**
          * @member {String[]} editorCls=['neo-grid-editor']
          */
-        editorCls: ['neo-grid-editor']
+        editorCls: ['neo-grid-editor'],
+        /**
+         * @member {Boolean} focusCells=true
+         */
+        focusCells: true
     }
 }
 

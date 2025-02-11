@@ -234,7 +234,7 @@ class Collection extends Base {
         me.sortDirections = [];
         me.sortProperties = [];
 
-        me.sorters.forEach(sorter => {//console.log('forEach', sorter);
+        me.sorters.forEach(sorter => {
             me.sortDirections.push(sorter.directionMultiplier);
             me.sortProperties.push(sorter.property)
         })
@@ -1050,9 +1050,12 @@ class Collection extends Base {
     onMutate(opts) {
         let me = this;
 
-        if (opts.preventBubbleUp) {
+        // todo: inspect the bubbling chain
+        /*if (opts.preventBubbleUp) {
             me.preventBubbleUp = true
-        }
+        }*/
+
+        me.preventBubbleUp = true;
 
         me.splice(null, opts.removedItems, opts.addedItems)
     }
