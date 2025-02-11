@@ -84,7 +84,35 @@ class ControlsContainer extends Container {
                 style         : {marginTop: '.3em'},
                 value         : 'neo-theme-light',
                 valueLabelText: 'Light'
-            }]
+            }, {
+                ntype: 'label',
+                style: {marginTop: '2em'},
+                text : 'Filters'
+            }, {
+                ntype     : 'textfield',
+                clearable : true,
+                editable  : true,
+                labelText : 'Firstname',
+                labelWidth: 90,
+                listeners : {change: 'up.onFilterFieldChange'},
+                name      : 'firstname',
+                style     : {marginTop: '.3em'},
+                width     : 200
+            }, {
+                ntype     : 'textfield',
+                clearable : true,
+                editable  : true,
+                labelText : 'Lastname',
+                labelWidth: 90,
+                listeners : {change: 'up.onFilterFieldChange'},
+                name      : 'lastname',
+                width     : 200
+            }, {
+                ntype    : 'label',
+                reference: 'count-rows-label',
+                style    : {marginTop: '1em'},
+                text     : 'Rows'
+            },]
         }],
         /**
          * @member {Object} layout={ntype:'vbox'}
@@ -153,6 +181,17 @@ class ControlsContainer extends Container {
         await me.timeout(button.expanded ? 250 : 0);
 
         me.grid.toggleCls('neo-extend-margin-right');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onFilterFieldChange(data) {
+        let {store} = this.grid;
+
+        store.getFilter(data.component.name).value = data.value;
+
+        this.getReference('count-rows-label').text = 'Rows: ' + store.getCount()
     }
 }
 
