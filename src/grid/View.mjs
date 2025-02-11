@@ -337,25 +337,6 @@ class GridView extends Component {
     }
 
     /**
-     * Triggered after the store config got changed
-     * @param {Neo.data.Store|null} value
-     * @param {Neo.data.Store|null} oldValue
-     * @protected
-     */
-    afterSetStore(value, oldValue) {
-        if (value) {
-            let me = this;
-
-            value.on({
-                load : me.updateScrollHeight,
-                scope: me
-            });
-
-            value.getCount() > 0 && me.updateScrollHeight()
-        }
-    }
-
-    /**
      * Triggered after the visibleColumns config got changed
      * @param {Number[]} value
      * @param {Number[]} oldValue
@@ -586,7 +567,7 @@ class GridView extends Component {
         ) {
             return
         }
-
+console.log('createViewData', startIndex, countRecords);
         endIndex   = Math.min(countRecords, me.availableRows + startIndex + bufferRowRange);
         startIndex = Math.max(0, startIndex - bufferRowRange);
 
