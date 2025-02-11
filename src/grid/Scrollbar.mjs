@@ -93,8 +93,9 @@ class GridScrollbar extends Component {
             let me = this;
 
             value.on({
-                load : me.updateScrollHeight,
-                scope: me
+                filter: me.updateScrollHeight,
+                load  : me.updateScrollHeight,
+                scope : me
             });
 
             value.getCount() > 0 && me.updateScrollHeight()
