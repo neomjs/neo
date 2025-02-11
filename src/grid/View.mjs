@@ -560,6 +560,7 @@ class GridView extends Component {
             endIndex, i;
 
         if (
+            store.isLoading                   ||
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
@@ -567,7 +568,7 @@ class GridView extends Component {
         ) {
             return
         }
-console.log('createViewData', startIndex, countRecords);
+
         endIndex   = Math.min(countRecords, me.availableRows + startIndex + bufferRowRange);
         startIndex = Math.max(0, startIndex - bufferRowRange);
 
