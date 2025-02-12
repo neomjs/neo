@@ -46,12 +46,12 @@ const DefaultConfig = {
     /**
      * Pass a token in case you are using the CesiumJS main thread addon
      * See: https://github.com/neomjs/neo/blob/dev/src/main/addon/CesiumJS.mjs
-     * @default null
+     * @default undefined
      * @memberOf! module:Neo
      * @name config.cesiumJsToken
      * @type String|null
      */
-    cesiumJsToken: null,
+
     /**
      * Set this config to false to disable the component logging using Ctrl-Right-Click
      * @default true
@@ -79,21 +79,21 @@ const DefaultConfig = {
     environment: 'dist/production',
     /**
      * In case you are using the GoogleMaps main thread addon, you can pass the API key here.
-     * @default ''
+     * @default undefined
      * @memberOf! module:Neo
      * @name config.googleMapsApiKey
      * @type String
      */
-    googleMapsApiKey: '',
+
     /**
      * In case you are using the GoogleAnalytics main thread addon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
-     * @default 'G-DJ13071C55'
+     * @default undefined
      * @memberOf! module:Neo
      * @name config.gtagId
      * @type String
      */
-    gtagId: 'G-DJ13071C55',
+
     /**
      * Flag for running on https://neomjs.github.io/pages/
      * => to use local images paths instead of raw.githubusercontent.com
@@ -254,14 +254,6 @@ const DefaultConfig = {
      */
     useTaskWorker: false,
     /**
-     * Adds global dom event listeners for mobile related events like rotate, swipe, tap
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useTouchEvents
-     * @type Boolean
-     */
-    useTouchEvents: true,
-    /**
      * False will create the vdom.Helper within the App worker (experimental!)
      * @default true
      * @memberOf! module:Neo
@@ -271,12 +263,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '8.21.0'
+     * @default '8.21.1'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '8.21.0'
+    version: '8.21.1'
 };
 
 Object.assign(DefaultConfig, {

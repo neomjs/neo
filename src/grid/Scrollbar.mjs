@@ -53,7 +53,7 @@ class GridScrollbar extends Component {
             ScrollSync.register({
                 fromId: me.parent.view.vdom.id,
                 toId  : me.id,
-                twoWay: !Neo.config.useTouchEvents, // Syncing the scroller back to the view affects mobile scrolling
+                twoWay: !Neo.config.hasTouchEvents, // Syncing the scroller back to the view affects mobile scrolling
                 ...params
             })
         } else {
@@ -93,9 +93,8 @@ class GridScrollbar extends Component {
             let me = this;
 
             value.on({
-                filter: me.updateScrollHeight,
-                load  : me.updateScrollHeight,
-                scope : me
+                load : me.updateScrollHeight,
+                scope: me
             });
 
             value.getCount() > 0 && me.updateScrollHeight()
