@@ -21,7 +21,7 @@ const globalDomEvents = [
     {name: 'wheel',       handler: 'onWheel',      options: {passive: false}}
 ];
 
-// Will get applied to the document.body in case Neo.config.useTouchEvents === true (default value)
+// Will get applied to the document.body in case Neo.config.hasTouchEvents === true
 const touchEvents = [
     {name: 'touchcancel', handler: 'onTouchCancel'},
     {name: 'touchend',    handler: 'onTouchEnd'},
@@ -187,7 +187,7 @@ class DomEvents extends Base {
     addGlobalDomListeners() {
         let me = this;
 
-        [...globalDomEvents].concat(Neo.config.useTouchEvents ? touchEvents : []).forEach(event => {
+        [...globalDomEvents].concat(Neo.config.hasTouchEvents ? touchEvents : []).forEach(event => {
             document.body.addEventListener(event.name, me[event.handler].bind(me), event.options)
         });
     }

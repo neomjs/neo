@@ -1,7 +1,7 @@
 import Base from '../../core/Base.mjs';
 
 /**
- * Will get imported in case Neo.config.useTouchEvents === true
+ * Will get imported in case Neo.config.hasTouchEvents === true
  * @class Neo.main.mixin.TouchDomEvents
  * @extends Neo.core.Base
  * @singleton

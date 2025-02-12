@@ -254,14 +254,6 @@ const DefaultConfig = {
      */
     useTaskWorker: false,
     /**
-     * Adds global dom event listeners for mobile related events like rotate, swipe, tap
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useTouchEvents
-     * @type Boolean
-     */
-    useTouchEvents: true,
-    /**
      * False will create the vdom.Helper within the App worker (experimental!)
      * @default true
      * @memberOf! module:Neo
