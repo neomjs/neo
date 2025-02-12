@@ -46,12 +46,12 @@ const DefaultConfig = {
     /**
      * Pass a token in case you are using the CesiumJS main thread addon
      * See: https://github.com/neomjs/neo/blob/dev/src/main/addon/CesiumJS.mjs
-     * @default null
+     * @default undefined
      * @memberOf! module:Neo
      * @name config.cesiumJsToken
      * @type String|null
      */
-    cesiumJsToken: null,
+
     /**
      * Set this config to false to disable the component logging using Ctrl-Right-Click
      * @default true
@@ -79,21 +79,21 @@ const DefaultConfig = {
     environment: 'dist/production',
     /**
      * In case you are using the GoogleMaps main thread addon, you can pass the API key here.
-     * @default ''
+     * @default undefined
      * @memberOf! module:Neo
      * @name config.googleMapsApiKey
      * @type String
      */
-    googleMapsApiKey: '',
+
     /**
      * In case you are using the GoogleAnalytics main thread addon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
-     * @default 'G-DJ13071C55'
+     * @default undefined
      * @memberOf! module:Neo
      * @name config.gtagId
      * @type String
      */
-    gtagId: 'G-DJ13071C55',
+
     /**
      * Flag for running on https://neomjs.github.io/pages/
      * => to use local images paths instead of raw.githubusercontent.com
