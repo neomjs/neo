@@ -1,6 +1,7 @@
-import ComboBox  from '../../../src/form/field/ComboBox.mjs';
-import Container from '../../../src/container/Base.mjs';
-import Radio     from '../../../src/form/field/Radio.mjs';
+import ComboBox     from '../../../src/form/field/ComboBox.mjs';
+import Container    from '../../../src/container/Base.mjs';
+import Radio        from '../../../src/form/field/Radio.mjs';
+import TabContainer from '../../../src/tab/Container.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.ControlsContainer
@@ -26,91 +27,100 @@ class ControlsContainer extends Container {
             handler: 'up.onControlsToggleButtonClick',
             iconCls: 'fas fa-bars'
         }, {
-            module: Container,
+            module: TabContainer,
             cls   : ['neo-examples-bigdata-controls-container-content'],
-            layout: 'vbox',
-
-            itemDefaults: {
-                module      : ComboBox,
-                clearable   : false,
-                displayField: 'id',
-                editable    : false
-            },
 
             items: [{
-                labelText : 'Amount Rows',
-                labelWidth: 120,
-                listeners : {change: 'up.onAmountRowsChange'},
-                store     : ['1000', '5000', '10000', '20000', '50000'],
-                value     : '1000',
-                width     : 200
+                module: Container,
+                header: {text: 'Settings'},
+                layout: 'vbox',
+
+                itemDefaults: {
+                    module      : ComboBox,
+                    clearable   : false,
+                    displayField: 'id',
+                    editable    : false
+                },
+
+                items: [{
+                    labelText : 'Amount Rows',
+                    labelWidth: 120,
+                    listeners : {change: 'up.onAmountRowsChange'},
+                    store     : ['1000', '5000', '10000', '20000', '50000'],
+                    value     : '1000',
+                    width     : 200
+                }, {
+                    labelText : 'Amount Columns',
+                    labelWidth: 145,
+                    listeners : {change: 'up.onAmountColumnsChange'},
+                    store     : ['10', '25', '50', '75', '100'],
+                    value     : '50',
+                    width     : 200
+                }, {
+                    labelText : 'Buffer Rows',
+                    labelWidth: 145,
+                    listeners : {change: 'up.onBufferRowRangeChange'},
+                    store     : ['0', '3', '5', '10', '25', '50'],
+                    value     : '5',
+                    width     : 200
+                }, {
+                    labelText : 'Buffer Columns',
+                    labelWidth: 145,
+                    listeners : {change: 'up.onBufferColumnRangeChange'},
+                    store     : ['0', '3', '5', '10', '20'],
+                    value     : '3',
+                    width     : 200
+                }, {
+                    module        : Radio,
+                    checked       : true,
+                    labelText     : 'Theme',
+                    labelWidth    : 70,
+                    listeners     : {change: 'up.onThemeRadioChange'},
+                    name          : 'theme',
+                    style         : {marginTop: '2em'},
+                    value         : 'neo-theme-dark',
+                    valueLabelText: 'Dark'
+                }, {
+                    module        : Radio,
+                    labelText     : '',
+                    labelWidth    : 70,
+                    listeners     : {change: 'up.onThemeRadioChange'},
+                    name          : 'theme',
+                    style         : {marginTop: '.3em'},
+                    value         : 'neo-theme-light',
+                    valueLabelText: 'Light'
+                }, {
+                    ntype: 'label',
+                    style: {marginTop: '2em'},
+                    text : 'Filters'
+                }, {
+                    ntype     : 'textfield',
+                    clearable : true,
+                    editable  : true,
+                    labelText : 'Firstname',
+                    labelWidth: 90,
+                    listeners : {change: 'up.onFilterFieldChange'},
+                    name      : 'firstname',
+                    style     : {marginTop: '.3em'},
+                    width     : 200
+                }, {
+                    ntype     : 'textfield',
+                    clearable : true,
+                    editable  : true,
+                    labelText : 'Lastname',
+                    labelWidth: 90,
+                    listeners : {change: 'up.onFilterFieldChange'},
+                    name      : 'lastname',
+                    width     : 200
+                }, {
+                    ntype    : 'label',
+                    reference: 'count-rows-label',
+                    style    : {marginTop: '1em'}
+                }]
             }, {
-                labelText : 'Amount Columns',
-                labelWidth: 145,
-                listeners : {change: 'up.onAmountColumnsChange'},
-                store     : ['10', '25', '50', '75', '100'],
-                value     : '50',
-                width     : 200
-            }, {
-                labelText : 'Buffer Rows',
-                labelWidth: 145,
-                listeners : {change: 'up.onBufferRowRangeChange'},
-                store     : ['0', '3', '5', '10', '25', '50'],
-                value     : '5',
-                width     : 200
-            }, {
-                labelText : 'Buffer Columns',
-                labelWidth: 145,
-                listeners : {change: 'up.onBufferColumnRangeChange'},
-                store     : ['0', '3', '5', '10', '20'],
-                value     : '3',
-                width     : 200
-            }, {
-                module        : Radio,
-                checked       : true,
-                labelText     : 'Theme',
-                labelWidth    : 70,
-                listeners     : {change: 'up.onThemeRadioChange'},
-                name          : 'theme',
-                style         : {marginTop: '2em'},
-                value         : 'neo-theme-dark',
-                valueLabelText: 'Dark'
-            }, {
-                module        : Radio,
-                labelText     : '',
-                labelWidth    : 70,
-                listeners     : {change: 'up.onThemeRadioChange'},
-                name          : 'theme',
-                style         : {marginTop: '.3em'},
-                value         : 'neo-theme-light',
-                valueLabelText: 'Light'
-            }, {
-                ntype: 'label',
-                style: {marginTop: '2em'},
-                text : 'Filters'
-            }, {
-                ntype     : 'textfield',
-                clearable : true,
-                editable  : true,
-                labelText : 'Firstname',
-                labelWidth: 90,
-                listeners : {change: 'up.onFilterFieldChange'},
-                name      : 'firstname',
-                style     : {marginTop: '.3em'},
-                width     : 200
-            }, {
-                ntype     : 'textfield',
-                clearable : true,
-                editable  : true,
-                labelText : 'Lastname',
-                labelWidth: 90,
-                listeners : {change: 'up.onFilterFieldChange'},
-                name      : 'lastname',
-                width     : 200
-            }, {
-                ntype    : 'label',
-                reference: 'count-rows-label',
-                style    : {marginTop: '1em'}
+                module: Container,
+                header: {text: 'Selection'},
+                layout: 'vbox'
             }]
         }],
         /**
