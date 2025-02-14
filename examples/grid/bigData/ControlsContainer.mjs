@@ -1,13 +1,8 @@
-import CellColumnModel    from '../../../src/selection/grid/CellColumnModel.mjs';
-import CellColumnRowModel from '../../../src/selection/grid/CellColumnRowModel.mjs';
-import CellModel          from '../../../src/selection/grid/CellModel.mjs';
-import CellRowModel       from '../../../src/selection/grid/CellRowModel.mjs';
-import ColumnModel        from '../../../src/selection/grid/ColumnModel.mjs';
-import ComboBox           from '../../../src/form/field/ComboBox.mjs';
-import Container          from '../../../src/container/Base.mjs';
-import Radio              from '../../../src/form/field/Radio.mjs';
-import RowModel           from '../../../src/selection/grid/RowModel.mjs';
-import TabContainer       from '../../../src/tab/Container.mjs';
+import * as selection from '../../../src/selection/grid/_export.mjs';
+import ComboBox       from '../../../src/form/field/ComboBox.mjs';
+import Container      from '../../../src/container/Base.mjs';
+import Radio          from '../../../src/form/field/Radio.mjs';
+import TabContainer   from '../../../src/tab/Container.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.ControlsContainer
@@ -145,23 +140,23 @@ class ControlsContainer extends Container {
                     text : 'Pick the Selection Model'
                 }, {
                     style         : {marginTop: '1em'},
-                    selectionModel: CellModel,
+                    selectionModel: selection.CellModel,
                     valueLabelText: 'Cell'
                 }, {
-                    selectionModel: ColumnModel,
+                    selectionModel: selection.ColumnModel,
                     valueLabelText: 'Column'
                 }, {
                     checked       : true,
-                    selectionModel: RowModel,
+                    selectionModel: selection.RowModel,
                     valueLabelText: 'Row'
                 }, {
-                    selectionModel: CellColumnModel,
+                    selectionModel: selection.CellColumnModel,
                     valueLabelText: 'Cell & Column'
                 }, {
-                    selectionModel: CellRowModel,
+                    selectionModel: selection.CellRowModel,
                     valueLabelText: 'Cell & Row'
                 }, {
-                    selectionModel: CellColumnRowModel,
+                    selectionModel: selection.CellColumnRowModel,
                     valueLabelText: 'Cell & Column & Row'
                 }]
             }]
@@ -261,6 +256,7 @@ class ControlsContainer extends Container {
      * @param {Object} data
      */
     onSelectionModelChange(data) {
+        console.log(selection);
         this.grid.view.selectionModel = data.component.selectionModel
     }
 
