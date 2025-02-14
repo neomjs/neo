@@ -18,7 +18,13 @@
         transition: opacity 250ms ease-out;
 
         > .neo-container {
-            padding: .5em 1em;
+            overflow-y: auto;
+            padding   : .5em 1em;
+
+            > .neo-container {
+                flex  : none;
+                height: fit-content;
+            }
         }
     }
 
