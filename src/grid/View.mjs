@@ -149,6 +149,19 @@ class GridView extends Component {
     /**
      * @member {String[]} selectedRows
      */
+    get selectedCells() {
+        let {selectionModel} = this;
+
+        if (selectionModel.ntype.includes('cell')) {
+            return selectionModel.items
+        }
+
+        return []
+    }
+
+    /**
+     * @member {String[]} selectedRows
+     */
     get selectedRows() {
         let {selectionModel} = this;
 
@@ -359,13 +372,13 @@ class GridView extends Component {
      */
     applyRendererOutput(data) {
         let {cellId, column, columnIndex, record, rowIndex} = data,
-            me            = this,
-            gridContainer = me.parent,
-            {store}       = me,
-            cellCls       = ['neo-grid-cell'],
-            colspan       = record[me.colspanField],
-            {dataField}   = column,
-            fieldValue    = record[dataField],
+            me                     = this,
+            gridContainer          = me.parent,
+            {selectedCells, store} = me,
+            cellCls                = ['neo-grid-cell'],
+            colspan                = record[me.colspanField],
+            {dataField}            = column,
+            fieldValue             = record[dataField],
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -419,6 +432,10 @@ class GridView extends Component {
 
         if (!cellId) {
             cellId = me.getCellId(record, column.dataField)
+        }
+
+        if (selectedCells.includes(cellId)) {
+            cellCls.push('neo-selected')
         }
 
         cellConfig = {
