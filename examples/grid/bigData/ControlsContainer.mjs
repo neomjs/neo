@@ -256,7 +256,6 @@ class ControlsContainer extends Container {
      * @param {Object} data
      */
     onSelectionModelChange(data) {
-        console.log(selection);
         this.grid.view.selectionModel = data.component.selectionModel
     }
 
