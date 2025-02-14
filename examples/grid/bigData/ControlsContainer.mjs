@@ -120,7 +120,38 @@ class ControlsContainer extends Container {
             }, {
                 module: Container,
                 header: {text: 'Selection'},
-                layout: 'vbox'
+                layout: 'vbox',
+
+                itemDefaults: {
+                    module        : Radio,
+                    hideLabel     : true,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    listeners     : {change: 'up.onSelectionModelChange'},
+                    name          : 'selectionModel',
+                    style         : {marginTop: '.3em'},
+                    width         : 200
+                },
+
+                items: [{
+                    ntype: 'label',
+                    style: {marginTop: 0},
+                    text : 'Pick the Selection Model'
+                }, {
+                    style         : {marginTop: '1em'},
+                    valueLabelText: 'Cell'
+                }, {
+                    valueLabelText: 'Column'
+                }, {
+                    checked       : true,
+                    valueLabelText: 'Row'
+                }, {
+                    valueLabelText: 'Cell & Column'
+                }, {
+                    valueLabelText: 'Cell & Row'
+                }, {
+                    valueLabelText: 'Cell & Column & Row'
+                }]
             }]
         }],
         /**
@@ -214,6 +245,16 @@ class ControlsContainer extends Container {
         this.grid.store.getFilter(data.component.name).value = data.value
     }
 
+    /**
+     * @param {Object} data
+     */
+    onSelectionModelChange(data) {
+        console.log(data)
+    }
+
+    /**
+     *
+     */
     updateRowsLabel() {
         let {store} = this.grid;
 
