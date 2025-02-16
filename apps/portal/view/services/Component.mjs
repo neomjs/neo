@@ -22,15 +22,6 @@ class Component extends BaseComponent {
         {cn: [
             {tag: 'h1', cls: ['neo-h1'], html: 'Services'},
             {cls: ['info-block'], cn: [
-                {tag: 'h2', cls: ['neo-h2'], html: 'Weekly Workshops'},
-                {tag: 'p',  html: [
-                    'We are doing weekly workshops on Thursdays 18:30 CEST (12:30am EST) for 60m free of charge.</br>',
-                    'Ping us inside our ',
-                    '<a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel</a>, ',
-                    'in case you would like to join us.'
-                ].join('')},
-            ]},
-            {cls: ['info-block'], cn: [
                 {tag: 'h2', cls: ['neo-h2'], html: 'Professional Trainings'},
                 {tag: 'p',  html: [
                     'While we do have a self-study based Learning Section online, you can also hire us ',
