@@ -598,7 +598,7 @@ class GridView extends Component {
         }
 
         // Creates the new start & end indexes
-        me.updateMountedAndVisibleColumns();
+        me.updateMountedAndVisibleRows();
 
         for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
@@ -985,7 +985,7 @@ class GridView extends Component {
     /**
      *
      */
-    updateMountedAndVisibleColumns() {
+    updateMountedAndVisibleRows() {
         let me           = this,
             {bufferRowRange, startIndex, store} = me,
             countRecords = store.getCount(),
