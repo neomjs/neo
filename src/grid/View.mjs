@@ -82,6 +82,12 @@ class GridView extends Component {
          */
         keys: {},
         /**
+         * Stores the indexes of the first & last mounted columns, including the buffer range
+         * @member {Number[]} mountedRows=[0,0]
+         * @protected
+         */
+        mountedRows: [0, 0],
+        /**
          * @member {String} role='rowgroup'
          */
         role: 'rowgroup',
@@ -116,6 +122,12 @@ class GridView extends Component {
          * @protected
          */
         visibleColumns_: [0, 0],
+        /**
+         * Stores the indexes of the first & last visible columns, excluding the buffer range
+         * @member {Number[]} visibleRows=[0,0]
+         * @protected
+         */
+        visibleRows: [0, 0],
         /**
          * @member {String[]} wrapperCls=[]
          */
@@ -570,11 +582,10 @@ class GridView extends Component {
      *
      */
     createViewData() {
-        let me           = this,
-            {bufferRowRange, startIndex, store} = me,
-            countRecords = store.getCount(),
-            rows         = [],
-            endIndex, i;
+        let me                   = this,
+            {mountedRows, store} = me,
+            rows                 = [],
+            i;
 
         if (
             store.isLoading                   ||
@@ -586,10 +597,10 @@ class GridView extends Component {
             return
         }
 
-        endIndex   = Math.min(countRecords, me.availableRows + startIndex + bufferRowRange);
-        startIndex = Math.max(0, startIndex - bufferRowRange);
+        // Creates the new start & end indexes
+        me.updateMountedAndVisibleColumns();
 
-        for (i=startIndex; i < endIndex; i++) {
+        for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
 
@@ -969,6 +980,25 @@ class GridView extends Component {
             me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
             !silent && me.update()
         }
+    }
+
+    /**
+     *
+     */
+    updateMountedAndVisibleColumns() {
+        let me           = this,
+            {bufferRowRange, startIndex, store} = me,
+            countRecords = store.getCount(),
+            endIndex     = Math.min(countRecords, startIndex + me.availableRows);
+
+        me.visibleRows[0] = startIndex; // update the array inline
+        me.visibleRows[1] = endIndex;
+
+        startIndex = Math.max(0, startIndex - bufferRowRange);
+        endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
+
+        me.mountedRows[0] = startIndex; // update the array inline
+        me.mountedRows[1] = endIndex;
     }
 
     /**
