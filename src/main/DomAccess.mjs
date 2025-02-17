@@ -888,19 +888,16 @@ class DomAccess extends Base {
     }
 
     /**
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollBy
      * @param {Object} data
+     * @param {String} data.behavior='auto' auto, instant, smooth
      * @param {String} data.direction='top' left, top
      * @param {String} data.id
      * @param {Number} data.value
      * @returns {Object} obj.id => the passed id
      */
-    scrollBy({direction='top', id, value}) {
-        let node = this.getElement(id);
-
-        if (node) {
-            node[`scroll${Neo.capitalize(direction)}`] += value
-        }
-
+    scrollBy({behavior='auto', direction='top', id, value}) {
+        this.getElement(id)?.scrollBy({behavior, [direction]: value});
         return {id}
     }
 
