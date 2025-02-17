@@ -889,19 +889,19 @@ class DomAccess extends Base {
 
     /**
      * @param {Object} data
-     * @param {String} data.direction left, top
+     * @param {String} data.direction='top' left, top
      * @param {String} data.id
      * @param {Number} data.value
      * @returns {Object} obj.id => the passed id
      */
-    scrollBy(data) {
-        let node = this.getElement(data.id);
+    scrollBy({direction='top', id, value}) {
+        let node = this.getElement(id);
 
         if (node) {
-            node[`scroll${Neo.capitalize(data.direction)}`] += data.value
+            node[`scroll${Neo.capitalize(direction)}`] += value
         }
 
-        return {id: data.id}
+        return {id}
     }
 
     /**
@@ -928,7 +928,7 @@ class DomAccess extends Base {
                 if (node) {
                     let hasListener = 'scrollend' in window;
 
-                    hasListener && document.addEventListener('scrollend', () =>resolve(), {capture: true, once: true});
+                    hasListener && document.addEventListener('scrollend', () => resolve(), {capture: true, once: true});
 
                     node.scrollIntoView(opts);
 
