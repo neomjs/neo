@@ -82,7 +82,7 @@ class GridView extends Component {
          */
         keys: {},
         /**
-         * Stores the indexes of the first & last mounted columns, including the buffer range
+         * Stores the indexes of the first & last mounted rows, including bufferRowRange
          * @member {Number[]} mountedRows=[0,0]
          * @protected
          */
@@ -123,7 +123,7 @@ class GridView extends Component {
          */
         visibleColumns_: [0, 0],
         /**
-         * Stores the indexes of the first & last visible columns, excluding the buffer range
+         * Stores the indexes of the first & last visible rows, excluding bufferRowRange
          * @member {Number[]} visibleRows=[0,0]
          * @protected
          */
