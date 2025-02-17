@@ -94,6 +94,8 @@ class RowModel extends BaseModel {
             rowId = view.getRowId(record);
 
             if (rowId) {
+                view.scrollByRows(currentIndex, step);
+
                 me.select(rowId);
                 view.fire('select', {record})
             }

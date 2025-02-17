@@ -218,7 +218,7 @@ class GridView extends Component {
      */
     afterSetAvailableHeight(value, oldValue) {
         if (value > 0) {
-            this.availableRows = Math.ceil(value / this.rowHeight) + 1
+            this.availableRows = Math.ceil(value / this.rowHeight) - 1
         }
     }
 
@@ -333,10 +333,11 @@ class GridView extends Component {
         if (value.y !== oldValue?.y) {
             newStartIndex = Math.floor(value.y / me.rowHeight);
 
-            if (newStartIndex < bufferRowRange) {
-                me.startIndex = 0
-            } else if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
+            if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
                 me.startIndex = newStartIndex
+            } else {
+                me.visibleRows[0] = newStartIndex;
+                me.visibleRows[1] = newStartIndex + me.availableRows
             }
         }
     }
@@ -600,6 +601,8 @@ class GridView extends Component {
         // Creates the new start & end indexes
         me.updateMountedAndVisibleRows();
 
+        console.log('createViewData', me.startIndex, mountedRows, me.visibleRows);
+
         for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
@@ -851,6 +854,7 @@ class GridView extends Component {
     /**
      * Only triggers for vertical scrolling
      * @param {Object} data
+     * @protected
      */
     onScroll({scrollTop, touches}) {
         let me = this,
@@ -966,6 +970,38 @@ class GridView extends Component {
 
         parent.isTouchMoveOwner = false;
         parent.lastTouchY       = 0
+    }
+
+    scrollByRows(index, step) {
+        let me                         = this,
+            {mountedRows, visibleRows} = me,
+            countRecords               = me.store.getCount(),
+            newIndex                   = (index + step) % countRecords,
+            mounted, visible;
+
+        while (newIndex < 0) {
+            newIndex += countRecords;
+            step     += countRecords
+        }
+
+        mounted  = newIndex >= mountedRows[0] && newIndex <= mountedRows[1];
+        visible  = newIndex >= visibleRows[0] && newIndex <= visibleRows[1];
+
+        if (!visible) {
+            // Leaving the mounted area will re-calculate the visibleRows for us
+            if (mounted) {
+                visibleRows[0] += step;
+                visibleRows[1] += step
+            }
+
+            Neo.main.DomAccess.scrollBy({
+                id      : me.vdom.id,
+                value   : me.rowHeight * step,
+                windowId: me.windowId
+            })
+        }
+
+        console.log(visible, index, newIndex, visibleRows);
     }
 
     /**
