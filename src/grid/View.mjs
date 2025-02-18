@@ -729,6 +729,7 @@ class GridView extends Component {
 
     /**
      * Get the matching record by passing a row id, a cell id or an id inside a grid cell.
+     * Limited to mounted rows (must be inside the vdom).
      * @param {String} nodeId
      * @returns {Object|null}
      */
@@ -743,7 +744,7 @@ class GridView extends Component {
 
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 
-        for (node of parentNodes) {
+        for (node of parentNodes || []) {
             record = me.getRecordByRowId(node.id);
 
             if (record) {
@@ -752,6 +753,24 @@ class GridView extends Component {
         }
 
         return null
+    }
+
+    /**
+     * @param {String} cellId
+     * @returns {Record}
+     */
+    getRecordByCellId(cellId) {
+        let recordId = cellId.split('__')[1],
+            {store}  = this,
+            {model}  = store,
+            keyField = model?.getField(store.getKeyProperty()),
+            keyType  = keyField?.type?.toLowerCase();
+
+        if (keyType === 'int' || keyType === 'integer') {
+            recordId = parseInt(recordId)
+        }
+
+        return store.get(recordId)
     }
 
     /**
