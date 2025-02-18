@@ -112,10 +112,10 @@ class CellModel extends BaseModel {
             {view}       = me,
             {store}      = view,
             currentIndex = 0,
-            dataField, newIndex;
+            dataField, newIndex, record;
 
         if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecord(me.items[0]));
+            currentIndex = store.indexOf(view.getRecordByCellId(me.items[0]));
             dataField    = view.getDataField(me.items[0])
         } else {
             dataField = me.dataFields[0]
@@ -127,7 +127,11 @@ class CellModel extends BaseModel {
             newIndex += store.getCount()
         }
 
-        me.select(view.getCellId(store.getAt(newIndex), dataField))
+        record = store.getAt(newIndex);
+
+        me.select(view.getCellId(record, dataField));
+
+        view.scrollByRows(currentIndex, step)
     }
 
     /**
