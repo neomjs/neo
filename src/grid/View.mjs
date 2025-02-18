@@ -970,6 +970,11 @@ class GridView extends Component {
         parent.lastTouchY       = 0
     }
 
+    /**
+     * Used for keyboard navigation (selection models)
+     * @param {Number} index
+     * @param {Number} step
+     */
     scrollByRows(index, step) {
         let me                         = this,
             {mountedRows, visibleRows} = me,
