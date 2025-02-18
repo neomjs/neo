@@ -601,8 +601,6 @@ class GridView extends Component {
         // Creates the new start & end indexes
         me.updateMountedAndVisibleRows();
 
-        console.log('createViewData', me.startIndex, mountedRows, me.visibleRows);
-
         for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
@@ -976,16 +974,21 @@ class GridView extends Component {
         let me                         = this,
             {mountedRows, visibleRows} = me,
             countRecords               = me.store.getCount(),
-            newIndex                   = (index + step) % countRecords,
+            newIndex                   = index + step,
             mounted, visible;
+
+        if (newIndex >= countRecords) {
+            newIndex %= countRecords;
+            step     = newIndex - index
+        }
 
         while (newIndex < 0) {
             newIndex += countRecords;
             step     += countRecords
         }
 
-        mounted  = newIndex >= mountedRows[0] && newIndex <= mountedRows[1];
-        visible  = newIndex >= visibleRows[0] && newIndex <= visibleRows[1];
+        mounted = newIndex >= mountedRows[0] && newIndex <= mountedRows[1];
+        visible = newIndex >= visibleRows[0] && newIndex <= visibleRows[1];
 
         if (!visible) {
             // Leaving the mounted area will re-calculate the visibleRows for us
@@ -1000,8 +1003,6 @@ class GridView extends Component {
                 windowId: me.windowId
             })
         }
-
-        console.log(visible, index, newIndex, visibleRows);
     }
 
     /**
