@@ -36,7 +36,9 @@
         "webworker",
         "ecmascript",
         "css",
-        "json"
+        "json",
+        "react-alternative",
+        "angular-alternative"
     ],
     "author": "Tobias Uhlig",
     "license": "MIT",
