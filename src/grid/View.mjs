@@ -762,9 +762,7 @@ class GridView extends Component {
     getRecordByCellId(cellId) {
         let recordId = cellId.split('__')[1],
             {store}  = this,
-            {model}  = store,
-            keyField = model?.getField(store.getKeyProperty()),
-            keyType  = keyField?.type?.toLowerCase();
+            keyType  = store.getKeyType();
 
         if (keyType === 'int' || keyType === 'integer') {
             recordId = parseInt(recordId)
@@ -780,9 +778,7 @@ class GridView extends Component {
     getRecordByRowId(rowId) {
         let recordId = rowId.split('__')[2],
             {store}  = this,
-            {model}  = store,
-            keyField = model?.getField(store.getKeyProperty()),
-            keyType  = keyField?.type?.toLowerCase();
+            keyType  = store.getKeyType();
 
         if (keyType === 'int' || keyType === 'integer') {
             recordId = parseInt(recordId)
