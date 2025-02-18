@@ -37,7 +37,7 @@ class Container extends Base {
             picture        : 'rwaters.png',
             profileGitHub  : 'https://github.com/rwaters',
             profileLinkedIn: 'https://www.linkedin.com/in/rwaters/',
-            teamRole       : 'Co-Founder & Core Team Member'
+            teamRole       : 'Contributor'
         }, {
             module         : MemberContainer,
             location       : 'Germany',

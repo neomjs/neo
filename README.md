@@ -90,4 +90,3 @@ All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps
 
 </br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
-& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

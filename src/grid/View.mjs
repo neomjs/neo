@@ -82,6 +82,12 @@ class GridView extends Component {
          */
         keys: {},
         /**
+         * Stores the indexes of the first & last mounted rows, including bufferRowRange
+         * @member {Number[]} mountedRows=[0,0]
+         * @protected
+         */
+        mountedRows: [0, 0],
+        /**
          * @member {String} role='rowgroup'
          */
         role: 'rowgroup',
@@ -117,6 +123,12 @@ class GridView extends Component {
          */
         visibleColumns_: [0, 0],
         /**
+         * Stores the indexes of the first & last visible rows, excluding bufferRowRange
+         * @member {Number[]} visibleRows=[0,0]
+         * @protected
+         */
+        visibleRows: [0, 0],
+        /**
          * @member {String[]} wrapperCls=[]
          */
         wrapperCls: ['neo-grid-view-wrapper'],
@@ -145,6 +157,19 @@ class GridView extends Component {
      * @member {Number|null}} scrollTimeoutId=null
      */
     scrollTimeoutId = null
+
+    /**
+     * @member {String[]} selectedRows
+     */
+    get selectedCells() {
+        let {selectionModel} = this;
+
+        if (selectionModel.ntype.includes('cell')) {
+            return selectionModel.items
+        }
+
+        return []
+    }
 
     /**
      * @member {String[]} selectedRows
@@ -193,7 +218,7 @@ class GridView extends Component {
      */
     afterSetAvailableHeight(value, oldValue) {
         if (value > 0) {
-            this.availableRows = Math.ceil(value / this.rowHeight) + 1
+            this.availableRows = Math.ceil(value / this.rowHeight) - 1
         }
     }
 
@@ -308,10 +333,11 @@ class GridView extends Component {
         if (value.y !== oldValue?.y) {
             newStartIndex = Math.floor(value.y / me.rowHeight);
 
-            if (newStartIndex < bufferRowRange) {
-                me.startIndex = 0
-            } else if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
+            if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
                 me.startIndex = newStartIndex
+            } else {
+                me.visibleRows[0] = newStartIndex;
+                me.visibleRows[1] = newStartIndex + me.availableRows
             }
         }
     }
@@ -359,13 +385,13 @@ class GridView extends Component {
      */
     applyRendererOutput(data) {
         let {cellId, column, columnIndex, record, rowIndex} = data,
-            me            = this,
-            gridContainer = me.parent,
-            {store}       = me,
-            cellCls       = ['neo-grid-cell'],
-            colspan       = record[me.colspanField],
-            {dataField}   = column,
-            fieldValue    = record[dataField],
+            me                     = this,
+            gridContainer          = me.parent,
+            {selectedCells, store} = me,
+            cellCls                = ['neo-grid-cell'],
+            colspan                = record[me.colspanField],
+            {dataField}            = column,
+            fieldValue             = record[dataField],
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -419,6 +445,10 @@ class GridView extends Component {
 
         if (!cellId) {
             cellId = me.getCellId(record, column.dataField)
+        }
+
+        if (selectedCells.includes(cellId)) {
+            cellCls.push('neo-selected')
         }
 
         cellConfig = {
@@ -553,11 +583,10 @@ class GridView extends Component {
      *
      */
     createViewData() {
-        let me           = this,
-            {bufferRowRange, startIndex, store} = me,
-            countRecords = store.getCount(),
-            rows         = [],
-            endIndex, i;
+        let me                   = this,
+            {mountedRows, store} = me,
+            rows                 = [],
+            i;
 
         if (
             store.isLoading                   ||
@@ -569,10 +598,10 @@ class GridView extends Component {
             return
         }
 
-        endIndex   = Math.min(countRecords, me.availableRows + startIndex + bufferRowRange);
-        startIndex = Math.max(0, startIndex - bufferRowRange);
+        // Creates the new start & end indexes
+        me.updateMountedAndVisibleRows();
 
-        for (i=startIndex; i < endIndex; i++) {
+        for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
 
@@ -823,6 +852,7 @@ class GridView extends Component {
     /**
      * Only triggers for vertical scrolling
      * @param {Object} data
+     * @protected
      */
     onScroll({scrollTop, touches}) {
         let me = this,
@@ -941,6 +971,55 @@ class GridView extends Component {
     }
 
     /**
+     * Used for keyboard navigation (selection models)
+     * @param {Number} index
+     * @param {Number} step
+     */
+    scrollByRows(index, step) {
+        let me                         = this,
+            {mountedRows, visibleRows} = me,
+            countRecords               = me.store.getCount(),
+            newIndex                   = index + step,
+            lastRowGap, mounted, scrollPosition, visible;
+
+        if (newIndex >= countRecords) {
+            newIndex %= countRecords;
+            step     = newIndex - index
+        }
+
+        while (newIndex < 0) {
+            newIndex += countRecords;
+            step     += countRecords
+        }
+
+        mounted = newIndex >= mountedRows[0] && newIndex <= mountedRows[1];
+
+        // Not using >= or <=, since the first / last row might not be fully visible
+        visible = newIndex > visibleRows[0] && newIndex < visibleRows[1];
+
+        if (!visible) {
+            // Leaving the mounted area will re-calculate the visibleRows for us
+            if (mounted) {
+                visibleRows[0] += step;
+                visibleRows[1] += step
+            }
+
+            if (step < 0) {
+                scrollPosition = newIndex * me.rowHeight
+            } else {
+                lastRowGap     = me.rowHeight - (me.availableHeight % me.rowHeight);
+                scrollPosition = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
+            }
+
+            Neo.main.DomAccess.scrollTo({
+                id      : me.vdom.id,
+                value   : scrollPosition,
+                windowId: me.windowId
+            })
+        }
+    }
+
+    /**
      * @param {Boolean} silent=false
      */
     updateScrollHeight(silent=false) {
@@ -952,6 +1031,25 @@ class GridView extends Component {
             me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
             !silent && me.update()
         }
+    }
+
+    /**
+     *
+     */
+    updateMountedAndVisibleRows() {
+        let me           = this,
+            {bufferRowRange, startIndex, store} = me,
+            countRecords = store.getCount(),
+            endIndex     = Math.min(countRecords, startIndex + me.availableRows);
+
+        me.visibleRows[0] = startIndex; // update the array inline
+        me.visibleRows[1] = endIndex;
+
+        startIndex = Math.max(0, startIndex - bufferRowRange);
+        endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
+
+        me.mountedRows[0] = startIndex; // update the array inline
+        me.mountedRows[1] = endIndex;
     }
 
     /**

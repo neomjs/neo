@@ -888,20 +888,17 @@ class DomAccess extends Base {
     }
 
     /**
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollBy
      * @param {Object} data
-     * @param {String} data.direction left, top
+     * @param {String} data.behavior='auto' auto, instant, smooth
+     * @param {String} data.direction='top' left, top
      * @param {String} data.id
      * @param {Number} data.value
      * @returns {Object} obj.id => the passed id
      */
-    scrollBy(data) {
-        let node = this.getElement(data.id);
-
-        if (node) {
-            node[`scroll${Neo.capitalize(data.direction)}`] += data.value
-        }
-
-        return {id: data.id}
+    scrollBy({behavior='auto', direction='top', id, value}) {
+        this.getElement(id)?.scrollBy({behavior, [direction]: value});
+        return {id}
     }
 
     /**
@@ -928,7 +925,7 @@ class DomAccess extends Base {
                 if (node) {
                     let hasListener = 'scrollend' in window;
 
-                    hasListener && document.addEventListener('scrollend', () =>resolve(), {capture: true, once: true});
+                    hasListener && document.addEventListener('scrollend', () => resolve(), {capture: true, once: true});
 
                     node.scrollIntoView(opts);
 
@@ -941,31 +938,28 @@ class DomAccess extends Base {
     }
 
     /**
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollTo
      * @param {Object} data
+     * @param {String} data.behavior='auto' auto, instant, smooth
      * @param {String} data.direction='top' left, top
      * @param {String} data.id
      * @param {Number} data.value
      * @returns {Object} obj.id => the passed id
      */
-    scrollTo({direction='top', id, value}) {
-        let node = this.getElement(id);
-
-        if (node) {
-            node[`scroll${Neo.capitalize(direction)}`] = value
-        }
-
+    scrollTo({behavior='auto', direction='top', id, value}) {
+        this.getElement(id)?.scrollTo({behavior, [direction]: value});
         return {id}
     }
 
     /**
      * @param {Object} data
      * @param {String} data.id
-     * @param {String} [data.behavior='smooth']
-     * @param {String} [data.offset=34]
+     * @param {String} data.behavior='smooth'
+     * @param {Number} data.offset=34
      * @returns {Object} obj.id => the passed id
      */
-    scrollToTableRow(data) {
-        let node = this.getElement(data.id); // tr tag
+    scrollToTableRow({id, behavior='smooth', offset=34}) {
+        let node = this.getElement(id); // tr tag
 
         if (node) {
             let tableNode   = node.parentNode.parentNode,
@@ -974,12 +968,12 @@ class DomAccess extends Base {
                 top         = node.getBoundingClientRect().top;
 
             wrapperNode.scrollTo({
-                behavior: data.behavior || 'smooth',
-                top     : top - tableTop - (data.hasOwnProperty('offset') ? data.offset : 34)
+                behavior,
+                top: top - tableTop - offset
             })
         }
 
-        return {id: data.id}
+        return {id}
     }
 
     /**
