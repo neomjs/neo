@@ -975,7 +975,7 @@ class GridView extends Component {
             {mountedRows, visibleRows} = me,
             countRecords               = me.store.getCount(),
             newIndex                   = index + step,
-            mounted, visible;
+            lastRowGap, mounted, scrollPosition, visible;
 
         if (newIndex >= countRecords) {
             newIndex %= countRecords;
@@ -988,7 +988,9 @@ class GridView extends Component {
         }
 
         mounted = newIndex >= mountedRows[0] && newIndex <= mountedRows[1];
-        visible = newIndex >= visibleRows[0] && newIndex <= visibleRows[1];
+
+        // Not using >= or <=, since the first / last row might not be fully visible
+        visible = newIndex > visibleRows[0] && newIndex < visibleRows[1];
 
         if (!visible) {
             // Leaving the mounted area will re-calculate the visibleRows for us
@@ -997,9 +999,16 @@ class GridView extends Component {
                 visibleRows[1] += step
             }
 
-            Neo.main.DomAccess.scrollBy({
+            if (step < 0) {
+                scrollPosition = newIndex * me.rowHeight
+            } else {
+                lastRowGap     = me.rowHeight - (me.availableHeight % me.rowHeight);
+                scrollPosition = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
+            }
+
+            Neo.main.DomAccess.scrollTo({
                 id      : me.vdom.id,
-                value   : me.rowHeight * step,
+                value   : scrollPosition,
                 windowId: me.windowId
             })
         }
