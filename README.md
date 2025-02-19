@@ -21,6 +21,11 @@ without compilations. This makes debugging easier and reduces development costs.
 In case you care about scalability, extensibility or solid architectures, congratulations,
 you have found the right spot.
 
+<p align="center">
+  <a href="https://youtu.be/pYfM28Pz6_0"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo33s.png"></a>
+  <a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo-movie.png"></a>
+</p>
+
 ## Content
 1. <a href="#introduction">Introduction</a>
 2. <a href="#use-cases">Potential Use Cases</a>
