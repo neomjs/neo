@@ -229,7 +229,7 @@ class Toolbar extends BaseToolbar {
                 availableWidth: lastItem.x + lastItem.width - rects[0].x
             });
 
-            !silent && view.updateVisibleColumns()
+            !silent && view.updateMountedAndVisibleColumns()
         }
     }
 

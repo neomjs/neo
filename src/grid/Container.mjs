@@ -522,7 +522,7 @@ class GridContainer extends BaseContainer {
         if (!me.initialResizeEvent) {
             await me.passSizeToView(true);
 
-            me.view.updateVisibleColumns();
+            me.view.updateMountedAndVisibleColumns();
 
             await me.headerToolbar.passSizeToView()
         } else {

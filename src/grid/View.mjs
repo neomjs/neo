@@ -82,6 +82,12 @@ class GridView extends Component {
          */
         keys: {},
         /**
+         * Stores the indexes of the first & last mounted columns, including bufferColumnRange
+         * @member {Number[]} mountedColumns_=[0,0]
+         * @protected
+         */
+        mountedColumns_: [0, 0],
+        /**
          * Stores the indexes of the first & last mounted rows, including bufferRowRange
          * @member {Number[]} mountedRows=[0,0]
          * @protected
@@ -118,10 +124,10 @@ class GridView extends Component {
         store_: null,
         /**
          * Stores the indexes of the first & last painted columns
-         * @member {Number[]} visibleColumns_=[0,0]
+         * @member {Number[]} visibleColumns=[0,0]
          * @protected
          */
-        visibleColumns_: [0, 0],
+        visibleColumns: [0, 0],
         /**
          * Stores the indexes of the first & last visible rows, excluding bufferRowRange
          * @member {Number[]} visibleRows=[0,0]
@@ -229,9 +235,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetAvailableRows(value, oldValue) {
-        if (value > 0) {
-            this.createViewData()
-        }
+        value > 0 && this.createViewData()
     }
 
     /**
@@ -277,9 +281,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetContainerWidth(value, oldValue) {
-        if (value > 0) {
-            this.updateVisibleColumns()
-        }
+        value > 0 && this.updateMountedAndVisibleColumns()
     }
 
     /**
@@ -306,6 +308,16 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the mountedColumns config got changed
+     * @param {Number[]} value
+     * @param {Number[]} oldValue
+     * @protected
+     */
+    afterSetMountedColumns(value, oldValue) {
+        oldValue !== undefined && this.createViewData()
+    }
+
+    /**
      * Triggered after the rowHeight config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -327,7 +339,7 @@ class GridView extends Component {
             newStartIndex;
 
         if (value.x !== oldValue?.x) {
-            me.updateVisibleColumns()
+            me.updateMountedAndVisibleColumns()
         }
 
         if (value.y !== oldValue?.y) {
@@ -360,18 +372,6 @@ class GridView extends Component {
      */
     afterSetStartIndex(value, oldValue) {
         oldValue !== undefined && this.createViewData()
-    }
-
-    /**
-     * Triggered after the visibleColumns config got changed
-     * @param {Number[]} value
-     * @param {Number[]} oldValue
-     * @protected
-     */
-    afterSetVisibleColumns(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createViewData()
-        }
     }
 
     /**
@@ -516,12 +516,12 @@ class GridView extends Component {
         }
 
         let me            = this,
-            {bufferColumnRange, selectedRows, visibleColumns} = me,
+            {mountedColumns, selectedRows} = me,
             gridContainer = me.parent,
             columns       = gridContainer.headerToolbar.items,
             id            = me.getRowId(record, rowIndex),
             rowCls        = me.getRowClass(record, rowIndex),
-            config, column, columnPosition, endIndex, gridRow, i, startIndex;
+            config, column, columnPosition,  gridRow, i;
 
         if (rowIndex % 2 !== 0) {
             rowCls.push('neo-even')
@@ -549,10 +549,7 @@ class GridView extends Component {
             }
         };
 
-        endIndex   = Math.min(columns.length - 1, visibleColumns[1] + bufferColumnRange);
-        startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
-
-        for (i=startIndex; i <= endIndex; i++) {
+        for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns[i];
             config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
 
@@ -593,7 +590,7 @@ class GridView extends Component {
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
-            me.visibleColumns[1]          < 1
+            me.mountedColumns[1]          < 1
         ) {
             return
         }
@@ -1070,13 +1067,13 @@ class GridView extends Component {
     /**
      *
      */
-    updateVisibleColumns() {
-        let me                = this,
-            {columnPositions} = me,
-            {x}               = me.scrollPosition,
-            i                 = 0,
-            len               = columnPositions.getCount(),
-            endIndex          = len - 1,
+    updateMountedAndVisibleColumns() {
+        let me       = this,
+            {bufferColumnRange, columnPositions, visibleColumns} = me,
+            {x}      = me.scrollPosition,
+            i        = 0,
+            len      = columnPositions.getCount(),
+            endIndex = len - 1,
             column, startIndex;
 
         if (len < 1) {
@@ -1100,7 +1097,13 @@ class GridView extends Component {
             Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange ||
             me.visibleColumns[1] < 1 // initial call
         ) {
-            me.visibleColumns = [startIndex, endIndex]
+            visibleColumns[0] = startIndex;
+            visibleColumns[1] = endIndex;
+
+            endIndex   = Math.min(len - 1, visibleColumns[1] + bufferColumnRange);
+            startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
+
+            me.mountedColumns = [startIndex, endIndex]
         }
     }
 }
