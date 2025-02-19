@@ -1032,39 +1032,6 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Boolean} silent=false
-     */
-    updateScrollHeight(silent=false) {
-        let me           = this,
-            countRecords = me.store.getCount(),
-            {rowHeight}  = me;
-
-        if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
-            !silent && me.update()
-        }
-    }
-
-    /**
-     *
-     */
-    updateMountedAndVisibleRows() {
-        let me           = this,
-            {bufferRowRange, startIndex, store} = me,
-            countRecords = store.getCount(),
-            endIndex     = Math.min(countRecords, startIndex + me.availableRows);
-
-        me.visibleRows[0] = startIndex; // update the array inline
-        me.visibleRows[1] = endIndex;
-
-        startIndex = Math.max(0, startIndex - bufferRowRange);
-        endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
-
-        me.mountedRows[0] = startIndex; // update the array inline
-        me.mountedRows[1] = endIndex;
-    }
-
-    /**
      *
      */
     updateMountedAndVisibleColumns() {
@@ -1104,6 +1071,39 @@ class GridView extends Component {
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
 
             me.mountedColumns = [startIndex, endIndex]
+        }
+    }
+
+    /**
+     *
+     */
+    updateMountedAndVisibleRows() {
+        let me           = this,
+            {bufferRowRange, startIndex, store} = me,
+            countRecords = store.getCount(),
+            endIndex     = Math.min(countRecords, startIndex + me.availableRows);
+
+        me.visibleRows[0] = startIndex; // update the array inline
+        me.visibleRows[1] = endIndex;
+
+        startIndex = Math.max(0, startIndex - bufferRowRange);
+        endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
+
+        me.mountedRows[0] = startIndex; // update the array inline
+        me.mountedRows[1] = endIndex;
+    }
+
+    /**
+     * @param {Boolean} silent=false
+     */
+    updateScrollHeight(silent=false) {
+        let me           = this,
+            countRecords = me.store.getCount(),
+            {rowHeight}  = me;
+
+        if (countRecords > 0 && rowHeight > 0) {
+            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
+            !silent && me.update()
         }
     }
 }
