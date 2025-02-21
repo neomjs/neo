@@ -20,19 +20,19 @@ const themes = [
 class ConfigurationViewport extends Viewport {
     static config = {
         /**
-         * @member {String} className='Neo.examples.ConfigurationContainer'
+         * @member {String} className='Neo.examples.ConfigurationViewport'
          * @protected
          */
-        className: 'Neo.examples.ConfigurationContainer',
+        className: 'Neo.examples.ConfigurationViewport',
         /**
          * @member {String} ntype='configuration-viewport'
          * @protected
          */
         ntype: 'configuration-viewport',
         /**
-         * @member {Object} layout={ntype:'hbox', align:'stretch'}
+         * @member {String[]} baseCls=['neo-examples-configuration-viewport','neo-viewport']
          */
-        layout: {ntype: 'hbox', align: 'stretch'},
+        baseCls: ['neo-examples-configuration-viewport', 'neo-viewport'],
         /**
          * @member {Number} configItemLabelWidth=150
          */
@@ -60,7 +60,11 @@ class ConfigurationViewport extends Viewport {
         /**
          * @member {Number} exampleComponentFlex=1
          */
-        exampleComponentFlex: 2
+        exampleComponentFlex: 2,
+        /**
+         * @member {Object} layout={ntype:'hbox', align:'stretch'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch'}
     }
 
     /**
@@ -118,6 +122,7 @@ class ConfigurationViewport extends Viewport {
 
         me.items = [{
             module: Container,
+            cls   : ['neo-example-container'],
             items : [me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
@@ -135,8 +140,8 @@ class ConfigurationViewport extends Viewport {
             },
 
             headers: [{
+                cls  : ['neo-configuration-header-toolbar'],
                 dock : 'top',
-                style: {borderLeft:0, borderRight:0, borderTop:0},
                 items: [{
                     ntype: 'label',
                     text : 'Configuration'
@@ -154,7 +159,6 @@ class ConfigurationViewport extends Viewport {
             items: [{
                 module: Container,
                 layout: {ntype: 'vbox', align: null},
-                style : {overflowY: 'auto', padding: '10px'},
                 cls   : ['neo-configuration-panel-body'],
                 itemDefaults: {
                     clearToOriginalValue: true,

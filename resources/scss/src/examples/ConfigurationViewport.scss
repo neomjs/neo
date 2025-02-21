@@ -1,0 +1,27 @@
+.neo-examples-configuration-viewport {
+    transition: width .5s ease-in-out;
+
+    @media (max-width: 450px) {
+        overflow-y: auto;
+
+        .neo-example-container {
+            flex: none !important;
+        }
+
+        &.neo-flex-container {
+            &.neo-flex-direction-row {
+                flex-direction: column;
+            }
+        }
+    }
+
+    .neo-configuration-header-toolbar {
+        border       : 0;
+        border-bottom: 1px solid var(--panel-border-color);
+    }
+
+    .neo-configuration-panel-body {
+        overflow-y: auto;
+        padding   : 10px;
+    }
+}
