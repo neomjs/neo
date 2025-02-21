@@ -277,7 +277,7 @@ class MagicMoveText extends Component {
                 charNode.style.color   = me.colorFadeOut;
                 charNode.style.opacity = 0
             } else {
-                charNode.style.opacity = 1
+                delete charNode.style.opacity
             }
         });
 
