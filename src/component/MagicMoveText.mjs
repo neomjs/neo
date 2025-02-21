@@ -34,6 +34,10 @@ class MagicMoveText extends Component {
          */
         cycleTexts: null,
         /**
+         * @member {String} fontFamily_='Helvetica Neue'
+         */
+        fontFamily_: 'Helvetica Neue',
+        /**
          * @member {String} text_=null
          */
         text_: null,
@@ -41,7 +45,7 @@ class MagicMoveText extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
+        {style: {}, cn: [
             {cls: ['neo-content'], cn: []},
             {cls: ['neo-measure-element-wrapper'], removeDom: true, cn: [
                 {cls: ['neo-measure-element'], cn:[]}
@@ -84,6 +88,17 @@ class MagicMoveText extends Component {
             me.startAutoCycle(false);
             me.startAutoCycle()
         }
+    }
+
+    /**
+     * Triggered after the fontFamily config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetFontFamily(value, oldValue) {
+        this.vdom.style.fontFamily = value;
+        this.update()
     }
 
     /**

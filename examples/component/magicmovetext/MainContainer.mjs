@@ -1,3 +1,4 @@
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import MagicMoveText         from '../../../src/component/MagicMoveText.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
@@ -10,50 +11,42 @@ import TextField             from '../../../src/form/field/Text.mjs';
 class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.component.magicmovetext.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 110,
-        configItemWidth     : 230,
+        configItemLabelWidth: 150,
+        configItemWidth     : 250,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
     createConfigurationComponents() {
-        let me = this;
+        let me                 = this,
+            {exampleComponent} = me;
 
         return [{
+            module   : CheckBox,
+            checked  : exampleComponent.autoCycle,
+            labelText: 'autoCycle',
+            listeners: {change: me.onConfigChange.bind(me, 'autoCycle')}
+        }, {
             module   : NumberField,
-            clearable: true,
-            labelText: 'height',
-            listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 100,
-            minValue : 20,
-            stepSize : 2,
+            clearable: false,
+            labelText: 'autoCycleInterval',
+            listeners: {change: me.onConfigChange.bind(me, 'autoCycleInterval')},
+            maxValue : 10000,
+            minValue : 0,
+            stepSize : 1000,
             style    : {marginTop: '10px'},
-            value    : me.exampleComponent.height
+            value    : exampleComponent.autoCycleInterval
         }, {
             module   : TextField,
-            clearable: true,
-            labelText: 'labelText',
-            listeners: {change: me.onConfigChange.bind(me, 'labelText')},
-            style    : {marginTop: '10px'},
-            value    : me.exampleComponent.labelText
-        }, {
-            module   : NumberField,
-            clearable: true,
-            labelText: 'width',
-            listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 100,
-            stepSize : 5,
-            value    : me.exampleComponent.width
-        }, {
-            module   : NumberField,
-            clearable: true,
-            labelText: 'value',
-            listeners: {change: me.onConfigChange.bind(me, 'value')},
-            maxValue : 100,
+            clearable: false,
+            labelText: 'fontFamily',
+            listeners: {change: me.onConfigChange.bind(me, 'fontFamily')},
+            maxValue : 10000,
             minValue : 0,
-            value    : me.exampleComponent.value
-        }];
+            stepSize : 1000,
+            style    : {marginTop: '10px'},
+            value    : exampleComponent.fontFamily,
+            width    : 300
+        }]
     }
 
     createExampleComponent() {
