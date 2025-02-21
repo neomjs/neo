@@ -1,6 +1,8 @@
 import Component from '../component/Base.mjs';
 
 /**
+ * Deeply inspired by https://github.com/yangshun 's video on LinkedIn
+ * as well as Apple's Keynote Magic Move effect
  * @class Neo.component.MagicMoveText
  * @extends Neo.component.Base
  */
@@ -70,14 +72,25 @@ class MagicMoveText extends Component {
         ]}
     }
 
+    /**
+     * @member {Object[]} chars=[]
+     */
     chars = []
-
+    /**
+     * @member {Number} currentIndex=0
+     */
     currentIndex = 0
-
+    /**
+     * @member {Number|null} intervalId=null
+     */
     intervalId = null
-
+    /**
+     * @member {Object[]} previousChars=[]
+     */
     previousChars = []
-
+    /**
+     * @member {Object} measureElement
+     */
     get measureElement() {
         return this.vdom.cn[1].cn[0]
     }
@@ -133,6 +146,7 @@ class MagicMoveText extends Component {
      * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
+     * @returns {Promise<void>}
      * @protected
      */
     async afterSetText(value, oldValue) {
@@ -176,6 +190,9 @@ class MagicMoveText extends Component {
         this.update()
     }
 
+    /**
+     * @returns {Promise<void>}
+     */
     async measureChars() {
         let me = this,
             {measureElement} = me,
@@ -216,6 +233,9 @@ class MagicMoveText extends Component {
         }
     }
 
+    /**
+     * @returns {Promise<void>}
+     */
     async updateChars() {
         let me                     = this,
             {chars, previousChars} = me,
