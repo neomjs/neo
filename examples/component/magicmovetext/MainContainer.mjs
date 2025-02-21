@@ -37,21 +37,18 @@ class MainContainer extends ConfigurationViewport {
             value    : exampleComponent.autoCycleInterval
         }, {
             module   : TextField,
-            clearable: false,
             labelText: 'colorFadeIn',
             listeners: {change: me.onConfigChange.bind(me, 'colorFadeIn')},
             style    : {marginTop: '10px'},
             value    : exampleComponent.colorFadeIn
         }, {
             module   : TextField,
-            clearable: false,
             labelText: 'colorFadeOut',
             listeners: {change: me.onConfigChange.bind(me, 'colorFadeOut')},
             style    : {marginTop: '10px'},
             value    : exampleComponent.colorFadeOut
         }, {
             module   : TextField,
-            clearable: false,
             labelText: 'colorMove',
             listeners: {change: me.onConfigChange.bind(me, 'colorMove')},
             style    : {marginTop: '10px'},
