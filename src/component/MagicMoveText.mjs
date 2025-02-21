@@ -85,6 +85,10 @@ class MagicMoveText extends Component {
      */
     intervalId = null
     /**
+     * @member {Object} measureCache={}
+     */
+    measureCache = {}
+    /**
      * @member {Object[]} previousChars=[]
      */
     previousChars = []
@@ -93,6 +97,28 @@ class MagicMoveText extends Component {
      */
     get measureElement() {
         return this.vdom.cn[1].cn[0]
+    }
+
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            resize: me.onResize,
+            scope : me
+        })
+    }
+
+    /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let {windowId}     = this,
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
+
+        ResizeObserver[mounted ? 'register' : 'unregister']({id: this.id, windowId})
     }
 
     /**
@@ -127,8 +153,12 @@ class MagicMoveText extends Component {
      * @protected
      */
     afterSetFontFamily(value, oldValue) {
-        this.vdom.style.fontFamily = value;
-        this.update()
+        let me = this;
+
+        me.measureCache = {};
+
+        me.vdom.style.fontFamily = value;
+        me.update()
     }
 
     /**
@@ -139,7 +169,11 @@ class MagicMoveText extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        this.autoCycle && this.startAutoCycle(value)
+
+        let me = this;
+
+        oldValue !== undefined && me.addResizeObserver(value);
+        me.autoCycle           && me.startAutoCycle(value)
     }
 
     /**
@@ -195,16 +229,23 @@ class MagicMoveText extends Component {
      */
     async measureChars() {
         let me = this,
-            {measureElement} = me,
+            {measureCache, measureElement, text} = me,
             parentRect, rects;
 
-        delete me.vdom.cn[1].removeDom;
+        if (measureCache[text]) {
+            rects      = [...measureCache[text]];
+            parentRect = rects.shift()
+        } else {
+            delete me.vdom.cn[1].removeDom;
 
-        await me.promiseUpdate();
-        await me.timeout(20);
+            await me.promiseUpdate();
+            await me.timeout(20);
 
-        rects      = await me.getDomRect([me.vdom.cn[1].id, ...measureElement.cn.map(node => node.id)]);
-        parentRect = rects.shift();
+            rects      = await me.getDomRect([me.vdom.cn[1].id, ...measureElement.cn.map(node => node.id)]);
+            parentRect = rects.shift();
+
+            measureCache[text] = [parentRect, ...rects]
+        }
 
         rects.forEach((rect, index) => {
             me.chars[index].left = `${rect.left - parentRect.left}px`;
@@ -213,6 +254,13 @@ class MagicMoveText extends Component {
 
         me.vdom.cn[1].removeDom = true;
         await me.promiseUpdate()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onResize(data) {
+        this.measureCache = {}
     }
 
     /**
