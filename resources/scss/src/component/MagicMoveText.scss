@@ -1,0 +1,41 @@
+.neo-magic-move-text {
+    --neo-height: 100px;
+    --neo-width : 450px;
+
+    align-items     : center;
+    background-color: #000;
+    color           : #fff;
+    display         : flex;
+    font-size       : 30px;
+    font-weight     : bold;
+    height          : var(--neo-height);
+    justify-content : center;
+    width           : var(--neo-width);
+
+    .neo-content {
+        height  : 100%;
+        position: relative;
+        width   : 100%;
+
+        > * {
+            position  : absolute;
+            transition: left .5s ease-out, opacity .5s ease-out;
+        }
+    }
+
+    .neo-measure-element-wrapper {
+        align-items    : center;
+        background-color: #000;
+        display        : flex;
+        height         : var(--neo-height);
+        justify-content: center;
+        left           : -5000px;
+        position       : absolute;
+        top            : -5000px;
+        width          : var(--neo-width);
+    }
+
+    .neo-measure-element {
+        position: relative;
+    }
+}
