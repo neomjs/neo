@@ -21,6 +21,10 @@ class MagicMoveText extends Component {
          */
         autoCycle_: true,
         /**
+         * @member {Number} autoCycleInterval_=2000
+         */
+        autoCycleInterval_: 2000,
+        /**
          * @member {String[]} baseCls=['neo-magic-move-text']
          * @protected
          */
@@ -65,6 +69,21 @@ class MagicMoveText extends Component {
      */
     afterSetAutoCycle(value, oldValue) {
         this.mounted && this.startAutoCycle(value)
+    }
+
+    /**
+     * Triggered after the autoCycleInterval config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetAutoCycleInterval(value, oldValue) {
+        let me = this;
+
+        if (oldValue && me.mounted) {
+            me.startAutoCycle(false);
+            me.startAutoCycle()
+        }
     }
 
     /**
@@ -146,7 +165,7 @@ class MagicMoveText extends Component {
             me.intervalId = setInterval(() => {
                 me.text         = me.cycleTexts[me.currentIndex];
                 me.currentIndex = (me.currentIndex + 1) % me.cycleTexts.length
-            }, 2000)
+            }, me.autoCycleInterval)
 
             me.text && me.measureChars()
         } else {
