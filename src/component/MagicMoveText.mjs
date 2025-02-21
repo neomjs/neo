@@ -17,6 +17,10 @@ class MagicMoveText extends Component {
          */
         ntype: 'magic-move-text',
         /**
+         * @member {Boolean} autoCycle_=true
+         */
+        autoCycle_: true,
+        /**
          * @member {String[]} baseCls=['neo-magic-move-text']
          * @protected
          */
@@ -54,6 +58,16 @@ class MagicMoveText extends Component {
     }
 
     /**
+     * Triggered after the autoCycle config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoCycle(value, oldValue) {
+        this.mounted && this.startAutoCycle(value)
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -61,19 +75,7 @@ class MagicMoveText extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        let me = this;
-
-        if (value) {
-            me.intervalId = setInterval(() => {
-                me.text         = me.cycleTexts[me.currentIndex];
-                me.currentIndex = (me.currentIndex + 1) % me.cycleTexts.length
-            }, 2000)
-
-            me.text && me.measureChars()
-        } else {
-            clearInterval(me.intervalId)
-        }
+        this.autoCycle && this.startAutoCycle(value)
     }
 
     /**
@@ -132,6 +134,24 @@ class MagicMoveText extends Component {
 
         me.vdom.cn[1].removeDom = true;
         await me.promiseUpdate()
+    }
+
+    /**
+     * @param {Boolean} start=true
+     */
+    startAutoCycle(start=true) {
+        let me = this;
+
+        if (start) {
+            me.intervalId = setInterval(() => {
+                me.text         = me.cycleTexts[me.currentIndex];
+                me.currentIndex = (me.currentIndex + 1) % me.cycleTexts.length
+            }, 2000)
+
+            me.text && me.measureChars()
+        } else {
+            clearInterval(me.intervalId)
+        }
     }
 
     async updateChars() {
