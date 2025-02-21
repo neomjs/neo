@@ -30,6 +30,18 @@ class MagicMoveText extends Component {
          */
         baseCls: ['neo-magic-move-text'],
         /**
+         * @member {String|null} colorMove=null
+         */
+        colorMove: null,
+        /**
+         * @member {String|null} colorFadeIn=null
+         */
+        colorFadeIn: null,
+        /**
+         * @member {String|null} colorFadeOut=null
+         */
+        colorFadeOut: null,
+        /**
          * @member {String[]|null} cycleTexts=null
          */
         cycleTexts: null,
@@ -201,7 +213,8 @@ class MagicMoveText extends Component {
             if (index > -1) {
                 charNode = charsContainer[previousIndex];
 
-                charNode.style.left = chars[index].left;
+                charNode.style.color = me.colorMove;
+                charNode.style.left  = chars[index].left;
                 letters[index] = null
             } else {
                 charNode = charsContainer[previousIndex];
@@ -216,7 +229,7 @@ class MagicMoveText extends Component {
 
                 charsContainer.push({
                     html : char.name,
-                    style: {left: char.left, opacity: 0, top: char.top}
+                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top}
                 })
             }
         });
@@ -225,7 +238,12 @@ class MagicMoveText extends Component {
         await me.timeout(20);
 
         charsContainer.forEach(charNode => {
-            charNode.style.opacity = charNode.flag === 'remove' ? 0 : 1
+            if (charNode.flag === 'remove') {
+                charNode.style.color   = me.colorFadeOut;
+                charNode.style.opacity = 0
+            } else {
+                charNode.style.opacity = 1
+            }
         });
 
         await me.promiseUpdate();
@@ -239,6 +257,7 @@ class MagicMoveText extends Component {
             charNode = charsContainer[index];
 
             delete charNode.flag;
+            delete charNode.style.color;
 
             if (charNode.style.opacity === 0) {
                 charsContainer.splice(index, 1)

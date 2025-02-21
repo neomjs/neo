@@ -38,11 +38,29 @@ class MainContainer extends ConfigurationViewport {
         }, {
             module   : TextField,
             clearable: false,
+            labelText: 'colorFadeIn',
+            listeners: {change: me.onConfigChange.bind(me, 'colorFadeIn')},
+            style    : {marginTop: '10px'},
+            value    : exampleComponent.colorFadeIn
+        }, {
+            module   : TextField,
+            clearable: false,
+            labelText: 'colorFadeOut',
+            listeners: {change: me.onConfigChange.bind(me, 'colorFadeOut')},
+            style    : {marginTop: '10px'},
+            value    : exampleComponent.colorFadeOut
+        }, {
+            module   : TextField,
+            clearable: false,
+            labelText: 'colorMove',
+            listeners: {change: me.onConfigChange.bind(me, 'colorMove')},
+            style    : {marginTop: '10px'},
+            value    : exampleComponent.colorMove
+        }, {
+            module   : TextField,
+            clearable: false,
             labelText: 'fontFamily',
             listeners: {change: me.onConfigChange.bind(me, 'fontFamily')},
-            maxValue : 10000,
-            minValue : 0,
-            stepSize : 1000,
             style    : {marginTop: '10px'},
             value    : exampleComponent.fontFamily,
             width    : 300
