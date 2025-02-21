@@ -46,6 +46,10 @@ class ConfigurationViewport extends Viewport {
          */
         configPanelFlex: 1,
         /**
+         * @member {Number} configPanelMaxWidth=null
+         */
+        configPanelMaxWidth: null,
+        /**
          * @member {Number} configPanelMinWidth=350
          */
         configPanelMinWidth: 350,
@@ -123,7 +127,12 @@ class ConfigurationViewport extends Viewport {
             module: Panel,
             cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],
             flex  : me.configPanelFlex,
-            style : {margin: '20px', minWidth: me.configPanelMinWidth},
+
+            style: {
+                maxWidth: me.configPanelMaxWidth + 'px',
+                margin  : '20px',
+                minWidth: me.configPanelMinWidth + 'px'
+            },
 
             headers: [{
                 dock : 'top',

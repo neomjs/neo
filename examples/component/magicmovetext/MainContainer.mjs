@@ -13,6 +13,8 @@ class MainContainer extends ConfigurationViewport {
         className           : 'Neo.examples.component.magicmovetext.MainContainer',
         configItemLabelWidth: 150,
         configItemWidth     : 250,
+        configPanelMaxWidth : 300,
+        configPanelMinWidth : 300,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
@@ -56,7 +58,7 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'fontFamily',
             listeners: {change: me.onConfigChange.bind(me, 'fontFamily')},
             value    : exampleComponent.fontFamily,
-            width    : 300
+            width    : 280
         }, {
             module   : NumberField,
             clearable: false,
