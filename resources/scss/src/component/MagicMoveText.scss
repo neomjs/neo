@@ -1,6 +1,7 @@
 .neo-magic-move-text {
-    --neo-height: 100px;
-    --neo-width : 450px;
+    --neo-height         : 100px;
+    --neo-transition-time: 500ms;
+    --neo-width          : 450px;
 
     align-items     : center;
     background-color: #000;
@@ -19,7 +20,10 @@
 
         > * {
             position  : absolute;
-            transition: color .5s ease-out, left .5s ease-out, opacity .5s ease-out;
+            transition:
+                    color   0.2s ease-out,
+                    left    var(--neo-transition-time) ease-out,
+                    opacity var(--neo-transition-time) ease-out;
         }
     }
 

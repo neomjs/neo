@@ -54,6 +54,11 @@ class MagicMoveText extends Component {
          */
         text_: null,
         /**
+         * Time in ms for the fadeIn, fadeOut and move character OPs
+         * @member {Number} transitionTime_=500
+         */
+        transitionTime_: 500,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -160,6 +165,17 @@ class MagicMoveText extends Component {
         }
     }
 
+    /**
+     * Triggered after the transitionTime config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetTransitionTime(value, oldValue) {
+        this.vdom.style['--neo-transition-time'] = value + 'ms';
+        this.update()
+    }
+
     async measureChars() {
         let me = this,
             {measureElement} = me,
@@ -235,7 +251,6 @@ class MagicMoveText extends Component {
         });
 
         await me.promiseUpdate();
-        await me.timeout(20);
 
         charsContainer.forEach(charNode => {
             if (charNode.flag === 'remove') {
@@ -247,7 +262,7 @@ class MagicMoveText extends Component {
         });
 
         await me.promiseUpdate();
-        await me.timeout(500);
+        await me.timeout(me.transitionTime);
 
         charsContainer.sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left));
 
