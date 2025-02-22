@@ -77,6 +77,10 @@ class MagicMoveText extends Component {
      */
     chars = []
     /**
+     * @member {Object[]} charsVdom=[]
+     */
+    charsVdom = []
+    /**
      * @member {Number} currentIndex=0
      */
     currentIndex = 0
@@ -287,21 +291,26 @@ class MagicMoveText extends Component {
     async updateChars() {
         let me                     = this,
             {chars, previousChars} = me,
-            charsContainer         = me.vdom.cn[0].cn,
+            charsContainer         = me.vdom.cn[0],
             letters                = chars.map(char => char.name),
             char, charNode, index;
+
+        if (me.charsVdom.length > 1) {
+            charsContainer.cn = me.charsVdom;
+            await me.promiseUpdate()
+        }
 
         previousChars.forEach((previousChar, previousIndex) => {
             index = letters.indexOf(previousChar.name);
 
             if (index > -1) {
-                charNode = charsContainer[previousIndex];
+                charNode = charsContainer.cn[previousIndex];
 
                 charNode.style.color = me.colorMove;
                 charNode.style.left  = chars[index].left;
                 letters[index] = null
             } else {
-                charNode = charsContainer[previousIndex];
+                charNode = charsContainer.cn[previousIndex];
 
                 charNode.flag = 'remove'
             }
@@ -311,7 +320,8 @@ class MagicMoveText extends Component {
             if (letter !== null) {
                 char = chars[index];
 
-                charsContainer.push({
+                charsContainer.cn.push({
+                    cls  : ['neo-char'],
                     html : char.name,
                     style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top}
                 })
@@ -320,7 +330,7 @@ class MagicMoveText extends Component {
 
         await me.promiseUpdate();
 
-        charsContainer.forEach(charNode => {
+        charsContainer.cn.forEach(charNode => {
             if (charNode.flag === 'remove') {
                 charNode.style.color   = me.colorFadeOut;
                 charNode.style.opacity = 0
@@ -332,20 +342,28 @@ class MagicMoveText extends Component {
         await me.promiseUpdate();
         await me.timeout(me.transitionTime);
 
-        charsContainer.sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left));
+        charsContainer.cn.sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left));
 
-        index = charsContainer.length - 1;
+        index = charsContainer.cn.length - 1;
 
         for (; index >= 0; index--) {
-            charNode = charsContainer[index];
+            charNode = charsContainer.cn[index];
 
             delete charNode.flag;
             delete charNode.style.color;
 
             if (charNode.style.opacity === 0) {
-                charsContainer.splice(index, 1)
+                charsContainer.cn.splice(index, 1)
             }
         }
+
+        await me.promiseUpdate();
+
+        me.charsVdom = [...charsContainer.cn];
+
+        charsContainer.cn.length = 0;
+
+        charsContainer.cn.push({html: me.text});
 
         await me.promiseUpdate()
     }

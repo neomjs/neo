@@ -3,22 +3,22 @@
     --neo-transition-time: 500ms;
     --neo-width          : 450px;
 
-    align-items     : center;
     background-color: #000;
     color           : #fff;
-    display         : flex;
     font-size       : 30px;
     font-weight     : bold;
     height          : var(--neo-height);
-    justify-content : center;
     width           : var(--neo-width);
 
     .neo-content {
-        height  : 100%;
-        position: relative;
-        width   : 100%;
+        align-items    : center;
+        display        : flex;
+        height         : 100%;
+        justify-content: center;
+        position       : relative;
+        width          : 100%;
 
-        > * {
+        .neo-char {
             position  : absolute;
             transition:
                     color   0.2s ease-out,
