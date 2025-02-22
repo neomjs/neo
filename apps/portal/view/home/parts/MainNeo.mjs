@@ -35,9 +35,11 @@ class MainNeo extends BaseContainer {
             }]
         }, {
             module   : MagicMoveText,
+            autoCycle: false,
             cls      : ['neo-h2'],
             colorMove: '#3E63DD',
             flex     : 'none',
+            reference: 'magic-move',
 
             cycleTexts: [
                 'Modern Enterprise-Ready JavaScript Framework',
@@ -73,6 +75,20 @@ class MainNeo extends BaseContainer {
                 url   : 'https://github.com/neomjs/neo'
             }]
         }]
+    }
+
+    /**
+     *
+     */
+    activate() {
+        this.getItem('magic-move').autoCycle = true
+    }
+
+    /**
+     *
+     */
+    deactivate() {
+        this.getItem('magic-move').autoCycle = false
     }
 }
 
