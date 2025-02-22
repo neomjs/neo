@@ -97,6 +97,10 @@
             margin: 1rem 2rem;
         }
 
+        .neo-magic-move-text {
+            height: 3.5em;
+        }
+
         .vector {
             height: 17vw;
         }
@@ -122,6 +126,14 @@
 
         .neo-h3 {
             font-size: 1.15rem;
+        }
+
+        .neo-magic-move-text {
+            height: 3.5em;
+
+            .neo-content {
+                font-size: 2rem;
+            }
         }
 
         .vector {
