@@ -296,6 +296,22 @@ class MagicMoveText extends Component {
     }
 
     /**
+     * @param {Object} a
+     * @param {Object} b
+     * @returns {Number}
+     * @protected
+     */
+    sortCharacters(a, b) {
+        let deltaTop = parseFloat(a.style.top) - parseFloat(b.style.top);
+
+        if (deltaTop !== 0) {
+            return deltaTop
+        }
+
+        return parseFloat(a.style.left) - parseFloat(b.style.left)
+    }
+
+    /**
      * @param {Boolean} start=true
      */
     startAutoCycle(start=true) {
@@ -374,7 +390,7 @@ class MagicMoveText extends Component {
         await me.promiseUpdate();
         await me.timeout(me.transitionTime);
 
-        charsContainer.cn.sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left));
+        charsContainer.cn.sort(me.sortCharacters);
 
         index = charsContainer.cn.length - 1;
 
@@ -390,6 +406,7 @@ class MagicMoveText extends Component {
         }
 
         await me.promiseUpdate();
+        await me.timeout(200);
 
         me.charsVdom = [...charsContainer.cn];
 
