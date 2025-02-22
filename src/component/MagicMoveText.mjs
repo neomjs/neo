@@ -334,8 +334,12 @@ class MagicMoveText extends Component {
             if (index > -1) {
                 charNode = charsContainer.cn[previousIndex];
 
-                charNode.style.color = me.colorMove;
-                charNode.style.left  = chars[index].left;
+                Object.assign(charNode.style, {
+                    color: me.colorMove,
+                    left : chars[index].left,
+                    top  : chars[index].top
+                });
+
                 letters[index] = null
             } else {
                 charNode = charsContainer.cn[previousIndex];
