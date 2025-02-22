@@ -81,6 +81,14 @@ class MagicMoveText extends Component {
      */
     charsVdom = []
     /**
+     * @member {Number} contentHeight=0
+     */
+    contentHeight = 0
+    /**
+     * @member {Number} contentWidth=0
+     */
+    contentWidth = 0
+    /**
      * @member {Number} currentIndex=0
      */
     currentIndex = 0
@@ -100,7 +108,13 @@ class MagicMoveText extends Component {
      * @member {Object} measureElement
      */
     get measureElement() {
-        return this.vdom.cn[1].cn[0]
+        return this.measureWrapper.cn[0]
+    }
+    /**
+     * @member {Object} measureElement
+     */
+    get measureWrapper() {
+        return this.vdom.cn[1]
     }
 
     construct(config) {
@@ -176,8 +190,17 @@ class MagicMoveText extends Component {
 
         let me = this;
 
+        if (value) {
+            me.getDomRect().then(rect => {
+                me.contentHeight = rect.height;
+                me.contentWidth  = rect.width;
+
+                me.autoCycle && me.startAutoCycle(value)
+            })
+        }
+
         oldValue !== undefined && me.addResizeObserver(value);
-        me.autoCycle           && me.startAutoCycle(value)
+
     }
 
     /**
@@ -233,19 +256,24 @@ class MagicMoveText extends Component {
      */
     async measureChars() {
         let me = this,
-            {measureCache, measureElement, text} = me,
+            {measureCache, measureElement, measureWrapper, text} = me,
             parentRect, rects;
 
         if (measureCache[text]) {
             rects      = [...measureCache[text]];
             parentRect = rects.shift()
         } else {
-            delete me.vdom.cn[1].removeDom;
+            measureWrapper.style = {
+                height: me.contentHeight + 'px',
+                width : me.contentWidth  + 'px'
+            };
+
+            delete measureWrapper.removeDom;
 
             await me.promiseUpdate();
             await me.timeout(20);
 
-            rects      = await me.getDomRect([me.vdom.cn[1].id, ...measureElement.cn.map(node => node.id)]);
+            rects      = await me.getDomRect([measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
             parentRect = rects.shift();
 
             measureCache[text] = [parentRect, ...rects]
@@ -256,7 +284,7 @@ class MagicMoveText extends Component {
             me.chars[index].top  = `${rect.top  - parentRect.top }px`;
         });
 
-        me.vdom.cn[1].removeDom = true;
+        measureWrapper.removeDom = true;
         await me.promiseUpdate()
     }
 

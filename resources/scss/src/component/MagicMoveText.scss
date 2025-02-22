@@ -1,14 +1,10 @@
 .neo-magic-move-text {
-    --neo-height         : 100px;
     --neo-transition-time: 500ms;
-    --neo-width          : 450px;
 
     background-color: #000;
     color           : #fff;
     font-size       : 30px;
     font-weight     : bold;
-    height          : var(--neo-height);
-    width           : var(--neo-width);
 
     .neo-content {
         align-items    : center;
@@ -31,12 +27,10 @@
         align-items    : center;
         background-color: #000;
         display        : flex;
-        height         : var(--neo-height);
         justify-content: center;
         left           : -5000px;
         position       : absolute;
         top            : -5000px;
-        width          : var(--neo-width);
     }
 
     .neo-measure-element {
