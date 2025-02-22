@@ -74,6 +74,8 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return {
             module: MagicMoveText,
+            height: 100,
+            width : 450,
 
             cycleTexts: [
                 'Magic Move',

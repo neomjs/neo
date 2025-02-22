@@ -226,7 +226,7 @@ class MagicMoveText extends Component {
                 me.chars.push({name: char});
 
                 if (char === ' ') {
-                    char = '&nbsp;'
+                    char = '&#32;'
                 }
 
                 measureElement.cn.push({tag: 'span', html: char})

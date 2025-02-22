@@ -1,5 +1,6 @@
 import BaseContainer from './BaseContainer.mjs';
 import Button        from '../../../../../src/button/Base.mjs';
+import MagicMoveText from '../../../../../src/component/MagicMoveText.mjs';
 
 /**
  * @class Portal.view.home.parts.MainNeo
@@ -33,10 +34,17 @@ class MainNeo extends BaseContainer {
                 tag : 'h1'
             }]
         }, {
-            cls : ['neo-h2'],
-            flex: 'none',
-            html: 'Modern Enterprise-Ready JavaScript Framework',
-            tag : 'h2'
+            module   : MagicMoveText,
+            cls      : ['neo-h2'],
+            colorMove: '#3E63DD',
+            flex     : 'none',
+
+            cycleTexts: [
+                'Modern Enterprise-Ready JavaScript Framework',
+                'The Application Worker driven Frontend Framework',
+                'Extensibility',
+                'Scalability'
+            ]
         }, {
             cls : ['neo-h3'],
             flex: 'none',
