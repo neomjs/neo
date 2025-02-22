@@ -87,7 +87,7 @@ class MainContainer extends Container {
                 id,
                 observe  : ['.portal-home-content-view'],
                 root     : `#${id}`,
-                threshold: 1.0,
+                threshold: .6,
                 windowId
             })
         })
