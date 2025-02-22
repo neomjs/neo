@@ -22,10 +22,10 @@ class FeatureSection extends Container {
          */
         className: 'Portal.view.home.FeatureSection',
         /**
-         * @member {String[]} baseCls=['portal-home-feature-section','neo-container']
+         * @member {String[]} baseCls=['portal-home-feature-section','portal-home-content-view','neo-container']
          * @protected
          */
-        baseCls: ['portal-home-feature-section', 'neo-container'],
+        baseCls: ['portal-home-feature-section', 'portal-home-content-view', 'neo-container'],
         /**
          * If you want to use the LivePreview, use the config livePreviewCode.
          * For custom content, use this config instead.
@@ -91,7 +91,7 @@ class FeatureSection extends Container {
             }]
         }, {
             module   : Container,
-            cls      : 'portal-content-wrapper',
+            cls      : ['portal-content-wrapper'],
             layout   : 'fit',
             reference: 'portal-content-wrapper'
         }]
@@ -125,7 +125,7 @@ class FeatureSection extends Container {
             cls      : ['page-live-preview'],
             reference: 'live-preview',
             value    : this.livePreviewCode
-        }]
+        }];
 
         this.getItem('portal-content-wrapper').items = value
     }
