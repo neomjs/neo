@@ -300,8 +300,13 @@ class MagicMoveText extends Component {
     /**
      * @param {Object} data
      */
-    onResize(data) {
-        this.measureCache = {}
+    onResize({rect}) {
+        let me = this;
+
+        me.contentHeight = rect.height;
+        me.contentWidth  = rect.width;
+
+        me.measureCache = {}
     }
 
     /**
@@ -327,8 +332,9 @@ class MagicMoveText extends Component {
         let me = this;
 
         if (start) {
-            me.cycleText();
-            me.intervalId = setInterval(me.cycleText.bind(me), me.autoCycleInterval)
+            me.intervalId = setInterval(me.cycleText.bind(me), me.autoCycleInterval);
+
+            me.timeout(20).then(() => {me.cycleText()});
         } else {
             clearInterval(me.intervalId)
         }
@@ -418,7 +424,6 @@ class MagicMoveText extends Component {
         charsContainer.cn.length = 0;
 
         charsContainer.cn.push({html: me.text});
-
         await me.promiseUpdate()
     }
 }
