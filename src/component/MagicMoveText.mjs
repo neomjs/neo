@@ -199,8 +199,7 @@ class MagicMoveText extends Component {
             })
         }
 
-        oldValue !== undefined && me.addResizeObserver(value);
-
+        oldValue !== undefined && me.addResizeObserver(value)
     }
 
     /**
@@ -249,6 +248,16 @@ class MagicMoveText extends Component {
     afterSetTransitionTime(value, oldValue) {
         this.vdom.style['--neo-transition-time'] = value + 'ms';
         this.update()
+    }
+
+    /**
+     *
+     */
+    cycleText() {
+        let me = this;
+
+        me.text         = me.cycleTexts[me.currentIndex];
+        me.currentIndex = (me.currentIndex + 1) % me.cycleTexts.length
     }
 
     /**
@@ -318,12 +327,8 @@ class MagicMoveText extends Component {
         let me = this;
 
         if (start) {
-            me.intervalId = setInterval(() => {
-                me.text         = me.cycleTexts[me.currentIndex];
-                me.currentIndex = (me.currentIndex + 1) % me.cycleTexts.length
-            }, me.autoCycleInterval)
-
-            me.text && me.measureChars()
+            me.cycleText();
+            me.intervalId = setInterval(me.cycleText.bind(me), me.autoCycleInterval)
         } else {
             clearInterval(me.intervalId)
         }
