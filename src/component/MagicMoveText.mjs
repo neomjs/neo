@@ -98,6 +98,12 @@ class MagicMoveText extends Component {
      */
     currentIndex = 0
     /**
+     * We do not need the first event to trigger logic, since afterSetMounted() handles this
+     * @member {Boolean} initialResizeEvent=true
+     * @protected
+     */
+    initialResizeEvent = true
+    /**
      * @member {Number|null} intervalId=null
      * @protected
      */
@@ -152,10 +158,14 @@ class MagicMoveText extends Component {
      * @protected
      */
     async addResizeObserver(mounted) {
-        let {windowId}     = this,
+        let {id, windowId} = this,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
 
-        ResizeObserver[mounted ? 'register' : 'unregister']({id: this.id, windowId})
+        ResizeObserver[mounted ? 'register' : 'unregister']({id, windowId});
+
+        if (mounted) {
+            this.initialResizeEvent = true
+        }
     }
 
     /**
@@ -209,14 +219,12 @@ class MagicMoveText extends Component {
 
         let me = this;
 
-        if (value) {
-            me.getDomRect().then(rect => {
-                me.contentHeight = rect.height;
-                me.contentWidth  = rect.width;
+        value && me.getDomRect().then(rect => {
+            me.contentHeight = rect.height;
+            me.contentWidth  = rect.width;
 
-                me.autoCycle && me.startAutoCycle(value)
-            })
-        }
+            me.autoCycle && me.startAutoCycle(value)
+        });
 
         oldValue !== undefined && me.addResizeObserver(value)
     }
@@ -356,10 +364,15 @@ class MagicMoveText extends Component {
 
         me.measureCache = {};
 
-        if (!me.isTransitioning) {
-            await me.measureChars();
 
-            me.charsVdom = me.createCharsVdom(me.chars.map(char => char.name))
+        if (!me.initialResizeEvent) {
+            if (!me.isTransitioning) {
+                await me.measureChars();
+
+                me.charsVdom = me.createCharsVdom(me.chars.map(char => char.name))
+            }
+        } else {
+            me.initialResizeEvent = false
         }
     }
 
