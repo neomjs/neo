@@ -74,54 +74,68 @@ class MagicMoveText extends Component {
 
     /**
      * @member {Object[]} chars=[]
+     * @protected
      */
     chars = []
     /**
      * @member {Object[]} charsVdom=[]
+     * @protected
      */
     charsVdom = []
     /**
      * @member {Number} contentHeight=0
+     * @protected
      */
     contentHeight = 0
     /**
      * @member {Number} contentWidth=0
+     * @protected
      */
     contentWidth = 0
     /**
      * @member {Number} currentIndex=0
+     * @protected
      */
     currentIndex = 0
     /**
      * @member {Number|null} intervalId=null
+     * @protected
      */
     intervalId = null
     /**
      * Internal flag which gets set to true while the animated char transitions are running
      * @member {Boolean} isTransitioning=false
+     * @protected
      */
     isTransitioning = false
     /**
      * @member {Object} measureCache={}
+     * @protected
      */
     measureCache = {}
     /**
      * @member {Object[]} previousChars=[]
+     * @protected
      */
     previousChars = []
     /**
      * @member {Object} measureElement
+     * @protected
      */
     get measureElement() {
         return this.measureWrapper.cn[0]
     }
     /**
      * @member {Object} measureElement
+     * @protected
      */
     get measureWrapper() {
         return this.vdom.cn[1]
     }
 
+    /**
+     * @param {Object} config
+     */
     construct(config) {
         super.construct(config);
 
@@ -258,6 +272,7 @@ class MagicMoveText extends Component {
     /**
      * @param {String[]} letters
      * @returns {Object[]}
+     * @protected
      */
     createCharsVdom(letters) {
         let me             = this,
@@ -277,11 +292,11 @@ class MagicMoveText extends Component {
             }
         });
 
-        return charsContainer;
+        return charsContainer
     }
 
     /**
-     *
+     * @protected
      */
     cycleText() {
         let me = this;
@@ -292,6 +307,7 @@ class MagicMoveText extends Component {
 
     /**
      * @returns {Promise<void>}
+     * @protected
      */
     async measureChars() {
         let me = this,
@@ -330,6 +346,7 @@ class MagicMoveText extends Component {
     /**
      * @param {Object} data
      * @returns {Promise<void>}
+     * @protected
      */
     async onResize({rect}) {
         let me = this;
@@ -364,6 +381,7 @@ class MagicMoveText extends Component {
 
     /**
      * @param {Boolean} start=true
+     * @protected
      */
     startAutoCycle(start=true) {
         let me = this;
@@ -379,6 +397,7 @@ class MagicMoveText extends Component {
 
     /**
      * @returns {Promise<void>}
+     * @protected
      */
     async updateChars() {
         let me                     = this,
