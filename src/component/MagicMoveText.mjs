@@ -97,6 +97,11 @@ class MagicMoveText extends Component {
      */
     intervalId = null
     /**
+     * Internal flag which gets set to true while the animated char transitions are running
+     * @member {Boolean} isTransitioning=false
+     */
+    isTransitioning = false
+    /**
      * @member {Object} measureCache={}
      */
     measureCache = {}
@@ -251,6 +256,31 @@ class MagicMoveText extends Component {
     }
 
     /**
+     * @param {String[]} letters
+     * @returns {Object[]}
+     */
+    createCharsVdom(letters) {
+        let me             = this,
+            {chars}        = me,
+            charsContainer = [],
+            char;
+
+        letters.forEach((letter, index) => {
+            if (letter !== null) {
+                char = chars[index];
+
+                charsContainer.push({
+                    cls  : ['neo-char'],
+                    html : char.name,
+                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top}
+                })
+            }
+        });
+
+        return charsContainer;
+    }
+
+    /**
      *
      */
     cycleText() {
@@ -299,14 +329,21 @@ class MagicMoveText extends Component {
 
     /**
      * @param {Object} data
+     * @returns {Promise<void>}
      */
-    onResize({rect}) {
+    async onResize({rect}) {
         let me = this;
 
         me.contentHeight = rect.height;
         me.contentWidth  = rect.width;
 
-        me.measureCache = {}
+        me.measureCache = {};
+
+        if (!me.isTransitioning) {
+            await me.measureChars();
+
+            me.charsVdom = me.createCharsVdom(me.chars.map(char => char.name))
+        }
     }
 
     /**
@@ -348,7 +385,9 @@ class MagicMoveText extends Component {
             {chars, previousChars} = me,
             charsContainer         = me.vdom.cn[0],
             letters                = chars.map(char => char.name),
-            char, charNode, index;
+            charNode, index;
+
+        me.isTransitioning = true;
 
         if (me.charsVdom.length > 1) {
             charsContainer.cn = me.charsVdom;
@@ -375,17 +414,7 @@ class MagicMoveText extends Component {
             }
         });
 
-        letters.forEach((letter, index) => {
-            if (letter !== null) {
-                char = chars[index];
-
-                charsContainer.cn.push({
-                    cls  : ['neo-char'],
-                    html : char.name,
-                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top}
-                })
-            }
-        });
+        charsContainer.cn.push(...me.createCharsVdom(letters));
 
         await me.promiseUpdate();
 
@@ -424,7 +453,9 @@ class MagicMoveText extends Component {
         charsContainer.cn.length = 0;
 
         charsContainer.cn.push({html: me.text});
-        await me.promiseUpdate()
+        await me.promiseUpdate();
+
+        me.isTransitioning = false
     }
 }
 
