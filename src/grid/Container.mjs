@@ -537,16 +537,17 @@ class GridContainer extends BaseContainer {
      * @param {Object} data.touches
      */
     onScroll({scrollLeft, target, touches}) {
-        let me = this,
+        let me     = this,
+            {view} = me,
             deltaY, lastTouchY;
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
             me.headerToolbar.scrollLeft = scrollLeft;
-            me.view.scrollPosition = {x: scrollLeft, y: me.view.scrollPosition.y};
+            view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
 
             if (touches) {
-                if (!me.view.isTouchMoveOwner) {
+                if (!view.isTouchMoveOwner) {
                     me.isTouchMoveOwner = true
                 }
 
@@ -556,8 +557,8 @@ class GridContainer extends BaseContainer {
 
                     deltaY !== 0 && Neo.main.DomAccess.scrollTo({
                         direction: 'top',
-                        id       : me.view.vdom.id,
-                        value    : me.view.scrollPosition.y + deltaY
+                        id       : view.vdom.id,
+                        value    : view.scrollPosition.y + deltaY
                     })
 
                     me.lastTouchY = lastTouchY
