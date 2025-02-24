@@ -198,6 +198,25 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let me             = this,
+            {windowId}     = me,
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
+            resizeParams   = {id: me.id, windowId};
+
+        if (mounted) {
+            ResizeObserver.register(resizeParams);
+            await me.passSizeToView()
+        } else {
+            me.initialResizeEvent = true;
+            ResizeObserver.unregister(resizeParams)
+        }
+    }
+
+    /**
      * Triggered after the cellEditing config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -242,25 +261,6 @@ class GridContainer extends BaseContainer {
             await me.passSizeToView();
 
             me.view?.createViewData()
-        }
-    }
-
-    /**
-     * @param {Boolean} mounted
-     * @protected
-     */
-    async addResizeObserver(mounted) {
-        let me             = this,
-            {windowId}     = me,
-            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {id: me.id, windowId};
-
-        if (mounted) {
-            ResizeObserver.register(resizeParams);
-            await me.passSizeToView()
-        } else {
-            me.initialResizeEvent = true;
-            ResizeObserver.unregister(resizeParams)
         }
     }
 
