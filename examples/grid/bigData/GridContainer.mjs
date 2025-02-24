@@ -1,8 +1,6 @@
 import BaseGridContainer from '../../../src/grid/Container.mjs';
 import MainStore         from './MainStore.mjs';
 
-import * as selection from '../../../src/selection/grid/_export.mjs';
-
 /**
  * @class Neo.examples.grid.bigData.GridContainer
  * @extends Neo.grid.Container
@@ -35,7 +33,6 @@ class GridContainer extends BaseGridContainer {
          * @member {Object} viewConfig
          */
         viewConfig: {
-            selectionModel: selection.CellModel, // todo: remove after #6491 is resolved
             bufferColumnRange: 3,
             bufferRowRange   : 5
         }
