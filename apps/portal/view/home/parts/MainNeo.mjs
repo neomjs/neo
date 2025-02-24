@@ -42,16 +42,17 @@ class MainNeo extends BaseContainer {
             reference: 'magic-move',
 
             cycleTexts: [
-                'Modern Enterprise-Ready JavaScript Framework',
-                'The Application Worker driven Frontend Framework',
+                'Modern Enterprise JavaScript Framework',
+                'An Application Worker being the Orchestrator',
                 'Scalability',
                 'Extensibility',
                 'Performance',
-                'Reactive Component Trees',
+                'Declarative & Reactive Component Trees',
                 'Separated from Business Logic',
                 'View Controllers',
                 'State Providers',
-                'Clean Architectures'
+                'Clean Architectures',
+                'Multi Window Apps'
             ]
         }, {
             cls : ['neo-h3'],
