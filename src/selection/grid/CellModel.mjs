@@ -85,7 +85,7 @@ class CellModel extends BaseModel {
         let me                 = this,
             {dataFields, view} = me,
             {store}            = view,
-            currentColumn, newIndex, record;
+            currentColumn, currentIndex, newIndex, record;
 
         if (me.hasSelection()) {
             currentColumn = view.getDataField(me.items[0]);
@@ -95,13 +95,16 @@ class CellModel extends BaseModel {
             record        = store.getAt(0)
         }
 
-        newIndex = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
+        currentIndex = dataFields.indexOf(currentColumn);
+        newIndex     = (currentIndex + step) % dataFields.length;
 
         while (newIndex < 0) {
             newIndex += dataFields.length
         }
 
-        me.select(view.getCellId(record, dataFields[newIndex]))
+        me.select(view.getCellId(record, dataFields[newIndex]));
+
+        view.parent.scrollByColumns(currentIndex, step)
     }
 
     /**
@@ -127,7 +130,8 @@ class CellModel extends BaseModel {
             newIndex += store.getCount()
         }
 
-        me.select(view.getCellId(store.getAt(newIndex), dataField))
+        me.select(view.getCellId(store.getAt(newIndex), dataField));
+        view.scrollByRows(currentIndex, step)
     }
 
     /**

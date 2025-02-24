@@ -198,6 +198,25 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let me             = this,
+            {windowId}     = me,
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
+            resizeParams   = {id: me.id, windowId};
+
+        if (mounted) {
+            ResizeObserver.register(resizeParams);
+            await me.passSizeToView()
+        } else {
+            me.initialResizeEvent = true;
+            ResizeObserver.unregister(resizeParams)
+        }
+    }
+
+    /**
      * Triggered after the cellEditing config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -242,25 +261,6 @@ class GridContainer extends BaseContainer {
             await me.passSizeToView();
 
             me.view?.createViewData()
-        }
-    }
-
-    /**
-     * @param {Boolean} mounted
-     * @protected
-     */
-    async addResizeObserver(mounted) {
-        let me             = this,
-            {windowId}     = me,
-            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId),
-            resizeParams   = {id: me.id, windowId};
-
-        if (mounted) {
-            ResizeObserver.register(resizeParams);
-            await me.passSizeToView()
-        } else {
-            me.initialResizeEvent = true;
-            ResizeObserver.unregister(resizeParams)
         }
     }
 
@@ -522,7 +522,7 @@ class GridContainer extends BaseContainer {
         if (!me.initialResizeEvent) {
             await me.passSizeToView(true);
 
-            me.view.updateVisibleColumns();
+            me.view.updateMountedAndVisibleColumns();
 
             await me.headerToolbar.passSizeToView()
         } else {
@@ -537,16 +537,17 @@ class GridContainer extends BaseContainer {
      * @param {Object} data.touches
      */
     onScroll({scrollLeft, target, touches}) {
-        let me = this,
+        let me     = this,
+            {view} = me,
             deltaY, lastTouchY;
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
             me.headerToolbar.scrollLeft = scrollLeft;
-            me.view.scrollPosition = {x: scrollLeft, y: me.view.scrollPosition.y};
+            view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
 
             if (touches) {
-                if (!me.view.isTouchMoveOwner) {
+                if (!view.isTouchMoveOwner) {
                     me.isTouchMoveOwner = true
                 }
 
@@ -556,8 +557,8 @@ class GridContainer extends BaseContainer {
 
                     deltaY !== 0 && Neo.main.DomAccess.scrollTo({
                         direction: 'top',
-                        id       : me.view.vdom.id,
-                        value    : me.view.scrollPosition.y + deltaY
+                        id       : view.vdom.id,
+                        value    : view.scrollPosition.y + deltaY
                     })
 
                     me.lastTouchY = lastTouchY
@@ -656,6 +657,58 @@ class GridContainer extends BaseContainer {
                 column.removeSortingCss()
             }
         })
+    }
+
+    /**
+     * Used for keyboard navigation (selection models)
+     * @param {Number} index
+     * @param {Number} step
+     */
+    scrollByColumns(index, step) {
+        let me           = this,
+            {view}       = me,
+            {columnPositions, containerWidth, mountedColumns, visibleColumns} = view,
+            countColumns = columnPositions.getCount(),
+            newIndex     = index + step,
+            column, mounted, scrollPosition, visible;
+
+        if (newIndex >= countColumns) {
+            newIndex %= countColumns;
+            step     = newIndex - index
+        }
+
+        while (newIndex < 0) {
+            newIndex += countColumns;
+            step     += countColumns
+        }
+
+        mounted = newIndex >= mountedColumns[0] && newIndex <= mountedColumns[1];
+
+        // Not using >= or <=, since the first / last column might not be fully visible
+        visible = newIndex > visibleColumns[0] && newIndex < visibleColumns[1];
+
+        if (!visible) {
+            // Leaving the mounted area will re-calculate the visibleColumns for us
+            if (mounted) {
+                visibleColumns[0] += step;
+                visibleColumns[1] += step
+            }
+
+            column = columnPositions.getAt(newIndex);
+
+            if (step < 0) {
+                scrollPosition = column.x
+            } else {
+                scrollPosition = column.x - containerWidth + column.width
+            }
+
+            Neo.main.DomAccess.scrollTo({
+                direction: 'left',
+                id       : me.id,
+                value    : scrollPosition,
+                windowId : me.windowId
+            })
+        }
     }
 }
 

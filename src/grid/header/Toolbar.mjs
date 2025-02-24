@@ -229,16 +229,15 @@ class Toolbar extends BaseToolbar {
                 availableWidth: lastItem.x + lastItem.width - rects[0].x
             });
 
-            !silent && view.updateVisibleColumns()
+            !silent && view.updateMountedAndVisibleColumns()
         }
     }
 
     /**
      * @param {Number}  index
-     * @param {DOMRect} itemRect
      * @returns {Promise<void>}
      */
-    async scrollToIndex(index, itemRect) {
+    async scrollToIndex(index) {
         await Neo.main.DomAccess.scrollIntoView({
             delay   : 125,
             id      : this.items[index].id,

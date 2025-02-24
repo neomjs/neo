@@ -331,6 +331,18 @@ class Store extends Base {
     }
 
     /**
+     * Convenience shortcut to check for int based keyProperties
+     * @returns {String|null} lowercase value of the model field type
+     */
+    getKeyType() {
+        let me       = this,
+            {model}  = me,
+            keyField = model?.getField(me.getKeyProperty());
+
+        return keyField?.type?.toLowerCase() || null
+    }
+
+    /**
      * @param {Object} opts={}
      * @param {Object} opts.data
      * @param {Object} opts.headers

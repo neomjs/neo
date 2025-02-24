@@ -27,6 +27,24 @@
         min-width       : 240px;
     }
 
+    .neo-magic-move-text {
+        background-color: transparent;
+        color           : #000;
+        font-size       : 2.5rem;
+        height          : 2em;
+        letter-spacing  : -0.02em;
+        line-height     : 1.2em;
+        width           : 90%;
+
+        .neo-content {
+            font-size: 2.5rem;
+        }
+
+        .neo-measure-element-wrapper {
+            letter-spacing: -0.02em;
+        }
+    }
+
     .neo-github {
         background-color: #fff;
     }
@@ -79,6 +97,10 @@
             margin: 1rem 2rem;
         }
 
+        .neo-magic-move-text {
+            height: 3.5em;
+        }
+
         .vector {
             height: 17vw;
         }
@@ -104,6 +126,14 @@
 
         .neo-h3 {
             font-size: 1.15rem;
+        }
+
+        .neo-magic-move-text {
+            height: 3.5em;
+
+            .neo-content {
+                font-size: 2rem;
+            }
         }
 
         .vector {

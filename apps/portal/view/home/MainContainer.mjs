@@ -6,8 +6,6 @@ import Helix     from './parts/Helix.mjs';
 import How       from './parts/How.mjs';
 import MainNeo   from './parts/MainNeo.mjs';
 
-// import References from './parts/References.mjs';
-
 /**
  * @class Portal.view.home.MainContainer
  * @extends Neo.container.Base
@@ -28,9 +26,12 @@ class MainContainer extends Container {
          */
         domListeners: [{
             intersect(data) {
-                let id = data.path[1].id;
+                let id = data.path[0].id;
                 this.activePartsId = id;
-                Neo.getComponent(id)?.activate?.()
+
+                this.items.forEach(item => {
+                    item[item.id === id ? 'activate' : 'deactivate']?.()
+                })
             },
             scroll(event) {
                 if (event.target.cls.includes('portal-home-maincontainer')) {
@@ -54,7 +55,6 @@ class MainContainer extends Container {
             Helix,
             Colors,
             How,
-            // References,
             AfterMath
         ],
         /**
@@ -85,9 +85,9 @@ class MainContainer extends Container {
             Neo.main.addon.IntersectionObserver.register({
                 callback : 'isVisible',
                 id,
-                observe  : ['.portal-content-wrapper'],
+                observe  : ['.portal-home-content-view'],
                 root     : `#${id}`,
-                threshold: 1.0,
+                threshold: .6,
                 windowId
             })
         })

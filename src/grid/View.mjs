@@ -82,6 +82,12 @@ class GridView extends Component {
          */
         keys: {},
         /**
+         * Stores the indexes of the first & last mounted columns, including bufferColumnRange
+         * @member {Number[]} mountedColumns_=[0,0]
+         * @protected
+         */
+        mountedColumns_: [0, 0],
+        /**
          * Stores the indexes of the first & last mounted rows, including bufferRowRange
          * @member {Number[]} mountedRows=[0,0]
          * @protected
@@ -118,10 +124,10 @@ class GridView extends Component {
         store_: null,
         /**
          * Stores the indexes of the first & last painted columns
-         * @member {Number[]} visibleColumns_=[0,0]
+         * @member {Number[]} visibleColumns=[0,0]
          * @protected
          */
-        visibleColumns_: [0, 0],
+        visibleColumns: [0, 0],
         /**
          * Stores the indexes of the first & last visible rows, excluding bufferRowRange
          * @member {Number[]} visibleRows=[0,0]
@@ -136,9 +142,9 @@ class GridView extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tabIndex: '-1', cn: [
-            {cn: []}
-        ]}
+            {tabIndex: '-1', cn: [
+                    {cn: []}
+                ]}
     }
 
     /**
@@ -229,9 +235,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetAvailableRows(value, oldValue) {
-        if (value > 0) {
-            this.createViewData()
-        }
+        value > 0 && this.createViewData()
     }
 
     /**
@@ -277,9 +281,7 @@ class GridView extends Component {
      * @protected
      */
     afterSetContainerWidth(value, oldValue) {
-        if (value > 0) {
-            this.updateVisibleColumns()
-        }
+        value > 0 && this.updateMountedAndVisibleColumns()
     }
 
     /**
@@ -306,6 +308,16 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the mountedColumns config got changed
+     * @param {Number[]} value
+     * @param {Number[]} oldValue
+     * @protected
+     */
+    afterSetMountedColumns(value, oldValue) {
+        oldValue && this.createViewData()
+    }
+
+    /**
      * Triggered after the rowHeight config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -327,7 +339,7 @@ class GridView extends Component {
             newStartIndex;
 
         if (value.x !== oldValue?.x) {
-            me.updateVisibleColumns()
+            me.updateMountedAndVisibleColumns()
         }
 
         if (value.y !== oldValue?.y) {
@@ -360,18 +372,6 @@ class GridView extends Component {
      */
     afterSetStartIndex(value, oldValue) {
         oldValue !== undefined && this.createViewData()
-    }
-
-    /**
-     * Triggered after the visibleColumns config got changed
-     * @param {Number[]} value
-     * @param {Number[]} oldValue
-     * @protected
-     */
-    afterSetVisibleColumns(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createViewData()
-        }
     }
 
     /**
@@ -516,12 +516,12 @@ class GridView extends Component {
         }
 
         let me            = this,
-            {bufferColumnRange, selectedRows, visibleColumns} = me,
+            {mountedColumns, selectedRows} = me,
             gridContainer = me.parent,
             columns       = gridContainer.headerToolbar.items,
             id            = me.getRowId(record, rowIndex),
             rowCls        = me.getRowClass(record, rowIndex),
-            config, column, columnPosition, endIndex, gridRow, i, startIndex;
+            config, column, columnPosition,  gridRow, i;
 
         if (rowIndex % 2 !== 0) {
             rowCls.push('neo-even')
@@ -549,10 +549,7 @@ class GridView extends Component {
             }
         };
 
-        endIndex   = Math.min(columns.length - 1, visibleColumns[1] + bufferColumnRange);
-        startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
-
-        for (i=startIndex; i <= endIndex; i++) {
+        for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns[i];
             config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
 
@@ -593,7 +590,7 @@ class GridView extends Component {
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
-            me.visibleColumns[1]          < 1
+            me.mountedColumns[1]          < 1
         ) {
             return
         }
@@ -729,6 +726,7 @@ class GridView extends Component {
 
     /**
      * Get the matching record by passing a row id, a cell id or an id inside a grid cell.
+     * Limited to mounted rows (must be inside the vdom).
      * @param {String} nodeId
      * @returns {Object|null}
      */
@@ -743,7 +741,7 @@ class GridView extends Component {
 
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 
-        for (node of parentNodes) {
+        for (node of parentNodes || []) {
             record = me.getRecordByRowId(node.id);
 
             if (record) {
@@ -755,15 +753,29 @@ class GridView extends Component {
     }
 
     /**
+     * @param {String} cellId
+     * @returns {Record}
+     */
+    getRecordByCellId(cellId) {
+        let recordId = cellId.split('__')[1],
+            {store}  = this,
+            keyType  = store.getKeyType();
+
+        if (keyType === 'int' || keyType === 'integer') {
+            recordId = parseInt(recordId)
+        }
+
+        return store.get(recordId)
+    }
+
+    /**
      * @param {String} rowId
      * @returns {Record}
      */
     getRecordByRowId(rowId) {
         let recordId = rowId.split('__')[2],
             {store}  = this,
-            {model}  = store,
-            keyField = model?.getField(store.getKeyProperty()),
-            keyType  = keyField?.type?.toLowerCase();
+            keyType  = store.getKeyType();
 
         if (keyType === 'int' || keyType === 'integer') {
             recordId = parseInt(recordId)
@@ -1020,16 +1032,42 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Boolean} silent=false
+     *
      */
-    updateScrollHeight(silent=false) {
-        let me           = this,
-            countRecords = me.store.getCount(),
-            {rowHeight}  = me;
+    updateMountedAndVisibleColumns() {
+        let me       = this,
+            {bufferColumnRange, columnPositions, mountedColumns, visibleColumns} = me,
+            {x}          = me.scrollPosition,
+            i            = 0,
+            countColumns = columnPositions.getCount(),
+            endIndex     = countColumns - 1,
+            column, startIndex;
 
-        if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
-            !silent && me.update()
+        if (countColumns < 1) {
+            return
+        }
+
+        for (; i < countColumns; i++) {
+            column = columnPositions.getAt(i);
+
+            if (x >= column.x && x <= column.x + column.width) {
+                startIndex = i
+            }
+
+            if (me.containerWidth + x < column.x) {
+                endIndex = i - 1;
+                break
+            }
+        }
+
+        visibleColumns[0] = startIndex; // update the array inline
+        visibleColumns[1] = endIndex;
+
+        if (visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1]) {
+            startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
+            endIndex   = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
+
+            me.mountedColumns = [startIndex, endIndex]
         }
     }
 
@@ -1053,39 +1091,16 @@ class GridView extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent=false
      */
-    updateVisibleColumns() {
-        let me                = this,
-            {columnPositions} = me,
-            {x}               = me.scrollPosition,
-            i                 = 0,
-            len               = columnPositions.getCount(),
-            endIndex          = len - 1,
-            column, startIndex;
+    updateScrollHeight(silent=false) {
+        let me           = this,
+            countRecords = me.store.getCount(),
+            {rowHeight}  = me;
 
-        if (len < 1) {
-            return
-        }
-
-        for (; i < len; i++) {
-            column = columnPositions.getAt(i);
-
-            if (x >= column.x && x <= column.x + column.width) {
-                startIndex = i
-            }
-
-            if (me.containerWidth + x < column.x) {
-                endIndex = i - 1;
-                break
-            }
-        }
-
-        if (
-            Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange ||
-            me.visibleColumns[1] < 1 // initial call
-        ) {
-            me.visibleColumns = [startIndex, endIndex]
+        if (countRecords > 0 && rowHeight > 0) {
+            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
+            !silent && me.update()
         }
     }
 }

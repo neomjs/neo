@@ -1,5 +1,6 @@
 import BaseContainer from './BaseContainer.mjs';
 import Button        from '../../../../../src/button/Base.mjs';
+import MagicMoveText from '../../../../../src/component/MagicMoveText.mjs';
 
 /**
  * @class Portal.view.home.parts.MainNeo
@@ -33,10 +34,26 @@ class MainNeo extends BaseContainer {
                 tag : 'h1'
             }]
         }, {
-            cls : ['neo-h2'],
-            flex: 'none',
-            html: 'Modern Enterprise-Ready JavaScript Framework',
-            tag : 'h2'
+            module   : MagicMoveText,
+            autoCycle: false,
+            cls      : ['neo-h2'],
+            colorMove: '#3E63DD',
+            flex     : 'none',
+            reference: 'magic-move',
+
+            cycleTexts: [
+                'Modern Enterprise JavaScript Framework',
+                'An Application Worker being the Orchestrator',
+                'Scalability',
+                'Extensibility',
+                'Performance',
+                'Declarative & Reactive Component Trees',
+                'Separated from Business Logic',
+                'View Controllers',
+                'State Providers',
+                'Clean Architectures',
+                'Multi Window Apps'
+            ]
         }, {
             cls : ['neo-h3'],
             flex: 'none',
@@ -65,6 +82,20 @@ class MainNeo extends BaseContainer {
                 url   : 'https://github.com/neomjs/neo'
             }]
         }]
+    }
+
+    /**
+     *
+     */
+    activate() {
+        this.getItem('magic-move').autoCycle = true
+    }
+
+    /**
+     *
+     */
+    deactivate() {
+        this.getItem('magic-move').autoCycle = false
     }
 }
 
