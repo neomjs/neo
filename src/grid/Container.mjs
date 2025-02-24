@@ -667,18 +667,18 @@ class GridContainer extends BaseContainer {
         let me           = this,
             {view}       = me,
             {columnPositions, containerWidth, mountedColumns, visibleColumns} = view,
-            countRecords = me.store.getCount(),
+            countColumns = columnPositions.getCount(),
             newIndex     = index + step,
-            column, lastColumnGap, mounted, scrollPosition, visible;
+            column, mounted, scrollPosition, visible;
 
-        if (newIndex >= countRecords) {
-            newIndex %= countRecords;
+        if (newIndex >= countColumns) {
+            newIndex %= countColumns;
             step     = newIndex - index
         }
 
         while (newIndex < 0) {
-            newIndex += countRecords;
-            step     += countRecords
+            newIndex += countColumns;
+            step     += countColumns
         }
 
         mounted = newIndex >= mountedColumns[0] && newIndex <= mountedColumns[1];
@@ -694,8 +694,6 @@ class GridContainer extends BaseContainer {
             }
 
             column = columnPositions.getAt(newIndex);
-
-            console.log(mounted, visibleColumns[0], index, newIndex, column);
 
             if (step < 0) {
                 scrollPosition = column.x
