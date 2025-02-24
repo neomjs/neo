@@ -142,9 +142,9 @@ class GridView extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tabIndex: '-1', cn: [
-            {cn: []}
-        ]}
+            {tabIndex: '-1', cn: [
+                    {cn: []}
+                ]}
     }
 
     /**
@@ -313,7 +313,7 @@ class GridView extends Component {
      * @param {Number[]} oldValue
      * @protected
      */
-    afterSetMountedColumns(value, oldValue) {
+    afterSetMountedColumns(value, oldValue) {console.log('afterSetMountedColumns', value, oldValue);
         oldValue !== undefined && this.createViewData()
     }
 
@@ -597,6 +597,8 @@ class GridView extends Component {
 
         // Creates the new start & end indexes
         me.updateMountedAndVisibleRows();
+
+        console.log('createViewData', me.mountedColumns);
 
         for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
@@ -1036,7 +1038,7 @@ class GridView extends Component {
      */
     updateMountedAndVisibleColumns() {
         let me       = this,
-            {bufferColumnRange, columnPositions, visibleColumns} = me,
+            {bufferColumnRange, columnPositions, mountedColumns, visibleColumns} = me,
             {x}      = me.scrollPosition,
             i        = 0,
             len      = columnPositions.getCount(),
@@ -1059,17 +1061,22 @@ class GridView extends Component {
                 break
             }
         }
-
+        console.log(startIndex, mountedColumns[0], endIndex);
         if (
-            Math.abs(startIndex - me.visibleColumns[0]) >= me.bufferColumnRange ||
-            me.visibleColumns[1] < 1 // initial call
+            Math.abs(startIndex - mountedColumns[0]) >= 0 ||
+            visibleColumns[1] < 1 // initial call
         ) {
-            visibleColumns[0] = startIndex;
+            if (Math.abs(startIndex - mountedColumns[0]) >= bufferColumnRange) {
+
+            }
+
+
+            visibleColumns[0] = startIndex; // update the array inline
             visibleColumns[1] = endIndex;
 
             endIndex   = Math.min(len - 1, visibleColumns[1] + bufferColumnRange);
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
-
+            console.log(startIndex, endIndex);
             me.mountedColumns = [startIndex, endIndex]
         }
     }

@@ -657,6 +657,60 @@ class GridContainer extends BaseContainer {
             }
         })
     }
+
+    /**
+     * Used for keyboard navigation (selection models)
+     * @param {Number} index
+     * @param {Number} step
+     */
+    scrollByColumns(index, step) {
+        let me           = this,
+            {view}       = me,
+            {columnPositions, containerWidth, mountedColumns, visibleColumns} = view,
+            countRecords = me.store.getCount(),
+            newIndex     = index + step,
+            column, lastColumnGap, mounted, scrollPosition, visible;
+
+        if (newIndex >= countRecords) {
+            newIndex %= countRecords;
+            step     = newIndex - index
+        }
+
+        while (newIndex < 0) {
+            newIndex += countRecords;
+            step     += countRecords
+        }
+
+        mounted = newIndex >= mountedColumns[0] && newIndex <= mountedColumns[1];
+
+        // Not using >= or <=, since the first / last column might not be fully visible
+        visible = newIndex > visibleColumns[0] && newIndex < visibleColumns[1];
+
+        if (!visible) {
+            // Leaving the mounted area will re-calculate the visibleColumns for us
+            if (mounted) {
+                visibleColumns[0] += step;
+                visibleColumns[1] += step
+            }
+
+            column = columnPositions.getAt(newIndex);
+
+            console.log(mounted, visibleColumns[0], index, newIndex, column);
+
+            if (step < 0) {
+                scrollPosition = column.x
+            } else {
+                scrollPosition = column.x - containerWidth + column.width
+            }
+
+            Neo.main.DomAccess.scrollTo({
+                direction: 'left',
+                id       : me.id,
+                value    : scrollPosition,
+                windowId : me.windowId
+            })
+        }
+    }
 }
 
 export default Neo.setupClass(GridContainer);
