@@ -313,8 +313,8 @@ class GridView extends Component {
      * @param {Number[]} oldValue
      * @protected
      */
-    afterSetMountedColumns(value, oldValue) {console.log('afterSetMountedColumns', value, oldValue);
-        oldValue !== undefined && this.createViewData()
+    afterSetMountedColumns(value, oldValue) {
+        oldValue && this.createViewData()
     }
 
     /**
@@ -597,8 +597,6 @@ class GridView extends Component {
 
         // Creates the new start & end indexes
         me.updateMountedAndVisibleRows();
-
-        console.log('createViewData', me.mountedColumns);
 
         for (i=mountedRows[0]; i < mountedRows[1]; i++) {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
@@ -1039,17 +1037,17 @@ class GridView extends Component {
     updateMountedAndVisibleColumns() {
         let me       = this,
             {bufferColumnRange, columnPositions, mountedColumns, visibleColumns} = me,
-            {x}      = me.scrollPosition,
-            i        = 0,
-            len      = columnPositions.getCount(),
-            endIndex = len - 1,
+            {x}          = me.scrollPosition,
+            i            = 0,
+            countColumns = columnPositions.getCount(),
+            endIndex     = countColumns - 1,
             column, startIndex;
 
-        if (len < 1) {
+        if (countColumns < 1) {
             return
         }
 
-        for (; i < len; i++) {
+        for (; i < countColumns; i++) {
             column = columnPositions.getAt(i);
 
             if (x >= column.x && x <= column.x + column.width) {
@@ -1061,22 +1059,14 @@ class GridView extends Component {
                 break
             }
         }
-        console.log(startIndex, mountedColumns[0], endIndex);
-        if (
-            Math.abs(startIndex - mountedColumns[0]) >= 0 ||
-            visibleColumns[1] < 1 // initial call
-        ) {
-            if (Math.abs(startIndex - mountedColumns[0]) >= bufferColumnRange) {
 
-            }
+        visibleColumns[0] = startIndex; // update the array inline
+        visibleColumns[1] = endIndex;
 
-
-            visibleColumns[0] = startIndex; // update the array inline
-            visibleColumns[1] = endIndex;
-
-            endIndex   = Math.min(len - 1, visibleColumns[1] + bufferColumnRange);
+        if (visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1]) {
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
-            console.log(startIndex, endIndex);
+            endIndex   = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
+
             me.mountedColumns = [startIndex, endIndex]
         }
     }
