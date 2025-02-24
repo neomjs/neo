@@ -235,10 +235,9 @@ class Toolbar extends BaseToolbar {
 
     /**
      * @param {Number}  index
-     * @param {DOMRect} itemRect
      * @returns {Promise<void>}
      */
-    async scrollToIndex(index, itemRect) {
+    async scrollToIndex(index) {
         await Neo.main.DomAccess.scrollIntoView({
             delay   : 125,
             id      : this.items[index].id,
