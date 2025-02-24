@@ -44,8 +44,14 @@ class MainNeo extends BaseContainer {
             cycleTexts: [
                 'Modern Enterprise-Ready JavaScript Framework',
                 'The Application Worker driven Frontend Framework',
+                'Scalability',
                 'Extensibility',
-                'Scalability'
+                'Performance',
+                'Reactive Component Trees',
+                'Separated from Business Logic',
+                'View Controllers',
+                'State Providers',
+                'Clean Architectures'
             ]
         }, {
             cls : ['neo-h3'],
