@@ -130,7 +130,8 @@ class CellModel extends BaseModel {
             newIndex += store.getCount()
         }
 
-        me.select(view.getCellId(store.getAt(newIndex), dataField))
+        me.select(view.getCellId(store.getAt(newIndex), dataField));
+        view.scrollByRows(currentIndex, step)
     }
 
     /**
