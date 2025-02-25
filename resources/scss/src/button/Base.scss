@@ -106,9 +106,9 @@
     }
 
     &:active {
-        background-color: var(--button-background-color-active) !important;
-        background-image: none !important;
-        border          : var(--button-border-active) !important;
+        background-color: var(--button-background-color-active);
+        background-image: none;
+        border          : var(--button-border-active);
 
         .neo-button-glyph {
             color: var(--button-glyph-color-active);
