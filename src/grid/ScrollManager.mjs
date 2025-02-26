@@ -38,6 +38,12 @@ class ScrollManager extends Base {
      * @protected
      */
     gridView = null
+    /**
+     * Storing touchmove position for mobile envs
+     * @member {Number} lastTouchY=0
+     * @protected
+     */
+    lastTouchY = 0
 
     /**
      * @param {Object} config

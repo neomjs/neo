@@ -126,12 +126,6 @@ class GridContainer extends BaseContainer {
      */
     isTouchMoveOwner = false
     /**
-     * Storing touchmove position for mobile envs
-     * @member {Number} lastTouchY=0
-     * @protected
-     */
-    lastTouchY = 0
-    /**
      * @member {Neo.grid.ScrollManager|null} scrollManager=null
      * @protected
      */
