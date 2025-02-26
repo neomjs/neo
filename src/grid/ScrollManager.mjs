@@ -40,10 +40,21 @@ class ScrollManager extends Base {
     gridView = null
     /**
      * Storing touchmove position for mobile envs
+     * @member {Number} lastTouchX=0
+     * @protected
+     */
+    lastTouchX = 0
+    /**
+     * Storing touchmove position for mobile envs
      * @member {Number} lastTouchY=0
      * @protected
      */
     lastTouchY = 0
+    /**
+     * @member {Number|null}} scrollTimeoutId=null
+     * @protected
+     */
+    scrollTimeoutId = null
 
     /**
      * @param {Object} config
@@ -58,6 +69,13 @@ class ScrollManager extends Base {
         me.gridContainer.addDomListeners({
             scroll: me.onContainerScroll,
             scope : me
+        });
+
+        me.gridView.addDomListeners({
+            scroll     : me.onViewScroll,
+            touchcancel: me.onTouchCancel,
+            touchend   : me.onTouchEnd,
+            scope      : me
         })
     }
 
@@ -94,6 +112,75 @@ class ScrollManager extends Base {
 
                     me.lastTouchY = lastTouchY
                 }
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTouchCancel(data) {
+        let me       = this,
+            {parent} = me;
+
+        me.isTouchMoveOwner = false;
+        me.lastTouchX       = 0;
+
+        parent.isTouchMoveOwner = false;
+        parent.lastTouchY       = 0
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTouchEnd(data) {
+        let me       = this,
+            {parent} = me;
+
+        me.isTouchMoveOwner = false;
+        me.lastTouchX       = 0;
+
+        parent.isTouchMoveOwner = false;
+        parent.lastTouchY       = 0
+    }
+
+    /**
+     * Only triggers for vertical scrolling
+     * @param {Object} data
+     * @protected
+     */
+    onViewScroll({scrollTop, touches}) {
+        let me   = this,
+            view = me.gridView,
+            deltaX, lastTouchX;
+
+        me.scrollTimeoutId && clearTimeout(me.scrollTimeoutId);
+
+        me.scrollTimeoutId = setTimeout(() => {
+            view.isScrolling = false
+        }, 30);
+
+        view.set({
+            isScrolling   : true,
+            scrollPosition: {x: view.scrollPosition.x, y: scrollTop}
+        });
+
+        if (touches) {
+            if (!me.parent.isTouchMoveOwner) {
+                me.isTouchMoveOwner = true
+            }
+
+            if (me.isTouchMoveOwner) {
+                lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
+                deltaX     = me.lastTouchX - lastTouchX;
+
+                deltaX !== 0 && Neo.main.DomAccess.scrollTo({
+                    direction: 'left',
+                    id       : me.gridContainer.id,
+                    value    : view.scrollPosition.x + deltaX
+                })
+
+                me.lastTouchX = lastTouchX
             }
         }
     }

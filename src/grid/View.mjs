@@ -142,9 +142,9 @@ class GridView extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {tabIndex: '-1', cn: [
-                    {cn: []}
-                ]}
+        {tabIndex: '-1', cn: [
+            {cn: []}
+        ]}
     }
 
     /**
@@ -153,16 +153,6 @@ class GridView extends Component {
      * @protected
      */
     isTouchMoveOwner = false
-    /**
-     * Storing touchmove position for mobile envs
-     * @member {Number} lastTouchX=0
-     * @protected
-     */
-    lastTouchX = 0
-    /**
-     * @member {Number|null}} scrollTimeoutId=null
-     */
-    scrollTimeoutId = null
 
     /**
      * @member {String[]} selectedRows
@@ -199,11 +189,6 @@ class GridView extends Component {
         let me = this;
 
         me.addDomListeners([{
-            scroll     : me.onScroll,
-            touchcancel: me.onTouchCancel,
-            touchend   : me.onTouchEnd,
-            scope      : me
-        }, {
             click   : me.onCellClick,
             dblclick: me.onCellDoubleClick,
             delegate: '.neo-grid-cell',
@@ -862,46 +847,6 @@ class GridView extends Component {
     }
 
     /**
-     * Only triggers for vertical scrolling
-     * @param {Object} data
-     * @protected
-     */
-    onScroll({scrollTop, touches}) {
-        let me = this,
-            deltaX, lastTouchX;
-
-        me.scrollTimeoutId && clearTimeout(me.scrollTimeoutId);
-
-        me.scrollTimeoutId = setTimeout(() => {
-            me.isScrolling = false
-        }, 30);
-
-        me.set({
-            isScrolling   : true,
-            scrollPosition: {x: me.scrollPosition.x, y: scrollTop}
-        });
-
-        if (touches) {
-            if (!me.parent.isTouchMoveOwner) {
-                me.isTouchMoveOwner = true
-            }
-
-            if (me.isTouchMoveOwner) {
-                lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
-                deltaX     = me.lastTouchX - lastTouchX;
-
-                deltaX !== 0 && Neo.main.DomAccess.scrollTo({
-                    direction: 'left',
-                    id       : me.parent.id,
-                    value    : me.scrollPosition.x + deltaX
-                })
-
-                me.lastTouchX = lastTouchX
-            }
-        }
-    }
-
-    /**
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} opts
@@ -952,34 +897,6 @@ class GridView extends Component {
         }
 
         needsUpdate && me.update()
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTouchCancel(data) {
-        let me       = this,
-            {parent} = me;
-
-        me.isTouchMoveOwner = false;
-        me.lastTouchX       = 0;
-
-        parent.isTouchMoveOwner = false;
-        parent.lastTouchY       = 0
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTouchEnd(data) {
-        let me       = this,
-            {parent} = me;
-
-        me.isTouchMoveOwner = false;
-        me.lastTouchX       = 0;
-
-        parent.isTouchMoveOwner = false;
-        parent.lastTouchY       = 0
     }
 
     /**
