@@ -32,7 +32,7 @@ class ControlsContainer extends Container {
             cls     : ['neo-examples-bigdata-controls-container-content'],
             sortable: true,
 
-            headerToolbarDefaults: {
+            headerToolbar: {
                 sortZoneConfig: {
                     adjustItemRectsToParent: true
                 }

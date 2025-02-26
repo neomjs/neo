@@ -28,9 +28,9 @@ class ContentTabContainer extends Container {
             cls: ['neo-docs-tab-content-container']
         },
         /**
-         * @member {Object} headerToolbarDefaults
+         * @member {Object} headerToolbar
          */
-        headerToolbarDefaults: {
+        headerToolbar: {
             cls: ['docs-tab-header-toolbar']
         },
         /**

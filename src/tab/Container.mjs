@@ -54,9 +54,9 @@ class Container extends BaseContainer {
         contentContainerDefaults: null,
         /**
          * Default configs for the tab.HeaderToolbar
-         * @member {Object|null} headerToolbarDefaults=null
+         * @member {Object|null} headerToolbar=null
          */
-        headerToolbarDefaults: null,
+        headerToolbar: null,
         /**
          * @member {Object|null} layout=null
          */
@@ -264,7 +264,7 @@ class Container extends BaseContainer {
             items                : tabButtons,
             sortable             : me.sortable,
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.headerToolbarDefaults
+            ...me.headerToolbar
         }, {
             module               : Strip,
             cls                  : ['neo-tab-strip', 'neo-dock-' + me.tabBarPosition],
