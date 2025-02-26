@@ -99,37 +99,6 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * Override this method to create the components to show inside the configuration container
-     * @returns {Object[]|null}
-     */
-    createConfigurationComponents() {
-        return null
-    }
-
-    /**
-     * Override this method to create the component to show inside the current example
-     * @returns {Object|Neo.component.Base|null}
-     */
-    createExampleComponent() {
-        return null
-    }
-
-    /**
-     * @param {Object} data
-     */
-    logInstance(data) {
-        console.log(this.exampleComponent)
-    }
-
-    /**
-     * @param {String} config
-     * @param {Object} opts
-     */
-    onConfigChange(config, opts) {
-        this.exampleComponent[config] = opts.value
-    }
-
-    /**
      *
      */
     onConstructed() {

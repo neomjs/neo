@@ -103,9 +103,15 @@ class GridView extends Component {
          */
         rowHeight_: 0,
         /**
-         * @member {Object} scrollPosition_={x:0,y:0}
+         * @member {Number} scrollLeft_=0
+         * @protected
          */
-        scrollPosition_: {x: 0, y: 0},
+        scrollLeft_: 0,
+        /**
+         * @member {Number} scrollTop_=0
+         * @protected
+         */
+        scrollTop_: 0,
         /**
          * @member {Neo.selection.Model} selectionModel_=null
          */
@@ -142,27 +148,10 @@ class GridView extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {tabIndex: '-1', cn: [
-                    {cn: []}
-                ]}
+        {tabIndex: '-1', cn: [
+            {cn: []}
+        ]}
     }
-
-    /**
-     * Flag for identifying the ownership of a touchmove operation
-     * @member {Boolean} isTouchMoveOwner=false
-     * @protected
-     */
-    isTouchMoveOwner = false
-    /**
-     * Storing touchmove position for mobile envs
-     * @member {Number} lastTouchX=0
-     * @protected
-     */
-    lastTouchX = 0
-    /**
-     * @member {Number|null}} scrollTimeoutId=null
-     */
-    scrollTimeoutId = null
 
     /**
      * @member {String[]} selectedRows
@@ -199,11 +188,6 @@ class GridView extends Component {
         let me = this;
 
         me.addDomListeners([{
-            scroll     : me.onScroll,
-            touchcancel: me.onTouchCancel,
-            touchend   : me.onTouchEnd,
-            scope      : me
-        }, {
             click   : me.onCellClick,
             dblclick: me.onCellDoubleClick,
             delegate: '.neo-grid-cell',
@@ -328,29 +312,31 @@ class GridView extends Component {
     }
 
     /**
-     * Triggered after the scrollPosition config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
+     * Triggered after the scrollLeft config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
      * @protected
      */
-    afterSetScrollPosition(value, oldValue) {
+    afterSetScrollLeft(value, oldValue) {
+        this.updateMountedAndVisibleColumns()
+    }
+
+    /**
+     * Triggered after the scrollTop config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetScrollTop(value, oldValue) {
         let me               = this,
             {bufferRowRange} = me,
-            newStartIndex;
+            newStartIndex    = Math.floor(value / me.rowHeight);
 
-        if (value.x !== oldValue?.x) {
-            me.updateMountedAndVisibleColumns()
-        }
-
-        if (value.y !== oldValue?.y) {
-            newStartIndex = Math.floor(value.y / me.rowHeight);
-
-            if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
-                me.startIndex = newStartIndex
-            } else {
-                me.visibleRows[0] = newStartIndex;
-                me.visibleRows[1] = newStartIndex + me.availableRows
-            }
+        if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
+            me.startIndex = newStartIndex
+        } else {
+            me.visibleRows[0] = newStartIndex;
+            me.visibleRows[1] = newStartIndex + me.availableRows
         }
     }
 
@@ -862,46 +848,6 @@ class GridView extends Component {
     }
 
     /**
-     * Only triggers for vertical scrolling
-     * @param {Object} data
-     * @protected
-     */
-    onScroll({scrollTop, touches}) {
-        let me = this,
-            deltaX, lastTouchX;
-
-        me.scrollTimeoutId && clearTimeout(me.scrollTimeoutId);
-
-        me.scrollTimeoutId = setTimeout(() => {
-            me.isScrolling = false
-        }, 30);
-
-        me.set({
-            isScrolling   : true,
-            scrollPosition: {x: me.scrollPosition.x, y: scrollTop}
-        });
-
-        if (touches) {
-            if (!me.parent.isTouchMoveOwner) {
-                me.isTouchMoveOwner = true
-            }
-
-            if (me.isTouchMoveOwner) {
-                lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
-                deltaX     = me.lastTouchX - lastTouchX;
-
-                deltaX !== 0 && Neo.main.DomAccess.scrollTo({
-                    direction: 'left',
-                    id       : me.parent.id,
-                    value    : me.scrollPosition.x + deltaX
-                })
-
-                me.lastTouchX = lastTouchX
-            }
-        }
-    }
-
-    /**
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} opts
@@ -955,34 +901,6 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object} data
-     */
-    onTouchCancel(data) {
-        let me       = this,
-            {parent} = me;
-
-        me.isTouchMoveOwner = false;
-        me.lastTouchX       = 0;
-
-        parent.isTouchMoveOwner = false;
-        parent.lastTouchY       = 0
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onTouchEnd(data) {
-        let me       = this,
-            {parent} = me;
-
-        me.isTouchMoveOwner = false;
-        me.lastTouchX       = 0;
-
-        parent.isTouchMoveOwner = false;
-        parent.lastTouchY       = 0
-    }
-
-    /**
      * Used for keyboard navigation (selection models)
      * @param {Number} index
      * @param {Number} step
@@ -992,7 +910,7 @@ class GridView extends Component {
             {mountedRows, visibleRows} = me,
             countRecords               = me.store.getCount(),
             newIndex                   = index + step,
-            lastRowGap, mounted, scrollPosition, visible;
+            lastRowGap, mounted, scrollTop, visible;
 
         if (newIndex >= countRecords) {
             newIndex %= countRecords;
@@ -1017,15 +935,15 @@ class GridView extends Component {
             }
 
             if (step < 0) {
-                scrollPosition = newIndex * me.rowHeight
+                scrollTop = newIndex * me.rowHeight
             } else {
-                lastRowGap     = me.rowHeight - (me.availableHeight % me.rowHeight);
-                scrollPosition = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
+                lastRowGap = me.rowHeight - (me.availableHeight % me.rowHeight);
+                scrollTop  = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
             }
 
             Neo.main.DomAccess.scrollTo({
                 id      : me.vdom.id,
-                value   : scrollPosition,
+                value   : scrollTop,
                 windowId: me.windowId
             })
         }
@@ -1037,10 +955,10 @@ class GridView extends Component {
     updateMountedAndVisibleColumns() {
         let me       = this,
             {bufferColumnRange, columnPositions, mountedColumns, visibleColumns} = me,
-            {x}          = me.scrollPosition,
             i            = 0,
             countColumns = columnPositions.getCount(),
             endIndex     = countColumns - 1,
+            x            = me.scrollLeft,
             column, startIndex;
 
         if (countColumns < 1) {

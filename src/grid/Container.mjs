@@ -1,9 +1,10 @@
-import BaseContainer   from '../container/Base.mjs';
-import ClassSystemUtil from '../util/ClassSystem.mjs';
-import GridScrollbar   from './Scrollbar.mjs';
-import GridView        from './View.mjs';
-import Store           from '../data/Store.mjs';
-import * as header     from './header/_export.mjs';
+import BaseContainer     from '../container/Base.mjs';
+import ClassSystemUtil   from '../util/ClassSystem.mjs';
+import GridView          from './View.mjs';
+import ScrollManager     from './ScrollManager.mjs';
+import Store             from '../data/Store.mjs';
+import VerticalScrollbar from './VerticalScrollbar.mjs';
+import * as header       from './header/_export.mjs';
 
 /**
  * @class Neo.grid.Container
@@ -119,17 +120,10 @@ class GridContainer extends BaseContainer {
      */
     initialResizeEvent = true
     /**
-     * Flag for identifying the ownership of a touchmove operation
-     * @member {Boolean} isTouchMoveOwner=false
+     * @member {Neo.grid.ScrollManager|null} scrollManager=null
      * @protected
      */
-    isTouchMoveOwner = false
-    /**
-     * Storing touchmove position for mobile envs
-     * @member {Number} lastTouchY=0
-     * @protected
-     */
-    lastTouchY = 0
+    scrollManager = null
 
     /**
      * Convenience method to access the Neo.grid.header.Toolbar
@@ -176,7 +170,7 @@ class GridContainer extends BaseContainer {
         }];
 
         me.scrollbar = Neo.create({
-            module  : GridScrollbar,
+            module  : VerticalScrollbar,
             appName,
             parentId: me.id,
             rowHeight,
@@ -192,7 +186,6 @@ class GridContainer extends BaseContainer {
 
         me.addDomListeners({
             resize: me.onResize,
-            scroll: me.onScroll,
             scope : me
         })
     }
@@ -475,6 +468,8 @@ class GridContainer extends BaseContainer {
     destroy(...args) {
         let me = this;
 
+        me.scrollManager.destroy();
+
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
             id      : me.id,
             windowId: me.windowId
@@ -514,6 +509,21 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.scrollManager = Neo.create({
+            module       : ScrollManager,
+            gridContainer: me,
+            gridView     : me.view
+        })
+    }
+
+    /**
      * @param {Object} data
      */
     async onResize(data) {
@@ -527,44 +537,6 @@ class GridContainer extends BaseContainer {
             await me.headerToolbar.passSizeToView()
         } else {
             me.initialResizeEvent = false
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {Number} data.scrollLeft
-     * @param {Object} data.target
-     * @param {Object} data.touches
-     */
-    onScroll({scrollLeft, target, touches}) {
-        let me     = this,
-            {view} = me,
-            deltaY, lastTouchY;
-
-        // We must ignore events for grid-scrollbar
-        if (target.id.includes('grid-container')) {
-            me.headerToolbar.scrollLeft = scrollLeft;
-            view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
-
-            if (touches) {
-                if (!view.isTouchMoveOwner) {
-                    me.isTouchMoveOwner = true
-                }
-
-                if (me.isTouchMoveOwner) {
-                    lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
-                    deltaY     = me.lastTouchY - lastTouchY;
-
-                    deltaY !== 0 && Neo.main.DomAccess.scrollTo({
-                        direction: 'top',
-                        id       : view.vdom.id,
-                        value    : view.scrollPosition.y + deltaY
-                    })
-
-                    me.lastTouchY = lastTouchY
-                }
-            }
-
         }
     }
 
@@ -670,7 +642,7 @@ class GridContainer extends BaseContainer {
             {columnPositions, containerWidth, mountedColumns, visibleColumns} = view,
             countColumns = columnPositions.getCount(),
             newIndex     = index + step,
-            column, mounted, scrollPosition, visible;
+            column, mounted, scrollLeft, visible;
 
         if (newIndex >= countColumns) {
             newIndex %= countColumns;
@@ -697,15 +669,15 @@ class GridContainer extends BaseContainer {
             column = columnPositions.getAt(newIndex);
 
             if (step < 0) {
-                scrollPosition = column.x
+                scrollLeft = column.x
             } else {
-                scrollPosition = column.x - containerWidth + column.width
+                scrollLeft = column.x - containerWidth + column.width
             }
 
             Neo.main.DomAccess.scrollTo({
                 direction: 'left',
                 id       : me.id,
-                value    : scrollPosition,
+                value    : scrollLeft,
                 windowId : me.windowId
             })
         }
