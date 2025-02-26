@@ -96,7 +96,7 @@ class SortZone extends BaseSortZone {
             mounted() {
                 Neo.main.DomAccess.scrollTo({
                     id      : viewWrapperId,
-                    value   : view.scrollPosition.y,
+                    value   : view.scrollTop,
                     windowId: this.windowId
                 })
             }
