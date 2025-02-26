@@ -642,7 +642,7 @@ class GridContainer extends BaseContainer {
             {columnPositions, containerWidth, mountedColumns, visibleColumns} = view,
             countColumns = columnPositions.getCount(),
             newIndex     = index + step,
-            column, mounted, scrollPosition, visible;
+            column, mounted, scrollLeft, visible;
 
         if (newIndex >= countColumns) {
             newIndex %= countColumns;
@@ -669,15 +669,15 @@ class GridContainer extends BaseContainer {
             column = columnPositions.getAt(newIndex);
 
             if (step < 0) {
-                scrollPosition = column.x
+                scrollLeft = column.x
             } else {
-                scrollPosition = column.x - containerWidth + column.width
+                scrollLeft = column.x - containerWidth + column.width
             }
 
             Neo.main.DomAccess.scrollTo({
                 direction: 'left',
                 id       : me.id,
-                value    : scrollPosition,
+                value    : scrollLeft,
                 windowId : me.windowId
             })
         }
