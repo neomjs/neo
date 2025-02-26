@@ -32,6 +32,12 @@ class ControlsContainer extends Container {
             cls     : ['neo-examples-bigdata-controls-container-content'],
             sortable: true,
 
+            headerToolbar: {
+                sortZoneConfig: {
+                    adjustItemRectsToParent: true
+                }
+            },
+
             items: [{
                 module: Container,
                 header: {text: 'Settings'},

@@ -1948,6 +1948,24 @@ class Component extends Base {
     }
 
     /**
+     * Check if this component or any of its parents is floating
+     * @returns {Boolean}
+     */
+    isFloating() {
+        let me = this;
+
+        if (me.floating) {
+            return true
+        }
+
+        if (!me.parent) {
+            return false
+        }
+
+        return  me.parent.floating
+    }
+
+    /**
      * Checks for vdom updates inside the parent chain and if found.
      * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId

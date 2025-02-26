@@ -27,9 +27,9 @@ class TabContainer extends Container {
          */
         controller: TabContainerController,
         /**
-         * @member {Object} headerToolbarDefaults
+         * @member {Object} headerToolbar
          */
-        headerToolbarDefaults: {
+        headerToolbar: {
             cls: ['portal-examples-tab-header-toolbar']
         },
         /**

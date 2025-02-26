@@ -49,14 +49,18 @@ class Container extends BaseContainer {
         cardContainerId: null,
         /**
          * Default configs for the tab.Strip
-         * @member {Object|null} contentContainerDefaults=null
+         * @member {Object|null} contentContainer=null
          */
-        contentContainerDefaults: null,
+        contentContainer: null,
         /**
          * Default configs for the tab.HeaderToolbar
-         * @member {Object|null} headerToolbarDefaults=null
+         * @member {Object|null} headerToolbar=null
          */
-        headerToolbarDefaults: null,
+        headerToolbar: null,
+        /**
+         * @member {Object|null} layout=null
+         */
+        layout: null,
         /**
          * @member {Object|null} layout=null
          */
@@ -84,9 +88,9 @@ class Container extends BaseContainer {
         tabBarId: null,
         /**
          * Default configs for the tab.Strip
-         * @member {Object|null} tabStripDefaults=null
+         * @member {Object|null} tabStrip=null
          */
-        tabStripDefaults: null,
+        tabStrip: null,
         /**
          * @member {String|null} tabStripId=null
          */
@@ -264,7 +268,7 @@ class Container extends BaseContainer {
             items                : tabButtons,
             sortable             : me.sortable,
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.headerToolbarDefaults
+            ...me.headerToolbar
         }, {
             module               : Strip,
             cls                  : ['neo-tab-strip', 'neo-dock-' + me.tabBarPosition],
@@ -272,7 +276,7 @@ class Container extends BaseContainer {
             id                   : me.tabStripId,
             tabContainerId       : me.id,
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.tabStripDefaults
+            ...me.tabStrip
         }, {
             ntype                : 'container',
             cls                  : ['neo-container', 'neo-tab-content-container'],
@@ -281,7 +285,7 @@ class Container extends BaseContainer {
             items                : tabComponents,
             layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.contentContainerDefaults
+            ...me.contentContainer
         }];
 
         me.itemDefaults = null;

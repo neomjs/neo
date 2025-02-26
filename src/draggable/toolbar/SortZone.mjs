@@ -20,10 +20,9 @@ class SortZone extends DragZone {
         /**
          * Depending on the parent structure using position absolute and relative, it can be needed to subtract
          * the x & y parent rect values from the item rects.
-         * For tab.header.Toolbar it is needed, for grid.header.Toolbar it is not
-         * @member {Boolean} adjustItemRectsToParent=true
+         * @member {Boolean} adjustItemRectsToParent=false
          */
-        adjustItemRectsToParent: true,
+        adjustItemRectsToParent: false,
         /**
          * @member {Boolean} alwaysFireDragMove=true
          */
