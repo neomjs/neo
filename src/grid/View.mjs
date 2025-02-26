@@ -910,7 +910,7 @@ class GridView extends Component {
             {mountedRows, visibleRows} = me,
             countRecords               = me.store.getCount(),
             newIndex                   = index + step,
-            lastRowGap, mounted, scrollPosition, visible;
+            lastRowGap, mounted, scrollTop, visible;
 
         if (newIndex >= countRecords) {
             newIndex %= countRecords;
@@ -935,15 +935,15 @@ class GridView extends Component {
             }
 
             if (step < 0) {
-                scrollPosition = newIndex * me.rowHeight
+                scrollTop = newIndex * me.rowHeight
             } else {
-                lastRowGap     = me.rowHeight - (me.availableHeight % me.rowHeight);
-                scrollPosition = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
+                lastRowGap = me.rowHeight - (me.availableHeight % me.rowHeight);
+                scrollTop  = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
             }
 
             Neo.main.DomAccess.scrollTo({
                 id      : me.vdom.id,
-                value   : scrollPosition,
+                value   : scrollTop,
                 windowId: me.windowId
             })
         }
