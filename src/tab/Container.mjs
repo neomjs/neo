@@ -84,9 +84,9 @@ class Container extends BaseContainer {
         tabBarId: null,
         /**
          * Default configs for the tab.Strip
-         * @member {Object|null} tabStripDefaults=null
+         * @member {Object|null} tabStrip=null
          */
-        tabStripDefaults: null,
+        tabStrip: null,
         /**
          * @member {String|null} tabStripId=null
          */
@@ -272,7 +272,7 @@ class Container extends BaseContainer {
             id                   : me.tabStripId,
             tabContainerId       : me.id,
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.tabStripDefaults
+            ...me.tabStrip
         }, {
             ntype                : 'container',
             cls                  : ['neo-container', 'neo-tab-content-container'],
