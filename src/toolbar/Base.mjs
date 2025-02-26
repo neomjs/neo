@@ -89,11 +89,10 @@ class Toolbar extends Container {
             dockPositions = me.getStaticConfig('dockPositions');
 
         dockPositions.forEach(key => {
-            key !== null && NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key)
+            key !== null && NeoArray.toggle(cls, 'neo-dock-' + key, key === value)
         });
 
-        me.cls    = cls;
-        me.layout = me.getLayoutConfig()
+        me.set({cls, layout: me.getLayoutConfig()})
     }
 
     /**
