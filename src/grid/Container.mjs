@@ -1,10 +1,10 @@
-import BaseContainer   from '../container/Base.mjs';
-import ClassSystemUtil from '../util/ClassSystem.mjs';
-import GridScrollbar   from './Scrollbar.mjs';
-import GridView        from './View.mjs';
-import ScrollManager   from './ScrollManager.mjs';
-import Store           from '../data/Store.mjs';
-import * as header     from './header/_export.mjs';
+import BaseContainer     from '../container/Base.mjs';
+import ClassSystemUtil   from '../util/ClassSystem.mjs';
+import GridView          from './View.mjs';
+import ScrollManager     from './ScrollManager.mjs';
+import Store             from '../data/Store.mjs';
+import VerticalScrollbar from './VerticalScrollbar.mjs';
+import * as header       from './header/_export.mjs';
 
 /**
  * @class Neo.grid.Container
@@ -170,7 +170,7 @@ class GridContainer extends BaseContainer {
         }];
 
         me.scrollbar = Neo.create({
-            module  : GridScrollbar,
+            module  : VerticalScrollbar,
             appName,
             parentId: me.id,
             rowHeight,

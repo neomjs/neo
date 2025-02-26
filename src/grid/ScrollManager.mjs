@@ -55,7 +55,6 @@ class ScrollManager extends Base {
      * @protected
      */
     scrollTimeoutId = null
-
     /**
      * Flag for identifying the ownership of a touchmove operation
      * @member {'container'|'view'|null} touchMoveOwner=null
@@ -68,8 +67,6 @@ class ScrollManager extends Base {
      */
     construct(config) {
         super.construct(config);
-
-        console.log(this);
 
         let me = this;
 

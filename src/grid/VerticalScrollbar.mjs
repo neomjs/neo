@@ -1,26 +1,28 @@
 import Component from '../component/Base.mjs';
 
 /**
- * @class Neo.grid.Scrollbar
+ * We do not want to use the default scrollbar for vertical scrolling, since it would show up at the right edge
+ * of the last column. Instead, we want to show it at the right edge of the container (always visible when scrolling).
+ * @class Neo.grid.VerticalScrollbar
  * @extends Neo.component.Base
  */
-class GridScrollbar extends Component {
+class VerticalScrollbar extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.grid.Scrollbar'
+         * @member {String} className='Neo.grid.VerticalScrollbar'
          * @protected
          */
-        className: 'Neo.grid.Scrollbar',
+        className: 'Neo.grid.VerticalScrollbar',
         /**
-         * @member {String} ntype='grid-scrollbar'
+         * @member {String} ntype='grid-vertical-scrollbar'
          * @protected
          */
-        ntype: 'grid-scrollbar',
+        ntype: 'grid-vertical-scrollbar',
         /**
-         * @member {String[]} baseCls=['neo-grid-scrollbar']
+         * @member {String[]} baseCls=['neo-grid-vertical-scrollbar']
          * @protected
          */
-        baseCls: ['neo-grid-scrollbar'],
+        baseCls: ['neo-grid-vertical-scrollbar'],
         /**
          * Number in px
          * @member {Number} rowHeight_=0
@@ -116,4 +118,4 @@ class GridScrollbar extends Component {
     }
 }
 
-export default Neo.setupClass(GridScrollbar);
+export default Neo.setupClass(VerticalScrollbar);
