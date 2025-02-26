@@ -42,12 +42,13 @@ class Toolbar extends Container {
             ntype: 'button'
         },
         /**
-         * @member {Object} layout={ntype: 'hbox', align: 'center', pack : 'start'}
+         * @member {Object} layout={ntype:'flexbox',align:'center',direction: 'row', pack:'start'}
          */
         layout: {
-            ntype: 'hbox',
-            align: 'center',
-            pack : 'start'
+            ntype    : 'flexbox',
+            align    : 'center',
+            direction: 'row',
+            pack     : 'start'
         },
         /**
          * @member {Boolean} sortable_=false
@@ -84,6 +85,10 @@ class Toolbar extends Container {
      * @protected
      */
     afterSetDock(value, oldValue) {
+        if (!value && !oldValue) {
+            return
+        }
+
         let me            = this,
             {cls}         = me,
             dockPositions = me.getStaticConfig('dockPositions'),
