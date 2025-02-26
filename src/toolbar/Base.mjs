@@ -86,13 +86,20 @@ class Toolbar extends Container {
     afterSetDock(value, oldValue) {
         let me            = this,
             {cls}         = me,
-            dockPositions = me.getStaticConfig('dockPositions');
+            dockPositions = me.getStaticConfig('dockPositions'),
+            layoutConfig  = me.getLayoutConfig();
 
         dockPositions.forEach(key => {
             key !== null && NeoArray.toggle(cls, 'neo-dock-' + key, key === value)
         });
 
-        me.set({cls, layout: me.getLayoutConfig()})
+        if (!me.layout) {
+            layoutConfig.ntype = 'flexbox';
+            me.set({cls, layout: layoutConfig})
+        } else {
+            me.layout.set(layoutConfig);
+            me.cls = cls;
+        }
     }
 
     /**
@@ -169,14 +176,13 @@ class Toolbar extends Container {
                 case 'bottom':
                 case 'top':
                     layoutConfig = {
-                        ntype: 'hbox',
-                        align: 'center',
-                        pack : 'start'
+                        align    : 'center',
+                        direction: 'row',
+                        pack     : 'start'
                     };
                     break
                 case 'left':
                     layoutConfig = {
-                        ntype    : 'vbox',
                         align    : 'center',
                         direction: 'column-reverse',
                         pack     : 'start'
@@ -184,7 +190,6 @@ class Toolbar extends Container {
                     break
                 case 'right':
                     layoutConfig = {
-                        ntype    : 'vbox',
                         align    : 'center',
                         direction: 'column',
                         pack     : 'start'
