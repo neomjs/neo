@@ -49,9 +49,9 @@ class Container extends BaseContainer {
         cardContainerId: null,
         /**
          * Default configs for the tab.Strip
-         * @member {Object|null} contentContainerDefaults=null
+         * @member {Object|null} contentContainer=null
          */
-        contentContainerDefaults: null,
+        contentContainer: null,
         /**
          * Default configs for the tab.HeaderToolbar
          * @member {Object|null} headerToolbar=null
@@ -281,7 +281,7 @@ class Container extends BaseContainer {
             items                : tabComponents,
             layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.contentContainerDefaults
+            ...me.contentContainer
         }];
 
         me.itemDefaults = null;

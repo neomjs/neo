@@ -22,9 +22,9 @@ class ContentTabContainer extends Container {
          */
         activateInsertedTabs: true,
         /**
-         * @member {Object} contentContainerDefaults
+         * @member {Object} contentContainer
          */
-        contentContainerDefaults: {
+        contentContainer: {
             cls: ['neo-docs-tab-content-container']
         },
         /**
