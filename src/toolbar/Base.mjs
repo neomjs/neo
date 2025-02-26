@@ -42,12 +42,13 @@ class Toolbar extends Container {
             ntype: 'button'
         },
         /**
-         * @member {Object} layout={ntype: 'hbox', align: 'center', pack : 'start'}
+         * @member {Object} layout={ntype:'flexbox',align:'center',direction: 'row', pack:'start'}
          */
         layout: {
-            ntype: 'hbox',
-            align: 'center',
-            pack : 'start'
+            ntype    : 'flexbox',
+            align    : 'center',
+            direction: 'row',
+            pack     : 'start'
         },
         /**
          * @member {Boolean} sortable_=false
@@ -84,16 +85,26 @@ class Toolbar extends Container {
      * @protected
      */
     afterSetDock(value, oldValue) {
+        if (!value && !oldValue) {
+            return
+        }
+
         let me            = this,
             {cls}         = me,
-            dockPositions = me.getStaticConfig('dockPositions');
+            dockPositions = me.getStaticConfig('dockPositions'),
+            layoutConfig  = me.getLayoutConfig();
 
         dockPositions.forEach(key => {
-            key !== null && NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key)
+            key !== null && NeoArray.toggle(cls, 'neo-dock-' + key, key === value)
         });
 
-        me.cls    = cls;
-        me.layout = me.getLayoutConfig()
+        if (!me.layout) {
+            layoutConfig.ntype = 'flexbox';
+            me.set({cls, layout: layoutConfig})
+        } else {
+            me.layout.set(layoutConfig);
+            me.cls = cls;
+        }
     }
 
     /**
@@ -170,14 +181,13 @@ class Toolbar extends Container {
                 case 'bottom':
                 case 'top':
                     layoutConfig = {
-                        ntype: 'hbox',
-                        align: 'center',
-                        pack : 'start'
+                        align    : 'center',
+                        direction: 'row',
+                        pack     : 'start'
                     };
                     break
                 case 'left':
                     layoutConfig = {
-                        ntype    : 'vbox',
                         align    : 'center',
                         direction: 'column-reverse',
                         pack     : 'start'
@@ -185,7 +195,6 @@ class Toolbar extends Container {
                     break
                 case 'right':
                     layoutConfig = {
-                        ntype    : 'vbox',
                         align    : 'center',
                         direction: 'column',
                         pack     : 'start'

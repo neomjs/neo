@@ -188,12 +188,14 @@ class Container extends BaseContainer {
 
         NeoArray.remove(cls, 'neo-' + oldValue);
         NeoArray.add(cls, 'neo-' + value);
-        me.cls = cls;
+        me.setSilent({cls});
 
         if (me.rendered) {
-            me.layout = me.getLayoutConfig();
-            me.getTabBar().dock = value;
-            me.getTabStrip().cls = ['neo-tab-strip',  'neo-dock-' + value];
+            me.layout.setSilent(me.getLayoutConfig());
+            me.getTabBar().setSilent({dock: value});
+            me.getTabStrip().setSilent({cls: ['neo-tab-strip',  'neo-dock-' + value]});
+
+            me.updateDepth = 2;
 
             me.fire('tabBarPositionChange', {
                 component: me,
@@ -201,6 +203,8 @@ class Container extends BaseContainer {
                 value
             })
         }
+
+        me.update()
     }
 
     /**
@@ -322,32 +326,30 @@ class Container extends BaseContainer {
      * @protected
      */
     getLayoutConfig() {
-        const layoutMap = {
-            'bottom': {
-                ntype: 'vbox',
-                align: 'stretch',
+        let layoutMap = {
+            bottom: {
+                align    : 'stretch',
                 direction: 'column-reverse',
-                pack: 'start'
+                pack     : 'start'
             },
-            'left': {
-                ntype: 'hbox',
-                align: 'stretch',
+            left: {
+                align    : 'stretch',
                 direction: 'row',
-                pack: 'start'
+                pack     : 'start'
             },
-            'right': {
-                ntype: 'hbox',
-                align: 'stretch',
+            right: {
+                align    : 'stretch',
                 direction: 'row-reverse',
-                pack: 'start'
+                pack     : 'start'
             },
-            'top': {
-                ntype: 'vbox',
-                align: 'stretch'
+            top: {
+                align    : 'stretch',
+                direction: 'column',
+                pack     : 'start'
             }
         };
 
-        return layoutMap[this.tabBarPosition] || null;
+        return layoutMap[this.tabBarPosition] || null
     }
 
     /**
@@ -505,7 +507,7 @@ class Container extends BaseContainer {
      *
      */
     onConstructed() {
-        this.layout = this.getLayoutConfig(); // silent update
+        this.layout = {ntype: 'flexbox', ...this.getLayoutConfig()};
         super.onConstructed()
     }
 

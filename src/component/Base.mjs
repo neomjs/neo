@@ -2401,7 +2401,7 @@ class Component extends Base {
     /**
      * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
      * @param {Object} values={}
-     * @param {Boolean} [silent=false]
+     * @param {Boolean} silent=false
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {

@@ -281,7 +281,10 @@ class Helper extends Base {
             }
 
             // Same node, continue recursively
-            if (childNode && childNode.id === oldChildNode?.id) {
+            if (childNode && oldChildNode && (
+                childNode.id === oldChildNode.id ||
+                (childNode.componentId && childNode.componentId === oldChildNode.componentId))
+            ) {
                 me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap});
                 continue
             }

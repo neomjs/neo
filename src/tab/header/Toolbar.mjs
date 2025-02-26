@@ -96,14 +96,13 @@ class Toolbar extends BaseToolbar {
             case 'bottom':
             case 'top':
                 layoutConfig = {
-                    ntype: 'hbox',
-                    align: 'center',
-                    pack : 'start'
+                    align    : 'center',
+                    direction: 'row',
+                    pack     : 'start'
                 };
                 break
             case 'left':
                 layoutConfig = {
-                    ntype    : 'vbox',
                     align    : 'center',
                     direction: 'column-reverse',
                     pack     : 'end'
@@ -111,7 +110,6 @@ class Toolbar extends BaseToolbar {
                 break
             case 'right':
                 layoutConfig = {
-                    ntype    : 'vbox',
                     align    : 'center',
                     direction: 'column',
                     pack     : 'start'
