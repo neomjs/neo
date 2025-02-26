@@ -99,6 +99,8 @@ class ScrollManager extends Base {
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
+            me.scrollLeft = scrollLeft;
+
             me.gridHeaderToolbar.scrollLeft = scrollLeft;
             view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
 
@@ -114,7 +116,7 @@ class ScrollManager extends Base {
                     deltaY !== 0 && Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : view.vdom.id,
-                        value    : view.scrollPosition.y + deltaY
+                        value    : me.scrollTop + deltaY
                     })
 
                     me.lastTouchY = lastTouchY
@@ -151,6 +153,8 @@ class ScrollManager extends Base {
             view = me.gridView,
             deltaX, lastTouchX;
 
+        me.scrollTop = scrollTop;
+
         me.scrollTimeoutId && clearTimeout(me.scrollTimeoutId);
 
         me.scrollTimeoutId = setTimeout(() => {
@@ -174,7 +178,7 @@ class ScrollManager extends Base {
                 deltaX !== 0 && Neo.main.DomAccess.scrollTo({
                     direction: 'left',
                     id       : me.gridContainer.id,
-                    value    : view.scrollPosition.x + deltaX
+                    value    : me.scrollLeft + deltaX
                 })
 
                 me.lastTouchX = lastTouchX
