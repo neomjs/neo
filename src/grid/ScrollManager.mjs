@@ -29,11 +29,6 @@ class ScrollManager extends Base {
      */
     gridContainer = null
     /**
-     * @member {Neo.grid.header.Toolbar|null} gridHeaderToolbar=null
-     * @protected
-     */
-    gridHeaderToolbar = null
-    /**
      * @member {Neo.grid.View|null} gridView=null
      * @protected
      */
@@ -98,7 +93,7 @@ class ScrollManager extends Base {
         if (target.id.includes('grid-container')) {
             me.scrollLeft = scrollLeft;
 
-            me.gridHeaderToolbar.scrollLeft = scrollLeft;
+            me.gridContainer.headerToolbar.scrollLeft = scrollLeft;
             view.scrollPosition = {x: scrollLeft, y: me.scrollTop};
 
             if (touches) {

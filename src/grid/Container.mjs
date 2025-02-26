@@ -517,10 +517,9 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.scrollManager = Neo.create({
-            module           : ScrollManager,
-            gridContainer    : me,
-            gridHeaderToolbar: me.headerToolbar,
-            gridView         : me.view
+            module       : ScrollManager,
+            gridContainer: me,
+            gridView     : me.view
         })
     }
 
