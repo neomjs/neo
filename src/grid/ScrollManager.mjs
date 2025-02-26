@@ -3,7 +3,6 @@ import Base from '../core/Base.mjs';
 /**
  * @class Neo.grid.ScrollManager
  * @extends Neo.core.Base
- * @singleton
  */
 class ScrollManager extends Base {
     static config = {
@@ -21,12 +20,7 @@ class ScrollManager extends Base {
          * @member {Number} scrollTop_=0
          * @protected
          */
-        scrollTop_: 0,
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        scrollTop_: 0
     }
 
     /**
@@ -39,6 +33,15 @@ class ScrollManager extends Base {
      * @protected
      */
     gridView = null
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        console.log(this);
+    }
 }
 
 export default Neo.setupClass(ScrollManager);

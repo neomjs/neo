@@ -2,6 +2,7 @@ import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import GridScrollbar   from './Scrollbar.mjs';
 import GridView        from './View.mjs';
+import ScrollManager   from './ScrollManager.mjs';
 import Store           from '../data/Store.mjs';
 import * as header     from './header/_export.mjs';
 
@@ -130,6 +131,11 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     lastTouchY = 0
+    /**
+     * @member {Neo.grid.ScrollManager|null} scrollManager=null
+     * @protected
+     */
+    scrollManager = null
 
     /**
      * Convenience method to access the Neo.grid.header.Toolbar
@@ -475,6 +481,8 @@ class GridContainer extends BaseContainer {
     destroy(...args) {
         let me = this;
 
+        me.scrollManager.destroy();
+
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
             id      : me.id,
             windowId: me.windowId
@@ -511,6 +519,21 @@ class GridContainer extends BaseContainer {
      */
     getWrapperId() {
         return `${this.id}__wrapper`
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.scrollManager = Neo.create({
+            module       : ScrollManager,
+            gridContainer: me,
+            gridView     : me.view
+        })
     }
 
     /**
