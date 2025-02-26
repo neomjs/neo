@@ -148,13 +148,6 @@ class GridView extends Component {
     }
 
     /**
-     * Flag for identifying the ownership of a touchmove operation
-     * @member {Boolean} isTouchMoveOwner=false
-     * @protected
-     */
-    isTouchMoveOwner = false
-
-    /**
      * @member {String[]} selectedRows
      */
     get selectedCells() {

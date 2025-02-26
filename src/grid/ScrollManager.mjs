@@ -57,6 +57,13 @@ class ScrollManager extends Base {
     scrollTimeoutId = null
 
     /**
+     * Flag for identifying the ownership of a touchmove operation
+     * @member {'container'|'view'|null} touchMoveOwner=null
+     * @protected
+     */
+    touchMoveOwner = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -96,11 +103,11 @@ class ScrollManager extends Base {
             view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
 
             if (touches) {
-                if (!view.isTouchMoveOwner) {
-                    me.isTouchMoveOwner = true
+                if (me.touchMoveOwner !== 'view') {
+                    me.touchMoveOwner = 'container'
                 }
 
-                if (me.isTouchMoveOwner) {
+                if (me.touchMoveOwner === 'container') {
                     lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
                     deltaY     = me.lastTouchY - lastTouchY;
 
@@ -120,28 +127,22 @@ class ScrollManager extends Base {
      * @param {Object} data
      */
     onTouchCancel(data) {
-        let me       = this,
-            {parent} = me;
+        let me = this;
 
-        me.isTouchMoveOwner = false;
-        me.lastTouchX       = 0;
-
-        parent.isTouchMoveOwner = false;
-        parent.lastTouchY       = 0
+        me.touchMoveOwner = null;
+        me.lastTouchX     = 0;
+        me.lastTouchY     = 0
     }
 
     /**
      * @param {Object} data
      */
     onTouchEnd(data) {
-        let me       = this,
-            {parent} = me;
+        let me = this;
 
-        me.isTouchMoveOwner = false;
-        me.lastTouchX       = 0;
-
-        parent.isTouchMoveOwner = false;
-        parent.lastTouchY       = 0
+        me.touchMoveOwner = null;
+        me.lastTouchX     = 0;
+        me.lastTouchY     = 0
     }
 
     /**
@@ -166,11 +167,11 @@ class ScrollManager extends Base {
         });
 
         if (touches) {
-            if (!me.parent.isTouchMoveOwner) {
-                me.isTouchMoveOwner = true
+            if (me.touchMoveOwner !== 'container') {
+                me.touchMoveOwner = 'view'
             }
 
-            if (me.isTouchMoveOwner) {
+            if (me.touchMoveOwner === 'view') {
                 lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
                 deltaX     = me.lastTouchX - lastTouchX;
 

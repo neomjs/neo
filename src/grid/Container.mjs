@@ -120,12 +120,6 @@ class GridContainer extends BaseContainer {
      */
     initialResizeEvent = true
     /**
-     * Flag for identifying the ownership of a touchmove operation
-     * @member {Boolean} isTouchMoveOwner=false
-     * @protected
-     */
-    isTouchMoveOwner = false
-    /**
      * @member {Neo.grid.ScrollManager|null} scrollManager=null
      * @protected
      */
