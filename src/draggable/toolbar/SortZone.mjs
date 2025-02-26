@@ -18,6 +18,13 @@ class SortZone extends DragZone {
          */
         ntype: 'toolbar-sortzone',
         /**
+         * Depending on the parent structure using position absolute and relative, it can be needed to subtract
+         * the x & y parent rect values from the item rects.
+         * For tab.header.Toolbar it is needed, for grid.header.Toolbar it is not
+         * @member {Boolean} adjustItemRectsToParent=true
+         */
+        adjustItemRectsToParent: true,
+        /**
          * @member {Boolean} alwaysFireDragMove=true
          */
         alwaysFireDragMove: true,
@@ -166,16 +173,18 @@ class SortZone extends DragZone {
             index              = me.currentIndex,
             {itemRects}        = me,
             maxItems           = itemRects.length - 1,
+            ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
+            ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
             reversed           = me.reversedLayoutDirection,
             delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
 
         if (me.sortDirection === 'horizontal') {
-            delta               = clientX - me.ownerRect.x + me.scrollLeft - me.offsetX - itemRects[index].left;
+            delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
             isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
             isOverDraggingStart = clientX < me.boundaryContainerRect.left;
             itemHeightOrWidth   = 'width'
         } else {
-            delta               = clientY - me.ownerRect.y + me.scrollTop - me.offsetY - itemRects[index].top;
+            delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
             isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
             isOverDraggingStart = clientY < me.boundaryContainerRect.top;
             itemHeightOrWidth   = 'height'
@@ -275,7 +284,7 @@ class SortZone extends DragZone {
 
                 itemRects.shift();
 
-                itemRects.forEach(rect => {
+                me.adjustItemRectsToParent && itemRects.forEach(rect => {
                     rect.x -= me.ownerRect.x;
                     rect.y -= me.ownerRect.y
                 });

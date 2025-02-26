@@ -19,6 +19,10 @@ class SortZone extends BaseSortZone {
          */
         ntype: 'grid-header-toolbar-sortzone',
         /**
+         * @member {Boolean} adjustItemRectsToParent=false
+         */
+        adjustItemRectsToParent: false,
+        /**
          * @member {String|null} itemMargin='1px'
          * @protected
          */
