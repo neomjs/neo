@@ -158,9 +158,10 @@ class Layout extends Base {
     /**
      * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
      * @param {Object} values={}
+     * @param {Boolean} silent=false
      * @returns {Promise<*>}
      */
-    set(values={}) {
+    set(values={}, silent=false) {
         let me          = this,
             {container} = me;
 
@@ -170,11 +171,19 @@ class Layout extends Base {
 
         container.silentVdomUpdate = false;
 
-        if (!container.needsVdomUpdate) {
+        if (silent || !container.needsVdomUpdate) {
             return Promise.resolve()
         } else {
             return container.promiseUpdate()
         }
+    }
+
+    /**
+     * Convenience shortcut calling set() with the silent flag
+     * @param {Object} values={}
+     */
+    setSilent(values={}) {
+        return this.set(values, true)
     }
 }
 
