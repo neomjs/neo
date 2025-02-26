@@ -154,6 +154,28 @@ class Layout extends Base {
             container.wrapperCls = wrapperCls
         }
     }
+
+    /**
+     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * @param {Object} values={}
+     * @returns {Promise<*>}
+     */
+    set(values={}) {
+        let me          = this,
+            {container} = me;
+
+        container.silentVdomUpdate = true;
+
+        super.set(values);
+
+        container.silentVdomUpdate = false;
+
+        if (!container.needsVdomUpdate) {
+            return Promise.resolve()
+        } else {
+            return container.promiseUpdate()
+        }
+    }
 }
 
 export default Neo.setupClass(Layout);
