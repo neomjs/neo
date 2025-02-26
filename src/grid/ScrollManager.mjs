@@ -102,7 +102,7 @@ class ScrollManager extends Base {
             me.scrollLeft = scrollLeft;
 
             me.gridHeaderToolbar.scrollLeft = scrollLeft;
-            view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
+            view.scrollPosition = {x: scrollLeft, y: me.scrollTop};
 
             if (touches) {
                 if (me.touchMoveOwner !== 'view') {
@@ -163,7 +163,7 @@ class ScrollManager extends Base {
 
         view.set({
             isScrolling   : true,
-            scrollPosition: {x: view.scrollPosition.x, y: scrollTop}
+            scrollPosition: {x: me.scrollLeft, y: scrollTop}
         });
 
         if (touches) {
