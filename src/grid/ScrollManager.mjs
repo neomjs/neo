@@ -127,11 +127,7 @@ class ScrollManager extends Base {
      * @param {Object} data
      */
     onTouchCancel(data) {
-        let me = this;
-
-        me.touchMoveOwner = null;
-        me.lastTouchX     = 0;
-        me.lastTouchY     = 0
+        this.onTouchEnd(data)
     }
 
     /**
