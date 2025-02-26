@@ -161,22 +161,23 @@ class SortZone extends DragZone {
             return
         }
 
-        let me          = this,
-            index       = me.currentIndex,
-            {itemRects} = me,
-            maxItems    = itemRects.length - 1,
-            reversed    = me.reversedLayoutDirection,
+        let me                 = this,
+            {clientX, clientY} = data,
+            index              = me.currentIndex,
+            {itemRects}        = me,
+            maxItems           = itemRects.length - 1,
+            reversed           = me.reversedLayoutDirection,
             delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
 
         if (me.sortDirection === 'horizontal') {
-            delta               = data.clientX + me.scrollLeft - me.offsetX - itemRects[index].left;
-            isOverDraggingEnd   = data.clientX > me.boundaryContainerRect.right;
-            isOverDraggingStart = data.clientX < me.boundaryContainerRect.left;
+            delta               = clientX - me.ownerRect.x + me.scrollLeft - me.offsetX - itemRects[index].left;
+            isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
+            isOverDraggingStart = clientX < me.boundaryContainerRect.left;
             itemHeightOrWidth   = 'width'
         } else {
-            delta               = data.clientY + me.scrollTop - me.offsetY - itemRects[index].top;
-            isOverDraggingEnd   = data.clientY > me.boundaryContainerRect.bottom;
-            isOverDraggingStart = data.clientY < me.boundaryContainerRect.top;
+            delta               = clientY - me.ownerRect.y + me.scrollTop - me.offsetY - itemRects[index].top;
+            isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
+            isOverDraggingStart = clientY < me.boundaryContainerRect.top;
             itemHeightOrWidth   = 'height'
         }
 
@@ -243,9 +244,9 @@ class SortZone extends DragZone {
             Object.assign(me, {
                 currentIndex           : index,
                 dragElement            : VDomUtil.find(owner.vdom, button.id).vdom,
-                dragProxyConfig        : {...me.dragProxyConfig, cls : [...owner.cls]},
+                dragProxyConfig        : {...me.dragProxyConfig, cls: [...owner.cls]},
                 indexMap               : indexMap,
-                ownerStyle             : {height: ownerStyle.height, width : ownerStyle.width},
+                ownerStyle             : {height: ownerStyle.height, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 sortDirection          : layout.direction.includes('row') ? 'horizontal' : 'vertical',
                 startIndex             : index
@@ -273,6 +274,12 @@ class SortZone extends DragZone {
                 owner.style = ownerStyle;
 
                 itemRects.shift();
+
+                itemRects.forEach(rect => {
+                    rect.x -= me.ownerRect.x;
+                    rect.y -= me.ownerRect.y
+                });
+
                 me.itemRects = itemRects;
 
                 owner.items.forEach((item, index) => {
