@@ -198,7 +198,6 @@ class GridContainer extends BaseContainer {
 
         me.addDomListeners({
             resize: me.onResize,
-            scroll: me.onScroll,
             scope : me
         })
     }
@@ -530,9 +529,10 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.scrollManager = Neo.create({
-            module       : ScrollManager,
-            gridContainer: me,
-            gridView     : me.view
+            module           : ScrollManager,
+            gridContainer    : me,
+            gridHeaderToolbar: me.headerToolbar,
+            gridView         : me.view
         })
     }
 
@@ -550,44 +550,6 @@ class GridContainer extends BaseContainer {
             await me.headerToolbar.passSizeToView()
         } else {
             me.initialResizeEvent = false
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {Number} data.scrollLeft
-     * @param {Object} data.target
-     * @param {Object} data.touches
-     */
-    onScroll({scrollLeft, target, touches}) {
-        let me     = this,
-            {view} = me,
-            deltaY, lastTouchY;
-
-        // We must ignore events for grid-scrollbar
-        if (target.id.includes('grid-container')) {
-            me.headerToolbar.scrollLeft = scrollLeft;
-            view.scrollPosition = {x: scrollLeft, y: view.scrollPosition.y};
-
-            if (touches) {
-                if (!view.isTouchMoveOwner) {
-                    me.isTouchMoveOwner = true
-                }
-
-                if (me.isTouchMoveOwner) {
-                    lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
-                    deltaY     = me.lastTouchY - lastTouchY;
-
-                    deltaY !== 0 && Neo.main.DomAccess.scrollTo({
-                        direction: 'top',
-                        id       : view.vdom.id,
-                        value    : view.scrollPosition.y + deltaY
-                    })
-
-                    me.lastTouchY = lastTouchY
-                }
-            }
-
         }
     }
 
