@@ -91,10 +91,10 @@ class ScrollManager extends Base {
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
-            me.scrollLeft = scrollLeft;
+            me  .scrollLeft = scrollLeft;
+            view.scrollLeft = scrollLeft;
 
             me.gridContainer.headerToolbar.scrollLeft = scrollLeft;
-            view.scrollPosition = {x: scrollLeft, y: me.scrollTop};
 
             if (touches) {
                 if (me.touchMoveOwner !== 'view') {
@@ -153,10 +153,7 @@ class ScrollManager extends Base {
             view.isScrolling = false
         }, 30);
 
-        view.set({
-            isScrolling   : true,
-            scrollPosition: {x: me.scrollLeft, y: scrollTop}
-        });
+        view.set({isScrolling: true, scrollTop});
 
         if (touches) {
             if (me.touchMoveOwner !== 'container') {
