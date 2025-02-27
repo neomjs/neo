@@ -487,13 +487,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @returns {Object[]} The new vdom items root
-     */
-    getVdomItemsRoot() {
-        return this.vdom.cn[0]
-    }
-
-    /**
      * @override
      * @returns {Neo.vdom.VNode}
      */
