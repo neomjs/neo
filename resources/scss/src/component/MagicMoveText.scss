@@ -17,10 +17,10 @@
         .neo-char {
             position  : absolute;
             transition:
-                    color   0.2s ease-out,
-                    left    var(--neo-transition-time) ease-out,
-                    opacity var(--neo-transition-time) ease-out,
-                    top     var(--neo-transition-time) ease-out;
+                color   0.2s ease-out,
+                left    var(--neo-transition-time) ease-out,
+                opacity var(--neo-transition-time) ease-out,
+                top     var(--neo-transition-time) ease-out;
         }
     }
 

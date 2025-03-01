@@ -18,10 +18,14 @@ class ColumnModel extends BaseModel {
          */
         ntype: 'selection-grid-columnmodel',
         /**
-         * @member {String} cls='selection-columnmodel'
+         * @member {String} cls='neo-selection-columnmodel'
          * @protected
          */
-        cls: 'neo-selection-columnmodel'
+        cls: 'neo-selection-columnmodel',
+        /**
+         * @member {String[]} selectedColumns=[]
+         */
+        selectedColumns: []
     }
 
     /**
@@ -45,20 +49,23 @@ class ColumnModel extends BaseModel {
     }
 
     /**
+     * @returns {Boolean}
+     */
+    hasSelection() {
+        return this.selectedColumns.length > 0
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
         let me     = this,
             {view} = me,
-            cellId = data.data.currentTarget,
-            columnNodeIds, dataField, index;
+            cellId = data.data.currentTarget;
 
         if (cellId) {
-            dataField     = view.getDataField(cellId);
-            index         = view.getColumn(dataField, true);
-            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
-
-            me.select(columnNodeIds)
+            me.selectedColumns = [view.getDataField(cellId)];
+            view.createViewData()
         }
     }
 
@@ -82,10 +89,10 @@ class ColumnModel extends BaseModel {
     onNavKeyColumn(step) {
         let me                 = this,
             {dataFields, view} = me,
-            columnNodeIds, currentColumn, index;
+            currentColumn, index;
 
         if (me.hasSelection()) {
-            currentColumn = view.getDataField(me.items[0])
+            currentColumn = me.selectedColumns[0]
         } else {
             currentColumn = dataFields[0]
         }
@@ -96,9 +103,8 @@ class ColumnModel extends BaseModel {
             index += dataFields.length
         }
 
-        columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
-
-        me.select(columnNodeIds)
+        me.selectedColumns = [dataFields[index]];
+        view.createViewData()
     }
 
     /**

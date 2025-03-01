@@ -165,7 +165,7 @@ class Model extends Base {
     }
 
     /**
-     * @returns {Boolean} true in case there is a selection
+     * @returns {Boolean}
      */
     hasSelection() {
         return this.items.length > 0

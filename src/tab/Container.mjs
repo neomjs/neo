@@ -62,10 +62,6 @@ class Container extends BaseContainer {
          */
         layout: null,
         /**
-         * @member {Object|null} layout=null
-         */
-        layout: null,
-        /**
          * True to not apply a background effect to the tab header container
          * @member {Boolean} plain_=true
          */

@@ -437,6 +437,10 @@ class GridView extends Component {
             cellCls.push('neo-selected')
         }
 
+        if (me.selectionModel?.selectedColumns?.includes(dataField)) {
+            NeoArray.add(cellCls, 'neo-selected')
+        }
+
         cellConfig = {
             'aria-colindex': columnIndex + 1, // 1 based
             id             : cellId,
