@@ -1,8 +1,6 @@
 import BaseGridContainer from '../../../src/grid/Container.mjs';
 import MainStore         from './MainStore.mjs';
 
-import ColumnModel from '../../../src/selection/grid/ColumnModel.mjs';
-
 /**
  * @class Neo.examples.grid.bigData.GridContainer
  * @extends Neo.grid.Container
@@ -35,7 +33,6 @@ class GridContainer extends BaseGridContainer {
          * @member {Object} viewConfig
          */
         viewConfig: {
-            selectionModel: ColumnModel,
             bufferColumnRange: 3,
             bufferRowRange   : 5
         }
