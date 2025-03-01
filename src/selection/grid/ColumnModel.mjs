@@ -1,5 +1,4 @@
 import BaseModel from './BaseModel.mjs';
-import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.ColumnModel
