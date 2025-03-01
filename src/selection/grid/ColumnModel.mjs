@@ -1,5 +1,4 @@
 import BaseModel from './BaseModel.mjs';
-import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.ColumnModel
@@ -89,7 +88,7 @@ class ColumnModel extends BaseModel {
     onNavKeyColumn(step) {
         let me                 = this,
             {dataFields, view} = me,
-            currentColumn, index;
+            currentColumn, currentIndex, index;
 
         if (me.hasSelection()) {
             currentColumn = me.selectedColumns[0]
@@ -97,14 +96,18 @@ class ColumnModel extends BaseModel {
             currentColumn = dataFields[0]
         }
 
-        index = (dataFields.indexOf(currentColumn) + step) % dataFields.length;
+        currentIndex = dataFields.indexOf(currentColumn);
+        index        = (currentIndex + step) % dataFields.length;
 
         while (index < 0) {
             index += dataFields.length
         }
 
         me.selectedColumns = [dataFields[index]];
-        view.createViewData()
+
+        view.createViewData();
+
+        view.parent.scrollByColumns(currentIndex, step)
     }
 
     /**
