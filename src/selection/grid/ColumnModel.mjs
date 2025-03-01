@@ -18,10 +18,14 @@ class ColumnModel extends BaseModel {
          */
         ntype: 'selection-grid-columnmodel',
         /**
-         * @member {String} cls='selection-columnmodel'
+         * @member {String} cls='neo-selection-columnmodel'
          * @protected
          */
-        cls: 'neo-selection-columnmodel'
+        cls: 'neo-selection-columnmodel',
+        /**
+         * @member {String[]} selectedColumns=[]
+         */
+        selectedColumns: []
     }
 
     /**
@@ -51,14 +55,15 @@ class ColumnModel extends BaseModel {
         let me     = this,
             {view} = me,
             cellId = data.data.currentTarget,
-            columnNodeIds, dataField, index;
+            dataField;
 
         if (cellId) {
-            dataField     = view.getDataField(cellId);
-            index         = view.getColumn(dataField, true);
-            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
+            dataField = view.getDataField(cellId);
 
-            me.select(columnNodeIds)
+            console.log(cellId, dataField);
+
+            me.selectedColumns = [dataField];
+            view.createViewData()
         }
     }
 
