@@ -154,12 +154,12 @@ class GridView extends Component {
     }
 
     /**
-     * @member {String[]} selectedRows
+     * @member {String[]} selectedCells
      */
     get selectedCells() {
         let {selectionModel} = this;
 
-        if (selectionModel.ntype.includes('cell')) {
+        if (selectionModel.ntype?.includes('cell')) {
             return selectionModel.items
         }
 
@@ -174,6 +174,10 @@ class GridView extends Component {
 
         if (selectionModel.ntype === 'selection-grid-rowmodel') {
             return selectionModel.items
+        }
+
+        if (selectionModel.ntype?.includes('row')) {
+            return selectionModel.selectedRows
         }
 
         return []
@@ -438,7 +442,7 @@ class GridView extends Component {
         }
 
         if (me.selectionModel?.selectedColumns?.includes(dataField)) {
-            NeoArray.add(cellCls, 'neo-selected')
+            NeoArray.add(cellCls, me.selectionModel.selectedColumnCellCls || 'neo-selected')
         }
 
         cellConfig = {
@@ -567,9 +571,9 @@ class GridView extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent=false
      */
-    createViewData() {
+    createViewData(silent=false) {
         let me                   = this,
             {mountedRows, store} = me,
             rows                 = [],
@@ -597,7 +601,7 @@ class GridView extends Component {
         me.parent.isLoading = false;
 
         me.updateScrollHeight(true); // silent
-        me.update()
+        !silent && me.update()
     }
 
     /**

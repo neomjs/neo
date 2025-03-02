@@ -1,5 +1,4 @@
 import CellModel from './CellModel.mjs';
-import NeoArray  from '../../util/Array.mjs';
 
 /**
  * @class Neo.selection.grid.CellRowModel
@@ -23,46 +22,11 @@ class CellRowModel extends CellModel {
          */
         cls: 'neo-selection-cellrowmodel',
         /**
-         * @member {String[]} selectedRowIds=[]
+         * Storing the node ids
+         * @member {String[]} selectedRows=[]
          * @protected
          */
-        selectedRowIds: []
-    }
-
-    /**
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectAllRows(silent) {
-        let me     = this,
-            rowIds = [...me.selectedRowIds],
-            {view} = me;
-
-        rowIds.forEach(rowId => {
-            me.deselectRow(rowId, true)
-        });
-
-        !silent && view.update()
-    }
-
-    /**
-     * @param {String} rowId
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectRow(rowId, silent) {
-        let me     = this,
-            {view} = me,
-            node   = view.getVdomChild(rowId),
-            cls;
-
-        if (node) {
-            cls = node.cls || [];
-            NeoArray.remove(cls, me.selectedCls);
-            node.cls = cls
-        }
-
-        NeoArray.remove(me.selectedRowIds, rowId);
-
-        !silent && view.update()
+        selectedRows: []
     }
 
     /**
@@ -70,12 +34,13 @@ class CellRowModel extends CellModel {
      */
     onCellClick(data) {
         let me     = this,
-            record = me.view.getRecord(data.data.currentTarget),
-            rowId  = me.view.getRowId(record);
+            {view} = me,
+            record = view.getRecord(data.data.currentTarget),
+            rowId  = view.getRowId(record);
 
         if (rowId) {
-            me.deselectAllRows(true);
-            me.selectRow(rowId)
+            me.selectedRows = [rowId];
+            view.createViewData(true)
         }
 
         super.onCellClick(data)
@@ -85,13 +50,11 @@ class CellRowModel extends CellModel {
      * @param {Number} step
      */
     onNavKeyRow(step) {
-        super.onNavKeyRow(step);
-
         let me           = this,
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            rowId        = me.selectedRowIds[0] || view.getRowId(store.getAt(0)),
+            rowId        = me.selectedRows[0] || view.getRowId(store.getAt(0)),
             record       = view.getRecord(rowId),
             index        = store.indexOf(record),
             newIndex     = (index + step) % countRecords,
@@ -104,37 +67,20 @@ class CellRowModel extends CellModel {
         id = view.getRowId(store.getAt(newIndex));
 
         if (id) {
-            me.deselectAllRows(true);
-            me.selectRow(id)
-        }
-    }
-
-    /**
-     * @param {String} id
-     * @param {Boolean} [silent]
-     */
-    selectRow(id, silent) {
-        let me       = this,
-            {view}   = me,
-            vdomNode = id && view.getVdomChild(id),
-            cls;
-
-        if (vdomNode) {
-            cls = vdomNode.cls || [];
-            NeoArray.add(cls, me.selectedCls);
-            vdomNode.cls = cls;
-
-            me.selectedRowIds.push(id)
+            me.selectedRows = [id];
+            view.createViewData(true)
         }
 
-        !silent && view.update()
+        super.onNavKeyRow(step)
     }
 
     /**
      *
      */
     unregister() {
-        this.deselectAllRows();
+        this.selectedRows = [];
+        this.view.createViewData();
+
         super.unregister()
     }
 }

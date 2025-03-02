@@ -22,6 +22,7 @@ class ColumnModel extends BaseModel {
          */
         cls: 'neo-selection-columnmodel',
         /**
+         * Storing the column dataFields
          * @member {String[]} selectedColumns=[]
          */
         selectedColumns: []
@@ -128,7 +129,11 @@ class ColumnModel extends BaseModel {
      *
      */
     unregister() {
-        let {id, view} = this;
+        let me         = this,
+            {id, view} = me;
+
+        me.selectedColumns = [];
+        me.view.createViewData();
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
