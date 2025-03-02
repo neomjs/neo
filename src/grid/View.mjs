@@ -154,7 +154,7 @@ class GridView extends Component {
     }
 
     /**
-     * @member {String[]} selectedRows
+     * @member {String[]} selectedCells
      */
     get selectedCells() {
         let {selectionModel} = this;
@@ -174,6 +174,10 @@ class GridView extends Component {
 
         if (selectionModel.ntype === 'selection-grid-rowmodel') {
             return selectionModel.items
+        }
+
+        if (selectionModel.ntype?.includes('row')) {
+            return selectionModel.selectedRows
         }
 
         return []

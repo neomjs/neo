@@ -22,6 +22,7 @@ class ColumnModel extends BaseModel {
          */
         cls: 'neo-selection-columnmodel',
         /**
+         * Storing the column dataFields
          * @member {String[]} selectedColumns=[]
          */
         selectedColumns: []
