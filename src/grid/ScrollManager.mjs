@@ -96,7 +96,7 @@ class ScrollManager extends Base {
 
             me.gridContainer.headerToolbar.scrollLeft = scrollLeft;
 
-            if (touches) {
+            if (touches && !me.gridContainer.headerToolbar.cls.includes('neo-is-dragging')) {
                 if (me.touchMoveOwner !== 'view') {
                     me.touchMoveOwner = 'container'
                 }
