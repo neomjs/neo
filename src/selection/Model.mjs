@@ -278,11 +278,11 @@ class Model extends Base {
      */
     unregister() {
         let me  = this,
-            cls = me.view.cls || [];
+            cls = me.view.wrapperCls || [];
 
         if (me.cls && cls.includes(me.cls)) {
             NeoArray.remove(cls, me.cls);
-            me.view.cls = cls
+            me.view.wrapperCls = cls
         }
 
         me.deselectAll();
