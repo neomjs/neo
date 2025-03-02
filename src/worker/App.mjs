@@ -547,21 +547,18 @@ class App extends Base {
      * @param {String} [data.priority] optionally pass 'important'
      * @param {String} data.theme=Neo.config.themes[0]
      * @param {String} data.value
+     * @param {Number} data.windowId
      * @returns {Promise<any>}
      */
-    setCssVariable(data) {
-        let addon = Neo.main?.addon?.Stylesheet,
-            theme = Neo.config.themes?.[0];
+    async setCssVariable(data) {
+        let Stylesheet = await this.getAddon('Stylesheet', data.windowId),
+            theme      = data.theme || Neo.config.themes?.[0];
 
-        if (!addon) {
-            return Promise.reject('Neo.main.addon.Stylesheet not imported')
-        } else {
-            if (theme.startsWith('neo-')) {
-                theme = theme.substring(4)
-            }
-
-            return addon.setCssVariable({theme, ...data})
+        if (theme.startsWith('neo-')) {
+            theme = theme.substring(4)
         }
+
+        return Stylesheet.setCssVariable({theme, ...data})
     }
 }
 
