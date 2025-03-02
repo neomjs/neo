@@ -128,7 +128,11 @@ class ColumnModel extends BaseModel {
      *
      */
     unregister() {
-        let {id, view} = this;
+        let me         = this,
+            {id, view} = me;
+
+        me.selectedColumns = [];
+        me.view.createViewData();
 
         view.keys?.removeKeys([
             {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},

@@ -159,7 +159,7 @@ class GridView extends Component {
     get selectedCells() {
         let {selectionModel} = this;
 
-        if (selectionModel.ntype.includes('cell')) {
+        if (selectionModel.ntype?.includes('cell')) {
             return selectionModel.items
         }
 
@@ -438,7 +438,7 @@ class GridView extends Component {
         }
 
         if (me.selectionModel?.selectedColumns?.includes(dataField)) {
-            NeoArray.add(cellCls, 'neo-selected')
+            NeoArray.add(cellCls, me.selectionModel.selectedColumnCellCls || 'neo-selected')
         }
 
         cellConfig = {
