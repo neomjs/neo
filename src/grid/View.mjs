@@ -567,9 +567,9 @@ class GridView extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent=false
      */
-    createViewData() {
+    createViewData(silent=false) {
         let me                   = this,
             {mountedRows, store} = me,
             rows                 = [],
@@ -597,7 +597,7 @@ class GridView extends Component {
         me.parent.isLoading = false;
 
         me.updateScrollHeight(true); // silent
-        me.update()
+        !silent && me.update()
     }
 
     /**
