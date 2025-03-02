@@ -1,5 +1,4 @@
 import CellRowModel from './CellRowModel.mjs';
-import VDomUtil     from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.grid.CellColumnRowModel
@@ -28,25 +27,10 @@ class CellColumnRowModel extends CellRowModel {
          */
         selectedColumnCellCls: 'selected-column-cell',
         /**
-         * @member {String[]} selectedColumnCellIds=[]
-         * @protected
+         * Storing the column dataFields
+         * @member {String[]} selectedColumns=[]
          */
-        selectedColumnCellIds: []
-    }
-
-    /**
-     * @param {Boolean} [silent] true to prevent a vdom update
-     */
-    deselectAllCells(silent) {
-        let me      = this,
-            cellIds = [...me.selectedColumnCellIds],
-            {view}  = me;
-
-        cellIds.forEach(cellId => {
-            me.deselect(cellId, true, me.selectedColumnCellIds, me.selectedColumnCellCls)
-        });
-
-        !silent && view.update()
+        selectedColumns: []
     }
 
     /**
@@ -55,16 +39,11 @@ class CellColumnRowModel extends CellRowModel {
     onCellClick(data) {
         let me     = this,
             {view} = me,
-            cellId = data.data.currentTarget,
-            columnNodeIds, dataField, index;
+            cellId = data.data.currentTarget;
 
         if (cellId) {
-            dataField     = view.getDataField(cellId);
-            index         = view.getColumn(dataField, true);
-            columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
-
-            me.deselectAllCells(true);
-            me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls)
+            me.selectedColumns = [view.getDataField(cellId)];
+            view.createViewData(true)
         }
 
         super.onCellClick(data)
@@ -76,10 +55,10 @@ class CellColumnRowModel extends CellRowModel {
     onNavKeyColumn(step) {
         let me                 = this,
             {dataFields, view} = me,
-            columnNodeIds, currentColumn, index;
+            currentColumn, index;
 
         if (me.hasSelection()) {
-            currentColumn = view.getDataField(me.items[0])
+            currentColumn = me.selectedColumns[0]
         } else {
             currentColumn = dataFields[0]
         }
@@ -90,10 +69,9 @@ class CellColumnRowModel extends CellRowModel {
             index += dataFields.length
         }
 
-        columnNodeIds = VDomUtil.getColumnNodesIds(view.vdom.cn[0], index);
+        me.selectedColumns = [dataFields[index]];
 
-        me.deselectAllCells(true);
-        me.select(columnNodeIds, me.selectedColumnCellIds, me.selectedColumnCellCls);
+        view.createViewData(true);
 
         super.onNavKeyColumn(step)
     }
@@ -102,7 +80,7 @@ class CellColumnRowModel extends CellRowModel {
      *
      */
     unregister() {
-        this.deselectAllCells();
+        this.selectedColumns = [];
         super.unregister()
     }
 }

@@ -27,6 +27,7 @@ class CellColumnModel extends CellModel {
          */
         selectedColumnCellCls: 'selected-column-cell',
         /**
+         * Storing the column dataFields
          * @member {String[]} selectedColumns=[]
          */
         selectedColumns: []
