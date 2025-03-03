@@ -1,4 +1,5 @@
-import Column from './Base.mjs';
+import Column   from './Base.mjs';
+import VdomUtil from '../../util/VDom.mjs'
 
 /**
  * @class Neo.grid.column.AnimatedChange
@@ -30,11 +31,13 @@ class AnimatedChange extends Column {
      * @param {Number|String}      data.value
      * @returns {*}
      */
-    cellRenderer({value}) {
-        return {
-            cls : ['neo-animated-change', 'neo-grid-cell'],
-            html: value
-        }
+    cellRenderer({dataField, gridContainer, record, value}) {
+        let {view} = gridContainer,
+            cellId = view.getCellId(record, dataField),
+            node   = VdomUtil.find(view.vdom, cellId)?.vdom,
+            cls    = !node ? [] : node.cls.includes('neo-animated-1') ? ['neo-animated-2'] : ['neo-animated-1'];
+
+        return {cls, html: value}
     }
 }
 

@@ -1,0 +1,25 @@
+@keyframes grid-animated-cell-1 {
+    50%  {background-color:var(--button-ripple-background-color);}
+}
+
+@keyframes grid-animated-cell-2 {
+    50%  {background-color:var(--button-ripple-background-color);}
+}
+
+.neo-grid-container {
+    .neo-grid-row, .neo-grid-row.neo-even {
+        .neo-grid-cell {
+            &.neo-animated-1 {
+                animation-name           : grid-animated-cell-1;
+                animation-duration       : .4s;
+                animation-timing-function: ease-in-out;
+            }
+
+            &.neo-animated-2 {
+                animation-name           : grid-animated-cell-2;
+                animation-duration       : .4s;
+                animation-timing-function: ease-in-out;
+            }
+        }
+    }
+}
