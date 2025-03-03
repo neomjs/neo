@@ -63,7 +63,7 @@ class Component extends Column {
                 ...componentConfig,
                 appName,
                 id,
-                parentId: view.id,
+                parentComponent: view,
                 windowId
             });
 
