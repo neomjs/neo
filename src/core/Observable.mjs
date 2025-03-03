@@ -67,6 +67,11 @@ class Observable extends Base {
                 delete name.once
             }
 
+            if (name.hasOwnProperty('order')) {
+                order = name.order;
+                delete name.order
+            }
+
             if (name.hasOwnProperty('scope')) {
                 scope = name.scope;
                 delete name.scope
@@ -74,9 +79,9 @@ class Observable extends Base {
 
             Object.entries(name).forEach(([key, value]) => {
                 if (Neo.isObject(value)) {
-                    me.addListener(key, {delay, once, scope, ...value})
+                    me.addListener(key, {delay, once, order, scope, ...value})
                 } else {
-                    me.addListener(key, {delay, fn: value, once, scope})
+                    me.addListener(key, {delay, fn: value, once, order, scope})
                 }
             })
         } else if (optsType === 'object') {

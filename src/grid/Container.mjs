@@ -1,9 +1,11 @@
 import BaseContainer     from '../container/Base.mjs';
 import ClassSystemUtil   from '../util/ClassSystem.mjs';
+import Collection        from '../collection/Base.mjs';
 import GridView          from './View.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
+import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
 
 /**
@@ -11,6 +13,17 @@ import * as header       from './header/_export.mjs';
  * @extends Neo.container.Base
  */
 class GridContainer extends BaseContainer {
+    /**
+     * @member {Object} columnTypes
+     * @protected
+     * @static
+     */
+    static columnTypes = {
+        animatedChange: column.AnimatedChange,
+        column        : column.Base,
+        component     : column.Component,
+        index         : column.Index
+    }
     /**
      * @member {Object} delayable
      * @protected
@@ -182,7 +195,7 @@ class GridContainer extends BaseContainer {
 
         me.vdom.id = me.getWrapperId();
 
-        me.createColumns(me.columns);
+        me._columns = me.createColumns(me.columns);
 
         me.addDomListeners({
             resize: me.onResize,
@@ -235,19 +248,15 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered after the columns config got changed
-     * @param {Object[]|null} value
-     * @param {Object[]|null} oldValue
+     * @param {Neo.collection.Base|null}          value
+     * @param {Object[]|Neo.collection.Base|null} oldValue
      * @protected
      */
     async afterSetColumns(value, oldValue) {
-        if (oldValue?.length > 0) {
-            let me              = this,
-                {headerToolbar} = me;
+        if (oldValue?.getCount?.() > 0) {
+            let me = this;
 
-            if (headerToolbar) {
-                headerToolbar.items = value;
-                headerToolbar.createItems()
-            }
+            me.headerToolbar?.createItems()
 
             await me.timeout(50);
 
@@ -413,41 +422,57 @@ class GridContainer extends BaseContainer {
     createColumns(columns) {
         let me               = this,
             {columnDefaults} = me,
+            headerButtons    = [],
             sorters          = me.store?.sorters,
-            renderer;
+            columnClass, renderer;
 
-        if (!columns || !columns.length) {
-            Neo.logError('Attempting to create a grid.Container without defined columns', me.id);
-        }
-
-        columns.forEach(column => {
+        columns?.forEach((column, index) => {
             renderer = column.renderer;
 
             columnDefaults && Neo.assignDefaults(column, columnDefaults);
-
-            if (column.dock && !column.width) {
-                Neo.logError('Attempting to create a docked column without a defined width', column, me.id);
-            }
 
             if (renderer && Neo.isString(renderer) && me[renderer]) {
                 column.renderer = me[renderer]
             }
 
-            if (sorters?.[0]) {
-                if (column.dataField === sorters[0].property) {
-                    column.isSorted = sorters[0].direction
-                }
+            if (sorters?.[0] && column.dataField === sorters[0].property) {
+                column.isSorted = sorters[0].direction
             }
 
             column.listeners = {
                 sort : me.onSortColumn,
                 scope: me
+            };
+
+            headerButtons.push(column);
+
+            if (column.component && !column.type) {
+                column.type = 'component'
             }
+
+            columnClass = me.constructor.columnTypes[column.type || 'column'];
+            delete column.type;
+
+            columns[index] = Neo.create(columnClass, {
+                parent  : me,
+                windowId: me.windowId,
+                ...column
+            })
         });
 
-        me.items[0].items = columns;
+        me.items[0].items = headerButtons;
 
-        return columns
+        if (Neo.typeOf(me._columns) === 'NeoInstance') {
+            me._columns.clear();
+            me._columns.add(columns);
+
+            return me._columns
+        }
+
+        return Neo.create(Collection, {
+            keyProperty: 'dataField',
+            items      : columns
+        })
     }
 
     /**

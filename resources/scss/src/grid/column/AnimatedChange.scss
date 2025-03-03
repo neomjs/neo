@@ -1,0 +1,15 @@
+@keyframes grid-animated-cell {
+    50%  {background-color:var(--button-ripple-background-color);}
+}
+
+.neo-grid-container {
+    .neo-grid-row, .neo-grid-row.neo-even {
+        .neo-grid-cell {
+            &.neo-animated {
+                animation-name           : grid-animated-cell;
+                animation-duration       : .4s;
+                animation-timing-function: ease-in-out;
+            }
+        }
+    }
+}

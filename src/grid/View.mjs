@@ -388,7 +388,7 @@ class GridView extends Component {
             fieldValue = ''
         }
 
-        rendererOutput = column.renderer.call(column.rendererScope || gridContainer, {
+        rendererOutput = column.renderer.call(column.rendererScope || column, {
             column,
             columnIndex,
             dataField,
@@ -512,7 +512,7 @@ class GridView extends Component {
         let me            = this,
             {mountedColumns, selectedRows} = me,
             gridContainer = me.parent,
-            columns       = gridContainer.headerToolbar.items,
+            {columns}     = gridContainer,
             id            = me.getRowId(record, rowIndex),
             rowCls        = me.getRowClass(record, rowIndex),
             config, column, columnPosition,  gridRow, i;
@@ -544,7 +544,7 @@ class GridView extends Component {
         };
 
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
-            column = columns[i];
+            column = columns.getAt(i);
             config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
 
             if (column.dock) {
@@ -661,17 +661,11 @@ class GridView extends Component {
      * @returns {Object|Number|null}
      */
     getColumn(field, returnIndex=false) {
-        let columns = this.parent.headerToolbar.items,
-            i       = 0,
-            len     = columns.length,
-            column;
+        let {columns} = this.parent,
+            column    = columns.get(field);
 
-        for (; i < len; i++) {
-            column = columns[i];
-
-            if (column.dataField === field) {
-                return returnIndex ? i : column
-            }
+        if (column) {
+            return returnIndex ? columns.indexOf(column) : column
         }
 
         return null
@@ -856,51 +850,42 @@ class GridView extends Component {
     }
 
     /**
-     * Gets triggered after changing the value of a record field.
-     * E.g. myRecord.foo = 'bar';
-     * @param {Object} opts
-     * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
-     * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {Object} opts.record
+     * @param {Object}         data
+     * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Neo.data.Model} data.model The model instance of the changed record
+     * @param {Object}         data.record
      */
     onStoreRecordChange({fields, record}) {
-        let me                     = this,
-            fieldNames             = fields.map(field => field.name),
-            needsUpdate            = false,
-            rowIndex               = me.store.indexOf(record),
-            {selectionModel, vdom} = me,
-            cellId, cellNode, cellStyle, cellVdom, column, columnIndex;
+        let me               = this,
+            fieldNames       = fields.map(field => field.name),
+            needsUpdate      = false,
+            rowIndex         = me.store.indexOf(record),
+            {selectionModel} = me,
+            column, needsCellUpdate;
 
         if (fieldNames.includes(me.colspanField)) {
             me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
             me.update()
         } else {
+            for (column of me.parent.columns.items) {
+                if (
+                    column instanceof Neo.grid.column.Component &&
+                    Neo.typeOf(column.component === 'Function') &&
+                    !fieldNames.includes(column.dataField)
+                ) {
+                    needsCellUpdate = me.updateCellNode(record, column.dataField);
+                    needsUpdate     = needsUpdate || needsCellUpdate
+                }
+            }
+
             fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-grid-rowmodel') {
                         selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(record))
                     }
                 } else {
-                    cellId   = me.getCellId(record, field.name);
-                    cellNode = VDomUtil.find(vdom, cellId);
-
-                    // The vdom might not exist yet => nothing to do in this case
-                    if (cellNode?.vdom) {
-                        cellStyle   = cellNode.vdom.style;
-                        column      = me.getColumn(field.name);
-                        columnIndex = cellNode.index;
-                        cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex});
-                        needsUpdate = true;
-
-                        // The cell-positioning logic happens outside applyRendererOutput()
-                        // We need to preserve these styles
-                        Object.assign(cellVdom.style, {
-                            left : cellStyle.left,
-                            width: cellStyle.width
-                        });
-
-                        cellNode.parentNode.cn[columnIndex] = cellVdom
-                    }
+                    needsCellUpdate = me.updateCellNode(record, field.name);
+                    needsUpdate     = needsUpdate || needsCellUpdate
                 }
             })
         }
@@ -955,6 +940,41 @@ class GridView extends Component {
                 windowId: me.windowId
             })
         }
+    }
+
+    /**
+     * Update the cell vdom silently
+     * @param {Record} record
+     * @param {String} dataField
+     * @returns {Boolean} true in case the view needs an update
+     */
+    updateCellNode(record, dataField) {
+        let me          = this,
+            cellId      = me.getCellId(record, dataField),
+            cellNode    = VDomUtil.find(me.vdom, cellId),
+            needsUpdate = false,
+            rowIndex    = me.store.indexOf(record),
+            cellStyle, cellVdom, column, columnIndex;
+
+        // The vdom might not exist yet => nothing to do in this case
+        if (cellNode?.vdom) {
+            cellStyle   = cellNode.vdom.style;
+            column      = me.getColumn(dataField);
+            columnIndex = cellNode.index;
+            cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex});
+            needsUpdate = true;
+
+            // The cell-positioning logic happens outside applyRendererOutput()
+            // We need to preserve these styles
+            Object.assign(cellVdom.style, {
+                left : cellStyle.left,
+                width: cellStyle.width
+            });
+
+            cellNode.parentNode.cn[columnIndex] = cellVdom
+        }
+
+        return needsUpdate
     }
 
     /**
@@ -1013,7 +1033,7 @@ class GridView extends Component {
         endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
 
         me.mountedRows[0] = startIndex; // update the array inline
-        me.mountedRows[1] = endIndex;
+        me.mountedRows[1] = endIndex
     }
 
     /**

@@ -24,9 +24,11 @@ class MainModel extends Model {
      * @protected
      */
     afterSetAmountColumns(value, oldValue) {
-        let i      = 4,
+        let i      = 6,
             fields = [
                 {name: 'id',        type: 'Int'},
+                {name: 'countAction'},
+                {name: 'counter',   type: 'Int'},
                 {name: 'firstname', type: 'String'},
                 {name: 'lastname',  type: 'String'}
             ];

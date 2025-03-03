@@ -43,7 +43,7 @@ class Viewport extends BaseViewport {
             }]
         }, {
             module   : GridContainer,
-            bind     : {store : 'stores.mainStore'},
+            bind     : {store: 'stores.mainStore'},
             reference: 'grid',
 
             columnDefaults: {
@@ -55,7 +55,11 @@ class Viewport extends BaseViewport {
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
                 {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
-                {dataField: 'edit',           text: 'Edit Action', renderer: 'up.editRenderer'}
+                {dataField: 'edit',           text: 'Edit Action', component: {
+                    module : Button,
+                    handler: 'up.editButtonHandler',
+                    text   : 'Edit'
+                }}
             ],
 
             viewConfig: {
@@ -72,8 +76,8 @@ class Viewport extends BaseViewport {
     /**
      * @param {Object} data
      */
-    countryRenderer({record}) {
-        let countryStore = this.getStateProvider().getStore('countries');
+    countryRenderer({gridContainer, record}) {
+        let countryStore = gridContainer.getStateProvider().getStore('countries');
 
         if (countryStore.getCount() > 0) {
             return countryStore.get(record.country).name
@@ -109,28 +113,6 @@ class Viewport extends BaseViewport {
 
             dialog.show()
         }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    editRenderer({column, gridContainer, record, rowIndex}) {
-        let me                  = this,
-            {appName, windowId} = me,
-            widgetId            = `${column.id}-widget-${rowIndex}`,
-            button              = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
-                module  : Button,
-                appName,
-                handler : 'up.editButtonHandler',
-                parentId: gridContainer.id,
-                record,
-                text    : 'Edit',
-                windowId
-            }));
-
-        me.view.updateDepth = -1;
-
-        return button.createVdomReference()
     }
 
     /**

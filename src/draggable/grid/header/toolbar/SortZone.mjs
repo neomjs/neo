@@ -115,9 +115,7 @@ class SortZone extends BaseSortZone {
      */
     moveTo(fromIndex, toIndex) {
         super.moveTo(fromIndex, toIndex);
-
-        // It is crucial to use _columns to not get a shallow copy
-        NeoArray.move(this.owner.parent._columns, fromIndex, toIndex);
+        this.owner.parent.columns.move(fromIndex, toIndex)
     }
 
     /**
