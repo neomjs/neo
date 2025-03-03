@@ -2,6 +2,7 @@ import BaseContainer     from '../container/Base.mjs';
 import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Collection        from '../collection/Base.mjs';
 import Column            from './column/Base.mjs';
+import ComponentColumn   from './column/Component.mjs';
 import GridView          from './View.mjs';
 import IndexColumn       from './column/Index.mjs';
 import ScrollManager     from './ScrollManager.mjs';
@@ -20,8 +21,9 @@ class GridContainer extends BaseContainer {
      * @static
      */
     static columnTypes = {
-        column: Column,
-        index : IndexColumn
+        column   : Column,
+        component: ComponentColumn,
+        index    : IndexColumn
     }
     /**
      * @member {Object} delayable
@@ -444,6 +446,10 @@ class GridContainer extends BaseContainer {
             };
 
             headerButtons.push(column);
+
+            if (column.component && !column.type) {
+                column.type = 'component'
+            }
 
             columnClass = me.constructor.columnTypes[column.type || 'column'];
             delete column.type;

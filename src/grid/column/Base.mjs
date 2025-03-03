@@ -26,7 +26,7 @@ class Column extends Base {
         renderer_: 'cellRenderer',
         /**
          * Scope to execute the column renderer.
-         * Defaults to the matching grid.Container
+         * Defaults to the column instance
          * @member {Neo.core.Base|null} rendererScope=null
          */
         rendererScope: null,

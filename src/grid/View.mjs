@@ -388,7 +388,7 @@ class GridView extends Component {
             fieldValue = ''
         }
 
-        rendererOutput = column.renderer.call(column.rendererScope || gridContainer, {
+        rendererOutput = column.renderer.call(column.rendererScope || column, {
             column,
             columnIndex,
             dataField,
