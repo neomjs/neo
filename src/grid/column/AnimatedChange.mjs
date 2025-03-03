@@ -1,5 +1,6 @@
 import Column   from './Base.mjs';
-import VdomUtil from '../../util/VDom.mjs'
+import NeoArray from '../../util/Array.mjs';
+import VdomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.grid.column.AnimatedChange
@@ -13,6 +14,10 @@ class AnimatedChange extends Column {
          */
         className: 'Neo.grid.column.AnimatedChange',
         /**
+         * @member {String} animationCls='neo-animated'
+         */
+        animationCls: 'neo-animated',
+        /**
          * @member {String} type='animatedChange'
          * @protected
          */
@@ -20,24 +25,53 @@ class AnimatedChange extends Column {
     }
 
     /**
-     * @param {Object}             data
-     * @param {Neo.button.Base}    data.column
-     * @param {Number}             data.columnIndex
-     * @param {String}             data.dataField
-     * @param {Neo.grid.Container} data.gridContainer
-     * @param {Object}             data.record
-     * @param {Number}             data.rowIndex
-     * @param {Neo.data.Store}     data.store
-     * @param {Number|String}      data.value
-     * @returns {*}
+     * @param {Object} config
      */
-    cellRenderer({dataField, gridContainer, record, value}) {
-        let {view} = gridContainer,
-            cellId = view.getCellId(record, dataField),
-            node   = VdomUtil.find(view.vdom, cellId)?.vdom,
-            cls    = !node ? [] : node.cls.includes('neo-animated-1') ? ['neo-animated-2'] : ['neo-animated-1'];
+    construct(config) {
+        super.construct(config);
 
-        return {cls, html: value}
+        let me = this;
+
+        me.parent.store.on({
+            recordChange: me.onRecordChange,
+            scope       : me
+        })
+    }
+
+    /**
+     * Override as needed for dynamic record-based animation classes
+     * @param {Record} record
+     * @returns {String}
+     */
+    getAnimationCls(record) {
+        return this.animationCls
+    }
+
+    /**
+     * @param {Object}         data
+     * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Neo.data.Model} data.model The model instance of the changed record
+     * @param {Object}         data.record
+     */
+    onRecordChange({fields, record}) {
+        let me     = this,
+            {view} = me.parent,
+            cellId, field, node;
+
+        for (field of fields) {
+            if (field.name === me.dataField) {
+                cellId = view.getCellId(record, me.dataField);
+                node   = VdomUtil.find(view.vdom, cellId)?.vdom;
+
+                NeoArray.add(node.cls, me.getAnimationCls(record));
+
+                // This will trigger a 2nd view update, after grid.View: onStoreRecordChange()
+                // It is crucial to restart the keyframe based animation
+                // => The previous update call will remove the last animationCls
+                view.update();
+                break;
+            }
+        }
     }
 }
 

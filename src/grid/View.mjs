@@ -850,12 +850,10 @@ class GridView extends Component {
     }
 
     /**
-     * Gets triggered after changing the value of a record field.
-     * E.g. myRecord.foo = 'bar';
-     * @param {Object} opts
-     * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
-     * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {Object} opts.record
+     * @param {Object}         data
+     * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Neo.data.Model} data.model The model instance of the changed record
+     * @param {Object}         data.record
      */
     onStoreRecordChange({fields, record}) {
         let me                     = this,
