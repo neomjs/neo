@@ -13,11 +13,6 @@ class Column extends Base {
          */
         className: 'Neo.grid.column.Base',
         /**
-         * @member {String} ntype='grid-column'
-         * @protected
-         */
-        ntype: 'grid-column',
-        /**
          * @member {String|null} dataField=null
          */
         dataField: null,
@@ -30,7 +25,12 @@ class Column extends Base {
          * Defaults to the matching grid.Container
          * @member {Neo.core.Base|null} rendererScope=null
          */
-        rendererScope: null
+        rendererScope: null,
+        /**
+         * @member {String} type='column'
+         * @protected
+         */
+        type: 'column'
     }
 
     /**

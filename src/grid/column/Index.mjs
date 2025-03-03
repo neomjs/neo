@@ -12,10 +12,10 @@ class Index extends Column {
          */
         className: 'Neo.grid.column.Index',
         /**
-         * @member {String} ntype='grid-index-column'
+         * @member {String} type='index'
          * @protected
          */
-        ntype: 'grid-index-column',
+        type: 'index',
         /**
          * @member {Boolean} zeroBased=false
          */
