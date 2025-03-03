@@ -17,6 +17,10 @@ class Column extends Base {
          */
         dataField: null,
         /**
+         * @member {Neo.grid.Container|null} parent=null
+         */
+        parent: null,
+        /**
          * @member {Function|String|null} renderer_='cellRenderer'
          */
         renderer_: 'cellRenderer',

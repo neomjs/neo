@@ -448,7 +448,10 @@ class GridContainer extends BaseContainer {
             columnClass = me.constructor.columnTypes[column.type || 'column'];
             delete column.type;
 
-            columns[index] = Neo.create(columnClass, {...column})
+            columns[index] = Neo.create(columnClass, {
+                parent: me,
+                ...column
+            })
         });
 
         me.items[0].items = headerButtons;
