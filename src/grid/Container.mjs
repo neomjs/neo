@@ -1,13 +1,11 @@
 import BaseContainer     from '../container/Base.mjs';
 import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Collection        from '../collection/Base.mjs';
-import Column            from './column/Base.mjs';
-import ComponentColumn   from './column/Component.mjs';
 import GridView          from './View.mjs';
-import IndexColumn       from './column/Index.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
+import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
 
 /**
@@ -21,9 +19,9 @@ class GridContainer extends BaseContainer {
      * @static
      */
     static columnTypes = {
-        column   : Column,
-        component: ComponentColumn,
-        index    : IndexColumn
+        column   : column.Base,
+        component: column.Component,
+        index    : column.Index
     }
     /**
      * @member {Object} delayable
