@@ -113,9 +113,10 @@ class MainStore extends Store {
             column, record;
 
         for (; row < amountRows; row++) {
-            column = 4;
+            column = 5;
             record = {
                 id       : row + 1,
+                counter  : Math.round(Math.random() * 100),
                 firstname: me.firstnames[Math.floor(Math.random() * amountFirstnames)],
                 lastname : me.lastnames[ Math.floor(Math.random() * amountLastnames)]
             };

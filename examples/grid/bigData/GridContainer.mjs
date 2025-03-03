@@ -46,16 +46,18 @@ class GridContainer extends BaseGridContainer {
      * @protected
      */
     afterSetAmountColumns(value, oldValue) {
-        let i       = 5,
+        let i       = 6,
             columns = [
                 {type: 'index', dataField: 'id', text: '#', width: 60},
                 {cellAlign: 'left', dataField: 'firstname', defaultSortDirection: 'ASC', text: 'Firstname', width: 150},
                 {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  width: 150},
                 {cellAlign: 'left', dataField: 'foo', text: 'Increase Counter', width: 150,  component: ({record}) => ({
                     module: Button,
+                    handler() {record.counter++},
                     text  : record.firstname + ' ++',
                     width : 130
-                })}
+                })},
+                {dataField: 'counter', text: 'Counter'}
             ];
 
         for (; i <= value; i++) {

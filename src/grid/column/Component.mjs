@@ -53,9 +53,11 @@ class Component extends Column {
             componentConfig = componentConfig(data)
         }
 
-        console.log(componentConfig);
-
         if (component) {
+            delete componentConfig.className;
+            delete componentConfig.module;
+            delete componentConfig.ntype;
+
             component.set({
                 componentConfig
             })
