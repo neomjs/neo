@@ -57,7 +57,7 @@ class GridContainer extends BaseGridContainer {
                     text  : record.firstname + ' ++',
                     width : 130
                 })},
-                {dataField: 'counter', text: 'Counter'}
+                {type: 'animatedChange', dataField: 'counter', text: 'Counter'}
             ];
 
         for (; i <= value; i++) {
