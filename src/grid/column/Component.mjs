@@ -42,8 +42,8 @@ class Component extends Column {
      * @returns {*}
      */
     cellRenderer(data) {
-        let {gridContainer, record, rowIndex} = data,
-            {appName, view, windowId}         = gridContainer,
+        let {gridContainer, rowIndex} = data,
+            {appName, view, windowId} = gridContainer,
             me              = this,
             id              = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
             component       = me.map.get(id),

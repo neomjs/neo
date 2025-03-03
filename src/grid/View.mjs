@@ -856,43 +856,36 @@ class GridView extends Component {
      * @param {Object}         data.record
      */
     onStoreRecordChange({fields, record}) {
-        let me                     = this,
-            fieldNames             = fields.map(field => field.name),
-            needsUpdate            = false,
-            rowIndex               = me.store.indexOf(record),
-            {selectionModel, vdom} = me,
-            cellId, cellNode, cellStyle, cellVdom, column, columnIndex;
+        let me               = this,
+            fieldNames       = fields.map(field => field.name),
+            needsUpdate      = false,
+            rowIndex         = me.store.indexOf(record),
+            {selectionModel} = me,
+            column, needsCellUpdate;
 
         if (fieldNames.includes(me.colspanField)) {
             me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
             me.update()
         } else {
+            for (column of me.parent.columns.items) {
+                if (
+                    column instanceof Neo.grid.column.Component &&
+                    Neo.typeOf(column.component === 'Function') &&
+                    !fieldNames.includes(column.dataField)
+                ) {
+                    needsCellUpdate = me.updateCellNode(record, column.dataField);
+                    needsUpdate     = needsUpdate || needsCellUpdate
+                }
+            }
+
             fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-grid-rowmodel') {
                         selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(record))
                     }
                 } else {
-                    cellId   = me.getCellId(record, field.name);
-                    cellNode = VDomUtil.find(vdom, cellId);
-
-                    // The vdom might not exist yet => nothing to do in this case
-                    if (cellNode?.vdom) {
-                        cellStyle   = cellNode.vdom.style;
-                        column      = me.getColumn(field.name);
-                        columnIndex = cellNode.index;
-                        cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex});
-                        needsUpdate = true;
-
-                        // The cell-positioning logic happens outside applyRendererOutput()
-                        // We need to preserve these styles
-                        Object.assign(cellVdom.style, {
-                            left : cellStyle.left,
-                            width: cellStyle.width
-                        });
-
-                        cellNode.parentNode.cn[columnIndex] = cellVdom
-                    }
+                    needsCellUpdate = me.updateCellNode(record, field.name);
+                    needsUpdate     = needsUpdate || needsCellUpdate
                 }
             })
         }
@@ -947,6 +940,41 @@ class GridView extends Component {
                 windowId: me.windowId
             })
         }
+    }
+
+    /**
+     * Update the cell vdom silently
+     * @param {Record} record
+     * @param {String} dataField
+     * @returns {Boolean} true in case the view needs an update
+     */
+    updateCellNode(record, dataField) {
+        let me          = this,
+            cellId      = me.getCellId(record, dataField),
+            cellNode    = VDomUtil.find(me.vdom, cellId),
+            needsUpdate = false,
+            rowIndex    = me.store.indexOf(record),
+            cellStyle, cellVdom, column, columnIndex;
+
+        // The vdom might not exist yet => nothing to do in this case
+        if (cellNode?.vdom) {
+            cellStyle   = cellNode.vdom.style;
+            column      = me.getColumn(dataField);
+            columnIndex = cellNode.index;
+            cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex});
+            needsUpdate = true;
+
+            // The cell-positioning logic happens outside applyRendererOutput()
+            // We need to preserve these styles
+            Object.assign(cellVdom.style, {
+                left : cellStyle.left,
+                width: cellStyle.width
+            });
+
+            cellNode.parentNode.cn[columnIndex] = cellVdom
+        }
+
+        return needsUpdate
     }
 
     /**
