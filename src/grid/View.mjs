@@ -512,7 +512,7 @@ class GridView extends Component {
         let me            = this,
             {mountedColumns, selectedRows} = me,
             gridContainer = me.parent,
-            columns       = gridContainer.headerToolbar.items,
+            {columns}     = gridContainer,
             id            = me.getRowId(record, rowIndex),
             rowCls        = me.getRowClass(record, rowIndex),
             config, column, columnPosition,  gridRow, i;
@@ -544,7 +544,7 @@ class GridView extends Component {
         };
 
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
-            column = columns[i];
+            column = columns.getAt(i);
             config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
 
             if (column.dock) {

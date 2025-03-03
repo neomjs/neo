@@ -1,7 +1,6 @@
-import BaseButton        from '../../button/Base.mjs';
-import NeoArray          from '../../util/Array.mjs';
-import TextField         from '../../form/field/Text.mjs';
-import {resolveCallback} from '../../util/Function.mjs';
+import BaseButton from '../../button/Base.mjs';
+import NeoArray   from '../../util/Array.mjs';
+import TextField  from '../../form/field/Text.mjs';
 
 /**
  * @class Neo.grid.header.Button
@@ -72,16 +71,6 @@ class Button extends BaseButton {
          * @protected
          */
         isSorted_: null,
-        /**
-         * @member {Function|String|null} renderer_='cellRenderer'
-         */
-        renderer_: 'cellRenderer',
-        /**
-         * Scope to execute the column renderer.
-         * Defaults to the matching grid.Container
-         * @member {Neo.core.Base|null} rendererScope=null
-         */
-        rendererScope: null,
         /**
          * @member {String} role='columnheader'
          */
@@ -215,32 +204,6 @@ class Button extends BaseButton {
      */
     beforeSetCellAlign(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues')
-    }
-
-    /**
-     * Triggered before the renderer config gets changed
-     * @param {Function|String|null} value
-     * @param {Function|String|null} oldValue
-     * @protected
-     */
-    beforeSetRenderer(value, oldValue) {
-        return resolveCallback(value, this).fn
-    }
-
-    /**
-     * @param {Object}             data
-     * @param {Neo.button.Base}    data.column
-     * @param {Number}             data.columnIndex
-     * @param {String}             data.dataField
-     * @param {Neo.grid.Container} data.gridContainer
-     * @param {Object}             data.record
-     * @param {Number}             data.rowIndex
-     * @param {Neo.data.Store}     data.store
-     * @param {Number|String}      data.value
-     * @returns {*}
-     */
-    cellRenderer(data) {
-        return data.value
     }
 
     /**

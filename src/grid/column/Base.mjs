@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base              from '../../core/Base.mjs';
+import {resolveCallback} from '../../util/Function.mjs';
 
 /**
  * @class Neo.grid.column.Base
@@ -19,7 +20,43 @@ class Column extends Base {
         /**
          * @member {String|null} dataField=null
          */
-        dataField: null
+        dataField: null,
+        /**
+         * @member {Function|String|null} renderer_='cellRenderer'
+         */
+        renderer_: 'cellRenderer',
+        /**
+         * Scope to execute the column renderer.
+         * Defaults to the matching grid.Container
+         * @member {Neo.core.Base|null} rendererScope=null
+         */
+        rendererScope: null
+    }
+
+    /**
+     * Triggered before the renderer config gets changed
+     * @param {Function|String|null} value
+     * @param {Function|String|null} oldValue
+     * @protected
+     */
+    beforeSetRenderer(value, oldValue) {
+        return resolveCallback(value, this).fn
+    }
+
+    /**
+     * @param {Object}             data
+     * @param {Neo.button.Base}    data.column
+     * @param {Number}             data.columnIndex
+     * @param {String}             data.dataField
+     * @param {Neo.grid.Container} data.gridContainer
+     * @param {Object}             data.record
+     * @param {Number}             data.rowIndex
+     * @param {Neo.data.Store}     data.store
+     * @param {Number|String}      data.value
+     * @returns {*}
+     */
+    cellRenderer(data) {
+        return data.value
     }
 }
 
