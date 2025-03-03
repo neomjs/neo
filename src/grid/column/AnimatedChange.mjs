@@ -69,7 +69,7 @@ class AnimatedChange extends Column {
                 // It is crucial to restart the keyframe based animation
                 // => The previous update call will remove the last animationCls
                 view.update();
-                break;
+                break
             }
         }
     }
