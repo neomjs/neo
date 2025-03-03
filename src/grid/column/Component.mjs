@@ -1,4 +1,3 @@
-import Button from '../../button/Base.mjs';
 import Column from './Base.mjs';
 
 /**
