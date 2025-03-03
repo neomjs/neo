@@ -661,17 +661,11 @@ class GridView extends Component {
      * @returns {Object|Number|null}
      */
     getColumn(field, returnIndex=false) {
-        let columns = this.parent.headerToolbar.items,
-            i       = 0,
-            len     = columns.length,
-            column;
+        let {columns} = this.parent,
+            column    = columns.get(field);
 
-        for (; i < len; i++) {
-            column = columns[i];
-
-            if (column.dataField === field) {
-                return returnIndex ? i : column
-            }
+        if (column) {
+            return returnIndex ? columns.indexOf(column) : column
         }
 
         return null
