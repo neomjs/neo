@@ -41,15 +41,23 @@ class Component extends Column {
      * @param {Number|String}      data.value
      * @returns {*}
      */
-    cellRenderer({gridContainer, record, rowIndex}) {
-        let me                        = this,
-            {appName, view, windowId} = gridContainer,
-            id                        = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
-            component                 = me.map.get(id);
+    cellRenderer(data) {
+        let {gridContainer, record, rowIndex} = data,
+            {appName, view, windowId}         = gridContainer,
+            me              = this,
+            id              = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
+            component       = me.map.get(id),
+            componentConfig = me.component;
+
+        if (Neo.typeOf(componentConfig) === 'Function') {
+            componentConfig = componentConfig(data)
+        }
+
+        console.log(componentConfig);
 
         if (component) {
             component.set({
-                record
+                componentConfig
             })
         } else {
             component = Neo.create({
@@ -57,7 +65,7 @@ class Component extends Column {
                 id,
                 record,
                 windowId,
-                ...me.component
+                ...componentConfig
             });
 
             me.map.set(id, component)
