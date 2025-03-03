@@ -1,4 +1,5 @@
 import BaseGridContainer from '../../../src/grid/Container.mjs';
+import Button            from '../../../src/button/Base.mjs';
 import MainStore         from './MainStore.mjs';
 
 /**
@@ -45,11 +46,12 @@ class GridContainer extends BaseGridContainer {
      * @protected
      */
     afterSetAmountColumns(value, oldValue) {
-        let i       = 4,
+        let i       = 5,
             columns = [
                 {type: 'index', dataField: 'id', text: '#', width: 60},
                 {cellAlign: 'left', dataField: 'firstname', defaultSortDirection: 'ASC', text: 'Firstname', width: 150},
-                {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  width: 150}
+                {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  width: 150},
+                {cellAlign: 'left', dataField: 'foo', text: 'Increase Counter', width: 130,  component: {module: Button, text: 'Hello'}}
             ];
 
         for (; i <= value; i++) {

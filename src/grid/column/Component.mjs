@@ -44,8 +44,8 @@ class Component extends Column {
     cellRenderer({gridContainer, record, rowIndex}) {
         let me                        = this,
             {appName, view, windowId} = gridContainer,
-            componentId               = `${me.id}-component-${rowIndex}`,
-            component                 = me.map.get(componentId);
+            id                        = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
+            component                 = me.map.get(id);
 
         if (component) {
             component.set({
@@ -54,12 +54,13 @@ class Component extends Column {
         } else {
             component = Neo.create({
                 appName,
+                id,
                 record,
                 windowId,
                 ...me.component
             });
 
-            me.map.set(componentId, component)
+            me.map.set(id, component)
         }
 
         view.updateDepth = -1;
