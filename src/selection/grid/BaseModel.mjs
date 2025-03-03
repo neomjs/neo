@@ -20,7 +20,7 @@ class BaseModel extends Model {
      * @member {String[]} dataFields
      */
     get dataFields() {
-        return this.view.parent.columns.map(column => column.dataField)
+        return this.view.parent.columns.items.map(column => column.dataField)
     }
 
     /**
