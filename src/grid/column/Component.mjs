@@ -58,16 +58,13 @@ class Component extends Column {
             delete componentConfig.module;
             delete componentConfig.ntype;
 
-            component.set({
-                componentConfig
-            })
+            component.set(componentConfig)
         } else {
             component = Neo.create({
+                ...componentConfig,
                 appName,
                 id,
-                record,
-                windowId,
-                ...componentConfig
+                windowId
             });
 
             me.map.set(id, component)
