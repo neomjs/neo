@@ -1013,7 +1013,7 @@ class GridView extends Component {
         endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
 
         me.mountedRows[0] = startIndex; // update the array inline
-        me.mountedRows[1] = endIndex;
+        me.mountedRows[1] = endIndex
     }
 
     /**
