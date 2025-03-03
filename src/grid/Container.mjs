@@ -454,7 +454,8 @@ class GridContainer extends BaseContainer {
             delete column.type;
 
             columns[index] = Neo.create(columnClass, {
-                parent: me,
+                parent  : me,
+                windowId: me.windowId,
                 ...column
             })
         });

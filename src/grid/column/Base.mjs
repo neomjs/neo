@@ -34,7 +34,21 @@ class Column extends Base {
          * @member {String} type='column'
          * @protected
          */
-        type: 'column'
+        type: 'column',
+        /**
+         * @member {Number|null} windowId_=null
+         */
+        windowId_: null
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
     }
 
     /**
