@@ -3,6 +3,7 @@ import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Collection        from '../collection/Base.mjs';
 import Column            from './column/Base.mjs';
 import GridView          from './View.mjs';
+import IndexColumn       from './column/Index.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
@@ -13,6 +14,15 @@ import * as header       from './header/_export.mjs';
  * @extends Neo.container.Base
  */
 class GridContainer extends BaseContainer {
+    /**
+     * @member {Object} columnTypes
+     * @protected
+     * @static
+     */
+    static columnTypes = {
+        column        : Column,
+        'index-column': IndexColumn
+    }
     /**
      * @member {Object} delayable
      * @protected
@@ -413,7 +423,7 @@ class GridContainer extends BaseContainer {
             {columnDefaults} = me,
             headerButtons    = [],
             sorters          = me.store?.sorters,
-            renderer;
+            columnClass, renderer;
 
         columns?.forEach((column, index) => {
             renderer = column.renderer;
@@ -435,7 +445,10 @@ class GridContainer extends BaseContainer {
 
             headerButtons.push(column);
 
-            columns[index] = Neo.create(Column, {...column})
+            columnClass = me.constructor.columnTypes[column.type || 'column'];
+            delete column.type;
+
+            columns[index] = Neo.create(columnClass, {...column})
         });
 
         me.items[0].items = headerButtons;

@@ -47,7 +47,7 @@ class GridContainer extends BaseGridContainer {
     afterSetAmountColumns(value, oldValue) {
         let i       = 4,
             columns = [
-                {dataField: 'id', text: '#', width: 60, renderer({record, store}) {return store.indexOf(record) + 1}},
+                {dataField: 'id', text: '#', type: 'index-column', width: 60},
                 {cellAlign: 'left', dataField: 'firstname', defaultSortDirection: 'ASC', text: 'Firstname', width: 150},
                 {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  width: 150}
             ];
