@@ -30,7 +30,7 @@ class Component extends Column {
 
     /**
      * @param {Object}             data
-     * @param {Neo.button.Base}    data.column
+     * @param {Neo.column.Base}    data.column
      * @param {Number}             data.columnIndex
      * @param {String}             data.dataField
      * @param {Neo.grid.Container} data.gridContainer
