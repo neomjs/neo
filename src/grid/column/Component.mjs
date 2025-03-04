@@ -16,6 +16,15 @@ class Component extends Column {
          */
         component: null,
         /**
+         * Components can delegate event listeners (or button handlers) into methods somewhere inside
+         * the view controller or component tree hierarchy.
+         *
+         * In this case, it is helpful to know what the related record is, so we are adding the record
+         * to the component as a property. By default, as 'record', but this config can change the property name.
+         * @member {String} recordProperty='record'
+         */
+        recordProperty: 'record',
+        /**
          * @member {String} type='component'
          * @protected
          */
@@ -41,12 +50,13 @@ class Component extends Column {
      * @returns {*}
      */
     cellRenderer(data) {
-        let {gridContainer, rowIndex} = data,
-            {appName, view, windowId} = gridContainer,
-            me              = this,
-            id              = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
-            component       = me.map.get(id),
-            componentConfig = me.component;
+        let {gridContainer, record, rowIndex} = data,
+            {appName, view, windowId}         = gridContainer,
+            me               = this,
+            {recordProperty} = me,
+            id               = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
+            component        = me.map.get(id),
+            componentConfig  = me.component;
 
         if (Neo.typeOf(componentConfig) === 'Function') {
             componentConfig = componentConfig(data)
@@ -57,13 +67,17 @@ class Component extends Column {
             delete componentConfig.module;
             delete componentConfig.ntype;
 
+
+            componentConfig[recordProperty] = record;
+
             component.set(componentConfig)
         } else {
             component = Neo.create({
                 ...componentConfig,
                 appName,
                 id,
-                parentComponent: view,
+                parentComponent : view,
+                [recordProperty]: record,
                 windowId
             });
 
