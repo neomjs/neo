@@ -250,7 +250,7 @@ class Helper extends Base {
             return deltas
         }
 
-        if (vnodeId !== oldVnodeId) {
+        if (vnodeId !== oldVnodeId && vnode.componentId !== oldVnode.componentId) {
             throw new Error(`createDeltas() must get called for the same node. ${vnodeId}, ${oldVnodeId}`);
         }
 
