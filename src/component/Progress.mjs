@@ -37,10 +37,23 @@ class Progress extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'div', cls: ['neo-progress'], cn: [
+        {tag: 'div', cls: ['neo-progress-wrapper'], cn: [
             {tag: 'label'},
             {tag: 'progress'}
         ]}
+    }
+
+    /**
+     * @member {Object} label
+     */
+    get label() {
+        return this.vdom.cn[0]
+    }
+    /**
+     * @member {Object} progress
+     */
+    get progress() {
+        return this.vdom.cn[1]
     }
 
     /**
@@ -52,7 +65,7 @@ class Progress extends Base {
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
 
-        this.vdom.cn[0].for = value;
+        this.label.for = value;
         this.update()
     }
 
@@ -63,7 +76,15 @@ class Progress extends Base {
      * @protected
      */
     afterSetLabelText(value, oldValue) {
-        this.vdom.cn[0].html = value;
+        let {label} = this;
+
+        if (!value) {
+            label.removeDom = true
+        } else {
+            delete label.removeDom
+        }
+
+        label.html = value;
         this.update()
     }
 
@@ -74,7 +95,7 @@ class Progress extends Base {
      * @protected
      */
     afterSetMax(value, oldValue) {
-        this.vdom.cn[1].max = value;
+        this.progress.max = value;
         this.update()
     }
 
@@ -85,7 +106,7 @@ class Progress extends Base {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        this.vdom.cn[1].value = value;
+        this.progress.value = value;
         this.update()
     }
 
