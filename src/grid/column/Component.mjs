@@ -1,4 +1,3 @@
-import Button from '../../button/Base.mjs';
 import Column from './Base.mjs';
 
 /**
@@ -17,6 +16,20 @@ class Component extends Column {
          */
         component: null,
         /**
+         * @member {Object} defaults
+         * @protected
+         */
+        defaults: null,
+        /**
+         * Components can delegate event listeners (or button handlers) into methods somewhere inside
+         * the view controller or component tree hierarchy.
+         *
+         * In this case, it is helpful to know what the related record is, so we are adding the record
+         * to the component as a property. By default, as 'record', but this config can change the property name.
+         * @member {String} recordProperty='record'
+         */
+        recordProperty: 'record',
+        /**
          * @member {String} type='component'
          * @protected
          */
@@ -30,8 +43,18 @@ class Component extends Column {
     map = new Map()
 
     /**
+     * Override as needed inside class extensions
+     * @param {Object} config
+     * @param {Record} record
+     * @returns {Object}
+     */
+    applyRecordConfigs(config, record) {
+        return config
+    }
+
+    /**
      * @param {Object}             data
-     * @param {Neo.button.Base}    data.column
+     * @param {Neo.column.Base}    data.column
      * @param {Number}             data.columnIndex
      * @param {String}             data.dataField
      * @param {Neo.grid.Container} data.gridContainer
@@ -42,28 +65,37 @@ class Component extends Column {
      * @returns {*}
      */
     cellRenderer(data) {
-        let {gridContainer, rowIndex} = data,
-            {appName, view, windowId} = gridContainer,
-            me              = this,
-            id              = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
-            component       = me.map.get(id),
-            componentConfig = me.component;
+        let {gridContainer, record, rowIndex} = data,
+            {appName, view, windowId}         = gridContainer,
+            me               = this,
+            {recordProperty} = me,
+            id               = me.getComponentId(rowIndex),
+            component        = me.map.get(id),
+            componentConfig  = me.component;
 
         if (Neo.typeOf(componentConfig) === 'Function') {
             componentConfig = componentConfig(data)
         }
+
+        componentConfig = me.applyRecordConfigs(componentConfig, record);
 
         if (component) {
             delete componentConfig.className;
             delete componentConfig.module;
             delete componentConfig.ntype;
 
+
+            componentConfig[recordProperty] = record;
+
             component.set(componentConfig)
         } else {
             component = Neo.create({
+                ...me.defaults,
                 ...componentConfig,
                 appName,
                 id,
+                parentComponent : view,
+                [recordProperty]: record,
                 windowId
             });
 
@@ -73,6 +105,17 @@ class Component extends Column {
         view.updateDepth = -1;
 
         return component.createVdomReference()
+    }
+
+    /**
+     * @param {Number} rowIndex
+     * @returns {String}
+     */
+    getComponentId(rowIndex) {
+        let me     = this,
+            {view} = me.parent;
+
+        return `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`
     }
 }
 

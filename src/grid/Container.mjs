@@ -22,7 +22,8 @@ class GridContainer extends BaseContainer {
         animatedChange: column.AnimatedChange,
         column        : column.Base,
         component     : column.Component,
-        index         : column.Index
+        index         : column.Index,
+        progress      : column.Progress
     }
     /**
      * @member {Object} delayable

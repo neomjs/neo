@@ -451,7 +451,7 @@ class Component extends Base {
     get parent() {
         let me = this;
 
-        return me.parentComponent || me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId)
+        return me.parentComponent || (me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId))
     }
 
     /**
