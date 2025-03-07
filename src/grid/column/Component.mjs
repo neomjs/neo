@@ -16,6 +16,11 @@ class Component extends Column {
          */
         component: null,
         /**
+         * @member {Object} defaults
+         * @protected
+         */
+        defaults: null,
+        /**
          * Components can delegate event listeners (or button handlers) into methods somewhere inside
          * the view controller or component tree hierarchy.
          *
@@ -38,6 +43,16 @@ class Component extends Column {
     map = new Map()
 
     /**
+     * Override as needed inside class extensions
+     * @param {Object} config
+     * @param {Record} record
+     * @returns {Object}
+     */
+    applyRecordConfigs(config, record) {
+        return config
+    }
+
+    /**
      * @param {Object}             data
      * @param {Neo.column.Base}    data.column
      * @param {Number}             data.columnIndex
@@ -54,13 +69,15 @@ class Component extends Column {
             {appName, view, windowId}         = gridContainer,
             me               = this,
             {recordProperty} = me,
-            id               = `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`,
+            id               = me.getComponentId(rowIndex),
             component        = me.map.get(id),
             componentConfig  = me.component;
 
         if (Neo.typeOf(componentConfig) === 'Function') {
             componentConfig = componentConfig(data)
         }
+
+        componentConfig = me.applyRecordConfigs(componentConfig, record);
 
         if (component) {
             delete componentConfig.className;
@@ -73,6 +90,7 @@ class Component extends Column {
             component.set(componentConfig)
         } else {
             component = Neo.create({
+                ...me.defaults,
                 ...componentConfig,
                 appName,
                 id,
@@ -87,6 +105,17 @@ class Component extends Column {
         view.updateDepth = -1;
 
         return component.createVdomReference()
+    }
+
+    /**
+     * @param {Number} rowIndex
+     * @returns {String}
+     */
+    getComponentId(rowIndex) {
+        let me     = this,
+            {view} = me.parent;
+
+        return `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`
     }
 }
 

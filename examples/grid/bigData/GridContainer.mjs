@@ -46,7 +46,7 @@ class GridContainer extends BaseGridContainer {
      * @protected
      */
     afterSetAmountColumns(value, oldValue) {
-        let i       = 6,
+        let i       = 7,
             columns = [
                 {type: 'index', dataField: 'id', text: '#', width: 60},
                 {cellAlign: 'left', dataField: 'firstname', defaultSortDirection: 'ASC', text: 'Firstname', width: 150},
@@ -57,7 +57,8 @@ class GridContainer extends BaseGridContainer {
                     text  : record.firstname + ' ++',
                     width : 130
                 })},
-                {type: 'animatedChange', dataField: 'counter', text: 'Counter'}
+                {type: 'animatedChange', dataField: 'counter', text: 'Counter'},
+                {type: 'progress',       dataField: 'progress', text: 'Progress', width: 150}
             ];
 
         for (; i <= value; i++) {
