@@ -151,7 +151,7 @@ class ScrollManager extends Base {
 
         me.scrollTimeoutId = setTimeout(() => {
             view.isScrolling = false
-        }, 30);
+        }, 100);
 
         view.set({isScrolling: true, scrollTop});
 
