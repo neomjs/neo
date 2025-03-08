@@ -22,6 +22,10 @@ class GridView extends Component {
          */
         ntype: 'grid-view',
         /**
+         * @member {Boolean} animatedRowSorting_=false
+         */
+        animatedRowSorting_: false,
+        /**
          * Internal flag. Gets calculated when mounting the grid.Container
          * @member {Number} availableHeight_=0
          */
@@ -202,6 +206,16 @@ class GridView extends Component {
             delegate: '.neo-grid-row',
             scope   : me
         }])
+    }
+
+    /**
+     * Triggered after the animatedRowSorting config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimatedRowSorting(value, oldValue) {
+        // todo
     }
 
     /**
@@ -602,14 +616,6 @@ class GridView extends Component {
 
         me.updateScrollHeight(true); // silent
         !silent && me.update()
-    }
-
-    /**
-     * @param args
-     */
-    destroy(...args) {
-        this.store = null;
-        super.destroy(...args)
     }
 
     /**
