@@ -28,6 +28,10 @@ class Viewport extends BaseViewport {
                 width: 200
             },
 
+            viewConfig: {
+                animatedRowSorting: true
+            },
+
             columns: [
                 {dataField: 'id',        text: 'Id'},
                 {dataField: 'firstname', text: 'Firstname'},
