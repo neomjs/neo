@@ -69,6 +69,36 @@ class AnimateRows extends Base {
     }
 
     /**
+     * Triggered after the transitionDuration config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetTransitionDuration(value, oldValue) {
+        this.isConstructed && this.updateTransitionDetails(!Neo.isNumber(oldValue))
+    }
+
+    /**
+     * Triggered after the transitionEasing config got changed.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetTransitionEasing(value, oldValue) {
+        this.isConstructed && this.updateTransitionDetails(!oldValue)
+    }
+
+    /**
+     * Triggered before the transitionEasing config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTransitionEasing(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'transitionEasing')
+    }
+
+    /**
      * @param {Object} data
      * @param {Boolean} data.isFiltered
      * @param {Object[]} data.items
