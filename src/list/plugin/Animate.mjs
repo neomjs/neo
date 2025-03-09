@@ -101,7 +101,7 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        this.isConstructed && this.updateTransitionDetails(!Neo.isNumber(oldValue))
+        this.isConstructed && this.updateTransitionDetails(Neo.isNumber(oldValue))
     }
 
     /**
@@ -111,7 +111,7 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionEasing(value, oldValue) {
-        this.isConstructed && this.updateTransitionDetails(!oldValue)
+        this.isConstructed && this.updateTransitionDetails(!!oldValue)
     }
 
     /**
@@ -156,7 +156,7 @@ class Animate extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        this.updateTransitionDetails(false);
+        CssUtil.deleteRules(this.appName, `#${this.owner.id} .neo-list-item`);
         super.destroy(...args)
     }
 
@@ -420,26 +420,25 @@ class Animate extends Base {
     }
 
     /**
-     * We do not want to apply the style to each list item itself,
-     * so we are using Neo.util.Css
-     * @param {Boolean} addRule=true
+     * We do not want to apply the style to each list item itself, so we are using Neo.util.Css
+     * @param {Boolean} deleteRule=false
      * @protected
      */
-    updateTransitionDetails(addRule=true) {
+    async updateTransitionDetails(deleteRule=false) {
         let me       = this,
             duration = me.transitionDuration,
             easing   = me.transitionEasing,
             {id}     = me.owner;
 
-        if (addRule) {
-            CssUtil.insertRules(me.appName, [
-                `#${id} .neo-list-item {`,
-                    `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
-                '}'
-            ].join(''))
-        } else {
-            CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`)
+        if (deleteRule) {
+            await CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`)
         }
+
+        CssUtil.insertRules(me.appName, [
+            `#${id} .neo-list-item {`,
+                `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
+            '}'
+        ].join(''))
     }
 }
 
