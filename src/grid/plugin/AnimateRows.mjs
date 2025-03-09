@@ -73,11 +73,11 @@ class AnimateRows extends Base {
         if (addRule) {
             CssUtil.insertRules(me.appName, [
                 `#${id} .neo-grid-row {`,
-                `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
+                    `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
                 '}'
             ].join(''))
         } else {
-            CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`)
+            CssUtil.deleteRules(me.appName, `#${id} .neo-grid-row`)
         }
     }
 }
