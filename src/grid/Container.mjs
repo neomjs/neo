@@ -356,8 +356,9 @@ class GridContainer extends BaseContainer {
         if (value) {
             let me        = this,
                 listeners = {
-                    load : me.onStoreLoad,
-                    scope: me
+                    filter: me.onStoreFilter,
+                    load  : me.onStoreLoad,
+                    scope : me
                 };
 
             if (value instanceof Store) {
@@ -472,18 +473,6 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @param {Array} inputData
-     */
-    createViewData(inputData) {
-        let me = this;
-
-        me.getVdomRoot()['aria-rowcount'] = inputData.length + 2; // 1 based & the header row counts as well
-        me.update();
-
-        me.view.createViewData()
-    }
-
-    /**
      * @param args
      */
     destroy(...args) {
@@ -569,12 +558,23 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     *
+     */
+    onStoreFilter() {
+        this.updateRowCount()
+    }
+
+    /**
      * @param {Object[]} data
      * @protected
      */
     onStoreLoad(data) {
-        if (this.store.sorters?.length < 1) {
-            this.removeSortingCss()
+        let me = this;
+
+        me.updateRowCount();
+
+        if (me.store.sorters?.length < 1) {
+            me.removeSortingCss()
         }
     }
 
@@ -660,6 +660,16 @@ class GridContainer extends BaseContainer {
                 windowId : me.windowId
             })
         }
+    }
+
+    /**
+     * @param {Boolean} silent=false
+     */
+    updateRowCount(silent=false) {
+        let me = this;
+
+        this.getVdomRoot()['aria-rowcount'] = me.store.getCount() + 2; // 1 based & the header row counts as well
+        !silent && this.update()
     }
 }
 
