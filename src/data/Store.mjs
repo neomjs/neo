@@ -400,7 +400,7 @@ class Store extends Base {
     onCollectionMutate(opts) {
         let me = this;
 
-        if (me.configsApplied && !me.isLoading) {
+        if (me.isConstructed && !me.isLoading) {
             me.fire('load', me.items)
         }
     }
@@ -411,9 +411,8 @@ class Store extends Base {
     onCollectionSort() {
         let me = this;
 
-        if (me.configsApplied) {
-            // console.log('onCollectionSort', me.collection.items);
-            // me.fire('load', me.items);
+        if (me.isConstructed) {
+            //me.fire('load', me.items)
         }
     }
 
@@ -426,14 +425,18 @@ class Store extends Base {
         let me = this;
 
         if (me.data) {
-            me.afterSetData(me.data);
+            me.afterSetData(me.data)
         }
 
-        if (me.autoLoad) {
-            me.timeout(100).then(() => { // todo
+        // Being constructed does not mean that related afterSetStore() methods got executed
+        // => break the sync flow to ensure potential listeners got applied
+        Promise.resolve().then(() => {
+            if (me.getCount() > 0) {
+                me.fire('load', me.items)
+            } else if (me.autoLoad) {
                 me.load()
-            })
-        }
+            }
+        })
     }
 
     /**

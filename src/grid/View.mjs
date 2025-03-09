@@ -22,6 +22,10 @@ class GridView extends Component {
          */
         ntype: 'grid-view',
         /**
+         * @member {Boolean} animatedRowSorting_=false
+         */
+        animatedRowSorting_: false,
+        /**
          * Internal flag. Gets calculated when mounting the grid.Container
          * @member {Number} availableHeight_=0
          */
@@ -93,6 +97,11 @@ class GridView extends Component {
          * @protected
          */
         mountedRows: [0, 0],
+        /**
+         * Optional config values for Neo.grid.plugin.AnimateRows
+         * @member {Object} pluginAnimateRowsConfig=null
+         */
+        pluginAnimateRowsConfig: null,
         /**
          * @member {String} role='rowgroup'
          */
@@ -202,6 +211,30 @@ class GridView extends Component {
             delegate: '.neo-grid-row',
             scope   : me
         }])
+    }
+
+    /**
+     * Triggered after the animatedRowSorting config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimatedRowSorting(value, oldValue) {
+        if (value && !this.getPlugin('grid-animate-rows')) {
+            import('./plugin/AnimateRows.mjs').then(module => {
+                let me      = this,
+                    plugins = me.plugins || [];
+
+                plugins.push({
+                    module  : module.default,
+                    appName : me.appName,
+                    windowId: me.windowId,
+                    ...me.pluginAnimateRowsConfig
+                });
+
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
@@ -362,6 +395,25 @@ class GridView extends Component {
      */
     afterSetStartIndex(value, oldValue) {
         oldValue !== undefined && this.createViewData()
+    }
+
+    /**
+     * Triggered after the store config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                filter      : me.onStoreFilter,
+                load        : me.onStoreLoad,
+                recordChange: me.onStoreRecordChange,
+                scope       : me
+            };
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -608,7 +660,8 @@ class GridView extends Component {
      * @param args
      */
     destroy(...args) {
-        this.store = null;
+        this.store = null; // remove the listeners
+
         super.destroy(...args)
     }
 
@@ -847,6 +900,33 @@ class GridView extends Component {
      */
     onRowDoubleClick(data) {
         this.fireRowEvent(data, 'rowDoubleClick')
+    }
+
+    /**
+     *
+     */
+    onStoreFilter() {
+        this.onStoreLoad()
+    }
+
+    /**
+     * @param {Object[]} data
+     * @protected
+     */
+    onStoreLoad(data) {
+        let me = this;
+
+        me.createViewData();
+
+        if (me.mounted) {
+            me.timeout(50).then(() => {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.vdom.id,
+                    value    : 0
+                })
+            })
+        }
     }
 
     /**

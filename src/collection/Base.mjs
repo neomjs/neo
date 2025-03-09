@@ -360,7 +360,8 @@ class Collection extends Base {
      * @protected
      */
     cacheUpdate(opts) {
-        console.log('cacheUpdate', opts, this[toAddArray]);
+        // disabled for now
+        // console.log('cacheUpdate', opts, this[toAddArray]);
         return;
 
         let me            = this,

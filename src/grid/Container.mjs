@@ -323,6 +323,29 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the store config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                filter: me.onStoreFilter,
+                load  : me.onStoreLoad,
+                scope : me
+            };
+
+        value   ?.on(listeners);
+        oldValue?.un(listeners);
+
+        // in case we dynamically change the store, the view needs to get the new reference
+        if (me.view) {
+            me.view.store = value
+        }
+    }
+
+    /**
      * Triggered before the columns config gets changed.
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -348,36 +371,13 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered before the store config gets changed.
-     * @param {Neo.data.Store} value
-     * @param {Neo.data.Store} oldValue
+     * @param {Object|Neo.data.Store|null} value
+     * @param {Neo.data.Store}             oldValue
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
-
         if (value) {
-            let me = this,
-
-                listeners = {
-                    filter      : me.onStoreFilter,
-                    load        : me.onStoreLoad,
-                    recordChange: me.onStoreRecordChange,
-                    scope       : me
-                };
-
-            if (value instanceof Store) {
-                value.on(listeners);
-                value.getCount() > 0 && me.onStoreLoad(value.items)
-            } else {
-                value = ClassSystemUtil.beforeSetInstance(value, Store, {
-                    listeners
-                })
-            }
-
-            // in case we dynamically change the store, the view needs to get the new reference
-            if (me.view) {
-                me.view.store = value
-            }
+            value = ClassSystemUtil.beforeSetInstance(value, Store)
         }
 
         return value
@@ -477,22 +477,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @param {Array} inputData
-     */
-    createViewData(inputData) {
-        let me = this;
-
-        me.getVdomRoot()['aria-rowcount'] = inputData.length + 2; // 1 based & the header row counts as well
-        me.update();
-
-        me.view.createViewData()
-    }
-
-    /**
      * @param args
      */
     destroy(...args) {
         let me = this;
+
+        me.store = null; // remove the listeners
 
         me.scrollManager.destroy();
 
@@ -570,14 +560,14 @@ class GridContainer extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        me.onStoreLoad(me.store.items)
+        me.view.onStoreLoad()
     }
 
     /**
      *
      */
     onStoreFilter() {
-        this.onStoreLoad(this.store.items)
+        this.updateRowCount()
     }
 
     /**
@@ -587,35 +577,11 @@ class GridContainer extends BaseContainer {
     onStoreLoad(data) {
         let me = this;
 
-        if (me.rendered) {
-            me.createViewData(data);
+        me.updateRowCount();
 
-            me.timeout(50).then(() => {
-                Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id       : me.view.vdom.id,
-                    value    : 0
-                })
-            })
-
-            if (me.store.sorters.length < 1) {
-                me.removeSortingCss()
-            }
+        if (me.store.sorters?.length < 1) {
+            me.removeSortingCss()
         }
-    }
-
-    /**
-     * Gets triggered after changing the value of a record field.
-     * E.g. myRecord.foo = 'bar';
-     * @param {Object} opts
-     * @param {String} opts.field The name of the field which got changed
-     * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {*} opts.oldValue
-     * @param {Object} opts.record
-     * @param {*} opts.value
-     */
-    onStoreRecordChange(opts) {
-        this.view.onStoreRecordChange(opts)
     }
 
     /**
@@ -700,6 +666,16 @@ class GridContainer extends BaseContainer {
                 windowId : me.windowId
             })
         }
+    }
+
+    /**
+     * @param {Boolean} silent=false
+     */
+    updateRowCount(silent=false) {
+        let me = this;
+
+        this.getVdomRoot()['aria-rowcount'] = me.store.getCount() + 2; // 1 based & the header row counts as well
+        !silent && this.update()
     }
 }
 

@@ -80,7 +80,7 @@ class Animate extends Base {
         owner.onStoreFilter = me.onStoreFilter.bind(me);
         owner.onStoreSort   = me.onStoreSort  .bind(me);
 
-        this.updateTransitionDetails(false)
+        this.updateTransitionDetails()
     }
 
     /**
@@ -150,6 +150,14 @@ class Animate extends Base {
         item.style = style;
 
         return item
+    }
+
+    /**
+     * @param {Object} args
+     */
+    destroy(...args) {
+        CssUtil.deleteRules(this.appName, `#${this.owner.id} .neo-list-item`);
+        super.destroy(...args)
     }
 
     /**
@@ -412,18 +420,19 @@ class Animate extends Base {
     }
 
     /**
-     * We do not want to apply the style to each list item itself,
-     * so we are using Neo.util.Css
-     * @param {Boolean} deleteRule
+     * We do not want to apply the style to each list item itself, so we are using Neo.util.Css
+     * @param {Boolean} deleteRule=false
      * @protected
      */
-    updateTransitionDetails(deleteRule) {
+    async updateTransitionDetails(deleteRule=false) {
         let me       = this,
             duration = me.transitionDuration,
             easing   = me.transitionEasing,
-            id       = me.owner.id;
+            {id}     = me.owner;
 
-        deleteRule && CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`);
+        if (deleteRule) {
+            await CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`)
+        }
 
         CssUtil.insertRules(me.appName, [
             `#${id} .neo-list-item {`,

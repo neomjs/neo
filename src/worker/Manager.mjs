@@ -295,17 +295,15 @@ class Manager extends Base {
 
     /**
      * Handler method for worker message events
-     * @param {Object} e
+     * @param {Object} event
      */
-    onWorkerMessage(e) {
+    onWorkerMessage(event) {
         let me       = this,
-            {data}   = e,
+            {data}   = event,
             transfer = null,
             promise;
 
         const {action, destination: dest, replyId} = data;
-
-        // console.log('Main: Incoming Worker message: ' + data.origin + ':' + action, data);
 
         me.fire('message:'+action, data);
 
@@ -317,14 +315,14 @@ class Manager extends Base {
                     data.data.autoMount  && me.fire('automount',  data);
                     data.data.updateVdom && me.fire('updateVdom', data);
 
-                    // we want to delay the message until the rendering queue has processed it
-                    // see: https://github.com/neomjs/neo/issues/2864
+                    // We want to delay the message until the rendering queue has processed it
+                    // See: https://github.com/neomjs/neo/issues/2864
                     me.promiseForwardMessage(data).then(msgData => {
                         me.sendMessage(msgData.destination, msgData)
                     })
                 }
             } else {
-                if (data.destination === 'main') {
+                if (dest === 'main') {
                     data = data.data
                 }
 
