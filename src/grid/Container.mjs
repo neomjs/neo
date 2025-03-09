@@ -353,21 +353,16 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
-
         if (value) {
-            let me = this,
-
+            let me        = this,
                 listeners = {
-                    filter      : me.onStoreFilter,
-                    load        : me.onStoreLoad,
-                    recordChange: me.onStoreRecordChange,
-                    scope       : me
+                    load : me.onStoreLoad,
+                    scope: me
                 };
 
             if (value instanceof Store) {
                 value.on(listeners);
-                value.getCount() > 0 && me.onStoreLoad(value.items)
+                value.getCount() > 0 && me.onStoreLoad()
             } else {
                 value = ClassSystemUtil.beforeSetInstance(value, Store, {
                     listeners
@@ -570,14 +565,7 @@ class GridContainer extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        me.onStoreLoad(me.store.items)
-    }
-
-    /**
-     *
-     */
-    onStoreFilter() {
-        this.onStoreLoad(this.store.items)
+        me.view.onStoreLoad()
     }
 
     /**
@@ -585,37 +573,9 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     onStoreLoad(data) {
-        let me = this;
-
-        if (me.rendered) {
-            me.createViewData(data);
-
-            me.timeout(50).then(() => {
-                Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id       : me.view.vdom.id,
-                    value    : 0
-                })
-            })
-
-            if (me.store.sorters.length < 1) {
-                me.removeSortingCss()
-            }
+        if (this.store.sorters?.length < 1) {
+            this.removeSortingCss()
         }
-    }
-
-    /**
-     * Gets triggered after changing the value of a record field.
-     * E.g. myRecord.foo = 'bar';
-     * @param {Object} opts
-     * @param {String} opts.field The name of the field which got changed
-     * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {*} opts.oldValue
-     * @param {Object} opts.record
-     * @param {*} opts.value
-     */
-    onStoreRecordChange(opts) {
-        this.view.onStoreRecordChange(opts)
     }
 
     /**

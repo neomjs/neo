@@ -379,6 +379,29 @@ class GridView extends Component {
     }
 
     /**
+     * Triggered after the store config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                filter      : me.onStoreFilter,
+                load        : me.onStoreLoad,
+                recordChange: me.onStoreRecordChange,
+                scope       : me
+            };
+
+        if (value) {
+            value.on(listeners);
+            value.getCount() > 0 && me.onStoreLoad(value.items)
+        }
+
+        oldValue?.un(listeners)
+    }
+
+    /**
      * @param {Object} data
      * @param {String} [data.cellId]
      * @param {Object} data.column
@@ -853,6 +876,33 @@ class GridView extends Component {
      */
     onRowDoubleClick(data) {
         this.fireRowEvent(data, 'rowDoubleClick')
+    }
+
+    /**
+     *
+     */
+    onStoreFilter() {
+        this.onStoreLoad()
+    }
+
+    /**
+     * @param {Object[]} data
+     * @protected
+     */
+    onStoreLoad(data) {
+        let me = this;
+
+        me.createViewData();
+
+        if (me.mounted) {
+            me.timeout(50).then(() => {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.vdom.id,
+                    value    : 0
+                })
+            })
+        }
     }
 
     /**
