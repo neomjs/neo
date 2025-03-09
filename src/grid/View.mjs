@@ -98,6 +98,11 @@ class GridView extends Component {
          */
         mountedRows: [0, 0],
         /**
+         * Optional config values for Neo.grid.plugin.AnimateRows
+         * @member {Object} pluginAnimateRowsConfig=null
+         */
+        pluginAnimateRowsConfig: null,
+        /**
          * @member {String} role='rowgroup'
          */
         role: 'rowgroup',
@@ -215,7 +220,21 @@ class GridView extends Component {
      * @protected
      */
     afterSetAnimatedRowSorting(value, oldValue) {
-        // todo
+        if (value && !this.getPlugin('grid-animate-rows')) {
+            import('./plugin/AnimateRows.mjs').then(module => {
+                let me      = this,
+                    plugins = me.plugins || [];
+
+                plugins.push({
+                    module  : module.default,
+                    appName : me.appName,
+                    windowId: me.windowId,
+                    ...me.pluginAnimateRowsConfig
+                });
+
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
