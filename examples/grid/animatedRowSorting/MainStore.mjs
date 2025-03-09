@@ -14,37 +14,44 @@ class MainStore extends Store {
             country : 'DE',
             firstname: 'Max',
             id       : 1,
-            lastname : 'Johnson'
+            lastname : 'Johnson',
+            progress : 50
         }, {
             country : 'UK',
             firstname: 'Paul',
             id       : 2,
-            lastname : 'Walker'
+            lastname : 'Walker',
+            progress : 10
         }, {
             country : 'US',
             firstname: 'Sam',
             id       : 3,
-            lastname : 'Anderson'
+            lastname : 'Anderson',
+            progress : 90
         }, {
             country : 'GR',
             firstname: 'William',
             id       : 4,
-            lastname : 'Wilson'
+            lastname : 'Wilson',
+            progress : 30
         }, {
             country : 'AT',
             firstname: 'Carol',
             id       : 5,
-            lastname : 'Jackson'
+            lastname : 'Jackson',
+            progress : 70
         }, {
             country : 'NL',
             firstname: 'Amanda',
             id       : 6,
-            lastname : 'King'
+            lastname : 'King',
+            progress : 100
         }, {
             country : 'FR',
             firstname: 'Sarah',
             id       : 7,
-            lastname : 'Scott'
+            lastname : 'Scott',
+            progress : 35
         }]
     }
 }

@@ -651,10 +651,9 @@ class GridView extends Component {
         }
 
         if (updateVdom) {
-            me.getVdomRoot().cn = rows
+            me.getVdomRoot().cn = rows;
+            me.parent.isLoading = false
         }
-
-        me.parent.isLoading = false;
 
         me.updateScrollHeight(true); // silent
         !silent && me.update();

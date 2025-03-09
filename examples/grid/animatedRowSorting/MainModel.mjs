@@ -26,6 +26,9 @@ class MainModel extends Model {
         }, {
             name: 'lastname',
             type: 'String'
+        }, {
+            name: 'progress',
+            type: 'Int'
         }],
         /**
          * @member {Boolean} trackModifiedFields=true
