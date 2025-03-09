@@ -30,13 +30,13 @@ class AnimateRows extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 500,
+        transitionDuration_: 2000,
         /**
          * The easing used for fadeIn, fadeOut and position changes.
          * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
-         * @member {String} transitionEasing_='ease-in-out'
+         * @member {String} transitionEasing_='ease-out'
          */
-        transitionEasing_: 'ease-in-out'
+        transitionEasing_: 'ease-out'
     }
 
     /**
@@ -82,9 +82,7 @@ class AnimateRows extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreFilter(data) {
-        let me = this;
-
-        console.log('AnimateRows onStoreFilter')
+        this.updateView()
     }
 
     /**
@@ -92,42 +90,7 @@ class AnimateRows extends Base {
      * @protected
      */
     onStoreLoad(data) {
-        let me      = this,
-            {owner} = me,
-            {mountedRows} = owner,
-            hasChange = false,
-            id, mapItem, rowIndex, transform;
-
-        me.map = {};
-
-        owner.getVdomRoot().cn.forEach(row => {
-            me.map[row.id] = row
-        });
-
-        for (rowIndex=mountedRows[0]; rowIndex < mountedRows[1]; rowIndex++) {
-            id      = owner.getRowId(owner.store.getAt(rowIndex), rowIndex)
-            mapItem = me.map[id];
-
-            if (mapItem) {
-                transform = `translate(0px, ${rowIndex * owner.rowHeight}px)`;
-
-                if (mapItem.style.transform !== transform) {
-                    mapItem.style.transform = transform;
-                    NeoArray.toggle(mapItem.cls, 'neo-even', rowIndex % 2 !== 0);
-                    hasChange = true
-                }
-            }
-        }
-
-        if (hasChange) {
-            clearTimeout(me.transitionTimeoutId);
-
-            owner.update();
-
-            me.transitionTimeoutId = setTimeout(() => {
-                owner.createViewData()
-            }, me.transitionDuration)
-        }
+        this.updateView()
     }
 
     /**
@@ -153,6 +116,61 @@ class AnimateRows extends Base {
             ].join(''))
         } else {
             CssUtil.deleteRules(me.appName, `#${id} .neo-grid-row`)
+        }
+    }
+
+    /**
+     *
+     */
+    updateView() {
+        let me            = this,
+            {owner}       = me,
+            {mountedRows} = owner,
+            hasChange     = false,
+            id, mapItem, rowIndex, transform;
+
+        me.map = {};
+
+        owner.getVdomRoot().cn.forEach(row => {
+            me.map[row.id] = row
+        });
+
+        // Creates the new start & end indexes inside mountedRows
+        owner.updateMountedAndVisibleRows();
+
+        for (rowIndex=mountedRows[0]; rowIndex < mountedRows[1]; rowIndex++) {
+            id      = owner.getRowId(owner.store.getAt(rowIndex), rowIndex)
+            mapItem = me.map[id];
+
+            if (mapItem) {
+                transform = `translate(0px, ${rowIndex * owner.rowHeight}px)`;
+
+                if (mapItem.style.transform !== transform) {
+                    mapItem.style.transform = transform;
+                    NeoArray.toggle(mapItem.cls, 'neo-even', rowIndex % 2 !== 0);
+                    hasChange = true
+                }
+
+                delete me.map[id]
+            } else {
+                console.log('new row')
+            }
+        }
+
+        Object.values(me.map).forEach(mapItem => {
+            mapItem.style.opacity = 0;
+            hasChange = true
+        })
+
+        if (hasChange) {
+            clearTimeout(me.transitionTimeoutId);
+
+            owner.update();
+
+            me.transitionTimeoutId = setTimeout(() => {
+                me.transitionTimeoutId = null;
+                owner.createViewData()
+            }, me.transitionDuration)
         }
     }
 }
