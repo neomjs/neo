@@ -1,7 +1,8 @@
 import BaseViewport  from '../../../src/container/Viewport.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
 import MainStore     from './MainStore.mjs';
-import TextField     from '../../../src/form/field/Text.mjs';
+import NumberField   from '../../../src/form/field/Number.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class Neo.examples.grid.animatedRowSorting.Viewport
@@ -22,12 +23,29 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module       : TextField,
-            flex         : 'none',
-            labelPosition: 'inline',
-            labelText    : 'Firstname',
-            listeners    : {change: 'up.onFirstnameFieldChange'},
-            style        : {marginBottom: '1em', maxWidth: '150px'}
+            module: Toolbar,
+            flex  : 'none',
+            style : {marginBottom: '1em', maxWidth: 'fit-content'},
+
+            items : [{
+                ntype        : 'textfield',
+                labelPosition: 'inline',
+                labelText    : 'Firstname',
+                listeners    : {change: 'up.onFirstnameFieldChange'},
+                width        : 120
+            },{
+                module       : NumberField,
+                clearable    : false,
+                labelPosition: 'inline',
+                labelText    : 'Transition Duration',
+                listeners    : {change: 'up.onTransitionDurationFieldChange'},
+                maxValue     : 1000,
+                minValue     : 200,
+                stepSize     : 100,
+                style        : {marginLeft: '1em'},
+                value        : 500,
+                width        : 180
+            }]
         }, {
             module   : GridContainer,
             reference: 'grid',
@@ -56,6 +74,13 @@ class Viewport extends BaseViewport {
      */
     onFirstnameFieldChange(data) {
         this.getReference('grid').store.getFilter('firstname').value = data.value
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTransitionDurationFieldChange(data) {
+        this.getReference('grid').view.getPlugin('grid-animate-rows').transitionDuration = data.value
     }
 }
 
