@@ -624,8 +624,10 @@ class GridView extends Component {
 
     /**
      * @param {Boolean} silent=false
+     * @param {Boolean} updateVdom=true
+     * @returns {Object[]}
      */
-    createViewData(silent=false) {
+    createViewData(silent=false, updateVdom=true) {
         let me                   = this,
             {mountedRows, store} = me,
             rows                 = [],
@@ -638,7 +640,7 @@ class GridView extends Component {
             me.columnPositions.getCount() < 1 ||
             me.mountedColumns[1]          < 1
         ) {
-            return
+            return []
         }
 
         // Creates the new start & end indexes
@@ -648,12 +650,16 @@ class GridView extends Component {
             rows.push(me.createRow({record: store.items[i], rowIndex: i}))
         }
 
-        me.getVdomRoot().cn = rows;
+        if (updateVdom) {
+            me.getVdomRoot().cn = rows
+        }
 
         me.parent.isLoading = false;
 
         me.updateScrollHeight(true); // silent
-        !silent && me.update()
+        !silent && me.update();
+
+        return rows
     }
 
     /**
