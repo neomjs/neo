@@ -18,7 +18,12 @@ class MainStore extends Store {
             {country : 'AT', firstname: 'Carol',   id: 5, lastname : 'Jackson',  progress :  70},
             {country : 'NL', firstname: 'Amanda',  id: 6, lastname : 'King',     progress : 100},
             {country : 'FR', firstname: 'Sarah',   id: 7, lastname : 'Scott',    progress :  35}
-        ]
+        ],
+
+        sorters: [{
+            property : 'id',
+            direction: 'ASC'
+        }]
     }
 }
 
