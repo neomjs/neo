@@ -116,7 +116,13 @@ class AnimateRows extends Base {
         });
 
         if (hasChange) {
-            owner.update()
+            clearTimeout(me.transitionTimeoutId);
+
+            owner.update();
+
+            me.transitionTimeoutId = setTimeout(() => {
+                owner.createViewData()
+            }, me.transitionDuration)
         }
     }
 
@@ -135,7 +141,10 @@ class AnimateRows extends Base {
         if (addRule) {
             CssUtil.insertRules(me.appName, [
                 `#${id} .neo-grid-row {`,
-                    `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
+                    'transition:',
+                        `background-color ${duration}ms ${easing},`,
+                        `opacity ${duration}ms ${easing},`,
+                        `transform ${duration}ms ${easing}`,
                 '}'
             ].join(''))
         } else {
