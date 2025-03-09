@@ -1,6 +1,7 @@
 import BaseViewport  from '../../../src/container/Viewport.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
 import MainStore     from './MainStore.mjs';
+import TextField     from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.grid.animatedRowSorting.Viewport
@@ -21,8 +22,16 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module: GridContainer,
-            store : MainStore,
+            module       : TextField,
+            flex         : 'none',
+            labelPosition: 'inline',
+            labelText    : 'Firstname',
+            listeners    : {change: 'up.onFirstnameFieldChange'},
+            style        : {marginBottom: '1em', maxWidth: '150px'}
+        }, {
+            module   : GridContainer,
+            reference: 'grid',
+            store    : MainStore,
 
             columnDefaults: {
                 width: 200
@@ -40,6 +49,13 @@ class Viewport extends BaseViewport {
                 {dataField: 'country',   text: 'Country'}
             ]
         }]
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onFirstnameFieldChange(data) {
+        this.getReference('grid').store.getFilter('firstname').value = data.value
     }
 }
 

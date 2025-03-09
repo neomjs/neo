@@ -20,6 +20,12 @@ class MainStore extends Store {
             {country : 'FR', firstname: 'Sarah',   id: 7, lastname : 'Scott',    progress :  35}
         ],
 
+        filters: [{
+            property: 'firstname',
+            operator: 'like',
+            value   : null
+        }],
+
         sorters: [{
             property : 'id',
             direction: 'ASC'
