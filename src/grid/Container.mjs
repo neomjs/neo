@@ -323,6 +323,29 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the store config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                filter: me.onStoreFilter,
+                load  : me.onStoreLoad,
+                scope : me
+            };
+
+        value   ?.on(listeners);
+        oldValue?.un(listeners);
+
+        // in case we dynamically change the store, the view needs to get the new reference
+        if (me.view) {
+            me.view.store = value
+        }
+    }
+
+    /**
      * Triggered before the columns config gets changed.
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -348,32 +371,13 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered before the store config gets changed.
-     * @param {Neo.data.Store} value
-     * @param {Neo.data.Store} oldValue
+     * @param {Object|Neo.data.Store|null} value
+     * @param {Neo.data.Store}             oldValue
      * @protected
      */
     beforeSetStore(value, oldValue) {
         if (value) {
-            let me        = this,
-                listeners = {
-                    filter: me.onStoreFilter,
-                    load  : me.onStoreLoad,
-                    scope : me
-                };
-
-            if (value instanceof Store) {
-                value.on(listeners);
-                value.getCount() > 0 && me.onStoreLoad()
-            } else {
-                value = ClassSystemUtil.beforeSetInstance(value, Store, {
-                    listeners
-                })
-            }
-
-            // in case we dynamically change the store, the view needs to get the new reference
-            if (me.view) {
-                me.view.store = value
-            }
+            value = ClassSystemUtil.beforeSetInstance(value, Store)
         }
 
         return value
@@ -477,6 +481,8 @@ class GridContainer extends BaseContainer {
      */
     destroy(...args) {
         let me = this;
+
+        me.store = null; // remove the listeners
 
         me.scrollManager.destroy();
 

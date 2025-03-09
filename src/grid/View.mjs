@@ -642,6 +642,15 @@ class GridView extends Component {
     }
 
     /**
+     * @param args
+     */
+    destroy(...args) {
+        this.store = null; // remove the listeners
+
+        super.destroy(...args)
+    }
+
+    /**
      * @param {Object} data
      * @param {String} eventName
      */

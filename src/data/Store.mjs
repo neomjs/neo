@@ -425,7 +425,7 @@ class Store extends Base {
         let me = this;
 
         if (me.data) {
-            me.afterSetData(me.data);
+            me.afterSetData(me.data)
         }
 
         // Being constructed does not mean that related afterSetStore() methods got executed
