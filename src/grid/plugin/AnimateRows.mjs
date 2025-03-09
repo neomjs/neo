@@ -94,8 +94,9 @@ class AnimateRows extends Base {
     onStoreLoad(data) {
         let me      = this,
             {owner} = me,
+            {mountedRows} = owner,
             hasChange = false,
-            mapItem;
+            id, mapItem, rowIndex, transform;
 
         me.map = {};
 
@@ -103,17 +104,20 @@ class AnimateRows extends Base {
             me.map[row.id] = row
         });
 
-        owner.createViewData(true, false).forEach(row => {
-            mapItem = me.map[row.id];
+        for (rowIndex=mountedRows[0]; rowIndex < mountedRows[1]; rowIndex++) {
+            id      = owner.getRowId(owner.store.getAt(rowIndex), rowIndex)
+            mapItem = me.map[id];
 
             if (mapItem) {
-                if (mapItem.style.transform !== row.style.transform) {
-                    mapItem.style.transform = row.style.transform;
-                    NeoArray.toggle(mapItem.cls, 'neo-even', row.cls.includes('neo-even'));
+                transform = `translate(0px, ${rowIndex * owner.rowHeight}px)`;
+
+                if (mapItem.style.transform !== transform) {
+                    mapItem.style.transform = transform;
+                    NeoArray.toggle(mapItem.cls, 'neo-even', rowIndex % 2 !== 0);
                     hasChange = true
                 }
             }
-        });
+        }
 
         if (hasChange) {
             clearTimeout(me.transitionTimeoutId);
