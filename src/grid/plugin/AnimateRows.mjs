@@ -1,5 +1,6 @@
-import Base    from '../../plugin/Base.mjs';
-import CssUtil from '../../util/Css.mjs';
+import Base     from '../../plugin/Base.mjs';
+import CssUtil  from '../../util/Css.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 /**
  * @class Neo.grid.plugin.AnimateRows
@@ -38,6 +39,12 @@ class AnimateRows extends Base {
         transitionEasing_: 'ease-in-out'
     }
 
+    /**
+     * Internally storing the row ids & transform values
+     * @member {Object} map={}
+     * @protected
+     */
+    map = {}
     /**
      * The id of the setTimeout() call which gets triggered after a transition is done.
      * @member {Number|null} transitionTimeoutId=null
@@ -85,9 +92,32 @@ class AnimateRows extends Base {
      * @protected
      */
     onStoreLoad(data) {
-        let me = this;
+        let me      = this,
+            {owner} = me,
+            hasChange = false,
+            mapItem;
 
-        console.log('AnimateRows onStoreLoad')
+        me.map = {};
+
+        owner.getVdomRoot().cn.forEach(row => {
+            me.map[row.id] = row
+        });
+
+        owner.createViewData(true, false).forEach(row => {
+            mapItem = me.map[row.id];
+
+            if (mapItem) {
+                if (mapItem.style.transform !== row.style.transform) {
+                    mapItem.style.transform = row.style.transform;
+                    NeoArray.toggle(mapItem.cls, 'neo-even', row.cls.includes('neo-even'));
+                    hasChange = true
+                }
+            }
+        });
+
+        if (hasChange) {
+            owner.update()
+        }
     }
 
     /**
