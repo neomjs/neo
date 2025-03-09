@@ -176,7 +176,7 @@ class Button extends BaseButton {
         let me    = this,
             {cls} = me;
 
-        if (value === true) {
+        if (value) {
             NeoArray.remove(cls, 'neo-sort-hidden');
 
             me.addDomListeners({
@@ -211,7 +211,6 @@ class Button extends BaseButton {
      */
     destroy(...args) {
         this.filterField?.destroy();
-
         super.destroy(...args)
     }
 
