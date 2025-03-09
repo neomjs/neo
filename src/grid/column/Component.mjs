@@ -84,7 +84,6 @@ class Component extends Column {
             delete componentConfig.module;
             delete componentConfig.ntype;
 
-
             componentConfig[recordProperty] = record;
 
             component.set(componentConfig)

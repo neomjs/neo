@@ -30,7 +30,7 @@ class AnimateRows extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 2000,
+        transitionDuration_: 500,
         /**
          * The easing used for fadeIn, fadeOut and position changes.
          * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
@@ -39,12 +39,6 @@ class AnimateRows extends Base {
         transitionEasing_: 'ease-out'
     }
 
-    /**
-     * Internally storing the row ids & transform values
-     * @member {Object} map={}
-     * @protected
-     */
-    map = {}
     /**
      * The id of the setTimeout() call which gets triggered after a transition is done.
      * @member {Number|null} transitionTimeoutId=null
@@ -126,46 +120,70 @@ class AnimateRows extends Base {
         let me            = this,
             {owner}       = me,
             {mountedRows} = owner,
+            addedRows     = [],
             hasChange     = false,
-            id, mapItem, rowIndex, transform;
+            map           = {},
+            rowsContainer = owner.getVdomRoot().cn,
+            id, mapItem, record, row, rowIndex, transform;
 
-        me.map = {};
-
-        owner.getVdomRoot().cn.forEach(row => {
-            me.map[row.id] = row
+        rowsContainer.forEach(row => {
+            map[row.id] = row
         });
 
         // Creates the new start & end indexes inside mountedRows
         owner.updateMountedAndVisibleRows();
 
         for (rowIndex=mountedRows[0]; rowIndex < mountedRows[1]; rowIndex++) {
-            id      = owner.getRowId(owner.store.getAt(rowIndex), rowIndex)
-            mapItem = me.map[id];
+            record  = owner.store.getAt(rowIndex);
+            id      = owner.getRowId(record, rowIndex)
+            mapItem = map[id];
 
             if (mapItem) {
+                // Inside the map (previous state) & vdom => move OP
                 transform = `translate(0px, ${rowIndex * owner.rowHeight}px)`;
 
                 if (mapItem.style.transform !== transform) {
+                    mapItem.style.opacity   = .9; // slightly less than 1 to see visual overlays while moving
                     mapItem.style.transform = transform;
                     NeoArray.toggle(mapItem.cls, 'neo-even', rowIndex % 2 !== 0);
                     hasChange = true
                 }
 
-                delete me.map[id]
+                delete map[id]
             } else {
-                console.log('new row')
+                // Inside the vdom, but not the map => insert OP
+                row = owner.createRow({record, rowIndex});
+
+                row.style.opacity = 0;
+
+                addedRows    .push(row);
+                rowsContainer.push(row);
+
+                owner.updateDepth = -1; // Added rows might contain components
+                hasChange = true
             }
         }
 
-        Object.values(me.map).forEach(mapItem => {
-            mapItem.style.opacity = 0;
+        // Only rows which need to get removed are still inside the map
+        Object.values(map).forEach(row => {
+            row.style.opacity = 0;
             hasChange = true
-        })
+        });
 
         if (hasChange) {
             clearTimeout(me.transitionTimeoutId);
 
-            owner.update();
+            owner.promiseUpdate().then(() => {
+                if (addedRows.length > 0) {
+                    // Added rows need a 2nd DOM update to change the opacity from 0 to 1.
+                    // If we added them with 1 directly, there would not be a fade-in transition.
+                    addedRows.forEach(row => {
+                        row.style.opacity = 1
+                    });
+
+                    owner.update()
+                }
+            });
 
             me.transitionTimeoutId = setTimeout(() => {
                 me.transitionTimeoutId = null;
