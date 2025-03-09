@@ -35,13 +35,15 @@ class AnimateRows extends Base {
          * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
          * @member {String} transitionEasing_='ease-in-out'
          */
-        transitionEasing_: 'ease-in-out',
-        /**
-         * The id of the setTimeout() call which gets triggered after a transition is done.
-         * @member {Number|null} transitionTimeoutId=null
-         */
-        transitionTimeoutId: null
+        transitionEasing_: 'ease-in-out'
     }
+
+    /**
+     * The id of the setTimeout() call which gets triggered after a transition is done.
+     * @member {Number|null} transitionTimeoutId=null
+     * @protected
+     */
+    transitionTimeoutId = null
 
     /**
      * @param {Object} config
@@ -52,10 +54,35 @@ class AnimateRows extends Base {
         let me      = this,
             {owner} = me;
 
-        // owner.onStoreFilter = me.onStoreFilter.bind(me);
-        // owner.onStoreSort   = me.onStoreSort  .bind(me);
+        owner.onStoreFilter = me.onStoreFilter.bind(me);
+        owner.onStoreSort   = me.onStoreSort  .bind(me);
 
         me.updateTransitionDetails()
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Boolean} data.isFiltered
+     * @param {Object[]} data.items
+     * @param {Object[]} data.oldItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreFilter(data) {
+        let me = this;
+
+        console.log('onStoreSort')
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreSort(data) {
+        let me = this;
+
+        console.log('onStoreSort')
     }
 
     /**
