@@ -412,7 +412,7 @@ class Store extends Base {
         let me = this;
 
         if (me.isConstructed) {
-            me.fire('load', me.items)
+            //me.fire('load', me.items)
         }
     }
 

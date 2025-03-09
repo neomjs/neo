@@ -52,10 +52,17 @@ class AnimateRows extends Base {
         super.construct(config);
 
         let me      = this,
-            {owner} = me;
+            {owner} = me,
+            {store} = owner;
+
+        // Remove the previous view listeners
+        owner.store = null;
 
         owner.onStoreFilter = me.onStoreFilter.bind(me);
-        owner.onStoreSort   = me.onStoreSort  .bind(me);
+        owner.onStoreLoad   = me.onStoreLoad  .bind(me);
+
+        // Add the re-bound listeners
+        owner.store = store;
 
         me.updateTransitionDetails()
     }
@@ -70,19 +77,17 @@ class AnimateRows extends Base {
     onStoreFilter(data) {
         let me = this;
 
-        console.log('onStoreSort')
+        console.log('AnimateRows onStoreFilter')
     }
 
     /**
-     * @param {Object} data
-     * @param {Object[]} data.items
-     * @param {Object[]} data.previousItems
-     * @param {Neo.data.Store} data.scope
+     * @param {Object[]} data
+     * @protected
      */
-    onStoreSort(data) {
+    onStoreLoad(data) {
         let me = this;
 
-        console.log('onStoreSort')
+        console.log('AnimateRows onStoreLoad')
     }
 
     /**

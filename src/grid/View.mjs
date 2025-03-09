@@ -412,12 +412,8 @@ class GridView extends Component {
                 scope       : me
             };
 
-        if (value) {
-            value.on(listeners);
-            value.getCount() > 0 && me.onStoreLoad(value.items)
-        }
-
-        oldValue?.un(listeners)
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
