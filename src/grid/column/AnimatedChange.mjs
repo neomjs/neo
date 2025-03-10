@@ -53,13 +53,16 @@ class AnimatedChange extends Column {
      * @param {Neo.data.Model} data.model The model instance of the changed record
      * @param {Object}         data.record
      */
-    onRecordChange({fields, record}) {
+    async onRecordChange({fields, record}) {
         let me     = this,
             {view} = me.parent,
             cellId, field, node;
 
         for (field of fields) {
             if (field.name === me.dataField) {
+                // Wait for the next animation frame
+                await me.timeout(20);
+
                 cellId = view.getCellId(record, me.dataField);
                 node   = VdomUtil.find(view.vdom, cellId)?.vdom;
 
