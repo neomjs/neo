@@ -66,12 +66,15 @@ class AnimatedChange extends Column {
                 cellId = view.getCellId(record, me.dataField);
                 node   = VdomUtil.find(view.vdom, cellId)?.vdom;
 
-                NeoArray.add(node.cls, me.getAnimationCls(record));
+                if (node) {
+                    NeoArray.add(node.cls, me.getAnimationCls(record));
 
-                // This will trigger a 2nd view update, after grid.View: onStoreRecordChange()
-                // It is crucial to restart the keyframe based animation
-                // => The previous update call will remove the last animationCls
-                view.update();
+                    // This will trigger a 2nd view update, after grid.View: onStoreRecordChange()
+                    // It is crucial to restart the keyframe based animation
+                    // => The previous update call will remove the last animationCls
+                    view.update()
+                }
+
                 break
             }
         }
