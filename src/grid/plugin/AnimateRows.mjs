@@ -102,7 +102,7 @@ class AnimateRows extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        CssUtil.deleteRules(this.appName, `#${this.owner.id} .neo-grid-row`);
+        CssUtil.deleteRules(this.windowId, `#${this.owner.id} .neo-grid-row`);
         super.destroy(...args)
     }
 
@@ -138,10 +138,10 @@ class AnimateRows extends Base {
             {id}     = me.owner;
 
         if (deleteRule) {
-            await CssUtil.deleteRules(me.appName, `#${id} .neo-grid-row`)
+            await CssUtil.deleteRules(me.windowId, `#${id} .neo-grid-row`)
         }
 
-        CssUtil.insertRules(me.appName, [
+        CssUtil.insertRules(me.windowId, [
             `#${id} .neo-grid-row {`,
                 'transition:',
                     `background-color ${duration}ms ${easing},`,

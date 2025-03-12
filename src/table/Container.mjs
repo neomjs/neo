@@ -262,7 +262,7 @@ class Container extends BaseContainer {
         }
 
         if (cssRules.length > 0) {
-            CssUtil.insertRules(me.appName, cssRules)
+            CssUtil.insertRules(me.windowId, cssRules)
         }
 
         me.scrollbarsCssApplied = true
