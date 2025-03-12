@@ -71,7 +71,11 @@ class Plugin extends Base {
      * Override this method to apply changes to the owner Component when it is constructed
      */
     onOwnerConstructed() {
+        let {owner} = this;
 
+        if (owner.windowId) {
+            this.windowId = owner.windowId
+        }
     }
 
     /**

@@ -286,15 +286,14 @@ class Dialog extends Panel {
     afterSetResizable(value, oldValue) {
         if (value && !this.getPlugin('resizable')) {
             import('../plugin/Resizable.mjs').then(module => {
-                let me                  = this,
-                    {appName, windowId} = me,
-                    plugins             = me.plugins || [];
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
 
                 plugins.push({
                     module       : module.default,
                     appName,
                     delegationCls: 'neo-dialog',
-                    windowId,
                     ...me.resizablePluginConfig
                 });
 
