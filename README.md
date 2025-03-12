@@ -11,7 +11,7 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Modern Enterprise-Ready JavaScript Framework
+# Modern Enterprise JavaScript Framework
 Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging a vast
 component library and harness the power of multi-threading for extreme real-time performance.
 
