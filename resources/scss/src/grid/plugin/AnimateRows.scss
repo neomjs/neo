@@ -1,0 +1,10 @@
+.neo-grid-view {
+    &.neo-animate-rows {
+        .neo-grid-row {
+            transition:
+                background-color var(--neo-duration) var(--neo-easing),
+                opacity          var(--neo-duration) var(--neo-easing),
+                transform        var(--neo-duration) var(--neo-easing);
+        }
+    }
+}
