@@ -6,7 +6,7 @@ import WebpackHookPlugin from 'webpack-hook-plugin';
 const cwd            = process.cwd(),
       requireJson    = path => JSON.parse(fs.readFileSync((path))),
       packageJson    = requireJson(path.resolve(cwd, 'package.json')),
-      insideNeo      = packageJson.name === 'neo.mjs',
+      insideNeo      = packageJson.name.includes('neo.mjs'),
       neoPath        = insideNeo ? './' : './node_modules/neo.mjs/',
       buildTarget    = requireJson(path.resolve(neoPath, 'buildScripts/webpack/development/buildTarget.json')),
       filenameConfig = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),

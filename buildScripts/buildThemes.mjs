@@ -14,7 +14,7 @@ const
     cwd          = process.cwd(),
     requireJson  = path => JSON.parse(fs.readFileSync((path))),
     packageJson  = requireJson(path.resolve(cwd, 'package.json')),
-    insideNeo    = packageJson.name === 'neo.mjs',
+    insideNeo    = packageJson.name.includes('neo.mjs'),
     neoPath      = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
     programName  = `${packageJson.name} buildThemes`,
     program      = new Command(),

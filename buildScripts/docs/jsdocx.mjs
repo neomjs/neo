@@ -8,7 +8,7 @@ const __dirname   = path.resolve(),
       cwd         = process.cwd(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.resolve(cwd, 'package.json')),
-      insideNeo   = packageJson.name === 'neo.mjs',
+      insideNeo   = packageJson.name.includes('neo.mjs'),
       neoPath     = insideNeo ? '' : 'node_modules/neo.mjs/',
       appNames    = [],
       options = {

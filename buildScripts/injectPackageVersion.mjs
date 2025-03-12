@@ -11,7 +11,7 @@ const
     cwd         = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
-    insideNeo   = packageJson.name === 'neo.mjs',
+    insideNeo   = packageJson.name.includes('neo.mjs'),
     neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
     programName = `${packageJson.name} inject-package-version`;
 

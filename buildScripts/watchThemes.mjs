@@ -8,7 +8,7 @@ import * as sass    from 'sass';
 let cwd         = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.resolve(cwd, 'package.json')),
-    neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+    neoPath     = packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/',
     mixinPath   = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
     scssPath    = path.resolve(cwd, 'resources/scss');
 
