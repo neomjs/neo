@@ -524,7 +524,7 @@ class Container extends BaseContainer {
             i             = 0,
             len           = tabBar.items.length,
             index         = -1,
-            card, listenerId;
+            card;
 
         for (; i < len; i++) {
             if (tabBar.items[i].id === buttonId) {
@@ -537,10 +537,9 @@ class Container extends BaseContainer {
             card = cardContainer.items[index];
 
             if (me.vnode && !card.mounted) {
-                listenerId = card.on('mounted', () => {
-                    card.un('mounted', listenerId);
+                card.on('mounted', () => {
                     me.activeIndex = index
-                })
+                }, me, {once: true})
             } else {
                 me.activeIndex = index
             }

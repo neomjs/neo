@@ -38,16 +38,14 @@ class Plugin extends Base {
         super.construct(config);
 
         let me      = this,
-            {owner} = me,
-            listenerId;
+            {owner} = me;
 
         if (owner.isConstructed) {
             me.onOwnerConstructed()
         } else {
-            listenerId = owner.on('constructed', () => {
-                owner.un('constructed', listenerId);
+            owner.on('constructed', () => {
                 me.onOwnerConstructed()
-            })
+            }, me, {once: true})
         }
 
         if (owner.mounted) {
