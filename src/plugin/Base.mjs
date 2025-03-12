@@ -37,12 +37,23 @@ class Plugin extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me      = this,
+            {owner} = me,
+            listenerId;
 
-        if (me.owner.mounted) {
+        if (owner.isConstructed) {
+            me.onOwnerConstructed()
+        } else {
+            listenerId = owner.on('constructed', () => {
+                owner.un('constructed', listenerId);
+                me.onOwnerConstructed()
+            })
+        }
+
+        if (owner.mounted) {
             me.onOwnerMounted();
         } else {
-            me.owner.on('mounted', me.onOwnerMounted, me);
+            owner.on('mounted', me.onOwnerMounted, me);
         }
     }
 
@@ -54,6 +65,13 @@ class Plugin extends Base {
      */
     afterSetWindowId(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+    }
+
+    /**
+     * Override this method to apply changes to the owner Component when it is constructed
+     */
+    onOwnerConstructed() {
+
     }
 
     /**
