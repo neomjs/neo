@@ -14,39 +14,39 @@
 # Build Ultra-Fast, Scalable, and Extensible Web Apps with Neo.mjs :zap:
 :rocket: **Break Free from the Main Thread – Experience True Multi-Threading**
 
-Neo.mjs enables the creation of highly dynamic web applications by running everything inside an App Worker.
+Neo.mjs enables the creation of highly dynamic web applications by running everything **inside an App Worker**.
 From components and state providers to view controllers, everything operates within the worker,
-allowing the main thread to focus only on DOM updates and delegating UI events.
-This ensures high performance, smooth reactivity, and extensibility for both multi-window and SPA applications.
+allowing the main thread to focus only on **DOM updates** and **delegating UI events**.
+This ensures **high performance, smooth reactivity**, and **extensibility** for both **multi-window** and **SPA applications**.
 
 ## Key Features
-:rocket: App Worker-Based Architecture: Run all logic, state, components, and UI handling inside the App Worker,
+:rocket: **App Worker-Based Architecture**: Run all logic, state, components, and UI handling inside the App Worker,
 keeping the main thread free for non-blocking DOM updates and UI interactions.
 
-:arrows_counterclockwise: Reactive State Management: Built-in reactivity allows dynamic, efficient updates between components and state providers.
+:arrows_counterclockwise: **Reactive State Management**: Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:performing_arts: Actor Model: The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
+:performing_arts: **Actor Model**: The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
 
-:zap: Instant Development Mode: No need for builds—run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
+:zap: **Instant Development Mode**: No need for builds—run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
 
-:bar_chart: Hierarchical State Management: Seamlessly manage state between parent and child components with nested state providers.
+:bar_chart: **Hierarchical State Management**: Seamlessly manage state between parent and child components with nested state providers.
 
-:jigsaw: Clean Architecture: View controllers ensure a separation of concerns, isolating business logic from UI components for easier maintenance and testing.
+:jigsaw: **Clean Architecture**: View controllers ensure a **separation of concerns**, isolating business logic from UI components for easier maintenance and testing.
 
-:globe_with_meridians: Multi-Window & SPAs: Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
+:globe_with_meridians: **Multi-Window & SPAs**: Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
 
-:cyclone: Dynamic Component Management: Unmount, move, and remount components across the UI or even in separate browser windows
-— without losing the component’s state or logic. This runtime flexibility is a game-changer, preserving JS instances while still updating the UI dynamically.
+:cyclone: **Dynamic Component Management**: Unmount, move, and remount components across the UI or even in separate browser windows
+— without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
 
 :white_check_mark: **Instant Development Mode – Zero builds or transpilations** required.
 Run apps directly in the browser, modify reactive properties on the fly, and debug live via the browser console.
 You can even build **entire apps inside the console** if you wish. This gives you an **unmatched debugging experience**.
 
 ## :bulb: Perfect for Complex Use Cases
-Need a web-based IDE, banking dashboard, or an enterprise-grade multi-window app? Neo.mjs is built for it.
+Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
 
 ## Why Neo.mjs?
-Neo.mjs is designed for extensible, scalable, and reactive applications. By utilizing the App Worker and maintaining separation between logic and UI,
+Neo.mjs is designed for **extensible, scalable**, and **reactive** applications. By utilizing the App Worker and maintaining separation between logic and UI,
 it ensures high performance while remaining highly dynamic and developer-friendly.
 
 ## :hammer_and_wrench: Get Started in Minutes
