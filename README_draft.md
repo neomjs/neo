@@ -19,6 +19,11 @@ From components and state providers to view controllers, everything operates wit
 allowing the main thread to focus only on **DOM updates** and **delegating UI events**.
 This ensures **high performance, smooth reactivity**, and **extensibility** for both **multi-window** and **SPA applications**.
 
+<p align="center">
+  <a href="https://youtu.be/pYfM28Pz6_0"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo33s.png"></a>
+  <a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo-movie.png"></a>
+</p>
+
 ## Key Features
 :rocket: **App Worker-Based Architecture**: Run all logic, state, components, and UI handling inside the App Worker,
 keeping the main thread free for non-blocking DOM updates and UI interactions.
@@ -41,6 +46,8 @@ keeping the main thread free for non-blocking DOM updates and UI interactions.
 :white_check_mark: **Instant Development Mode – Zero builds or transpilations** required.
 Run apps directly in the browser, modify reactive properties on the fly, and debug live via the browser console.
 You can even build **entire apps inside the console** if you wish. This gives you an **unmatched debugging experience**.
+
+<img src="./resources/images/workers-focus.svg">
 
 ## :bulb: Perfect for Complex Use Cases
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
