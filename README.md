@@ -115,16 +115,19 @@ import Component from '../../src/component/Base.mjs';
 
 class MyComponent extends Component {
     static config = {
-        className   : 'MyComponent',
-        someProperty: 'defaultValue',
-
-        listeners: {
+        className    : 'MyComponent',
+        someProperty_: 'defaultValue',
+        domListeners : {
             click: 'onClick'
         }
     }
 
+    afterSetSomeProperty(value, oldValue) {
+       console.log('someProperty changed:', value, oldValue)
+    }
+    
     onClick(data) {
-        console.log('Clicked!', data);
+        console.log('Clicked!', data)
     }
 }
 
