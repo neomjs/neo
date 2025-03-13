@@ -70,7 +70,16 @@ it ensures high performance while remaining highly dynamic and developer-friendl
 
 :speech_balloon: Have questions? Join our <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack channel</a> and connect with other developers.
 
-:hammer_and_wrench: Want to contribute? Check out our <a href="https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md">Contributing Guide.
+:hammer_and_wrench: Want to contribute? Check out our <a href="https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md">Contributing Guide</a>.
+
+## Online Demos & Ressources
+
+:star: Some exciting Examples are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/examples">Neo.mjs Examples</a>
+
+Many more are included inside the repos <a href="https://github.com/neomjs/neo/tree/dev/apps">apps</a>
+& <a href="https://github.com/neomjs/neo/tree/dev/examples">examples</a> folders.
+
+:blue_book: All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/blog">Neo.mjs Blog</a>
 
 </br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
