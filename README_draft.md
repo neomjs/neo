@@ -25,35 +25,69 @@ This ensures **high performance, smooth reactivity**, and **extensibility** for 
 </p>
 
 </br></br>
-## Key Features
-:performing_arts: **Actor Model**:</br>
+## 🔍 Why Neo.mjs?
+Neo is a worker thread-driven frontend framework designed to create multithreaded GUIs using JavaScript.
+By leveraging the **Off Main Thread (OMT) paradigm**, Neo ensures that your application’s UI remains responsive,
+even during computationally intensive tasks.
+
+Unlike traditional single-threaded frameworks, Neo distributes workloads across multiple threads, unlocking new levels of performance and scalability.
+Whether you’re building a small app or a large-scale enterprise solution, Neo’s architecture grows with your needs.
+
+Key Benefits of Neo.mjs
+1. **Multithreading for Performance**:
+    - Neo’s OMT paradigm moves tasks like data processing, state management, and rendering to worker threads, keeping the main thread free for rendering and user interactions.
+    - This approach eliminates UI freezes and ensures a smooth user experience, even for complex applications.
+2. **Declarative Class Configuration**:
+    - Neo’s class config system allows you to define and manage classes in a clean, reusable way. This reduces boilerplate code and makes your codebase more maintainable.
+    - With declarative configurations, you can focus on building features instead of wrestling with setup and initialization.
+3. **Modular and Scalable Architecture**:
+    - Neo’s modular design makes it easy to build scalable applications. Components are self-contained and reusable, promoting a clean separation of concerns.
+    - Whether you’re building a small app or a large-scale enterprise solution, Neo’s architecture grows with your needs.
+4. **Ease of Use**:
+    - Neo’s intuitive API and comprehensive documentation make it easy to get started, even for developers new to multithreaded programming.
+    - The framework’s design prioritizes developer productivity, allowing you to focus on solving real-world problems.
+5. **Future-Proof Technology**:
+    - Neo is built on modern web standards like JavaScript modules and worker threads, ensuring compatibility with the latest browser features.
+    - By embracing the OMT paradigm, Neo is uniquely positioned to take advantage of future advancements in web development.
+
+**Why Choose Neo Over Traditional Frameworks?**
+Traditional single-threaded frameworks often struggle with performance bottlenecks, especially when handling complex UIs or large datasets.
+Neo’s **multithreaded architecture** addresses these challenges head-on, delivering a responsive and scalable solution for modern web applications.
+
+With Neo, you get:
+- ✅ **Responsive UIs**: No more UI freezes or janky animations.
+- 🚀 **Scalability**: Build applications that can handle increasing complexity without compromising performance.
+- 💻 **Developer Productivity**: Spend less time optimizing and more time building features.
+</br></br>
+## 🌟 Key Features
+🎭 **Actor Model**:</br>
 The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
 This drives the OMT (off the main thread) paradigm into perfection,
 since it is keeping the main thread free for non-blocking DOM updates and UI interactions.
 
 <img src="./resources/images/workers-focus.svg">
 
-:arrows_counterclockwise: **Reactive State Management**:</br>
+🔄 **Reactive State Management**:</br>
 Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:zap: **Instant JavaScript module based Development Mode**:</br>
+⚡ **Instant JavaScript module based Development Mode**:</br>
 **Zero builds or transpilations** required. Run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
 This gives you an **unmatched debugging experience**, saving time and reducing development costs. 
 You can even build **entire apps inside the console** if you wish.
 
-:bar_chart: **Hierarchical State Management**:</br>
+📊 **Hierarchical State Management**:</br>
 Seamlessly manage state between parent and child components with nested state providers.
 Each component binds to the state data from its **closest** provider,
 even combining data from multiple providers inside one binding.
 
-:jigsaw: **Clean Architecture**:</br>
+🧩 **Clean Architecture**:</br>
 View controllers ensure a **separation of concerns**, isolating business logic from UI components for easier maintenance and testing.
 
-:globe_with_meridians: **Multi-Window & SPAs**:</br>
+🌐 **Multi-Window & SPAs**:</br>
 Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
 No native shell required.
 
-:cyclone: **Dynamic Component Management**:</br>
+🌀 **Dynamic Component Management**:</br>
 Unmount, move, and remount components across the UI or even in separate browser windows
 — without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
 
@@ -62,41 +96,11 @@ Neo.mjs apps do not need any dependencies at all, just some dev dependencies for
 </br></br>
 ## :bulb: Perfect for Complex Use Cases
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
+
 </br></br>
-## 🔍 Why Neo.mjs?
-Neo is a worker thread-driven frontend framework designed to create multithreaded GUIs using JavaScript.
-By leveraging the Off Main Thread (OMT) paradigm, Neo ensures that your application’s UI remains responsive,
-even during computationally intensive tasks. Unlike traditional single-threaded frameworks,
-Neo distributes workloads across multiple threads, unlocking new levels of performance and scalability.
-
-Key Benefits of Neo.mjs
-1. **Multithreading for Performance**:
-   - Neo’s OMT paradigm moves tasks like data processing, state management, and rendering to worker threads, keeping the main thread free for rendering and user interactions.
-   - This approach eliminates UI freezes and ensures a smooth user experience, even for complex applications.
-2. **Declarative Class Configuration**:
-   - Neo’s class config system allows you to define and manage classes in a clean, reusable way. This reduces boilerplate code and makes your codebase more maintainable.
-   - With declarative configurations, you can focus on building features instead of wrestling with setup and initialization.
-3. **Modular and Scalable Architecture**:
-   - Neo’s modular design makes it easy to build scalable applications. Components are self-contained and reusable, promoting a clean separation of concerns.
-   - Whether you’re building a small app or a large-scale enterprise solution, Neo’s architecture grows with your needs.
-4. **Ease of Use**:
-   - Neo’s intuitive API and comprehensive documentation make it easy to get started, even for developers new to multithreaded programming.
-   - The framework’s design prioritizes developer productivity, allowing you to focus on solving real-world problems.
-5. **Future-Proof Technology**:
-   - Neo is built on modern web standards like JavaScript modules and worker threads, ensuring compatibility with the latest browser features.
-   - By embracing the OMT paradigm, Neo is uniquely positioned to take advantage of future advancements in web development.
-
-**Why Choose Neo Over Traditional Frameworks?**
-Traditional single-threaded frameworks often struggle with performance bottlenecks, especially when handling complex UIs or large datasets.
-Neo’s **multithreaded architecture** addresses these challenges head-on, delivering a responsive and scalable solution for modern web applications.
-
-With Neo, you get:
-- **Responsive UIs**: No more UI freezes or janky animations.
-- **Scalability**: Build applications that can handle increasing complexity without compromising performance.
-- **Developer Productivity**: Spend less time optimizing and more time building features.
-</br></br>
-## Declarative Class Configuration
-Neo’s class config system allows you to define and manage classes in a declarative and reusable way. This simplifies class creation, reduces boilerplate code, and improves maintainability.
+## 📦 Declarative Class Configuration
+Neo’s class config system allows you to define and manage classes in a declarative and reusable way.
+This simplifies class creation, reduces boilerplate code, and improves maintainability.
 
 ```javascript
 import Component from '../../src/component/Base.mjs';
