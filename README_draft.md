@@ -24,6 +24,7 @@ This ensures **high performance, smooth reactivity**, and **extensibility** for 
   <a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo-movie.png"></a>
 </p>
 
+</br></br>
 ## Key Features
 :performing_arts: **Actor Model**:</br>
 The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
