@@ -11,7 +11,7 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Build Ultra-Fast, Scalable, and Extensible Web Apps with Neo.mjs :zap:
+# Build Ultra-Fast, Scalable, and Extensible Web Apps :zap:
 :rocket: **Break Free from the Main Thread – Experience True Multi-Threading**
 
 Neo.mjs enables the creation of highly dynamic web applications by running everything **inside an App Worker**.
@@ -25,27 +25,32 @@ This ensures **high performance, smooth reactivity**, and **extensibility** for 
 </p>
 
 ## Key Features
-:rocket: **App Worker-Based Architecture**: Run all logic, state, components, and UI handling inside the App Worker,
-keeping the main thread free for non-blocking DOM updates and UI interactions.
+:performing_arts: **Actor Model**:
+The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
+This drives the OMT (off the main thread) paradigm into perfection,
+since it is keeping the main thread free for non-blocking DOM updates and UI interactions.
 
-:arrows_counterclockwise: **Reactive State Management**: Built-in reactivity allows dynamic, efficient updates between components and state providers.
+:arrows_counterclockwise: **Reactive State Management**:
+Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:performing_arts: **Actor Model**: The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
+:zap: **Instant Development Mode**:
+— **Zero builds or transpilations** required. Run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
+This gives you an **unmatched debugging experience**.
+You can even build **entire apps inside the console** if you wish.
 
-:zap: **Instant Development Mode**: No need for builds—run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
+:bar_chart: **Hierarchical State Management**:
+Seamlessly manage state between parent and child components with nested state providers.
+Each component binds to the state data from its **closest** provider.
 
-:bar_chart: **Hierarchical State Management**: Seamlessly manage state between parent and child components with nested state providers.
-
-:jigsaw: **Clean Architecture**: View controllers ensure a **separation of concerns**, isolating business logic from UI components for easier maintenance and testing.
+:jigsaw: **Clean Architecture**:
+View controllers ensure a **separation of concerns**, isolating business logic from UI components for easier maintenance and testing.
 
 :globe_with_meridians: **Multi-Window & SPAs**: Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
+No native shell required.
 
 :cyclone: **Dynamic Component Management**: Unmount, move, and remount components across the UI or even in separate browser windows
 — without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
 
-:white_check_mark: **Instant Development Mode – Zero builds or transpilations** required.
-Run apps directly in the browser, modify reactive properties on the fly, and debug live via the browser console.
-You can even build **entire apps inside the console** if you wish. This gives you an **unmatched debugging experience**.
 
 <img src="./resources/images/workers-focus.svg">
 
@@ -72,7 +77,7 @@ it ensures high performance while remaining highly dynamic and developer-friendl
 
 :hammer_and_wrench: Want to contribute? Check out our <a href="https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md">Contributing Guide</a>.
 
-## Online Demos & Ressources
+## Online Demos & Resources
 
 :star: Some exciting Examples are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/examples">Neo.mjs Examples</a>
 
