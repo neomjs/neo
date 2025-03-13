@@ -77,6 +77,38 @@ Moreover, Neo's modular design and comprehensive documentation make it accessibl
 Whether you're building a small application or a large-scale enterprise solution, Neo provides the tools and flexibility
 needed to create high-performance, scalable, and maintainable web applications.
 </br></br>
+## Declarative Class Configuration
+Neo’s class config system allows you to define and manage classes in a declarative and reusable way. This simplifies class creation, reduces boilerplate code, and improves maintainability.
+
+```javascript
+import Component from '../../src/component/Base.mjs';
+
+class MyComponent extends Neo.Core.Base {
+    static config = {
+        className   : 'MyComponent',
+        someProperty: 'defaultValue',
+
+        listeners: {
+            click: 'onClick'
+        }
+    };
+
+    onClick(data) {
+        console.log('Clicked!', data);
+    }
+}
+
+export default Neo.setupClass(MyComponent);
+```
+With Neo.mjs’s class config system, you can:
+
+* Define default properties and methods in a clean, structured way.
+* Easily extend and reuse configurations across classes.
+* Keep your codebase organized and scalable.
+
+For more details, check out the <a href="https://neomjs.com/dist/production/apps/portal/index.html#/learn/gettingstarted.Config">Class Config System documentation</a>.
+
+</br></br>
 ## :hammer_and_wrench: Get Started in Minutes
 :one: Run `npx neo-app@latest` inside your terminal, and your new app will open inside a new browser window.
 
