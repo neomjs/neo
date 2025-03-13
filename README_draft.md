@@ -42,11 +42,13 @@ thanks to its **stateful, multi-threaded architecture**.
 
 :three: Open in Your Browser
 Go to http://localhost:8080/ and start building!
+
 :book: More details? Check out our Getting Started Guide.
 
 ## :handshake: Join the Community
 
 :speech_balloon: Have questions? Join our Slack channel and connect with other developers.
+
 :hammer_and_wrench: Want to contribute? Check out our Contributing Guide.
 
 </br></br>
