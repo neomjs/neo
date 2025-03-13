@@ -57,18 +57,20 @@ Neo.mjs is designed for **extensible, scalable**, and **reactive** applications.
 it ensures high performance while remaining highly dynamic and developer-friendly.
 
 ## :hammer_and_wrench: Get Started in Minutes
-:one: Clone the Repo
+:one: Run `npx neo-app@latest` inside your terminal, and your new app will open inside a new browser window.
 
-:three: Open in Your Browser
-Go to http://localhost:8080/ and start building!
+:book: More details? Check out our <a href="./.github/GETTING_STARTED.md">Getting Started</a> Guide
 
-:book: More details? Check out our Getting Started Guide.
+:student: Make sure to dive into the <a href="https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup">Learning Section</a>
+
+:brain: The most advanced tutorial to help you with getting up to speed is this one:
+<a href="https://neomjs.com/dist/production/apps/portal/#/learn/tutorials.Earthquakes">Earthquakes Tutorial</a>
 
 ## :handshake: Join the Community
 
-:speech_balloon: Have questions? Join our Slack channel and connect with other developers.
+:speech_balloon: Have questions? Join our <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack channel</a> and connect with other developers.
 
-:hammer_and_wrench: Want to contribute? Check out our Contributing Guide.
+:hammer_and_wrench: Want to contribute? Check out our <a href="https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md">Contributing Guide.
 
 </br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
