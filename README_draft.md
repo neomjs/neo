@@ -63,7 +63,7 @@ Neo.mjs apps do not need any dependencies at all, just some dev dependencies for
 ## :bulb: Perfect for Complex Use Cases
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
 </br></br>
-## Why Neo.mjs?
+## 🔍 Why Neo.mjs?
 Neo is a worker thread-driven frontend framework designed to create multithreaded GUIs using JavaScript.
 By leveraging the Off Main Thread (OMT) paradigm, Neo ensures that your application’s UI remains responsive,
 even during computationally intensive tasks. Unlike traditional single-threaded frameworks,
