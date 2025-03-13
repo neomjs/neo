@@ -58,6 +58,7 @@ Neo is ideal for:
 - **Enterprise solutions**: Scale your application to meet the demands of large organizations.
 
 **Why Choose Neo Over Traditional Frameworks?**
+
 Traditional single-threaded frameworks often struggle with performance bottlenecks, especially when handling complex UIs or large datasets.
 Neo’s **multithreaded architecture** addresses these challenges head-on, delivering a responsive and scalable solution for modern web applications.
 
