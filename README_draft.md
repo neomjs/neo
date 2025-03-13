@@ -11,35 +11,43 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Neo.mjs – Multi-Threaded Web Apps, Made Easy
+# Build Ultra-Fast, Scalable, and Extensible Web Apps with Neo.mjs :zap:
 :rocket: **Break Free from the Main Thread – Experience True Multi-Threading**
 
-Neo.mjs is a **high-performance frontend framework** built for **off-the-main-thread execution**,
-enabling **fluid, scalable, multi-window applications**.
-Unlike traditional frameworks, Neo.mjs embraces **the Actor Model, hierarchical state management,
-and event-driven architectures** — all while keeping UI updates ultra-fast.
+Neo.mjs enables the creation of highly dynamic web applications by running everything inside an App Worker.
+From components and state providers to view controllers, everything operates within the worker,
+allowing the main thread to focus only on DOM updates and delegating UI events.
+This ensures high performance, smooth reactivity, and extensibility for both multi-window and SPA applications.
 
-## :zap: Why Neo.mjs?
-:white_check_mark: **True Multi-Threading** – The **Application Worker** offloads logic from the main thread, ensuring smooth UI performance.
+## Key Features
+:rocket: App Worker-Based Architecture: Run all logic, state, components, and UI handling inside the App Worker,
+keeping the main thread free for non-blocking DOM updates and UI interactions.
 
-:white_check_mark: **Actor Model-Based State Management** – Components bind to **multiple hierarchical StateProviders**, enabling clean, scalable state handling.
+:arrows_counterclockwise: Reactive State Management: Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:white_check_mark: **Multi-Window & Cross-Thread Synchronization** – Manage state seamlessly across browser windows without complex APIs.
+:performing_arts: Actor Model: The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
 
-:white_check_mark: **Component Trees & View Controllers** – Business logic stays separate from UI components for a **clean architecture**.
+:zap: Instant Development Mode: No need for builds—run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
 
-:white_check_mark: **Class Config System** – Manage instance-level state efficiently without forcing everything into a component.
+:bar_chart: Hierarchical State Management: Seamlessly manage state between parent and child components with nested state providers.
+
+:jigsaw: Clean Architecture: View controllers ensure a separation of concerns, isolating business logic from UI components for easier maintenance and testing.
+
+:globe_with_meridians: Multi-Window & SPAs: Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
+
+:cyclone: Dynamic Component Management: Unmount, move, and remount components across the UI or even in separate browser windows
+— without losing the component’s state or logic. This runtime flexibility is a game-changer, preserving JS instances while still updating the UI dynamically.
 
 :white_check_mark: **Instant Development Mode – Zero builds or transpilations** required.
 Run apps directly in the browser, modify reactive properties on the fly, and debug live via the browser console.
 You can even build **entire apps inside the console** if you wish. This gives you an **unmatched debugging experience**.
 
-## :building_construction: Build SPAs or Multi-Window Apps
+## :bulb: Perfect for Complex Use Cases
+Need a web-based IDE, banking dashboard, or an enterprise-grade multi-window app? Neo.mjs is built for it.
 
-Neo.mjs is perfect for both **single-page applications (SPAs)** and **multi-window applications**,
-thanks to its **stateful, multi-threaded architecture**.
-
-:bulb: *Need a web-based IDE, banking dashboard, or an enterprise-grade multi-window app? Neo.mjs is built for it.*
+## Why Neo.mjs?
+Neo.mjs is designed for extensible, scalable, and reactive applications. By utilizing the App Worker and maintaining separation between logic and UI,
+it ensures high performance while remaining highly dynamic and developer-friendly.
 
 ## :hammer_and_wrench: Get Started in Minutes
 :one: Clone the Repo
