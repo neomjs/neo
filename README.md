@@ -53,9 +53,9 @@ Key Benefits of Neo.mjs
 **Real-World Applications**
 
 Neo is ideal for:
-- Data-intensive applications: Handle large datasets and complex calculations without compromising UI responsiveness.
-- Real-time dashboards: Build dynamic, real-time dashboards that update seamlessly.
-- Enterprise solutions: Scale your application to meet the demands of large organizations.
+- **Data-intensive applications**: Handle large datasets and complex calculations without compromising UI responsiveness.
+- **Real-time dashboards**: Build dynamic, real-time dashboards that update seamlessly.
+- **Enterprise solutions**: Scale your application to meet the demands of large organizations.
 
 **Why Choose Neo Over Traditional Frameworks?**
 Traditional single-threaded frameworks often struggle with performance bottlenecks, especially when handling complex UIs or large datasets.
