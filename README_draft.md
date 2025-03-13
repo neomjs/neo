@@ -30,6 +30,10 @@ and event-driven architectures** — all while keeping UI updates ultra-fast.
 
 :white_check_mark: **Class Config System** – Manage instance-level state efficiently without forcing everything into a component.
 
+:white_check_mark: **Instant Development Mode – Zero builds or transpilations** required.
+Run apps directly in the browser, modify reactive properties on the fly, and debug live via the browser console.
+You can even build **entire apps inside the console** if you wish. This gives you an **unmatched debugging experience**.
+
 ## :building_construction: Build SPAs or Multi-Window Apps
 
 Neo.mjs is perfect for both **single-page applications (SPAs)** and **multi-window applications**,
