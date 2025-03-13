@@ -35,14 +35,15 @@ since it is keeping the main thread free for non-blocking DOM updates and UI int
 :arrows_counterclockwise: **Reactive State Management**:</br>
 Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:zap: **Instant JavaScript module based Development Mode:</br>
+:zap: **Instant JavaScript module based Development Mode**:</br>
 **Zero builds or transpilations** required. Run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
 This gives you an **unmatched debugging experience**, saving time and reducing development costs. 
 You can even build **entire apps inside the console** if you wish.
 
 :bar_chart: **Hierarchical State Management**:</br>
 Seamlessly manage state between parent and child components with nested state providers.
-Each component binds to the state data from its **closest** provider.
+Each component binds to the state data from its **closest** provider,
+even combining data from multiple providers inside one binding.
 
 :jigsaw: **Clean Architecture**:</br>
 View controllers ensure a **separation of concerns**, isolating business logic from UI components for easier maintenance and testing.
@@ -54,6 +55,9 @@ No native shell required.
 :cyclone: **Dynamic Component Management**:</br>
 Unmount, move, and remount components across the UI or even in separate browser windows
 — without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
+
+:dependabot: **No npm dependency hell**
+Neo.mjs apps do not need any dependencies at all, just some dev dependencies for tooling.
 
 ## :bulb: Perfect for Complex Use Cases
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
