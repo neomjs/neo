@@ -56,16 +56,19 @@ No native shell required.
 Unmount, move, and remount components across the UI or even in separate browser windows
 — without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
 
-:dependabot: **No npm dependency hell**
+:dependabot: **No npm dependency hell**:</br>
 Neo.mjs apps do not need any dependencies at all, just some dev dependencies for tooling.
 
+</br></br>
 ## :bulb: Perfect for Complex Use Cases
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
 
+</br></br>
 ## Why Neo.mjs?
 Neo.mjs is designed for **extensible, scalable**, and **reactive** applications. By utilizing the App Worker and maintaining separation between logic and UI,
 it ensures high performance while remaining highly dynamic and developer-friendly.
 
+</br></br>
 ## :hammer_and_wrench: Get Started in Minutes
 :one: Run `npx neo-app@latest` inside your terminal, and your new app will open inside a new browser window.
 
@@ -76,12 +79,14 @@ it ensures high performance while remaining highly dynamic and developer-friendl
 :brain: The most advanced tutorial to help you with getting up to speed is this one:
 <a href="https://neomjs.com/dist/production/apps/portal/#/learn/tutorials.Earthquakes">Earthquakes Tutorial</a>
 
+</br></br>
 ## :handshake: Join the Community
 
 :speech_balloon: Have questions? Join our <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack channel</a> and connect with other developers.
 
 :hammer_and_wrench: Want to contribute? Check out our <a href="https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md">Contributing Guide</a>.
 
+</br></br>
 ## Online Demos & Resources
 
 :star: Some exciting Examples are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/examples">Neo.mjs Examples</a>
