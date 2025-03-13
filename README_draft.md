@@ -83,7 +83,7 @@ Neo’s class config system allows you to define and manage classes in a declara
 ```javascript
 import Component from '../../src/component/Base.mjs';
 
-class MyComponent extends Neo.Core.Base {
+class MyComponent extends Component {
     static config = {
         className   : 'MyComponent',
         someProperty: 'defaultValue',
@@ -91,7 +91,7 @@ class MyComponent extends Neo.Core.Base {
         listeners: {
             click: 'onClick'
         }
-    };
+    }
 
     onClick(data) {
         console.log('Clicked!', data);
