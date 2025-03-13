@@ -138,8 +138,19 @@ With Neo.mjs’s class config system, you can:
 For more details, check out the <a href="https://neomjs.com/dist/production/apps/portal/index.html#/learn/gettingstarted.Config">Class Config System documentation</a>.
 
 </br></br>
-## :hammer_and_wrench: Get Started in Minutes
-:one: Run `npx neo-app@latest` inside your terminal, and your new app will open inside a new browser window.
+## 🚀 Get Started
+Quick Start
+
+Run the following command in your terminal, and your new Neo app will be created, the local web server will start, and your app will open in a new browser window:
+
+```bash
+npx neo-app@latest
+```
+This one-liner sets up everything you need to start building with Neo, including:
+- A new app workspace.
+- A pre-configured app shell.
+- A local development server.
+- Opening your app inside a new browser window
 
 :book: More details? Check out our <a href="./.github/GETTING_STARTED.md">Getting Started</a> Guide
 
@@ -147,21 +158,19 @@ For more details, check out the <a href="https://neomjs.com/dist/production/apps
 
 :brain: The most advanced tutorial to help you with getting up to speed is this one:
 <a href="https://neomjs.com/dist/production/apps/portal/#/learn/tutorials.Earthquakes">Earthquakes Tutorial</a>
+
+Next steps:
+* :star: **Explore exciting Examples here**: <a href="https://neomjs.com/dist/production/apps/portal/#/examples">Neo.mjs Examples</a>
+* Many more are included inside the repos <a href="https://github.com/neomjs/neo/tree/dev/apps">apps</a>
+& <a href="https://github.com/neomjs/neo/tree/dev/examples">examples</a> folders.
+* :blue_book: All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/blog">Neo.mjs Blog</a>
 </br></br>
 ## :handshake: Join the Community
 
 :speech_balloon: Have questions? Join our <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack channel</a> and connect with other developers.
 
 :hammer_and_wrench: Want to contribute? Check out our <a href="https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md">Contributing Guide</a>.
-</br></br>
-## 🚀 Ready to Get Started?
 
-:star: Some exciting Examples are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/examples">Neo.mjs Examples</a>
-
-Many more are included inside the repos <a href="https://github.com/neomjs/neo/tree/dev/apps">apps</a>
-& <a href="https://github.com/neomjs/neo/tree/dev/examples">examples</a> folders.
-
-:blue_book: All Blog Posts are listed here: <a href="https://neomjs.com/dist/production/apps/portal/#/blog">Neo.mjs Blog</a>
 
 </br></br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
