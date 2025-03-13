@@ -25,30 +25,32 @@ This ensures **high performance, smooth reactivity**, and **extensibility** for 
 </p>
 
 ## Key Features
-:performing_arts: **Actor Model**:
+:performing_arts: **Actor Model**:</br>
 The App Worker acts as the central actor, handling application state and logic, independent of the main thread.
 This drives the OMT (off the main thread) paradigm into perfection,
 since it is keeping the main thread free for non-blocking DOM updates and UI interactions.
 
-:arrows_counterclockwise: **Reactive State Management**:
+:arrows_counterclockwise: **Reactive State Management**:</br>
 Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:zap: **Instant Development Mode**:
+:zap: **Instant Development Mode**:</br>
 — **Zero builds or transpilations** required. Run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
 This gives you an **unmatched debugging experience**.
 You can even build **entire apps inside the console** if you wish.
 
-:bar_chart: **Hierarchical State Management**:
+:bar_chart: **Hierarchical State Management**:</br>
 Seamlessly manage state between parent and child components with nested state providers.
 Each component binds to the state data from its **closest** provider.
 
-:jigsaw: **Clean Architecture**:
+:jigsaw: **Clean Architecture**:</br>
 View controllers ensure a **separation of concerns**, isolating business logic from UI components for easier maintenance and testing.
 
-:globe_with_meridians: **Multi-Window & SPAs**: Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
+:globe_with_meridians: **Multi-Window & SPAs**:</br>
+Easily build and manage complex, highly interactive applications that require multiple windows or traditional SPAs.
 No native shell required.
 
-:cyclone: **Dynamic Component Management**: Unmount, move, and remount components across the UI or even in separate browser windows
+:cyclone: **Dynamic Component Management**:</br>
+Unmount, move, and remount components across the UI or even in separate browser windows
 — without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
 
 
