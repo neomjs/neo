@@ -20,9 +20,13 @@ and event-driven architectures—all while keeping UI updates ultra-fast.
 
 ## :zap: Why Neo.mjs?
 :white_check_mark: **True Multi-Threading** – The **Application Worker** offloads logic from the main thread, ensuring smooth UI performance.
+
 :white_check_mark: **Actor Model-Based State Management** – Components bind to **multiple hierarchical StateProviders**, enabling clean, scalable state handling.
+
 :white_check_mark: **Multi-Window & Cross-Thread Synchronization** – Manage state seamlessly across browser windows without complex APIs.
+
 :white_check_mark: **Component Trees & View Controllers** – Business logic stays separate from UI components for a **clean architecture**.
+
 :white_check_mark: **Class Config System** – Manage instance-level state efficiently without forcing everything into a component.
 
 ## :building_construction: Build SPAs or Multi-Window Apps
