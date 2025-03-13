@@ -12,11 +12,12 @@
 </p>
 
 # Neo.mjs – Multi-Threaded Web Apps, Made Easy
-:rocket: Break Free from the Main Thread – Experience True Multi-Threading
+:rocket: **Break Free from the Main Thread – Experience True Multi-Threading**
 
-Neo.mjs is a high-performance frontend framework built for off-the-main-thread execution, enabling fluid, scalable,
-multi-window applications. Unlike traditional frameworks, Neo.mjs embraces the Actor Model, hierarchical state management,
-and event-driven architectures—all while keeping UI updates ultra-fast.
+Neo.mjs is a **high-performance frontend framework** built for **off-the-main-thread execution**,
+enabling **fluid, scalable, multi-window applications**.
+Unlike traditional frameworks, Neo.mjs embraces **the Actor Model, hierarchical state management,
+and event-driven architectures** — all while keeping UI updates ultra-fast.
 
 ## :zap: Why Neo.mjs?
 :white_check_mark: **True Multi-Threading** – The **Application Worker** offloads logic from the main thread, ensuring smooth UI performance.
@@ -33,7 +34,8 @@ and event-driven architectures—all while keeping UI updates ultra-fast.
 
 Neo.mjs is perfect for both **single-page applications (SPAs)** and **multi-window applications**,
 thanks to its **stateful, multi-threaded architecture**.
-:bulb: Need a web-based IDE, banking dashboard, or an enterprise-grade multi-window app? Neo.mjs is built for it.
+
+:bulb: *Need a web-based IDE, banking dashboard, or an enterprise-grade multi-window app? Neo.mjs is built for it.*
 
 ## :hammer_and_wrench: Get Started in Minutes
 :one: Clone the Repo
