@@ -30,12 +30,14 @@ The App Worker acts as the central actor, handling application state and logic, 
 This drives the OMT (off the main thread) paradigm into perfection,
 since it is keeping the main thread free for non-blocking DOM updates and UI interactions.
 
+<img src="./resources/images/workers-focus.svg">
+
 :arrows_counterclockwise: **Reactive State Management**:</br>
 Built-in reactivity allows dynamic, efficient updates between components and state providers.
 
-:zap: **Instant Development Mode**:</br>
-— **Zero builds or transpilations** required. Run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
-This gives you an **unmatched debugging experience**.
+:zap: **Instant JavaScript module based Development Mode:</br>
+**Zero builds or transpilations** required. Run your app directly in the browser, modify reactive properties in real-time, and see instant updates.
+This gives you an **unmatched debugging experience**, saving time and reducing development costs. 
 You can even build **entire apps inside the console** if you wish.
 
 :bar_chart: **Hierarchical State Management**:</br>
@@ -52,9 +54,6 @@ No native shell required.
 :cyclone: **Dynamic Component Management**:</br>
 Unmount, move, and remount components across the UI or even in separate browser windows
 — without losing the component’s state or logic. This **runtime flexibility** is a game-changer, **preserving JS instances** while still updating the UI dynamically.
-
-
-<img src="./resources/images/workers-focus.svg">
 
 ## :bulb: Perfect for Complex Use Cases
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
