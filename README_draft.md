@@ -64,18 +64,36 @@ Neo.mjs apps do not need any dependencies at all, just some dev dependencies for
 Need a **web-based IDE, banking dashboard**, or an **enterprise-grade multi-window app**? Neo.mjs is built for it.
 </br></br>
 ## Why Neo.mjs?
-Neo is designed to address the growing complexity of modern web applications by leveraging the power of worker threads.
-Traditional single-threaded frameworks often struggle with performance bottlenecks, especially when handling computationally
-intensive tasks or rendering large datasets. Neo's multithreaded architecture allows for efficient parallel processing,
-enabling smoother and more responsive user interfaces.
+Neo is a worker thread-driven frontend framework designed to create multithreaded GUIs using JavaScript.
+By leveraging the Off Main Thread (OMT) paradigm, Neo ensures that your application’s UI remains responsive,
+even during computationally intensive tasks. Unlike traditional single-threaded frameworks,
+Neo distributes workloads across multiple threads, unlocking new levels of performance and scalability.
 
-By isolating the UI rendering and business logic in separate threads, Neo.mjs ensures that the main thread remains unblocked,
-leading to a more fluid user experience. This approach not only enhances performance but also simplifies debugging and maintenance,
-as each thread can be managed independently.
+Key Benefits of Neo.mjs
+1. **Multithreading for Performance**:
+   - Neo’s OMT paradigm moves tasks like data processing, state management, and rendering to worker threads, keeping the main thread free for rendering and user interactions.
+   - This approach eliminates UI freezes and ensures a smooth user experience, even for complex applications.
+2. **Declarative Class Configuration**:
+   - Neo’s class config system allows you to define and manage classes in a clean, reusable way. This reduces boilerplate code and makes your codebase more maintainable.
+   - With declarative configurations, you can focus on building features instead of wrestling with setup and initialization.
+3. **Modular and Scalable Architecture**:
+   - Neo’s modular design makes it easy to build scalable applications. Components are self-contained and reusable, promoting a clean separation of concerns.
+   - Whether you’re building a small app or a large-scale enterprise solution, Neo’s architecture grows with your needs.
+4. **Ease of Use**:
+   - Neo’s intuitive API and comprehensive documentation make it easy to get started, even for developers new to multithreaded programming.
+   - The framework’s design prioritizes developer productivity, allowing you to focus on solving real-world problems.
+5. **Future-Proof Technology**:
+   - Neo is built on modern web standards like JavaScript modules and worker threads, ensuring compatibility with the latest browser features.
+   - By embracing the OMT paradigm, Neo is uniquely positioned to take advantage of future advancements in web development.
 
-Moreover, Neo's modular design and comprehensive documentation make it accessible to developers of all skill levels.
-Whether you're building a small application or a large-scale enterprise solution, Neo provides the tools and flexibility
-needed to create high-performance, scalable, and maintainable web applications.
+**Why Choose Neo Over Traditional Frameworks?**
+Traditional single-threaded frameworks often struggle with performance bottlenecks, especially when handling complex UIs or large datasets.
+Neo’s **multithreaded architecture** addresses these challenges head-on, delivering a responsive and scalable solution for modern web applications.
+
+With Neo, you get:
+- **Responsive UIs**: No more UI freezes or janky animations.
+- **Scalability**: Build applications that can handle increasing complexity without compromising performance.
+- **Developer Productivity**: Spend less time optimizing and more time building features.
 </br></br>
 ## Declarative Class Configuration
 Neo’s class config system allows you to define and manage classes in a declarative and reusable way. This simplifies class creation, reduces boilerplate code, and improves maintainability.
