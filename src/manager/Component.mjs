@@ -445,7 +445,7 @@ class Component extends Manager {
                         component = this.get(item.componentId);
 
                         // keep references in case there is no vnode (cmp not mounted)
-                        if (component.vnode) {
+                        if (component?.vnode) {
                             item = component.vnode
                         }
                     }
