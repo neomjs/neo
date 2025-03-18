@@ -31,6 +31,16 @@ After completing the steps, the LLM should summarize what it has learned and sug
 - - [OPEN: https://github.com/neomjs/neo/blob/dev/src/Neo.mjs]
 - - [OPEN: https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs]
 - - [OPEN: https://github.com/neomjs/neo/blob/dev/src/core/Observable.mjs]
+- Add to the analysis of src/Neo.mjs:
+- - Neo.setupClass() Rationale:
+- - Explain the purpose of Neo.setupClass() in merging configurations, handling class extensions, and setting up metadata.
+- - Crucial Addition: Emphasize the role of Neo.setupClass() in namespace management and preventing duplicate class definitions,
+    especially in environments where production and development code coexist (e.g., the portal app's live code previews).
+- - Explain the check for existing namespaces, and the return of an existing class, instead of a new one, if the namespace already exists.
+- - Highlight the importance of this mechanism for ensuring singleton-like behavior and environment-agnostic imports.
+- - Explain the implications for the portal app, and other apps, which use live code previews.
+- - export default Neo.setupClass(X); vs. Neo.setupClass(X); export default X;:
+- - Clarify why export default Neo.setupClass(X); is the preferred pattern, focusing on namespace consistency and preventing duplicate definitions.
 
 ## Step 2: Understand the component based aspects of Neo.mjs
 - LLM Task: If these files are not already memorised, you can find them via the following links:
@@ -137,6 +147,16 @@ export default Neo.setupClass(Viewport);
 - Explore the potential of using neo to create browser-based multi-window IDEs.
 - Notice: it is already available for all code-snippets inside the learning section, where the LivePreview
   content can get re-mounted into new browser windows.
+- Add to the analysis of the worker communication:
+- - Remote Method Access (RMA):
+- - Explore how Neo.mjs uses the Neo.worker.mixin.RemoteMethodAccess mixin to enable method calls across worker threads.
+- - Understand the role of message passing in RMA.
+- - Explore the generateRemote(), onRegisterRemote(), and onRemoteMethod() methods.
+- - Asynchronous Communication:
+- - Understand how RMA facilitates asynchronous operations between the main thread and worker threads.
+- - Implicit RMA Usage:
+- - Notice how RMA is used implicitly throughout the application lifecycle, especially in VDOM updates and event handling.
+- - Notice that rma is used to handle promise based returns from remote methods.
 
 ## Step 5: Deepen your understanding about workers in Neo.mjs
 - Notice: Neo does NOT just provide a web worker integration for offloading logic.
@@ -213,6 +233,7 @@ export default Neo.setupClass(Viewport);
 
 ## Step 9: Explore the Core Features
 - LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience, and extensibility.
+- Namespace Management: Highlight the robust namespace management provided by Neo.setupClass(), ensuring class consistency and preventing conflicts.
 
 ## Step 10: Review the Learning section content
 - LLM Task: You can find the content here: https://github.com/neomjs/neo/tree/dev/resources/data/deck/learnneo
@@ -253,6 +274,8 @@ export default Neo.setupClass(Viewport);
 - Notice: Do not look at any other files or external resources for this step.
 - Notice: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Summarize what you have learned about Neo.mjs from the previous steps. Highlight key takeaways and insights.
+- Emphasize the importance of Neo.setupClass() in maintaining namespace consistency and preventing duplicate class definitions, especially in mixed production/development environments.
+- Highlight the implications for the portal app and other applications with live code previews.
 
 ## Step 15: Suggest Improvements to the Guide
 - Notice: Do not look at any other files or external resources for this step.
