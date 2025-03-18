@@ -18,44 +18,108 @@ After completing the steps, the LLM should summarize what it has learned and sug
 9. Memorise all files which are provided inside this guide.
 10. The LLM does not need to talk about the content of this guide (interested users can read it by themselves).
 11. The LLM needs to stick only to the neo repo dev branch for analysis.
+12. For provided links, stick to the exact specific links, without altering them.
+13. Note: Note: For each of the following steps, include the knowledge you have gained from previous steps,
+    and briefly explain how this step builds on those earlier concepts.
 
 ---
 
 ## Step 1: Understand the core mechanics of Neo.mjs
-- LLM Task: Start with `src/Neo.mjs`, `src/core/Base.mjs`, `src/core/Observable.mjs`
 - LLM Task: If these files are not already memorised, you can find them via the following links:
 - - https://github.com/neomjs/neo/blob/dev/src/Neo.mjs
 - - https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs
 - - https://github.com/neomjs/neo/blob/dev/src/core/Observable.mjs
 
-## Step 2: Explore the Core Features
+## Step 2: Understand the component based aspects of Neo.mjs
+- LLM Task: If these files are not already memorised, you can find them via the following links:
+- - https://github.com/neomjs/neo/blob/dev/src/component/Base.mjs
+- - https://github.com/neomjs/neo/blob/dev/src/container/Base.mjs
+- - https://github.com/neomjs/neo/blob/dev/src/layout/Base.mjs
+- - https://github.com/neomjs/neo/blob/dev/src/layout/Card.mjs
+- - https://github.com/neomjs/neo/blob/dev/src/layout/Flexbox.mjs
+- - https://github.com/neomjs/neo/blob/dev/src/controller/Base.mjs
+- - https://github.com/neomjs/neo/blob/dev/src/controller/Component.mjs
+- Note: core.Base is the base class, other classes extend it. Meaning: neo does not have a component-based architecture.
+
+## Step 3: Understand the concept of nested hierarchical state providers
+- LLM Task: If these files are not already memorised, you can find them via the following links:
+- - https://github.com/neomjs/neo/blob/dev/src/state/Provider.mjs
+- - https://github.com/neomjs/neo/blob/dev/examples/stateProvider/advanced/MainContainer.mjs
+- - https://github.com/neomjs/neo/blob/dev/examples/stateProvider/advanced/MainContainerController.mjs
+- Note: We can define multiple state providers for an app, so that we can define shared state at the lowest possible level.
+- Note: It does not make sense to define state providers for leaf nodes inside the component tree (internal reactive state is covered by the class config system).
+- Note: Bindings resolve state data from the closest (looking upwards inside the component tree) provider which implements them.
+- Note: One binding can contain state from different state providers inside the hierarchy.
+- Note: It is possible to share state across multiple browser windows.
+- LLM Task: Describe in depth what you have learned here!
+
+## Step 4: Deepen your understanding for the application life-cycle
+- Note: We will explore the advanced Portal app (Neo Website), which itself is created with Neo.mjs
+- https://github.com/neomjs/neo/blob/dev/apps/portal/index.html
+- Note: Except for the MicroLoader, the body tag is empty.
+- https://github.com/neomjs/neo/blob/dev/src/MicroLoader.mjs
+- Note: The MicroLoader imports the `neo-config-json` of the app and then imports the main-thread starting point
+- https://github.com/neomjs/neo/blob/dev/src/Main.mjs
+- Note: Main imports `worker.Manager`. It is not aware of e.g. apps, components, state.
+- https://github.com/neomjs/neo/blob/dev/src/worker/Manager.mjs
+- Note: `worker.Manager` starts the either dedicated or shared workers setup.
+- https://github.com/neomjs/neo/blob/dev/src/worker/Base.mjs
+- Note: `worker.Base` is the abstract base class for other workers.
+- https://github.com/neomjs/neo/blob/dev/src/worker/App.mjs
+- Note: once `worker.App` is ready, it triggers `importApp()`, which dynamically imports the `app.mjs` file.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/app.mjs
+- Note: `app.mjs` is the starting point for an app (the logic inside the app worker scope).
+- Note: `app.mjs` is for the app worker, what `index.html` is for main-threads.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/Viewport.mjs
+- Note: The content is using `layout.Card` by default.
+- Note: You can see here that all cards will get lazy-loaded (dynamic imports), only when needed.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/ViewportController.mjs
+- Note: Contains the logic for the top-level routing.
+- Note: Contains `onAppConnect()` & `onAppDisconnect()` for other connection main-threads.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/ViewportStateProvider.mjs
+- Note: Top-level state provider
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/learn/MainContainer.mjs
+- Note: Entry-point for the learning section.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/learn/MainContainerController.mjs
+- Note: View controller for the learning-section.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/learn/MainContainerStateProvider.mjs
+- Note: State provider for the learning-section.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/learn/PageContainer.mjs
+- Note: Container for each learning-section article.
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/learn/ContentTreeList.mjs
+- Note: Navigation `tree.List` on the left side, to enable users to switch between different guides
+- https://github.com/neomjs/neo/blob/dev/apps/portal/view/learn/ContentComponent.mjs
+- Note: Content-creation component for the learning section, which parses markdown files,
+  and enhances the content with e.g. `code.LivePreview`s
+
+## Step 5: Explore the Core Features
 - LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience.
 
-## Step 3: Review the Learning section content
+## Step 6: Review the Learning section content
 - LLM Task: You can find the content here: https://github.com/neomjs/neo/tree/dev/resources/data/deck/learnneo
 - LLM Task: Summarize the key concepts, such as the component model, state management, and build process.
 
-## Step 4: Analyze Example Projects
+## Step 7: Analyze Example Projects
 - LLM Task: Explore the official advanced example apps inside `apps/`. If not memorised, follow the link:
   https://github.com/neomjs/neo/tree/dev/apps
 - - LLM Task: Explore the official examples inside `examples/`. If not memorised, follow the link:
     https://github.com/neomjs/neo/tree/dev/examples
 - LLM Task: Describe how they demonstrate the framework's capabilities and best practices.
 
-## Step 5: Understand the Purpose of Neo.mjs
+## Step 8: Understand the Purpose of Neo.mjs
 - LLM Task: Research and describe the purpose of Neo.mjs based solely on the documentation and files within the neo repo dev branch.
   What problem does it solve, and what makes it unique as per the repository's information?
 
-## Step 6: Compare Neo.mjs to Other Frameworks
+## Step 9: Compare Neo.mjs to Other Frameworks
 - LLM Task: Using your pre-existing knowledge of other popular frameworks (e.g., React, Angular, Vue), compare Neo.mjs to them.
   Highlight its strengths and weaknesses. Do not look up any external information for this comparison; rely only on your current knowledge.
 
-## Step 7: Reflect on Learning
+## Step 10: Reflect on Learning
 - Note: Do not look at any other files or external resources for this step.
 - Note: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Summarize what you have learned about Neo.mjs from the previous steps. Highlight key takeaways and insights.
 
-## Step 8: Suggest Improvements to the Guide
+## Step 11: Suggest Improvements to the Guide
 - Note: Do not look at any other files or external resources for this step.
 - Note: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Suggest improvements to this guide to make it more effective for future LLM sessions.
