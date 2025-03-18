@@ -41,6 +41,10 @@ After completing the steps, the LLM should summarize what it has learned and sug
 - - [OPEN: https://github.com/neomjs/neo/blob/dev/src/layout/Flexbox.mjs]
 - - [OPEN: https://github.com/neomjs/neo/blob/dev/src/controller/Base.mjs]
 - - [OPEN: https://github.com/neomjs/neo/blob/dev/src/controller/Component.mjs]
+- Important Addition:
+- - View Controllers: Explore the role of View Controllers in Neo.mjs and how they enforce the separation of concerns.
+- - Event Handling: Understand how event listeners and button handlers are resolved through View Controllers.
+- - Hierarchical Controller Resolution: Explore the way, how controllers are searched inside the component tree.
 - Notice: core.Base is the base class, other classes extend it.
 - Meaning: Neo does not have a component-based architecture, since contrary to React, not everything needs to extend component.
 - Notice: In React, this led to Routers, Providers & Apps extending Components, which is questionable.
@@ -158,6 +162,12 @@ export default Neo.setupClass(Viewport);
 - Notice: When a round-trip is running, we can continue to modify the vdom without side effects,
   so we do not need to care about immutability. Less boilerplate & complexity.
 - Notice: Multiple update() calls can happen before a round-trip is done, which will all get combined into the next update cycle. Way less tree comparisons.
+- Important Addition:
+  - Extensibility: Explore how the accessible virtual DOM and class-based architecture facilitate extensibility in Neo.mjs.
+  - High-Order Components: Understand how Neo.mjs enables the creation of high-order components.
+  - Runtime VDOM Manipulation: Explore how developers can enhance or manipulate the markup at runtime by directly accessing the virtual DOM.
+  - Class Extensions: Investigate how class extensions allow for powerful enhancements and modifications, even at runtime.
+  - Addons and Worker extensions: Explore how the addon and worker extension systems enable the addition of functionality to the main and worker threads.
 
 ## Step 7: Deepen your understanding of builds
 - LLM Task: Explore the following files:
@@ -202,7 +212,7 @@ export default Neo.setupClass(Viewport);
 - LLM Task: explore and explain in-depth how this grid implementation works.
 
 ## Step 9: Explore the Core Features
-- LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience.
+- LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience, and extensibility.
 
 ## Step 10: Review the Learning section content
 - LLM Task: You can find the content here: https://github.com/neomjs/neo/tree/dev/resources/data/deck/learnneo
@@ -237,6 +247,7 @@ export default Neo.setupClass(Viewport);
 - Add a new row to the comparison table:
 - - State Immutability: Neo.mjs does not strictly require state immutability due to its controlled update cycle and delta-based updates.
     This simplifies development and reduces boilerplate.
+- - Extensibility: add a new row to the comparison table, that explores the extensibility of each framework.
 
 ## Step 14: Reflect on Learning
 - Notice: Do not look at any other files or external resources for this step.
