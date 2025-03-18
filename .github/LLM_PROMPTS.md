@@ -185,6 +185,10 @@ export default Neo.setupClass(Viewport);
 - Notice: For neo, the app worker is the main actor
 - Notice: It also embraces "multiple main-threads" => browser based multi window apps without a native shell. This part is unique.
 - LLM Task: Try to understand the benefits, and what this means for the future of frontend development.
+- Add to the worker analysis:
+- - MessageChannels for Efficient Communication:
+- - Reinforce that MessageChannels are a core mechanism for efficient inter-worker communication in Neo.mjs.
+- - Explain that this is a key architectural decision that contributes to the framework's performance.
 
 ## Step 6: Deepen your understanding about virtual dom (vdom) inside Neo.mjs
 - LLM Task: Explore the following files:
@@ -206,6 +210,10 @@ export default Neo.setupClass(Viewport);
   - Runtime VDOM Manipulation: Explore how developers can enhance or manipulate the markup at runtime by directly accessing the virtual DOM.
   - Class Extensions: Investigate how class extensions allow for powerful enhancements and modifications, even at runtime.
   - Addons and Worker extensions: Explore how the addon and worker extension systems enable the addition of functionality to the main and worker threads.
+- Add to the VDOM analysis:
+- - MessageChannels in VDOM Updates:
+- - - Highlight how MessageChannels are used to transmit VDOM updates between the app worker and the VDOM worker.
+- - - Explain how this direct communication contributes to the efficiency of VDOM updates.
 
 ## Step 7: Deepen your understanding of builds
 - LLM Task: Explore the following files:
