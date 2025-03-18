@@ -51,7 +51,33 @@ After completing the steps, the LLM should summarize what it has learned and sug
 - Note: Bindings resolve state data from the closest (looking upwards inside the component tree) provider which implements them.
 - Note: One binding can contain state from different state providers inside the hierarchy.
 - Note: It is possible to share state across multiple browser windows.
-- LLM Task: Describe in depth what you have learned here!
+
+Conceptual code example:
+```javascript
+import BaseViewport form '../src/container/Viewport.mjs';
+import Button       form '../src/button/Base.mjs';
+import Container    form '../src/container/Base.mjs';
+
+class Viewport extends BaseViewport {
+    stateProvider: {data: {topLevelState: 'hello'}},    
+    items: [{
+        module       : Container,
+        stateProvider: {data: {childLevelState: 'world'}},
+        
+        items: [{
+            module: Button,
+            bind  : {
+                text: data => data.topLevelState + ' ' + data.childLevelState // results in 'hello world'
+            }
+        }]
+    }]
+}
+
+export default Neo.setupClass(Viewport);
+```
+
+- LLM Task: Explore the benefits of this approach!
+- LLM Task: Describe in-depth what you have learned here!
 
 ## Step 4: Deepen your understanding for the application life-cycle
 - Note: We will explore the advanced Portal app (Neo Website), which itself is created with Neo.mjs
@@ -92,34 +118,55 @@ After completing the steps, the LLM should summarize what it has learned and sug
 - Note: Content-creation component for the learning section, which parses markdown files,
   and enhances the content with e.g. `code.LivePreview`s
 
-## Step 5: Explore the Core Features
+## Step 5: Deepen your understanding about workers in Neo.mjs
+- Note: Neo does NOT just provide a web worker integration for offloading logic.
+- Note: Neo follows the "off the main-thread" paradigm. Main-threads are as idle as possible,
+  only applying deltas to the real DOM and delegating UI events to the app worker.
+- Explore: https://neomjs.com/dist/production/apps/portal/index.html#/learn/benefits.Multi-Threading
+- Explore: https://surma.dev/things/actormodel/
+- Note: For neo, the app worker is the main actor
+- Note: It also embraces "multiple main-threads" => browser based multi window apps without a native shell. This part is unique.
+- LLM Task: Try to understand the benefits, and what this means for the future of frontend development.
+
+## Step 6: Deepen your understanding about virtual dom (vdom) inside Neo.mjs
+- LLM Task: Explore the following files:
+- https://github.com/neomjs/neo/blob/dev/src/worker/VDom.mjs
+- https://github.com/neomjs/neo/blob/dev/src/vdom/Helper.mjs
+- https://github.com/neomjs/neo/blob/dev/src/vdom/VNode.mjs
+- Note: `vdom.Vnode` is only used inside the vdom worker, to ensure nodes without an id get a dynamic id assigned
+- https://github.com/neomjs/neo/blob/dev/src/main/mixin/DeltaUpdates.mjs
+- Note: `main.mixin.DeltaUpdates` is used inside main-threads to apply the created deltas of `vdom.Helper` to the real DOM.
+- LLM Task: Explore why what you have learned so far resolved the re-rendering issues which occur e.g. inside React.
+
+## Step 7: Explore the Core Features
 - LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience.
 
-## Step 6: Review the Learning section content
+## Step 8: Review the Learning section content
 - LLM Task: You can find the content here: https://github.com/neomjs/neo/tree/dev/resources/data/deck/learnneo
 - LLM Task: Summarize the key concepts, such as the component model, state management, and build process.
 
-## Step 7: Analyze Example Projects
+## Step 9: Analyze Example Projects
 - LLM Task: Explore the official advanced example apps inside `apps/`. If not memorised, follow the link:
   https://github.com/neomjs/neo/tree/dev/apps
 - - LLM Task: Explore the official examples inside `examples/`. If not memorised, follow the link:
     https://github.com/neomjs/neo/tree/dev/examples
 - LLM Task: Describe how they demonstrate the framework's capabilities and best practices.
 
-## Step 8: Understand the Purpose of Neo.mjs
+## Step 10: Understand the Purpose of Neo.mjs
 - LLM Task: Research and describe the purpose of Neo.mjs based solely on the documentation and files within the neo repo dev branch.
   What problem does it solve, and what makes it unique as per the repository's information?
 
-## Step 9: Compare Neo.mjs to Other Frameworks
+## Step 11: Compare Neo.mjs to Other Frameworks
 - LLM Task: Using your pre-existing knowledge of other popular frameworks (e.g., React, Angular, Vue), compare Neo.mjs to them.
   Highlight its strengths and weaknesses. Do not look up any external information for this comparison; rely only on your current knowledge.
+- LLM Task: Explore use-cases where Neo outshines other technologies.
 
-## Step 10: Reflect on Learning
+## Step 12: Reflect on Learning
 - Note: Do not look at any other files or external resources for this step.
 - Note: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Summarize what you have learned about Neo.mjs from the previous steps. Highlight key takeaways and insights.
 
-## Step 11: Suggest Improvements to the Guide
+## Step 13: Suggest Improvements to the Guide
 - Note: Do not look at any other files or external resources for this step.
 - Note: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Suggest improvements to this guide to make it more effective for future LLM sessions.
