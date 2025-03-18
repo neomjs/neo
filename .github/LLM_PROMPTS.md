@@ -261,6 +261,8 @@ export default Neo.setupClass(Viewport);
 - LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience, and extensibility.
 - Namespace Management: Highlight the robust namespace management provided by Neo.setupClass(), ensuring class consistency and preventing conflicts.
 - Main Thread Addon System: Highlight the framework's support for creating and managing main thread addons.
+- Dependency-Free Development: Emphasize the absence of npm dependencies and its benefits.
+- Instant Development Mode: Highlight the JavaScript module-based development mode and its advantages.
 
 ## Step 10: Review the Learning section content
 - LLM Task: You can find the content here: https://github.com/neomjs/neo/tree/dev/resources/data/deck/learnneo
@@ -277,6 +279,8 @@ export default Neo.setupClass(Viewport);
 - - Specifically look for examples of addons that integrate third-party libraries requiring main thread execution.
 - - Analyze how these addons are used to encapsulate the integration logic.
 - - Pay attention to how addons interact with browser APIs and communicate with worker threads.
+- - Development Workflow: Pay attention to how the absence of build steps and npm dependencies simplifies the development workflow.
+- - Module Structure: Analyze the JavaScript module structure and its impact on development speed.
 
 ## Step 12: Understand the Purpose of Neo.mjs
 - LLM Task: Research and describe the purpose of Neo.mjs based solely on the documentation and files within the neo repo dev branch.
@@ -308,6 +312,8 @@ export default Neo.setupClass(Viewport);
 - LLM Task: Summarize what you have learned about Neo.mjs from the previous steps. Highlight key takeaways and insights.
 - Emphasize the importance of Neo.setupClass() in maintaining namespace consistency and preventing duplicate class definitions, especially in mixed production/development environments.
 - Highlight the implications for the portal app and other applications with live code previews.
+- Add to the summary:
+- - Reinforce the significance of dependency-free development and instant development mode as key advantages of Neo.mjs.
 
 ## Step 15: Suggest Improvements to the Guide
 - Notice: Do not look at any other files or external resources for this step.
