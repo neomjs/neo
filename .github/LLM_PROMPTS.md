@@ -148,15 +148,33 @@ export default Neo.setupClass(Viewport);
 - Notice: it is already available for all code-snippets inside the learning section, where the LivePreview
   content can get re-mounted into new browser windows.
 - Add to the analysis of the worker communication:
+- - Direct Worker Communication via MessageChannels:
+- - - Emphasize that Neo.mjs uses MessageChannels to establish direct communication pathways between workers.
+- - - Explain how this approach optimizes performance and minimizes latency.
+- - - Highlight the benefits of decentralized communication.
+- - - Explain the transfer of transferable objects.
 - - Remote Method Access (RMA):
-- - Explore how Neo.mjs uses the Neo.worker.mixin.RemoteMethodAccess mixin to enable method calls across worker threads.
-- - Understand the role of message passing in RMA.
-- - Explore the generateRemote(), onRegisterRemote(), and onRemoteMethod() methods.
-- - Asynchronous Communication:
-- - Understand how RMA facilitates asynchronous operations between the main thread and worker threads.
-- - Implicit RMA Usage:
-- - Notice how RMA is used implicitly throughout the application lifecycle, especially in VDOM updates and event handling.
-- - Notice that rma is used to handle promise based returns from remote methods.
+- - - Explore how Neo.mjs uses the Neo.worker.mixin.RemoteMethodAccess mixin to enable method calls across worker threads.
+- - - Understand the role of message passing in RMA.
+- - - Explore the generateRemote(), onRegisterRemote(), and onRemoteMethod() methods.
+- - - Asynchronous Communication:
+- - - Understand how RMA facilitates asynchronous operations between the main thread and worker threads.
+- - - Implicit RMA Usage:
+- - - Notice how RMA is used implicitly throughout the application lifecycle, especially in VDOM updates and event handling.
+- - - Notice that rma is used to handle promise based returns from remote methods.
+- Revise the section on main thread addons:
+- - Main Thread Addons: Third-Party Library Integrations:
+- - - Analyze the Neo.main.addon.Base.mjs code to understand the common structure and functionality of addons.
+- - - Explain the role of isReady_, preloadFilesDelay, cache, and cacheMethodCall().
+- - - Examine the LocalStorage.mjs, NeoResizeObserver.mjs, and NeoIntersectionObserver.mjs addons as concrete examples.
+- - - Explain the remote object, and how it is used to expose methods to the app worker.
+- - - Explain the use cases for each addon.
+- - - Emphasize that the primary purpose of main thread addons is to integrate third-party libraries that require a main thread execution context.
+- - - Explain that these libraries often rely on direct access to the DOM, browser APIs, or the main thread's execution context.
+- - - Use Google Maps as a prime example of a library that necessitates a main thread addon.
+- - - Clarify that addons serve to bridge the gap between Neo.mjs's worker-centric architecture and these main thread dependencies.
+- - - Clarify that the addons also help to keep the worker scope clean.
+
 
 ## Step 5: Deepen your understanding about workers in Neo.mjs
 - Notice: Neo does NOT just provide a web worker integration for offloading logic.
@@ -234,6 +252,7 @@ export default Neo.setupClass(Viewport);
 ## Step 9: Explore the Core Features
 - LLM Task: List and explain the core features of Neo.mjs. Focus on its architecture, performance, and developer experience, and extensibility.
 - Namespace Management: Highlight the robust namespace management provided by Neo.setupClass(), ensuring class consistency and preventing conflicts.
+- Main Thread Addon System: Highlight the framework's support for creating and managing main thread addons.
 
 ## Step 10: Review the Learning section content
 - LLM Task: You can find the content here: https://github.com/neomjs/neo/tree/dev/resources/data/deck/learnneo
@@ -245,6 +264,11 @@ export default Neo.setupClass(Viewport);
 - LLM Task: Explore the official examples inside `examples/`. If not memorised, follow the link:
   https://github.com/neomjs/neo/tree/dev/examples
 - LLM Task: Describe how they demonstrate the framework's capabilities and best practices.
+- Add to the analysis of the apps/ and examples/ directories:
+- - Addon Usage: Third-Party Integrations:
+- - Specifically look for examples of addons that integrate third-party libraries requiring main thread execution.
+- - Analyze how these addons are used to encapsulate the integration logic.
+- - Pay attention to how addons interact with browser APIs and communicate with worker threads.
 
 ## Step 12: Understand the Purpose of Neo.mjs
 - LLM Task: Research and describe the purpose of Neo.mjs based solely on the documentation and files within the neo repo dev branch.
