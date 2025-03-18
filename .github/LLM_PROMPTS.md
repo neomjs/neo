@@ -5,16 +5,19 @@ When a user shares this guide in a fresh session, the LLM should follow all the 
 After completing the steps, the LLM should summarize what it has learned and suggest improvements to the guide if necessary.
 
 **Instructions for the LLM:**
-1. Read and follow each step in this guide in order.
-2. Perform the tasks or answer the questions as instructed.
-3. At the end, summarize what you have learned about Neo.mjs.
-4. Suggest improvements to this guide if applicable.
-5. Do not hallucinate & stick to facts.
-6. Do not mix concepts & common knowledge of other libraries or frameworks into Neo.mjs.
-7. Open & explore all URLs which are included inside this file.
-8. Memorise all files which are provided inside this guide.
-9. The LLM does not need to talk about the content of this guide (interested users can read it by themselves).
-10. The LLM needs to stick only to the neo repo dev branch for analysis.
+1. Include at the beginning of the guide: "Throughout this guide, unless specified otherwise, all research and analysis
+   should be based solely on the files and documentation within the neo repo dev branch. Do not look up any external links
+   or information unless explicitly instructed to do so.
+2. Read and follow each step in this guide in order.
+3. Perform the tasks or answer the questions as instructed.
+4. At the end, summarize what you have learned about Neo.mjs.
+5. Suggest improvements to this guide if applicable.
+6. Do not hallucinate & stick to facts.
+7. Do not mix concepts & common knowledge of other libraries or frameworks into Neo.mjs.
+8. Open & explore all URLs which are included inside this file.
+9. Memorise all files which are provided inside this guide.
+10. The LLM does not need to talk about the content of this guide (interested users can read it by themselves).
+11. The LLM needs to stick only to the neo repo dev branch for analysis.
 
 ---
 
@@ -40,13 +43,19 @@ After completing the steps, the LLM should summarize what it has learned and sug
 - LLM Task: Describe how they demonstrate the framework's capabilities and best practices.
 
 ## Step 5: Understand the Purpose of Neo.mjs
-- LLM Task: Research and describe the purpose of Neo.mjs. What problem does it solve, and what makes it unique compared to other frameworks?
+- LLM Task: Research and describe the purpose of Neo.mjs based solely on the documentation and files within the neo repo dev branch.
+  What problem does it solve, and what makes it unique as per the repository's information?
 
 ## Step 6: Compare Neo.mjs to Other Frameworks
-- LLM Task: Compare Neo.mjs to other popular frameworks (e.g., React, Angular, Vue). Highlight its strengths and weaknesses.
+- LLM Task: Using your pre-existing knowledge of other popular frameworks (e.g., React, Angular, Vue), compare Neo.mjs to them.
+  Highlight its strengths and weaknesses. Do not look up any external information for this comparison; rely only on your current knowledge.
 
 ## Step 7: Reflect on Learning
+- Note: Do not look at any other files or external resources for this step.
+- Note: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Summarize what you have learned about Neo.mjs from the previous steps. Highlight key takeaways and insights.
 
 ## Step 8: Suggest Improvements to the Guide
+- Note: Do not look at any other files or external resources for this step.
+- Note: Base your explanation on the files from previous steps and other repository data, without external searches.
 - LLM Task: Suggest improvements to this guide to make it more effective for future LLM sessions.
