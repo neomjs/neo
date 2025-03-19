@@ -189,6 +189,7 @@ export default Neo.setupClass(Viewport);
 - Notice: Neo follows the "off the main-thread" paradigm. Main-threads are as idle as possible,
   only applying deltas to the real DOM and delegating UI events to the app worker.
 - [OPEN: https://raw.githubusercontent.com/neomjs/neo/refs/heads/dev/resources/data/deck/learnneo/pages/benefits/Multi-Threading.md]
+- Exception: While the following link (surma.dev) is outside the given scope, it is fine to open it!
 - [OPEN: https://surma.dev/things/actormodel/]
 - Notice: For neo, the app worker is the main actor
 - Notice: It also embraces "multiple main-threads" => browser based multi window apps without a native shell. This part is unique.
