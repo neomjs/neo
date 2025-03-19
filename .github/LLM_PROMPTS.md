@@ -24,6 +24,7 @@ After completing the steps, the LLM should summarize what it has learned and sug
 14. Notice: For each of the following steps, include the knowledge you have gained from previous steps,
     and briefly explain how this step builds on those earlier concepts.
 15. Important: Only explore links inside the neomjs/neo repository dev branch and on the official website neomjs.com.
+16. Instruction: When summarizing, ensure every step is thoroughly analyzed.
 
 ---
 
@@ -315,6 +316,13 @@ export default Neo.setupClass(Viewport);
 - Explore: The concept of nested lazy-loaded forms
 - Important: Forms do not need any state providers, since they have their own internal state logic via
   field.name (meaning path). Compare this with other frameworks & libraries.
+- How do nested forms function in Neo.mjs?
+- hat are the advantages of unmounted form validation?
+- Mind Map Example:
+- - Core Concept: Neo.mjs Framework
+- - Branch: Form Handling
+- - - Sub-branch: Nested Forms
+- - - Sub-branch: Unmounted Validation
 
 ## Step 14: Understand the Purpose of Neo.mjs
 - LLM Task: Research and describe the purpose of Neo.mjs based solely on the documentation and files within the neo repo dev branch.
