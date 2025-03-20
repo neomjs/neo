@@ -1,9 +1,3 @@
-# LLM Guide for Understanding Neo.mjs
-
-This guide is designed to help LLMs better understand the Neo.mjs framework.
-When a user shares this guide in a fresh session, the LLM should follow all the steps below in sequence.
-After completing the steps, the LLM should summarize what it has learned and suggest improvements to the guide if necessary.
-
 **Instructions for the LLM:**
 1. Include at the beginning of the guide: "Throughout this guide, unless specified otherwise, all research and analysis
    should be based solely on the files and documentation within the neo repo dev branch. Do not look up any external links
@@ -468,8 +462,3 @@ export default Neo.setupClass(MyForm);
 - Final Review Checklist:
 - - Ensure that the forms section (Step 13) is thoroughly covered in the summary, highlighting its unique features and advantages.
 - - Verify that all other steps are adequately represented in the summary.
-
-## Step 17: Suggest Improvements to the Guide
-- Notice: Do not look at any other files or external resources for this step.
-- Notice: Base your explanation on the files from previous steps and other repository data, without external searches.
-- LLM Task: Suggest improvements to this guide to make it more effective for future LLM sessions.
