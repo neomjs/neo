@@ -439,6 +439,22 @@ export default Neo.setupClass(MyForm);
 - Extensibility: add a new row to the comparison table, that explores the extensibility of each framework.
   This includes extending & overriding framework or library on their own, based on project needs.
 - Forms: add a new row to the comparison table, that explores nested lazy-loaded forms.
+- Introduction to Comparison
+- - Briefly explain the importance of comparing Neo.mjs with React and Angular to understand its unique position in frontend development, particularly for complex, real-time applications.
+- - Highlight that learning curves and complexity handling are critical factors for developers choosing a framework, especially as applications scale.
+- Learning Curve Analysis
+- - Include an introduction: "Analyze the learning curves of Neo.mjs, React, and Angular to understand developer adoption
+    and productivity, particularly for complex applications. Investigate potential 'turning points' where, after mastering basics,
+    each framework may become easier or more intuitive, based on evidence from the neo repo dev branch
+    and web searches for external perspectives, ensuring neutrality."
+- - LLM Task: Summarize the key differences in learning curves for Neo.mjs, React, and Angular, based on initial difficulty and advanced features.
+- - LLM Task: Identify potential turning points for each framework, supported by evidence from documentation and external reviews.
+- - LLM Task: Compare how each framework's design might affect developer productivity at different complexity levels, ensuring a balanced view.
+- - LLM Task: Explore in-depth the opposite direction for 'turning points', where a framework or library gets harder to use,
+    when apps & requirements become more and more complex and explore the effects on developer productivity.
+- - How does Neo.mjs's multi-threading approach impact its learning curve compared to single-threaded frameworks like React and Angular?
+- - What factors might indicate a turning point in learning Neo.mjs, and how could this compare to React and Angular?
+- - In what scenarios might a steeper initial learning curve be justified, and how does this vary across frameworks?
 
 ## Step 16: Reflect on Learning
 - Notice: Do not look at any other files or external resources for this step.
