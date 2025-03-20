@@ -1,7 +1,6 @@
 **Instructions for the LLM:**
-1. Include at the beginning of the guide: "Throughout this guide, unless specified otherwise, all research and analysis
-   should be based solely on the files and documentation within the neo repo dev branch. Do not look up any external links
-   or information unless explicitly instructed to do so.
+1. Throughout this guide, unless specified otherwise, all research and analysis should be based solely on the files and
+   documentation within the neo repo dev branch. Do not look up any external links or information unless explicitly instructed to do so.
 2. Read and follow each step in this guide in order.
 3. Perform the tasks or answer the questions as instructed.
 4. At the end, summarize what you have learned about Neo.mjs.
