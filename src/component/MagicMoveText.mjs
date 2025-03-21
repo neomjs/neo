@@ -219,14 +219,21 @@ class MagicMoveText extends Component {
 
         let me = this;
 
-        value && me.getDomRect().then(rect => {
-            me.contentHeight = rect.height;
-            me.contentWidth  = rect.width;
+        if (value) {
+            me.getDomRect().then(rect => {
+                me.contentHeight = rect.height;
+                me.contentWidth  = rect.width;
+            })
+        } else {
+            me.measureCache  = {};
+            me.previousChars = []
+        }
+
+        if(oldValue !== undefined) {
+            me.addResizeObserver(value);
 
             me.autoCycle && me.startAutoCycle(value)
-        });
-
-        oldValue !== undefined && me.addResizeObserver(value)
+        }
     }
 
     /**
