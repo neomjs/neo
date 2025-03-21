@@ -51,7 +51,11 @@ class Helix extends FeatureSection {
         /**
          * @member {String} subHeadline='40,000 Updates /s'
          */
-        subHeadline: '40,000 Updates /s'
+        subHeadline: '40,000 Updates /s',
+        /**
+         * @member {String} textContainerPosition='end'
+         */
+        textContainerPosition: 'end'
     }
 }
 

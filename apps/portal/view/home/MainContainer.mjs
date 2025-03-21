@@ -51,8 +51,8 @@ class MainContainer extends Container {
         items: [
             {ntype: 'component', cls: ['portal-home-progress']},
             MainNeo,
-            Helix,
             Colors,
+            Helix,
             How,
             Features,
             AfterMath
