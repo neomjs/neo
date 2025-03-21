@@ -2662,8 +2662,7 @@ class Component extends Base {
      */
     updateVdom(resolve, reject) {
         let me                              = this,
-            {app, mounted, parentId, vnode} = me,
-            listenerId;
+            {app, mounted, parentId, vnode} = me;
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
             resolve && me.resolveUpdateCache.push(resolve);
@@ -2672,13 +2671,11 @@ class Component extends Base {
             if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                 me.hasRenderingListener = true;
 
-                listenerId = app.on('mounted', () => {
-                    app.un('mounted', listenerId);
-
+                app.on('mounted', () => {
                     me.timeout(50).then(() => {
                         me.vnode && me.updateVdom(resolve, reject)
                     })
-                })
+                }, me, {once: true})
             } else {
                 if (resolve && (!mounted || !vnode)) {
                     me.resolveUpdateCache.push(resolve)

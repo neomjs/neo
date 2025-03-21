@@ -14,7 +14,7 @@ const __dirname   = path.resolve(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.join(__dirname, 'package.json')),
       program     = new Command(),
-      neoPath     = path.resolve(packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/'),
+      neoPath     = path.resolve(packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/'),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
       questions   = [];

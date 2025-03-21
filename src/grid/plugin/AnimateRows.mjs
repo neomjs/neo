@@ -27,7 +27,7 @@ class AnimateRows extends Base {
          */
         ntype: 'plugin-grid-animate-rows',
         /**
-         * Time in ms. Please ensure to match the CSS based value, in case you change the default.
+         * Time in ms for the background-color, opacity & transform transitions
          * @member {Number} transitionDuration_=500
          */
         transitionDuration_: 500,
@@ -65,7 +65,7 @@ class AnimateRows extends Base {
         // Add the re-bound listeners
         owner.store = store;
 
-        me.updateTransitionDetails()
+        owner.addCls('neo-animate-rows')
     }
 
     /**
@@ -75,7 +75,7 @@ class AnimateRows extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        this.isConstructed && this.updateTransitionDetails(Neo.isNumber(oldValue))
+        this.owner.addStyle({'--neo-duration': value + 'ms'})
     }
 
     /**
@@ -85,7 +85,7 @@ class AnimateRows extends Base {
      * @protected
      */
     afterSetTransitionEasing(value, oldValue) {
-        this.isConstructed && this.updateTransitionDetails(!!oldValue)
+        this.owner.addStyle({'--neo-easing': value})
     }
 
     /**
@@ -102,7 +102,11 @@ class AnimateRows extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        CssUtil.deleteRules(this.appName, `#${this.owner.id} .neo-grid-row`);
+        this.owner.addStyle({
+            '--neo-duration': null,
+            '--neo-easing'  : null
+        });
+
         super.destroy(...args)
     }
 
@@ -123,32 +127,6 @@ class AnimateRows extends Base {
      */
     onStoreLoad(data) {
         this.updateView()
-    }
-
-    /**
-     * We do not want to apply the style to each list item itself,
-     * so we are using Neo.util.Css
-     * @param {Boolean} deleteRule=false
-     * @protected
-     */
-    async updateTransitionDetails(deleteRule=false) {
-        let me       = this,
-            duration = me.transitionDuration,
-            easing   = me.transitionEasing,
-            {id}     = me.owner;
-
-        if (deleteRule) {
-            await CssUtil.deleteRules(me.appName, `#${id} .neo-grid-row`)
-        }
-
-        CssUtil.insertRules(me.appName, [
-            `#${id} .neo-grid-row {`,
-                'transition:',
-                    `background-color ${duration}ms ${easing},`,
-                    `opacity ${duration}ms ${easing},`,
-                    `transform ${duration}ms ${easing}`,
-            '}'
-        ].join(''))
     }
 
     /**

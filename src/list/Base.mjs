@@ -206,9 +206,7 @@ class List extends Component {
                     plugins = me.plugins || [];
 
                 plugins.push({
-                    module  : module.default,
-                    appName : me.appName,
-                    windowId: me.windowId,
+                    module: module.default,
                     ...me.pluginAnimateConfig
                 });
 

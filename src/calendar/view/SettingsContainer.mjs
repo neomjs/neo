@@ -159,16 +159,14 @@ class SettingsContainer extends Container {
     onCardIndexChange(data) {
         let me            = this,
             container     = data.item,
-            mainContainer = me.getMainContainer(),
-            listenerId;
+            mainContainer = me.getMainContainer();
 
         if (mainContainer) {
             if (Neo.isFunction(container.createContent) && container.items.length < 1) {
                 if (Neo.typeOf(mainContainer[`${container.flag}Component`]) !== 'NeoInstance') {
-                    listenerId = mainContainer.on('cardLoaded', () => {
-                        mainContainer.un('cardLoaded', listenerId);
+                    mainContainer.on('cardLoaded', () => {
                         me.timeout(30).then(() => {container.createContent()})
-                    })
+                    }, me, {once: true})
                 } else {
                     me.timeout(30).then(() => {container.createContent()})
                 }

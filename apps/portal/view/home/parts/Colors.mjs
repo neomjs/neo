@@ -42,18 +42,14 @@ class Colors extends FeatureSection {
          * @member {String} paragraph
          */
         paragraph: [
-            'This is similar to the Helix demo &mdash; it\'s an extremely fast multi-window app. Click the start button ',
-            'to see the view reflect changes in the data. And the app is multi-window: the table and charts can be ',
-            'undocked into their own windows. In fact, the entire demo can be undocked.'
+            'Click the start button to see the view reflect changes in the data. And the app is multi-window: the table ',
+            'and charts can be undocked into their own windows. In fact, the entire demo can be undocked. ',
+            'All windows share the same data - less traffic and costs.'
         ].join(''),
         /**
          * @member {String} subHeadline='Socket Data'
          */
-        subHeadline: 'Shared Socket Data',
-        /**
-         * @member {String} textContainerPosition='end'
-         */
-        textContainerPosition: 'end'
+        subHeadline: 'Shared Socket Data'
     }
 }
 

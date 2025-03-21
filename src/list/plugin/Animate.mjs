@@ -156,7 +156,7 @@ class Animate extends Base {
      * @param {Object} args
      */
     destroy(...args) {
-        CssUtil.deleteRules(this.appName, `#${this.owner.id} .neo-list-item`);
+        CssUtil.deleteRules(this.windowId, `#${this.owner.id} .neo-list-item`);
         super.destroy(...args)
     }
 
@@ -431,10 +431,10 @@ class Animate extends Base {
             {id}     = me.owner;
 
         if (deleteRule) {
-            await CssUtil.deleteRules(me.appName, `#${id} .neo-list-item`)
+            await CssUtil.deleteRules(me.windowId, `#${id} .neo-list-item`)
         }
 
-        CssUtil.insertRules(me.appName, [
+        CssUtil.insertRules(me.windowId, [
             `#${id} .neo-list-item {`,
                 `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
             '}'
