@@ -434,10 +434,6 @@ class GridView extends Component {
             fieldValue             = record[dataField],
             cellConfig, rendererOutput;
 
-        if (fieldValue === null || fieldValue === undefined) {
-            fieldValue = ''
-        }
-
         rendererOutput = column.renderer.call(column.rendererScope || column, {
             column,
             columnIndex,

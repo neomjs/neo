@@ -22,6 +22,7 @@ class GridContainer extends BaseContainer {
         animatedChange: column.AnimatedChange,
         column        : column.Base,
         component     : column.Component,
+        currency      : column.Currency,
         index         : column.Index,
         progress      : column.Progress
     }

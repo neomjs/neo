@@ -73,8 +73,12 @@ class Column extends Base {
      * @param {Number|String}      data.value
      * @returns {*}
      */
-    cellRenderer(data) {
-        return data.value
+    cellRenderer({value}) {
+        if (value === null || value === undefined) {
+            return ''
+        }
+
+        return value
     }
 }
 
