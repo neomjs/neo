@@ -32,6 +32,14 @@ class GridContainer extends BaseGridContainer {
             dataField: 'sector',
             text     : 'Sector',
             width    : 200
+        }, {
+            dataField: 'change',
+            text     : 'Change',
+            width    : 120
+        }, {
+            dataField: 'value',
+            text     : 'Value',
+            width    : 120
         }]
     }
 }

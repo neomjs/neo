@@ -19,6 +19,9 @@ class Company extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'value',
+            type: 'Float'
+        }, {
             name: 'name',
             type: 'String'
         }, {
@@ -27,6 +30,9 @@ class Company extends Model {
         }, {
             name: 'symbol',
             type: 'String'
+        }, {
+            name: 'value',
+            type: 'Float'
         }]
     }
 }
