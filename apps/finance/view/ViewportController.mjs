@@ -29,7 +29,7 @@ class ViewportController extends Controller {
         companiesStore.items.forEach(record => {
             items.push({
                 symbol: record.symbol,
-                value : me.currencyFormatter.format(Math.round(Math.random() * 1000))
+                value : me.currencyFormatter.format(Math.random() * 1000)
             })
         });
 
