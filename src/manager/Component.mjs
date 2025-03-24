@@ -400,8 +400,6 @@ class Component extends Manager {
         if (vdom.cn) {
             output.cn = [];
 
-            childDepth = depth === -1 ? -1 : depth > 1 ? depth-1 : 1;
-
             vdom.cn.forEach(item => {
                 childDepth = depth;
 
