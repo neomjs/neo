@@ -17,6 +17,13 @@ class Companies extends Store {
          */
         model: CompanyModel,
         /**
+         * @member {Object[]} sorters=[{property:'name',direction:'ASC'}]
+         */
+        sorters: [{
+            property : 'name',
+            direction: 'ASC'
+        }],
+        /**
          * @member {String} url='../../apps/finance/resources/data/companies.json'
          */
         url: '../../apps/finance/resources/data/companies.json'
