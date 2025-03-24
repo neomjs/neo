@@ -15,8 +15,9 @@ class Company extends Model {
          * @member {Object[]} fields
          */
         fields: [{
-            name: 'value',
-            type: 'String'
+            name        : 'change',
+            defaultValue: null,
+            type        : 'Float'
         }, {
             name: 'name',
             type: 'String'
@@ -28,7 +29,7 @@ class Company extends Model {
             type: 'String'
         }, {
             name: 'value',
-            type: 'String'
+            type: 'Float'
         }]
     }
 }

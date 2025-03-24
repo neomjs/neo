@@ -14,11 +14,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @member {Intl.NumberFormat} currencyFormatter
-     */
-    currencyFormatter = new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'})
-
-    /**
      *
      */
     onCompaniesStoreLoad() {
@@ -29,7 +24,7 @@ class ViewportController extends Controller {
         companiesStore.items.forEach(record => {
             items.push({
                 symbol: record.symbol,
-                value : me.currencyFormatter.format(Math.random() * 1000)
+                value : Math.random() * 1000
             })
         });
 

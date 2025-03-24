@@ -38,13 +38,18 @@ class GridContainer extends BaseGridContainer {
             text     : 'Sector',
             width    : 200
         }, {
+            cellAlign: 'right',
             dataField: 'change',
+            locale   : 'en-US',
             text     : 'Change',
+            type     : 'currency',
             width    : 120
         }, {
             cellAlign: 'right',
             dataField: 'value',
+            locale   : 'en-US',
             text     : 'Value',
+            type     : 'currency',
             width    : 120
         }]
     }
