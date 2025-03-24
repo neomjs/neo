@@ -1,0 +1,12 @@
+[
+    {"symbol": "ADBE",  "name": "Adobe Inc.",              "sector": "Information Technology"},
+    {"symbol": "AMD",   "name": "Advanced Micro Devices",  "sector": "Information Technology"},
+    {"symbol": "ABNB",  "name": "Airbnb",                  "sector": "Consumer Discretionary"},
+    {"symbol": "GOOGL", "name": "Alphabet Inc. (Class A)", "sector": "Communication Services"},
+    {"symbol": "GOOG",  "name": "Alphabet Inc. (Class C)", "sector": "Communication Services"},
+    {"symbol": "AMZN",  "name": "Amazon",                  "sector": "Consumer Discretionary"},
+    {"symbol": "AEP",   "name": "American Electric Power", "sector": "Utilities"},
+    {"symbol": "AMGN",  "name": "Amgen",                   "sector": "Health Care"},
+    {"symbol": "ADI",   "name": "Analog Devices",          "sector": "Information Technology"},
+    {"symbol": "ANSS",  "name": "Ansys",                   "sector": "Information Technology"}
+]
