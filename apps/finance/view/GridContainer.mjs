@@ -22,11 +22,12 @@ class GridContainer extends BaseGridContainer {
          */
         columns: [{
             dataField: 'symbol',
-            text     : 'Symbol'
+            text     : 'Symbol',
+            width    : 100
         }, {
             dataField: 'name',
             text     : 'Name',
-            width    : 200
+            width    : 250
         }, {
             dataField: 'sector',
             text     : 'Sector',
