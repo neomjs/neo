@@ -22,7 +22,8 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module: GridContainer
+            module   : GridContainer,
+            reference: 'grid'
         }],
         /*
          * @member {Object} layout={ntype:'fit'}

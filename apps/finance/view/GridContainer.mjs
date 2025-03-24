@@ -42,6 +42,7 @@ class GridContainer extends BaseGridContainer {
             text     : 'Change',
             width    : 120
         }, {
+            cellAlign: 'right',
             dataField: 'value',
             text     : 'Value',
             width    : 120

@@ -16,7 +16,7 @@ class Company extends Model {
          */
         fields: [{
             name: 'value',
-            type: 'Float'
+            type: 'String'
         }, {
             name: 'name',
             type: 'String'
@@ -28,7 +28,7 @@ class Company extends Model {
             type: 'String'
         }, {
             name: 'value',
-            type: 'Float'
+            type: 'String'
         }]
     }
 }
