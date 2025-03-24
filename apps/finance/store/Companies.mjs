@@ -13,17 +13,13 @@ class Companies extends Store {
          */
         className: 'Finance.store.Companies',
         /**
-         * @member {Boolean} autoLoad=true
-         */
-        autoLoad: true,
-        /**
          * @member {Neo.data.model} model=CompanyModel
          */
         model: CompanyModel,
         /**
-         * @member {String} url='../resources/data/companies.json'
+         * @member {String} url='../../apps/finance/resources/data/companies.json'
          */
-        url: '../resources/data/companies.json'
+        url: '../../apps/finance/resources/data/companies.json'
     }
 }
 

@@ -1,6 +1,7 @@
-import BaseViewport from '../../../src/container/Viewport.mjs';
-import Component    from '../../../src/component/Base.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import Component             from '../../../src/component/Base.mjs';
+import TabContainer          from '../../../src/tab/Container.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Finance.view.Viewport
@@ -45,7 +46,11 @@ class Viewport extends BaseViewport {
         /*
          * @member {Object} layout={ntype:'fit'}
          */
-        layout: {ntype: 'fit'}
+        layout: {ntype: 'fit'},
+        /**
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         */
+        stateProvider: ViewportStateProvider
     }
 }
 
