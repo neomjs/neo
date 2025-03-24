@@ -35,7 +35,7 @@ class Currency extends Column {
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);console.log(this.parent.store);
+        super.construct(config);
         this.createFormatter()
     }
 
