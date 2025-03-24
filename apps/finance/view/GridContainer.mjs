@@ -21,6 +21,11 @@ class GridContainer extends BaseGridContainer {
          * @member {Object[]} columns
          */
         columns: [{
+            dataField: 'id',
+            text     : '#',
+            type     : 'index',
+            width    : 40
+        }, {
             dataField: 'symbol',
             text     : 'Symbol',
             width    : 100
