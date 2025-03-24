@@ -12,10 +12,6 @@ class Company extends Model {
          */
         className: 'Finance.model.Company',
         /**
-         * @member {String} keyProperty='symbol'
-         */
-        keyProperty: 'symbol',
-        /**
          * @member {Object[]} fields
          */
         fields: [{

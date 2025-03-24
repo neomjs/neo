@@ -13,6 +13,10 @@ class Companies extends Store {
          */
         className: 'Finance.store.Companies',
         /**
+         * @member {String} keyProperty='symbol'
+         */
+        keyProperty: 'symbol',
+        /**
          * @member {Neo.data.model} model=CompanyModel
          */
         model: CompanyModel,
