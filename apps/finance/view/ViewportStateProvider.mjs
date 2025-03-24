@@ -21,8 +21,9 @@ class ViewportStateProvider extends StateProvider {
          */
         stores: {
             companies: {
-                module  : CompanyStore,
-                autoLoad: true
+                module   : CompanyStore,
+                autoLoad : true,
+                listeners: {load: 'onCompaniesStoreLoad'}
             }
         }
     }

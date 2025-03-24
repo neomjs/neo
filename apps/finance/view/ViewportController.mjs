@@ -12,6 +12,13 @@ class ViewportController extends Component {
          */
         className: 'Finance.view.ViewportController'
     }
+
+    /**
+     *
+     */
+    onCompaniesStoreLoad() {
+        console.log('onCompaniesStoreLoad');
+    }
 }
 
 export default Neo.setupClass(ViewportController);
