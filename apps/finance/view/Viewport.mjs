@@ -1,5 +1,6 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
 import GridContainer         from './GridContainer.mjs';
+import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
@@ -14,6 +15,10 @@ class Viewport extends BaseViewport {
          */
         className: 'Finance.view.Viewport',
         /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         */
+        controller: ViewportController,
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -27,6 +32,9 @@ class Viewport extends BaseViewport {
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
         stateProvider: ViewportStateProvider,
+        /**
+         * @member {Object} style
+         */
         style: {padding: '2em'}
     }
 }
