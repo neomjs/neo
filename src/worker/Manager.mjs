@@ -8,6 +8,10 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 const NeoConfig = Neo.config,
       devMode   = NeoConfig.environment === 'development';
 
+navigator.serviceWorker.addEventListener('controllerchange', function() {
+    window.location.reload()
+}, {once: true});
+
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
  * Also, responsible for sending messages from the main thread to the different workers.
