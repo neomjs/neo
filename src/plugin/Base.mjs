@@ -77,16 +77,6 @@ class Plugin extends Base {
     }
 
     /**
-     * Triggered after the windowId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     */
-    afterSetWindowId(value, oldValue) {
-        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
-    }
-
-    /**
      * Override this method to apply changes to the owner Component when it does get mounted
      */
     onOwnerMounted() {

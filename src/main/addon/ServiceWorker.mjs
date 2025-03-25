@@ -19,6 +19,14 @@ class ServiceWorker extends Base {
      * @param {Object} config
      */
     construct(config) {
+        super.construct(config);
+        this.registerServiceWorker()
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             let me              = this,
                 {config}        = Neo,
@@ -27,30 +35,32 @@ class ServiceWorker extends Base {
                 folder          = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
                 opts            = devMode ? {type: 'module'} : {},
                 path            = (devMode ? config.basePath : config.workerBasePath) + (devMode ? folder : '') + fileName,
-                {serviceWorker} = navigator;
+                {serviceWorker} = navigator,
+                registration    = await serviceWorker.register(path, opts);
 
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
 
-            serviceWorker.register(path, opts)
-                .then(registration => {
-                    serviceWorker.ready.then(() => {
-                        serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
+            registration.addEventListener('updatefound', () => {
+                window.location.reload()
+            })
 
-                        if (!WorkerManager.getWorker('service')) {
-                            /*
-                             * navigator.serviceWorker.controller can be null in case we load a page for the first time
-                             * or in case of a force refresh.
-                             * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
-                             */
-                            WorkerManager.serviceWorker = registration.active
-                        }
+            await serviceWorker.ready;
 
-                        WorkerManager.sendMessage('service', {
-                            action: 'registerNeoConfig',
-                            data  : config
-                        })
-                    })
-                })
+            serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
+
+            if (!WorkerManager.getWorker('service')) {
+                /*
+                 * navigator.serviceWorker.controller can be null in case we load a page for the first time
+                 * or in case of a force refresh.
+                 * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
+                 */
+                WorkerManager.serviceWorker = registration.active
+            }
+
+            WorkerManager.sendMessage('service', {
+                action: 'registerNeoConfig',
+                data  : config
+            })
         }
     }
 

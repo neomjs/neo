@@ -15,6 +15,10 @@ class ServiceBase extends Base {
          */
         className: 'Neo.worker.ServiceBase',
         /**
+         * @member {String} cacheName_='neo-runtime'
+         */
+        cacheName_: 'neo-runtime',
+        /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
          */
         mixins: [RemoteMethodAccess],
@@ -33,10 +37,6 @@ class ServiceBase extends Base {
         }
     }
 
-    /**
-     * @member {String} cacheName='neo-runtime'
-     */
-    cacheName = 'neo-runtime'
     /**
      * @member {String[]} cachePaths
      */
@@ -92,6 +92,15 @@ class ServiceBase extends Base {
 
         Neo.currentWorker = me;
         Neo.workerId      = me.workerId
+    }
+
+    /**
+     * Triggered when accessing the cacheName config
+     * @param {String} value
+     * @protected
+     */
+    beforeGetCacheName(value) {
+        return value + '-' + this.version
     }
 
     /**
@@ -163,14 +172,26 @@ class ServiceBase extends Base {
     /**
      * @param {ExtendableMessageEvent} event
      */
-    onActivate(event) {
-        console.log('onActivate', event)
+    async onActivate(event) {
+        console.log('onActivate', event);
+
+        let me   = this,
+            keys = await caches.keys(),
+            key;
+
+        for (key of keys) {
+            // Clear caches for prior SW versions, without touching non-related caches
+            if (key.startsWith(me._cacheName) && key !== me.cacheName) {
+                // No need to await the method execution
+                me.clearCache(key)
+            }
+        }
     }
 
     /**
      * @param {Client} source
      */
-    onConnect(source) {
+    async onConnect(source) {
         console.log('onConnect', source);
 
         this.createMessageChannel(source);
@@ -181,8 +202,8 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onFetch(event) {
-        let hasMatch   = false,
-            {request}  = event,
+        let hasMatch  = false,
+            {request} = event,
             key;
 
         for (key of this.cachePaths) {
@@ -192,7 +213,7 @@ class ServiceBase extends Base {
             }
         }
 
-        hasMatch && event.respondWith(
+        hasMatch && request.method === 'GET' && event.respondWith(
             caches.match(request)
                 .then(cachedResponse => cachedResponse || caches.open(this.cacheName)
                 .then(cache          => fetch(request)
@@ -206,8 +227,7 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
-        console.log('onInstall', event);
-        globalThis.skipWaiting()
+        console.log('onInstall', event)
     }
 
     /**
@@ -250,25 +270,15 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     async onRegisterNeoConfig(msg, event) {
-        let me        = this,
-            {version} = me;
+        this.onConnect(event.source)
+    }
 
-        Neo.config = Neo.config || {};
-        Object.assign(Neo.config, msg.data);
-
-        if (version !== Neo.config.version) {
-            await me.clearCaches();
-
-            me.version = Neo.config.version;
-
-            me.sendMessage('app', {
-                action    : 'newVersion',
-                newVersion: Neo.config.version,
-                oldVersion: version
-            })
-        } else {
-            me.onConnect(event.source)
-        }
+    /**
+     * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
+     */
+    async onSkipWaiting(msg, event) {
+        await globalThis.skipWaiting()
     }
 
     /**
