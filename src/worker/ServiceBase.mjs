@@ -172,15 +172,8 @@ class ServiceBase extends Base {
     /**
      * @param {ExtendableMessageEvent} event
      */
-    onActivate(event) {
-        console.log('onActivate', event)
-    }
-
-    /**
-     * @param {Client} source
-     */
-    async onConnect(source) {
-        console.log('onConnect', source);
+    async onActivate(event) {
+        console.log('onActivate', event);
 
         let me   = this,
             keys = await caches.keys(),
@@ -193,9 +186,16 @@ class ServiceBase extends Base {
                 me.clearCache(key)
             }
         }
+    }
 
-        me.createMessageChannel(source);
-        me.initRemote()
+    /**
+     * @param {Client} source
+     */
+    async onConnect(source) {
+        console.log('onConnect', source);
+
+        this.createMessageChannel(source);
+        this.initRemote()
     }
 
     /**
