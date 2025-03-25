@@ -227,8 +227,7 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
-        console.log('onInstall', event);
-        globalThis.skipWaiting()
+        console.log('onInstall', event)
     }
 
     /**
@@ -272,6 +271,14 @@ class ServiceBase extends Base {
      */
     async onRegisterNeoConfig(msg, event) {
         this.onConnect(event.source)
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
+     */
+    async onSkipWaiting(msg, event) {
+        await globalThis.skipWaiting()
     }
 
     /**
