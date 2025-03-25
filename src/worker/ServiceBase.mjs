@@ -213,7 +213,7 @@ class ServiceBase extends Base {
             }
         }
 
-        hasMatch && event.respondWith(
+        hasMatch && request.method === 'GET' && event.respondWith(
             caches.match(request)
                 .then(cachedResponse => cachedResponse || caches.open(this.cacheName)
                 .then(cache          => fetch(request)
