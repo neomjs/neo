@@ -45,6 +45,28 @@ class ViewportController extends Controller {
         me.getReference('grid').bulkUpdateRecords(items);
         me.generateData()
     }
+
+    /**
+     * @param {Object} data
+     */
+    onStartButtonClick(data) {
+        let me         = this,
+            stopButton = me.getReference('stop-button');
+
+        data.component.disabled = true;
+        stopButton    .disabled = false
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStopButtonClick(data) {
+        let me          = this,
+            startButton = me.getReference('start-button');
+
+        data.component.disabled = true;
+        startButton   .disabled = false
+    }
 }
 
 export default Neo.setupClass(ViewportController);
