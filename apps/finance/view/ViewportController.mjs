@@ -13,18 +13,18 @@ class ViewportController extends Controller {
         className: 'Finance.view.ViewportController'
     }
 
+    /**
+     * @member {Number|null} intervalId=null
+     */
+    intervalId = null
+
+    /**
+     *
+     */
     generateData() {
-        let me    = this,
-            store = me.getStore('companies'),
-            change, index, record;
+        let me = this;
 
-        setInterval(() => {
-            index = Math.round(Math.random() * 100); // 0 - 100
-            change = Math.random() * 10 - 5;
-            record = store.getAt(index);
-
-            record.set({change, value: record.value + change})
-        }, 1)
+        me.intervalId = setInterval(me.updateRecord.bind(me), 4)
     }
 
     /**
@@ -44,6 +44,45 @@ class ViewportController extends Controller {
 
         me.getReference('grid').bulkUpdateRecords(items);
         me.generateData()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStartButtonClick(data) {
+        let me         = this,
+            stopButton = me.getReference('stop-button');
+
+        me.generateData();
+
+        data.component.disabled = true;
+        stopButton    .disabled = false
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStopButtonClick(data) {
+        let me          = this,
+            startButton = me.getReference('start-button');
+
+        clearInterval(me.intervalId);
+
+        data.component.disabled = true;
+        startButton   .disabled = false
+    }
+
+    /**
+     *
+     */
+    updateRecord() {
+        let me    = this,
+            store = me.getStore('companies'),
+            change = Math.random() * 10 - 5,
+            index  = Math.round(Math.random() * 100), // 0 - 100
+            record = store.getAt(index);
+
+        record.set({change, value: record.value + change})
     }
 }
 

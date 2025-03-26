@@ -1,5 +1,6 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
 import GridContainer         from './GridContainer.mjs';
+import Toolbar               from '../../../src/toolbar/Base.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -18,17 +19,10 @@ class Viewport extends BaseViewport {
          * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController,
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module   : GridContainer,
-            reference: 'grid'
-        }],
         /*
-         * @member {Object} layout={ntype:'fit'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
-        layout: {ntype: 'fit'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
@@ -36,7 +30,30 @@ class Viewport extends BaseViewport {
         /**
          * @member {Object} style
          */
-        style: {padding: '2em'}
+        style: {padding: '1.5em'},
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            module: Toolbar,
+            flex  : 'none',
+            style : {marginBottom: '1.5em'},
+
+            items : [{
+                disabled : true,
+                handler  : 'onStartButtonClick',
+                reference: 'start-button',
+                text     : 'Start'
+            }, {
+                handler  : 'onStopButtonClick',
+                reference: 'stop-button',
+                style    : {marginLeft: '.3em'},
+                text     : 'Stop'
+            }]
+        }, {
+            module   : GridContainer,
+            reference: 'grid'
+        }]
     }
 }
 
