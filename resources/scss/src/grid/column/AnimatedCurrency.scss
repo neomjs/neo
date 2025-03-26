@@ -1,0 +1,25 @@
+@keyframes grid-animated-cell-negative {
+    50%  {background-color: darkred;}
+}
+
+@keyframes grid-animated-cell-positive {
+    50%  {background-color: darkgreen}
+}
+
+.neo-grid-container {
+    .neo-grid-row, .neo-grid-row.neo-even {
+        .neo-grid-cell {
+            &.neo-animated-negative {
+                animation-name           : grid-animated-cell-negative;
+                animation-duration       : .4s;
+                animation-timing-function: ease-in-out;
+            }
+
+            &.neo-animated-positive {
+                animation-name           : grid-animated-cell-positive;
+                animation-duration       : .4s;
+                animation-timing-function: ease-in-out;
+            }
+        }
+    }
+}

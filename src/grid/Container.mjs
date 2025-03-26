@@ -19,12 +19,13 @@ class GridContainer extends BaseContainer {
      * @static
      */
     static columnTypes = {
-        animatedChange: column.AnimatedChange,
-        column        : column.Base,
-        component     : column.Component,
-        currency      : column.Currency,
-        index         : column.Index,
-        progress      : column.Progress
+        animatedChange  : column.AnimatedChange,
+        animatedCurrency: column.AnimatedCurrency,
+        column          : column.Base,
+        component       : column.Component,
+        currency        : column.Currency,
+        index           : column.Index,
+        progress        : column.Progress
     }
     /**
      * @member {Object} delayable

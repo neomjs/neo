@@ -14,7 +14,7 @@ class ViewportController extends Controller {
     }
 
     generateData() {
-        let me = this,
+        let me    = this,
             store = me.getStore('companies'),
             change, index, record;
 
@@ -24,7 +24,7 @@ class ViewportController extends Controller {
             record = store.getAt(index);
 
             record.set({change, value: record.value + change})
-        }, 30)
+        }, 1)
     }
 
     /**

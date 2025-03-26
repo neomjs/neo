@@ -1,8 +1,9 @@
-import AnimatedChange from './AnimatedChange.mjs';
-import Base           from './Base.mjs';
-import Component      from './Component.mjs';
-import Currency       from './Currency.mjs';
-import Index          from './Index.mjs';
-import Progress       from './Progress.mjs';
+import AnimatedChange   from './AnimatedChange.mjs';
+import AnimatedCurrency from './AnimatedCurrency.mjs';
+import Base             from './Base.mjs';
+import Component        from './Component.mjs';
+import Currency         from './Currency.mjs';
+import Index            from './Index.mjs';
+import Progress         from './Progress.mjs';
 
-export {AnimatedChange, Base, Component, Currency, Index, Progress};
+export {AnimatedChange, AnimatedCurrency, Base, Component, Currency, Index, Progress};
