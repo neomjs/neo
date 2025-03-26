@@ -42,15 +42,16 @@ class GridContainer extends BaseGridContainer {
             dataField: 'change',
             locale   : 'en-US',
             text     : 'Change',
-            type     : 'currency',
+            type     : 'animatedCurrency',
             width    : 120
         }, {
-            cellAlign: 'right',
-            dataField: 'value',
-            locale   : 'en-US',
-            text     : 'Value',
-            type     : 'currency',
-            width    : 120
+            cellAlign   : 'right',
+            compareField: 'change',
+            dataField   : 'value',
+            locale      : 'en-US',
+            text        : 'Value',
+            type        : 'animatedCurrency',
+            width       : 120
         }]
     }
 }
