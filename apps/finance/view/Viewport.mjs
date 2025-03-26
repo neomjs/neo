@@ -47,7 +47,7 @@ class Viewport extends BaseViewport {
             }, {
                 handler  : 'onStopButtonClick',
                 reference: 'stop-button',
-                style    : {marginLeft: '.2em'},
+                style    : {marginLeft: '.3em'},
                 text     : 'Stop'
             }]
         }, {
