@@ -118,7 +118,8 @@ class NeoResizeObserver extends Base {
      * @param {String} data.id
      */
     unregister(data) {
-        this.instance.unobserve(DomAccess.getElement(data.id))
+        let node = DomAccess.getElement(data.id);
+        node && this.instance.unobserve(node)
     }
 }
 
