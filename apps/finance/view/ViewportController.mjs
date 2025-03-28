@@ -76,8 +76,8 @@ class ViewportController extends Controller {
      *
      */
     updateRecord() {
-        let me    = this,
-            store = me.getStore('companies'),
+        let me     = this,
+            store  = me.getStore('companies'),
             change = Math.random() * 10 - 5,
             index  = Math.round(Math.random() * 100), // 0 - 100
             record = store.getAt(index);
