@@ -52,7 +52,7 @@ class EventResizable extends Resizable {
      * @param {Object} data
      */
     onMouseMove(data) {
-        if (this.owner.data.events.enableDrag) {
+        if (this.owner.enableDrag) {
             super.onMouseMove(data)
         }
     }
