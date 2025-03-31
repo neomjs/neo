@@ -1,6 +1,6 @@
-import MainContainer from './view/MainContainer.mjs';
+import Viewport from 'apps/email/view/Viewport.mjs';
 
 export const onStart = () => Neo.app({
-    mainView: MainContainer,
+    mainView: Viewport,
     name    : 'Email'
 });

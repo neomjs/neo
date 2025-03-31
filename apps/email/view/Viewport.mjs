@@ -1,22 +1,18 @@
+import BaseViewport from '../../../src/container/Viewport.mjs';
 import Component    from '../../../src/component/Base.mjs';
 import TabContainer from '../../../src/tab/Container.mjs';
-import Viewport     from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Email.view.MainContainer
+ * @class Email.view.Viewport
  * @extends Neo.container.Viewport
  */
-class MainContainer extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
         /**
-         * @member {String} className='Email.view.MainContainer'
+         * @member {String} className='Email.view.Viewport'
          * @protected
          */
-        className: 'Email.view.MainContainer',
-        /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
+        className: 'Email.view.Viewport',
         /**
          * @member {Object[]} items
          */
@@ -53,4 +49,4 @@ class MainContainer extends Viewport {
     }
 }
 
-export default Neo.setupClass(MainContainer);
+export default Neo.setupClass(Viewport);
