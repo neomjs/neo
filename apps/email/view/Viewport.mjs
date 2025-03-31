@@ -1,6 +1,7 @@
-import BaseViewport from '../../../src/container/Viewport.mjs';
-import Component    from '../../../src/component/Base.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import Component             from '../../../src/component/Base.mjs';
+import TabContainer          from '../../../src/tab/Container.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Email.view.Viewport
@@ -13,6 +14,14 @@ class Viewport extends BaseViewport {
          * @protected
          */
         className: 'Email.view.Viewport',
+        /*
+         * @member {Object} layout={ntype:'fit'}
+         */
+        layout: {ntype: 'fit'},
+        /**
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         */
+        stateProvider: ViewportStateProvider,
         /**
          * @member {Object[]} items
          */
@@ -41,11 +50,7 @@ class Viewport extends BaseViewport {
                 },
                 vdom: {innerHTML: 'Have fun creating something awesome!'}
             }]
-        }],
-        /*
-         * @member {Object} layout={ntype:'fit'}
-         */
-        layout: {ntype: 'fit'}
+        }]
     }
 }
 
