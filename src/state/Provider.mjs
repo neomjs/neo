@@ -610,7 +610,7 @@ class Provider extends Base {
             })
         }
 
-        me.resolveFormulas({key, id: me.id, oldValue, value});
+        me.formulas && me.resolveFormulas({key, id: me.id, oldValue, value});
 
         me.fire('dataPropertyChange', {key, id: me.id, oldValue, value})
     }
