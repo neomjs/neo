@@ -1,0 +1,15 @@
+[{
+    "id"        : 2,
+    "content"   : "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+    "dateSent"  : "Mon Mar 31 2025 19:03:50 GMT+0200",
+    "recipients": ["Alice@neomjs.com"],
+    "sender"    : "John@neomjs.com",
+    "title"     : "Hello World"
+}, {
+    "id"        : 1,
+    "content"   : "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce vestibulum purus consectetur ex convallis, vitae ullamcorper sapien lobortis. Etiam elementum.",
+    "dateSent"  : "Mon Mar 31 2025 18:03:50 GMT+0200",
+    "recipients": ["Alice@neomjs.com"],
+    "sender"    : "David@neomjs.com",
+    "title"     : "Hello World"
+}]
