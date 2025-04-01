@@ -86,16 +86,6 @@ if (programOpts.info) {
         });
     }
 
-    if (!programOpts.mainThreadAddons) {
-        questions.push({
-            type:     'checkbox',
-            name:     'mainThreadAddons',
-            message:  'Please choose your main thread addons:',
-            choices:  addonChoices,
-            default:  ['DragDrop', 'Stylesheet']
-        });
-    }
-
     if (!programOpts.useSharedWorkers) {
         questions.push({
             type:     'list',
@@ -117,16 +107,16 @@ if (programOpts.info) {
     }
 
     inquirer.prompt(questions).then(answers => {
-        let appName            = programOpts.appName || answers.appName,
-            mainThreadAddons   = programOpts.mainThreadAddons || answers.mainThreadAddons,
-            themes             = programOpts.themes || answers.themes,
-            useSharedWorkers   = programOpts.useSharedWorkers || answers.useSharedWorkers,
-            useServiceWorker   = programOpts.useServiceWorker || answers.useServiceWorker,
-            lAppName           = appName.toLowerCase(),
-            appPath            = 'apps/' + lAppName + '/',
-            dir                = 'apps/' + lAppName,
-            folder             = path.resolve(cwd, dir),
-            startDate          = new Date();
+        let appName          = programOpts.appName || answers.appName,
+            mainThreadAddons = programOpts.mainThreadAddons || ['DragDrop', 'Navigator', 'Stylesheet'],
+            themes           = programOpts.themes || answers.themes,
+            useSharedWorkers = programOpts.useSharedWorkers || answers.useSharedWorkers,
+            useServiceWorker = programOpts.useServiceWorker || answers.useServiceWorker,
+            lAppName         = appName.toLowerCase(),
+            appPath          = 'apps/' + lAppName + '/',
+            dir              = 'apps/' + lAppName,
+            folder           = path.resolve(cwd, dir),
+            startDate        = new Date();
 
         if (!Array.isArray(themes)) {
             themes = [themes];
@@ -179,7 +169,12 @@ if (programOpts.info) {
                 mainPath:     `${insideNeo ? './' : '../node_modules/neo.mjs/src/'}Main.mjs`
             };
 
-            if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
+            if (!(
+                mainThreadAddons.includes('DragDrop')   &&
+                mainThreadAddons.includes('Navigator')  &&
+                mainThreadAddons.includes('Stylesheet') &&
+                mainThreadAddons.length === 3)
+            ) {
                 neoConfig.mainThreadAddons = mainThreadAddons;
             }
 
@@ -244,16 +239,16 @@ export default Neo.setupClass(${className});
 
             className = 'MainView';
             content = `
-import Base        from '${neoSrcPath}/container/Base.mjs';
-import Controller  from './${className}Controller.mjs';
-import ViewModel   from './${className}Model.mjs';
+import Base              from '${neoSrcPath}/container/Base.mjs';
+import Controller        from './${className}Controller.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
 class ${className} extends Base {
     static config = {
         className: '${appName}.view.${className}',
         
         controller: {module: Controller},
-        model: {module: ViewModel},
+        stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'fit'},
         items: [],
@@ -283,11 +278,11 @@ export default Neo.setupClass(${className});
 
             // -------------------------------------------------------------------------
 
-            className = 'MainViewModel';
+            className = 'MainStateProvider';
             content = `
-import Base from '${neoSrcPath}/model/Component.mjs';
+import StateProvider from '${neoSrcPath}/state/Provider.mjs';
 
-class ${className} extends Base {
+class ${className} extends StateProvider {
     static config = {
         className: '${appName}.view.${className}',
 
