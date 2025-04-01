@@ -23,7 +23,7 @@ A few key concepts we'll be discussing:
 - Configuring components
 - Debugging
 - Class-based coding
-- View models
+- State providers
 - Events
 - Controllers
 
@@ -188,9 +188,9 @@ Use a code editor and look at `workspace/apps/earthquakes/src/view/MainView.mjs`
 following class definition: 
 
 <pre data-javascript>
-import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller from './MainViewController.mjs';
-import ViewModel  from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Base {
     static config = {
@@ -198,16 +198,14 @@ class MainView extends Base {
         ntype: 'earthquakes-main',
         
         controller: {module: Controller},
-        model: {module: ViewModel},
+        stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'fit'},
         items: [],
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 As you can see, `MainView extends Base`, and `Base` is a _container_ (`Neo.container.Base`). 
@@ -227,10 +225,10 @@ which method to run when the button is clicked. We'll use `text`.
 
 <pre data-javascript>
 
-import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
-import Controller from './MainViewController.mjs';
-import ViewModel  from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Base {
     static config = {
@@ -238,7 +236,7 @@ class MainView extends Base {
         ntype: 'earthquakes-main',
 
         controller: {module: Controller},
-        model: {module: ViewModel},
+        stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'fit'},
         items: [{
@@ -248,9 +246,7 @@ class MainView extends Base {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 
@@ -428,10 +424,10 @@ Edit `apps/earthquakes/view/MainView.mjs` and add a method.
 
 <pre data-javascript>
 
-import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
-import Controller from './MainViewController.mjs';
-import ViewModel  from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Base {
     static config = {
@@ -439,7 +435,7 @@ class MainView extends Base {
         ntype: 'earthquakes-main',
 
         controller: {module: Controller},
-        model: {module: ViewModel},
+        stateProvider: {module: MainStateProvider},
 
         layout: {
             ntype: 'vbox',
@@ -456,9 +452,7 @@ class MainView extends Base {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 Save your changes.
@@ -502,11 +496,11 @@ Replace the button with a table by replacing `MainView.mjs` with the following c
 
 <pre data-javascript>
 
-import Base       from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Table      from '../../../node_modules/neo.mjs/src/table/Container.mjs';
-import Store      from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import Controller from './MainViewController.mjs';
-import ViewModel  from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Table             from '../../../node_modules/neo.mjs/src/table/Container.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
+import Controller        from './MainViewController.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Base {
     static config = {
@@ -514,7 +508,7 @@ class MainView extends Base {
         ntype: 'earthquakes-main',
 
         controller: {module: Controller},
-        model: {module: ViewModel},
+        stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'vbox', align: 'stretch'},
         items: [{
@@ -555,9 +549,7 @@ class MainView extends Base {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 Save and refresh.
@@ -705,9 +697,7 @@ class Table extends Base {
     }
 }
 
-Neo.setupClass(Table);
-
-export default Table;
+export default Neo.setupClass(Table);
 </pre>
 
 </details>
@@ -733,7 +723,7 @@ Edit `apps/earthquakes/view/MainView` and make these changes.
 
 Save and refresh the browser, and your app should run as before.
 
-You can confim that the  new class _is being loaded_ by using DevTools to try to open `earthquakes/Table` &mdash; if it
+You can confirm that the  new class _is being loaded_ by using DevTools to try to open `earthquakes/Table` &mdash; if it
 was imported, it'll be listed.
 
 You can confirm that an instance _was created_ by using the DevTools console and searching for it via
@@ -746,11 +736,11 @@ You can confirm that an instance _was created_ by using the DevTools console and
 <summary>Here's the code</summary>
 
 <pre data-javascript>
-import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller       from './MainViewController.mjs';
-import EarthquakesTable from './earthquakes/Table.mjs';
-import Store            from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import ViewModel        from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesTable  from './earthquakes/Table.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
 class MainView extends Base {
 static config = {
@@ -758,7 +748,7 @@ static config = {
         ntype: 'earthquakes-main',
 
         controller: {module: Controller},
-        model: {module: ViewModel},
+        stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'vbox', align: 'stretch'},
         items: [{
@@ -784,9 +774,7 @@ static config = {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 </details>
@@ -832,12 +820,12 @@ twice.
 If we simply wanted to re-use the store's description we could refactor the store config into a new
 store class, just like we did for the table. But in _earthquakes_ we want to share the store _instance_.
 
-Neo has a feature that allows shared, bindable, data. A `Neo.model.Component` instance holds properties that 
-can be values like strings, numbers, or even references, like component or store references. `Neo.model.Component`
-is commonly called a _view model_ or _component model_.<small><sup>*</sup></small>
+Neo has a feature that allows shared, bindable, data. A `Neo.state.Provider` instance holds properties that 
+can be values like strings, numbers, or even references, like component or store references. `Neo.state.Provider`
+is commonly called a _state provider_.<small><sup>*</sup></small>
 
-The `create-app-minimal` script includes a view model and view controller config. The view model
-will hold the store.
+The `create-app-minimal` script includes a state provider and view controller config.
+The state provider will hold the store.
 
 <br>
 <br>
@@ -846,36 +834,36 @@ will hold the store.
 
 
 
-## Lab. Use a View Model
+## Lab. Use a State Provider
 
 <!-- lab -->
 
 <details>
 <summary>Look at network traffic</summary>
 
-Before making any changes, open devtools in the Network tab and refresh _earthquakes_. You'll see two
-calls to the web service.
+Before making any changes, open devtools in the Network tab and refresh _earthquakes_.
+You'll see two calls to the web service.
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesTwoTablesTwoCalls.png"></img>
 
 </details>
 
 <details>
-<summary>Copy the store config to the view model</summary>
+<summary>Copy the store config to the state provider</summary>
 
-View models have two key configs: `data` and `stores`. 
+State Providers have two key configs: `data` and `stores`. 
 
 - `data` holds name/value pairs where the value can be a simple value, or object references
 - `stores` holds configs of stores
 
-Add a `stores` property to the view model config that holds a copy of the store.
+Add a `stores` property to the state provider config that holds a copy of the store.
 
 <pre data-javascript>
-import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller       from './MainViewController.mjs';
-import EarthquakesTable from './earthquakes/Table.mjs';
-import Store            from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import ViewModel        from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesTable  from './earthquakes/Table.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
 class MainView extends Base {
     static config = {
@@ -883,8 +871,8 @@ class MainView extends Base {
         ntype: 'earthquakes-main',
 
         controller: {module: Controller},
-        model: {
-            module: ViewModel,
+        stateProvider: {
+            module: MainStateProvider,
             stores: {
                 earthquakes: {
                     module: Store,
@@ -950,9 +938,7 @@ class MainView extends Base {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 
 </pre>
 
@@ -963,16 +949,16 @@ of the data the store holds.
 At this point we have _three_ identical store configs! Save and refresh, and look at network traffic &mdash; you
 should see three calls.
 
-Having an instance in the view model means we can share it. It can be shared anywhere in the containment 
+Having an instance in the state provider means we can share it. It can be shared anywhere in the containment 
 hierarchy. The app doesn't have much of a hierarchy: it's just the main view and two child components (the two
-tables). But now that the store is in the parent's view model we can share it.
+tables). But now that the store is in the parent's state provider we can share it.
 
 </details>
 
 <details>
 <summary>Use the shared store</summary>
 
-The way to bind an instance to a view model property is with the `bind` config. For example
+The way to bind an instance to a state provider property is with the `bind` config. For example
 
     bind: {
         store: 'stores.earthquakes' 
@@ -980,7 +966,7 @@ The way to bind an instance to a view model property is with the `bind` config. 
 
 binds a `store` property to a store called `foo`. The code is saying _in the future, when the value
 of "stores.earthquakes" changes, assign it to this object's "store" property_. In this case, `stores.earthquakes`
-starts out undefined, then at runtime within a few milliseconds as the view model is processed, the configured
+starts out undefined, then at runtime within a few milliseconds as the state provider is processed, the configured
 store is created and a reference is assigned to `stores.earthquakes`. That wakes the binding up, and the 
 value is assigned to the table's `store` property. 
 
@@ -988,19 +974,19 @@ Replace each table's `store` config with the binding.
 
 <pre data-javascript>
 
-import Base             from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller       from './MainViewController.mjs';
-import EarthquakesTable from './earthquakes/Table.mjs';
-import Store            from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-import ViewModel        from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesTable  from './earthquakes/Table.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
 class MainView extends Base {
     static config = {
         className: 'Earthquakes.view.MainView',
         ntype: 'earthquakes-main',
         controller: {module: Controller},
-        model: {
-            module: ViewModel,
+        stateProvider: {
+            module: MainStateProvider,
             stores: {
                 earthquakes: {
                     module: Store,
@@ -1017,7 +1003,7 @@ class MainView extends Base {
                     url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
                     responseRoot: "data",
                     autoLoad: true
-                },    
+                }
             }
         },
 
@@ -1034,13 +1020,11 @@ class MainView extends Base {
                 store: 'stores.earthquakes'
             },
             style: {width: '100%'}
-        }],
+        }]
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 Save, refresh, and look at network traffic: you'll see a _single_ call to the web service.
@@ -1050,7 +1034,7 @@ Save, refresh, and look at network traffic: you'll see a _single_ call to the we
 You can further prove we're using a shared instance by running these statements in the console.
 
 <pre data-javascript>
-a = Neo.findFirst({ntype:'earthquakes-main'}).model.stores.earthquakes;
+a = Neo.findFirst({ntype:'earthquakes-main'}).stateProvider.stores.earthquakes;
 b = Neo.find({ntype:'earthquakes-table'})[0].store;
 c = Neo.find({ntype:'earthquakes-table'})[1].store;
 
@@ -1060,25 +1044,25 @@ c = Neo.find({ntype:'earthquakes-table'})[1].store;
 </details>
 
 <details>
-<summary>Use the view model class</summary>
+<summary>Use the state provider class</summary>
 
-We configured the view model in-line, in the `model` config at the top of `MainView`. But the starter app
-has a `MainViewModel` class. In theory, if you have a trivial view model you could configure it in-line. But
+We configured the state provider in-line, in the `stateProvider` config at the top of `MainView`. But the starter app
+has a `MainStateProvider` class. In theory, if you have a trivial state provider you could configure it in-line. But
 in general you want to keep that code separate by coding it in a separate class. This is what we did for the 
 table config &mdash; we started by coding it in-line in the main view, then we refactored it into its own
-class. The result was a simpler and more abstract main view. We want to do the same for the view model.
+class. The result was a simpler and more abstract main view. We want to do the same for the state provider.
 
-Since the starter app already provides `MainViewModel`, all we need to do is copy the `stores` property.
+Since the starter app already provides `MainStateProvider`, all we need to do is copy the `stores` property.
 
-Here's the resulting code you should place into `MainViewModel.mjs`.
+Here's the resulting code you should place into `MainStateProvider.mjs`.
 
 <pre data-javascript>
-import Model from '../../../node_modules/neo.mjs/src/model/Component.mjs';
-import Store from '../../../node_modules/neo.mjs/src/data/Store.mjs';
+import StateProvider from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
+import Store         from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
-class MainViewModel extends Model {
+class MainStateProvider extends StateProvider {
     static config = {
-        className: 'Earthquakes.view.MainViewModel',
+        className: 'Earthquakes.view.MainStateProvider',
 
         data: {},
         stores: {
@@ -1102,26 +1086,24 @@ class MainViewModel extends Model {
     }
 }
 
-Neo.setupClass(MainViewModel);
-
-export default MainViewModel;
+export default Neo.setupClass(MainStateProvider);
 </pre>
 
 And you need to remove the `stores` config from the main view as follows.
 
 <pre data-javascript>
-import Container        from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller       from './MainViewController.mjs';
-import EarthquakesTable from './earthquakes/Table.mjs';
-import ViewModel        from './MainViewModel.mjs';
+import Container         from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesTable  from './earthquakes/Table.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Container {
     static config = {
         className: 'Earthquakes.view.MainView',
         ntype: 'earthquakes-main',
         controller: {module: Controller},
-        model: {
-            module: ViewModel
+        stateProvider: {
+            module: MainStateProvider
         },
 
         layout: { ntype: 'vbox', align: 'stretch' },
@@ -1141,12 +1123,10 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
-The refactorings to have separate table and view model classes means the code is more modular, more reusable, 
+The refactorings to have separate table and state provider classes means the code is more modular, more reusable, 
 and each class is simpler than using complex source files that try to configure every detail.
 
 </details>
@@ -1155,8 +1135,8 @@ and each class is simpler than using complex source files that try to configure 
 
 ## Google Maps Add-on
 
-Neo.mjs has a Google Map component. This component is a little different than a button or table, 
-becauase it's implemented as a _main thread add-on_. 
+Neo.mjs has a Google Map component. This component is a little different from a button or table, 
+because it's implemented as a _main thread add-on_. 
 
 When you use Google Maps you use the Google Map API to ask it to draw the map and markers.
 In a normal app, Google Maps &mdahs; and everything else &mdash; runs in the main browser thread. 
@@ -1192,7 +1172,7 @@ Marker store records are required to have these properties:
 <details>
 <summary>Get the code for the custom add-on</summary>
 At the time this tutorial was written, the Neo.mjs Google Maps addon was about to be updated to 
-accomodate Google's "AdvancedMarker" class. Until that's ready, we're going to use a modified version of the add-on. 
+accommodate Google's "AdvancedMarker" class. Until that's ready, we're going to use a modified version of the add-on. 
 
 Download and unzip this file, and copy the two source files to the corresponding subdirectories in 
 your workspace's `src` directory. Note that `src` already contains some files, so don't replace the whole
@@ -1245,7 +1225,7 @@ lets us implement those via two properties:
 - `mapping` &mdash; the path to a feed property holding the value
 - `calculate` &mdash; a function that returns a value
 
-Edit `apps/earthquakes/view/MainViewModel.mjs` and modify `fields` as follows.
+Edit `apps/earthquakes/view/MainStateProvider.mjs` and modify `fields` as follows.
 
 <pre data-javascript>
 fields: [{
@@ -1270,9 +1250,9 @@ calculated by returning an object with _lat_ and _lng_ set to the corresponding 
 Save and refresh _earthquakes_. You can use the debugger to inspect the store via _Shift-Ctrl-right-click_ and
 putting the main view into a global variable. Then run
 
-    temp1.getModel().stores.earthquakes.items
+    temp1.getStateProvider().stores.earthquakes.items
 
-Look at one of the items and you should see that _title_ and _location_ are in each record.
+Look at one of the items, and you should see that _title_ and _location_ are in each record.
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/StoreHasTitleAndLocation.png"></img>
 
@@ -1304,15 +1284,15 @@ import Container           from '../container/Base.mjs';
 import Controller          from './MainViewController.mjs';
 import EarthquakesTable    from './earthquakes/Table.mjs';
 import GoogleMapsComponent from '../component/wrapper/GoogleMaps.mjs';
-import ViewModel           from './MainViewModel.mjs';
+import MainStateProvider   from './MainStateProvider.mjs';
 
 class MainView extends Container {
     static config = {
         className: 'Earthquakes.view.MainView',
         ntype: 'earthquakes-main',
         controller: {module: Controller},
-        model: {
-            module: ViewModel
+        stateProvider: {
+            module: MainStateProvider
         },
 
         layout: { ntype: 'vbox', align: 'stretch' },
@@ -1337,9 +1317,7 @@ class MainView extends Container {
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 </pre>
 
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/CenteredMap.png"></img>
@@ -1430,6 +1408,6 @@ and to introduce some basic Neo.mjs concepts
 
 - Declarative, abstract code
 - Class-based coding, and the ability to extend any class, such as `view/earthquakes/Table.mjs`
-- View models, to share properties and objects, such as the store shared by the table and map
+- State providers, to share properties and objects, such as the store shared by the table and map
 - Events, specified via `listeners:{}`
 - Controllers, to hold event listeners and other procedural logic
