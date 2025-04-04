@@ -1,6 +1,5 @@
-import Base   from '../core/Base.mjs';
-import Logger from '../util/Logger.mjs';
-import Model  from './Model.mjs';
+import Base  from '../core/Base.mjs';
+import Model from './Model.mjs';
 
 const
     dataSymbol         = Symbol.for('data'),
@@ -166,15 +165,10 @@ class RecordFactory extends Base {
                     isModifiedField(fieldName) {
                         let me = this;
 
-                        // Check if the field getter does exist
-                        if (!Object.hasOwn(me.__proto__, fieldName)) {
-                            Logger.logError('The record does not contain the field', fieldName, me)
-                        }
-
                         if (model.trackModifiedFields) {
                             let dataScope, originalDataScope;
 
-                            if (model.hasNestedFields && fieldName.includes('.')) {
+                            if (model.hasNestedFields && fieldName?.includes('.')) {
                                 let nsArray = fieldName.split('.');
 
                                 fieldName         = nsArray.pop();
@@ -183,6 +177,14 @@ class RecordFactory extends Base {
                             } else {
                                 dataScope         = me[dataSymbol];
                                 originalDataScope = me[originalDataSymbol]
+                            }
+
+                            // Check if the field exists
+                            if (
+                                !model.getField(fieldName) &&        // Check for leaf fields (could be excluded inside the real data)
+                                !Object.hasOwn(dataScope, fieldName) // Check the data tree
+                            ) {
+                                console.error('The record does not contain the field', fieldName, me)
                             }
 
                             return !Neo.isEqual(dataScope[fieldName], originalDataScope[fieldName])
