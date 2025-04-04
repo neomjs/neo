@@ -8,7 +8,8 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 const NeoConfig = Neo.config,
       devMode   = NeoConfig.environment === 'development';
 
-navigator.serviceWorker.addEventListener('controllerchange', function() {
+// Using ?. since SWs do not exist for http (only https)
+navigator.serviceWorker?.addEventListener('controllerchange', function() {
     window.location.reload()
 }, {once: true});
 
