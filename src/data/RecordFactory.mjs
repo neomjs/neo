@@ -82,24 +82,11 @@ class RecordFactory extends Base {
                         return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        let me       = this,
-                            oldValue = me[dataSymbol][fieldName];
-
-                        value = instance.parseRecordValue(me, field, value);
-
-                        if (!Neo.isEqual(value, oldValue)) {
-                            instance.setRecordData({fieldName: fieldPath, model, record: me, value});
-
-                            if (!model.trackModifiedFields) {
-                                me[isModifiedSymbol] = true
-                            }
-
-                            instance.onRecordChange({
-                                fields: [{name: fieldPath, oldValue, value}],
-                                model,
-                                record: me
-                            })
-                        }
+                        instance.setRecordFields({
+                            fields: {[fieldPath]: instance.parseRecordValue(this, field, value)},
+                            model,
+                            record: this,
+                        })
                     }
                 }
             };
@@ -288,11 +275,11 @@ class RecordFactory extends Base {
      * todo: parse value for more field types
      * @param {Object} record
      * @param {Object} field
-     * @param {*} value
+     * @param {*} value=null
      * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(record, field, value, recordConfig=null) {
+    parseRecordValue(record, field, value=null, recordConfig=null) {
         if (field.calculate) {
             return field.calculate(record, field, recordConfig)
         }
@@ -400,8 +387,9 @@ class RecordFactory extends Base {
      * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
     setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
-        let {fieldsMap, trackModifiedFields} = model,
-            fieldExists, oldValue;
+        let me = this,
+            {calculatedFieldsMap, fieldsMap, trackModifiedFields} = model,
+            fieldExists, hasChangedFields, oldValue;
 
         if (!trackModifiedFields && useOriginalData) {
             return
@@ -412,7 +400,7 @@ class RecordFactory extends Base {
 
             if (Neo.isObject(value) && !fieldExists) {
                 Object.entries(value).forEach(([childKey, childValue]) => {
-                    this.setRecordFields({
+                    me.setRecordFields({
                         changedFields,
                         fields: {[`${key}.${childKey}`]: childValue},
                         model,
@@ -423,10 +411,10 @@ class RecordFactory extends Base {
                 })
             } else if (fieldExists) {
                 oldValue = record[key];
-                value    = instance.parseRecordValue(record, model.getField(key), value);
+                value    = me.parseRecordValue(record, model.getField(key), value);
 
                 if (!Neo.isEqual(oldValue, value)) {
-                    instance.setRecordData({fieldName: key, model, record, useOriginalData, value});
+                    me.setRecordData({fieldName: key, model, record, useOriginalData, value});
 
                     if (!trackModifiedFields && !useOriginalData) {
                         record[isModifiedSymbol] = true
@@ -437,8 +425,23 @@ class RecordFactory extends Base {
             }
         });
 
-        if (!silent && !useOriginalData && Object.keys(changedFields).length > 0) {
-            Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record})
+        hasChangedFields = Object.keys(changedFields).length > 0;
+
+        if (hasChangedFields) {
+            calculatedFieldsMap.forEach((value, key) => {
+                oldValue = record[key];
+                value    = me.parseRecordValue(record, model.getField(key));
+
+                if (!Neo.isEqual(oldValue, value)) {
+                    me.setRecordData({fieldName: key, model, record, useOriginalData, value});
+
+                    changedFields.push({name: key, oldValue, value})
+                }
+            })
+        }
+
+        if (!silent && !useOriginalData && hasChangedFields) {
+            me.onRecordChange({fields: changedFields, model, record})
         }
     }
 }

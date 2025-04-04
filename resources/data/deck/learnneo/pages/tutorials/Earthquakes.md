@@ -684,15 +684,15 @@ class Table extends Base {
         columns: [{
             dataField: "timestamp",
             text: "Date",
-            renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}),
+            renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"})
         }, {
             dataField: "location",
-            text: "Location",
+            text: "Location"
         }, {
             dataField: "magnitude",
             text: "Magnitude",
             align: "right",
-            renderer: (data) => data.value.toLocaleString(),
+            renderer: (data) => data.value.toLocaleString()
         }],
     }
 }
