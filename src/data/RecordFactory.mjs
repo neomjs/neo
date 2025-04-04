@@ -292,8 +292,8 @@ class RecordFactory extends Base {
      * @param {Object} recordConfig=null
      * @returns {*}
      */
-    parseRecordValue(record, field, value, recordConfig=null) {
-        if (field.calculate) {
+    parseRecordValue(record, field, value, recordConfig=null) {//console.log(field);
+        if (field.calculate) {console.log(field.calculate(record, field, recordConfig));
             return field.calculate(record, field, recordConfig)
         }
 
@@ -400,8 +400,8 @@ class RecordFactory extends Base {
      * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
     setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
-        let {fieldsMap, trackModifiedFields} = model,
-            fieldExists, oldValue;
+        let {calculatedFieldsMap, fieldsMap, trackModifiedFields} = model,
+            fieldExists, hasChangedFields, oldValue;
 
         if (!trackModifiedFields && useOriginalData) {
             return
@@ -437,7 +437,15 @@ class RecordFactory extends Base {
             }
         });
 
-        if (!silent && !useOriginalData && Object.keys(changedFields).length > 0) {
+        hasChangedFields = Object.keys(changedFields).length > 0;
+
+        if (hasChangedFields) {
+            calculatedFieldsMap.forEach((value, key) => {
+                instance.setRecordData({fieldName: key, model, record, useOriginalData, value: value.calculate(record, value)})
+            })
+        }
+
+        if (!silent && !useOriginalData && hasChangedFields) {
             Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record})
         }
     }

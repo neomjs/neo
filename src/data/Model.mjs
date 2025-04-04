@@ -40,6 +40,11 @@ class Model extends Base {
     }
 
     /**
+     * @member {Map} calculatedFieldsMap=new Map()
+     * @protected
+     */
+    calculatedFieldsMap = new Map()
+    /**
      * @member {Map} fieldsMap=new Map()
      * @protected
      */
@@ -85,11 +90,12 @@ class Model extends Base {
      * @param {String} path=''
      */
     updateFieldsMap(fields, isRoot=true, path='') {
-        let me          = this,
-            {fieldsMap} = me,
+        let me = this,
+            {calculatedFieldsMap, fieldsMap} = me,
             fieldName;
 
         if (isRoot) {
+            calculatedFieldsMap.clear();
             fieldsMap.clear();
             me.hasNestedFields = false
         }
@@ -102,7 +108,11 @@ class Model extends Base {
                 me.hasNestedFields = true;
                 me.updateFieldsMap(field.fields, false, field.name + '.')
             } else {
-                fieldsMap.set(fieldName, field)
+                fieldsMap.set(fieldName, field);
+
+                if (field.calculate) {
+                    calculatedFieldsMap.set(fieldName, field)
+                }
             }
         })
     }
