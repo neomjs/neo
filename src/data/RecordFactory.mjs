@@ -83,9 +83,9 @@ class RecordFactory extends Base {
                     },
                     set(value) {
                         instance.setRecordFields({
-                            fields: {[fieldPath]: instance.parseRecordValue(this, field, value)},
+                            fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
                             model,
-                            record: this,
+                            record: this
                         })
                     }
                 }
@@ -273,16 +273,17 @@ class RecordFactory extends Base {
     }
 
     /**
-     * todo: parse value for more field types
-     * @param {Object} record
-     * @param {Object} field
-     * @param {*} value=null
-     * @param {Object} recordConfig=null
+     * @param {Object}  data
+     * @param {Object}  data.record
+     * @param {Object}  data.field
+     * @param {*}       [data.value=null]
+     * @param {Object}  [data.recordConfig=null]
+     * @param {Boolean} [data.useOriginalData=false]
      * @returns {*}
      */
-    parseRecordValue(record, field, value=null, recordConfig=null) {
+    parseRecordValue({record, field, value=null, recordConfig=null, useOriginalData=false}) {
         if (field.calculate) {
-            return field.calculate(record, field, recordConfig)
+            return field.calculate(record[useOriginalData ? originalDataSymbol : dataSymbol], field)
         }
 
         if (field.convert) {
@@ -412,7 +413,7 @@ class RecordFactory extends Base {
                 })
             } else if (fieldExists) {
                 oldValue = record[key];
-                value    = me.parseRecordValue(record, model.getField(key), value);
+                value    = me.parseRecordValue({record, field: model.getField(key), value});
 
                 if (!Neo.isEqual(oldValue, value)) {
                     me.setRecordData({fieldName: key, model, record, useOriginalData, value});
@@ -431,7 +432,7 @@ class RecordFactory extends Base {
         if (hasChangedFields) {
             calculatedFieldsMap.forEach((value, key) => {
                 oldValue = record[key];
-                value    = me.parseRecordValue(record, model.getField(key));
+                value    = me.parseRecordValue({record, field: model.getField(key), useOriginalData});
 
                 if (!Neo.isEqual(oldValue, value)) {
                     me.setRecordData({fieldName: key, model, record, useOriginalData, value});
