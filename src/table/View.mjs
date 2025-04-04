@@ -128,10 +128,18 @@ class View extends Component {
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
+            {model}     = me.store,
             fieldValue  = record[dataField],
-            hasStore    = tableContainer.store?.model, // todo: remove as soon as all tables use stores (examples table)
+            hasStore    = !!model, // todo: remove as soon as all tables use stores (examples table)
             {vdom}      = me,
             cellConfig, rendererOutput;
+
+        if (!model?.getField(dataField)) {
+            let nsArray   = dataField.split('.'),
+                fieldName = nsArray.pop();
+
+            fieldValue = Neo.ns(nsArray, false, record[Symbol.for('data')])?.[fieldName]
+        }
 
         if (fieldValue === null || fieldValue === undefined) {
             fieldValue = ''
