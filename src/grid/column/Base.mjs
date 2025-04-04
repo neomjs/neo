@@ -74,10 +74,6 @@ class Column extends Base {
      * @returns {*}
      */
     cellRenderer({value}) {
-        if (value === null || value === undefined) {
-            return ''
-        }
-
         return value
     }
 }

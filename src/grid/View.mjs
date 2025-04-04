@@ -431,8 +431,20 @@ class GridView extends Component {
             cellCls                = ['neo-grid-cell'],
             colspan                = record[me.colspanField],
             {dataField}            = column,
+            {model}                = store,
             fieldValue             = record[dataField],
             cellConfig, rendererOutput;
+
+        if (!model.getField(dataField)) {
+            let nsArray   = dataField.split('.'),
+                fieldName = nsArray.pop();
+
+            fieldValue = Neo.ns(nsArray, false, record[Symbol.for('data')])?.[fieldName]
+        }
+
+        if (fieldValue === null || fieldValue === undefined) {
+            fieldValue = ''
+        }
 
         rendererOutput = column.renderer.call(column.rendererScope || column, {
             column,
