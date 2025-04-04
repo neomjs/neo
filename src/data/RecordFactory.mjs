@@ -152,10 +152,11 @@ class RecordFactory extends Base {
                         if (model.trackModifiedFields) {
                             me[originalDataSymbol] = {};
                             me.setOriginal(config)
+                        } else {
+                            me[isModifiedSymbol] = false
                         }
 
                         me.setSilent(config); // We do not want to fire change events when constructing
-                        me[isModifiedSymbol] = false
                     }
 
                     /**
