@@ -40,11 +40,13 @@ class Model extends Base {
     }
 
     /**
+     * Internally storing all fields, which have a calculate property
      * @member {Map} calculatedFieldsMap=new Map()
      * @protected
      */
     calculatedFieldsMap = new Map()
     /**
+     * Internally storing all fields inside a flat map => nested fields included
      * @member {Map} fieldsMap=new Map()
      * @protected
      */
@@ -103,7 +105,6 @@ class Model extends Base {
         fields.forEach(field => {
             fieldName = path + field.name
 
-            // Assuming that nested fields contain the full path as the name, we do not need a prefix.
             if (field.fields) {
                 me.hasNestedFields = true;
                 me.updateFieldsMap(field.fields, false, field.name + '.')
