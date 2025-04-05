@@ -46,7 +46,8 @@ class Api extends Base {
         if (!path.includes('http')) {
             path = config.appPath.split('/');
             path.pop();
-            path = `../../${path.join('/')}/${config.remotesApiUrl}`;
+            path = `${path.join('/')}/${config.remotesApiUrl}`;
+            path = (config.environment === 'development' ? '../../' : './') + path
         }
 
         fetch(path)
