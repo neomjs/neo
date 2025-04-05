@@ -274,22 +274,29 @@ class ViewportController extends Controller {
     /**
      *
      */
-    updateWidgets() {
+    async updateWidgets() {
         let me            = this,
-            stateProvider = me.getStateProvider();
+            stateProvider = me.getStateProvider(),
+            response;
 
-        Colors.backend.ColorService.read({
-            amountColors : stateProvider.getData('amountColors'),
-            amountColumns: stateProvider.getData('amountColumns'),
-            amountRows   : stateProvider.getData('amountRows')
-        }).then(response => {
+        // Timing issue inside dist/development => the namespace might not be registered yet
+        if (!Colors.backend) {
+            await me.timeout(50);
+            me.updateWidgets()
+        } else {
+            response = await Colors.backend.ColorService.read({
+                amountColors : stateProvider.getData('amountColors'),
+                amountColumns: stateProvider.getData('amountColumns'),
+                amountRows   : stateProvider.getData('amountRows')
+            });
+
             if (!me.isDestroyed) {
                 let {data} = response;
 
                 me.updateTable(data.tableData);
                 me.updateCharts(data.summaryData)
             }
-        })
+        }
     }
 }
 
