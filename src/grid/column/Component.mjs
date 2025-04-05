@@ -30,6 +30,11 @@ class Component extends Column {
          */
         recordProperty: 'record',
         /**
+         * @member {String} rendererScope='this'
+         * @protected
+         */
+        rendererScope: 'this',
+        /**
          * @member {String} type='component'
          * @protected
          */
