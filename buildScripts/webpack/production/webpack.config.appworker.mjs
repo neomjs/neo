@@ -83,6 +83,15 @@ export default env => {
 
         fs.writeFileSync(outputPath, JSON.stringify(content));
 
+        // remotes-api.json
+        if (content.remotesApiUrl) {
+            inputPath  = path.resolve(cwd, folder, lAppName, content.remotesApiUrl);
+            outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, content.remotesApiUrl);
+            content    = requireJson(inputPath);
+
+            fs.writeFileSync(outputPath, JSON.stringify(content));
+        }
+
         // index.html
         inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
