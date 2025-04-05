@@ -446,7 +446,11 @@ class GridView extends Component {
             fieldValue = ''
         }
 
-        rendererOutput = column.renderer.call(column.rendererScope || column, {
+        if (column.rendererScope === 'me' || column.rendererScope === 'this') {
+            column.rendererScope = column;
+        }
+
+        rendererOutput = column.renderer.call(column.rendererScope || me, {
             column,
             columnIndex,
             dataField,

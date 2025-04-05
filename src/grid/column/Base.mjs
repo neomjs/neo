@@ -26,8 +26,9 @@ class Column extends Base {
         renderer_: 'cellRenderer',
         /**
          * Scope to execute the column renderer.
-         * Defaults to the column instance
-         * @member {Neo.core.Base|null} rendererScope=null
+         * Defaults to the grid.View.
+         * You can pass the strings 'this' or 'me'
+         * @member {Neo.core.Base|String|null} rendererScope=null
          */
         rendererScope: null,
         /**
