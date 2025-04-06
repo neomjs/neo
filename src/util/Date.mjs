@@ -49,8 +49,6 @@ class DateUtil extends Base {
      * @returns {String} the yyyy-mm-dd formatted date
      */
     static convertToyyyymmdd(date) {
-        //console.log(date);
-        //console.log(new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0]);
         return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
     }
 
