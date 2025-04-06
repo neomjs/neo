@@ -256,7 +256,7 @@ class SortZone extends DragZone {
                 indexMap               : indexMap,
                 ownerStyle             : {height: ownerStyle.height, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
-                sortDirection          : layout.direction.includes('row') ? 'horizontal' : 'vertical',
+                sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
                 startIndex             : index
             });
 
