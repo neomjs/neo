@@ -347,7 +347,8 @@ class DateSelector extends Component {
 
         if (value) {
             if (!me.isUpdating) {
-                me.currentDate = new Date(`${value}T00:00:00.000Z`);
+                me.currentDate = new Date(`${value}T12:00:00`);
+                // me.currentDate = new Date(`${value}T00:00:01.000Z`);
 
                 me.fire('change', {
                     component: me,
