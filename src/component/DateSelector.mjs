@@ -221,7 +221,8 @@ class DateSelector extends Component {
         if (value === false) {
             let me = this;
 
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T00:00:00.000Z`)) {
+            // if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T00:00:00.000Z`)) {
+            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T12:00:00`)) {                
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate))
             }
 
@@ -609,9 +610,15 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            maxDate         = me.maxValue && new Date(`${me.maxValue}T00:00:00.000Z`),
-            minDate         = me.minValue && new Date(`${me.minValue}T00:00:00.000Z`),
-            valueDate       = new Date(`${me.value}T00:00:00.000Z`),
+
+/*            maxDate         = me.maxValue && new Date(`${me.maxValue}T12:00:00`),
+            minDate         = me.minValue && new Date(`${me.minValue}T12:00:00`),
+            valueDate       = new Date(`${me.value}T12:00:00`), */
+
+            maxDate         = me.maxValue && new Date(`${me.maxValue}T12:00:00`),
+            minDate         = me.minValue && new Date(`${me.minValue}T12:00:00`),
+            valueDate       = new Date(`${me.value}T12:00:00`),
+
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
