@@ -194,7 +194,7 @@ class DateField extends Picker {
         let value = this.value;
 
         if(this.submitDateObject && value) {
-            return new Date(`${value}T00:00:00.000Z`);
+            return new Date(`${value}T12:00:00.000Z`);
         } else if(this.isoDate && value) {
             return new Date(value).toISOString();
         }

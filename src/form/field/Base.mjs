@@ -34,7 +34,7 @@ class Field extends Component {
          */
         formGroup_: null,
         /**
-         * @member {String|null} keys={}
+         * @member {Object|null} keys={}
          */
         keys: {},
         /**

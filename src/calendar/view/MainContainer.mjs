@@ -448,7 +448,7 @@ class MainContainer extends Container {
             appName  : me.appName,
             flex     : 'none',
             height   : me.sideBarWidth,
-            listeners: {change: me.onDateSelectorChange, scope: me},
+            listeners: {dateChange: me.onDateSelectorChange, scope: me},
             parentId : me.id, // we need the parentId to access the model inside the ctor
             value    : null,
 
@@ -599,8 +599,8 @@ class MainContainer extends Container {
      * @param {String} data.oldValue
      * @param {String} data.value
      */
-    onDateSelectorChange(data) {
-        data.oldValue !== undefined && this.setState('currentDate', new Date(`${data.value}T00:00:00.000Z`))
+    onDateSelectorChange({value}) {
+        this.setState('currentDate', value)
     }
 
     /**

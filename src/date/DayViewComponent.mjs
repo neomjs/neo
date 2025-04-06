@@ -132,9 +132,9 @@ class DayViewComponent extends Base {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            maxDate         = me.maxValue && new Date(`${me.maxValue}T00:00:00.000Z`),
-            minDate         = me.minValue && new Date(`${me.minValue}T00:00:00.000Z`),
-            valueDate       = new Date(`${me.value}T00:00:00.000Z`),
+            maxDate         = me.maxValue && new Date(`${me.maxValue}T12:00:00.000Z`),
+            minDate         = me.minValue && new Date(`${me.minValue}T12:00:00.000Z`),
+            valueDate       = new Date(`${me.value}T12:00:00.000Z`),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
