@@ -233,7 +233,8 @@ class SelectorContainer extends Container {
 
         if (value) {
             if (!me.isUpdating) {
-                me.currentDate = new Date(`${value}T00:00:00.000Z`);
+                // me.currentDate = new Date(`${value}T00:00:00.000Z`);
+                me.currentDate = new Date(`${value}T12:00:00`);
 
                 me.fire('change', {
                     component: me,
