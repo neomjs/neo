@@ -188,7 +188,7 @@ class DragDrop extends Base {
                 intervalHeight  = columnRect.height / intervals,
                 position        = Math.min(columnRect.height, data.clientY - columnRect.top),
                 currentInterval = Math.floor(position / intervalHeight),
-                startDate       = new Date(VDomUtil.find(owner.vdom, data.path[0].id).vdom.flag + 'T00:00:00.000Z'),
+                startDate       = new Date(VDomUtil.find(owner.vdom, data.path[0].id).vdom.flag + 'T12:00:00.000Z'),
                 dragElement, endDate, eventDragZone, eventId, record;
 
             me.isDragging = true;
