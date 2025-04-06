@@ -409,7 +409,7 @@ class Container extends BaseContainer {
         fields.forEach(field => {
             validField = field.validate?.(false);
 
-            if (!validField) {
+            if (validField === false) {
                 isValid = false
             }
         });
