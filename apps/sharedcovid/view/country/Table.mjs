@@ -42,6 +42,7 @@ class Table extends Container {
             minWidth : 40,
             text     : '#',
             renderer : Util.indexRenderer,
+            sortable : false,
             width    : 40
         }, {
             cellAlign           : 'left',

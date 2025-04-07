@@ -128,6 +128,12 @@ class Toolbar extends BaseToolbar {
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
+        me.items.forEach(item => {
+            if (!Object.hasOwn(item, 'sortable')) {
+                item.sortable = me.sortable
+            }
+        });
+
         super.createItems();
 
         let dockLeftWidth  = 0,
@@ -156,7 +162,6 @@ class Toolbar extends BaseToolbar {
                 item.vdom.cls = [] // remove the button cls from the th tag
             }
 
-            item.sortable = me.sortable;
             item.wrapperStyle = style;
 
             // inverse loop direction
