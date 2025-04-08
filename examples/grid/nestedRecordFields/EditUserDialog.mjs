@@ -93,7 +93,7 @@ class EditUserDialog extends Dialog {
 
             // ensure the store has its data
             await me.timeout(20);
-console.log(record.date);
+
             me.getItem('country-field')  .value   = record.country;
             me.getItem('date-field')     .value   = record.date;
             me.getItem('firstname-field').value   = record['user.firstname'];
