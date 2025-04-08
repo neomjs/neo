@@ -1582,11 +1582,11 @@ class Component extends Base {
             me.isVdomUpdating = false;
             reject?.()
         }).then(data => {
-            me.isVdomUpdating = false;
-
-            // checking if the component got destroyed before the update cycle is done
+            // Checking if the component got destroyed before the update cycle is done
             if (me.id) {
-                me.vnode = data.vnode;
+                // It is crucial to delegate the vnode tree before resolving the cycle
+                me.vnode          = data.vnode;
+                me.isVdomUpdating = false;
 
                 deltas = data.deltas;
 

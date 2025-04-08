@@ -37,6 +37,7 @@ class TableContainer extends BaseTableContainer {
             minWidth : 40,
             text     : '#',
             renderer : Util.indexRenderer,
+            sortable : false,
             width    : 40
         }, {
             cellAlign           : 'left',

@@ -290,6 +290,26 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        let me = this;
+
+        if (me._editCalendarContainer) {
+            me._editCalendarContainer.theme = value
+        }
+
+        if (me._editEventContainer) {
+            me._editEventContainer.theme = value
+        }
+    }
+
+    /**
      * Triggered after the useSettingsContainer config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -330,6 +350,7 @@ class MainContainer extends Container {
                 appName      : me.appName,
                 owner        : me,
                 stateProvider: {parent: me.getStateProvider()},
+                theme        : me.theme,
                 width        : 250,
                 windowId     : me.windowId,
                 ...me.editCalendarContainerConfig
@@ -353,6 +374,7 @@ class MainContainer extends Container {
                 appName      : me.appName,
                 owner        : me,
                 stateProvider: {parent: me.getStateProvider()},
+                theme        : me.theme,
                 width        : 250,
                 windowId     : me.windowId,
                 ...me.editEventContainerConfig

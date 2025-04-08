@@ -155,6 +155,12 @@ class Toolbar extends BaseToolbar {
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
+        me.items.forEach(item => {
+            if (!Object.hasOwn(item, 'sortable')) {
+                item.sortable = me.sortable
+            }
+        });
+
         super.createItems();
 
         let {items} = me,
@@ -170,7 +176,6 @@ class Toolbar extends BaseToolbar {
             if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
             if (item.width)    {style.width    = item.width    + 'px'}
 
-            item.sortable = me.sortable;
             item.wrapperStyle = style
         });
 

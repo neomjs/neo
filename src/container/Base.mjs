@@ -303,7 +303,7 @@ class Container extends Component {
     createItem(item, index) {
         let me       = this,
             config   = {appName: me.appName, parentId: me.id, parentIndex: index, windowId: me.windowId},
-            defaults = {...me.itemDefaults},
+            defaults = {theme: me.theme, ...me.itemDefaults},
             lazyLoadItem, module;
 
         if (defaults) {

@@ -83,6 +83,7 @@ class Component extends Column {
         }
 
         componentConfig = me.applyRecordConfigs(componentConfig, record);
+        componentConfig = {...componentConfig};
 
         if (component) {
             delete componentConfig.className;
