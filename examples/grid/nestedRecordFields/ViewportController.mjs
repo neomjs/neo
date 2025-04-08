@@ -1,7 +1,5 @@
 import Component from '../../../src/controller/Component.mjs';
 
-const dataSymbol = Symbol.for('data');
-
 /**
  * @class Neo.examples.grid.nestedRecordFields.ViewportController
  * @extends Neo.controller.Component
@@ -63,7 +61,7 @@ class ViewportController extends Component {
                 country = record.country;
 
                 // hack resetting the current value to get a new record change
-                record[dataSymbol].country = null;
+                record.toJSON().country = null;
 
                 record.country = country
             })
