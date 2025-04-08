@@ -104,6 +104,9 @@ class Component extends Column {
                 windowId
             });
 
+            view.getController()   ?.parseConfig(component);
+            view.getStateProvider()?.parseConfig(component);
+
             me.map.set(id, component)
         }
 

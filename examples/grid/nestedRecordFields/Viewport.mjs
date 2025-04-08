@@ -1,6 +1,7 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
 import Button                from '../../../src/button/Base.mjs';
 import GridContainer         from '../../../src/grid/Container.mjs';
+import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
@@ -14,6 +15,10 @@ class Viewport extends BaseViewport {
          * @protected
          */
         className: 'Neo.examples.grid.nestedRecordFields.Viewport',
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         */
+        controller: ViewportController,
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          */
@@ -32,12 +37,12 @@ class Viewport extends BaseViewport {
             style    : {marginBottom: '1em'},
 
             items: ['->', {
-                handler: 'up.onSwitchDragModeButtonClick',
+                handler: 'onSwitchDragModeButtonClick',
                 iconCls: 'far fa-square',
                 style  : {marginRight: '1em'},
                 text   : 'Drag column headers only'
             }, {
-                handler: 'up.onSwitchThemeButtonClick',
+                handler: 'onSwitchThemeButtonClick',
                 iconCls: 'fas fa-sun',
                 text   : 'Light Theme'
             }]
@@ -54,10 +59,11 @@ class Viewport extends BaseViewport {
                 {dataField: 'user.firstname', text: 'Firstname'},
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
+                {dataField: 'date',           text: 'Date'},
                 {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
                 {dataField: 'edit',           text: 'Edit Action', component: {
                     module : Button,
-                    handler: 'up.editButtonHandler',
+                    handler: 'editButtonHandler',
                     text   : 'Edit'
                 }}
             ],
@@ -67,11 +73,6 @@ class Viewport extends BaseViewport {
             }
         }]
     }
-
-    /**
-     * @member {Neo.dialog.Base|null} dialog=null
-     */
-    dialog = null
 
     /**
      * @param {Object} data
@@ -84,73 +85,6 @@ class Viewport extends BaseViewport {
         }
 
         return ''
-    }
-
-    /**
-     * @param {Object} data
-     */
-    editButtonHandler(data) {
-        let me       = this,
-            button   = data.component,
-            {appName, dialog, theme, windowId} = me,
-            {record} = button;
-
-        if (!dialog) {
-            import('./EditUserDialog.mjs').then(module => {
-                me.dialog = Neo.create({
-                    module         : module.default,
-                    animateTargetId: button.id,
-                    appName,
-                    stateProvider  : {parent: me.getStateProvider()},
-                    record,
-                    theme,
-                    windowId
-                })
-            })
-        } else {
-            dialog.animateTargetId = button.id;
-            dialog.record          = record;
-
-            dialog.show()
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onSwitchDragModeButtonClick(data) {
-        let button     = data.component,
-            grid       = this.getReference('grid'),
-            {sortZone} = grid.headerToolbar;
-
-        if (button.iconCls === 'fas fa-check') {
-            button.set({iconCls: 'far fa-square'});
-            sortZone.moveColumnContent = true
-        } else {
-            button.set({iconCls: 'fas fa-check'});
-            sortZone.moveColumnContent = false
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onSwitchThemeButtonClick(data) {
-        let me          = this,
-            button      = data.component,
-            isDarkTheme = me.theme !== 'neo-theme-light',
-            theme       = isDarkTheme ? 'neo-theme-light' : 'neo-theme-dark';
-
-        button.set({
-            iconCls: isDarkTheme ? 'fa fa-moon' : 'fa fa-sun',
-            text   : isDarkTheme ? 'Dark Theme' : 'Light Theme'
-        });
-
-        me.theme = theme;
-
-        if (me.dialog) {
-            me.dialog.theme = theme
-        }
     }
 }
 

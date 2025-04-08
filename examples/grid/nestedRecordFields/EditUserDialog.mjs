@@ -1,5 +1,6 @@
 import CheckBox     from '../../../src/form/field/CheckBox.mjs';
 import CountryField from '../../../src/form/field/Country.mjs';
+import DateField    from '../../../src/form/field/Date.mjs';
 import Dialog       from '../../../src/dialog/Base.mjs';
 import TextField    from '../../../src/form/field/Text.mjs';
 
@@ -59,6 +60,11 @@ class EditUserDialog extends Dialog {
             listeners: {change: 'up.onLastnameFieldChange'},
             reference: 'lastname-field'
         }, {
+            module   : DateField,
+            labelText: 'Date',
+            listeners: {change: 'up.onDateFieldChange'},
+            reference: 'date-field'
+        }, {
             module    : CountryField,
             bind      : {store: 'stores.countries'},
             labelText : 'Country',
@@ -89,6 +95,7 @@ class EditUserDialog extends Dialog {
             await me.timeout(20);
 
             me.getItem('country-field')  .value   = record.country;
+            me.getItem('date-field')     .value   = record.date;
             me.getItem('firstname-field').value   = record['user.firstname'];
             me.getItem('lastname-field') .value   = record['user.lastname'];
             me.getItem('selected-field') .checked = record['annotations.selected'];
@@ -104,6 +111,17 @@ class EditUserDialog extends Dialog {
         // Using the API allows bulk changes
 
         this.record.set({country: data.value.code})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDateFieldChange(data) {
+        // You can also access the internal setter directly:
+        // this.record.country = data.value.code
+        // Using the API allows bulk changes
+
+        this.record.set({date: data.value})
     }
 
     /**

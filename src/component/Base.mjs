@@ -2316,7 +2316,7 @@ class Component extends Base {
             {useVdomWorker} = Neo.config;
 
         // Verify that the critical rendering path => CSS files for the new tree is in place
-        if (currentWorker.countLoadingThemeFiles !== 0) {
+        if (autoMount && currentWorker.countLoadingThemeFiles !== 0) {
             currentWorker.on('themeFilesLoaded', function() {
                 !me.mounted && me.render(mount)
             }, me, {once: true});
