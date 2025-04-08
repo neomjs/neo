@@ -1,4 +1,5 @@
 import Base              from './Base.mjs';
+import NeoArray          from '../util/Array.mjs';
 import {resolveCallback} from '../util/Function.mjs';
 
 /**
@@ -182,7 +183,7 @@ class Observable extends Base {
 
                 // remove the listener if the scope no longer exists
                 if (cb.scope && !cb.scope.id) {
-                    listeners[name].splice(i, 1)
+                    NeoArray.remove(listeners[name], handler)
                 } else {
                     if (!me.suspendEvents) {
                         // Object event format. Inject firer reference in as 'source'
@@ -191,7 +192,7 @@ class Observable extends Base {
                         }
 
                         // remove the listener if it has the once flag
-                        handler.once && listeners[name].splice(i, 1)
+                        handler.once && NeoArray.remove(listeners[name], handler);
 
                         if (Neo.isNumber(delay) && delay > 0) {
                             me.delayedCallback(cb, handler.data ? args.concat(handler.data) : args, delay)
