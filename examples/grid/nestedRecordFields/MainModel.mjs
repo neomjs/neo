@@ -27,6 +27,9 @@ class MainModel extends Model {
             name: 'country',
             type: 'String'
         }, {
+            name: 'date',
+            type: 'String'
+        }, {
             name: 'edit',
             type: 'String'
         }, {

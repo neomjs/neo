@@ -59,6 +59,7 @@ class Viewport extends BaseViewport {
                 {dataField: 'user.firstname', text: 'Firstname'},
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
+                {dataField: 'date',           text: 'Date'},
                 {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
                 {dataField: 'edit',           text: 'Edit Action', component: {
                     module : Button,

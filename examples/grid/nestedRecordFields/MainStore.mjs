@@ -13,6 +13,7 @@ class MainStore extends Store {
 
         data: [{
             country : 'DE',
+            date    : '2025-04-15',
             githubId: 'tobiu',
 
             user: {
@@ -25,6 +26,7 @@ class MainStore extends Store {
             },
 
             country : 'US',
+            date    : '2025-04-16',
             githubId: 'rwaters',
 
             user: {
@@ -33,6 +35,7 @@ class MainStore extends Store {
             }
         }, {
             country : 'DE',
+            date    : '2025-04-17',
             githubId: 'mrsunshine',
 
             user: {
@@ -41,6 +44,7 @@ class MainStore extends Store {
             }
         }, {
             country : 'US',
+            date    : '2025-04-18',
             githubId: 'camtnbikerrwc',
 
             user: {
