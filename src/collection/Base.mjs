@@ -811,7 +811,7 @@ class Collection extends Base {
     /**
      * Returns the first item which matches the property and value
      * @param {Object|String} property
-     * @param {String|Number} [value] Only required in case the first param is a string
+     * @param {Number|String} [value] Only required in case the first param is a string
      * @returns {Object} Returns the first found item or null
      */
     findFirst(property, value) {
@@ -828,7 +828,7 @@ class Collection extends Base {
 
     /**
      * Returns the object associated to the key, or null if there is none.
-     * @param key
+     * @param {Number|String} key
      * @returns {Object|null}
      */
     get(key) {
