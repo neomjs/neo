@@ -23,9 +23,9 @@ class ViewportController extends Component {
      */
     editButtonHandler(data) {
         let me       = this,
+            {dialog} = me,
             button   = data.component,
-            {appName, dialog, theme, windowId} = me,
-            {record} = button;
+            {appName, record, theme, windowId} = button;
 
         if (!dialog) {
             import('./EditUserDialog.mjs').then(module => {
@@ -91,7 +91,7 @@ class ViewportController extends Component {
     onSwitchThemeButtonClick(data) {
         let me          = this,
             button      = data.component,
-            isDarkTheme = me.theme !== 'neo-theme-light',
+            isDarkTheme = button.theme !== 'neo-theme-light',
             theme       = isDarkTheme ? 'neo-theme-light' : 'neo-theme-dark';
 
         button.set({
@@ -99,7 +99,7 @@ class ViewportController extends Component {
             text   : isDarkTheme ? 'Dark Theme' : 'Light Theme'
         });
 
-        me.theme = theme;
+        me.component.theme = theme;
 
         if (me.dialog) {
             me.dialog.theme = theme
