@@ -303,7 +303,7 @@ class Container extends Component {
     createItem(item, index) {
         let me       = this,
             config   = {appName: me.appName, parentId: me.id, parentIndex: index, windowId: me.windowId},
-            defaults = {theme: me.theme, ...me.itemDefaults},
+            defaults = {...me.itemDefaults},
             lazyLoadItem, module;
 
         if (defaults) {
@@ -319,6 +319,7 @@ class Container extends Component {
         switch (Neo.typeOf(item)) {
             case 'NeoClass': {
                 item = Neo.create({
+                    theme: item.config.theme || me.theme,
                     ...defaults,
                     module: item,
                     ...config
@@ -350,7 +351,8 @@ class Container extends Component {
                 lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
 
                 if (module && !lazyLoadItem) {
-                    item.className = module.prototype.className
+                    item.className = module.prototype.className;
+                    item.theme     = defaults.theme || module.config.theme || me.theme
                 }
 
                 if (item.handlerScope === 'this') {
