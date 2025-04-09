@@ -60,7 +60,7 @@ class Viewport extends BaseViewport {
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
                 {dataField: 'date',           text: 'Date'},
-                {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
+                {dataField: 'country',        text: 'Country',     renderer: 'countryRenderer'},
                 {dataField: 'edit',           text: 'Edit Action', component: {
                     module : Button,
                     handler: 'editButtonHandler',
@@ -72,19 +72,6 @@ class Viewport extends BaseViewport {
                 highlightModifiedCells: true
             }
         }]
-    }
-
-    /**
-     * @param {Object} data
-     */
-    countryRenderer({gridContainer, record}) {
-        let countryStore = gridContainer.getStateProvider().getStore('countries');
-
-        if (countryStore.getCount() > 0) {
-            return countryStore.get(record.country).name
-        }
-
-        return ''
     }
 }
 

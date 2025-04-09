@@ -59,7 +59,8 @@ class Column extends Base {
      * @protected
      */
     beforeSetRenderer(value, oldValue) {
-        return resolveCallback(value, this).fn
+        // If no fn is found inside the parent tree, return the plain value for view controllers to match
+        return resolveCallback(value, this).fn || value
     }
 
     /**

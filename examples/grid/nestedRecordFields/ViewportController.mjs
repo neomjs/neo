@@ -21,6 +21,19 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
+    countryRenderer({gridContainer, record}) {
+        let countryStore = gridContainer.getStateProvider().getStore('countries');
+
+        if (countryStore.getCount() > 0) {
+            return countryStore.get(record.country).name
+        }
+
+        return ''
+    }
+
+    /**
+     * @param {Object} data
+     */
     editButtonHandler(data) {
         let me       = this,
             {dialog} = me,
