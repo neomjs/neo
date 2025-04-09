@@ -11,6 +11,7 @@ import ToastManager from '../manager/Toast.mjs';
             // mandatory
             appName         : this.component.appName,
             msg             : 'Alarm was set to 11:30 for journey into Neo development',
+            windowId        : this.component.windowId
             // optional                        defaults
             closable        : true,         // false
             iconCls         : 'fa fa-bell', // null
@@ -102,16 +103,16 @@ class Toast extends Component {
          * @member {String|null} title=null
          */
         vdom:
-        {cn: [{
-            cls: 'neo-toast-inner', cn: [
+        {cn: [
+            {cls: 'neo-toast-inner', cn: [
                 {cls: ['neo-toast-icon'], removeDom: true},
                 {cls: 'neo-toast-text', cn: [
                     {cls: ['neo-toast-title'], removeDom: true},
                     {cls: 'neo-toast-msg'}
                 ]},
                 {cls: ['neo-toast-close', 'fa', 'fa-close'], removeDom: true}
-            ]
-        }]}
+            ]}
+        ]}
     }
 
     /**

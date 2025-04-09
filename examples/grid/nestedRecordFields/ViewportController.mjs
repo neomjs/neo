@@ -1,4 +1,5 @@
 import Component from '../../../src/controller/Component.mjs';
+import Toast     from  '../../../src/component/Toast.mjs';
 
 /**
  * @class Neo.examples.grid.nestedRecordFields.ViewportController
@@ -117,6 +118,15 @@ class ViewportController extends Component {
         if (me.dialog) {
             me.dialog.theme = theme
         }
+
+        Neo.toast({
+            appName       : button.appName,
+            title         : 'Switched Theme',
+            msg           : isDarkTheme ? 'Light Theme' : 'Dark Theme',
+            position      : 'tl',
+            slideDirection: 'left',
+            windowId      : button.windowId
+        })
     }
 }
 

@@ -43,7 +43,9 @@ class MainContainerController extends ComponentController {
 
         values = await form.getSubmitValues();
 
-        values.appName = me.component.appName;
+        values.appName  = me.component.appName;
+        values.windowId = me.component.windowId;
+
         button.disabled = !isValid;
 
         if (isValid) {
