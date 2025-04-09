@@ -35,7 +35,7 @@ class Component extends Manager {
         let me = this;
 
         Neo.first        = me.getFirst.bind(me); // alias
-        Neo.getComponent = me.getById.bind(me)   // alias
+        Neo.getComponent = me.get     .bind(me)  // alias
     }
 
     /**
@@ -157,7 +157,7 @@ class Component extends Manager {
     }
 
     /**
-     * @param {Array} path
+     * @param {Object[]} path
      * @returns {String|null} the component id in case there is a match
      */
     findParentComponent(path) {
@@ -179,11 +179,20 @@ class Component extends Manager {
 
     /**
      * Returns the object associated to the key, or null if there is none.
-     * @param key
+     * @param {Number|String} key
+     * @param {Boolean}       [includeWrapperNodes=true]
      * @returns {Neo.component.Base|null}
      */
-    get(key) {
-        return this.wrapperNodes.get(key) || super.get(key)
+    get(key, includeWrapperNodes=true) {
+        if (includeWrapperNodes) {
+            let wrapperNode = this.wrapperNodes.get(key);
+
+            if (wrapperNode) {
+                return wrapperNode
+            }
+        }
+
+        return super.get(key)
     }
 
     /**
@@ -333,7 +342,7 @@ class Component extends Manager {
         let parentIds = [];
 
         while (component?.parentId) {
-            component = this.getById(component.parentId);
+            component = this.get(component.parentId);
 
             if (component) {
                 parentIds.push(component.id)
@@ -369,13 +378,13 @@ class Component extends Manager {
      */
     getParents(component) {
         if (Neo.isString(component)) {
-            component = this.getById(component)
+            component = this.get(component)
         }
 
         let parents = [];
 
         while (component?.parentId) {
-            component = this.getById(component.parentId);
+            component = this.get(component.parentId);
 
             if (component) {
                 parents.push(component)
@@ -509,7 +518,7 @@ class Component extends Manager {
      * @returns {Neo.component.Base|Neo.component.Base[]|null}
      */
     up(componentId, config, returnFirstMatch=true) {
-        let component   = this.getById(componentId),
+        let component   = this.get(componentId),
             returnArray = [],
             configArray, configLength, matchArray;
 
@@ -525,7 +534,7 @@ class Component extends Manager {
         configLength = configArray.length;
 
         while (component?.parentId) {
-            component = this.getById(component.parentId);
+            component = this.get(component.parentId);
 
             if (!component) {
                 return returnFirstMatch ? null : returnArray

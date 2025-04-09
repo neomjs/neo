@@ -163,7 +163,7 @@ class Logger extends Base {
                 component;
 
             data.path.forEach(item => {
-                component = Neo.getComponent(item.id);
+                component = Neo.getComponent(item.id, false);
 
                 if (component) {
                     if (!isGroupSet) {
