@@ -104,11 +104,13 @@ class Component extends Column {
                 windowId
             });
 
-            view.getController()   ?.parseConfig(component);
-            view.getStateProvider()?.parseConfig(component);
-
             me.map.set(id, component)
         }
+
+        // The componentConfig can contain bindings into a view controller, e.g. a button handler = 'editButtonHandler'
+        // componentConfig.set(component) can revert these, so we need a parseConfig() for each change.
+        view.getController()   ?.parseConfig(component);
+        view.getStateProvider()?.parseConfig(component);
 
         view.updateDepth = -1;
 
