@@ -27,7 +27,7 @@ class ViewportController extends Controller {
     widgetIndexMap = {
         'bar-chart': 3,
         'pie-chart': 2,
-        table      : 1
+        grid       : 1
     }
 
     /**
@@ -188,15 +188,15 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    async onDetachPieChartButtonClick(data) {
-        await this.createBrowserWindow('pie-chart')
+    async onDetachGridButtonClick(data) {
+        await this.createBrowserWindow('grid')
     }
 
     /**
      * @param {Object} data
      */
-    async onDetachTableButtonClick(data) {
-        await this.createBrowserWindow('table')
+    async onDetachPieChartButtonClick(data) {
+        await this.createBrowserWindow('pie-chart')
     }
 
     /**
@@ -256,12 +256,12 @@ class ViewportController extends Controller {
     /**
      * @param {Object[]} records
      */
-    updateTable(records) {
-        let table   = this.getReference('table'),
-            {store} = table;
+    updateGrid(records) {
+        let grid    = this.getReference('grid'),
+            {store} = grid;
 
         if (store.getCount()) {
-            table.bulkUpdateRecords(records)
+            grid.bulkUpdateRecords(records)
         } else {
             // Depending on the delay of the Socket Connection,
             // the next data package could still contain the old settings
@@ -293,7 +293,7 @@ class ViewportController extends Controller {
             if (!me.isDestroyed) {
                 let {data} = response;
 
-                me.updateTable(data.tableData);
+                me.updateGrid(data.tableData);
                 me.updateCharts(data.summaryData)
             }
         }

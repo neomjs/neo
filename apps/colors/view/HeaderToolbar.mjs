@@ -69,10 +69,10 @@ class HeaderToolbar extends Toolbar {
             cls  : ['header-spacer'],
             flex : 1
         }, {
-            handler  : 'onDetachTableButtonClick',
+            handler  : 'onDetachGridButtonClick',
             iconCls  : 'fas fa-table',
-            reference: 'detach-table-button',
-            text     : 'Table'
+            reference: 'detach-grid-button',
+            text     : 'Grid'
         }, {
             handler  : 'onDetachPieChartButtonClick',
             iconCls  : 'fas fa-chart-pie',

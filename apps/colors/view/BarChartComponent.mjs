@@ -52,7 +52,7 @@ class BarChartComponent extends AmChartComponent {
                 type: 'ValueAxis',
 
                 title: {
-                    text: 'Occurrences in table cells'
+                    text: 'Occurrences in grid cells'
                 }
             }]
         }

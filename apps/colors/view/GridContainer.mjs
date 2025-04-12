@@ -1,16 +1,16 @@
-import Container from '../../../src/table/Container.mjs';
+import BaseGridContainer from '../../../src/grid/Container.mjs';
 
 /**
- * @class Colors.view.TableContainer
- * @extends Neo.table.Container
+ * @class Colors.view.GridContainer
+ * @extends Neo.grid.Container
  */
-class TableContainer extends Container {
+class GridContainer extends BaseGridContainer {
     static config = {
         /**
-         * @member {String} className='Colors.view.TableContainer'
+         * @member {String} className='Colors.view.GridContainer'
          * @protected
          */
-        className: 'Colors.view.TableContainer',
+        className: 'Colors.view.GridContainer',
         /**
          * @member {Number|null} amountColumns_=null
          */
@@ -28,17 +28,9 @@ class TableContainer extends Container {
             store        : 'stores.colors'
         },
         /**
-         * @member {String[]} cls=['colors-table-container']
+         * @member {String[]} cls=['colors-grid-container']
          */
-        cls: ['colors-table-container'],
-        /**
-         * @member {Object} columnDefaults
-         */
-        columnDefaults: {
-            renderer(data) {
-                return {cls: ['color-' + data.value], html: ' '}
-            }
-        }
+        cls: ['colors-grid-container']
     }
 
     /**
@@ -52,12 +44,10 @@ class TableContainer extends Container {
             let startCharCode = 'A'.charCodeAt(0),
                 i             = 0,
                 columns       = [{
-                    cls      : ['neo-index-column', 'neo-table-header-button'],
-                    dataField: 'index',
-                    dock     : 'left',
-                    minWidth : 40,
+                    cellAlign: 'right',
+                    dataField: 'id',
                     text     : '#',
-                    renderer : data => ({cls: ['neo-index-column', 'neo-table-cell'], html: data.rowIndex + 1}),
+                    type     : 'index',
                     width    : 40
                 }],
                 currentChar;
@@ -67,6 +57,7 @@ class TableContainer extends Container {
 
                 columns.push({
                     dataField: 'column' + currentChar,
+                    renderer : 'up.colorRenderer',
                     text     : currentChar
                 })
             }
@@ -84,6 +75,14 @@ class TableContainer extends Container {
     afterSetAmountRows(value, oldValue) {
         this.store?.clear()
     }
+
+    /**
+     * @param {Object} data
+     * @returns {Object}
+     */
+    colorRenderer({value}) {
+        return {cls: ['color-' + value], html: ' '}
+    }
 }
 
-export default Neo.setupClass(TableContainer);
+export default Neo.setupClass(GridContainer);

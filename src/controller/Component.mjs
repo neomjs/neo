@@ -211,9 +211,7 @@ class Component extends Base {
         if (renderer && Neo.isString(renderer)) {
             handlerScope = me.getHandlerScope(renderer);
 
-            if (!handlerScope) {
-                Logger.logError('Unknown renderer for', component.id, component)
-            } else {
+            if (handlerScope) {
                 component.renderer = handlerScope[renderer].bind(handlerScope)
             }
         }
