@@ -37,13 +37,14 @@ class Viewport extends BaseViewport {
             flex  : 'none'
         }, {
             module   : GridContainer,
-            reference: 'grid',
-            wrapperStyle: {height: '600px'}
+            reference: 'grid'
         }, {
             module   : PieChartComponent,
+            flex     : 1.3,
             reference: 'pie-chart'
         }, {
             module   : BarChartComponent,
+            flex     : 1.3,
             reference: 'bar-chart'
         }],
         /**
