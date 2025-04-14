@@ -71,7 +71,7 @@ class Viewport extends BaseViewport {
                 }
             }]
         }, {
-            ntype    : 'panel',
+            module   : Panel,
             cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
@@ -255,7 +255,9 @@ class Viewport extends BaseViewport {
         super.construct(config);
 
         let me  = this,
-            url = 'https://disease.sh/v3/covid-19/countries';
+            url = Neo.config.useFallbackApi ?
+                'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json' :
+                'https://disease.sh/v3/covid-19/countries';
 
         me.gallery = Neo.create({
             module   : CountryGallery,
