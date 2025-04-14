@@ -23,6 +23,14 @@ class MainContainerController extends ComponentController {
          */
         activeMainTabIndex: 0,
         /**
+         * @member {String} apiSummaryUrl='https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static/all.json'
+         */
+        apiFallbackSummaryUrl: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static/all.json',
+        /**
+         * @member {String} apiUrl='https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json'
+         */
+        apiFallbackUrl: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json',
+        /**
          * @member {String} apiSummaryUrl='https://disease.sh/v3/covid-19/all'
          */
         apiSummaryUrl: 'https://disease.sh/v3/covid-19/all',
@@ -168,11 +176,12 @@ class MainContainerController extends ComponentController {
      *
      */
     loadData() {
-        let me = this;
+        let me     = this,
+            apiUrl = Neo.config.useFallbackApi ? me.apiFallbackUrl : me.apiUrl;
 
-        fetch(me.apiUrl)
+        fetch(apiUrl)
             .then(response => response.json())
-            .catch(err => console.log('Can’t access ' + me.apiUrl, err))
+            .catch(err => console.log('Can’t access ' + apiUrl, err))
             .then(data => me.addStoreItems(data));
     }
 
@@ -180,11 +189,12 @@ class MainContainerController extends ComponentController {
      *
      */
     loadSummaryData() {
-        let me = this;
+        let me            = this,
+            apiSummaryUrl = Neo.config.useFallbackApi ? me.apiFallbackSummaryUrl : me.apiSummaryUrl;
 
-        fetch(me.apiSummaryUrl)
+        fetch(apiSummaryUrl)
             .then(response => response.json())
-            .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err))
+            .catch(err => console.log('Can’t access ' + apiSummaryUrl, err))
             .then(data => me.applySummaryData(data));
 
         me.timeout(2000).then(() => {

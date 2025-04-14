@@ -112,13 +112,13 @@ class Model extends Base {
             if (!silent) {
                 view.update();
 
+                view.parent?.onDeselect?.(); // grid.Container & table.Container
+                view.onDeselect?.();
+
                 me.fire('selectionChange', {
                     selection: itemCollection
                 })
             }
-
-            view.parent?.onDeselect?.(); // grid.Container & table.Container
-            view.onDeselect?.()
         }
         else if (!silent) {
             this.fire('noChange')

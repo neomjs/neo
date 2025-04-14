@@ -4,5 +4,6 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["AmCharts", "DragDrop", "MapboxGL", "Navigator", "Stylesheet"],
-    "themes"          : ["neo-theme-dark", "neo-theme-light"]
+    "themes"          : ["neo-theme-dark", "neo-theme-light"],
+    "useFallbackApi"  : true
 }
