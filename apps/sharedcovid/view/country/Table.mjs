@@ -120,8 +120,9 @@ class Table extends Container {
      */
     afterSetCountry(value, oldValue) {
         if (oldValue !== undefined) {
-            let me             = this,
-                selectionModel = me.selectionModel,
+            let me               = this,
+                {view}           = me,
+                {selectionModel} = view,
                 id;
 
             if (value) {

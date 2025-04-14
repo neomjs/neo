@@ -116,6 +116,9 @@ class Model extends Base {
                     selection: itemCollection
                 })
             }
+
+            view.parent?.onDeselect?.(); // grid.Container & table.Container
+            view.onDeselect?.()
         }
         else if (!silent) {
             this.fire('noChange')
@@ -249,6 +252,7 @@ class Model extends Base {
                 view.update()
             }
 
+            view.parent?.onSelect?.(items); // grid.Container & table.Container
             view.onSelect?.(items);
 
             me.fire('selectionChange', {
