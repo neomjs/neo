@@ -65,7 +65,7 @@ class MainContainer extends Viewport {
                 }
             }]
         }, {
-            ntype : 'panel',
+            module: Panel,
             cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout: {ntype: 'vbox',align: 'stretch'},
             style : {backgroundColor: '#2b2b2b'},
@@ -408,7 +408,9 @@ class MainContainer extends Viewport {
         super.construct(config);
 
         let me  = this,
-            url = 'https://disease.sh/v3/covid-19/countries';
+            url = Neo.config.useFallbackApi ?
+                'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json' :
+                'https://disease.sh/v3/covid-19/countries';
 
         me.helix = Neo.create({
             module: CountryHelix,

@@ -47,9 +47,10 @@ class Viewport extends BaseViewport {
                 width        : 180
             }]
         }, {
-            module   : GridContainer,
-            reference: 'grid',
-            store    : MainStore,
+            module      : GridContainer,
+            reference   : 'grid',
+            store       : MainStore,
+            wrapperStyle: {maxWidth: '902px'},
 
             columnDefaults: {
                 width: 200

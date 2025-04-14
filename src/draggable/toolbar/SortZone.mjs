@@ -115,8 +115,9 @@ class SortZone extends DragZone {
         await me.timeout(10);
 
         if (owner.sortable) {
-            ownerStyle.height = me.ownerStyle.height || null;
-            ownerStyle.width  = me.ownerStyle.width  || null;
+            ownerStyle.height   = me.ownerStyle.height    || null;
+            ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+            ownerStyle.width    = me.ownerStyle.width     || null;
 
             owner.style = ownerStyle;
 
@@ -254,7 +255,7 @@ class SortZone extends DragZone {
                 dragElement            : VDomUtil.find(owner.vdom, button.id).vdom,
                 dragProxyConfig        : {...me.dragProxyConfig, cls: [...owner.cls]},
                 indexMap               : indexMap,
-                ownerStyle             : {height: ownerStyle.height, width: ownerStyle.width},
+                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
                 startIndex             : index
@@ -274,12 +275,14 @@ class SortZone extends DragZone {
             owner.getDomRect([owner.id].concat(owner.items.map(e => e.id))).then(itemRects => {
                 me.ownerRect = itemRects[0];
 
-                ownerStyle.height = `${itemRects[0].height}px`;
-                ownerStyle.width  = `${itemRects[0].width}px`;
-
-                // The only reason we are adjusting the toolbar style is that there is no min height or width present.
-                // removing items from the layout could trigger a change in size.
-                owner.style = ownerStyle;
+                // The only reason we are adjusting the toolbar style is that there might be no min-height or min-width present.
+                // => Removing items from the layout could trigger a change in size otherwise
+                owner.style = {
+                    ...ownerStyle,
+                    height  : `${itemRects[0].height}px`,
+                    minWidth: `${itemRects[0].width}px`,
+                    width   : `${itemRects[0].width}px`
+                };
 
                 itemRects.shift();
 

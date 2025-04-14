@@ -17,6 +17,14 @@ class TableContainerController extends ComponentController {
          */
         apiBaseUrl: 'https://disease.sh/',
         /**
+         * @member {String} apiBaseUrl='https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/'
+         */
+        apiFallbackBaseUrl: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/',
+        /**
+         * @member {String} apiHistoricalDataEndpoint='cvid_static/historical/'
+         */
+        apiFallbackHistoricalDataEndpoint: 'cvid_static/historical/',
+        /**
          * @member {String} apiHistoricalDataEndpoint='v3/covid-19/historical'
          */
         apiHistoricalDataEndpoint: 'v3/covid-19/historical/',
@@ -83,7 +91,7 @@ class TableContainerController extends ComponentController {
                 }
             });
 
-            Object.entries(map).forEach(([key, value]) => {
+            Object.values(map).forEach(value => {
                 value.active = value.cases - value.deaths - value.recovered;
                 dataArray.push(value);
             });
@@ -158,8 +166,17 @@ class TableContainerController extends ComponentController {
      * @param {String} countryName
      */
     loadHistoricalData(countryName) {
-        let me      = this,
-            apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName + '?lastdays=' + me.apiHistoricalDataTimeRange;
+        let me               = this,
+            {useFallbackApi} = Neo.config,
+            apiPath = useFallbackApi ?
+                (me.apiFallbackBaseUrl + me.apiFallbackHistoricalDataEndpoint) :
+                (me.apiBaseUrl         + me.apiHistoricalDataEndpoint);
+
+        if (useFallbackApi) {
+            apiPath += (countryName + '.json')
+        } else {
+            apiPath += (countryName + '?lastdays=' + me.apiHistoricalDataTimeRange)
+        }
 
         fetch(apiPath)
             .then(response => response.json())

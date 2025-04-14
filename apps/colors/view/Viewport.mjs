@@ -2,7 +2,7 @@ import BaseViewport          from '../../../src/container/Viewport.mjs';
 import BarChartComponent     from './BarChartComponent.mjs';
 import HeaderToolbar         from './HeaderToolbar.mjs';
 import PieChartComponent     from './PieChartComponent.mjs';
-import TableContainer        from './TableContainer.mjs';
+import GridContainer         from './GridContainer.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -36,13 +36,15 @@ class Viewport extends BaseViewport {
             module: HeaderToolbar,
             flex  : 'none'
         }, {
-            module   : TableContainer,
-            reference: 'table'
+            module   : GridContainer,
+            reference: 'grid'
         }, {
             module   : PieChartComponent,
+            flex     : 1.3,
             reference: 'pie-chart'
         }, {
             module   : BarChartComponent,
+            flex     : 1.3,
             reference: 'bar-chart'
         }],
         /**

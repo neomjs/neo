@@ -107,11 +107,12 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return {
-            module     : GridContainer,
-            bind       : {store: 'stores.mainStore'},
-            cellEditing: true,
-            parentId   : this.id,
-            store      : MainStore,
+            module      : GridContainer,
+            bind        : {store: 'stores.mainStore'},
+            cellEditing : true,
+            parentId    : this.id,
+            store       : MainStore,
+            wrapperStyle: {maxWidth: '1002px'},
 
             columnDefaults: {
                 editable: true,

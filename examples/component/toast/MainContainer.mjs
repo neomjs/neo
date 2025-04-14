@@ -118,6 +118,7 @@ class MainContainer extends Viewport {
                         {cls: 'grey', innerHTML: '/* mandatory */'},
                         {innerHTML: `appName: '${data.appName}',`},
                         {innerHTML: `msg: '${data.msg}',`},
+                        {innerHTML: `windowId: '${data.windowId}',`},
                         {innerHTML: '/* optional */'},
                         {innerHTML: `title: '${data.title}',`, removeDom: !data.title},
                         {innerHTML: `iconCls: '${data.iconCls}',`, removeDom: !data.iconCls},

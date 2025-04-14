@@ -167,10 +167,10 @@ class Component extends Base {
      */
     parseConfig(component=this.component) {
         let me = this,
-            {handler, listeners, reference, validator} = component,
+            {handler, listeners, reference, renderer, validator} = component,
             eventHandler, handlerScope;
 
-        if (handler && typeof handler === 'string') {
+        if (handler && Neo.isString(handler)) {
             handlerScope = me.getHandlerScope(handler, component);
 
             // If the handler name was not resolved in the Component itself, bind it
@@ -192,7 +192,7 @@ class Component extends Base {
                         listeners[key].fn = handlerScope[eventHandler].bind(handlerScope)
                     }
                 } else {
-                    value.forEach(listener => {
+                    value?.forEach?.(listener => {
                         if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
                             eventHandler = listener.fn;
                             handlerScope = me.getHandlerScope(eventHandler, component);
@@ -208,7 +208,15 @@ class Component extends Base {
             }
         });
 
-        if (Neo.isString(validator)) {
+        if (renderer && Neo.isString(renderer)) {
+            handlerScope = me.getHandlerScope(renderer);
+
+            if (handlerScope) {
+                component.renderer = handlerScope[renderer].bind(handlerScope)
+            }
+        }
+
+        if (validator && Neo.isString(validator)) {
             handlerScope = me.getHandlerScope(validator);
 
             if (!handlerScope) {

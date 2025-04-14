@@ -1,4 +1,5 @@
 import Component from '../../../src/controller/Component.mjs';
+import Toast     from  '../../../src/component/Toast.mjs';
 
 /**
  * @class Neo.examples.grid.nestedRecordFields.ViewportController
@@ -17,6 +18,19 @@ class ViewportController extends Component {
      * @member {Neo.dialog.Base|null} dialog=null
      */
     dialog = null
+
+    /**
+     * @param {Object} data
+     */
+    countryRenderer({gridContainer, record}) {
+        let countryStore = gridContainer.getStateProvider().getStore('countries');
+
+        if (countryStore.getCount() > 0) {
+            return countryStore.get(record.country).name
+        }
+
+        return ''
+    }
 
     /**
      * @param {Object} data
@@ -104,6 +118,15 @@ class ViewportController extends Component {
         if (me.dialog) {
             me.dialog.theme = theme
         }
+
+        Neo.toast({
+            appName       : button.appName,
+            title         : 'Switched Theme',
+            msg           : isDarkTheme ? 'Light Theme' : 'Dark Theme',
+            position      : 'tl',
+            slideDirection: 'left',
+            windowId      : button.windowId
+        })
     }
 }
 

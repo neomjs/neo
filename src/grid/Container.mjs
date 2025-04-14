@@ -459,7 +459,9 @@ class GridContainer extends BaseContainer {
                 parent  : me,
                 windowId: me.windowId,
                 ...column
-            })
+            });
+
+            me.getController()?.parseConfig(columns[index])
         });
 
         me.items[0].items = headerButtons;
@@ -610,7 +612,7 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     removeSortingCss(dataField) {
-        this.headerToolbar.items.forEach(column => {
+        this.headerToolbar?.items.forEach(column => {
             if (column.dataField !== dataField) {
                 column.removeSortingCss()
             }
