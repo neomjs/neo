@@ -165,25 +165,6 @@ class Component extends Base {
     /**
      * @param {Neo.component.Base} component=this.component
      */
-    parseConfig(component=this.component) {
-        let me = this,
-            {validator} = component,
-            handlerScope;
-
-        if (validator && Neo.isString(validator)) {
-            handlerScope = me.getHandlerScope(validator);
-
-            if (!handlerScope) {
-                Logger.logError('Unknown validator for', component.id, component)
-            } else {
-                component.validator = handlerScope[validator].bind(handlerScope)
-            }
-        }
-    }
-
-    /**
-     * @param {Neo.component.Base} component=this.component
-     */
     parseDomListeners(component=this.component) {
         let me             = this,
             {domListeners} = component,

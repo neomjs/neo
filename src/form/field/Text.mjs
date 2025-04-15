@@ -1600,7 +1600,9 @@ class Text extends Field {
             } else if (inputPattern && !inputPattern.test(value)) {
                 me._error   = me.errorTextInputPattern(errorParam);
                 returnValue = false
-            } else if (Neo.isFunction(me.validator)) {
+            } else if (me.validator) {
+                me.bindCallback(me.validator, 'validator');
+
                 errorText = me.validator(me);
 
                 if (errorText !== true) {
