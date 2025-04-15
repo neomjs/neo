@@ -201,21 +201,7 @@ class Button extends BaseButton {
         let me    = this,
             {cls} = me;
 
-        if (value === true) {
-            NeoArray.remove(cls, 'neo-sort-hidden');
-
-            me.addDomListeners({
-                click: me.onButtonClick,
-                scope: me
-            })
-        } else {
-            NeoArray.add(cls, 'neo-sort-hidden');
-
-            me.removeDomListeners({
-                click: me.onButtonClick,
-                scope: me
-            })
-        }
+        NeoArray.toggle(cls, 'neo-sort-hidden', !value);
 
         me.cls = cls;
         me.update()
@@ -354,9 +340,10 @@ class Button extends BaseButton {
     }
 
     /**
+     * @param {Object} data
      * @protected
      */
-    onButtonClick() {
+    onClick(data) {
         let me = this,
             map;
 
@@ -374,7 +361,9 @@ class Button extends BaseButton {
             }
         }
 
-        me.isSorted = map[me.isSorted + '']
+        me.isSorted = map[me.isSorted + ''];
+
+        super.onClick(data)
     }
 
     /**
