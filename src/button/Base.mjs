@@ -499,7 +499,7 @@ class Button extends Component {
             me.bindCallback(me.handler, 'handler', me.handlerScope || me)
         }
 
-        me.handler(data);
+        me.handler?.(data);
 
         me.menu            && me.toggleMenu();
         me.route           && me.changeRoute(); // only relevant for editRoute=true
