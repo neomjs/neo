@@ -311,8 +311,7 @@ class Container extends BaseContainer {
             };
 
             if (value instanceof Store) {
-                value.on(listeners);
-                value.getCount() > 0 && me.onStoreLoad(value.items)
+                value.on(listeners)
             } else {
                 value = ClassSystemUtil.beforeSetInstance(value, Store, {
                     listeners
