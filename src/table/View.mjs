@@ -56,9 +56,9 @@ class View extends Component {
          */
         selectedRecordField: 'annotations.selected',
         /**
-         * @member {Neo.data.Store|null} store=null
+         * @member {Neo.data.Store|null} store_=null
          */
-        store: null,
+        store_: null,
         /**
          * @member {Boolean} useRowRecordIds=true
          */
@@ -110,6 +110,25 @@ class View extends Component {
      */
     afterSetSelectionModel(value, oldValue) {
         this.rendered && value.register(this)
+    }
+
+    /**
+     * Triggered after the store config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                filter      : me.onStoreFilter,
+                load        : me.onStoreLoad,
+                recordChange: me.onStoreRecordChange,
+                scope       : me
+            };
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -524,6 +543,33 @@ class View extends Component {
     }
 
     /**
+     *
+     */
+    onStoreFilter() {
+        this.onStoreLoad()
+    }
+
+    /**
+     * @param {Object[]} data
+     * @protected
+     */
+    onStoreLoad(data) {
+        let me = this;
+
+        me.createViewData();
+
+        if (me.mounted) {
+            me.timeout(50).then(() => {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.vdom.id,
+                    value    : 0
+                })
+            })
+        }
+    }
+
+    /**
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} opts
@@ -531,7 +577,7 @@ class View extends Component {
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
      */
-    onStoreRecordChange({fields, model, record}) {
+    onStoreRecordChange({fields, record}) {
         let me                     = this,
             fieldNames             = fields.map(field => field.name),
             needsUpdate            = false,

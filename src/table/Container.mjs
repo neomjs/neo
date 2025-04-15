@@ -233,6 +233,29 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the store config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {
+                filter: me.onStoreFilter,
+                load  : me.onStoreLoad,
+                scope : me
+            };
+
+        value   ?.on(listeners);
+        oldValue?.un(listeners);
+
+        // in case we dynamically change the store, the view needs to get the new reference
+        if (me.view) {
+            me.view.store = value
+        }
+    }
+
+    /**
      * Triggered after the useCustomScrollbars config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -293,35 +316,13 @@ class Container extends BaseContainer {
 
     /**
      * Triggered before the store config gets changed.
-     * @param {Neo.data.Store} value
-     * @param {Neo.data.Store} oldValue
+     * @param {Object|Neo.data.Store|null} value
+     * @param {Neo.data.Store}             oldValue
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
-
         if (value) {
-            let me = this,
-
-            listeners = {
-                filter      : me.onStoreFilter,
-                load        : me.onStoreLoad,
-                recordChange: me.onStoreRecordChange,
-                scope       : me
-            };
-
-            if (value instanceof Store) {
-                value.on(listeners)
-            } else {
-                value = ClassSystemUtil.beforeSetInstance(value, Store, {
-                    listeners
-                })
-            }
-
-            // in case we dynamically change the store, the view needs to get the new reference
-            if (me.view) {
-                me.view.store = value
-            }
+            value = ClassSystemUtil.beforeSetInstance(value, Store)
         }
 
         return value
@@ -405,19 +406,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
-     */
-    createViewData() {
-        let me = this;
-
-        me.view.createViewData();
-
-        if (me.useCustomScrollbars && me.scrollbarsCssApplied === false) {
-            me.applyCustomScrollbarsCss()
-        }
-    }
-
-    /**
      * @override
      * @returns {*}
      */
@@ -458,50 +446,29 @@ class Container extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        me.onStoreLoad(me.store.items)
+        opts.direction && me.view.onStoreLoad()
     }
 
     /**
      *
      */
     onStoreFilter() {
-        this.onStoreLoad(this.store.items)
+        this.onStoreLoad()
     }
 
     /**
-     * @param {Object[]} data
      * @protected
      */
-    onStoreLoad(data) {
+    onStoreLoad() {
         let me = this;
 
-        if (me.rendered) {
-            me.createViewData();
-
-            if (me.store.sorters.length < 1) {
-                me.removeSortingCss()
-            }
-        } else {
-            me.on('rendered', () => {
-                me.timeout(50).then(() => {
-                    me.createViewData()
-                })
-            }, me, {once: true})
+        if (me.useCustomScrollbars && me.scrollbarsCssApplied === false) {
+            me.applyCustomScrollbarsCss()
         }
-    }
 
-    /**
-     * Gets triggered after changing the value of a record field.
-     * E.g. myRecord.foo = 'bar';
-     * @param {Object} opts
-     * @param {String} opts.field The name of the field which got changed
-     * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {*} opts.oldValue
-     * @param {Object} opts.record
-     * @param {*} opts.value
-     */
-    onStoreRecordChange(opts) {
-        this.view.onStoreRecordChange(opts)
+        if (me.store.sorters?.length < 1) {
+            me.removeSortingCss()
+        }
     }
 
     /**
