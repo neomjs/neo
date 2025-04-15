@@ -164,6 +164,8 @@ class View extends Component {
             fieldValue = ''
         }
 
+        me.bindCallback(column.renderer, 'renderer', column.rendererScope || tableContainer, column);
+
         rendererOutput = column.renderer.call(column.rendererScope || tableContainer, {
             column,
             columnIndex,

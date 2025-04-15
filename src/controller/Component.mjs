@@ -167,16 +167,8 @@ class Component extends Base {
      */
     parseConfig(component=this.component) {
         let me = this,
-            {renderer, validator} = component,
+            {validator} = component,
             handlerScope;
-
-        if (renderer && Neo.isString(renderer)) {
-            handlerScope = me.getHandlerScope(renderer);
-
-            if (handlerScope) {
-                component.renderer = handlerScope[renderer].bind(handlerScope)
-            }
-        }
 
         if (validator && Neo.isString(validator)) {
             handlerScope = me.getHandlerScope(validator);

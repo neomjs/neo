@@ -450,6 +450,8 @@ class GridView extends Component {
             column.rendererScope = column;
         }
 
+        me.bindCallback(column.renderer, 'renderer', column.rendererScope || me, column);
+
         rendererOutput = column.renderer.call(column.rendererScope || me, {
             column,
             columnIndex,
