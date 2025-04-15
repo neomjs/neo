@@ -472,7 +472,7 @@ class Container extends BaseContainer {
      * @param {Object[]} data
      * @protected
      */
-    onStoreLoad(data) {console.log(data);
+    onStoreLoad(data) {
         let me = this;
 
         if (me.rendered) {
