@@ -167,37 +167,8 @@ class Component extends Base {
      */
     parseConfig(component=this.component) {
         let me = this,
-            {listeners, reference, renderer, validator} = component,
-            eventHandler, handlerScope;
-
-        listeners && Object.entries(listeners).forEach(([key, value]) => {
-            if (key !== 'scope' && key !== 'delegate') {
-                if (Neo.isString(value)) {
-                    eventHandler = value;
-                    handlerScope = me.getHandlerScope(eventHandler, component);
-
-                    if (!handlerScope) {
-                        Logger.logError('Unknown event handler for', eventHandler, component)
-                    } else if (handlerScope !== true) {
-                        listeners[key] = {};
-                        listeners[key].fn = handlerScope[eventHandler].bind(handlerScope)
-                    }
-                } else {
-                    value?.forEach?.(listener => {
-                        if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
-                            eventHandler = listener.fn;
-                            handlerScope = me.getHandlerScope(eventHandler, component);
-
-                            if (!handlerScope) {
-                                console.error('Unknown event handler for', eventHandler, component)
-                            } else if (handlerScope !== true) {
-                                listener.fn = handlerScope[eventHandler].bind(handlerScope)
-                            }
-                        }
-                    })
-                }
-            }
-        });
+            {renderer, validator} = component,
+            handlerScope;
 
         if (renderer && Neo.isString(renderer)) {
             handlerScope = me.getHandlerScope(renderer);
@@ -215,10 +186,6 @@ class Component extends Base {
             } else {
                 component.validator = handlerScope[validator].bind(handlerScope)
             }
-        }
-
-        if (reference) {
-            me.references[reference] = component
         }
     }
 

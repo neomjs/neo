@@ -459,9 +459,7 @@ class GridContainer extends BaseContainer {
                 parent  : me,
                 windowId: me.windowId,
                 ...column
-            });
-
-            me.getController()?.parseConfig(columns[index])
+            })
         });
 
         me.items[0].items = headerButtons;

@@ -141,7 +141,7 @@ class Observable extends Base {
      * @param {Object} originScope=this The scope where the function is located.
      */
     bindCallback(fn, originName, scope=this, originScope=this) {
-        if (fn) {
+        if (fn && Neo.isString(fn)) {
             const handler = resolveCallback(fn, scope);
             originScope[originName] = handler.fn.bind(handler.scope)
         }
@@ -193,6 +193,10 @@ class Observable extends Base {
                 // Resolve function name on the scope (or me), or, if it starts with 'up.'
                 // look in the ownership hierarchy from me.
                 const cb = resolveCallback(handler.fn, handler.scope || me);
+
+                if (Neo.isString(cb.fn)) {
+                    console.log(name, handler, cb);
+                }
 
                 // remove the listener if the scope no longer exists
                 if (cb.scope && !cb.scope.id) {

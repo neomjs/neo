@@ -1943,7 +1943,6 @@ class Component extends Base {
 
         let me = this;
 
-        me.getController()   ?.parseConfig(me);
         me.getStateProvider()?.parseConfig(me)
     }
 

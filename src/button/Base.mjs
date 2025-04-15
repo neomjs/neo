@@ -495,10 +495,7 @@ class Button extends Component {
     onClick(data) {
         let me = this;
 
-        if (Neo.isString(me.handler)) {
-            me.bindCallback(me.handler, 'handler', me.handlerScope || me)
-        }
-
+        me.bindCallback(me.handler, 'handler', me.handlerScope || me);
         me.handler?.(data);
 
         me.menu            && me.toggleMenu();
