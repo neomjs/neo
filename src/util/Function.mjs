@@ -135,10 +135,12 @@ export function intercept(target, targetMethodName, interceptFunction, scope, pr
  * @returns {Object}
  */
 export function resolveCallback(fn, scope=this) {
-    if (typeof fn === 'string') {
+    if (Neo.isString(fn)) {
         if (!scope[fn] && fn.startsWith('up.')) {
             fn = fn.slice(3);
             while (!scope[fn] && (scope = scope.parent));
+        } else {
+            scope = scope.getController?.()?.getHandlerScope(fn, null) || scope
         }
 
         fn = scope[fn]

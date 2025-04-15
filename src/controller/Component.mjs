@@ -70,7 +70,7 @@ class Component extends Base {
 
     /**
      * @param {String} handlerName
-     * @param {Neo.component.Base} [component]
+     * @param {Neo.component.Base|null} [component]
      * @returns {Neo.controller.Component|Boolean|null}
      */
     getHandlerScope(handlerName, component) {
@@ -167,17 +167,8 @@ class Component extends Base {
      */
     parseConfig(component=this.component) {
         let me = this,
-            {handler, listeners, reference, renderer, validator} = component,
+            {listeners, reference, renderer, validator} = component,
             eventHandler, handlerScope;
-
-        if (handler && Neo.isString(handler)) {
-            handlerScope = me.getHandlerScope(handler, component);
-
-            // If the handler name was not resolved in the Component itself, bind it
-            if (handlerScope !== true) {
-                component.handler = handlerScope[handler].bind(component.handlerScope || handlerScope);
-            }
-        }
 
         listeners && Object.entries(listeners).forEach(([key, value]) => {
             if (key !== 'scope' && key !== 'delegate') {

@@ -495,7 +495,11 @@ class Button extends Component {
     onClick(data) {
         let me = this;
 
-        me.callback(me.handler, me.handlerScope || me, [data]);
+        if (Neo.isString(me.handler)) {
+            me.bindCallback(me.handler, 'handler', me.handlerScope || me)
+        }
+
+        me.handler(data);
 
         me.menu            && me.toggleMenu();
         me.route           && me.changeRoute(); // only relevant for editRoute=true
@@ -517,9 +521,9 @@ class Button extends Component {
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
             animation: 'none',
-            left     : `${data.clientX - buttonRect.left - radius}px`,
             height   : `${diameter}px`,
-            top      : `${data.clientY - buttonRect.top - radius}px`,
+            left     : `${data.clientX - buttonRect.left - radius}px`,
+            top      : `${data.clientY - buttonRect.top  - radius}px`,
             width    : `${diameter}px`
         });
 
