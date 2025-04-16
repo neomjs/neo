@@ -393,10 +393,10 @@ class VDom extends Base {
             }
 
             if (childNodes) {
-                cn   = childNodes.map(item => VDom.getVdom(item));
-                cn   = cn.filter(item => item.removeDom !== true);
-                i    = 0;
-                len  = cn?.length || 0;
+                cn  = childNodes.map(item => VDom.getVdom(item));
+                cn  = cn.filter(item => item.removeDom !== true);
+                i   = 0;
+                len = cn?.length || 0;
 
                 for (; i < len; i++) {
                     if (vnode.childNodes) {
