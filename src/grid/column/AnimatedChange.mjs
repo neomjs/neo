@@ -63,7 +63,7 @@ class AnimatedChange extends Column {
                 // Wait for the next animation frame
                 await me.timeout(20);
 
-                cellId = view.getCellId(record, me.dataField);
+                cellId = view.getCellId(me.parent.store.indexOf(record), me.dataField);
                 node   = VdomUtil.find(view.vdom, cellId)?.vdom;
 
                 if (node) {
