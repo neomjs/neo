@@ -599,6 +599,7 @@ class GridView extends Component {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             cls            : rowCls,
             cn             : [],
+            data           : {recordId: record[me.store.getKeyProperty()]},
             role           : 'row',
 
             style: {
@@ -854,7 +855,7 @@ class GridView extends Component {
     getRowId(rowIndex) {
         let me = this;
 
-        return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
+        return `${me.id}__row__${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
     }
 
     /**
