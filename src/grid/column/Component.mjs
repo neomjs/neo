@@ -104,6 +104,11 @@ class Component extends Column {
                 windowId
             });
 
+            // We need to ensure that wrapped components always get the same index-based id.
+            if (!component.vdom.id) {
+                component.vdom.id = id + '__wrapper'
+            }
+
             me.map.set(id, component)
         }
 
