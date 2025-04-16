@@ -49,6 +49,7 @@ class Component extends Manager {
 
         let me         = this,
             childNodes = vnode?.childNodes ? [...vnode.childNodes] : [],
+            isWrapper  = childNodes.length > 0 && !!me.wrapperNodes.get(vnode.id),
             childNodeId, component, componentId, parentRef, referenceNode;
 
         vnode.childNodes = childNodes;
@@ -56,7 +57,7 @@ class Component extends Manager {
         childNodes.forEach((childNode, index) => {
             childNodeId = childNode.id;
 
-            if (!childNode.componentId && childNodeId !== ownerId) {
+            if (!childNode.componentId && childNodeId !== ownerId && !isWrapper) {
                 component = me.get(childNodeId);
 
                 if (!component) {
