@@ -24,6 +24,30 @@ class BaseModel extends Model {
     }
 
     /**
+     * Get the record for a given event path
+     * @param {Object[]} path
+     * @param {String}   nodeId
+     * @returns {Number|String|null}
+     */
+    getRecordId(path, nodeId) {
+        let node, recordId;
+
+        for (node of path) {
+            if (node.id === nodeId) {
+                recordId = node.data.recordId;
+
+                if (this.view.store.getKeyType()?.includes('int')) {
+                    recordId = parseInt(recordId)
+                }
+
+                return recordId
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Checks if an event path contains a grid cell editor
      * @param {Object}   data
      * @param {Object[]} data.path
