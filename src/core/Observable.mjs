@@ -101,14 +101,12 @@ class Observable extends Base {
         }
 
         if (!nameObject) {
-            eventConfig = {
-                data,
-                delay,
-                fn: listener,
-                id: eventId || Neo.getId('event'),
-                once,
-                scope
-            };
+            eventConfig = {fn: listener, id: eventId || Neo.getId('event')};
+
+            if (data)      {eventConfig.data   = data}
+            if (delay > 0) {eventConfig.delay  = delay}
+            if (once)      {eventConfig.once   = once}
+            if (scope)     {eventConfig.scope  = scope}
 
             if (existing = me.listeners?.[name]) {
                 existing.forEach(cfg => {
@@ -193,10 +191,6 @@ class Observable extends Base {
                 // Resolve function name on the scope (or me), or, if it starts with 'up.'
                 // look in the ownership hierarchy from me.
                 const cb = resolveCallback(handler.fn, handler.scope || me);
-
-                if (Neo.isString(cb.fn)) {
-                    console.log(name, handler, cb);
-                }
 
                 // remove the listener if the scope no longer exists
                 if (cb.scope && !cb.scope.id) {
