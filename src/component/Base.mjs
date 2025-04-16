@@ -1029,7 +1029,9 @@ class Component extends Base {
         let me  = this,
             cls = me.cls;
 
-        NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`);
+        if (oldValue) {
+            NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`)
+        }
 
         if (value && value !== '') {
             NeoArray.add(cls, `neo-${me.ntype}-${value}`)
