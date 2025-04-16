@@ -577,7 +577,7 @@ class GridView extends Component {
             {mountedColumns, selectedRows} = me,
             gridContainer = me.parent,
             {columns}     = gridContainer,
-            id            = me.getRowId(record, rowIndex),
+            id            = me.getRowId(rowIndex),
             rowCls        = me.getRowClass(record, rowIndex),
             config, column, columnPosition,  gridRow, i;
 
@@ -848,11 +848,13 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object} record
+     * @param {Number} rowIndex
      * @returns {String}
      */
-    getRowId(record) {
-        return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
+    getRowId(rowIndex) {
+        let me = this;
+
+        return `${me.id}__row__${rowIndex}`
     }
 
     /**
@@ -973,7 +975,7 @@ class GridView extends Component {
             fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                        selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(record))
+                        selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(rowIndex))
                     }
                 } else {
                     needsCellUpdate = me.updateCellNode(record, field.name);
