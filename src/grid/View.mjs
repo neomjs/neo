@@ -498,7 +498,7 @@ class GridView extends Component {
         }
 
         if (!cellId) {
-            cellId = me.getCellId(record, column.dataField)
+            cellId = me.getCellId(rowIndex, column.dataField)
         }
 
         if (selectedCells.includes(cellId)) {
@@ -711,12 +711,12 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object} record
+     * @param {Number} rowIndex
      * @param {String} dataField
      * @returns {String}
      */
-    getCellId(record, dataField) {
-        return this.id + '__' + record[this.store.getKeyProperty()] + '__' + dataField
+    getCellId(rowIndex, dataField) {
+        return this.getRowId(rowIndex) + '__' + dataField
     }
 
     /**
@@ -854,7 +854,7 @@ class GridView extends Component {
     getRowId(rowIndex) {
         let me = this;
 
-        return `${me.id}__row__${rowIndex}`
+        return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
     }
 
     /**
@@ -1044,10 +1044,10 @@ class GridView extends Component {
      */
     updateCellNode(record, dataField) {
         let me          = this,
-            cellId      = me.getCellId(record, dataField),
+            rowIndex    = me.store.indexOf(record),
+            cellId      = me.getCellId(rowIndex, dataField),
             cellNode    = VDomUtil.find(me.vdom, cellId),
             needsUpdate = false,
-            rowIndex    = me.store.indexOf(record),
             cellStyle, cellVdom, column, columnIndex;
 
         // The vdom might not exist yet => nothing to do in this case
