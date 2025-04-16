@@ -105,14 +105,16 @@ class RowModel extends BaseModel {
     /**
      * @param {Object} data
      */
-    onRowClick(data) {
-        let me     = this,
-            id     = data.data.currentTarget,
-            {view} = me,
+    onRowClick({data}) {
+        let me       = this,
+            id       = data.currentTarget,
+            {view}   = me,
+            {store}  = view,
+            recordId = id && me.getRecordId(data.path, id),
             isSelected, record;
 
-        if (id) {
-            record = view.getRecord(id);
+        if (recordId) {
+            record = store.get(recordId);
 
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)

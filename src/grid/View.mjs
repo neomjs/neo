@@ -855,7 +855,7 @@ class GridView extends Component {
     getRowId(rowIndex) {
         let me = this;
 
-        return `${me.id}__row__${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
+        return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
     }
 
     /**
