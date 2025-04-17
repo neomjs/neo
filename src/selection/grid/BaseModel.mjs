@@ -29,18 +29,17 @@ class BaseModel extends Model {
      * @param {String}   nodeId
      * @returns {Number|String|null}
      */
-    getRecordId(path, nodeId) {
-        let node, recordId;
+    getRecord(path, nodeId) {
+        let node, rowIndex;
 
         for (node of path) {
             if (node.id === nodeId) {
-                recordId = node.data.recordId;
+                rowIndex = parseInt(node.aria.rowindex) -2;
 
-                if (this.view.store.getKeyType()?.includes('int')) {
-                    recordId = parseInt(recordId)
-                }
+                // aria-rowindex is 1 based & also includes the header
+                rowIndex -= 2;
 
-                return recordId
+                return this.view.store.getAt(rowIndex)
             }
         }
 
