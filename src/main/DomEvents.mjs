@@ -393,6 +393,7 @@ class DomEvents extends Base {
             offsetTop        : node.offsetTop,
             offsetWidth      : node.offsetWidth,
             rect,
+            role             : node.role,
             scrollHeight     : node.scrollHeight,
             scrollLeft       : node.scrollLeft,
             scrollTop        : node.scrollTop,
