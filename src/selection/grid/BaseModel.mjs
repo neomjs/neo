@@ -34,7 +34,7 @@ class BaseModel extends Model {
 
         for (node of path) {
             if (node.id === nodeId) {
-                rowIndex = parseInt(node.aria.rowindex) -2;
+                rowIndex = parseInt(node.aria.rowindex);
 
                 // aria-rowindex is 1 based & also includes the header
                 rowIndex -= 2;
