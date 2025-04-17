@@ -20,7 +20,13 @@ class RowModel extends BaseModel {
          * @member {String} cls='neo-selection-rowmodel'
          * @protected
          */
-        cls: 'neo-selection-rowmodel'
+        cls: 'neo-selection-rowmodel',
+        /**
+         * Storing the record ids
+         * @member {Number[]|String[]} selectedRows=[]
+         * @protected
+         */
+        selectedRows: []
     }
 
     /**
