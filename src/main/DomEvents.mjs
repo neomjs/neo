@@ -399,7 +399,7 @@ class DomEvents extends Base {
             scrollTop        : node.scrollTop,
             scrollWidth      : node.scrollWidth,
             style            : node.style?.cssText,
-            tabIndex         : node.tabIndex,
+            tabIndex         : node.getAttribute?.('tabindex') ? node.tabIndex : null,
             tagName          : node.tagName?.toLowerCase()
         }
     }
