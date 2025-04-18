@@ -80,14 +80,13 @@ class BaseModel extends Model {
     /**
      * Get the record for a given event path
      * @param {Object[]} path
-     * @param {String}   nodeId
      * @returns {Number|String|null}
      */
-    getRecord(path, nodeId) {
+    getRecord(path) {
         let node, rowIndex;
 
         for (node of path) {
-            if (node.id === nodeId) {
+            if (node.aria.rowindex) {
                 rowIndex = parseInt(node.aria.rowindex);
 
                 // aria-rowindex is 1 based & also includes the header
@@ -98,6 +97,14 @@ class BaseModel extends Model {
         }
 
         return null
+    }
+
+    /**
+     * @param {Record} record
+     * @returns {Boolean}
+     */
+    hasAnnotations(record) {
+        return !!Object.getOwnPropertyDescriptor(record.__proto__, this.view.selectedRecordField)
     }
 
     /**
@@ -156,6 +163,20 @@ class BaseModel extends Model {
      */
     toggleRowSelection(recordId, silent=false) {
         this[this.isSelectedRow(recordId) ? 'deselectRow' : 'selectRow'](recordId, silent)
+    }
+
+    /**
+     *
+     */
+    unregister() {
+        let me        = this,
+            countRows = me.selectedRows.length;
+
+        me.selectedRows = [];
+
+        countRows > 0 && me.view.createViewData();
+
+        super.unregister()
     }
 }
 

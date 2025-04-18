@@ -44,14 +44,6 @@ class RowModel extends BaseModel {
     }
 
     /**
-     * @param {Record} record
-     * @returns {Boolean}
-     */
-    hasAnnotations(record) {
-        return !!Object.getOwnPropertyDescriptor(record.__proto__, this.view.selectedRecordField)
-    }
-
-    /**
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -104,9 +96,8 @@ class RowModel extends BaseModel {
      */
     onRowClick({data}) {
         let me     = this,
-            id     = data.currentTarget,
             {view} = me,
-            record = id && me.getRecord(data.path, id),
+            record = me.getRecord(data.path),
             recordId;
 
         if (record) {
