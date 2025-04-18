@@ -197,7 +197,7 @@ class Button extends BaseButton {
      * @param {Boolean} oldValue
      * @protected
      */
-     afterSetSortable(value, oldValue) {
+    afterSetSortable(value, oldValue) {
         let me    = this,
             {cls} = me;
 
