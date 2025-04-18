@@ -805,35 +805,22 @@ class GridView extends Component {
     }
 
     /**
-     * @param {String} cellId
-     * @returns {Record}
-     */
-    getRecordByCellId(cellId) {
-        let recordId = cellId.split('__')[1],
-            {store}  = this,
-            keyType  = store.getKeyType();
-
-        if (keyType === 'int' || keyType === 'integer') {
-            recordId = parseInt(recordId)
-        }
-
-        return store.get(recordId)
-    }
-
-    /**
      * @param {String} rowId
-     * @returns {Record}
+     * @returns {Record|null}
      */
     getRecordByRowId(rowId) {
-        let recordId = rowId.split('__')[2],
-            {store}  = this,
-            keyType  = store.getKeyType();
+        let me       = this,
+            node     = me.getVdomChild(rowId),
+            rowIndex = node['aria-rowindex'];
 
-        if (keyType === 'int' || keyType === 'integer') {
-            recordId = parseInt(recordId)
+        if (Neo.isNumber(rowIndex)) {
+            // aria-rowindex is 1 based & also includes the header
+            rowIndex -= 2;
+
+            return me.store.getAt(rowIndex)
         }
 
-        return store.get(recordId)
+        return null
     }
 
     /**
