@@ -181,10 +181,6 @@ class GridView extends Component {
     get selectedRows() {
         let {selectionModel} = this;
 
-        if (selectionModel.ntype === 'selection-grid-rowmodel') {
-            return selectionModel.items
-        }
-
         if (selectionModel.ntype?.includes('row')) {
             return selectionModel.selectedRows
         }
@@ -578,6 +574,7 @@ class GridView extends Component {
             gridContainer = me.parent,
             {columns}     = gridContainer,
             id            = me.getRowId(rowIndex),
+            recordId      = record[me.store.getKeyProperty()],
             rowCls        = me.getRowClass(record, rowIndex),
             config, column, columnPosition,  gridRow, i;
 
@@ -586,12 +583,7 @@ class GridView extends Component {
         }
 
         if (selectedRows && record[me.selectedRecordField]) {
-            NeoArray.add(selectedRows, id)
-        }
-
-        if (selectedRows?.includes(id)) {
-            rowCls.push('neo-selected');
-            gridContainer.fire('select', {record})
+            NeoArray.add(selectedRows, recordId)
         }
 
         gridRow = {
@@ -599,7 +591,7 @@ class GridView extends Component {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             cls            : rowCls,
             cn             : [],
-            data           : {recordId: record[me.store.getKeyProperty()]},
+            data           : {recordId},
             role           : 'row',
 
             style: {
@@ -607,6 +599,12 @@ class GridView extends Component {
                 transform: `translate(0px, ${rowIndex * me.rowHeight}px)`
             }
         };
+
+        if (selectedRows?.includes(recordId)) {
+            rowCls.push('neo-selected');
+            gridRow['aria-selected'] = true;
+            gridContainer.fire('select', {record})
+        }
 
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns.getAt(i);

@@ -20,13 +20,7 @@ class RowModel extends BaseModel {
          * @member {String} cls='neo-selection-rowmodel'
          * @protected
          */
-        cls: 'neo-selection-rowmodel',
-        /**
-         * Storing the record ids
-         * @member {Number[]|String[]} selectedRows=[]
-         * @protected
-         */
-        selectedRows: []
+        cls: 'neo-selection-rowmodel'
     }
 
     /**
@@ -79,14 +73,11 @@ class RowModel extends BaseModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            currentIndex = 0,
-            newIndex, record, rowId;
-
-        if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecordByRowId(me.items[0]))
-        }
-
-        newIndex = (currentIndex + step) % countRecords;
+            keyProperty  = store.getKeyProperty(),
+            recordId     = me.selectedRows[0] || store.getAt(0)[keyProperty],
+            record       = store.get(recordId),
+            index        = store.indexOf(record),
+            newIndex     = (index + step) % countRecords;
 
         while (newIndex < 0) {
             newIndex += countRecords
@@ -97,12 +88,12 @@ class RowModel extends BaseModel {
         if (me.hasAnnotations(record)) {
             me.updateAnnotations(record)
         } else {
-            rowId = view.getRowId(record);
+            recordId = record[keyProperty];
 
-            if (rowId) {
-                me.select(rowId);
+            if (recordId) {
+                me.selectRow(recordId);
 
-                view.scrollByRows(currentIndex, step);
+                view.scrollByRows(index, step);
                 view.fire('select', {record})
             }
         }
@@ -116,19 +107,17 @@ class RowModel extends BaseModel {
             id     = data.currentTarget,
             {view} = me,
             record = id && me.getRecord(data.path, id),
-            isSelected;
+            recordId;
 
         if (record) {
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                me.toggleSelection(id);
+                recordId = record[view.store.getKeyProperty()];
 
-                isSelected = me.isSelected(id);
+                me.toggleRowSelection(recordId);
 
-                !isSelected && view.onDeselect?.(record);
-
-                view.fire(isSelected ? 'select' : 'deselect', {record})
+                view.fire(me.isSelectedRow(recordId) ? 'select' : 'deselect', {record})
             }
         }
     }
