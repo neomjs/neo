@@ -106,7 +106,7 @@ class Model extends Base {
 
             if (node) {
                 node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
-                node['aria-selected'] = false
+                delete node['aria-selected']
             }
 
             NeoArray.remove(itemCollection, item);
