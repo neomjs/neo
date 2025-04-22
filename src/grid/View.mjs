@@ -941,7 +941,7 @@ class GridView extends Component {
             needsUpdate      = false,
             rowIndex         = me.store.indexOf(record),
             {selectionModel} = me,
-            column, needsCellUpdate;
+            column, needsCellUpdate, recordId;
 
         if (fieldNames.includes(me.colspanField)) {
             me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
@@ -961,7 +961,9 @@ class GridView extends Component {
             fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                        selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(rowIndex))
+                        recordId = record[me.store.getKeyProperty()];
+
+                        selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
                     }
                 } else {
                     needsCellUpdate = me.updateCellNode(record, field.name);

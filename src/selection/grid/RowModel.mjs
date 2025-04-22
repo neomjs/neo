@@ -147,17 +147,18 @@ class RowModel extends BaseModel {
     updateAnnotations(record) {
         let me               = this,
             {view}           = me,
-            rowId            = view.getRowId(record),
-            isSelected       = me.isSelected(rowId),
+            {store}          = view,
+            recordId         = record[store.getKeyProperty()],
+            isSelected       = me.isSelectedRow(recordId),
             annotationsField = view.selectedRecordField;
 
         if (me.singleSelect) {
             if (isSelected) {
                 record[annotationsField] = false
             } else {
-                me.items.forEach(rowId => {
+                me.selectedRows.forEach(recordId => {
                     // We can use setSilent(), since the last change will trigger a view update
-                    view.getRecordByRowId(rowId).setSilent({[annotationsField]: false})
+                    store.get(recordId).setSilent({[annotationsField]: false})
                 });
 
                 record[annotationsField] = true
