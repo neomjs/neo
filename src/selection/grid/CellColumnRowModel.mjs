@@ -32,12 +32,13 @@ class CellColumnRowModel extends CellRowModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me     = this,
-            {view} = me,
-            cellId = data.data.currentTarget;
+        let me        = this,
+            {view}    = me,
+            cellId    = data.data.currentTarget,
+            dataField = cellId && view.getDataField(cellId);
 
-        if (cellId) {
-            me.selectedColumns = [view.getDataField(cellId)];
+        if (dataField) {
+            me.selectedColumns = me.isSelected(cellId) ? [] : [dataField];
             view.createViewData(true)
         }
 
