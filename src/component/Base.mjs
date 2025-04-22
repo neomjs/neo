@@ -955,7 +955,7 @@ class Component extends Base {
      */
     afterSetStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
-            this.updateStyle(value, oldValue)
+            this.updateStyle()
         }
     }
 
@@ -1137,15 +1137,7 @@ class Component extends Base {
      */
     afterSetWrapperStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
-            let me   = this,
-                vdom = me.vdom;
-
-            if (!vdom.id) {
-                vdom.style = value;
-                me.update()
-            } else {
-                me.updateStyle(value, oldValue, vdom.id)
-            }
+            this.updateStyle()
         }
     }
 
@@ -2604,55 +2596,21 @@ class Component extends Base {
     }
 
     /**
-     * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
-     * @param {Object|String} value
-     * @param {Object|String} oldValue
-     * @param {String} [id=this.id]
-     * @protected
+     *
      */
-    updateStyle(value, oldValue, id=this.id) {
-        let me    = this,
-            delta = Style.compareStyles(value, oldValue),
-            opts, vdom, vnode, vnodeStyle;
+    updateStyle() {
+        let me       = this,
+            {vdom}   = me,
+            vdomRoot = me.getVdomRoot();
 
-        if (delta) {
-            vdom  = VDomUtil.find(me.vdom, id);
-            vnode = me.vnode && VNodeUtil.find(me.vnode, id);
-
-            if (!me.hasUnmountedVdomChanges) {
-                me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
-            }
-
-            vdom.vdom.style = value; // keep the vdom in sync
-
-            if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true
-            } else if (me.mounted) {
-                vnodeStyle = vnode.vnode.style;
-
-                // keep the vnode in sync
-                // we need the iteration since vdom shortcuts (height, width,...) live within the vnode style
-                // using vnode.vnode.style = style would lose them.
-                Object.entries(delta).forEach(([key, value]) => {
-                    if (value === null) {
-                        delete vnode.vnode.style[key]
-                    } else {
-                        vnodeStyle[key] = value
-                    }
-                });
-
-                opts = {
-                    action: 'updateDom',
-                    deltas: [{id, style: delta}]
-                };
-
-                if (currentWorker.isSharedWorker) {
-                    opts.appName = me.appName
-                }
-
-                currentWorker.sendMessage('main', opts)
-            }
+        if (vdom !== vdomRoot) {
+            vdom    .style = me.wrapperStyle;
+            vdomRoot.style = me.style
+        } else {
+            vdom.style = {...me.wrapperStyle, ...me.style}
         }
+
+        me.update()
     }
 
     /**

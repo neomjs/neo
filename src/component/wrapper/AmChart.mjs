@@ -50,14 +50,15 @@ class AmChart extends Component {
          * @member {String} package='am4charts'
          */
         package: 'am4charts',
+        style: {
+            height: '100%'
+        },
         /**
          * @member {Object} _vdom
          */
         _vdom:
         {style: {position: 'relative'}, cn: [
-            {style: {position: 'absolute', height: '100%', width: '100%'}, cn: [
-                {style: {color:'red',height: '100%'}}
-            ]}
+            {style: {position: 'absolute', height: '100%', width: '100%'}, cn: [{}]}
         ]}
     }
 
