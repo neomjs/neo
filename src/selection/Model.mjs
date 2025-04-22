@@ -94,13 +94,15 @@ class Model extends Base {
      * @param {String} [selectedCls]
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
+        let me     = this,
+            {view} = me,
+            node;
+
         // We hold vdom ids for now, so all incoming selections must be converted.
         item = item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item;
 
         if (itemCollection.includes(item)) {
-            let me     = this,
-                {view} = me,
-                node   = view.getVdomChild(item);
+            node = view.getVdomChild(item);
 
             if (node) {
                 node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
@@ -119,9 +121,8 @@ class Model extends Base {
                     selection: itemCollection
                 })
             }
-        }
-        else if (!silent) {
-            this.fire('noChange')
+        } else if (!silent) {
+            me.fire('noChange')
         }
     }
 
@@ -146,8 +147,7 @@ class Model extends Base {
             me.fire('selectionChange', {
                 selection: this.items
             })
-        }
-        else if (!silent) {
+        } else if (!silent) {
             me.fire('noChange')
         }
     }
