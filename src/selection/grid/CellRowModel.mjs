@@ -29,13 +29,14 @@ class CellRowModel extends CellModel {
     onCellClick(data) {
         let me     = this,
             {view} = me,
+            cellId = data.data.currentTarget,
             record = me.getRecord(data.data.path);
 
         if (record) {
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                me.toggleRowSelection(record[view.store.getKeyProperty()], true) // silent
+                me[me.isSelected(cellId) ? 'deselectRow' : 'selectRow'](record[view.store.getKeyProperty()], true)
             }
         }
 
