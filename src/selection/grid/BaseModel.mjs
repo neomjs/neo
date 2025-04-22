@@ -15,6 +15,11 @@ class BaseModel extends Model {
          */
         className: 'Neo.selection.grid.BaseModel',
         /**
+         * Storing the column dataFields
+         * @member {String[]} selectedColumns=[]
+         */
+        selectedColumns: [],
+        /**
          * Storing the record ids
          * @member {Number[]|String[]} selectedRows=[]
          * @protected
@@ -121,6 +126,14 @@ class BaseModel extends Model {
         }
 
         return false
+    }
+
+    /**
+     * @param {String} dataField
+     * @returns {Boolean} true in case the column is selected
+     */
+    isSelectedColumn(dataField) {
+        return this.selectedColumns.includes(dataField)
     }
 
     /**

@@ -25,12 +25,7 @@ class CellColumnModel extends CellModel {
          * @member {String} selectedColumnCellCls='selected-column-cell'
          * @protected
          */
-        selectedColumnCellCls: 'selected-column-cell',
-        /**
-         * Storing the column dataFields
-         * @member {String[]} selectedColumns=[]
-         */
-        selectedColumns: []
+        selectedColumnCellCls: 'selected-column-cell'
     }
 
     /**
