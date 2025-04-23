@@ -38,7 +38,12 @@ class Component extends Column {
          * @member {String} type='component'
          * @protected
          */
-        type: 'component'
+        type: 'component',
+        /**
+         * Set this config to true, in case you want to use 'bind' inside your cell based component.
+         * @member {Boolean} useBindings=false
+         */
+        useBindings: false
     }
 
     /**
@@ -112,7 +117,9 @@ class Component extends Column {
             me.map.set(id, component)
         }
 
-        view.getStateProvider()?.parseConfig(component);
+        if (me.useBindings) {
+            view.getStateProvider()?.parseConfig(component)
+        }
 
         view.updateDepth = -1;
 
