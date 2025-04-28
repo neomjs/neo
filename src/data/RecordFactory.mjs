@@ -233,7 +233,7 @@ class RecordFactory extends Base {
                      * @returns {Object}
                      */
                     toJSON() {
-                        return this[dataSymbol]
+                        return structuredClone(this[dataSymbol])
                     }
                 };
 
