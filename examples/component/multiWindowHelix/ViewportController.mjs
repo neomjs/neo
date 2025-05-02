@@ -78,8 +78,6 @@ class ViewportController extends Controller {
 
             me.connectedApps.push(appName);
 
-            controlsPanel.parent.remove(controlsPanel, false);
-
             this.getReference('header-toolbar').hidden = true;
 
             mainView.add(controlsPanel)
@@ -96,13 +94,9 @@ class ViewportController extends Controller {
             {appName, windowId} = data;
 
         if (appName === 'HelixControls') {
-            let controlsPanel = me.getReference('controls-panel');
-
-            controlsPanel.parent.remove(controlsPanel, false);
-
             me.getReference('header-toolbar').hidden = false;
 
-            me.component.add(controlsPanel)
+            me.component.add(me.getReference('controls-panel'))
         }
         // Close popup windows when closing or reloading the main window
         else if (appName === 'Neo.examples.component.multiWindowHelix') {

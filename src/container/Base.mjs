@@ -304,7 +304,7 @@ class Container extends Component {
         let me       = this,
             config   = {appName: me.appName, parentId: me.id, parentIndex: index, windowId: me.windowId},
             defaults = {...me.itemDefaults},
-            lazyLoadItem, module;
+            lazyLoadItem, module, parent;
 
         if (defaults) {
             if (item.module) {
@@ -328,6 +328,12 @@ class Container extends Component {
             }
 
             case 'NeoInstance': {
+                parent = item.parent;
+
+                if (parent && parent !== me) {
+                    parent.remove(item, false)
+                }
+
                 item.set(config);
 
                 // In case an item got created outside a stateProvider based hierarchy, there might be bindings or string
