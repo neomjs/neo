@@ -1255,7 +1255,7 @@ class Component extends Base {
         oldValue?.destroy();
 
         if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, null, {
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.controller.Component', {
                 component: this,
                 windowId : this.windowId
             })

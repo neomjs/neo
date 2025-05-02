@@ -332,7 +332,13 @@ class Container extends Component {
 
                 if (parent && parent !== me) {
                     parent.remove(item, false);
-                    delete item.vdom.removeDom
+                    delete item.vdom.removeDom;
+
+                    // Convenience logic, especially for moving components into different browser windows:
+                    // A component might rely on references & handler methods inside the previous controller realm
+                    if (!item.controller && !me.getController() && parent.getController()) {
+                        item.controller = {parent: parent.getController()}
+                    }
                 }
 
                 item.set(config);
