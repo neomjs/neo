@@ -267,7 +267,7 @@ class MainContainerController extends ComponentController {
 
         switch(name) {
             case 'SharedCovidChart':
-                view       = me.getReference('controls-panel');
+                view = me.getReference('controls-panel');
 
                 view.parent.storeReferences();
 
