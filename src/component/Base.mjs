@@ -1312,31 +1312,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggered before the stateProvider config gets changed.
-     * Creates a state.Provider instance if needed.
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @returns {Neo.state.Provider}
-     * @protected
-     */
-    beforeSetStateProvider(value, oldValue) {
-        oldValue?.destroy();
-
-        if (value) {
-            let me            = this,
-                defaultValues = {component: me};
-
-            if (me.modelData) {
-                defaultValues.data = me.modelData
-            }
-
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
-        }
-
-        return null
-    }
-
-    /**
      * Triggered before the plugins config gets changed.
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -1368,6 +1343,31 @@ class Component extends Base {
         }
 
         return (Neo.isNumber(oldValue) && oldValue > 0) ? (oldValue - 1) : 0
+    }
+
+    /**
+     * Triggered before the stateProvider config gets changed.
+     * Creates a state.Provider instance if needed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Neo.state.Provider}
+     * @protected
+     */
+    beforeSetStateProvider(value, oldValue) {
+        oldValue?.destroy();
+
+        if (value) {
+            let me            = this,
+                defaultValues = {component: me};
+
+            if (me.modelData) {
+                defaultValues.data = me.modelData
+            }
+
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
+        }
+
+        return null
     }
 
     /**
