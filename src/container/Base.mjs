@@ -331,7 +331,8 @@ class Container extends Component {
                 parent = item.parent;
 
                 if (parent && parent !== me) {
-                    parent.remove(item, false)
+                    parent.remove(item, false);
+                    delete item.vdom.removeDom
                 }
 
                 item.set(config);
