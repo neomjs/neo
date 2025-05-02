@@ -233,7 +233,7 @@ class Model extends Base {
             {view} = me;
 
         // We hold vdom ids for now, so all incoming selections must be converted.
-        items.map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
+        items = items.map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
 
         if (!Neo.isEqual(itemCollection, items)) {
             if (me.singleSelect && itemCollection === me.items) {
