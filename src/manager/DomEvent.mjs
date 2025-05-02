@@ -1,10 +1,9 @@
-import Base              from '../core/Base.mjs';
-import ComponentManager  from './Component.mjs';
-import FocusManager      from './Focus.mjs';
-import Logger            from '../util/Logger.mjs';
-import NeoArray          from '../util/Array.mjs';
-import {resolveCallback} from '../util/Function.mjs';
-import VDomUtil          from '../util/VDom.mjs';
+import Base             from '../core/Base.mjs';
+import ComponentManager from './Component.mjs';
+import FocusManager     from './Focus.mjs';
+import Logger           from '../util/Logger.mjs';
+import NeoArray         from '../util/Array.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 
 const eventConfigKeys = [
     'bubble',
@@ -110,8 +109,6 @@ class DomEvent extends Base {
             listeners = me.items[id]?.[eventName];
 
             if (listeners) {
-                // console.log('fire', eventName, data, listeners, path);
-
                 if (Array.isArray(listeners)) {
                     // Stop iteration if a handler returns false
                     listeners.every(listener => {
@@ -141,6 +138,10 @@ class DomEvent extends Base {
 
                                     // Handler needs to know which actual target matched the delegate
                                     data.currentTarget = delegationTargetId;
+
+                                    if (Neo.isString(listener.fn)) {
+                                        me.bindCallback(listener.fn, 'fn', listener.scope, listener)
+                                    }
 
                                     result = listener.fn.apply(listener.scope || globalThis, [data]);
 
@@ -284,18 +285,18 @@ class DomEvent extends Base {
     }
 
     /**
-     * @param {Object} config
+     * @param {Object}  config
      * @param {Boolean} config.bubble
-     * @param {String} config.delegate
-     * @param {String} config.eventName
-     * @param {String} config.id
+     * @param {String}  config.delegate
+     * @param {String}  config.eventName
+     * @param {String}  config.id
      * @param {Boolean} config.local
-     * @param {Number} config.opts
-     * @param {Number} config.originalConfig
-     * @param {String} config.ownerId
-     * @param {Number} config.priority=1
-     * @param {Object} config.scope
-     * @param {String} config.vnodeId
+     * @param {Number}  config.opts
+     * @param {Number}  config.originalConfig
+     * @param {String}  config.ownerId
+     * @param {Number}  config.priority=1
+     * @param {Object}  config.scope
+     * @param {String}  config.vnodeId
      * @returns {Boolean} true if the listener got registered successfully (false in case it was already there)
      */
     register(config) {
@@ -306,10 +307,8 @@ class DomEvent extends Base {
             fnType                       = typeof opts,
             fn, listener, listenerConfig, listenerId;
 
-        if (fnType === 'function') {
+        if (fnType === 'function' || fnType === 'string') {
             fn = opts
-        } else if (fnType === 'string') {
-            fn = resolveCallback(opts, scope).fn
         } else {
             fn    = opts.fn;
             scope = opts.scope || scope

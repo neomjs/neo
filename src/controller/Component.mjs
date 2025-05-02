@@ -1,6 +1,5 @@
 import Base              from './Base.mjs';
 import {resolveCallback} from '../util/Function.mjs';
-import Logger            from '../util/Logger.mjs';
 
 /**
  * @class Neo.controller.Component
@@ -75,12 +74,13 @@ class Component extends Base {
      */
     getHandlerScope(handlerName, component) {
         let me       = this,
-            {parent} = me;
+            {parent} = me,
+            handlerCb;
 
         if (component) {
             // Look for ths function *name* first in the Component itself.
             // If we find it, return true so calling code knows not to continue to search.
-            const handlerCb = resolveCallback(handlerName, component);
+            handlerCb = resolveCallback(handlerName, component);
 
             // Handler fn is resolved in the Component or its own parent chain.
             // Return a status indicating that we do not need an early binding
@@ -161,39 +161,6 @@ class Component extends Base {
      * (instead of using onConstructed() inside your controller)
      */
     onComponentConstructed() {}
-
-    /**
-     * @param {Neo.component.Base} component=this.component
-     */
-    parseDomListeners(component=this.component) {
-        let me             = this,
-            {domListeners} = component,
-            eventHandler, scope;
-
-        domListeners?.forEach(domListener => {
-            Object.entries(domListener).forEach(([key, value]) => {
-                eventHandler = null;
-
-                if (key !== 'scope' && key !== 'delegate') {
-                    if (Neo.isString(value)) {
-                        eventHandler = value;
-                    } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
-                        eventHandler = value.fn;
-                    }
-
-                    if (eventHandler) {
-                        scope = me.getHandlerScope(eventHandler);
-
-                        // There can be string based listeners like 'up.onClick', which will resolved inside manager.DomEvents
-                        // => Do nothing in case there is no match inside the controller hierarchy.
-                        if (scope) {
-                            domListener[key] = scope[eventHandler].bind(scope)
-                        }
-                    }
-                }
-            })
-        })
-    }
 
     /**
      * Will get called by component.Base: destroy() in case the component has a reference config

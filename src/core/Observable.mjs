@@ -133,19 +133,6 @@ class Observable extends Base {
     }
 
     /**
-     * @param {String} fn               The name of a function to find in the passed scope object.
-     * @param {Object} originName       The name of the method inside the originScope.
-     * @param {Object} scope            The scope to find the function in if it is specified as a string.
-     * @param {Object} originScope=this The scope where the function is located.
-     */
-    bindCallback(fn, originName, scope=this, originScope=this) {
-        if (fn && Neo.isString(fn)) {
-            const handler = resolveCallback(fn, scope);
-            originScope[originName] = handler.fn.bind(handler.scope)
-        }
-    }
-
-    /**
      * Call the passed function, or a function by *name* which exists in the passed scope's
      * or this component's ownership chain.
      * @param {Function|String} fn A function, or the name of a function to find in the passed scope object.

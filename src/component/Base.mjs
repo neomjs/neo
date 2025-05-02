@@ -616,8 +616,6 @@ class Component extends Base {
         let me = this;
 
         if (value?.[0] || oldValue?.[0]) {
-            me.getController()?.parseDomListeners(me);
-
             DomEventManager.updateDomListeners(me, value, oldValue)
         }
     }
