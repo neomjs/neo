@@ -38,7 +38,12 @@ class Component extends Column {
          * @member {String} type='component'
          * @protected
          */
-        type: 'component'
+        type: 'component',
+        /**
+         * Set this config to true, in case you want to use 'bind' inside your cell based component.
+         * @member {Boolean} useBindings=false
+         */
+        useBindings: false
     }
 
     /**
@@ -104,13 +109,17 @@ class Component extends Column {
                 windowId
             });
 
+            // We need to ensure that wrapped components always get the same index-based id.
+            if (!component.vdom.id) {
+                component.vdom.id = id + '__wrapper'
+            }
+
             me.map.set(id, component)
         }
 
-        // The componentConfig can contain bindings into a view controller, e.g. a button handler = 'editButtonHandler'
-        // componentConfig.set(component) can revert these, so we need a parseConfig() for each change.
-        view.getController()   ?.parseConfig(component);
-        view.getStateProvider()?.parseConfig(component);
+        if (me.useBindings) {
+            view.getStateProvider()?.parseConfig(component)
+        }
 
         view.updateDepth = -1;
 

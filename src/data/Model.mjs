@@ -87,6 +87,15 @@ class Model extends Base {
     }
 
     /**
+     * Finds a field type by a given field name
+     * @param {String} name
+     * @returns {String|null} The lowercase field type or null if no match was found
+     */
+    getFieldType(name) {
+        return this.getField(name)?.type?.toLowerCase() || null
+    }
+
+    /**
      * @param {Object[]} fields
      * @param {Boolean} isRoot=true
      * @param {String} path=''

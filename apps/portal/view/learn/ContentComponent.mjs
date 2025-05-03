@@ -321,15 +321,15 @@ class ContentComponent extends Component {
     /**
      * @param {Object} data
      */
-    onClick(data) {
-        let me = this,
-            record = me.record;
+    onClick({altKey, metaKey, shiftKey}) {
+        let me       = this,
+            {record} = me;
 
-        if (data.altKey && data.shiftKey && !data.metaKey) {
+        if (altKey && !metaKey && shiftKey) {
             me.fire('edit', {component: me, record})
         }
         // Command/windows shift click = refresh
-        else if (!data.altKey && data.shiftKey && data.metaKey) {
+        else if (!altKey && metaKey && shiftKey) {
             me.fire('refresh', {component: me, record})
         }
     }

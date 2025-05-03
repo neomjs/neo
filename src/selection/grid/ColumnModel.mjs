@@ -20,12 +20,7 @@ class ColumnModel extends BaseModel {
          * @member {String} cls='neo-selection-columnmodel'
          * @protected
          */
-        cls: 'neo-selection-columnmodel',
-        /**
-         * Storing the column dataFields
-         * @member {String[]} selectedColumns=[]
-         */
-        selectedColumns: []
+        cls: 'neo-selection-columnmodel'
     }
 
     /**
@@ -59,12 +54,13 @@ class ColumnModel extends BaseModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me     = this,
-            {view} = me,
-            cellId = data.data.currentTarget;
+        let me        = this,
+            {view}    = me,
+            cellId    = data.data.currentTarget,
+            dataField = cellId && view.getDataField(cellId);
 
-        if (cellId) {
-            me.selectedColumns = [view.getDataField(cellId)];
+        if (dataField) {
+            me.selectedColumns = me.isSelectedColumn(dataField) ? [] : [dataField];
             view.createViewData()
         }
     }

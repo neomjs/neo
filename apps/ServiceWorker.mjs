@@ -20,9 +20,9 @@ class ServiceWorker extends ServiceBase {
          */
         singleton: true,
         /**
-         * @member {String} version='8.43.1'
+         * @member {String} version='9.0.0'
          */
-        version: '8.43.1'
+        version: '9.0.0'
     }
 
     /**

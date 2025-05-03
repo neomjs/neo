@@ -616,8 +616,6 @@ class Component extends Base {
         let me = this;
 
         if (value?.[0] || oldValue?.[0]) {
-            me.getController()?.parseDomListeners(me);
-
             DomEventManager.updateDomListeners(me, value, oldValue)
         }
     }
@@ -955,7 +953,7 @@ class Component extends Base {
      */
     afterSetStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
-            this.updateStyle(value, oldValue)
+            this.updateStyle()
         }
     }
 
@@ -1029,7 +1027,9 @@ class Component extends Base {
         let me  = this,
             cls = me.cls;
 
-        NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`);
+        if (oldValue) {
+            NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`)
+        }
 
         if (value && value !== '') {
             NeoArray.add(cls, `neo-${me.ntype}-${value}`)
@@ -1135,15 +1135,7 @@ class Component extends Base {
      */
     afterSetWrapperStyle(value, oldValue) {
         if (!(!value && oldValue === undefined)) {
-            let me   = this,
-                vdom = me.vdom;
-
-            if (!vdom.id) {
-                vdom.style = value;
-                me.update()
-            } else {
-                me.updateStyle(value, oldValue, vdom.id)
-            }
+            this.updateStyle()
         }
     }
 
@@ -1263,7 +1255,7 @@ class Component extends Base {
         oldValue?.destroy();
 
         if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, null, {
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.controller.Component', {
                 component: this,
                 windowId : this.windowId
             })
@@ -1320,31 +1312,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggered before the stateProvider config gets changed.
-     * Creates a state.Provider instance if needed.
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @returns {Neo.state.Provider}
-     * @protected
-     */
-    beforeSetStateProvider(value, oldValue) {
-        oldValue?.destroy();
-
-        if (value) {
-            let me            = this,
-                defaultValues = {component: me};
-
-            if (me.modelData) {
-                defaultValues.data = me.modelData
-            }
-
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
-        }
-
-        return null
-    }
-
-    /**
      * Triggered before the plugins config gets changed.
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -1376,6 +1343,31 @@ class Component extends Base {
         }
 
         return (Neo.isNumber(oldValue) && oldValue > 0) ? (oldValue - 1) : 0
+    }
+
+    /**
+     * Triggered before the stateProvider config gets changed.
+     * Creates a state.Provider instance if needed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Neo.state.Provider}
+     * @protected
+     */
+    beforeSetStateProvider(value, oldValue) {
+        oldValue?.destroy();
+
+        if (value) {
+            let me            = this,
+                defaultValues = {component: me};
+
+            if (me.modelData) {
+                defaultValues.data = me.modelData
+            }
+
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
+        }
+
+        return null
     }
 
     /**
@@ -1943,7 +1935,6 @@ class Component extends Base {
 
         let me = this;
 
-        me.getController()   ?.parseConfig(me);
         me.getStateProvider()?.parseConfig(me)
     }
 
@@ -2603,55 +2594,21 @@ class Component extends Base {
     }
 
     /**
-     * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
-     * @param {Object|String} value
-     * @param {Object|String} oldValue
-     * @param {String} [id=this.id]
-     * @protected
+     *
      */
-    updateStyle(value, oldValue, id=this.id) {
-        let me    = this,
-            delta = Style.compareStyles(value, oldValue),
-            opts, vdom, vnode, vnodeStyle;
+    updateStyle() {
+        let me       = this,
+            {vdom}   = me,
+            vdomRoot = me.getVdomRoot();
 
-        if (delta) {
-            vdom  = VDomUtil.find(me.vdom, id);
-            vnode = me.vnode && VNodeUtil.find(me.vnode, id);
-
-            if (!me.hasUnmountedVdomChanges) {
-                me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted
-            }
-
-            vdom.vdom.style = value; // keep the vdom in sync
-
-            if (me.silentVdomUpdate) {
-                me.needsVdomUpdate = true
-            } else if (me.mounted) {
-                vnodeStyle = vnode.vnode.style;
-
-                // keep the vnode in sync
-                // we need the iteration since vdom shortcuts (height, width,...) live within the vnode style
-                // using vnode.vnode.style = style would lose them.
-                Object.entries(delta).forEach(([key, value]) => {
-                    if (value === null) {
-                        delete vnode.vnode.style[key]
-                    } else {
-                        vnodeStyle[key] = value
-                    }
-                });
-
-                opts = {
-                    action: 'updateDom',
-                    deltas: [{id, style: delta}]
-                };
-
-                if (currentWorker.isSharedWorker) {
-                    opts.appName = me.appName
-                }
-
-                currentWorker.sendMessage('main', opts)
-            }
+        if (vdom !== vdomRoot) {
+            vdom    .style = me.wrapperStyle;
+            vdomRoot.style = me.style
+        } else {
+            vdom.style = {...me.wrapperStyle, ...me.style}
         }
+
+        me.update()
     }
 
     /**

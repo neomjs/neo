@@ -263,15 +263,13 @@ class MainContainerController extends ComponentController {
     onAppConnect(data) {
         let me   = this,
             name = data.appName,
-            parentView, style, toolbar, view;
-
-        console.log('onAppConnect', name);
+            style, toolbar, view;
 
         switch(name) {
             case 'SharedCovidChart':
-                view       = me.getReference('controls-panel');
-                parentView = view.parent;
-                parentView.storeReferences();
+                view = me.getReference('controls-panel');
+
+                view.parent.storeReferences();
 
                 toolbar = me.getReference('controls-panel-header');
                 style   = toolbar.style || {};
@@ -301,9 +299,6 @@ class MainContainerController extends ComponentController {
         if (view) {
             NeoArray.add(me.connectedApps, name);
 
-            parentView = parentView ? parentView : view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
-            parentView.remove(view, false);
-
             Neo.apps[name].on('render', () => {
                 me.timeout(100).then(() => {
                     me.getMainView(name).add(view)
@@ -323,8 +318,6 @@ class MainContainerController extends ComponentController {
             view       = parentView.items[0],
             index, style, toolbar;
 
-        console.log('onAppDisconnect', name);
-
         switch (name) {
             case 'SharedCovid':
                 Neo.Main.windowClose({
@@ -341,8 +334,6 @@ class MainContainerController extends ComponentController {
 
         if (view) {
             NeoArray.remove(me.connectedApps, name);
-
-            parentView.remove(view, false);
 
             switch (name) {
                 case 'SharedCovidChart':

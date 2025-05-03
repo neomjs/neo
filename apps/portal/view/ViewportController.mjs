@@ -98,9 +98,9 @@ class ViewportController extends Controller {
             Neo.main.addon.LocalStorage.readLocalStorageItem({
                 key: 'mainContentLayout',
                 windowId
-            }).then(data => {
-                if (data.value !== 'card') {
-                    me.mainContentLayout = data.value
+            }).then(({value}) => {
+                if (value && value !== 'card') {
+                    me.mainContentLayout = value
                 }
             })
         }

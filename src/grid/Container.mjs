@@ -459,9 +459,7 @@ class GridContainer extends BaseContainer {
                 parent  : me,
                 windowId: me.windowId,
                 ...column
-            });
-
-            me.getController()?.parseConfig(columns[index])
+            })
         });
 
         me.items[0].items = headerButtons;
@@ -563,7 +561,7 @@ class GridContainer extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        me.view.onStoreLoad()
+        opts.direction && me.view.onStoreLoad()
     }
 
     /**

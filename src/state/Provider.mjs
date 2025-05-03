@@ -155,17 +155,12 @@ class Provider extends Base {
      */
     beforeSetStores(value, oldValue) {
         if (value) {
-            let me         = this,
-                controller = me.getController();
+            let me = this;
 
             Object.entries(value).forEach(([key, storeValue]) => {
-                controller?.parseConfig(storeValue);
-
                 // support mapping string based listeners into the stateProvider instance
-                Object.entries(storeValue.listeners || {}).forEach(([listenerKey,listener]) => {
-                    if (Neo.isString(listener) && Neo.isFunction(me[listener])) {
-                        storeValue.listeners[listenerKey] = me[listener].bind(me)
-                    }
+                Object.entries(storeValue.listeners || {}).forEach(([listenerKey, listener]) => {
+                    me.bindCallback(listener, listenerKey, me, storeValue.listeners)
                 })
 
                 value[key] = ClassSystemUtil.beforeSetInstance(storeValue)

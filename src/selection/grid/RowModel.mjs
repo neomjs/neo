@@ -44,14 +44,6 @@ class RowModel extends BaseModel {
     }
 
     /**
-     * @param {Record} record
-     * @returns {Boolean}
-     */
-    hasAnnotations(record) {
-        return !!Object.getOwnPropertyDescriptor(record.__proto__, this.view.selectedRecordField)
-    }
-
-    /**
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -73,14 +65,11 @@ class RowModel extends BaseModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            currentIndex = 0,
-            newIndex, record, rowId;
-
-        if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecordByRowId(me.items[0]))
-        }
-
-        newIndex = (currentIndex + step) % countRecords;
+            keyProperty  = store.getKeyProperty(),
+            recordId     = me.selectedRows[0] || store.getAt(0)[keyProperty],
+            record       = store.get(recordId),
+            index        = store.indexOf(record),
+            newIndex     = (index + step) % countRecords;
 
         while (newIndex < 0) {
             newIndex += countRecords
@@ -91,12 +80,12 @@ class RowModel extends BaseModel {
         if (me.hasAnnotations(record)) {
             me.updateAnnotations(record)
         } else {
-            rowId = view.getRowId(record);
+            recordId = record[keyProperty];
 
-            if (rowId) {
-                me.select(rowId);
+            if (recordId) {
+                me.selectRow(recordId);
 
-                view.scrollByRows(currentIndex, step);
+                view.scrollByRows(index, step);
                 view.fire('select', {record})
             }
         }
@@ -105,25 +94,21 @@ class RowModel extends BaseModel {
     /**
      * @param {Object} data
      */
-    onRowClick(data) {
+    onRowClick({data}) {
         let me     = this,
-            id     = data.data.currentTarget,
             {view} = me,
-            isSelected, record;
+            record = me.getRecord(data.path),
+            recordId;
 
-        if (id) {
-            record = view.getRecord(id);
-
+        if (record) {
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                me.toggleSelection(id);
+                recordId = record[view.store.getKeyProperty()];
 
-                isSelected = me.isSelected(id);
+                me.toggleRowSelection(recordId);
 
-                !isSelected && view.onDeselect?.(record);
-
-                view.fire(isSelected ? 'select' : 'deselect', {record})
+                view.fire(me.isSelectedRow(recordId) ? 'select' : 'deselect', {record})
             }
         }
     }
@@ -162,17 +147,18 @@ class RowModel extends BaseModel {
     updateAnnotations(record) {
         let me               = this,
             {view}           = me,
-            rowId            = view.getRowId(record),
-            isSelected       = me.isSelected(rowId),
+            {store}          = view,
+            recordId         = record[store.getKeyProperty()],
+            isSelected       = me.isSelectedRow(recordId),
             annotationsField = view.selectedRecordField;
 
         if (me.singleSelect) {
             if (isSelected) {
                 record[annotationsField] = false
             } else {
-                me.items.forEach(rowId => {
+                me.selectedRows.forEach(recordId => {
                     // We can use setSilent(), since the last change will trigger a view update
-                    view.getRecordByRowId(rowId).setSilent({[annotationsField]: false})
+                    store.get(recordId).setSilent({[annotationsField]: false})
                 });
 
                 record[annotationsField] = true

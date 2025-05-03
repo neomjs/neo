@@ -1,5 +1,5 @@
-import {buffer, debounce, intercept, throttle} from '../util/Function.mjs';
-import IdGenerator                             from './IdGenerator.mjs'
+import {buffer, debounce, intercept, resolveCallback, throttle} from '../util/Function.mjs';
+import IdGenerator                                              from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -253,6 +253,19 @@ class Base {
         }
 
         return value
+    }
+
+    /**
+     * @param {String} fn               The name of a function to find in the passed scope object.
+     * @param {Object} originName       The name of the method inside the originScope.
+     * @param {Object} scope            The scope to find the function in if it is specified as a string.
+     * @param {Object} originScope=this The scope where the function is located.
+     */
+    bindCallback(fn, originName, scope=this, originScope=this) {
+        if (fn && Neo.isString(fn)) {
+            const handler = resolveCallback(fn, scope);
+            originScope[originName] = handler.fn.bind(handler.scope)
+        }
     }
 
     /**

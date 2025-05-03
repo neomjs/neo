@@ -224,6 +224,29 @@ class DomEvents extends Base {
     }
 
     /**
+     *
+     * @param {HTMLElement} node
+     * @returns {Object}
+     */
+    geAriaAttributes(node) {
+        let ariaAttributes = {},
+            {attributes}   = node,
+            i              = 0,
+            len            = attributes?.length || 0,
+            attribute;
+
+        for (; i < len; i++) {
+            attribute = attributes[i];
+
+            if (attribute.name.startsWith('aria-')) {
+                ariaAttributes[attribute.name.substring(5)] = attribute.value
+            }
+        }
+
+        return ariaAttributes
+    }
+
+    /**
      * Returns the distance between two points
      * @param  {Number} x1 The X position of the first point
      * @param  {Number} y1 The Y position of the first point
@@ -349,6 +372,7 @@ class DomEvents extends Base {
             rect = r && this.parseDomRect(r) || {};
 
         return {
+            aria             : this.geAriaAttributes(node),
             checked          : node.checked,
             childElementCount: node.childElementCount,
             clientHeight     : node.clientHeight,
@@ -369,12 +393,13 @@ class DomEvents extends Base {
             offsetTop        : node.offsetTop,
             offsetWidth      : node.offsetWidth,
             rect,
+            role             : node.role,
             scrollHeight     : node.scrollHeight,
             scrollLeft       : node.scrollLeft,
             scrollTop        : node.scrollTop,
             scrollWidth      : node.scrollWidth,
             style            : node.style?.cssText,
-            tabIndex         : node.tabIndex,
+            tabIndex         : node.getAttribute?.('tabindex') ? node.tabIndex : null,
             tagName          : node.tagName?.toLowerCase()
         }
     }

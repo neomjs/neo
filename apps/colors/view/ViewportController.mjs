@@ -89,14 +89,12 @@ class ViewportController extends Controller {
                 {windowId}   = data,
                 url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName   = new URL(url).searchParams.get('name'),
-                widget       = me.getReference(widgetName),
-                widgetParent = widget.up();
+                widget       = me.getReference(widgetName);
 
             me.connectedApps.push(widgetName);
 
             me.getReference(`detach-${widgetName}-button`).disabled = true;
 
-            widgetParent.remove(widget, false);
             mainView.add(widget)
         }
     }
@@ -111,12 +109,10 @@ class ViewportController extends Controller {
             {appName, windowId} = data,
             url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             widgetName          = new URL(url).searchParams.get('name'),
-            widget              = me.getReference(widgetName),
-            widgetParent        = widget.up();
+            widget              = me.getReference(widgetName);
 
         // Closing a non-main app needs to move the widget back into its original position & re-enable the show button
         if (appName === 'ColorsWidget') {
-            widgetParent.remove(widget, false);
             me.component.insert(me.widgetIndexMap[widgetName], widget);
 
             me.getReference(`detach-${widgetName}-button`).disabled = false

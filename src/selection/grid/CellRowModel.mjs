@@ -20,13 +20,7 @@ class CellRowModel extends CellModel {
          * @member {String} cls='neo-selection-cellrowmodel'
          * @protected
          */
-        cls: 'neo-selection-cellrowmodel',
-        /**
-         * Storing the node ids
-         * @member {String[]} selectedRows=[]
-         * @protected
-         */
-        selectedRows: []
+        cls: 'neo-selection-cellrowmodel'
     }
 
     /**
@@ -35,12 +29,15 @@ class CellRowModel extends CellModel {
     onCellClick(data) {
         let me     = this,
             {view} = me,
-            record = view.getRecord(data.data.currentTarget),
-            rowId  = view.getRowId(record);
+            cellId = data.data.currentTarget,
+            record = me.getRecord(data.data.path);
 
-        if (rowId) {
-            me.selectedRows = [rowId];
-            view.createViewData(true)
+        if (record) {
+            if (me.hasAnnotations(record)) {
+                me.updateAnnotations(record)
+            } else {
+                me[me.isSelected(cellId) ? 'deselectRow' : 'selectRow'](record[view.store.getKeyProperty()], true)
+            }
         }
 
         super.onCellClick(data)
@@ -54,34 +51,29 @@ class CellRowModel extends CellModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            rowId        = me.selectedRows[0] || view.getRowId(store.getAt(0)),
-            record       = view.getRecord(rowId),
+            keyProperty  = store.getKeyProperty(),
+            recordId     = me.selectedRows[0] || store.getAt(0)[keyProperty],
+            record       = store.get(recordId),
             index        = store.indexOf(record),
-            newIndex     = (index + step) % countRecords,
-            id;
+            newIndex     = (index + step) % countRecords;
 
         while (newIndex < 0) {
             newIndex += countRecords
         }
 
-        id = view.getRowId(store.getAt(newIndex));
+        record = store.getAt(newIndex);
 
-        if (id) {
-            me.selectedRows = [id];
-            view.createViewData(true)
+        if (me.hasAnnotations(record)) {
+            me.updateAnnotations(record)
+        } else {
+            recordId = record[keyProperty];
+
+            if (recordId) {
+                me.selectRow(recordId, true) // silent
+            }
         }
 
         super.onNavKeyRow(step)
-    }
-
-    /**
-     *
-     */
-    unregister() {
-        this.selectedRows = [];
-        this.view.createViewData();
-
-        super.unregister()
     }
 }
 

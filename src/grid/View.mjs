@@ -181,10 +181,6 @@ class GridView extends Component {
     get selectedRows() {
         let {selectionModel} = this;
 
-        if (selectionModel.ntype === 'selection-grid-rowmodel') {
-            return selectionModel.items
-        }
-
         if (selectionModel.ntype?.includes('row')) {
             return selectionModel.selectedRows
         }
@@ -450,6 +446,8 @@ class GridView extends Component {
             column.rendererScope = column;
         }
 
+        me.bindCallback(column.renderer, 'renderer', column.rendererScope || me, column);
+
         rendererOutput = column.renderer.call(column.rendererScope || me, {
             column,
             columnIndex,
@@ -496,7 +494,7 @@ class GridView extends Component {
         }
 
         if (!cellId) {
-            cellId = me.getCellId(record, column.dataField)
+            cellId = me.getCellId(rowIndex, column.dataField)
         }
 
         if (selectedCells.includes(cellId)) {
@@ -575,7 +573,8 @@ class GridView extends Component {
             {mountedColumns, selectedRows} = me,
             gridContainer = me.parent,
             {columns}     = gridContainer,
-            id            = me.getRowId(record, rowIndex),
+            id            = me.getRowId(rowIndex),
+            recordId      = record[me.store.getKeyProperty()],
             rowCls        = me.getRowClass(record, rowIndex),
             config, column, columnPosition,  gridRow, i;
 
@@ -584,12 +583,7 @@ class GridView extends Component {
         }
 
         if (selectedRows && record[me.selectedRecordField]) {
-            NeoArray.add(selectedRows, id)
-        }
-
-        if (selectedRows?.includes(id)) {
-            rowCls.push('neo-selected');
-            gridContainer.fire('select', {record})
+            NeoArray.add(selectedRows, recordId)
         }
 
         gridRow = {
@@ -597,6 +591,7 @@ class GridView extends Component {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             cls            : rowCls,
             cn             : [],
+            data           : {recordId},
             role           : 'row',
 
             style: {
@@ -604,6 +599,12 @@ class GridView extends Component {
                 transform: `translate(0px, ${rowIndex * me.rowHeight}px)`
             }
         };
+
+        if (selectedRows?.includes(recordId)) {
+            rowCls.push('neo-selected');
+            gridRow['aria-selected'] = true;
+            gridContainer.fire('select', {record})
+        }
 
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns.getAt(i);
@@ -709,12 +710,12 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object} record
+     * @param {Number} rowIndex
      * @param {String} dataField
      * @returns {String}
      */
-    getCellId(record, dataField) {
-        return this.id + '__' + record[this.store.getKeyProperty()] + '__' + dataField
+    getCellId(rowIndex, dataField) {
+        return this.getRowId(rowIndex) + '__' + dataField
     }
 
     /**
@@ -804,35 +805,22 @@ class GridView extends Component {
     }
 
     /**
-     * @param {String} cellId
-     * @returns {Record}
-     */
-    getRecordByCellId(cellId) {
-        let recordId = cellId.split('__')[1],
-            {store}  = this,
-            keyType  = store.getKeyType();
-
-        if (keyType === 'int' || keyType === 'integer') {
-            recordId = parseInt(recordId)
-        }
-
-        return store.get(recordId)
-    }
-
-    /**
      * @param {String} rowId
-     * @returns {Record}
+     * @returns {Record|null}
      */
     getRecordByRowId(rowId) {
-        let recordId = rowId.split('__')[2],
-            {store}  = this,
-            keyType  = store.getKeyType();
+        let me       = this,
+            node     = me.getVdomChild(rowId),
+            rowIndex = node['aria-rowindex'];
 
-        if (keyType === 'int' || keyType === 'integer') {
-            recordId = parseInt(recordId)
+        if (Neo.isNumber(rowIndex)) {
+            // aria-rowindex is 1 based & also includes the header
+            rowIndex -= 2;
+
+            return me.store.getAt(rowIndex)
         }
 
-        return store.get(recordId)
+        return null
     }
 
     /**
@@ -846,11 +834,13 @@ class GridView extends Component {
     }
 
     /**
-     * @param {Object} record
+     * @param {Number} rowIndex
      * @returns {String}
      */
-    getRowId(record) {
-        return `${this.id}__tr__${record[this.store.getKeyProperty()]}`
+    getRowId(rowIndex) {
+        let me = this;
+
+        return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
     }
 
     /**
@@ -951,7 +941,7 @@ class GridView extends Component {
             needsUpdate      = false,
             rowIndex         = me.store.indexOf(record),
             {selectionModel} = me,
-            column, needsCellUpdate;
+            column, needsCellUpdate, recordId;
 
         if (fieldNames.includes(me.colspanField)) {
             me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
@@ -971,7 +961,9 @@ class GridView extends Component {
             fields.forEach(field => {
                 if (field.name === me.selectedRecordField) {
                     if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                        selectionModel[field.value ? 'select' : 'deselect'](me.getRowId(record))
+                        recordId = record[me.store.getKeyProperty()];
+
+                        selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
                     }
                 } else {
                     needsCellUpdate = me.updateCellNode(record, field.name);
@@ -1040,10 +1032,10 @@ class GridView extends Component {
      */
     updateCellNode(record, dataField) {
         let me          = this,
-            cellId      = me.getCellId(record, dataField),
+            rowIndex    = me.store.indexOf(record),
+            cellId      = me.getCellId(rowIndex, dataField),
             cellNode    = VDomUtil.find(me.vdom, cellId),
             needsUpdate = false,
-            rowIndex    = me.store.indexOf(record),
             cellStyle, cellVdom, column, columnIndex;
 
         // The vdom might not exist yet => nothing to do in this case

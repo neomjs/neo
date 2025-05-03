@@ -101,14 +101,12 @@ class Observable extends Base {
         }
 
         if (!nameObject) {
-            eventConfig = {
-                data,
-                delay,
-                fn: listener,
-                id: eventId || Neo.getId('event'),
-                once,
-                scope
-            };
+            eventConfig = {fn: listener, id: eventId || Neo.getId('event')};
+
+            if (data)      {eventConfig.data   = data}
+            if (delay > 0) {eventConfig.delay  = delay}
+            if (once)      {eventConfig.once   = once}
+            if (scope)     {eventConfig.scope  = scope}
 
             if (existing = me.listeners?.[name]) {
                 existing.forEach(cfg => {
@@ -137,9 +135,9 @@ class Observable extends Base {
     /**
      * Call the passed function, or a function by *name* which exists in the passed scope's
      * or this component's ownership chain.
-     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object/
-     * @param {Object} scope The scope to find the function in if it is specified as a string.
-     * @param {Array} args Arguments to pass to the callback.
+     * @param {Function|String} fn A function, or the name of a function to find in the passed scope object.
+     * @param {Object} scope       The scope to find the function in if it is specified as a string.
+     * @param {Array} args         Arguments to pass to the callback.
      */
     callback(fn, scope=this, args) {
         if (fn) {

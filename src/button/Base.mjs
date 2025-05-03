@@ -162,6 +162,12 @@ class Button extends Component {
     get rippleWrapper() {
         return this.getVdomRoot().cn[3]
     }
+    /**
+     * @member {Object} textNode
+     */
+    get textNode() {
+        return this.getVdomRoot().cn[1]
+    }
 
     /**
      * @param {Object} config
@@ -175,6 +181,20 @@ class Button extends Component {
             click: me.onClick,
             scope: me
         })
+    }
+
+    /**
+     * Workaround fix for: https://github.com/neomjs/neo/issues/6659
+     * Todo: inspect this further (we do not want to add fixed ids for all child nodes)
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        super.afterSetId(value, oldValue);
+
+        this.textNode.id = value + '__text'
     }
 
     /**
@@ -350,10 +370,10 @@ class Button extends Component {
      * @protected
      */
     afterSetText(value, oldValue) {
-        let me       = this,
-            isEmpty  = !value || value === '',
-            vdomRoot = me.getVdomRoot(),
-            textNode = vdomRoot.cn[1];
+        let me         = this,
+            isEmpty    = !value || value === '',
+            vdomRoot   = me.getVdomRoot(),
+            {textNode} = me;
 
         NeoArray.toggle(me._cls,      'no-text', isEmpty);
         NeoArray.toggle(vdomRoot.cls, 'no-text', isEmpty);
@@ -495,7 +515,8 @@ class Button extends Component {
     onClick(data) {
         let me = this;
 
-        me.callback(me.handler, me.handlerScope || me, [data]);
+        me.bindCallback(me.handler, 'handler', me.handlerScope || me);
+        me.handler?.(data);
 
         me.menu            && me.toggleMenu();
         me.route           && me.changeRoute(); // only relevant for editRoute=true
@@ -517,9 +538,9 @@ class Button extends Component {
 
         rippleEl.style = Object.assign(rippleEl.style || {}, {
             animation: 'none',
-            left     : `${data.clientX - buttonRect.left - radius}px`,
             height   : `${diameter}px`,
-            top      : `${data.clientY - buttonRect.top - radius}px`,
+            left     : `${data.clientX - buttonRect.left - radius}px`,
+            top      : `${data.clientY - buttonRect.top  - radius}px`,
             width    : `${diameter}px`
         });
 

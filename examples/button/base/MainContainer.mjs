@@ -147,7 +147,7 @@ class MainContainer extends ConfigurationViewport {
             module        : ComboBox,
             forceSelection: true,
             labelText     : 'ui',
-            listeners     : {change: me.onConfigChange.bind(me, 'ui')},
+            listeners     : {change: me.onConfigRecordChange.bind(me, 'ui')},
             style         : {marginTop: '10px'},
             value         : me.exampleComponent.ui,
 
@@ -240,6 +240,14 @@ class MainContainer extends ConfigurationViewport {
                 text: 'Hello World Tooltip'
             }]*/
         })
+    }
+
+    /**
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigRecordChange(config, opts) {
+        this.exampleComponent[config] = opts.value['id']
     }
 }
 
