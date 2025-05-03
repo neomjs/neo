@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/layout/card/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

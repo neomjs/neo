@@ -1,7 +1,0 @@
-{
-    "appPath"         : "docs/app.mjs",
-    "basePath"        : "../",
-    "environment"     : "development",
-    "mainPath"        : "../src/Main.mjs",
-    "mainThreadAddons": ["DragDrop", "HighlightJS", "Navigator", "ResizeObserver", "Stylesheet"]
-}

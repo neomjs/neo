@@ -1,7 +1,0 @@
-{
-    "appPath"         : "examples/component/toast/app.mjs",
-    "basePath"        : "../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["HighlightJS", "Navigator", "Stylesheet"]
-}

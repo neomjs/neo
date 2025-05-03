@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/form/field/textarea/app.mjs",
-    "basePath"   : "../../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

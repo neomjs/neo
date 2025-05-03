@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/form/fieldset/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

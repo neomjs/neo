@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/model/twoWay/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

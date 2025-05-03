@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/list/circle/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

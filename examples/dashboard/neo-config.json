@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/dashboard/app.mjs",
-    "basePath"   : "../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

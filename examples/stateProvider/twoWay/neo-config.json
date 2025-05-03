@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/stateProvider/twoWay/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

@@ -1,6 +1,0 @@
-@use "sass:color";
-
-:root .neo-theme-dark { // .neo-tree-list
-    --tree-list-color          : #bbb;
-    --tree-list-menu-item-color: #{color.adjust(#33343d, $lightness: 20%)};
-}

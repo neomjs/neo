@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/grid/container/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}

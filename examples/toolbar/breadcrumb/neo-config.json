@@ -1,6 +1,0 @@
-{
-    "appPath"    : "examples/toolbar/breadcrumb/app.mjs",
-    "basePath"   : "../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
-}
