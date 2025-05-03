@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/grid/cellEditing/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

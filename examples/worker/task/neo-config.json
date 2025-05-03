@@ -1,0 +1,7 @@
+{
+    "appPath"      : "examples/worker/task/app.mjs",
+    "basePath"     : "../../../",
+    "environment"  : "development",
+    "mainPath"     : "./Main.mjs",
+    "useTaskWorker": true
+}

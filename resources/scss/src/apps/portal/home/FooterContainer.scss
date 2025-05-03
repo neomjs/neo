@@ -1,0 +1,73 @@
+.portal-home-footer-container {
+    background-color: black;
+    height          : 35%;
+    padding         : 2em;
+
+    .neo-button.neo-button-ghost {
+        justify-content: start;
+        min-width      : 10em;
+
+        &:hover {
+            background-color: #333;
+        }
+
+        .neo-button-glyph {
+            color    : white;
+            font-size: 16px;
+        }
+
+        .neo-button-text {
+            color: white;
+        }
+    }
+
+    h2.neo-h2 {
+        color: white;
+    }
+
+    .neo-version {
+        align-items: center;
+        display    : flex;
+        padding    : var(--button-padding);
+    }
+
+    .neo-version {
+        height: var(--button-height);
+        margin: var(--button-margin);
+    }
+
+    .portal-home-footer-spacer {
+        height: calc(2 * var(--button-height));
+        margin: calc(2 * var(--button-margin));
+    }
+
+    .portal-home-footer-section {
+        background-color: transparent;
+        color           : white;
+    }
+
+    .portal-home-footer-spacer {
+        height: calc(2 * var(--button-height));
+        margin: calc(2 * var(--button-margin));
+    }
+
+    @media (max-width: 800px) {
+        max-height: 18em;
+        min-height: 18em;
+        padding   : 1em;
+
+        h2.neo-h2 {
+            font-size: 1.2rem;
+        }
+
+        .neo-button,
+        .neo-version {
+            padding: 0 3px;
+        }
+    }
+
+    @media (max-width: 500px) {
+        max-height: 15em;
+        min-height: 15em;
+    }
+}

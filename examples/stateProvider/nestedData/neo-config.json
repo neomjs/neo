@@ -1,0 +1,7 @@
+{
+    "appPath"    : "examples/stateProvider/nestedData/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-dark"]
+}

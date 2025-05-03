@@ -1,0 +1,28 @@
+.portal-home-parts-how {
+    .portal-content-container {
+        border          : 1px solid #e6e6e6;
+        border-radius   : 8px;
+    }
+
+    @media (max-width: 500px) {
+        min-height: 100%;
+
+        .portal-content-text {
+            flex: 1.2 !important;
+        }
+    }
+
+    @media (max-width: 840px) {
+        min-height: 100%;
+
+        .portal-content-text {
+            flex: 0.8 !important;
+        }
+    }
+
+    @media (max-width: 500px) {
+        .portal-content-container {
+            padding: 5px;
+        }
+    }
+}

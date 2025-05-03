@@ -1,0 +1,28 @@
+.neo-chip-list {
+    border  : 1px solid #ddd;
+    overflow: auto;
+
+    .neo-list-item {
+        padding : 0;
+        outline : 0 none !important; // TODO. Fix order so important can be removed
+
+        &[aria-selected="true"] {
+            background-color: inherit !important; // TODO. Fix order so important can be removed
+            color           : inherit;
+            outline         : inherit;
+
+            .neo-chip {
+                background-color: var(--list-item-background-color-selected);
+            }
+
+            .neo-chip-close-button {
+                color: var(--chip-close-button-color-hover);
+            }
+        }
+        &.neo-navigator-active-item {
+            .neo-chip {
+                border-color : var(--list-item-border-color-active);
+            }
+        }
+    }
+}

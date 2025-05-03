@@ -1,0 +1,52 @@
+@use "global/all";
+
+html, .neo-body-viewport {
+    align-items    : center;
+    display        : flex;
+    height         : 100%;
+    justify-content: center;
+    overflow       : hidden; // chrome can overscroll the full page (bug)
+    width          : 100%;
+}
+
+.neo-body {
+    background-color: var(--neo-background-color);
+    color           : var(--neo-color);
+    font-family     : var(--neo-font-family);
+    margin          : 0;
+
+    -webkit-font-smoothing: var(--neo-font-smoothing);
+}
+
+.neo-body, .neo-body * {
+    box-sizing: border-box;
+ }
+
+.neo-disabled {
+    opacity       : var(--neo-disabled-opacity);
+    pointer-events: none;
+}
+
+.neo-hidden {
+    visibility: hidden;
+}
+
+.neo-link-color {
+    color: var(--neo-color);
+
+    a {
+        color: var(--neo-color);
+    }
+}
+
+.neo-transition-600 {
+    transition: all 0.6s ease-in-out !important;
+}
+
+.neo-transition-1000 {
+    transition: all 1s ease-in-out !important;
+}
+
+.neo-unselectable {
+    user-select: none;
+}

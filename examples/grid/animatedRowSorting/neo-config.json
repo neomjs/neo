@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/grid/animatedRowSorting/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "ResizeObserver", "Stylesheet"],
+    "themes"          : ["neo-theme-dark", "neo-theme-light"]
+}

@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/calendar/basic/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

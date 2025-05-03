@@ -1,0 +1,385 @@
+@keyframes ripple {
+    from {
+        opacity  : 1;
+        transform: scale(0);
+    }
+    to {
+        opacity  : 0;
+        transform: scale(4);
+    }
+}
+
+.neo-button {
+    align-items       : center;
+    background-color  : var(--button-background-color);
+    background-image  : var(--button-background-image);
+    border            : var(--button-border);
+    border-radius     : var(--button-border-radius);
+    box-sizing        : border-box;
+    cursor            : pointer;
+    display           : flex;
+    flex-direction    : row;
+    height            : var(--button-height);
+    justify-content   : center;
+    margin            : var(--button-margin);
+    padding           : var(--button-padding);
+    position          : relative;
+    text-decoration   : none; // for url buttons => links
+    transition        : outline-width .1s ease-out;
+    user-select       : none;
+    white-space       : nowrap;
+    -webkit-appearance: button;
+
+    .neo-button-badge {
+        background-color: var(--button-badge-background-color);
+        border-radius   : 5px;
+        color           : var(--button-badge-color);
+        margin-left     : auto;
+        padding         : 3px;
+        pointer-events  : none;
+        position        : absolute;
+        user-select     : none;
+        z-index         : 3;
+
+        &.neo-bottom-left {
+            bottom: var(--button-badge-margin-top);
+            left  : var(--button-badge-margin-left);
+        }
+
+        &.neo-bottom-right {
+            bottom: var(--button-badge-margin-top);
+            right : var(--button-badge-margin-left);
+        }
+
+        &.neo-top-left {
+            left: var(--button-badge-margin-left);
+            top : var(--button-badge-margin-top);
+        }
+
+        &.neo-top-right {
+            right: var(--button-badge-margin-left);
+            top  : var(--button-badge-margin-top);
+        }
+    }
+
+    .neo-button-glyph {
+        color         : var(--button-glyph-color);
+        font-size     : 12px;
+        margin        : var(--button-glyph-margin);
+        pointer-events: none;
+        z-index       : 2;
+    }
+
+    .neo-button-ripple {
+        background-color: var(--button-ripple-background-color);
+        border-radius   : 50%;
+        padding         : var(--button-padding);
+        opacity         : 0;
+        position        : absolute;
+        transform       : scale(4);
+    }
+
+    .neo-button-ripple-wrapper {
+        border-radius : var(--button-border-radius);
+        height        : 100%;
+        left          : 0;
+        overflow      : hidden;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+        width         : 100%;
+    }
+
+    .neo-button-text {
+        color         : var(--button-text-color);
+        font-family   : var(--button-text-font-family);
+        font-size     : var(--button-text-font-size);
+        font-weight   : var(--button-text-font-weight);
+        line-height   : var(--button-text-line-height);
+        pointer-events: none;
+        text-transform: var(--button-text-transform);
+        z-index       : 2;
+
+        @media (max-width: 600px) {
+            font-size: 13px;
+        }
+    }
+
+    &:active {
+        background-color: var(--button-background-color-active);
+        background-image: none;
+        border          : var(--button-border-active);
+
+        .neo-button-glyph {
+            color: var(--button-glyph-color-active);
+        }
+
+        .neo-button-text {
+            color: var(--button-text-color-active);
+        }
+    }
+
+    &:focus {
+        outline: var(--button-outline-active);
+    }
+
+    &:hover {
+        background-color: var(--button-background-color-hover);
+        background-image: none !important;
+        border          : var(--button-border-hover);
+
+        .neo-button-glyph {
+            color: var(--button-glyph-color-hover);
+        }
+
+        .neo-button-text {
+            color: var(--button-text-color-hover);
+        }
+    }
+
+    &.icon-bottom {
+        flex-direction: column-reverse;
+
+        .neo-button-glyph {
+            margin: 6px 0 0 0;
+        }
+    }
+
+    &.icon-right {
+        flex-direction: row-reverse;
+
+        .neo-button-glyph {
+            margin: 0 0 0 6px;
+        }
+    }
+
+    &.icon-top {
+        flex-direction: column;
+
+        .neo-button-glyph {
+            margin: 0 0 6px 0;
+        }
+    }
+
+    &.neo-masked {
+        font-family: inherit;
+        font-size  : inherit;
+        font-weight: var(--button-text-font-weight);
+        color      : var(--button-text-color);
+    }
+
+    &.neo-button-ghost {
+        background-color: var(--button-ghost-background-color);
+        background-image: var(--button-ghost-background-image);
+        border          : var(--button-ghost-border);
+
+        .neo-button-badge {
+            background-color: var(--button-ghost-badge-background-color);
+            color           : var(--button-ghost-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: var(--button-ghost-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: var(--button-ghost-ripple-background-color);
+        }
+
+        .neo-button-text {
+            color: var(--button-ghost-text-color);
+        }
+
+        &:active {
+            background-color: var(--button-ghost-background-color-active) !important;
+            border          : var(--button-ghost-border-active) !important;
+
+            .neo-button-glyph {
+                color: var(--button-ghost-glyph-color-active);
+            }
+
+            .neo-button-text {
+                color: var(--button-ghost-text-color-active);
+            }
+        }
+
+        &:hover {
+            background-color: var(--button-ghost-background-color-hover);
+            border          : var(--button-ghost-border-hover);
+
+            .neo-button-glyph {
+                color: var(--button-ghost-glyph-color-hover);
+            }
+
+            .neo-button-text {
+                color: var(--button-ghost-text-color-hover);
+            }
+        }
+
+        &.pressed {
+            border: var(--button-ghost-border-pressed);
+        }
+    }
+
+    &.neo-button-secondary {
+        background-color: var(--button-secondary-background-color);
+        background-image: var(--button-secondary-background-image);
+        border          : var(--button-secondary-border);
+
+        .neo-button-badge {
+            background-color: var(--button-secondary-badge-background-color);
+            color           : var(--button-secondary-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: var(--button-secondary-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: var(--button-secondary-ripple-background-color);
+        }
+
+        .neo-button-text {
+            color: var(--button-secondary-text-color);
+        }
+
+        &:active {
+            background-color: var(--button-secondary-background-color-active) !important;
+            border          : var(--button-secondary-border-active) !important;
+
+            .neo-button-glyph {
+                color: var(--button-secondary-glyph-color-active);
+            }
+
+            .neo-button-text {
+                color: var(--button-secondary-text-color-active);
+            }
+        }
+
+        &:hover {
+            background-color: var(--button-secondary-background-color-hover);
+            border          : var(--button-secondary-border-hover);
+
+            .neo-button-glyph {
+                color: var(--button-secondary-glyph-color-hover);
+            }
+
+            .neo-button-text {
+                color: var(--button-secondary-text-color-hover);
+            }
+        }
+
+        &.pressed {
+            border: var(--button-secondary-border-pressed);
+        }
+    }
+
+    &.neo-button-tertiary {
+        background-color: var(--button-tertiary-background-color);
+        background-image: var(--button-tertiary-background-image);
+        border          : var(--button-tertiary-border);
+
+        .neo-button-badge {
+            background-color: var(--button-tertiary-badge-background-color);
+            color           : var(--button-tertiary-badge-color);
+        }
+
+        .neo-button-glyph {
+            color: var(--button-tertiary-glyph-color);
+        }
+
+        .neo-button-ripple {
+            background-color: var(--button-tertiary-ripple-background-color);
+        }
+
+        .neo-button-text {
+            color: var(--button-tertiary-text-color);
+        }
+
+        &:active {
+            background-color: var(--button-tertiary-background-color-active) !important;
+            border          : var(--button-tertiary-border-active) !important;
+
+            .neo-button-glyph {
+                color: var(--button-tertiary-glyph-color-active);
+            }
+
+            .neo-button-text {
+                color: var(--button-tertiary-text-color-active);
+            }
+        }
+
+        &:hover {
+            background-color: var(--button-tertiary-background-color-hover);
+            border          : var(--button-tertiary-border-hover);
+
+            .neo-button-glyph {
+                color: var(--button-tertiary-glyph-color-hover);
+            }
+
+            .neo-button-text {
+                color: var(--button-tertiary-text-color-hover);
+            }
+        }
+
+        &.pressed {
+            border: var(--button-tertiary-border-pressed);
+        }
+    }
+
+    &.no-text {
+        .neo-button-glyph {
+            margin: 0 !important;
+        }
+    }
+
+    &.pressed {
+        border: var(--button-border-pressed);
+    }
+}
+
+.neo-disabled {
+    .neo-button,
+    &.neo-button {
+        background-color: var(--button-background-color-disabled);
+        border          : var(--button-border-disabled);
+        cursor          : default;
+        opacity         : var(--button-opacity-disabled);
+
+        .neo-button-glyph {
+            color: var(--button-glyph-color-disabled);
+        }
+
+        .neo-button-text {
+            color: var(--button-text-color-disabled);
+        }
+
+        &.neo-button-secondary {
+            background-color: var(--button-secondary-background-color-disabled);
+            border          : var(--button-secondary-border-disabled);
+            opacity         : var(--button-secondary-opacity-disabled);
+
+            .neo-button-glyph {
+                color: var(--button-secondary-glyph-color-disabled);
+            }
+
+            .neo-button-text {
+                color: var(--button-secondary-text-color-disabled);
+            }
+        }
+
+        &.neo-button-tertiary {
+            background-color: var(--button-tertiary-background-color-disabled);
+            border          : var(--button-tertiary-border-disabled);
+            opacity         : var(--button-tertiary-opacity-disabled);
+
+            .neo-button-glyph {
+                color: var(--button-tertiary-glyph-color-disabled);
+            }
+
+            .neo-button-text {
+                color: var(--button-tertiary-text-color-disabled);
+            }
+        }
+    }
+}

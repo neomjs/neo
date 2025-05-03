@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/form/field/combobox/app.mjs",
+    "basePath"   : "../../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

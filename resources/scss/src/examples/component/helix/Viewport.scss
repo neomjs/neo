@@ -1,0 +1,16 @@
+.neo-helix-controls-panel {
+    max-width: 50%;
+
+    @media (max-width: 600px) {
+        .neo-rangefield input[type=range] {
+            max-width: 80px;
+        }
+
+        .neo-textfield {
+            .neo-textfield-label {
+                font-size: 12px;
+                max-width: 70px;
+            }
+        }
+    }
+}

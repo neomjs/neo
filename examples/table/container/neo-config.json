@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/table/container/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

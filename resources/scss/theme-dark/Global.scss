@@ -1,0 +1,15 @@
+:root .neo-theme-dark {
+    --neo-background-color: #323232;
+    --neo-color           : #bbb;
+    --neo-disabled-opacity: 0.5;
+    --neo-font-family     : "Helvetica Neue", "Helvetica", "Arial", "Lucida Grande", sans-serif;
+    --neo-font-smoothing  : antialiased;
+
+    p {
+        color      : inherit;
+        font-family: inherit;
+        font-size  : inherit;
+        font-weight: inherit;
+        line-height: inherit;
+    }
+}

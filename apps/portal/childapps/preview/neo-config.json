@@ -1,0 +1,9 @@
+{
+    "appPath"         : "apps/portal/childapps/preview/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["AmCharts", "DragDrop", "Navigator", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-light", "neo-theme-dark"],
+    "useSharedWorkers": true
+}

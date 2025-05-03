@@ -1,0 +1,158 @@
+.neo-toolbar {
+    background-color: var(--toolbar-background-color);
+    box-sizing      : border-box;
+    padding         : var(--toolbar-padding);
+
+    .neo-button {
+        margin: 0;
+
+        @media (max-width: 600px) {
+            padding: 0 5px;
+        }
+    }
+
+    &.neo-dock-left {
+        .neo-button {
+            padding: 12px 6px;
+
+            @if neo(button-use-gradients) == true {
+                background-image: linear-gradient(to right, #{var(--button-background-gradient-start)}, #{var(--button-background-gradient-end)});
+            }
+
+            &.icon-left {
+                flex-direction: column-reverse;
+
+                .neo-button-glyph {
+                    margin: 10px 0 0 0;
+                }
+            }
+        }
+
+        .neo-button-badge {
+            transform   : rotate(180deg);
+            writing-mode: vertical-rl;
+
+            &.neo-bottom-left {
+                bottom: var(--button-badge-margin-top);
+                left  : unset;
+                right : var(--button-badge-margin-left);
+                top   : unset;
+            }
+
+            &.neo-bottom-right {
+                bottom: unset;
+                left  : unset;
+                right : var(--button-badge-margin-left);
+                top   : var(--button-badge-margin-top);
+            }
+
+            &.neo-top-left {
+                bottom: var(--button-badge-margin-top);
+                left  : var(--button-badge-margin-left);
+                right : unset;
+                top   : unset;
+            }
+
+            &.neo-top-right {
+                bottom: unset;
+                left  : var(--button-badge-margin-left);
+                right : unset;
+                top   : var(--button-badge-margin-top);
+            }
+        }
+
+        .neo-button-glyph {
+            transform: rotate(-90deg);
+        }
+
+        .neo-button-text {
+            transform   : rotate(180deg);
+            writing-mode: vertical-rl;
+        }
+
+        .neo-label {
+            margin-bottom: 10px;
+            margin-top   : 10px;
+            transform    : rotate(180deg);
+            writing-mode : vertical-rl;
+        }
+    }
+
+    &.neo-dock-right {
+        .neo-button {
+            padding: 12px 6px;
+
+            @if neo(button-use-gradients) == true {
+                background-image: linear-gradient(to left, #{var(--button-background-gradient-start)}, #{var(--button-background-gradient-end)});
+            }
+
+            &.icon-left {
+                flex-direction: column;
+
+                .neo-button-glyph {
+                    margin: 0 0 10px 0;
+                }
+            }
+        }
+
+        .neo-button-badge {
+            writing-mode: vertical-lr;
+
+            &.neo-bottom-left {
+                bottom: unset;
+                left  : var(--button-badge-margin-left);
+                right : unset;
+                top   : var(--button-badge-margin-top);
+            }
+
+            &.neo-bottom-right {
+                bottom: var(--button-badge-margin-top);
+                left  : var(--button-badge-margin-left);
+                right : unset;
+                top   : unset;
+            }
+
+            &.neo-top-left {
+                bottom: unset;
+                left  : unset;
+                right : var(--button-badge-margin-left);
+                top   : var(--button-badge-margin-top);
+            }
+
+            &.neo-top-right {
+                bottom: var(--button-badge-margin-top);
+                left  : unset;
+                right : var(--button-badge-margin-left);
+                top   : unset;
+            }
+        }
+
+        .neo-button-glyph {
+            transform: rotate(90deg);
+        }
+
+        .neo-button-text {
+            writing-mode: vertical-lr;
+        }
+
+        .neo-label {
+            margin-bottom: 10px;
+            margin-top   : 10px;
+            writing-mode : vertical-lr
+        }
+    }
+
+    &.neo-dock-bottom,
+    &.neo-dock-top {
+        .neo-button {
+            &.icon-left {
+                .neo-button-glyph {
+                    margin: var(--button-glyph-margin);
+                }
+            }
+        }
+        .neo-label {
+            margin: 0 10px 0 5px;
+        }
+    }
+}

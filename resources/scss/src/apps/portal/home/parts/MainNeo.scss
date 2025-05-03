@@ -1,0 +1,144 @@
+@font-face {
+    font-family: "GT-Planar";
+    src        : url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
+}
+
+.portal-home-main-neo.portal-home-content-view {
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
+    padding         : 3em;
+
+    .button-group {
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row-reverse;
+        gap             : 8px;
+        margin          : 2rem 0;
+    }
+
+    .logo-container {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row;
+        flex-wrap       : wrap;
+        gap             : 20px;
+        min-height      : 130px;
+        min-width       : 240px;
+    }
+
+    .neo-magic-move-text {
+        background-color: transparent;
+        color           : #000;
+        font-size       : 2.5rem;
+        height          : 2em;
+        letter-spacing  : -0.02em;
+        line-height     : 1.2em;
+        width           : 90%;
+
+        .neo-content {
+            font-size: 2.5rem;
+        }
+
+        .neo-measure-element-wrapper {
+            letter-spacing: -0.02em;
+        }
+    }
+
+    .neo-github {
+        background-color: #fff;
+    }
+
+    .neo-h1 {
+        font-family: "GT-Planar";
+        font-size  : 60px;
+    }
+
+    .neo-h2 {
+        font-size  : 2.5rem;
+        font-weight: 800;
+        margin     : 1.25rem;
+    }
+
+    .neo-h3 {
+        margin    : 1rem 14rem;
+        max-width : 900px;
+        text-align: center;
+    }
+
+    .vector {
+        background-color   : transparent;
+        background-image   : url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
+        background-position: center center;
+        background-repeat  : no-repeat;
+        background-size    : contain;
+        height             : 80px;
+        width              : 80px;
+    }
+
+    @media (max-width : 1000px) {
+        .neo-h3 {
+            margin: 1rem 7rem;
+        }
+    }
+
+    @media (max-width : 645px) {
+        padding: 1.5em 0.5em;
+
+        .logo-container {
+            gap: 10px;
+        }
+
+        .neo-h2 {
+            margin: 0.5rem 0.5rem;
+        }
+
+        .neo-h3 {
+            margin: 1rem 2rem;
+        }
+
+        .neo-magic-move-text {
+            height: 3.5em;
+        }
+
+        .vector {
+            height: 17vw;
+        }
+
+        .button-group {
+            margin: 0.5rem 0;
+        }
+    }
+
+    @media (max-width : 500px) {
+        .logo-container {
+            gap: 10px;
+        }
+
+        .neo-h1 {
+            font-size: 40px;
+        }
+
+        .neo-h2 {
+            font-size: 2rem;
+            margin   : 0.5rem 2rem;
+        }
+
+        .neo-h3 {
+            font-size: 1.15rem;
+        }
+
+        .neo-magic-move-text {
+            height: 3.5em;
+
+            .neo-content {
+                font-size: 2rem;
+            }
+        }
+
+        .vector {
+            height: 70px;
+            width : 70px;
+        }
+    }
+}

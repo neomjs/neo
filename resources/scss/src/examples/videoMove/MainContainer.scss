@@ -1,0 +1,31 @@
+.examples-videomove-maincontainer.neo-viewport {
+    padding: 50px;
+
+    .video-wrapper {
+        .neo-container {
+            background-color: rgb(139,166,255);
+            padding         : 50px;
+
+            &:last-child {
+                margin-left: 50px;
+            }
+        }
+    }
+
+    @media (max-width: 840px) {
+        padding: 1em;
+
+        .video-wrapper {
+            flex-direction: column;
+
+            .neo-container {
+                padding: 1em;
+
+                &:last-child {
+                    margin-left: 0;
+                    margin-top : 1em;
+                }
+            }
+        }
+    }
+}

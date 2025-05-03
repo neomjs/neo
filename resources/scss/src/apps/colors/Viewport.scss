@@ -1,0 +1,19 @@
+.colors-viewport {
+    padding: 2em;
+
+    > * {
+        &:not(:first-child) {
+            margin-top: 2em;
+        }
+    }
+
+    @media (max-width: 600px) {
+        padding: .1em;
+
+        > * {
+            &:not(:first-child) {
+                margin-top: .2em;
+            }
+        }
+    }
+}

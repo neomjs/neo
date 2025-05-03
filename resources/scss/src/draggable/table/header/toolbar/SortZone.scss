@@ -1,0 +1,32 @@
+.neo-table-container:has(.neo-is-dragging) {
+    border-top-width: 1px;
+}
+
+.neo-table-header-toolbar {
+    &.neo-dragproxy {
+        border-bottom: 1px solid var(--table-container-border-color);
+        height : 31px !important; // Hack to increase the height by the border-bottom height (29 + 1)
+        padding: 0 0 1px 0;
+
+        .neo-table-header-button {
+            border-right: 1px solid var(--table-container-border-color);
+        }
+    }
+
+    &.neo-is-dragging {
+        height: 32px !important;
+
+        .neo-table-header-button {
+            border-right: 1px solid var(--table-container-border-color); // Would be missing for the last button otherwise
+            opacity     : var(--table-header-button-opacity-is-dragging);
+        }
+
+        .neo-draggable {
+            background-color          : unset;
+            height                    : 32px !important;
+            transition-duration       : 200ms;
+            transition-property       : left, top;
+            transition-timing-function: ease-out;
+        }
+    }
+}

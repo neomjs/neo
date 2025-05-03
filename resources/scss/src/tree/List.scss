@@ -1,0 +1,109 @@
+.neo-tree-list {
+    border         : none;
+    color          : var(--tree-list-color);
+    display        : flex;
+    flex-direction : column;
+    overflow       : hidden;
+    position       : relative;
+
+    // Allow item's scrollIntoView upwards to avoid
+    // being hidden below a sticky item stuck at the top.
+    scroll-padding-block-start : 3em;
+
+    .neo-list {
+        overflow   : visible;
+        user-select: none;
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    .neo-list-container {
+        background-color: var(--list-container-background-color);
+        border          : var(--list-container-border);
+        overflow        : auto;
+    }
+
+    .neo-list-folder {
+        + .neo-list {
+            display: none;
+        }
+
+        .neo-list-item-content:before {
+            content    : "\f07b" !important;
+            margin-left: 0;
+        }
+    }
+
+    .neo-list-folder.neo-folder-open {
+        + .neo-list {
+            display: block;
+        }
+
+        .neo-list-item-content:before {
+            content    : "\f07c" !important;
+            margin-left: 0;
+        }
+    }
+
+    .neo-list-container {
+        flex: 1;
+    }
+
+    .neo-list-item {
+        margin-right: 10px;
+
+        .neo-list-item-content:before {
+            color      : var(--list-item-glyph-color); // todo: tree-list var
+            content    : "\f1f9";
+            display    : inline-block;
+            font-family: var(--fa-style-family-classic);
+            font-weight: 900;
+            width      : 25px;
+        }
+    }
+
+    .neo-list-item-leaf-singleton {
+        .neo-list-item-content:before {
+            content: "\f35a";
+        }
+    }
+
+    .neo-treelist-menu-item {
+        cursor  : pointer;
+        position: absolute;
+        height  : 25px;
+        right   : 5px;
+        width   : 20px;
+        z-index : 1000;
+
+        .neo-treelist-menu-item-content {
+            pointer-events: none;
+        }
+
+        .neo-treelist-menu-item-content:before {
+            color      : var(--tree-list-menu-item-color);
+            display    : inline-block;
+            font-family: var(--fa-style-family-classic);
+            font-weight: 900;
+            width      : 25px;
+        }
+    }
+
+    .neo-treelist-collapse-all-icon {
+        top: 5px;
+
+        .neo-treelist-menu-item-content:before {
+            content: "\f07b";
+        }
+    }
+
+    .neo-treelist-expand-all-icon {
+        top: 30px;
+
+        .neo-treelist-menu-item-content:before {
+            content: "\f07c";
+        }
+    }
+}

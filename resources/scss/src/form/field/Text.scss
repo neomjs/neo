@@ -1,0 +1,434 @@
+.neo-textfield {
+    align-items  : center;
+    display      : flex;
+    height       : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
+    margin-bottom: 5px;
+    margin-top   : 5px;
+    white-space  : nowrap;
+
+    &.neo-focus {
+        .neo-input-wrapper {
+            border-color: var(--textfield-border-color-active) !important;
+            outline     : var(--textfield-outline-active);
+
+            .neo-textfield-input {
+                outline: none;
+            }
+        }
+
+        .neo-label-wrapper { // labelPosition: inline
+            .neo-textfield-input {
+                border-color: transparent;
+            }
+        }
+
+        .neo-textfield-input {
+            border-color: var(--textfield-border-color-active);
+            outline     : var(--textfield-outline-active) !important; // important is needed, since the default &:focus selector would get a prio
+        }
+    }
+
+    &.neo-hovered {
+        &:not(&.neo-focus) {
+            &:not(&.label-inline) {
+                .neo-input-wrapper {
+                    border-color: var(--textfield-border-color-hovered) !important;
+                    outline     : var(--textfield-outline-hovered);
+                }
+            }
+
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: var(--textfield-border-color-hovered);
+                    border-top-color   : var(--textfield-border-color-hovered);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: var(--textfield-border-color-hovered);
+                }
+
+                .neo-left-border {
+                    border-left-color: var(--textfield-border-color-hovered);
+                }
+
+                .neo-right-border {
+                    border-right-color: var(--textfield-border-color-hovered);
+                }
+            }
+        }
+    }
+
+    &.neo-invalid:not(.neo-disabled) {
+        .neo-input-wrapper {
+            border-color: var(--textfield-border-color-invalid);
+        }
+
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: var(--textfield-border-color-invalid);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: var(--textfield-border-color-invalid);
+                }
+
+                .neo-left-border {
+                    border-left-color: var(--textfield-border-color-invalid);
+                }
+
+                .neo-right-border {
+                    border-right-color: var(--textfield-border-color-invalid);
+                }
+            }
+        }
+
+        &.neo-empty-required {
+            .neo-input-wrapper {
+                border-color: var(--textfield-border-color-alert);
+            }
+
+            &.label-inline {
+                .neo-label-wrapper {
+                    .neo-center-border, .neo-left-border, .neo-right-border {
+                        border-bottom-color: var(--textfield-border-color-alert);
+                    }
+
+                    .neo-left-border, .neo-right-border {
+                        border-top-color: var(--textfield-border-color-alert);
+                    }
+
+                    .neo-left-border {
+                        border-left-color: var(--textfield-border-color-alert);
+                    }
+
+                    .neo-right-border {
+                        border-right-color: var(--textfield-border-color-alert);
+                    }
+                }
+            }
+
+            .neo-textfield-error {
+                color: var(--textfield-border-color-alert);
+            }
+
+            &:not(.label-inline, .neo-input-wrapper) {
+                .neo-textfield-input {
+                    border-color: var(--textfield-border-color-alert);
+                }
+            }
+
+            &.neo-invalid:not(.neo-disabled, .neo-has-content) {
+                .neo-label-wrapper {
+                    .neo-center-border {
+                        border-top-color: var(--textfield-border-color-alert);
+                    }
+                }
+            }
+        }
+
+        &:not(.label-inline, .neo-input-wrapper) {
+            .neo-textfield-input {
+                border-color: var(--textfield-border-color-invalid);
+            }
+        }
+    }
+
+    &.neo-invalid:not(.neo-disabled, .neo-has-content) {
+        .neo-label-wrapper {
+            .neo-center-border {
+                border-top-color: var(--textfield-border-color-invalid);
+            }
+        }
+    }
+
+    &.neo-disabled {
+        opacity: var(--textfield-opacity-disabled);
+
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: var(--textfield-border-color-disabled);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: var(--textfield-border-color-disabled);
+                }
+
+                .neo-left-border {
+                    border-left-color: var(--textfield-border-color-disabled);
+                }
+
+                .neo-right-border {
+                    border-right-color: var(--textfield-border-color-disabled);
+                }
+            }
+        }
+
+        .neo-input-wrapper {
+            background-color: var(--textfield-input-background-color-disabled);
+            border-color    : var(--textfield-border-color-disabled);
+        }
+
+        .neo-textfield-input {
+            background-color: var(--textfield-input-background-color-disabled);
+            color           : var(--textfield-input-color-disabled);
+        }
+
+        .neo-textfield-label {
+            color: var(--textfield-label-color-disabled);
+        }
+    }
+
+    &.neo-readonly {
+        opacity: var(--textfield-opacity-readonly);
+
+        &.label-inline {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: var(--textfield-border-color-readonly);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: var(--textfield-border-color-readonly);
+                }
+
+                .neo-left-border {
+                    border-left-color: var(--textfield-border-color-readonly);
+                }
+
+                .neo-right-border {
+                    border-right-color: var(--textfield-border-color-readonly);
+                }
+            }
+        }
+
+        .neo-input-wrapper {
+            background-color: var(--textfield-input-background-color-readonly);
+            border-color    : var(--textfield-border-color-readonly);
+        }
+
+        .neo-textfield-input {
+            background-color: var(--textfield-input-background-color-readonly);
+            color           : var(--textfield-input-color-readonly);
+        }
+
+        .neo-textfield-label {
+            color: var(--textfield-label-color-readonly);
+        }
+    }
+
+    &.label-bottom {
+        align-items    : stretch;
+        flex-direction : column-reverse;
+        justify-content: start;
+
+        .neo-textfield-label {
+            margin-top: 3px;
+        }
+    }
+
+    &.label-inline {
+        display  : block;
+        font-size: 14px;
+        position : relative;
+
+        &.neo-focus {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: var(--textfield-border-color-active);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: var(--textfield-border-color-active);
+                }
+
+                .neo-center-border {
+                    border-top-color: transparent !important;
+                }
+
+                .neo-left-border {
+                    border-left-color: var(--textfield-border-color-active);
+                }
+
+                .neo-right-border {
+                    border-right-color: var(--textfield-border-color-active);
+                }
+            }
+
+            .neo-textfield-label {
+                color    : var(--textfield-border-color-active) !important;
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--textfield-border-width))) scale(.7);
+            }
+        }
+
+        &.neo-has-content {
+            .neo-center-border {
+                border-top-color: transparent !important;
+            }
+
+            .neo-textfield-label {
+                color    : #777;
+                transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--textfield-border-width))) scale(.7);
+            }
+        }
+
+        .neo-field-trigger {
+            z-index: 2;
+        }
+
+        .neo-input-wrapper {
+            border-color: transparent !important;
+        }
+
+        .neo-label-wrapper {
+            display : flex;
+            height  : calc(var(--textfield-input-height) + var(--textfield-border-width) * 2);
+            position: absolute;
+            width   : 100%;
+
+            .neo-center-border {
+                border-bottom: var(--textfield-border-width) solid var(--textfield-border-color);
+                border-top   : var(--textfield-border-width) solid var(--textfield-border-color);
+                flex         : 0 0 auto;
+            }
+
+            .neo-left-border {
+                border                   : var(--textfield-border-width) solid var(--textfield-border-color);
+                border-bottom-left-radius: var(--textfield-border-radius);
+                border-right             : 0;
+                border-top-left-radius   : var(--textfield-border-radius);
+                flex                     : 0 0 auto;
+                width                    : calc(11px + var(--textfield-border-width));
+            }
+
+            .neo-right-border {
+                border                    : var(--textfield-border-width) solid var(--textfield-border-color);
+                border-bottom-right-radius: var(--textfield-border-radius);
+                border-left               : 0;
+                border-top-right-radius   : var(--textfield-border-radius);
+                flex                      : 1 0 auto;
+            }
+        }
+
+        .neo-textfield-input {
+            background-color: transparent;
+            border-color    : transparent;
+            margin          : 0; // important for Safari => #1125
+            padding-left    : 16px;
+            position        : relative; // overwriting the browser default static, to ensure the z-index gets applied
+            z-index         : 1;
+        }
+
+        .neo-textfield-label {
+            margin-top      : 4px;
+            max-width       : 100%;
+            text-overflow   : clip;
+            transform-origin: left top;
+            transition      : transform 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            will-change     : color, transform;
+        }
+    }
+
+    &.label-right {
+        flex-direction: row-reverse;
+
+        .neo-textfield-label {
+            text-align: right;
+        }
+    }
+
+    &.label-top {
+        align-items   : stretch;
+        flex-direction: column;
+
+        .neo-textfield-label {
+            margin: var(--textfield-label-top-margin);
+        }
+    }
+
+    .neo-input-wrapper {
+        align-items     : stretch;
+        background-color: var(--textfield-input-background-color);
+        border          : var(--textfield-border-width) solid var(--textfield-border-color);
+        border-radius   : var(--textfield-border-radius);
+        display         : flex;
+        flex            : 1 1 1px;
+        min-height      : var(--textfield-input-height);
+        outline         : 0 solid var(--textfield-outline-active);
+        overflow        : hidden;
+        transition      : outline-width .1s ease-out;
+
+        .neo-textfield-input {
+            border       : none;
+            border-radius: 0;
+            flex-grow    : 1;
+            flex-shrink  : 1;
+            margin       : 0; // important for Safari => #1125
+            min-height   : var(--textfield-input-height);
+        }
+    }
+
+    .neo-textfield-error {
+        color      : var(--textfield-border-color-invalid);
+        font-size  : 11px;
+        margin-top : .3em;
+        white-space: break-spaces;
+        word-break : break-word;
+
+        &.neo-absolute {
+            position: absolute;
+        }
+    }
+
+    .neo-textfield-error-wrapper {
+        position: relative;
+    }
+
+    .neo-textfield-input {
+        background-color: var(--textfield-input-background-color);
+        border          : var(--textfield-border-width) solid var(--textfield-border-color);
+        border-radius   : var(--textfield-border-radius);
+        color           : var(--textfield-input-color);
+        font            : var(--textfield-input-font);
+        min-height      : var(--textfield-input-height);
+        min-width       : 50px;
+        padding         : var(--textfield-input-padding);
+        transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
+        width           : 100%;
+
+        &:focus {
+            outline: none;
+        }
+
+        &::-webkit-input-placeholder {
+            color  : var(--textfield-input-placeholder-color) !important;
+            opacity: var(--textfield-input-placeholder-opacity) !important;
+        }
+
+        &.neo-invalid {
+            border-color: var(--textfield-border-color-invalid);
+
+            &.neo-disabled {
+                border-color: inherit;
+            }
+        }
+    }
+
+    .neo-textfield-label {
+        color      : var(--textfield-label-color);
+        display    : inline-block;
+        flex       : 0 0 auto;
+        user-select: none;
+    }
+
+    .neo-textfield-sublabel {
+        color      : var(--textfield-sublabel-color);
+        display    : inline-block;
+        flex       : 0 0 auto;
+        font-size  : var(--textfield-sublabel-font-size);
+        margin     : var(--textfield-sublabel-margin);
+        user-select: none;
+        white-space: break-spaces;
+    }
+}

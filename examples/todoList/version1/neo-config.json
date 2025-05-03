@@ -1,0 +1,7 @@
+{
+    "appPath"    : "examples/todoList/version1/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-light"]
+}
