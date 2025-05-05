@@ -285,6 +285,16 @@ class Cube extends Card {
         super.applyRenderAttributes()
     }
 
+    /**
+     * @returns {String}
+     */
+    getPlaneId() {
+        return this.id + '__plane'
+    }
+
+    /**
+     *
+     */
     nestVdom() {
         let me          = this,
             {container} = me,
@@ -292,7 +302,7 @@ class Cube extends Card {
             {cn}        = vdom;
 
         vdom.cn = [
-            {cls: ['neo-plane'], cn: [
+            {cls: ['neo-plane'], id: me.getPlaneId(), cn: [
                 {cls: ['neo-box'], cn}
             ]}
         ];
