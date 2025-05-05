@@ -59,12 +59,6 @@ class Container extends BaseContainer {
          */
         scrollbarsCssApplied: false,
         /**
-         * Will get removed in neo v9, assign selection models to table.View instead
-         * @member {Neo.selection.Model} selectionModel_=null
-         * @deprecated
-         */
-        selectionModel_: null,
-        /**
          * @member {Boolean} showHeaderFilters_=false
          */
         showHeaderFilters_: false,
@@ -139,11 +133,10 @@ class Container extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module        : View,
-            containerId   : me.id,
-            id            : me.viewId,
-            selectionModel: me.selectionModel, // todo: remove this line in neo v9
-            store         : me.store,
+            module     : View,
+            containerId: me.id,
+            id         : me.viewId,
+            store      : me.store,
             ...me.viewConfig
         }];
 
@@ -192,19 +185,6 @@ class Container extends BaseContainer {
             }
 
             me.view?.createViewData()
-        }
-    }
-
-    /**
-     * Triggered after the selectionModel config got changed
-     * @param {Neo.selection.Model} value
-     * @param {Neo.selection.Model} oldValue
-     * @protected
-     * @deprecated
-     */
-    afterSetSelectionModel(value, oldValue) {
-        if (value && this.view) {
-            this.view.selectionModel = value
         }
     }
 
