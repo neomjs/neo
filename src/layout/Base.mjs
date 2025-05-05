@@ -77,9 +77,10 @@ class Layout extends Base {
     applyChildAttributes(item, index) {}
 
     /**
+     * @param {Boolean} silent=false
      * @protected
      */
-    applyRenderAttributes() {
+    applyRenderAttributes(silent=false) {
         let me                        = this,
             {container, containerCls} = me,
             {wrapperCls}              = container;
@@ -91,7 +92,7 @@ class Layout extends Base {
 
             NeoArray.add(wrapperCls, containerCls);
 
-            container.wrapperCls = wrapperCls
+            container[silent ? 'setSilent' :  'set']({wrapperCls})
         }
     }
 

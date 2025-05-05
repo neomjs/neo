@@ -286,44 +286,15 @@ class Cube extends Card {
     }
 
     /**
-     *
+     * @returns {String}
      */
-    destroy(...args) {
-        let me            = this,
-            {container}   = me,
-            {style, vdom} = container;
-
-        Object.assign(style, {
-            '--perspective': null,
-            '--rot-x'      : null,
-            '--rot-y'      : null,
-            '--rot-z'      : null,
-            '--side-x'     : null,
-            '--side-y'     : null,
-            '--side-z'     : null
-        });
-
-        container.style = style;
-
-        vdom.cn = container.getVdomItemsRoot().cn;
-
-        if (me.hideInactiveCardsOnDestroy) {
-            container.items.forEach((item, index) => {
-                if (index < 6 && index !== me.activeIndex) {
-                    item.vdom.removeDom = true
-                }
-            })
-        }
-
-        // override
-        container.getVdomItemsRoot = me.#cachedVdomItemsRoot;
-
-        container.updateDepth = -1;
-        container.update();
-
-        super.destroy(...args)
+    getPlaneId() {
+        return this.id + '__plane'
     }
 
+    /**
+     *
+     */
     nestVdom() {
         let me          = this,
             {container} = me,
@@ -331,7 +302,7 @@ class Cube extends Card {
             {cn}        = vdom;
 
         vdom.cn = [
-            {cls: ['neo-plane'], cn: [
+            {cls: ['neo-plane'], id: me.getPlaneId(), cn: [
                 {cls: ['neo-box'], cn}
             ]}
         ];
@@ -394,7 +365,40 @@ class Cube extends Card {
      */
     removeRenderAttributes() {
         super.removeRenderAttributes();
-        this.container.removeCls('neo-animate')
+
+        let me                 = this,
+            {container}        = me,
+            {cls, style, vdom} = container;
+
+        NeoArray.remove(cls, 'neo-animate');
+
+        Object.assign(style, {
+            '--perspective': null,
+            '--rot-x'      : null,
+            '--rot-y'      : null,
+            '--rot-z'      : null,
+            '--side-x'     : null,
+            '--side-y'     : null,
+            '--side-z'     : null
+        });
+
+        container.set({cls, style});
+
+        vdom.cn = container.getVdomItemsRoot().cn;
+
+        if (me.hideInactiveCardsOnDestroy) {
+            container.items.forEach((item, index) => {
+                if (index < 6 && index !== me.activeIndex) {
+                    item.vdom.removeDom = true
+                }
+            })
+        }
+
+        // override
+        container.getVdomItemsRoot = me.#cachedVdomItemsRoot;
+
+        container.updateDepth = -1;
+        container.update();
     }
 
     /**

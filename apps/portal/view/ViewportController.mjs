@@ -316,10 +316,9 @@ class ViewportController extends Controller {
 
                 // enable "fast clicking" on main nav items => do not replace a cube layout with a new instance of cube
                 if (container.layout.ntype !== 'layout-cube') {
-                    container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true}
+                    container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true};
+                    await me.timeout(200);
                 }
-
-                await me.timeout(200);
 
                 container.layout.activeIndex = index;
 
