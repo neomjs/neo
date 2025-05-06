@@ -7,7 +7,9 @@ non-DOM entities such as data stores, state providers, routers, view controllers
 While existing frameworks offer solutions for managing these aspects, they often lack a truly consistent, declarative,
 and nested approach to their configuration, a gap that a class config system aims to fill.
 
-As a bad example, I recently found this Angular code snippet (new public API draft) on LinkedIn:
+## A bad example
+I recently found this Angular code snippet (new public API draft) on LinkedIn:
+
 <pre data-javascript>
 // MyComponent with an attribute
 <MyComponent myAttribute="someValue" />
@@ -27,7 +29,6 @@ As a bad example, I recently found this Angular code snippet (new public API dra
 
 Now you might wonder why I think that this is not a good way to create apps.
 
-
 Currently, the configuration and management of these non-DOM entities can feel somewhat disparate across different
 frameworks. State management, for instance, might involve dedicated libraries (like Redux or Vuex), routing is
 handled by router-specific configurations, and layouts might be defined through a mix of component composition and
@@ -46,6 +47,7 @@ use – all within a unified configuration syntax. This nested structure would c
 composition of the application's various parts, offering a holistic view that is often obscured when non-DOM elements
 are configured in isolation using different mechanisms.
 
+## Key advantages
 A class config system, by treating all application entities as configurable classes within a unified hierarchy,
 offers several key advantages:
 
