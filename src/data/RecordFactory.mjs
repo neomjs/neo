@@ -155,7 +155,7 @@ class RecordFactory extends Base {
                             me[isModifiedSymbol] = false
                         }
 
-                        me.setSilent(config); // We do not want to fire change events when constructing
+                        me.setSilent(config) // We do not want to fire change events when constructing
                     }
 
                     /**

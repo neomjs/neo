@@ -3,6 +3,7 @@
     {"name": "Benefits",                                   "parentId": null,                "isLeaf": false, "id": "Benefits"},
         {"name": "Introduction ",                          "parentId": "Benefits",                           "id": "benefits.Introduction"},
         {"name": "Off the Main Thread",                    "parentId": "Benefits",                           "id": "benefits.Multi-Threading"},
+        {"name": "Unified Config System",                  "parentId": "Benefits",                           "id": "benefits.ConfigSystem"},
         {"name": "Extreme Speed",                          "parentId": "Benefits",                           "id": "benefits.Speed"},
         {"name": "Multi-Window Applications",              "parentId": "Benefits",                           "id": "benefits.Multi-Window"},
         {"name": "Quick Application Development",          "parentId": "Benefits",                           "id": "benefits.Quick"},
