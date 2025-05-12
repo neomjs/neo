@@ -331,7 +331,7 @@ class Container extends Component {
                 parent = item.parent;
 
                 if (parent && parent !== me) {
-                    parent.remove(item, false);
+                    parent.remove?.(item, false);
                     delete item.vdom.removeDom;
 
                     // Convenience logic, especially for moving components into different browser windows:
