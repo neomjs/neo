@@ -1359,7 +1359,7 @@ via the `component.on()` method.
 In this lab you'll set up an event handler for the table and map.
 
 <details>
-<summary>Add a listener to the table</summary>
+<summary>Add a listener to the table.View</summary>
 
 Table Views fire a select event, passing an object that contains a reference to the corresponding row.
 
