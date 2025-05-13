@@ -61,7 +61,7 @@ class MainContainer extends Viewport {
                         for (i=0; i < countRecords; i++) {
                             record = store.items[i];
 
-                            Object.entries(record[Symbol.for('data')]).forEach(([field, value]) => {
+                            Object.entries(record.toJSON()).forEach(([field, value]) => {
                                 if (field !== 'githubId') {
                                     if (value.includes(string1)) {
                                         newValue = value.replace(string1, string2);
