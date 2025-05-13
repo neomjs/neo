@@ -840,11 +840,27 @@ class Helix extends Component {
      * @param {Object} data
      * @protected
      */
-    onResize(data) {
-        let me = this;
+    async onResize(data) {
+        let me                     = this,
+            {appName, clonedItems} = me,
+            id;
 
         me.offsetHeight = data.rect.height;
         me.offsetWidth  = data.rect.width;
+
+        if (clonedItems.length > 0) {
+            id = clonedItems[0].id;
+
+            await Neo.applyDeltas(appName, {
+                id,
+                cls  : {remove: ['neo-transition-600']},
+                style: {transform: me.getCloneTransform()}
+            });
+
+            await me.timeout(10);
+
+            await Neo.applyDeltas(appName, {id, cls: {add: ['neo-transition-600']}})
+        }
     }
 
     /**
