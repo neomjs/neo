@@ -1336,7 +1336,7 @@ Add this config to the map.
 <pre data-javascript>
 bind: {
     markerStore: 'stores.earthquakes'
-},
+}
 </pre>
 <img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/InitialMapWithMarkers.png"></img>
 
@@ -1359,15 +1359,19 @@ via the `component.on()` method.
 In this lab you'll set up an event handler for the table and map.
 
 <details>
-<summary>Add a listener to the table</summary>
+<summary>Add a listener to the table.View</summary>
 
-Tables fire a select event, passing an object that contains a reference to the corresponding row.
+Table Views fire a select event, passing an object that contains a reference to the corresponding row.
 
 Add this table config:
 
+<pre data-javascript>
+viewConfig: {
     listeners: {
         select: (data) => console.log(data.record)
     }
+}
+</pre>
 
 Save and refresh, then click on a table row. If you look at the debugger console you'll see the record being logged.
 
@@ -1387,9 +1391,11 @@ After changing the value you should immediately see it reflected in the table ro
 
 Now add a `markerClick` listener to the Google Map.
 
-    listeners: {
-        markerClick: data => console.log(data.data.record)
-    },
+<pre data-javascript>
+listeners: {
+    markerClick: data => console.log(data.data.record)
+}
+</pre>
 
 Save, refresh, and confirm that you see the value logged when you click on a map marker.
 

@@ -229,7 +229,7 @@ class MagicMoveText extends Component {
             me.previousChars = []
         }
 
-        if(oldValue !== undefined) {
+        if (oldValue !== undefined) {
             me.addResizeObserver(value);
 
             me.autoCycle && me.startAutoCycle(value)

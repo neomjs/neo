@@ -154,14 +154,14 @@ class Helix extends Component {
         mouseWheelEnabled_: true,
         /**
          * The DOM element offsetHeight of the top level div.
-         * Gets fetched after the helix got mounted.
+         * Gets fetched on resize.
          * @member {Number|null} offsetHeight=null
          * @protected
          */
         offsetHeight: null,
         /**
          * The DOM element offsetWidth of the top level div.
-         * Gets fetched after the helix got mounted.
+         * Gets fetched on resize.
          * @member {Number|null} offsetWidth=null
          * @protected
          */
@@ -259,10 +259,22 @@ class Helix extends Component {
 
         me.addDomListeners({
             click    : me.onClick,
+            resize   : me.onResize,
             touchmove: me.onTouchMove,
             wheel    : me.onMouseWheel,
             scope    : me
         })
+    }
+
+    /**
+     * @param {Boolean} mounted
+     * @protected
+     */
+    async addResizeObserver(mounted) {
+        let {id, windowId} = this,
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
+
+        ResizeObserver[mounted ? 'register' : 'unregister']({id, windowId})
     }
 
     /**
@@ -329,7 +341,10 @@ class Helix extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        value && this.getOffsetValues()
+
+        if (oldValue !== undefined) {
+            this.addResizeObserver(value)
+        }
     }
 
     /**
@@ -750,25 +765,6 @@ class Helix extends Component {
     }
 
     /**
-     * @param {Number} [delay=100]
-     */
-    getOffsetValues(delay=100) {
-        let me = this;
-
-        me.timeout(delay).then(() => {
-            Neo.currentWorker.promiseMessage('main', {
-                action    : 'readDom',
-                appName   : me.appName,
-                attributes: ['offsetHeight', 'offsetWidth'],
-                vnodeId   : me.id
-            }).then(data => {
-                me.offsetHeight = data.attributes.offsetHeight;
-                me.offsetWidth  = data.attributes.offsetWidth
-            })
-        })
-    }
-
-    /**
      *
      */
     loadData() {
@@ -778,7 +774,7 @@ class Helix extends Component {
             insideNeo: true,
             url      : me.url
         }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id);
+            console.log('Error for Neo.Xhr.request', err, me.id)
         }).then(data => {
             me.store.items = data.json.data;
             me.createItems()
@@ -837,6 +833,33 @@ class Helix extends Component {
 
             me.fire('changeRotation',   me._rotationAngle);
             me.fire('changeTranslateZ', me._translateZ)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    async onResize(data) {
+        let me                     = this,
+            {appName, clonedItems} = me,
+            id;
+
+        me.offsetHeight = data.rect.height;
+        me.offsetWidth  = data.rect.width;
+
+        if (clonedItems.length > 0) {
+            id = clonedItems[0].id;
+
+            await Neo.applyDeltas(appName, {
+                id,
+                cls  : {remove: ['neo-transition-600']},
+                style: {transform: me.getCloneTransform()}
+            });
+
+            await me.timeout(10);
+
+            await Neo.applyDeltas(appName, {id, cls: {add: ['neo-transition-600']}})
         }
     }
 
