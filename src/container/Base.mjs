@@ -584,7 +584,8 @@ class Container extends Component {
      */
     mergeConfig(...args) {
         let me     = this,
-            config = super.mergeConfig(...args);
+            config = super.mergeConfig(...args),
+            ctorItems;
 
         // avoid any interference on prototype level
         // does not clone existing Neo instances
@@ -595,9 +596,15 @@ class Container extends Component {
         }
 
         if (config.items) {
+            ctorItems = me.constructor.config.items;
+
             // If we are passed an object, merge the class's own items object into it
             if (Neo.typeOf(config.items) === 'Object') {
-                me.items = Neo.merge(Neo.clone(me.constructor.config.items), config.items)
+                if (Neo.isArray(ctorItems)) {
+                    me.items = Neo.clone(config.items, true, true)
+                } else {
+                    me.items = Neo.merge(Neo.clone(ctorItems), config.items)
+                }
             } else {
                 me._items = Neo.clone(config.items, true, true)
             }
