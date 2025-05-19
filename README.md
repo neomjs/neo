@@ -50,7 +50,7 @@ Key Benefits of Neo.mjs
    - Neo is built on modern web standards like JavaScript modules and worker threads, ensuring compatibility with the latest browser features.
    - By embracing the OMT paradigm, Neo is uniquely positioned to take advantage of future advancements in web development.
 
-**Real-World Applications**
+## Real-World Applications
 
 Neo is ideal for:
 - **Data-intensive applications**: Handle large datasets and complex calculations without compromising UI responsiveness.
