@@ -57,7 +57,7 @@
         "fs-extra": "^11.3.0",
         "highlightjs-line-numbers.js": "^2.9.0",
         "inquirer": "^12.6.1",
-        "marked": "^15.0.11",
+        "marked": "^15.0.12",
         "monaco-editor": "0.50.0",
         "neo-jsdoc": "1.0.1",
         "neo-jsdoc-x": "1.0.5",
