@@ -30,7 +30,7 @@ class Viewport extends BaseViewport {
     async onLoadItemsButtonClick(data) {
         data.component.disabled = true;
 
-        let response   = await fetch('../../examples/serverside/toolbarItems/toolbar-items.json'),
+        let response   = await fetch('../../examples/serverside/toolbarItems/resources/data/toolbar-items.json'),
             remoteData = await response.json();
 
         this.getReference('toolbar').add(remoteData.items)
