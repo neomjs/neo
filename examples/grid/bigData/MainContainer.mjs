@@ -18,6 +18,10 @@ class MainContainer extends Viewport {
          */
         cls: ['neo-examples-bigdata-maincontainer'],
         /**
+         * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch'},
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -25,11 +29,7 @@ class MainContainer extends Viewport {
             reference: 'grid'
         }, {
             module: ControlsContainer
-        }],
-        /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
-         */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        }]
     }
 
     /**

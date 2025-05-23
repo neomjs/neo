@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/serverside/toolbarItems/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
