@@ -13,7 +13,13 @@ class Viewport extends BaseViewport {
         style    : {padding: '1em'},
 
         items: [{
-            module: Toolbar,
+            module   : Toolbar,
+            reference: 'toolbar',
+
+            itemDefaults: {
+                ntype: 'button',
+                style: {marginRight: '.2em'}
+            },
 
             style: {
                 backgroundColor: '#f2f2f2',
@@ -29,9 +35,15 @@ class Viewport extends BaseViewport {
 
     /**
      * @param {Object} data
+     * @returns {Promise<void>}
      */
-    onLoadItemsButtonClick(data) {
-        console.log('hi');
+    async onLoadItemsButtonClick(data) {
+        data.component.disabled = true;
+
+        let response   = await fetch('../../examples/serverside/toolbarItems/toolbar-items.json'),
+            remoteData = await response.json();
+
+        this.getReference('toolbar').add(remoteData.items)
     }
 }
 
