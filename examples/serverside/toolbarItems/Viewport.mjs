@@ -9,22 +9,12 @@ import Toolbar      from '../../../src/toolbar/Base.mjs';
 class Viewport extends BaseViewport {
     static config = {
         className: 'Neo.examples.serverside.toolbarItems.Viewport',
+        cls      : ['neo-serverside-toolbaritems-viewport'],
         layout   : 'base',
-        style    : {padding: '1em'},
 
         items: [{
             module   : Toolbar,
-            reference: 'toolbar',
-
-            itemDefaults: {
-                ntype: 'button',
-                style: {marginRight: '.2em'}
-            },
-
-            style: {
-                backgroundColor: '#f2f2f2',
-                padding        : '10px 5px 10px 10px'
-            }
+            reference: 'toolbar'
         }, {
             module : Button,
             handler: 'up.onLoadItemsButtonClick',
