@@ -41,11 +41,21 @@ export default env => {
     const copyResources = resourcesPath => {
         let inputPath  = path.resolve(cwd, resourcesPath),
             outputPath = path.resolve(cwd, buildTarget.folder, resourcesPath),
-            childProcess;
+            childProcess, content, filePath;
 
         if (fs.existsSync(inputPath)) {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
+
+            // Minify all json files inside the copied resources folder
+            fs.readdirSync(outputPath, {recursive: true}).forEach(fileOrFolder => {
+                if (fileOrFolder.endsWith('.json')) {
+                    filePath = path.join(outputPath, fileOrFolder);
+                    content  = requireJson(filePath);
+
+                    fs.writeFileSync(filePath, JSON.stringify(content));
+                }
+            });
         }
     };
 
