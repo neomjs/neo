@@ -1,0 +1,25 @@
+{
+    "modules": [
+        "../../../src/grid/Container.mjs"
+    ],
+
+    "items": [{
+        "className": "Neo.grid.Container",
+        "store"    : {},
+
+        "columnDefaults": {
+            "width": 200
+        },
+
+        "columns": [
+            {"dataField": "firstname", "text": "Firstname"},
+            {"dataField": "lastname",  "text": "Lastname"},
+            {"dataField": "githubId",  "text": "Github Id"},
+            {"dataField": "country",   "text": "Country"}
+        ],
+
+        "wrapperStyle": {
+            "height": "250px"
+        }
+    }]
+}

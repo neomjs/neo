@@ -1,6 +1,5 @@
 import BaseViewport from '../../../src/container/Viewport.mjs';
 import Button       from '../../../src/button/Base.mjs';
-import Toolbar      from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class Neo.examples.serverside.gridContainer.Viewport
@@ -13,13 +12,16 @@ class Viewport extends BaseViewport {
         layout   : 'base',
 
         items: [{
-            module   : Toolbar,
-            reference: 'toolbar'
+            ntype    : 'container',
+            height   : 250,
+            layout   : 'fit',
+            reference: 'container',
+            width    : 800
         }, {
             module : Button,
             handler: 'up.onLoadItemsButtonClick',
             style  : {marginTop: '1em'},
-            text   : 'Load Toolbar Items'
+            text   : 'Load Grid Container'
         }]
     }
 
@@ -30,10 +32,14 @@ class Viewport extends BaseViewport {
     async onLoadItemsButtonClick(data) {
         data.component.disabled = true;
 
-        let response   = await fetch('../../examples/serverside/gridContainer/resources/data/toolbar-items.json'),
+        let response   = await fetch('../../examples/serverside/gridContainer/resources/data/grid-container.json'),
             remoteData = await response.json();
 
-        this.getReference('toolbar').add(remoteData.items)
+        if (remoteData.modules) {
+            await Promise.all(remoteData.modules.map(module => import(module)))
+        }
+
+        this.getReference('container').add(remoteData.items)
     }
 }
 
