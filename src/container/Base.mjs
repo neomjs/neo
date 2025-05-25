@@ -594,7 +594,14 @@ class Container extends Component {
             remoteData = await response.json();
 
         if (remoteData.modules?.length > 0) {
-            await Promise.all(remoteData.modules.map(module => import(module)))
+            await Promise.all(remoteData.modules.map(modulePath => {
+                // Adjust relative URLs
+                if (!modulePath.startsWith('http')) {
+                    modulePath = (Neo.config.environment === 'development' ? '../../' : '../../../../') + modulePath
+                }
+
+                return import(/* webpackIgnore: true */ modulePath)
+            }))
         }
 
         return remoteData.items

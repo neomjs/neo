@@ -1,6 +1,6 @@
 {
     "modules": [
-        "../../src/grid/Container.mjs"
+        "src/grid/Container.mjs"
     ],
 
     "items": [{
