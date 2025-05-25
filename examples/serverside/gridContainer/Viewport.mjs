@@ -19,7 +19,7 @@ class Viewport extends BaseViewport {
             width    : 800
         }, {
             module : Button,
-            handler: 'up.onLoadItemsButtonClick',
+            handler: 'up.onLoadGridContainerButtonClick',
             style  : {marginTop: '1em'},
             text   : 'Load Grid Container'
         }]
@@ -29,7 +29,7 @@ class Viewport extends BaseViewport {
      * @param {Object} data
      * @returns {Promise<void>}
      */
-    async onLoadItemsButtonClick(data) {
+    async onLoadGridContainerButtonClick(data) {
         data.component.disabled = true;
 
         let response   = await fetch('../../examples/serverside/gridContainer/resources/data/grid-container.json'),
