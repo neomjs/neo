@@ -580,6 +580,34 @@ class Container extends Component {
     }
 
     /**
+     * Load items from a remote endpoint.
+     * See: https://github.com/neomjs/neo/tree/dev/examples/serverside
+     * The response should return a JSON file in the following format:
+     * {"modules": [], "items": []}
+     * See: https://github.com/neomjs/neo/blob/dev/examples/serverside/gridContainer/resources/data/grid-container.json
+     * It is important to add modules which are not already imported inside your app yet.
+     * @param {String} url
+     * @returns {Promise<Object[]>}
+     */
+    async loadItems(url) {
+        let response   = await fetch(url),
+            remoteData = await response.json();
+
+        if (remoteData.modules?.length > 0) {
+            await Promise.all(remoteData.modules.map(modulePath => {
+                // Adjust relative URLs
+                if (!modulePath.startsWith('http')) {
+                    modulePath = (Neo.config.environment === 'development' ? '../../' : '../../../../') + modulePath
+                }
+
+                return import(/* webpackIgnore: true */ modulePath)
+            }))
+        }
+
+        return remoteData.items
+    }
+
+    /**
      *
      */
     mergeConfig(...args) {
