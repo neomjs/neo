@@ -8,15 +8,14 @@ import Button       from '../../../src/button/Base.mjs';
 class Viewport extends BaseViewport {
     static config = {
         className: 'Neo.examples.serverside.gridContainer.Viewport',
-        cls      : ['neo-serverside-gridContainer-viewport'],
+        cls      : ['neo-serverside-gridcontainer-viewport'],
         layout   : 'base',
 
         items: [{
             ntype    : 'container',
-            height   : 250,
+            cls      : 'neo-serverside-gridcontainer-content',
             layout   : 'fit',
-            reference: 'container',
-            width    : 800
+            reference: 'container'
         }, {
             module : Button,
             handler: 'up.onLoadGridContainerButtonClick',
@@ -40,6 +39,15 @@ class Viewport extends BaseViewport {
         }
 
         this.getReference('container').add(remoteData.items)
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.value
+     * @returns {String}
+     */
+    rendererGithubId({value}) {
+        return `<i class='fa-brands fa-github'></i> ${value}`
     }
 }
 
