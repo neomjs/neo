@@ -3,15 +3,11 @@ import path            from 'path';
 import {minify}        from 'terser';
 import {fileURLToPath} from 'url';
 
-// Helper to get __dirname equivalent in ES modules
 const
-    __filename = fileURLToPath(import.meta.url),
-    __dirname  = path.dirname(__filename);
-
-// Define input and output directories relative to your project root
-// Adjust these paths as needed for your project structure
-const INPUT_BASE_DIR  = path.resolve(__dirname, '../src');
-const OUTPUT_BASE_DIR = path.resolve(__dirname, '../dist/esm/src');
+    __filename       = fileURLToPath(import.meta.url),
+    __dirname        = path.dirname(__filename),
+    inputDirectories = ['apps', 'docs', 'examples', 'src'],
+    outputBasePath   = '../dist/esm/';
 
 async function minifyDirectory(inputDir, outputDir) {
     fs.mkdirSync(outputDir, {recursive: true});
@@ -50,9 +46,11 @@ async function minifyDirectory(inputDir, outputDir) {
 }
 
 // Execute the minification
-minifyDirectory(INPUT_BASE_DIR, OUTPUT_BASE_DIR)
-    .then(() => console.log('Minification complete.'))
-    .catch(err => {
-        console.error('Minification failed:', err);
-        process.exit(1); // Exit with error code
-    });
+inputDirectories.forEach(folder => {
+    minifyDirectory(path.resolve(__dirname, '../' + folder), path.resolve(__dirname, outputBasePath, folder))
+        .then(() => console.log('Minification complete.'))
+        .catch(err => {
+            console.error('Minification failed:', err);
+            process.exit(1); // Exit with error code
+        });
+});
