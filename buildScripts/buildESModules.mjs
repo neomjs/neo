@@ -10,36 +10,38 @@ const
     outputBasePath   = '../dist/esm/';
 
 async function minifyDirectory(inputDir, outputDir) {
-    fs.mkdirSync(outputDir, {recursive: true});
+    if (fs.existsSync(inputDir)) {
+        fs.mkdirSync(outputDir, {recursive: true});
 
-    const dirents = fs.readdirSync(inputDir, {recursive: true, withFileTypes: true});
+        const dirents = fs.readdirSync(inputDir, {recursive: true, withFileTypes: true});
 
-    for (const dirent of dirents) {
-        const filePath = path.join(dirent.path, dirent.name);
+        for (const dirent of dirents) {
+            const filePath = path.join(dirent.path, dirent.name);
 
-        if (dirent.isFile() && filePath.endsWith('.mjs')) {
-            const
-                relativePath = path.relative(inputDir, filePath),
-                outputPath   = path.join(outputDir, relativePath),
-                code         = fs.readFileSync(filePath, 'utf8');
+            if (dirent.isFile() && filePath.endsWith('.mjs')) {
+                const
+                    relativePath = path.relative(inputDir, filePath),
+                    outputPath   = path.join(outputDir, relativePath),
+                    code         = fs.readFileSync(filePath, 'utf8');
 
-            try {
-                const result = await minify(code, {
-                    module: true,
-                    compress: {
-                        dead_code: true
-                    },
-                    mangle: {
-                        toplevel: true
-                    }
-                });
+                try {
+                    const result = await minify(code, {
+                        module: true,
+                        compress: {
+                            dead_code: true
+                        },
+                        mangle: {
+                            toplevel: true
+                        }
+                    });
 
-                fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-                fs.writeFileSync(outputPath, result.code);
+                    fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+                    fs.writeFileSync(outputPath, result.code);
 
-                console.log(`Minified: ${filePath} -> ${outputPath}`);
-            } catch (e) {
-                console.error(`Error minifying ${filePath}:`, e);
+                    console.log(`Minified: ${filePath} -> ${outputPath}`);
+                } catch (e) {
+                    console.error(`Error minifying ${filePath}:`, e);
+                }
             }
         }
     }
