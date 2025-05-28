@@ -36,7 +36,6 @@ async function minifyDirectory(inputDir, outputDir) {
 
                         if (dirent.name === 'neo-config.json') {
                             jsonContent.environment = 'dist/esm';
-                            jsonContent.mainPath    = '../main.js';
                         }
 
                         fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
