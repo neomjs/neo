@@ -46,7 +46,7 @@ class Stylesheet extends Base {
             faPath;
 
         if (neoConfig.useFontAwesome) {
-            if (neoConfig.environment === 'development') {
+            if (neoConfig.environment === 'development' || neoConfig.environment === 'dist/esm') {
                 faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
             } else {
                 faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css'
@@ -68,7 +68,7 @@ class Stylesheet extends Base {
             {themes} = config,
             folders  = ['src', ...themes],
             env      = config.environment,
-            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
+            path     = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             rootPath = config.basePath.substring(6);
 
         document.body.classList.add(themes[0]);
