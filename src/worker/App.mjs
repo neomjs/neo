@@ -433,15 +433,15 @@ class App extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        let config = Neo.config,
-            {data} = msg,
-            url    = 'resources/theme-map.json';
+        let {config} = Neo,
+            {data}   = msg,
+            url      = 'resources/theme-map.json';
 
         Neo.windowConfigs = Neo.windowConfigs || {};
 
         Neo.windowConfigs[data.windowId] = data;
 
-        if (config.environment === 'development') {
+        if (config.environment === 'development' || config.environment === 'dist/esm') {
             url = `../../${url}`
         }
 
