@@ -35,7 +35,7 @@ async function minifyDirectory(inputDir, outputDir) {
                         const jsonContent = JSON.parse(content);
 
                         if (dirent.name === 'neo-config.json') {
-                            jsonContent.basePath    = '../../' + jsonContent.basePath;
+                            //jsonContent.basePath    = '../../' + jsonContent.basePath;
                             jsonContent.environment = 'dist/esm';
                         }
 
