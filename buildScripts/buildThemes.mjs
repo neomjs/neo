@@ -34,7 +34,7 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',            'print environment debug info')
-    .option('-e, --env <value>',     '"all", "dev", "prod"')
+    .option('-e, --env <value>',     '"all", "dev", "esm", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-t, --themes <value>',  ["all", ...themeFolders].join(", "))
@@ -83,7 +83,7 @@ if (programOpts.info) {
                 type   : 'list',
                 name   : 'env',
                 message: 'Please choose the environment:',
-                choices: ['all', 'dev', 'prod'],
+                choices: ['all', 'dev', 'esm', 'prod'],
                 default: 'all'
             });
         }
@@ -94,8 +94,8 @@ if (programOpts.info) {
               themes     = answers.themes    || programOpts.themes  || 'all',
               insideNeo  = programOpts.framework || false,
               startDate  = new Date(),
-              fileCount  = {development: 0, production: 0},
-              totalFiles = {development: 0, production: 0};
+              fileCount  = {development: 0, esm: 0, production: 0},
+              totalFiles = {development: 0, esm: 0, production: 0};
 
         let themeMap;
 
@@ -267,8 +267,8 @@ if (programOpts.info) {
 
                 const plugins = [autoprefixer];
 
-                if (mode === 'production') {
-                    plugins.push(cssnano);
+                if (mode === 'esm' || mode === 'production') {
+                    plugins.push(cssnano)
                 }
 
                 map = result.sourceMap;
@@ -284,10 +284,11 @@ if (programOpts.info) {
                     fs.mkdirpSync(folderPath);
                     fileCount[mode]++;
 
-                    let map         = postcssResult.map,
-                        processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                    let currentFileNumber = fileCount.development + fileCount.esm + fileCount.production,
+                        map               = postcssResult.map,
+                        processTime       = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 
-                    console.log('Writing file:', (fileCount[mode] + fileCount[mode]), chalk.blue(`${processTime}s`), destPath);
+                    console.log('Writing file:', currentFileNumber, chalk.blue(`${processTime}s`), destPath);
 
                     fs.writeFileSync(
                         destPath,
@@ -340,6 +341,12 @@ if (programOpts.info) {
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             buildEnv(scssPath, 'development');
+        }
+
+        // dist/esm
+        if (env === 'all' || env === 'esm') {
+            console.log(chalk.blue(`${programName} starting dist/esm`));
+            buildEnv(scssPath, 'esm');
         }
 
         // dist/production
