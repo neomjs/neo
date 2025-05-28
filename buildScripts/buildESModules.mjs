@@ -1,6 +1,6 @@
 import fs                     from 'fs';
 import path                   from 'path';
-import {minify}               from 'terser';
+import {minify as minifyJs}   from 'terser';
 import {minify as minifyHtml} from 'html-minifier-terser';
 import {fileURLToPath}        from 'url';
 
@@ -27,9 +27,23 @@ async function minifyDirectory(inputDir, outputDir) {
                     outputPath   = path.join(outputDir, relativePath),
                     content      = fs.readFileSync(inputPath, 'utf8');
 
+                fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+
                 try {
+                    // Minify JSON files
+                    if (dirent.name.endsWith('.json')) {
+                        const jsonContent = JSON.parse(content);
+
+                        if (dirent.name === 'neo-config.json') {
+                            jsonContent.environment = 'dist/esm';
+                            jsonContent.mainPath    = '../main.js';
+                        }
+
+                        fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
+                        console.log(`Minified JSON: ${inputPath} -> ${outputPath}`);
+                    }
                     // Minify HTML files
-                    if (inputPath.endsWith('.html')) {
+                    else if (dirent.name.endsWith('.html')) {
                         let minifiedContent = await minifyHtml(content, {
                             collapseWhitespace           : true,
                             minifyCSS                    : true,
@@ -48,13 +62,12 @@ async function minifyDirectory(inputDir, outputDir) {
                             .replace(regexBlankAfterComma,  ',')
                             .replace(regexIndexNodeModules, '../../node_modules')
 
-                        fs.mkdirSync(path.dirname(outputPath), {recursive: true});
                         fs.writeFileSync(outputPath, minifiedContent);
                         console.log(`Minified HTML: ${inputPath} -> ${outputPath}`);
                     }
                     // Minify JS files
-                    else if (inputPath.endsWith('.mjs')) {
-                        const result = await minify(content, {
+                    else if (dirent.name.endsWith('.mjs')) {
+                        const result = await minifyJs(content, {
                             module: true,
                             compress: {
                                 dead_code: true
@@ -64,9 +77,7 @@ async function minifyDirectory(inputDir, outputDir) {
                             }
                         });
 
-                        fs.mkdirSync(path.dirname(outputPath), {recursive: true});
                         fs.writeFileSync(outputPath, result.code);
-
                         console.log(`Minified JS: ${inputPath} -> ${outputPath}`);
                     }
                 } catch (e) {
@@ -77,12 +88,19 @@ async function minifyDirectory(inputDir, outputDir) {
     }
 }
 
+const promises = [];
+
 // Execute the minification
 inputDirectories.forEach(folder => {
-    minifyDirectory(path.resolve(__dirname, '../' + folder), path.resolve(__dirname, outputBasePath, folder))
-        .then(() => console.log('Minification complete.'))
+    promises.push(minifyDirectory(path.resolve(__dirname, '../' + folder), path.resolve(__dirname, outputBasePath, folder))
         .catch(err => {
             console.error('Minification failed:', err);
-            process.exit(1); // Exit with error code
-        });
+            process.exit(1) // Exit with error code
+        })
+    );
+});
+
+Promise.all(promises).then(() => {
+    console.log('Minification complete.');
+    process.exit()
 });
