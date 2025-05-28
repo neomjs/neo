@@ -1,13 +1,17 @@
-import fs              from 'fs';
-import path            from 'path';
-import {minify}        from 'terser';
-import {fileURLToPath} from 'url';
+import fs                     from 'fs';
+import path                   from 'path';
+import {minify}               from 'terser';
+import {minify as minifyHtml} from 'html-minifier-terser';
+import {fileURLToPath}        from 'url';
 
 const
-    __filename       = fileURLToPath(import.meta.url),
-    __dirname        = path.dirname(__filename),
-    inputDirectories = ['apps', 'docs', 'examples', 'src'],
-    outputBasePath   = '../dist/esm/';
+    __filename            = fileURLToPath(import.meta.url),
+    __dirname             = path.dirname(__filename),
+    inputDirectories      = ['apps', 'docs', 'examples', 'src'],
+    outputBasePath        = '../dist/esm/',
+    regexBlankAfterColon  = /: /g,
+    regexBlankAfterComma  = /, /g,
+    regexIndexNodeModules = /node_modules/g;
 
 async function minifyDirectory(inputDir, outputDir) {
     if (fs.existsSync(inputDir)) {
@@ -16,31 +20,57 @@ async function minifyDirectory(inputDir, outputDir) {
         const dirents = fs.readdirSync(inputDir, {recursive: true, withFileTypes: true});
 
         for (const dirent of dirents) {
-            const filePath = path.join(dirent.path, dirent.name);
-
-            if (dirent.isFile() && filePath.endsWith('.mjs')) {
+            if (dirent.isFile()) {
                 const
-                    relativePath = path.relative(inputDir, filePath),
+                    inputPath    = path.join(dirent.path, dirent.name),
+                    relativePath = path.relative(inputDir, inputPath),
                     outputPath   = path.join(outputDir, relativePath),
-                    code         = fs.readFileSync(filePath, 'utf8');
+                    content      = fs.readFileSync(inputPath, 'utf8');
 
                 try {
-                    const result = await minify(code, {
-                        module: true,
-                        compress: {
-                            dead_code: true
-                        },
-                        mangle: {
-                            toplevel: true
-                        }
-                    });
+                    // Minify HTML files
+                    if (inputPath.endsWith('.html')) {
+                        let minifiedContent = await minifyHtml(content, {
+                            collapseWhitespace           : true,
+                            minifyCSS                    : true,
+                            minifyJS                     : true,
+                            processScripts               : ['application/ld+json'],
+                            removeComments               : true,
+                            removeEmptyAttributes        : true,
+                            removeRedundantAttributes    : true,
+                            removeScriptTypeAttributes   : true,
+                            removeStyleLinkTypeAttributes: true,
+                            useShortDoctype              : true
+                        });
 
-                    fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-                    fs.writeFileSync(outputPath, result.code);
+                        minifiedContent = minifiedContent
+                            .replace(regexBlankAfterColon,  ':')
+                            .replace(regexBlankAfterComma,  ',')
+                            .replace(regexIndexNodeModules, '../../node_modules')
 
-                    console.log(`Minified: ${filePath} -> ${outputPath}`);
+                        fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+                        fs.writeFileSync(outputPath, minifiedContent);
+                        console.log(`Minified HTML: ${inputPath} -> ${outputPath}`);
+                    }
+                    // Minify JS files
+                    else if (inputPath.endsWith('.mjs')) {
+                        const result = await minify(content, {
+                            module: true,
+                            compress: {
+                                dead_code: true
+                            },
+                            mangle: {
+                                toplevel: true
+                            }
+                        });
+
+                        fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+                        fs.writeFileSync(outputPath, result.code);
+
+                        console.log(`Minified JS: ${inputPath} -> ${outputPath}`);
+                    }
                 } catch (e) {
-                    console.error(`Error minifying ${filePath}:`, e);
+                    console.error(`Error minifying ${inputPath}:`, e);
                 }
             }
         }
