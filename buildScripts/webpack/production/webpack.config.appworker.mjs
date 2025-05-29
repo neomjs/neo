@@ -1,21 +1,19 @@
-import fs          from 'fs-extra';
-import path        from 'path';
-import {spawnSync} from 'child_process';
-import webpack     from 'webpack';
+import fs           from 'fs-extra';
+import path         from 'path';
+import {spawnSync}  from 'child_process';
+import {minifyHtml} from '../../util/minifyHtml.mjs';
+import webpack      from 'webpack';
 
-const cwd                   = process.cwd(),
-      cpOpts                = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
-      requireJson           = path => JSON.parse(fs.readFileSync((path))),
-      packageJson           = requireJson(path.resolve(cwd, 'package.json')),
-      neoPath               = packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/',
-      buildTarget           = requireJson(path.resolve(neoPath, 'buildScripts/webpack/production/buildTarget.json')),
-      filenameConfig        = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins               = [],
-      regexIndexNodeModules = /node_modules/g,
-      regexLineBreak        = /(\r\n|\n|\r)/gm,
-      regexTopLevel         = /\.\.\//g,
-      regexTrimEnd          = /\s+$/gm,
-      regexTrimStart        = /^\s+/gm;
+const
+    cwd            = process.cwd(),
+    cpOpts         = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
+    requireJson    = path => JSON.parse(fs.readFileSync((path))),
+    packageJson    = requireJson(path.resolve(cwd, 'package.json')),
+    neoPath        = packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/',
+    buildTarget    = requireJson(path.resolve(neoPath, 'buildScripts/webpack/production/buildTarget.json')),
+    filenameConfig = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+    plugins        = [],
+    regexTopLevel  = /\.\.\//g;
 
 let contextAdjusted = false,
     examplesPath;
@@ -24,7 +22,7 @@ if (!buildTarget.folder) {
     buildTarget.folder = 'dist/production';
 }
 
-export default env => {
+export default async function(env) {
     let apps      = [],
         examples  = [],
         insideNeo = env.insideNeo == 'true',
@@ -59,7 +57,7 @@ export default env => {
         }
     };
 
-    const createStartingPoint = (key, folder) => {
+    const createStartingPoint = async (key, folder) => {
         let basePath       = '',
             workerBasePath = '',
             treeLevel      = key.replace('.', '/').split('/').length + (key === 'Docs' ? 2 : 3),
@@ -105,15 +103,9 @@ export default env => {
         // index.html
         inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
+        content    = await minifyHtml(fs.readFileSync(inputPath, 'utf-8'));
 
-        content = fs.readFileSync(inputPath).toString()
-            .replace(regexIndexNodeModules, '../../node_modules')
-            .replace(regexTrimStart, '')
-            .replace(regexTrimEnd, '')
-            .replace(', ', ',')
-            .replace(regexLineBreak, '');
-
-        fs.writeFileSync(outputPath, content);
+        fs.writeFileSync(outputPath, content)
     };
 
     const isFile = fileName => fs.lstatSync(fileName).isFile();
@@ -136,13 +128,13 @@ export default env => {
 
     parseFolder(apps, path.join(cwd, 'apps'), 0, '');
 
-    apps.forEach(key => {
+    for (const key of apps) {
         copyResources(path.join('apps', key, '/resources'));
-        createStartingPoint(key.substr(1), 'apps');
-    });
+        await createStartingPoint(key.substr(1), 'apps');
+    }
 
     if (fs.existsSync(path.join(cwd, 'docs'))) {
-        createStartingPoint('Docs', '');
+        await createStartingPoint('Docs', '');
     }
 
     examplesPath = path.join(cwd, 'examples');
@@ -150,10 +142,10 @@ export default env => {
     if (fs.existsSync(examplesPath)) {
         parseFolder(examples, examplesPath, 0, '');
 
-        examples.forEach(key => {
+        for (const key of examples) {
             copyResources(path.join('examples', key, '/resources'));
-            createStartingPoint(key.substr(1), 'examples');
-        });
+            await createStartingPoint(key.substr(1), 'examples');
+        }
     }
 
     return {
