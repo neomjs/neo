@@ -1,17 +1,14 @@
-import fs                     from 'fs';
-import path                   from 'path';
-import {minify as minifyJs}   from 'terser';
-import {minify as minifyHtml} from 'html-minifier-terser';
-import {fileURLToPath}        from 'url';
+import fs                   from 'fs';
+import path                 from 'path';
+import {minify as minifyJs} from 'terser';
+import {minifyHtml}         from './util/minifyHtml.mjs';
+import {fileURLToPath}      from 'url';
 
 const
-    __filename            = fileURLToPath(import.meta.url),
-    __dirname             = path.dirname(__filename),
-    inputDirectories      = ['apps', 'docs', 'examples', 'src'],
-    outputBasePath        = '../dist/esm/',
-    regexBlankAfterColon  = /: /g,
-    regexBlankAfterComma  = /, /g,
-    regexIndexNodeModules = /node_modules/g;
+    __filename       = fileURLToPath(import.meta.url),
+    __dirname        = path.dirname(__filename),
+    inputDirectories = ['apps', 'docs', 'examples', 'src'],
+    outputBasePath   = '../dist/esm/';
 
 async function minifyDirectory(inputDir, outputDir) {
     if (fs.existsSync(inputDir)) {
@@ -35,7 +32,6 @@ async function minifyDirectory(inputDir, outputDir) {
                         const jsonContent = JSON.parse(content);
 
                         if (dirent.name === 'neo-config.json') {
-                            //jsonContent.basePath    = '../../' + jsonContent.basePath;
                             jsonContent.environment = 'dist/esm';
                         }
 
@@ -44,23 +40,7 @@ async function minifyDirectory(inputDir, outputDir) {
                     }
                     // Minify HTML files
                     else if (dirent.name.endsWith('.html')) {
-                        let minifiedContent = await minifyHtml(content, {
-                            collapseWhitespace           : true,
-                            minifyCSS                    : true,
-                            minifyJS                     : true,
-                            processScripts               : ['application/ld+json'],
-                            removeComments               : true,
-                            removeEmptyAttributes        : true,
-                            removeRedundantAttributes    : true,
-                            removeScriptTypeAttributes   : true,
-                            removeStyleLinkTypeAttributes: true,
-                            useShortDoctype              : true
-                        });
-
-                        minifiedContent = minifiedContent
-                            .replace(regexBlankAfterColon,  ':')
-                            .replace(regexBlankAfterComma,  ',')
-                            .replace(regexIndexNodeModules, '../../node_modules')
+                        const minifiedContent = await minifyHtml(content);
 
                         fs.writeFileSync(outputPath, minifiedContent);
                         console.log(`Minified HTML: ${inputPath} -> ${outputPath}`);
