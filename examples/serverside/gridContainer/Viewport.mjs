@@ -31,7 +31,7 @@ class Viewport extends BaseViewport {
     async onLoadGridContainerButtonClick(data) {
         data.component.disabled = true;
 
-        let items = await this.loadItems('../../examples/serverside/gridContainer/resources/data/grid-container.json');
+        let items = await this.loadItems({url: '../../examples/serverside/gridContainer/resources/data/grid-container.json'});
 
         this.getReference('container').add(items)
     }

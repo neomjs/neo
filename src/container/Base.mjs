@@ -586,11 +586,13 @@ class Container extends Component {
      * {"modules": [], "items": []}
      * See: https://github.com/neomjs/neo/blob/dev/examples/serverside/gridContainer/resources/data/grid-container.json
      * It is important to add modules which are not already imported inside your app yet.
-     * @param {String} url
+     * @param {Object} data
+     * @param {Object} [data.options={}]
+     * @param {String} data.url
      * @returns {Promise<Object[]>}
      */
-    async loadItems(url) {
-        let response   = await fetch(url),
+    async loadItems({options={}, url}) {
+        let response   = await fetch(url, options),
             remoteData = await response.json();
 
         if (remoteData.modules?.length > 0) {
