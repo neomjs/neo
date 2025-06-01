@@ -3,16 +3,27 @@ import EditUserDialogController from './EditUserDialogController.mjs';
 import TextField                from '../../../src/form/field/Text.mjs';
 
 /**
+<<<<<<<< HEAD:examples/stateProvider/dialog/EditUserDialog.mjs
+ * @class Neo.examples.stateProvider.dialog.EditUserDialog
+========
  * @class Neo.examples.stateProvider.multiWindow.EditUserDialog
+>>>>>>>> dev:examples/stateProvider/multiWindow/EditUserDialog.mjs
  * @extends Neo.dialog.Base
  */
 class EditUserDialog extends Dialog {
     static config = {
         /**
+<<<<<<<< HEAD:examples/stateProvider/dialog/EditUserDialog.mjs
+         * @member {String} className='Neo.examples.stateProvider.dialog.EditUserDialog'
+         * @protected
+         */
+        className: 'Neo.examples.stateProvider.dialog.EditUserDialog',
+========
          * @member {String} className='Neo.examples.stateProvider.multiWindow.EditUserDialog'
          * @protected
          */
         className: 'Neo.examples.stateProvider.multiWindow.EditUserDialog',
+>>>>>>>> dev:examples/stateProvider/multiWindow/EditUserDialog.mjs
         /**
          * @member {Object} containerConfig={style:{padding:'1em'}}
          */
@@ -46,14 +57,7 @@ class EditUserDialog extends Dialog {
             labelText : 'Lastname:',
             labelWidth: 110,
             listeners : {change: 'onLastnameTextFieldChange'}
-        }],
-        /**
-         * @member {Object} wrapperStyle={height: '300px',width : '400px'}
-         */
-        wrapperStyle: {
-            height: '300px',
-            width : '400px'
-        }
+        }]
     }
 }
 

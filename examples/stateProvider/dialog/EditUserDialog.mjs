@@ -3,16 +3,27 @@ import EditUserDialogController from './EditUserDialogController.mjs';
 import TextField                from '../../../src/form/field/Text.mjs';
 
 /**
+<<<<<<<< HEAD:examples/stateProvider/multiWindow/EditUserDialog.mjs
+ * @class Neo.examples.stateProvider.multiWindow.EditUserDialog
+========
  * @class Neo.examples.stateProvider.dialog.EditUserDialog
+>>>>>>>> dev:examples/stateProvider/dialog/EditUserDialog.mjs
  * @extends Neo.dialog.Base
  */
 class EditUserDialog extends Dialog {
     static config = {
         /**
+<<<<<<<< HEAD:examples/stateProvider/multiWindow/EditUserDialog.mjs
+         * @member {String} className='Neo.examples.stateProvider.multiWindow.EditUserDialog'
+         * @protected
+         */
+        className: 'Neo.examples.stateProvider.multiWindow.EditUserDialog',
+========
          * @member {String} className='Neo.examples.stateProvider.dialog.EditUserDialog'
          * @protected
          */
         className: 'Neo.examples.stateProvider.dialog.EditUserDialog',
+>>>>>>>> dev:examples/stateProvider/dialog/EditUserDialog.mjs
         /**
          * @member {Object} containerConfig={style:{padding:'1em'}}
          */

@@ -229,7 +229,8 @@ const DefaultConfig = {
      * True will add the ServiceWorker main thread addon to support caching of assets (PWA)
      * See: https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
      *
-     * You can also use a string to specify the target environment => 'dist/production'
+     * You can also use a string to specify the target environment => 'dist/production'.
+     * Using 'dist/production' will also use the service worker for 'dist/esm'
      * @default false
      * @memberOf! module:Neo
      * @name config.useServiceWorker
@@ -263,12 +264,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '9.6.1'
+     * @default '9.7.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '9.6.1'
+    version: '9.7.0'
 };
 
 Object.assign(DefaultConfig, {

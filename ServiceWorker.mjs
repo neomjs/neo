@@ -1,6 +1,6 @@
-import Neo         from '../src/Neo.mjs';
-import * as core   from '../src/core/_export.mjs';
-import ServiceBase from '../src/worker/ServiceBase.mjs';
+import Neo         from './src/Neo.mjs';
+import * as core   from './src/core/_export.mjs';
+import ServiceBase from './src/worker/ServiceBase.mjs';
 
 /**
  * @class Neo.ServiceWorker
@@ -20,9 +20,9 @@ class ServiceWorker extends ServiceBase {
          */
         singleton: true,
         /**
-         * @member {String} version='9.6.1'
+         * @member {String} version='9.7.0'
          */
-        version: '9.6.1'
+        version: '9.7.0'
     }
 
     /**
