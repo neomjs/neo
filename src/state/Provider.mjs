@@ -391,20 +391,22 @@ class Provider extends Base {
      * @param {String} value
      */
     getFormatterVariables(value) {
+        let {environment} = Neo.config;
+
         if (Neo.isFunction(value)) {
             value = value.toString()
         }
 
-        if (Neo.config.environment === 'dist/production') {
-            // see: https://github.com/neomjs/neo/issues/2371
-            // inside dist/prod the formatter:
+        if (environment === 'dist/esm' || environment === 'dist/production') {
+            // See: https://github.com/neomjs/neo/issues/2371
+            // Inside dist/esm & dist/prod the formatter:
             // data => DateUtil.convertToyyyymmdd(data.currentDate)
             // will get minified to:
             // e=>s.Z.convertToyyyymmdd(e.currentDate)
-            // the new strategy: find the first variable name => "e"
-            // replace it with "data":
+            // The new strategy: find the first variable name => "e"
+            // Replace it with "data":
             // data=>s.Z.convertToyyyymmdd(data.currentDate)
-            // from there we can use the dev mode regex again.
+            // From there we can use the dev mode regex again.
 
             let dataName       = value.match(variableNameRegex)[0],
                 variableRegExp = new RegExp(`(^|[^\\w.])(${dataName})(?!\\w)`, 'g');
