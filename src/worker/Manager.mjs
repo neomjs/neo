@@ -5,8 +5,8 @@ import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
-const NeoConfig = Neo.config,
-      devMode   = NeoConfig.environment === 'development';
+const NeoConfig    = Neo.config,
+      hasJsModules = NeoConfig.environment === 'development' || NeoConfig.environment === 'dist/esm';
 
 // Using ?. since SWs do not exist for http (only https)
 navigator.serviceWorker?.addEventListener('controllerchange', function() {
@@ -89,19 +89,19 @@ class Manager extends Base {
          */
         workers: {
             app: {
-                fileName: devMode ? 'App.mjs'    : 'appworker.js'
+                fileName: hasJsModules ? 'App.mjs'    : 'appworker.js'
             },
             canvas: {
-                fileName: devMode ? 'Canvas.mjs' : 'canvasworker.js'
+                fileName: hasJsModules ? 'Canvas.mjs' : 'canvasworker.js'
             },
             data: {
-                fileName: devMode ? 'Data.mjs'   : 'dataworker.js'
+                fileName: hasJsModules ? 'Data.mjs'   : 'dataworker.js'
             },
             task: {
-                fileName: devMode ? 'Task.mjs'   : 'taskworker.js'
+                fileName: hasJsModules ? 'Task.mjs'   : 'taskworker.js'
             },
             vdom: {
-                fileName: devMode ? 'VDom.mjs'   : 'vdomworker.js'
+                fileName: hasJsModules ? 'VDom.mjs'   : 'vdomworker.js'
             }
         }
     }
@@ -168,7 +168,7 @@ class Manager extends Base {
             name       = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
             isShared   = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
             cls        = isShared ? SharedWorker : Worker,
-            worker     = devMode  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+            worker     = hasJsModules
                 ? new cls(filePath, {name, type: 'module'})
                 : new cls(filePath, {name});
 
@@ -295,7 +295,7 @@ class Manager extends Base {
      */
     onWorkerError(e) {
         // starting a worker from a JS module will show JS errors in a correct way
-        !devMode && console.log('Worker Error:', e)
+        !hasJsModules && console.log('Worker Error:', e)
     }
 
     /**

@@ -223,11 +223,13 @@ class LivePreview extends Container {
         }
 
         let me                = this,
+            {config}          = Neo,
             container         = me.getPreviewContainer(),
+            hasJsModules      = config.environment === 'development' || config.environment === 'dist/esm',
             source            = me.editorValue || me.value,
+            className         = me.findLastClassName(source),
             cleanLines        = [],
             moduleNameAndPath = [],
-            className         = me.findLastClassName(source),
             params            = [],
             vars              = [],
             codeString, promises;
@@ -240,7 +242,7 @@ class LivePreview extends Container {
                     path       = importMatch[2],
                     index;
 
-                if (Neo.config.environment !== 'development') {
+                if (!hasJsModules) {
                     index = path.lastIndexOf('../');
 
                     if (index === 0) {

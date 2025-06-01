@@ -34,7 +34,7 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',            'print environment debug info')
-    .option('-e, --env <value>',     '"all", "dev", "prod"')
+    .option('-e, --env <value>',     '"all", "dev", "esm", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-t, --themes <value>',  ["all", ...themeFolders].join(", "))
@@ -83,19 +83,19 @@ if (programOpts.info) {
                 type   : 'list',
                 name   : 'env',
                 message: 'Please choose the environment:',
-                choices: ['all', 'dev', 'prod'],
+                choices: ['all', 'dev', 'esm', 'prod'],
                 default: 'all'
             });
         }
     }
 
-    inquirer.prompt(questions).then(answers => {
+    inquirer.prompt(questions).then(async answers => {
         const env        = answers.env       || programOpts.env     || 'all',
               themes     = answers.themes    || programOpts.themes  || 'all',
               insideNeo  = programOpts.framework || false,
               startDate  = new Date(),
-              fileCount  = {development: 0, production: 0},
-              totalFiles = {development: 0, production: 0};
+              fileCount  = {development: 0, esm: 0, production: 0},
+              totalFiles = {development: 0, esm: 0, production: 0};
 
         let themeMap;
 
@@ -124,14 +124,14 @@ if (programOpts.info) {
          * @param {String} p
          * @param {String} mode development or production
          */
-        function buildEnv(p, mode) {
-            parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src');
+        async function buildEnv(p, mode) {
+            await parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src');
 
-            themeFolders.forEach(themeFolder => {
+            for (const themeFolder of themeFolders) {
                 if (themes === 'all' || themes === themeFolder) {
-                    parseScssFiles(getAllScssFiles(path.join(p, themeFolder)), mode, themeFolder);
+                    await parseScssFiles(getAllScssFiles(path.join(p, themeFolder)), mode, themeFolder);
                 }
-            });
+            }
         }
 
         /**
@@ -247,17 +247,17 @@ if (programOpts.info) {
          * @param {String} mode development or production
          * @param {String} target src or a theme
          */
-        function parseScssFiles(files, mode, target) {
-            let devMode = mode === 'development',
-                map;
+        async function parseScssFiles(files, mode, target) {
+            let devMode = mode === 'development';
 
             totalFiles[mode] += files.length;
 
-            files.forEach(file => {
+            for (const file of files) {
                 addItemToThemeMap(file, target);
 
                 let folderPath = path.resolve(cwd, `dist/${mode}/css/${target}/${file.relativePath}`),
-                    destPath   = path.resolve(folderPath, `${file.name}.css`);
+                    destPath   = path.resolve(folderPath, `${file.name}.css`),
+                    map;
 
                 let result = sass.compile(file.path, {
                     outFile                : destPath,
@@ -267,71 +267,71 @@ if (programOpts.info) {
 
                 const plugins = [autoprefixer];
 
-                if (mode === 'production') {
-                    plugins.push(cssnano);
+                if (mode === 'esm' || mode === 'production') {
+                    plugins.push(cssnano) // CSSNano works async only
                 }
 
                 map = result.sourceMap;
 
-                postcss(plugins).process(result.css, {
+                const postcssResult = await postcss(plugins).process(result.css, {
                     from: file.path,
                     to  : destPath,
                     map : !devMode ? null : {
                         inline: false,
                         prev  : map && JSON.stringify(map)
                     }
-                }).then(postcssResult => {
-                    fs.mkdirpSync(folderPath);
-                    fileCount[mode]++;
+                });
 
-                    let map         = postcssResult.map,
-                        processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                fs.mkdirpSync(folderPath);
+                fileCount[mode]++;
 
-                    console.log('Writing file:', (fileCount[mode] + fileCount[mode]), chalk.blue(`${processTime}s`), destPath);
+                let currentFileNumber = fileCount.development + fileCount.esm + fileCount.production,
+                    processTime       = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 
+                map = postcssResult.map;
+
+                console.log('Writing file:', currentFileNumber, chalk.blue(`${processTime}s`), destPath);
+
+                fs.writeFileSync(
+                    destPath,
+                    map ?
+                        `${postcssResult.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), postcssResult.opts.to + '.map')} */` :
+                        postcssResult.css,
+                    () => true
+                );
+
+                if (map) {
+                    let mapString = map.toString(),
+                        jsonMap   = JSON.parse(mapString),
+                        sources   = jsonMap.sources;
+
+                    // Somehow files contain both: a relative & an absolute file url
+                    // We only want to keep the relative ones.
+                    [...sources].forEach((item, index) => {
+                        if (!item.startsWith('../')) {
+                            sources.splice(index, 1);
+                        }
+                    });
+
+                    map = JSON.stringify(jsonMap);
+
+                    fs.writeFileSync(postcssResult.opts.to + '.map', map);
+                }
+
+                if (fileCount[mode] === totalFiles[mode]) {
                     fs.writeFileSync(
-                        destPath,
-                        map ?
-                            `${postcssResult.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), postcssResult.opts.to + '.map')} */` :
-                            postcssResult.css,
-                        () => true
+                        path.resolve(cwd, themeMapFile),
+                        JSON.stringify(themeMap, null, 0)
                     );
 
-                    if (map) {
-                        let mapString = map.toString(),
-                            jsonMap   = JSON.parse(mapString),
-                            sources   = jsonMap.sources;
+                    fs.mkdirpSync(path.join(cwd, '/dist/', mode, '/resources'), {recursive: true});
 
-                        // Somehow files contain both: a relative & an absolute file url
-                        // We only want to keep the relative ones.
-                        [...sources].forEach((item, index) => {
-                            if (!item.startsWith('../')) {
-                                sources.splice(index, 1);
-                            }
-                        });
-
-                        map = JSON.stringify(jsonMap);
-
-                        fs.writeFileSync(postcssResult.opts.to + '.map', map);
-                    }
-
-                    if (fileCount[mode] === totalFiles[mode]) {
-                        fs.writeFileSync(
-                            path.resolve(cwd, themeMapFile),
-                            JSON.stringify(themeMap, null, 0)
-                        );
-
-                        fs.mkdirpSync(path.join(cwd, '/dist/', mode, '/resources'), {
-                            recursive: true
-                        });
-
-                        fs.writeFileSync(
-                            path.join(cwd, '/dist/', mode, themeMapFile),
-                            JSON.stringify(themeMap, null, 0)
-                        );
-                    }
-                });
-            });
+                    fs.writeFileSync(
+                        path.join(cwd, '/dist/', mode, themeMapFile),
+                        JSON.stringify(themeMap, null, 0)
+                    );
+                }
+            }
         }
 
         themeMap = getThemeMap(themeMapFile);
@@ -339,13 +339,28 @@ if (programOpts.info) {
         // dist/development
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
-            buildEnv(scssPath, 'development');
+            await buildEnv(scssPath, 'development');
+        }
+
+        // dist/esm
+        if (env === 'all' || env === 'esm') {
+            console.log(chalk.blue(`${programName} starting dist/esm`));
+            await buildEnv(scssPath, 'esm');
         }
 
         // dist/production
-        if (env === 'all' || env === 'prod') {
+        if (env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
-            buildEnv(scssPath, 'production');
+            await buildEnv(scssPath, 'production');
+        } else if (env === 'all') {
+            // dist/esm & dist/production contain the same output, so we can just copy it over.
+            const cssPath = path.join(cwd, '/dist/production/css');
+
+            fs.mkdirpSync(cssPath, {recursive: true});
+            fs.mkdirpSync(path.join(cwd, '/dist/production/resources'), {recursive: true});
+
+            fs.copySync(path.join(cwd, '/dist/esm/css'), cssPath);
+            fs.copySync(path.join(cwd, '/dist/esm/resources/theme-map.json'), path.join(cwd, '/dist/production/resources/theme-map.json'));
         }
     });
 }

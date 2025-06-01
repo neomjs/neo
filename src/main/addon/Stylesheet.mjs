@@ -43,13 +43,18 @@ class Stylesheet extends Base {
         super.construct(config);
 
         let neoConfig = Neo.config,
+            env       = neoConfig.environment,
             faPath;
 
         if (neoConfig.useFontAwesome) {
-            if (neoConfig.environment === 'development') {
-                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
+            if (env === 'development' || env === 'dist/esm') {
+                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css';
+
+                if (env === 'dist/esm') {
+                    faPath = '../../' + faPath
+                }
             } else {
-                faPath = neoConfig.basePath.substr(6) + 'resources/fontawesome-free/css/all.min.css'
+                faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
             }
 
             this.createStyleSheet(null, null, faPath)
@@ -68,10 +73,14 @@ class Stylesheet extends Base {
             {themes} = config,
             folders  = ['src', ...themes],
             env      = config.environment,
-            path      = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
+            path     = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             rootPath = config.basePath.substring(6);
 
         document.body.classList.add(themes[0]);
+
+        if (env === 'dist/esm') {
+            path = '../../' + path;
+        }
 
         folders.forEach(folder => {
             if (folder.startsWith('neo-')) {
@@ -99,6 +108,10 @@ class Stylesheet extends Base {
             path        = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             promises    = [],
             rootPath    = config.basePath.substring(6);
+
+        if (env === 'dist/esm') {
+            path = '../../' + path;
+        }
 
         if (className.startsWith('Neo.')) {
             className = className.substring(4)

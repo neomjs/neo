@@ -1,33 +1,34 @@
 {
-    "name": "neo.mjs",
-    "version": "9.5.0",
-    "description": "The webworkers driven UI framework",
-    "type": "module",
-    "repository": {
+    "name"           : "neo.mjs",
+    "version"        : "9.6.0",
+    "description"    : "The webworkers driven UI framework",
+    "type"           : "module",
+    "repository"     : {
         "type": "git",
-        "url": "https://github.com/neomjs/neo.git"
+        "url" : "https://github.com/neomjs/neo.git"
     },
-    "bin": {
+    "bin"            : {
         "neo-cc": "./buildScripts/createClass.mjs"
     },
-    "scripts": {
-        "add-config": "node ./buildScripts/addConfig.mjs",
-        "build-all": "node ./buildScripts/buildAll.mjs -f -n",
-        "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
-        "build-themes": "node ./buildScripts/buildThemes.mjs -f",
-        "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
-        "convert-design-tokens": "node ./buildScripts/convertDesignTokens.mjs",
-        "create-app": "node ./buildScripts/createApp.mjs",
-        "create-app-minimal": "node ./buildScripts/createAppMinimal.mjs",
-        "create-class": "node ./buildScripts/createClass.mjs",
-        "create-component": "node ./buildScripts/createComponent.mjs",
-        "generate-docs-json": "node ./buildScripts/docs/jsdocx.mjs",
+    "scripts"        : {
+        "add-config"            : "node ./buildScripts/addConfig.mjs",
+        "build-all"             : "node ./buildScripts/buildAll.mjs -f -n",
+        "build-all-questions"   : "node ./buildScripts/buildAll.mjs -f",
+        "build-es-modules"      : "node ./buildScripts/buildESModules.mjs",
+        "build-themes"          : "node ./buildScripts/buildThemes.mjs -f",
+        "build-threads"         : "node ./buildScripts/webpack/buildThreads.mjs -f",
+        "convert-design-tokens" : "node ./buildScripts/convertDesignTokens.mjs",
+        "create-app"            : "node ./buildScripts/createApp.mjs",
+        "create-app-minimal"    : "node ./buildScripts/createAppMinimal.mjs",
+        "create-class"          : "node ./buildScripts/createClass.mjs",
+        "create-component"      : "node ./buildScripts/createComponent.mjs",
+        "generate-docs-json"    : "node ./buildScripts/docs/jsdocx.mjs",
         "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
-        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "watch-themes": "node ./buildScripts/watchThemes.mjs"
+        "server-start"          : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
+        "test"                  : "echo \"Error: no test specified\" && exit 1",
+        "watch-themes"          : "node ./buildScripts/watchThemes.mjs"
     },
-    "keywords": [
+    "keywords"       : [
         "javascript",
         "frontend",
         "framework",
@@ -40,39 +41,41 @@
         "react-alternative",
         "angular-alternative"
     ],
-    "author": "Tobias Uhlig",
-    "license": "MIT",
-    "bugs": {
+    "author"         : "Tobias Uhlig",
+    "license"        : "MIT",
+    "bugs"           : {
         "url": "https://github.com/neomjs/neo/issues"
     },
-    "homepage": "https://neomjs.com/",
+    "homepage"       : "https://neomjs.com/",
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^6.7.2",
-        "autoprefixer": "^10.4.21",
-        "chalk": "^5.4.1",
-        "clean-webpack-plugin": "^4.0.0",
-        "commander": "^14.0.0",
-        "cssnano": "^7.0.7",
-        "envinfo": "^7.14.0",
-        "fs-extra": "^11.3.0",
-        "highlightjs-line-numbers.js": "^2.9.0",
-        "inquirer": "^12.6.2",
-        "marked": "^15.0.12",
-        "monaco-editor": "0.50.0",
-        "neo-jsdoc": "1.0.1",
-        "neo-jsdoc-x": "1.0.5",
-        "postcss": "^8.5.3",
-        "sass": "^1.89.0",
-        "siesta-lite": "5.5.2",
-        "url": "^0.11.4",
-        "webpack": "^5.99.9",
-        "webpack-cli": "^6.0.1",
-        "webpack-dev-server": "^5.2.1",
-        "webpack-hook-plugin": "^1.0.7",
-        "webpack-node-externals": "^3.0.0"
+        "autoprefixer"                 : "^10.4.21",
+        "chalk"                        : "^5.4.1",
+        "clean-webpack-plugin"         : "^4.0.0",
+        "commander"                    : "^14.0.0",
+        "cssnano"                      : "^7.0.7",
+        "envinfo"                      : "^7.14.0",
+        "fs-extra"                     : "^11.3.0",
+        "highlightjs-line-numbers.js"  : "^2.9.0",
+        "html-minifier-terser"         : "^7.2.0",
+        "inquirer"                     : "^12.6.3",
+        "marked"                       : "^15.0.12",
+        "monaco-editor"                : "0.50.0",
+        "neo-jsdoc"                    : "1.0.1",
+        "neo-jsdoc-x"                  : "1.0.5",
+        "postcss"                      : "^8.5.4",
+        "sass"                         : "^1.89.1",
+        "siesta-lite"                  : "5.5.2",
+        "terser"                       : "^5.40.0",
+        "url"                          : "^0.11.4",
+        "webpack"                      : "^5.99.9",
+        "webpack-cli"                  : "^6.0.1",
+        "webpack-dev-server"           : "^5.2.1",
+        "webpack-hook-plugin"          : "^1.0.7",
+        "webpack-node-externals"       : "^3.0.0"
     },
-    "funding": {
+    "funding"        : {
         "type": "GitHub Sponsors",
-        "url": "https://github.com/sponsors/tobiu"
+        "url" : "https://github.com/sponsors/tobiu"
     }
 }
