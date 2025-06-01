@@ -43,12 +43,6 @@ class Manager extends Base {
          */
         appNames: [],
         /**
-         * The base path for the worker file URLs, can e.g. get set inside the index.html.
-         * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
-         * @protected
-         */
-        basePath: NeoConfig.workerBasePath || 'worker/',
-        /**
          * @member {Number} constructedThreads=0
          * @protected
          */
@@ -164,7 +158,7 @@ class Manager extends Base {
     createWorker(opts) {
         let me         = this,
             {fileName} = opts,
-            filePath   = (opts.basePath || me.basePath) + fileName,
+            filePath   = (opts.basePath || Neo.config.workerBasePath) + fileName,
             name       = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
             isShared   = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
             cls        = isShared ? SharedWorker : Worker,
