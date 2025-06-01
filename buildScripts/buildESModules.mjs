@@ -1,4 +1,4 @@
-import fs                   from 'fs';
+import fs                   from 'fs-extra';
 import path                 from 'path';
 import {minify as minifyJs} from 'terser';
 import {minifyHtml}         from './util/minifyHtml.mjs';
@@ -62,6 +62,32 @@ async function minifyDirectory(inputDir, outputDir) {
                     }
                 } catch (e) {
                     console.error(`Error minifying ${inputPath}:`, e);
+                }
+            }
+            // Copy resources folders
+            else if (dirent.name === 'resources') {
+                const
+                    inputPath    = path.join(dirent.path, dirent.name),
+                    relativePath = path.relative(inputDir, inputPath),
+                    outputPath   = path.join(outputDir, relativePath);
+
+                fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+
+                fs.copySync(inputPath, outputPath);
+
+                // Minify all JSON files inside the copied folder
+                const resourcesEntries = fs.readdirSync(outputPath, {recursive: true, withFileTypes: true});
+
+                for (const resource of resourcesEntries) {
+                    if (resource.isFile()) {
+                        if (resource.name.endsWith('.json')) {
+                            const
+                                resourcePath = path.join(resource.path, resource.name),
+                                content      = fs.readFileSync(resourcePath, 'utf8');
+
+                            fs.writeFileSync(resourcePath, JSON.stringify(JSON.parse(content)));
+                        }
+                    }
                 }
             }
         }
