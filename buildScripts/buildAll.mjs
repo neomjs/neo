@@ -129,17 +129,24 @@ if (programOpts.info) {
             childProcess.status && process.exit(childProcess.status);
         }
 
-        if (themes     === 'yes') {
+        if (themes === 'yes') {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
 
-        if (threads    === 'yes') {
-            childProcess = spawnSync('node', [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
-            childProcess.status && process.exit(childProcess.status);
+        if (threads === 'yes') {
+            if (env !== 'esm') {
+                childProcess = spawnSync('node', [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
+                childProcess.status && process.exit(childProcess.status);
+            }
+
+            if (env === 'all' || env === 'esm') {
+                childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildESModules.mjs`], cpOpts);
+                childProcess.status && process.exit(childProcess.status);
+            }
         }
 
-        if (parsedocs  === 'yes') {
+        if (parsedocs === 'yes') {
             childProcess = spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
