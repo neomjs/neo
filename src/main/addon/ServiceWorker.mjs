@@ -30,13 +30,16 @@ class ServiceWorker extends Base {
         if ('serviceWorker' in navigator) {
             let me              = this,
                 {config}        = Neo,
-                devMode         = config.environment === 'development',
-                fileName        = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
-                folder          = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
-                opts            = devMode ? {type: 'module'} : {},
-                path            = (devMode ? config.basePath : config.workerBasePath) + (devMode ? folder : '') + fileName,
+                {environment}   = config,
+                devMode         = environment === 'development',
+                hasJsModules    = devMode || environment === 'dist/esm',
+                fileName        = hasJsModules ? 'ServiceWorker.mjs' : 'serviceworker.js',
+                opts            = hasJsModules ? {type: 'module'} : {},
+                path            = (hasJsModules ? config.basePath : config.workerBasePath) + fileName,
                 {serviceWorker} = navigator,
-                registration    = await serviceWorker.register(path, opts);
+                registration;
+
+            registration = await serviceWorker.register(path, opts);
 
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
 

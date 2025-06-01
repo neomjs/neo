@@ -1,6 +1,6 @@
-import Neo         from '../src/Neo.mjs';
-import * as core   from '../src/core/_export.mjs';
-import ServiceBase from '../src/worker/ServiceBase.mjs';
+import Neo         from './src/Neo.mjs';
+import * as core   from './src/core/_export.mjs';
+import ServiceBase from './src/worker/ServiceBase.mjs';
 
 /**
  * @class Neo.ServiceWorker
