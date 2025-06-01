@@ -119,10 +119,6 @@ class MonacoEditor extends Base {
         let me   = this,
             path = me.libraryBasePath;
 
-        if (Neo.config.environment === 'dist/esm') {
-            path = '../../' + path
-        }
-
         me.isLoading = true;
 
         window.require = {paths: {vs: path}};

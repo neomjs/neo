@@ -8,7 +8,10 @@ const
     __filename       = fileURLToPath(import.meta.url),
     __dirname        = path.dirname(__filename),
     inputDirectories = ['apps', 'docs', 'examples', 'src'],
-    outputBasePath   = '../dist/esm/';
+    outputBasePath   = '../dist/esm/',
+    // Regex to find import statements with 'node_modules' in the path
+    // It captures the entire import statement (excluding the leading 'import') and the path itself.
+    regexImport      = /(import(?:["'\s]*(?:[\w*{}\n\r\t, ]+)from\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
 
 async function minifyDirectory(inputDir, outputDir) {
     if (fs.existsSync(inputDir)) {
@@ -32,7 +35,11 @@ async function minifyDirectory(inputDir, outputDir) {
                         const jsonContent = JSON.parse(content);
 
                         if (dirent.name === 'neo-config.json') {
-                            jsonContent.environment = 'dist/esm';
+                            Object.assign(jsonContent, {
+                                basePath      : '../../' + jsonContent.basePath,
+                                environment   : 'dist/esm',
+                                workerBasePath: jsonContent.basePath + 'src/worker/'
+                            })
                         }
 
                         fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
@@ -47,7 +54,18 @@ async function minifyDirectory(inputDir, outputDir) {
                     }
                     // Minify JS files
                     else if (dirent.name.endsWith('.mjs')) {
-                        const result = await minifyJs(content, {
+                        let adjustedContent = content.replace(regexImport, (match, p1, p2, p3) => {
+                            // p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
+                            // p2 will be the quote character (', ", or `)
+                            // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
+
+                            const newPath = '../../' + p3; // Prepend 2 levels up
+
+                            // Reconstruct the import statement with the new path
+                            return p1 + p2 + newPath + p2;
+                        });
+
+                        const result = await minifyJs(adjustedContent, {
                             module: true,
                             compress: {
                                 dead_code: true

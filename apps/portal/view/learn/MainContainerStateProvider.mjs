@@ -14,9 +14,9 @@ class MainContainerStateProvider extends StateProvider {
          */
         className: 'Portal.view.learn.MainContainerStateProvider',
         /**
-         * @member {String} contentBasePath='../../resources/data/deck/'
+         * @member {String} contentBasePath=Neo.config.basePath+'resources/data/deck/'
          */
-        contentBasePath: '../../resources/data/deck/',
+        contentBasePath: Neo.config.basePath + 'resources/data/deck/',
         /**
          * @member {Object} data
          */

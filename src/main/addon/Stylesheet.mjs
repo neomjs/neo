@@ -48,11 +48,7 @@ class Stylesheet extends Base {
 
         if (neoConfig.useFontAwesome) {
             if (env === 'development' || env === 'dist/esm') {
-                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css';
-
-                if (env === 'dist/esm') {
-                    faPath = '../../' + faPath
-                }
+                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
             } else {
                 faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
             }
@@ -77,10 +73,6 @@ class Stylesheet extends Base {
             rootPath = config.basePath.substring(6);
 
         document.body.classList.add(themes[0]);
-
-        if (env === 'dist/esm') {
-            path = '../../' + path;
-        }
 
         folders.forEach(folder => {
             if (folder.startsWith('neo-')) {
@@ -108,10 +100,6 @@ class Stylesheet extends Base {
             path        = env.startsWith('dist/') ? '' : config.appPath.includes('docs') ? `../dist/${env}/` : `../../dist/${env}/`,
             promises    = [],
             rootPath    = config.basePath.substring(6);
-
-        if (env === 'dist/esm') {
-            path = '../../' + path;
-        }
 
         if (className.startsWith('Neo.')) {
             className = className.substring(4)
