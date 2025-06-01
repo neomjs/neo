@@ -18,5 +18,5 @@ if (!programOpts.target) {
     throw new Error('Missing -t param');
 }
 
-fs.mkdirpSync(programOpts.target);
+fs.mkdirpSync(programOpts.target, {recursive: true});
 fs.copySync(programOpts.source, programOpts.target);
