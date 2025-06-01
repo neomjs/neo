@@ -15,7 +15,7 @@
             "output": "dataworker.js"
         },
         "service": {
-            "input": "./apps/ServiceWorker.mjs",
+            "input": "./ServiceWorker.mjs",
             "output": "serviceworker.js"
         },
         "vdom": {
