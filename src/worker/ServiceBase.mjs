@@ -42,6 +42,7 @@ class ServiceBase extends Base {
      */
     cachePaths = [
         'raw.githubusercontent.com/',
+        '/dist/esm/',
         '/dist/production/',
         '/fontawesome',
         '/resources/'
