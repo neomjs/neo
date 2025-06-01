@@ -23,7 +23,7 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',               'print environment debug info')
-    .option('-e, --env <value>',        '"all", "dev", "prod"')
+    .option('-e, --env <value>',        '"all", "dev", "esm", "prod"')
     .option('-l, --npminstall <value>', '"yes", "no"')
     .option('-f, --framework')
     .option('-n, --noquestions')
@@ -74,7 +74,7 @@ if (programOpts.info) {
                 type   : 'list',
                 name   : 'env',
                 message: 'Please choose the environment:',
-                choices: ['all', 'dev', 'prod'],
+                choices: ['all', 'dev', 'esm', 'prod'],
                 default: 'all'
             });
         }
