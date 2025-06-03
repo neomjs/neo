@@ -27,60 +27,7 @@ async function minifyDirectory(inputDir, outputDir) {
                     outputPath   = path.join(outputDir, relativePath),
                     content      = fs.readFileSync(inputPath, 'utf8');
 
-                fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-
-                try {
-                    // Minify JSON files
-                    if (dirent.name.endsWith('.json')) {
-                        const jsonContent = JSON.parse(content);
-
-                        if (dirent.name === 'neo-config.json') {
-                            Object.assign(jsonContent, {
-                                basePath      : '../../' + jsonContent.basePath,
-                                environment   : 'dist/esm',
-                                workerBasePath: jsonContent.basePath + 'src/worker/'
-                            })
-                        }
-
-                        fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
-                        console.log(`Minified JSON: ${inputPath} -> ${outputPath}`);
-                    }
-                    // Minify HTML files
-                    else if (dirent.name.endsWith('.html')) {
-                        const minifiedContent = await minifyHtml(content);
-
-                        fs.writeFileSync(outputPath, minifiedContent);
-                        console.log(`Minified HTML: ${inputPath} -> ${outputPath}`);
-                    }
-                    // Minify JS files
-                    else if (dirent.name.endsWith('.mjs')) {
-                        let adjustedContent = content.replace(regexImport, (match, p1, p2, p3) => {
-                            // p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
-                            // p2 will be the quote character (', ", or `)
-                            // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
-
-                            const newPath = '../../' + p3; // Prepend 2 levels up
-
-                            // Reconstruct the import statement with the new path
-                            return p1 + p2 + newPath + p2;
-                        });
-
-                        const result = await minifyJs(adjustedContent, {
-                            module: true,
-                            compress: {
-                                dead_code: true
-                            },
-                            mangle: {
-                                toplevel: true
-                            }
-                        });
-
-                        fs.writeFileSync(outputPath, result.code);
-                        console.log(`Minified JS: ${inputPath} -> ${outputPath}`);
-                    }
-                } catch (e) {
-                    console.error(`Error minifying ${inputPath}:`, e);
-                }
+                await minifyFile(content, outputPath);
             }
             // Copy resources folders
             else if (dirent.name === 'resources') {
@@ -112,19 +59,78 @@ async function minifyDirectory(inputDir, outputDir) {
     }
 }
 
-const promises = [];
+async function minifyFile(content, outputPath) {
+    fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+
+    try {
+        // Minify JSON files
+        if (outputPath.endsWith('.json')) {
+            const jsonContent = JSON.parse(content);
+
+            if (outputPath.endsWith('neo-config.json')) {
+                Object.assign(jsonContent, {
+                    basePath      : '../../' + jsonContent.basePath,
+                    environment   : 'dist/esm',
+                    workerBasePath: jsonContent.basePath + 'src/worker/'
+                })
+            }
+
+            fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
+            console.log(`Minified JSON: ${outputPath}`);
+        }
+        // Minify HTML files
+        else if (outputPath.endsWith('.html')) {
+            const minifiedContent = await minifyHtml(content);
+
+            fs.writeFileSync(outputPath, minifiedContent);
+            console.log(`Minified HTML: ${outputPath}`);
+        }
+        // Minify JS files
+        else if (outputPath.endsWith('.mjs')) {
+            let adjustedContent = content.replace(regexImport, (match, p1, p2, p3) => {
+                // p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
+                // p2 will be the quote character (', ", or `)
+                // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
+
+                const newPath = '../../' + p3; // Prepend 2 levels up
+
+                // Reconstruct the import statement with the new path
+                return p1 + p2 + newPath + p2;
+            });
+
+            const result = await minifyJs(adjustedContent, {
+                module: true,
+                compress: {
+                    dead_code: true
+                },
+                mangle: {
+                    toplevel: true
+                }
+            });
+
+            fs.writeFileSync(outputPath, result.code);
+            console.log(`Minified JS: ${outputPath}`);
+        }
+    } catch (e) {
+        console.error(`Error minifying ${outputPath}:`, e);
+    }
+}
+
+const
+    swContent = fs.readFileSync(path.resolve(__dirname, '../ServiceWorker.mjs'), 'utf8'),
+    promises  = [minifyFile(swContent, path.resolve(__dirname, outputBasePath, 'ServiceWorker.mjs'))];
 
 // Execute the minification
 inputDirectories.forEach(folder => {
     promises.push(minifyDirectory(path.resolve(__dirname, '../' + folder), path.resolve(__dirname, outputBasePath, folder))
         .catch(err => {
-            console.error('Minification failed:', err);
+            console.error('dist/esm Minification failed:', err);
             process.exit(1) // Exit with error code
         })
     );
 });
 
 Promise.all(promises).then(() => {
-    console.log('Minification complete.');
+    console.log('dist/esm Minification complete.');
     process.exit()
 });
