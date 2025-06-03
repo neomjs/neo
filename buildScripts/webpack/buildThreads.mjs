@@ -26,7 +26,7 @@ program
     .option('-e, --env <value>',     '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --threads <value>', '"all", "app", "data", "main", "vdom"')
+    .option('-t, --threads <value>', '"all", "app", "canvas", "data", "main", "service", "task", "vdom"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -61,7 +61,7 @@ if (programOpts.info) {
                 type   : 'list',
                 name   : 'threads',
                 message: 'Please choose the threads to build:',
-                choices: ['all', 'app', 'canvas', 'data', 'main', 'service', 'vdom'],
+                choices: ['all', 'app', 'canvas', 'data', 'main', 'service', 'task', 'vdom'],
                 default: 'all'
             });
         }
@@ -108,6 +108,10 @@ if (programOpts.info) {
             }
             if (threads === 'all' || threads === 'service') {
                 childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=service`], cpOpts);
+                childProcess.status && process.exit(childProcess.status);
+            }
+            if (threads === 'all' || threads === 'task') {
+                childProcess = spawnSync(webpack, ['--config', `${tPath}.worker.mjs`, `--env insideNeo=${insideNeo} worker=task`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
             if (threads === 'all' || threads === 'vdom') {
