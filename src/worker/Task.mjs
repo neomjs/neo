@@ -49,11 +49,14 @@ class Task extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        let path = Neo.config.appPath.slice(0, -8); // removing "/app.mjs"
+        let path = Neo.config.appPath;
+
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -8); // removing "/app.mjs"
+        }
 
         import(
-            /* webpackInclude: /\/task.mjs$/ */
-            /* webpackExclude: /\/node_modules/ */
+            /* webpackExclude: /(?:\/|\\)(dist|node_modules)/ */
             /* webpackMode: "lazy" */
             `../../${path}/task.mjs`
         ).then(module => {
