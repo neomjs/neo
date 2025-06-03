@@ -32,12 +32,17 @@ class ServiceWorker extends Base {
                 {config}        = Neo,
                 {environment}   = config,
                 devMode         = environment === 'development',
-                hasJsModules    = devMode || environment === 'dist/esm',
+                distEsm         = environment === 'dist/esm',
+                hasJsModules    = devMode || distEsm,
                 fileName        = hasJsModules ? 'ServiceWorker.mjs' : 'serviceworker.js',
                 opts            = hasJsModules ? {type: 'module'} : {},
                 path            = (hasJsModules ? config.basePath : config.workerBasePath) + fileName,
                 {serviceWorker} = navigator,
                 registration;
+
+            if (distEsm) {
+                path = path.substring(6)
+            }
 
             registration = await serviceWorker.register(path, opts);
 
