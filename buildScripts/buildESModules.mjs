@@ -86,6 +86,7 @@ async function minifyFile(content, outputPath) {
                 Object.assign(jsonContent, {
                     basePath      : '../../' + jsonContent.basePath,
                     environment   : 'dist/esm',
+                    mainPath      : './Main.mjs',
                     workerBasePath: jsonContent.basePath + 'src/worker/'
                 })
             }
