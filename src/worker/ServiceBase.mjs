@@ -45,6 +45,7 @@ class ServiceBase extends Base {
         '/dist/esm/',
         '/dist/production/',
         '/fontawesome',
+        '/node_modules',
         '/resources/'
     ]
     /**
