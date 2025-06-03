@@ -2,13 +2,12 @@ import fs                   from 'fs-extra';
 import path                 from 'path';
 import {minify as minifyJs} from 'terser';
 import {minifyHtml}         from './util/minifyHtml.mjs';
-import {fileURLToPath}      from 'url';
 
 const
     outputBasePath   = 'dist/esm/',
     // Regex to find import statements with 'node_modules' in the path
     // It captures the entire import statement (excluding the leading 'import') and the path itself.
-    regexImport      = /(import(?:["'\s]*(?:[\w*{}\n\r\t, ]+)from\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
     root             = path.resolve(),
     requireJson      = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson      = requireJson(path.join(root, 'package.json')),
@@ -23,6 +22,32 @@ if (insideNeo) {
     inputDirectories = ['apps', 'docs', 'node_modules/neo.mjs/src', 'src']
 }
 
+/**
+ * @param {String} match
+ * @param {String} p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
+ * @param {String} p2 will be the quote character (', ", or `)
+ * @param {String} p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
+ * @returns {String}
+ */
+function adjustImportPathHandler(match, p1, p2, p3) {
+    let newPath;
+
+    if (p3.includes('/node_modules/neo.mjs/')) {
+        newPath = p3.replace('/node_modules/neo.mjs/', '/')
+    } else {
+        newPath = '../../' + p3; // Prepend 2 levels up
+    }
+
+    // Reconstruct the import statement with the new path
+    return p1 + p2 + newPath + p2
+}
+
+/**
+ *
+ * @param {String} inputDir
+ * @param {String} outputDir
+ * @returns {Promise<void>}
+ */
 async function minifyDirectory(inputDir, outputDir) {
     if (fs.existsSync(inputDir)) {
         fs.mkdirSync(outputDir, {recursive: true});
@@ -74,6 +99,11 @@ async function minifyDirectory(inputDir, outputDir) {
     }
 }
 
+/**
+ * @param {String} content
+ * @param {String} outputPath
+ * @returns {Promise<void>}
+ */
 async function minifyFile(content, outputPath) {
     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
 
@@ -88,7 +118,11 @@ async function minifyFile(content, outputPath) {
                     environment   : 'dist/esm',
                     mainPath      : './Main.mjs',
                     workerBasePath: jsonContent.basePath + 'src/worker/'
-                })
+                });
+
+                if (!insideNeo) {
+                    jsonContent.appPath = jsonContent.appPath.substring(6)
+                }
             }
 
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
@@ -103,16 +137,7 @@ async function minifyFile(content, outputPath) {
         }
         // Minify JS files
         else if (outputPath.endsWith('.mjs')) {
-            let adjustedContent = content.replace(regexImport, (match, p1, p2, p3) => {
-                // p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
-                // p2 will be the quote character (', ", or `)
-                // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
-
-                const newPath = '../../' + p3; // Prepend 2 levels up
-
-                // Reconstruct the import statement with the new path
-                return p1 + p2 + newPath + p2
-            });
+            let adjustedContent = content.replace(regexImport, adjustImportPathHandler);
 
             const result = await minifyJs(adjustedContent, {
                 module: true,
