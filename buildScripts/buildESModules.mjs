@@ -23,6 +23,23 @@ if (insideNeo) {
     inputDirectories = ['apps', 'docs', 'node_modules/neo.mjs/src', 'src']
 }
 
+function adjustImportPathHandler(match, p1, p2, p3) {
+    // p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
+    // p2 will be the quote character (', ", or `)
+    // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
+
+    let newPath;
+
+    if (p3.includes('/node_modules/neo.mjs/')) {
+        newPath = p3.replace('/node_modules/neo.mjs/', '/')
+    } else {
+        newPath = '../../' + p3; // Prepend 2 levels up
+    }
+
+    // Reconstruct the import statement with the new path
+    return p1 + p2 + newPath + p2
+}
+
 async function minifyDirectory(inputDir, outputDir) {
     if (fs.existsSync(inputDir)) {
         fs.mkdirSync(outputDir, {recursive: true});
@@ -103,22 +120,7 @@ async function minifyFile(content, outputPath) {
         }
         // Minify JS files
         else if (outputPath.endsWith('.mjs')) {
-            let adjustedContent = content.replace(regexImport, (match, p1, p2, p3) => {
-                // p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
-                // p2 will be the quote character (', ", or `)
-                // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
-
-                let newPath;
-
-                if (p3.includes('/node_modules/neo.mjs/')) {
-                    newPath = p3.replace('/node_modules/neo.mjs/', '/')
-                } else {
-                    newPath = '../../' + p3; // Prepend 2 levels up
-                }
-
-                // Reconstruct the import statement with the new path
-                return p1 + p2 + newPath + p2
-            });
+            let adjustedContent = content.replace(regexImport, adjustImportPathHandler);
 
             const result = await minifyJs(adjustedContent, {
                 module: true,
