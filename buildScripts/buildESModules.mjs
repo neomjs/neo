@@ -8,7 +8,7 @@ const
     outputBasePath   = 'dist/esm/',
     // Regex to find import statements with 'node_modules' in the path
     // It captures the entire import statement (excluding the leading 'import') and the path itself.
-    regexImport      = /(import(?:["'\s]*(?:[\w*{}\n\r\t, ]+)from\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
     root             = path.resolve(),
     requireJson      = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson      = requireJson(path.join(root, 'package.json')),
@@ -119,7 +119,11 @@ async function minifyFile(content, outputPath) {
                     environment   : 'dist/esm',
                     mainPath      : './Main.mjs',
                     workerBasePath: jsonContent.basePath + 'src/worker/'
-                })
+                });
+
+                if (!insideNeo) {
+                    jsonContent.appPath = jsonContent.appPath.substring(6)
+                }
             }
 
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
