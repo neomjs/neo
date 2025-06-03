@@ -108,7 +108,13 @@ async function minifyFile(content, outputPath) {
                 // p2 will be the quote character (', ", or `)
                 // p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
 
-                const newPath = '../../' + p3; // Prepend 2 levels up
+                let newPath;
+
+                if (p3.includes('/node_modules/neo.mjs/')) {
+                    newPath = p3.replace('/node_modules/neo.mjs/', '/')
+                } else {
+                    newPath = '../../' + p3; // Prepend 2 levels up
+                }
 
                 // Reconstruct the import statement with the new path
                 return p1 + p2 + newPath + p2
