@@ -2,7 +2,6 @@ import fs                   from 'fs-extra';
 import path                 from 'path';
 import {minify as minifyJs} from 'terser';
 import {minifyHtml}         from './util/minifyHtml.mjs';
-import {fileURLToPath}      from 'url';
 
 const
     outputBasePath   = 'dist/esm/',
