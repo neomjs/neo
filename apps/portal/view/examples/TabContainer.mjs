@@ -47,7 +47,7 @@ class TabContainer extends Container {
             header   : {
                 iconCls: 'fa fa-chess-knight',
                 route  : '/examples/devmode',
-                text   : 'DevMode'
+                text   : 'Dev Mode'
             }
         }, {
             environment: 'dist/development',
