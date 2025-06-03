@@ -1130,7 +1130,7 @@ class DomAccess extends Base {
                 topFocusTrap = subject.$topFocusTrap = document.createElement('div');
                 bottomFocusTrap = subject.$bottomFocusTrap = document.createElement('div');
 
-                // The two focus traping elements must be invisble but tabbable.
+                // The two focus trapping elements must be invisible but tabbable.
                 topFocusTrap.className = bottomFocusTrap.className = 'neo-focus-trap';
                 topFocusTrap.setAttribute('tabIndex', 0);
                 bottomFocusTrap.setAttribute('tabIndex', 0);

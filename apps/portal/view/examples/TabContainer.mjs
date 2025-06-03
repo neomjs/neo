@@ -47,16 +47,25 @@ class TabContainer extends Container {
             header   : {
                 iconCls: 'fa fa-chess-knight',
                 route  : '/examples/devmode',
-                text   : 'DevMode'
+                text   : 'Dev Mode'
             }
         }, {
             environment: 'dist/development',
             reference  : 'examples-dist-dev-list',
             store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_dev.json'},
             header     : {
-                iconCls: 'fa fa-chess-queen',
+                iconCls: 'fa fa-chess-bishop',
                 route  : '/examples/dist_dev',
                 text   : 'dist/dev'
+            }
+        }, {
+            environment: 'dist/production',
+            reference  : 'examples-dist-esm-list',
+            store      : {module: ExampleStore, url: '../../apps/portal/resources/data/examples_dist_esm.json'},
+            header     : {
+                iconCls: 'fa fa-chess-queen',
+                route  : '/examples/dist_esm',
+                text   : 'dist/esm'
             }
         }, {
             environment: 'dist/production',

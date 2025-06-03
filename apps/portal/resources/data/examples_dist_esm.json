@@ -1,0 +1,136 @@
+[{
+    "id"          : 21,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/bigData.png",
+    "name"        : "Buffered Data Grid with 5M cells",
+    "sourceUrl"   : "examples/grid/bigData",
+    "url"         : "dist/esm/examples/grid/bigData/index.html"
+}, {
+    "id"           : 20,
+    "image"        : "devmode/sharedcovid.png",
+    "name"         : "Multi Window Covid App",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/sharedcovid",
+    "url"          : "dist/esm/apps/sharedcovid/index.html#mainview=table"
+}, {
+    "id"       : 19,
+    "image"    : "devmode/calendar-preview.png",
+    "name"     : "Calendar",
+    "sourceUrl": "src/calendar",
+    "url"      : "dist/esm/examples/calendar/basic/index.html"
+}, {
+    "id"       : 18,
+    "image"    : "devmode/helix.png",
+    "name"     : "component.Helix",
+    "sourceUrl": "examples/component/helix",
+    "url"      : "dist/esm/examples/component/helix/index.html"
+}, {
+    "id"           : 17,
+    "image"        : "devmode/mwCoronaGallery.png",
+    "name"         : "Multi Window Covid Gallery",
+    "sharedWorkers": true,
+    "sourceUrl"    : "examples/component/multiWindowCoronaGallery",
+    "url"          : "dist/esm/examples/component/multiWindowCoronaGallery/index.html"
+}, {
+    "id"           : 16,
+    "image"        : "devmode/multi_window_dd.png",
+    "name"         : "Multi-Window Drag&Drop",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/shareddialog",
+    "url"          : "dist/esm/apps/shareddialog/index.html"
+}, {
+    "id"       : 15,
+    "image"    : "devmode/tabContainer.png",
+    "name"     : "tab.Container",
+    "sourceUrl": "examples/tab/container",
+    "url"      : "dist/esm/examples/tab/container/index.html"
+}, {
+    "id"       : 14,
+    "image"    : "devmode/model-component-example.png",
+    "name"     : "State Provider Example",
+    "sourceUrl": "examples/stateProvider/advanced",
+    "url"      : "dist/esm/examples/stateProvider/advanced/index.html"
+}, {
+    "id"       : 13,
+    "image"    : "devmode/dragdrop.png",
+    "name"     : "Dialog drag&drop",
+    "sourceUrl": "examples/dialog",
+    "url"      : "dist/esm/examples/dialog/"
+}, {
+    "id"           : 12,
+    "image"        : "dist_prod/colorsApp.png",
+    "name"         : "Colors Dashboard",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/colors",
+    "url"          : "dist/esm/apps/colors/index.html"
+}, {
+    "id"       : 11,
+    "image"    : "devmode/covidDashboard.png",
+    "name"     : "Covid Dashboard",
+    "sourceUrl": "apps/covid",
+    "url"      : "dist/esm/apps/covid/index.html#mainview=table"
+}, {
+    "id"       : 10,
+    "image"    : "devmode/coronaHelix.png",
+    "name"     : "COVID-19 Helix",
+    "sourceUrl": "examples/component/coronaHelix",
+    "url"      : "dist/esm/examples/component/coronaHelix/index.html"
+}, {
+    "id"       : 9,
+    "image"    : "devmode/coronaGallery.png",
+    "name"     : "COVID-19 Gallery",
+    "sourceUrl": "examples/component/coronaGallery",
+    "url"      : "dist/esm/examples/component/coronaGallery/index.html"
+}, {
+    "id"       : 8,
+    "image"    : "devmode/gallery.png",
+    "name"     : "component.Gallery",
+    "sourceUrl": "examples/component/gallery",
+    "url"      : "dist/esm/examples/component/gallery/index.html"
+}, {
+    "id"       : 7,
+    "image"    : "devmode/tableFiltering.png",
+    "name"     : "Table Filtering",
+    "sourceUrl": "examples/tableFiltering",
+    "url"      : "dist/esm/examples/tableFiltering/"
+}, {
+    "id"       : 6,
+    "image"    : "devmode/dateSelector.png",
+    "name"     : "component.DateSelector",
+    "sourceUrl": "examples/component/dateSelector",
+    "url"      : "dist/esm/examples/component/dateSelector/index.html"
+}, {
+    "id"       : 5,
+    "image"    : "devmode/dateField.png",
+    "name"     : "form.field.Date",
+    "sourceUrl": "examples/form/field/date",
+    "url"      : "dist/esm/examples/form/field/date/index.html"
+}, {
+    "id"       : 4,
+    "image"    : "devmode/selectField.png",
+    "name"     : "form.field.ComboBox",
+    "sourceUrl": "examples/form/field/combobox",
+    "url"      : "dist/esm/examples/form/field/combobox/index.html"
+}, {
+    "id"           : 3,
+    "environments" : ["Desktop", "Mobile"],
+    "image"        : "dist_prod/portalApp.png",
+    "name"         : "Portal App",
+    "sharedWorkers": true,
+    "sourceUrl"    : "apps/portal",
+    "url"          : "dist/esm/apps/portal/index.html"
+}, {
+    "hidden"   : true,
+    "id"       : 2,
+    "image"    : "devmode/realworldApp.png",
+    "name"     : "RealWorld App",
+    "sourceUrl": "apps/realworld",
+    "url"      : "dist/esm/apps/realworld/index.html"
+}, {
+    "hidden"   : true,
+    "id"       : 1,
+    "image"    : "devmode/realworldApp2.png",
+    "name"     : "RealWorld App v2</br>(in progress)",
+    "sourceUrl": "apps/realworld2",
+    "url"      : "dist/esm/apps/realworld2/index.html#/gallery"
+}]

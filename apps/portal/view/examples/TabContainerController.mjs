@@ -25,7 +25,7 @@ class TabContainerController extends Component {
      * We need to store the current positions, since drag&drop resorting of tabs is enabled
      * @member {String[]} tabItems
      */
-    tabItems = ['devmode', 'dist_dev', 'dist_prod']
+    tabItems = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod']
 
     /**
      *
