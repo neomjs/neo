@@ -57,12 +57,12 @@ class AnimatedCurrency extends AnimatedChange {
      * @param {Number|String}      data.value
      * @returns {*}
      */
-    cellRenderer({value}) {
+    cellRenderer({column, value}) {
         if (value === null || value === undefined) {
             return ''
         }
 
-        return this.formatter.format(value)
+        return column.formatter.format(value)
     }
 
     /**
