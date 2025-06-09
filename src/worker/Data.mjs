@@ -23,12 +23,7 @@ class Data extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} workerId='data'
-         * @protected
-         */
-        workerId: 'data'
+        singleton: true
     }
 
     /**
@@ -41,6 +36,11 @@ class Data extends Base {
      * @protected
      */
     rpcMessageManagerLoaded = false
+    /**
+     * @member {String} workerId='data'
+     * @protected
+     */
+    workerId = 'data'
 
     /**
      *

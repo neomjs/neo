@@ -21,13 +21,14 @@ class VDom extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} workerId='vdom'
-         * @protected
-         */
-        workerId: 'vdom'
+        singleton: true
     }
+
+    /**
+     * @member {String} workerId='vdom'
+     * @protected
+     */
+    workerId = 'vdom'
 
     /**
      *

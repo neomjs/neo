@@ -25,13 +25,14 @@ class Canvas extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} workerId='canvas'
-         * @protected
-         */
-        workerId: 'canvas'
+        singleton: true
     }
+
+    /**
+     * @member {String} workerId='canvas'
+     * @protected
+     */
+    workerId = 'canvas'
 
     /**
      *

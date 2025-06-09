@@ -42,12 +42,7 @@ class App extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} workerId='app'
-         * @protected
-         */
-        workerId: 'app'
+        singleton: true
     }
 
     /**
@@ -67,6 +62,11 @@ class App extends Base {
      * @protected
      */
     themeFilesCache = []
+    /**
+     * @member {String} workerId='app'
+     * @protected
+     */
+    workerId = 'app'
 
     /**
      * @param {Object} config
