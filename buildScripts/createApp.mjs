@@ -119,177 +119,174 @@ if (programOpts.info) {
             process.exit(1);
         }
 
-        fs.mkdir(path.join(folder, '/view'), { recursive: true }, (err) => {
-            if (err) {
-                throw err;
+        fs.mkdirpSync(path.join(folder, '/view'), {recursive: true});
+
+        const appContent = [
+            "import Viewport from './view/Viewport.mjs';",
+            "",
+            "export const onStart = () => Neo.app({",
+            "    mainView: Viewport,",
+            "    name    : '" + appName + "'",
+            "});"
+        ].join(os.EOL);
+
+        fs.writeFileSync(folder + '/app.mjs', appContent);
+
+        const indexContent = [
+            "<!DOCTYPE HTML>",
+            "<html>",
+            "<head>",
+            '    <meta name="viewport" content="width=device-width, initial-scale=1">',
+            '    <meta charset="UTF-8">',
+            "    <title>" + appName + "</title>",
+            "</head>",
+            "<body>",
+            '    <script src="../../src/MicroLoader.mjs" type="module"></script>',
+            "</body>",
+            "</html>",
+        ];
+
+        fs.writeFileSync(path.join(folder, 'index.html'), indexContent.join(os.EOL));
+
+        let neoConfig = {
+            appPath    : `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
+            basePath   : '../../',
+            environment: 'development',
+            mainPath   : `${insideNeo ? './' : '../node_modules/neo.mjs/src/'}Main.mjs`
+        };
+
+        if (!(
+            mainThreadAddons.includes('DragDrop')   &&
+            mainThreadAddons.includes('Navigator')  &&
+            mainThreadAddons.includes('Stylesheet') &&
+            mainThreadAddons.length === 3)
+        ) {
+            neoConfig.mainThreadAddons = mainThreadAddons;
+        }
+
+        if (!themes.includes('all')) { // default value
+            if (themes.includes('none')) {
+                neoConfig.themes = [];
+            } else {
+                neoConfig.themes = themes;
             }
+        }
 
-            const appContent = [
-                "import MainContainer from './view/MainContainer.mjs';",
-                "",
-                "export const onStart = () => Neo.app({",
-                "    mainView: MainContainer,",
-                "    name    : '" + appName + "'",
-                "});"
-            ].join(os.EOL);
+        if (useSharedWorkers !== 'no') {
+            neoConfig.useSharedWorkers = true;
+        }
 
-            fs.writeFileSync(folder + '/app.mjs', appContent);
+        if (useServiceWorker !== 'no') {
+            neoConfig.useServiceWorker = true;
+        }
 
-            const indexContent = [
-                "<!DOCTYPE HTML>",
-                "<html>",
-                "<head>",
-                '    <meta name="viewport" content="width=device-width, initial-scale=1">',
-                '    <meta charset="UTF-8">',
-                "    <title>" + appName + "</title>",
-                "</head>",
-                "<body>",
-                '    <script src="../../src/MicroLoader.mjs" type="module"></script>',
-                "</body>",
-                "</html>",
-            ];
+        if (!insideNeo) {
+            neoConfig.workerBasePath = '../../node_modules/neo.mjs/src/worker/';
+        }
 
-            fs.writeFileSync(path.join(folder, 'index.html'), indexContent.join(os.EOL));
+        let configs = Object.entries(neoConfig).sort((a, b) => a[0].localeCompare(b[0]));
+        neoConfig = {};
 
-            let neoConfig = {
-                appPath    : `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
-                basePath   : '../../',
-                environment: 'development',
-                mainPath   : `${insideNeo ? './' : '../node_modules/neo.mjs/src/'}Main.mjs`
-            };
+        configs.forEach(([key, value]) => {
+            neoConfig[key] = value;
+        });
 
-            if (!(
-                mainThreadAddons.includes('DragDrop')   &&
-                mainThreadAddons.includes('Navigator')  &&
-                mainThreadAddons.includes('Stylesheet') &&
-                mainThreadAddons.length === 3)
-            ) {
-                neoConfig.mainThreadAddons = mainThreadAddons;
-            }
+        fs.writeFileSync(path.join(folder, 'neo-config.json'), JSON.stringify(neoConfig, null, 4));
 
-            if (!themes.includes('all')) { // default value
-                if (themes.includes('none')) {
-                    neoConfig.themes = [];
-                } else {
-                    neoConfig.themes = themes;
-                }
-            }
+        const viewportContent = [
+            "import BaseViewport from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
+            "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
+            "import TabContainer from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "",
+            "/**",
+            " * @class " + appName + ".view.Viewport",
+            " * @extends Neo.container.Viewport",
+            " */",
+            "class Viewport extends BaseViewport {",
+            "    static config = {",
+            "        /**",
+            "         * @member {String} className='" + appName + ".view.Viewport'",
+            "         * @protected",
+            "         */",
+            "        className: '" + appName + ".view.Viewport',",
+            "        /*",
+            "         * @member {Object} layout={ntype:'fit'}",
+            "         */",
+            "        layout: {ntype: 'fit'},",
+            "",
+            "        /**",
+            "         * @member {Object[]} items",
+            "         */",
+            "        items: [{",
+            "            module: TabContainer,",
+            "            height: 300,",
+            "            width : 500,",
+            "            style : {flex: 'none', margin: '20px'},",
+            "",
+            "            itemDefaults: {",
+            "                module: Component,",
+            "                cls   : ['neo-examples-tab-component'],",
+            "                style : {padding: '20px'},",
+            "            },",
+            "",
+            "            items: [{",
+            "                header: {",
+            "                    iconCls: 'fa fa-home',",
+            "                    text   : 'Tab 1'",
+            "                },",
+            "                vdom: {innerHTML: 'Welcome to your new Neo App.'}",
+            "            }, {",
+            "                header: {",
+            "                    iconCls: 'fa fa-play-circle',",
+            "                    text   : 'Tab 2'",
+            "                },",
+            "                vdom: {innerHTML: 'Have fun creating something awesome!'}",
+            "            }]",
+            "        }]",
+            "    }",
+            "}",
+            "",
+            "export default Neo.setupClass(Viewport);"
+        ].join(os.EOL);
 
-            if (useSharedWorkers !== 'no') {
-                neoConfig.useSharedWorkers = true;
-            }
+        fs.writeFileSync(path.join(folder + '/view/Viewport.mjs'), viewportContent);
 
-            if (useServiceWorker !== 'no') {
-                neoConfig.useServiceWorker = true;
-            }
+        let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
+            appJson;
 
-            if (!insideNeo) {
-                neoConfig.workerBasePath = '../../node_modules/neo.mjs/src/worker/';
-            }
-
-            let configs = Object.entries(neoConfig).sort((a, b) => a[0].localeCompare(b[0]));
-            neoConfig = {};
-
-            configs.forEach(([key, value]) => {
-                neoConfig[key] = value;
-            });
-
-            fs.writeFileSync(path.join(folder, 'neo-config.json'), JSON.stringify(neoConfig, null, 4));
-
-            const mainContainerContent = [
-                "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
-                "import TabContainer from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
-                "import Viewport     from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
-                "",
-                "/**",
-                " * @class " + appName + ".view.MainContainer",
-                " * @extends Neo.container.Viewport",
-                " */",
-                "class MainContainer extends Viewport {",
-                "    static config = {",
-                "        /**",
-                "         * @member {String} className='" + appName + ".view.MainContainer'",
-                "         * @protected",
-                "         */",
-                "        className: '" + appName + ".view.MainContainer',",
-                "        /**",
-                "         * @member {Object[]} items",
-                "         */",
-                "        items: [{",
-                "            module: TabContainer,",
-                "            height: 300,",
-                "            width : 500,",
-                "            style : {flex: 'none', margin: '20px'},",
-                "",
-                "            itemDefaults: {",
-                "                module: Component,",
-                "                cls   : ['neo-examples-tab-component'],",
-                "                style : {padding: '20px'},",
-                "            },",
-                "",
-                "            items: [{",
-                "                header: {",
-                "                    iconCls: 'fa fa-home',",
-                "                    text   : 'Tab 1'",
-                "                },",
-                "                vdom: {innerHTML: 'Welcome to your new Neo App.'}",
-                "            }, {",
-                "                header: {",
-                "                    iconCls: 'fa fa-play-circle',",
-                "                    text   : 'Tab 2'",
-                "                },",
-                "                vdom: {innerHTML: 'Have fun creating something awesome!'}",
-                "            }]",
-                "        }],",
-                "        /*",
-                "         * @member {Object} layout={ntype:'fit'}",
-                "         */",
-                "        layout: {ntype: 'fit'}",
-                "    }",
-                "}",
-                "",
-                "export default Neo.setupClass(MainContainer);"
-            ].join(os.EOL);
-
-            fs.writeFileSync(path.join(folder + '/view/MainContainer.mjs'), mainContainerContent);
-
-            let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
-                appJson;
+        if (fs.existsSync(appJsonPath)) {
+            appJson = requireJson(appJsonPath);
+        } else {
+            appJsonPath = path.resolve(__dirname, 'buildScripts/webpack/json/myApps.json');
 
             if (fs.existsSync(appJsonPath)) {
                 appJson = requireJson(appJsonPath);
             } else {
-                appJsonPath = path.resolve(__dirname, 'buildScripts/webpack/json/myApps.json');
-
-                if (fs.existsSync(appJsonPath)) {
-                    appJson = requireJson(appJsonPath);
-                } else {
-                    appJson = requireJson(path.resolve(__dirname, 'buildScripts/webpack/json/myApps.template.json'));
-                }
+                appJson = requireJson(path.resolve(__dirname, 'buildScripts/webpack/json/myApps.template.json'));
             }
+        }
 
-            if (!appJson.apps.includes(appName)) {
-                appJson.apps.push(appName);
-                appJson.apps.sort();
-            }
+        if (!appJson.apps.includes(appName)) {
+            appJson.apps.push(appName);
+            appJson.apps.sort();
+        }
 
-            fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
+        fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
-            if (mainThreadAddons.includes('HighlightJS')) {
-                const childProcess = spawnSync('node', [
-                    './buildScripts/copyFolder.mjs',
-                    '-s',
-                    path.resolve(neoPath, 'docs/resources'),
-                    '-t',
-                    path.resolve(folder, 'resources'),
-                ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
-                childProcess.status && process.exit(childProcess.status);
-            }
+        if (mainThreadAddons.includes('HighlightJS')) {
+            const childProcess = spawnSync('node', [
+                './buildScripts/copyFolder.mjs',
+                '-s',
+                path.resolve(neoPath, 'docs/resources'),
+                '-t',
+                path.resolve(folder, 'resources'),
+            ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+            childProcess.status && process.exit(childProcess.status);
+        }
 
-            const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-            console.log(`\nTotal time for ${programName}: ${processTime}s`);
+        const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+        console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-            process.exit();
-        });
+        process.exit();
     });
 }
