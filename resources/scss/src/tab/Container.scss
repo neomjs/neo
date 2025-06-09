@@ -1,24 +1,24 @@
 .neo-tab-container {
     &.neo-bottom {
-        > .neo-tab-content-container {
+        > .neo-tab-body-container {
             border-bottom: 0;
         }
     }
 
     &.neo-left {
-        > .neo-tab-content-container {
+        > .neo-tab-body-container {
             border-left: 0;
         }
     }
 
     &.neo-right {
-        > .neo-tab-content-container {
+        > .neo-tab-body-container {
             border-right: 0;
         }
     }
 
     &.neo-top {
-        > .neo-tab-content-container {
+        > .neo-tab-body-container {
             border-top: 0;
         }
     }
@@ -27,7 +27,7 @@
 
     }
 
-    .neo-tab-content-container {
+    .neo-tab-body-container {
         border  : var(--tab-container-content-border);
         overflow: hidden;
     }

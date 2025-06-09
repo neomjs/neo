@@ -1,4 +1,5 @@
 import BaseContainer from '../container/Base.mjs';
+import BodyContainer from './BodyContainer.mjs';
 import HeaderButton  from './header/Button.mjs';
 import HeaderToolbar from './header/Toolbar.mjs';
 import NeoArray      from '../util/Array.mjs';
@@ -44,14 +45,14 @@ class Container extends BaseContainer {
          */
         baseCls: ['neo-tab-container'],
         /**
-         * @member {String|null} cardContainerId=null
+         * Default configs for the tab.BodyContainer
+         * @member {Object|null} bodyContainer=null
          */
-        cardContainerId: null,
+        bodyContainer: null,
         /**
-         * Default configs for the tab.Strip
-         * @member {Object|null} contentContainer=null
+         * @member {String|null} bodyContainerId=null
          */
-        contentContainer: null,
+        bodyContainerId: null,
         /**
          * Default configs for the tab.HeaderToolbar
          * @member {Object|null} headerToolbar=null
@@ -125,7 +126,7 @@ class Container extends BaseContainer {
      */
      async afterSetActiveIndex(value, oldValue) {
         let me            = this,
-            cardContainer = Neo.getComponent(me.cardContainerId);
+            cardContainer = Neo.getComponent(me.bodyContainerId);
 
         if (Neo.isNumber(value) && value > -1 && !cardContainer) {
             me.on('constructed', () => {
@@ -236,12 +237,13 @@ class Container extends BaseContainer {
      */
     createItems() {
         let me            = this,
+            {activeIndex, removeInactiveCards, useActiveTabIndicator} = me,
             items         = me.items || [],
             tabButtons    = [],
             tabComponents = [];
 
         Object.assign(me, {
-            cardContainerId: me.cardContainerId || Neo.getId('container'),
+            bodyContainerId: me.bodyContainerId || Neo.getId('container'),
             tabBarId       : me.tabBarId        || Neo.getId('tab-header-toolbar'),
             tabStripId     : me.tabStripId      || Neo.getId('tab-strip')
         });
@@ -257,32 +259,31 @@ class Container extends BaseContainer {
         });
 
         me.items = [{
-            module               : HeaderToolbar,
-            dock                 : me.tabBarPosition,
-            flex                 : 'none',
-            id                   : me.tabBarId,
-            items                : tabButtons,
-            sortable             : me.sortable,
-            useActiveTabIndicator: me.useActiveTabIndicator,
+            module  : HeaderToolbar,
+            dock    : me.tabBarPosition,
+            flex    : 'none',
+            id      : me.tabBarId,
+            items   : tabButtons,
+            sortable: me.sortable,
+            useActiveTabIndicator,
             ...me.headerToolbar
         }, {
-            module               : Strip,
-            cls                  : ['neo-tab-strip', 'neo-dock-' + me.tabBarPosition],
-            flex                 : 'none',
-            id                   : me.tabStripId,
-            tabContainerId       : me.id,
-            useActiveTabIndicator: me.useActiveTabIndicator,
+            module        : Strip,
+            cls           : ['neo-dock-' + me.tabBarPosition],
+            flex          : 'none',
+            id            : me.tabStripId,
+            tabContainerId: me.id,
+            useActiveTabIndicator,
             ...me.tabStrip
         }, {
-            ntype                : 'container',
-            cls                  : ['neo-container', 'neo-tab-content-container'],
-            id                   : me.cardContainerId,
-            itemDefaults         : me.itemDefaults,
-            items                : tabComponents,
-            layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
-            useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.contentContainer
-        }];
+            module      : BodyContainer,
+            id          : me.bodyContainerId,
+            itemDefaults: me.itemDefaults,
+            items       : tabComponents,
+            layout      : {ntype: 'card', activeIndex, removeInactiveCards},
+            useActiveTabIndicator,
+            ...me.bodyContainer
+        }]
 
         me.itemDefaults = null;
 
@@ -310,7 +311,7 @@ class Container extends BaseContainer {
      * @returns {Neo.container.Base}
      */
     getCardContainer() {
-        return Neo.getComponent(this.cardContainerId)
+        return Neo.getComponent(this.bodyContainerId)
     }
 
     /**
