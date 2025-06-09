@@ -57,15 +57,22 @@ class Strip extends Component {
     getActiveTabRectThenMove(opts) {
         let me           = this,
             ids          = [me.id],
-            tabContainer = me.getTabContainer();
+            tabContainer = me.getTabContainer(),
+            oldTab;
 
         // We do not need a movement, in case there is no oldValue
         if (me.useActiveTabIndicator && me.vnode && Neo.isNumber(opts?.oldValue)) {
-            ids.push(tabContainer.getTabAtIndex(opts.value).id, tabContainer.getTabAtIndex(opts.oldValue).id);
+            oldTab = tabContainer.getTabAtIndex(opts.oldValue);
 
-            me.getDomRect(ids).then(data => {
-                me.moveActiveIndicator(data)
-            })
+            // The activeIndexChange event can get triggered when removing the currently active tab,
+            // In this case, we can no longer access the related DOMRect and need to opt out.
+            if (oldTab) {
+                ids.push(tabContainer.getTabAtIndex(opts.value).id, oldTab.id);
+
+                me.getDomRect(ids).then(data => {
+                    me.moveActiveIndicator(data)
+                })
+            }
         }
     }
 
