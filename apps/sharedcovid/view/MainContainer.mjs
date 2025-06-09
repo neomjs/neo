@@ -28,12 +28,13 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [HeaderContainer, {
-            module     : TabContainer,
-            activeIndex: null, // render no items initially
-            flex       : 1,
-            reference  : 'tab-container',
-            sortable   : true,
-            style      : {margin: '10px', marginTop: 0},
+            module              : TabContainer,
+            activateInsertedTabs: true,
+            activeIndex         : null, // render no items initially
+            flex                : 1,
+            reference           : 'tab-container',
+            sortable            : true,
+            style               : {margin: '10px', marginTop: 0},
 
             items: [{
                 module   : () => import('./TableContainer.mjs'),

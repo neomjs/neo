@@ -22,7 +22,7 @@
             margin-top: calc(var(--cmp-tab-strip-height) * (-1) - 1px);
         }
 
-        .neo-tab-content-container {
+        .neo-tab-body-container {
             background-color          : transparent;
             border                    : 1px solid #e6e6e6;
             border-bottom-left-radius : calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
