@@ -1,22 +1,18 @@
 #!/usr/bin/env node
 
-import chalk   from 'chalk';
-import envinfo from 'envinfo';
-import fs      from 'fs-extra';
-import os      from 'os';
-import path    from 'path';
+import fs   from 'fs-extra';
+import os   from 'os';
+import path from 'path';
 
 const
-    __dirname   = path.resolve(),
-    cwd         = process.cwd(),
+    root        = path.resolve(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
-    packageJson = requireJson(path.join(__dirname, 'package.json')),
+    packageJson = requireJson(path.join(root, 'package.json')),
     insideNeo   = packageJson.name.includes('neo.mjs'),
-    neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
     programName = `${packageJson.name} inject-package-version`;
 
 let startDate     = new Date(),
-    configPath    = path.join(__dirname, 'src/DefaultConfig.mjs'),
+    configPath    = path.join(root, 'src/DefaultConfig.mjs'),
     contentArray  = fs.readFileSync(configPath).toString().split(os.EOL),
     i             = 0,
     len           = contentArray.length,
@@ -34,7 +30,7 @@ for (; i < len; i++) {
 
 fs.writeFileSync(configPath, contentArray.join(os.EOL));
 
-serviceWorkerPath    = path.join(__dirname, 'ServiceWorker.mjs');
+serviceWorkerPath    = path.join(root, 'ServiceWorker.mjs');
 serviceContentArray  = fs.readFileSync(serviceWorkerPath, 'utf-8').toString().split(os.EOL);
 
 i   = 0;
@@ -53,7 +49,7 @@ fs.writeFileSync(serviceWorkerPath, serviceContentArray.join(os.EOL));
 
 // Update the version inside the Portal App Footer
 if (insideNeo) {
-    const footerPath = path.join(__dirname, 'apps/portal/view/home/FooterContainer.mjs');
+    const footerPath = path.join(root, 'apps/portal/view/home/FooterContainer.mjs');
 
     if (fs.existsSync(footerPath)) {
         const footerContentArray = fs.readFileSync(footerPath).toString().split(os.EOL);
