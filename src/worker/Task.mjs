@@ -20,13 +20,14 @@ class Task extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} workerId='task'
-         * @protected
-         */
-        workerId: 'task'
+        singleton: true
     }
+
+    /**
+     * @member {String} workerId='task'
+     * @protected
+     */
+    workerId = 'task'
 
     /**
      *

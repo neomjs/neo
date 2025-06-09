@@ -19,12 +19,7 @@ class Worker extends Base {
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
          */
-        mixins: [Observable, RemoteMethodAccess],
-        /**
-         * @member {String|null} workerId=null
-         * @protected
-         */
-        workerId: null
+        mixins: [Observable, RemoteMethodAccess]
     }
 
     /**
@@ -48,6 +43,11 @@ class Worker extends Base {
      * @member {Array|null} ports=null
      */
     ports = null
+    /**
+     * @member {String|null} workerId=null
+     * @protected
+     */
+    workerId = null
 
     /**
      * @param {Object} config

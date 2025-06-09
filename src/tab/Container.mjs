@@ -281,23 +281,7 @@ class Container extends BaseContainer {
             items                : tabComponents,
             layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.contentContainer,
-
-            insert(index, item, silent) {
-                if (item?.isTab) {
-                    me.insert(index, item, silent)
-                } else {
-                    super.insert(index, item, silent)
-                }
-            },
-
-            remove(component, destroyItem, silent) {
-                if (component?.isTab) {
-                    me.remove(component, destroyItem, silent)
-                } else {
-                    super.remove(component, destroyItem, silent)
-                }
-            }
+            ...me.contentContainer
         }];
 
         me.itemDefaults = null;
