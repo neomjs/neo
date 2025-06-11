@@ -372,7 +372,7 @@ class Store extends Base {
                 service  = Neo.ns(apiArray.join('.'));
 
             if (!service) {
-                console.log('Api is not defined', this)
+                console.error('Api is not defined', this)
             } else {
                 const response = await service[fn](params);
 
@@ -397,7 +397,7 @@ class Store extends Base {
 
                 return data?.json || null
             } catch(err) {
-                console.log('Error for Neo.Xhr.request', {id: me.id, error: err, url: opts.url});
+                console.error('Error for Neo.Xhr.request', {id: me.id, error: err, url: opts.url});
                 return null
             }
         }
