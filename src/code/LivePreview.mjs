@@ -250,8 +250,6 @@ class LivePreview extends Container {
                     } else {
                         path = path.slice(0, index) + '../../esm/' + path.slice(index + 3);
                     }
-
-                    console.log(path);
                 }
 
                 moduleNameAndPath.push({moduleName, path})
