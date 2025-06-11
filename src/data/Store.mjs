@@ -351,9 +351,10 @@ class Store extends Base {
      * @param {String} opts.responseType
      * @param {Object} opts.scope
      * @param {String} opts.url
+     * @returns {Promise<Object|Object[]>}
      * @protected
      */
-    load(opts={}) {
+    async load(opts={}) {
         let me     = this,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
@@ -379,7 +380,11 @@ class Store extends Base {
                     if (response.success) {
                         me.totalCount = response.totalCount;
                         me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
+
+                        return me.data
                     }
+
+                    return null
                 })
             }
         } else {
@@ -392,6 +397,8 @@ class Store extends Base {
                     me.data = Neo.ns(me.responseRoot, false, data.json) || data.json
                     // We do not need to fire a load event => onCollectionMutate()
                 }
+
+                return data || null
             })
         }
     }
