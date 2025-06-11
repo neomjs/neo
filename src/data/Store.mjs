@@ -374,32 +374,32 @@ class Store extends Base {
             if (!service) {
                 console.log('Api is not defined', this)
             } else {
-                service[fn](params).then(response => {
-                    response = Neo.ns(me.responseRoot, false, response);
+                const response = await service[fn](params);
 
-                    if (response.success) {
-                        me.totalCount = response.totalCount;
-                        me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
+                if (response.success) {
+                    me.totalCount = response.totalCount;
+                    me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
 
-                        return me.data
-                    }
+                    return me.data
+                }
 
-                    return null
-                })
+                return null
             }
         } else {
             opts.url ??= me.url;
 
-            Neo.Xhr.promiseJson(opts).catch(err => {
-                console.log('Error for Neo.Xhr.request', err, me.id)
-            }).then(data => {
+            try {
+                const data = await Neo.Xhr.promiseJson(opts);
+
                 if (data) {
-                    me.data = Neo.ns(me.responseRoot, false, data.json) || data.json
-                    // We do not need to fire a load event => onCollectionMutate()
+                    me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
                 }
 
-                return data || null
-            })
+                return data?.json || null
+            } catch(err) {
+                console.log('Error for Neo.Xhr.request', {id: me.id, error: err, url: opts.url});
+                return null
+            }
         }
     }
 
