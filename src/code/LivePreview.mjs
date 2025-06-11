@@ -246,10 +246,12 @@ class LivePreview extends Container {
                     index = path.lastIndexOf('../');
 
                     if (index === 0) {
-                        path = '../../../../src/' + path.slice(index + 3);
+                        path = '../../../esm/src/' + path.slice(index + 3);
                     } else {
-                        path = path.slice(0, index) + '../../../' + path.slice(index + 3);
+                        path = path.slice(0, index) + '../../esm/' + path.slice(index + 3);
                     }
+
+                    console.log(path);
                 }
 
                 moduleNameAndPath.push({moduleName, path})
