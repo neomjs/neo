@@ -131,8 +131,12 @@ class MainContainer extends Viewport {
 
         Neo.Xhr.promiseJson({
             url: '../../docs/output/all.json'
+        }).catch(err => {
+            console.log('Error for Neo.Xhr.request', err, me.store.id)
         }).then(data => {
-            me.store.items = data.json;
+            if (data) {
+                me.store.items = data.json;
+            }
         })
     }
 }

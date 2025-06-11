@@ -388,8 +388,10 @@ class Store extends Base {
             Neo.Xhr.promiseJson(opts).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id)
             }).then(data => {
-                me.data = Neo.ns(me.responseRoot, false, data.json) || data.json
-                // we do not need to fire a load event => onCollectionMutate()
+                if (data) {
+                    me.data = Neo.ns(me.responseRoot, false, data.json) || data.json
+                    // We do not need to fire a load event => onCollectionMutate()
+                }
             })
         }
     }
