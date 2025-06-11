@@ -351,9 +351,10 @@ class Store extends Base {
      * @param {String} opts.responseType
      * @param {Object} opts.scope
      * @param {String} opts.url
+     * @returns {Promise<Object|Object[]>}
      * @protected
      */
-    load(opts={}) {
+    async load(opts={}) {
         let me     = this,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
@@ -371,26 +372,34 @@ class Store extends Base {
                 service  = Neo.ns(apiArray.join('.'));
 
             if (!service) {
-                console.log('Api is not defined', this)
+                console.error('Api is not defined', this)
             } else {
-                service[fn](params).then(response => {
-                    response = Neo.ns(me.responseRoot, false, response);
+                const response = await service[fn](params);
 
-                    if (response.success) {
-                        me.totalCount = response.totalCount;
-                        me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
-                    }
-                })
+                if (response.success) {
+                    me.totalCount = response.totalCount;
+                    me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
+
+                    return me.data
+                }
+
+                return null
             }
         } else {
             opts.url ??= me.url;
 
-            Neo.Xhr.promiseJson(opts).catch(err => {
-                console.log('Error for Neo.Xhr.request', err, me.id)
-            }).then(data => {
-                me.data = Neo.ns(me.responseRoot, false, data.json) || data.json
-                // we do not need to fire a load event => onCollectionMutate()
-            })
+            try {
+                const data = await Neo.Xhr.promiseJson(opts);
+
+                if (data) {
+                    me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
+                }
+
+                return data?.json || null
+            } catch(err) {
+                console.error('Error for Neo.Xhr.request', {id: me.id, error: err, url: opts.url});
+                return null
+            }
         }
     }
 

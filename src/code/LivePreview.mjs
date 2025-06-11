@@ -223,9 +223,8 @@ class LivePreview extends Container {
         }
 
         let me                = this,
-            {config}          = Neo,
+            {environment}     = Neo.config,
             container         = me.getPreviewContainer(),
-            hasJsModules      = config.environment === 'development' || config.environment === 'dist/esm',
             source            = me.editorValue || me.value,
             className         = me.findLastClassName(source),
             cleanLines        = [],
@@ -242,13 +241,25 @@ class LivePreview extends Container {
                     path       = importMatch[2],
                     index;
 
-                if (!hasJsModules) {
+                // We want the non-minified version for code which can not get bundled.
+                if (environment === 'dist/development') {
                     index = path.lastIndexOf('../');
 
                     if (index === 0) {
-                        path = '../../../../src/' + path.slice(index + 3);
+                        path = '../../../../src/' + path.slice(index + 3)
                     } else {
-                        path = path.slice(0, index) + '../../../' + path.slice(index + 3);
+                        path = path.slice(0, index) + '../../../' + path.slice(index + 3)
+                    }
+                }
+
+                // We want the minified version of the code which can not get bundled.
+                else if (environment === 'dist/production') {
+                    index = path.lastIndexOf('../');
+
+                    if (index === 0) {
+                        path = '../../../esm/src/' + path.slice(index + 3)
+                    } else {
+                        path = path.slice(0, index) + '../../esm/' + path.slice(index + 3)
                     }
                 }
 
@@ -261,9 +272,9 @@ class LivePreview extends Container {
         });
 
         // Figure out the parts of the source we'll be running.
-        // o The promises/import() corresponding to the user's import statements
-        // o The vars holding the name of the imported module based on the module name for each import
-        // o The rest of the user-provided source
+        // * The promises/import() corresponding to the user's import statements
+        // * The vars holding the name of the imported module based on the module name for each import
+        // * The rest of the user-provided source
         // It'll end up looking like this:
         // Promise.all([
         //     import('../../../node_modules/neo.mjs/src/container/Base.mjs'),
