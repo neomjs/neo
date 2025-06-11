@@ -29,7 +29,17 @@ class ApiTreeList extends TreeList {
      */
     onConstructed() {
         super.onConstructed();
-        this.store.load()
+
+        this.store.load().then(data => {
+            if (!data) {
+                this.html = [
+                    '<div style="padding: 1em">',
+                        'To get the content please use:</br>',
+                        '<code>npm run generate-docs-json</code>',
+                    '</div>'
+                ].join('')
+            }
+        })
     }
 }
 
