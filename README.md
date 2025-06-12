@@ -115,9 +115,9 @@ import Component from '../../src/component/Base.mjs';
 
 class MyComponent extends Component {
     static config = {
-        className    : 'MyComponent',
-        myConfig_    : 'defaultValue',
-        domListeners : {
+        className   : 'MyComponent',
+        myConfig_   : 'defaultValue',
+        domListeners: {
             click: 'onClick'
         }
     }
