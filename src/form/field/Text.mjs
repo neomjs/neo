@@ -247,8 +247,8 @@ class Text extends Field {
          */
         validator: null,
         /**
-         * getVlue can be xssProtected and values are escaped
-         * @member {Boolean} xssProtected=false
+         * get value can be xssProtected and values are escaped
+         * @member {Boolean} xssProtected_=false
          */
         xssProtected_: false,
         /**
@@ -1073,6 +1073,10 @@ class Text extends Field {
                 id     : me.getInputEl().id
             })
         }
+
+        me.triggers?.forEach(trigger => {
+            trigger.destroy()
+        })
 
         super.destroy(...args)
     }
