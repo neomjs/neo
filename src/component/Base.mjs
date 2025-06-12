@@ -8,7 +8,6 @@ import NeoArray         from '../util/Array.mjs';
 import Observable       from '../core/Observable.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
-import Util             from '../core/Util.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 
@@ -517,8 +516,8 @@ class Component extends Base {
      * @returns {Object} all styles of this.el
      */
     addStyle(value) {
-        if (typeof value === 'string') {
-            value = Util.createStyleObject(value);
+        if (Neo.isString(value)) {
+            value =  Neo.createStyleObject(value)
         }
 
         // todo: add a check if something has changed
