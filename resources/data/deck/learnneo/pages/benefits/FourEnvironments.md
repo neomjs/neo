@@ -83,6 +83,10 @@ live `dist/esm` environment is dramatically simpler. You're working directly wit
 The same modular `dist/esm` code is efficiently loaded into both the main thread and the application worker(s), ensuring
 consistent environments and maximizing the benefits of multi-threading for responsive interfaces.
 
+**This multi-threaded architecture is a core differentiator of Neo.mjs, enabling powerful patterns discussed further in
+our blog post,
+"<a href="https://itnext.io/the-ui-revolution-how-json-blueprints-shared-workers-power-next-gen-ai-interfaces-60a2bf0fc1dc?source=friends_link&sk=1b0b306285e23bb12f31271dd87bebe5">How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces</a>".**
+
 In essence, `dist/esm` is about deploying your Neo.mjs application with the future of the web in mind: native, modular,
 performant, and transparent. It's ideal for environments where modern server capabilities can efficiently serve
 individual ES module files, giving you a deployment that's fast, flexible, and exceptionally easy to maintain and debug.
