@@ -31,7 +31,7 @@ class Features extends BaseContainer {
          */
         items: [{
             header: 'Multi-threading',
-            route : '#/learn/benefits.Multi-Threading',
+            route : '#/learn/benefits.OffTheMainThread',
 
             content: [
                 'Following the OMT (Off the Main-Thread) paradigm',
@@ -42,7 +42,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Multi-Window Apps',
-            route : '#/learn/benefits.Multi-Window',
+            route : '#/learn/benefits.MultiWindow',
 
             content: [
                 'No need for a Native Shell (e.g. Electron)',
