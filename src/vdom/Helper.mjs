@@ -36,41 +36,72 @@ class Helper extends Base {
     }
 
     /**
+     * The following top-level attributes will get converted into styles:
+     * height, maxHeight, maxWidth, minHeight, minWidth, width
+     *
+     * Some tags must not do the transformation, so we add them here.
+     * @member {Set} rawDimensionTags
+     */
+    rawDimensionTags = new Set([
+        'circle',
+        'clipPath',
+        'ellipse',
+        'filter',
+        'foreignObject',
+        'image',
+        'marker',
+        'mask',
+        'pattern',
+        'rect',
+        'svg',
+        'use'
+    ])
+    /**
      * @member {Boolean} returnChildNodeOuterHtml=false
      */
     returnChildNodeOuterHtml = false
     /**
      * Void attributes inside html tags
-     * @member {String[]} voidAttributes
+     * @member {Set} voidAttributes
      * @protected
      */
-    voidAttributes = [
+    voidAttributes = new Set([
         'checked',
-        'required'
-    ]
+        'defer',
+        'disabled',
+        'ismap',
+        'multiple',
+        'nohref',
+        'noresize',
+        'noshade',
+        'nowrap',
+        'open',
+        'readonly',
+        'required',
+        'reversed',
+        'selected'
+    ])
     /**
      * Void html tags
-     * @member {String[]} voidElements
+     * @member {Set} voidElements
      * @protected
      */
-    voidElements = [
+    voidElements = new Set([
         'area',
         'base',
         'br',
         'col',
-        'command',
         'embed',
         'hr',
         'img',
         'input',
-        'keygen',
         'link',
         'meta',
         'param',
         'source',
         'track',
         'wbr'
-    ]
+    ])
 
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.
@@ -117,7 +148,7 @@ class Helper extends Base {
      * @protected
      */
     createCloseTag(vnode) {
-        return this.voidElements.indexOf(vnode.nodeName) > -1 ? '' : '</' + vnode.nodeName + '>'
+        return this.voidElements.has(vnode.nodeName) ? '' : '</' + vnode.nodeName + '>'
     }
 
     /**
@@ -362,7 +393,7 @@ class Helper extends Base {
         }
 
         Object.entries(attributes).forEach(([key, value]) => {
-            if (this.voidAttributes.includes(key)) {
+            if (this.voidAttributes.get(key)) {
                 if (value === 'true') { // vnode attribute values get converted into strings
                     string += ` ${key}`
                 }
@@ -528,8 +559,12 @@ class Helper extends Base {
                     case 'minHeight':
                     case 'minWidth':
                     case 'width':
-                        hasUnit = value != parseInt(value);
-                        node.style[key] = value + (hasUnit ? '' : 'px');
+                        if (me.rawDimensionTags.get(node.nodeName)) {
+                            node.attributes[key] = value + ''
+                        } else {
+                            hasUnit = value != parseInt(value);
+                            node.style[key] = value + (hasUnit ? '' : 'px')
+                        }
                         break
                     case 'componentId':
                     case 'id':

@@ -177,7 +177,7 @@ class Base extends Component {
      */
     onMouseEnter() {
         this.isHovered = true;
-        this.hidden    = false;
+        this.hidden    = false
     }
 
     /**
@@ -185,7 +185,7 @@ class Base extends Component {
      */
     onMouseLeave() {
         this.isHovered = false;
-        this.hidden    = true;
+        this.hidden    = true
     }
 
     /**
