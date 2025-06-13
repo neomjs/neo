@@ -31,7 +31,7 @@ Neo.mjs picks up on this pattern, and even supports the full creation of apps di
 easily grab existing Component instances inside the console, inspect and change reactive configs on the fly, and watch
 the UI update instantly – even within a multi-window scope, or creating entirely new components directly.
 
-This is possible because Neo.mjs is ***100% based on web standards***. There's no hidden magic or proprietary syntax;
+This is possible because Neo.mjs is ***100% based on web standards***. There's ***no hidden magic*** or proprietary syntax;
 you're working directly with what the browser understands. This commitment to standards provides a level of transparency
 and future-proofing that's hard to match.
 
@@ -159,4 +159,42 @@ instant development flow.
 
 ## Environment Combinations
 
-todo
+Understanding Neo.mjs's four distinct environments is crucial, but it's equally important to grasp how they interact,
+especially when your application needs to load additional, code-based modules dynamically—for instance, code written by
+users within a Monaco editor that contains its own import statements. These scenarios present a unique challenge: how
+does the framework ensure consistent and correct module loading across different deployment contexts?
+
+Neo.mjs's architecture handles this by defining specific loading behaviors for dynamically acquired code, ensuring
+compatibility while maintaining integrity:
+
+### Loading Behavior for Dynamic Code Modules
+
+* ***Zero Builds Development Mode***: Dynamically loaded code-based modules will, naturally, load from the dev mode
+  structure itself, leveraging its instant, direct-from-source capabilities.
+* `dist/esm`: When running in the `dist/esm` environment, dynamically loaded code-based modules will be sourced from
+  the dist/esm structure. This means your application consistently utilizes native ES Modules for both its core and any
+  dynamically extended functionalities.
+* `dist/development`: Surprisingly, when running in the `dist/development` environment (the Webpack-bundled, unminified
+  version), dynamically loaded code-based modules will revert to loading from the dev mode structure. This is because
+  dist/development bundles your primary application code, but it doesn't pre-bundle every potential dynamic extension.
+  Relying on the dev mode for these ensures they are unminified and retain debugging fidelity.
+* `dist/production`: Similarly, if your core application is deployed in `dist/production` (the fully optimized Webpack
+  bundle), dynamically loaded code-based modules will be sourced from the `dist/esm` structure. This is the optimal fallback,
+  as `dist/esm` provides highly performant, modular, and standards-compliant loading for individual files, which is critical
+  for code that wasn't part of the initial production bundle.
+
+### Handling Overhead and Ensuring Integrity
+This mixed loading approach inevitably introduces a degree of overhead, as dynamically loaded modules might result in
+additional network requests depending on the environment. However, Neo.mjs has a robust mechanism in place to guarantee
+application integrity and prevent conflicts:
+
+### The Neo.setupClass() Guarantee
+Core to Neo.mjs's class system is the `Neo.setupClass()` method. This method serves as the central registry for all classes
+within your application. When a class is defined or dynamically loaded, `Neo.setupClass()` acts as a gatekeeper, ensuring
+that only the very first module with a given namespace "wins" and is registered.
+
+This mechanism effectively prevents any duplication of classes or components across your application, regardless of
+whether they are part of the core build or dynamically loaded. For instance, you could never have multiple instances of
+a critical utility like an `IDGenerator` registered under the same namespace, as this would inevitably lead to application
+breakage and unpredictable behavior. `Neo.setupClass()` acts as a safeguard, ensuring a single, authoritative definition
+for each class, maintaining the application's stability and consistency even in complex, mixed-environment scenarios.
