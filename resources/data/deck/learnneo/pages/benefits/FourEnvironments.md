@@ -131,9 +131,31 @@ In summary, `dist/production` is Neo.mjs's answer for maximum compatibility and 
 Webpack-powered build that respects the framework's multi-threaded nature to deliver highly optimized bundles for each
 part of your application.
 
-## dist/development
+## dist/development: The Classic "Dev Mode"
 
-todo
+The `dist/development` environment is Neo.mjs's response to what most other JavaScript frameworks—like Angular, React,
+Vue, or Solid—typically refer to as their "development mode." This environment generates a bundled but unminified version
+of your application, designed for a more traditional development workflow that includes a build step.
+
+You'll primarily find yourself needing `dist/development` in very specific scenarios:
+
+### Debugging Production-Specific Issues
+
+This mode acts as a vital bridge for debugging. If a bug surfaces in your dist/production build that didn't appear in your
+zero-builds development mode (a rare occurrence, but possible with aggressive optimizations), `dist/development` allows
+you to pinpoint the issue in a more readable, albeit bundled, format. Importantly, this mode generates source maps for
+both JavaScript and CSS, which are crucial for debugging bundled code by mapping it back to your original source files.
+
+### TypeScript Preference
+
+For developers who strongly prefer building their applications using TypeScript, this is the environment where you'll
+typically work. Keep in mind, however, that opting for TypeScript compilation in this mode means sacrificing the
+instantaneous, zero-builds development experience that Neo.mjs uniquely offers. It introduces a build step for every
+code change, a trade-off that many Neo.mjs developers find unnecessary given the framework's native ES module support.
+
+In essence, `dist/development` offers a familiar, bundled development experience for those who need it, serving as a
+debugging aid for production builds or an option for TypeScript users, but it comes at the cost of Neo.mjs's signature
+instant development flow.
 
 ## Environment Combinations
 
