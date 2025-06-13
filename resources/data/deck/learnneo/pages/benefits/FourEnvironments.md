@@ -1,7 +1,10 @@
 ## Introduction
 
-Neo.mjs was the very first frontend framework, which enabled full support for a zero builds instant development mode,
-while sticking to the latest ECMAScript features (e.g. the ES6 class system, modules and dynamic imports).
+Neo.mjs was the very first frontend framework, which enabled full support for a ***zero builds instant development mode***,
+while sticking to the latest ECMAScript features (e.g., the ES6 class system, modules and dynamic imports).
+This means that your ***primary development workflow*** with Neo.mjs involves creating and debugging your application
+***entirely within this instant, zero-builds environment***, with builds typically reserved only for ***deployment or
+specific testing scenarios***.
 
 Developers can save massive amounts of time when creating and debugging their apps, but at some point apps want to be
 deployed. To do this right, it is crucial to have an overview of the available environments.
