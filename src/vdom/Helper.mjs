@@ -36,6 +36,27 @@ class Helper extends Base {
     }
 
     /**
+     * The following top-level attributes will get converted into styles:
+     * height, maxHeight, maxWidth, minHeight, minWidth, width
+     *
+     * Some tags must not do the transformation, so we add them here.
+     * @member {Set} rawDimensionTags
+     */
+    rawDimensionTags = new Set([
+        'circle',
+        'clipPath',
+        'ellipse',
+        'filter',
+        'foreignObject',
+        'image',
+        'marker',
+        'mask',
+        'pattern',
+        'rect',
+        'svg',
+        'use'
+    ])
+    /**
      * @member {Boolean} returnChildNodeOuterHtml=false
      */
     returnChildNodeOuterHtml = false
@@ -528,8 +549,12 @@ class Helper extends Base {
                     case 'minHeight':
                     case 'minWidth':
                     case 'width':
-                        hasUnit = value != parseInt(value);
-                        node.style[key] = value + (hasUnit ? '' : 'px');
+                        if (me.rawDimensionTags.get(node.nodeName)) {
+                            node.attributes[key] = value + ''
+                        } else {
+                            hasUnit = value != parseInt(value);
+                            node.style[key] = value + (hasUnit ? '' : 'px')
+                        }
                         break
                     case 'componentId':
                     case 'id':
