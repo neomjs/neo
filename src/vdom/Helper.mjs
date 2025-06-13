@@ -62,13 +62,25 @@ class Helper extends Base {
     returnChildNodeOuterHtml = false
     /**
      * Void attributes inside html tags
-     * @member {String[]} voidAttributes
+     * @member {Set} voidAttributes
      * @protected
      */
-    voidAttributes = [
+    voidAttributes = new Set([
         'checked',
-        'required'
-    ]
+        'defer',
+        'disabled',
+        'ismap',
+        'multiple',
+        'nohref',
+        'noresize',
+        'noshade',
+        'nowrap',
+        'open',
+        'readonly',
+        'required',
+        'reversed',
+        'selected'
+    ])
     /**
      * Void html tags
      * @member {String[]} voidElements
@@ -383,7 +395,7 @@ class Helper extends Base {
         }
 
         Object.entries(attributes).forEach(([key, value]) => {
-            if (this.voidAttributes.includes(key)) {
+            if (this.voidAttributes.get(key)) {
                 if (value === 'true') { // vnode attribute values get converted into strings
                     string += ` ${key}`
                 }
