@@ -123,6 +123,7 @@ The Webpack build pipeline in `dist/production` applies aggressive optimizations
   reducing bundle size.
 
 ### Simplified Single-File Deployment
+
 For environments where serving multiple module files isn't optimal, or for legacy server setups, `dist/production`
 provides the convenience of deploying just a few highly optimized bundle files.
 
