@@ -188,11 +188,13 @@ compatibility while maintaining integrity:
   for code that wasn't part of the initial production bundle.
 
 ### Handling Overhead and Ensuring Integrity
+
 This mixed loading approach inevitably introduces a degree of overhead, as dynamically loaded modules might result in
 additional network requests depending on the environment. However, Neo.mjs has a robust mechanism in place to guarantee
 application integrity and prevent conflicts:
 
 ### The Neo.setupClass() Guarantee
+
 Core to Neo.mjs's class system is the `Neo.setupClass()` method. This method serves as the central registry for all classes
 within your application. When a class is defined or dynamically loaded, `Neo.setupClass()` acts as a gatekeeper, ensuring
 that only the very first module with a given namespace "wins" and is registered.
