@@ -122,11 +122,6 @@ The Webpack build pipeline in `dist/production` applies aggressive optimizations
 * ***Dead Code Elimination*** (Tree Shaking): Removing any code that is not actually used by the application, further
   reducing bundle size.
 
-### Broadest Browser Compatibility
-
-Bundling typically includes polyfills and transpilation for older ECMAScript features, ensuring your application runs
-smoothly even on browsers that don't fully support the latest web standards (which dist/esm relies upon).
-
 ### Simplified Single-File Deployment
 For environments where serving multiple module files isn't optimal, or for legacy server setups, `dist/production`
 provides the convenience of deploying just a few highly optimized bundle files.
