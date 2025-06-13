@@ -393,7 +393,7 @@ class Helper extends Base {
         }
 
         Object.entries(attributes).forEach(([key, value]) => {
-            if (this.voidAttributes.get(key)) {
+            if (this.voidAttributes.has(key)) {
                 if (value === 'true') { // vnode attribute values get converted into strings
                     string += ` ${key}`
                 }
@@ -559,7 +559,7 @@ class Helper extends Base {
                     case 'minHeight':
                     case 'minWidth':
                     case 'width':
-                        if (me.rawDimensionTags.get(node.nodeName)) {
+                        if (me.rawDimensionTags.has(node.nodeName)) {
                             node.attributes[key] = value + ''
                         } else {
                             hasUnit = value != parseInt(value);
