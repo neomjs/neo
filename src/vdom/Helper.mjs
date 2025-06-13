@@ -83,27 +83,25 @@ class Helper extends Base {
     ])
     /**
      * Void html tags
-     * @member {String[]} voidElements
+     * @member {Set} voidElements
      * @protected
      */
-    voidElements = [
+    voidElements = new Set([
         'area',
         'base',
         'br',
         'col',
-        'command',
         'embed',
         'hr',
         'img',
         'input',
-        'keygen',
         'link',
         'meta',
         'param',
         'source',
         'track',
         'wbr'
-    ]
+    ])
 
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.
@@ -150,7 +148,7 @@ class Helper extends Base {
      * @protected
      */
     createCloseTag(vnode) {
-        return this.voidElements.indexOf(vnode.nodeName) > -1 ? '' : '</' + vnode.nodeName + '>'
+        return this.voidElements.has(vnode.nodeName) ? '' : '</' + vnode.nodeName + '>'
     }
 
     /**
