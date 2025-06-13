@@ -40,9 +40,43 @@ browser's native capabilities. History has shown the advantages of embracing the
 evolution from plugin-based solutions to native browser features. Neo.mjs champions this direct, standards-aligned
 approach, providing a future-proof development experience.
 
-## dist/esm
+## dist/esm: Embracing Native ES Modules for Modern Deployment
 
-todo
+While Neo.mjs's zero-builds development mode offers unmatched speed and debugging clarity, deploying your application
+effectively for the world requires a different set of considerations. This is where the `dist/esm` environment steps in:
+it represents the optimal bridge between raw development efficiency and a robust, modern deployment.
+
+The `dist/esm` environment allows you to deploy your Neo.mjs application as a collection of native ES Modules.
+This means you're not shipping a single, monolithic JavaScript bundle, but rather smaller, individual module files.
+
+### Why is `dist/esm` a game-changer for deployment?
+
+* ***Identical Code Structure to Dev Mode***: A standout feature of `dist/esm` is that it preserves the exact same file
+  and folder structure as your development mode. This means the code you deploy is the same code you develop and debug.
+  There are no opaque bundling transformations, no complex source map deciphering; what you see in your IDE is precisely
+  what's running in the browser. This unparalleled fidelity dramatically simplifies debugging and vastly reduces
+  "it works on my machine" scenarios.
+* ***Native Modularity, Uncompromised***: `dist/esm` fully embraces native ES Module support in modern browsers. Each
+  class and utility remains its own module, directly loaded by the browser as needed. This aligns perfectly with the
+  "100% web standards" philosophy of Neo.mjs – no proprietary bundlers or complex configurations obscuring your code.
+* ***Leveraging HTTP/2 & HTTP/3***: With the capabilities of modern protocols like HTTP/2 and HTTP/3, serving numerous
+  small module files becomes incredibly efficient. Browsers can fetch these modules in parallel, often leading to faster
+  initial load times and significantly improved caching granularity compared to large, single bundles.
+* ***Optimized On-Demand Delivery for Dynamic UIs***: Just like your JSON blueprints allow for dynamic UI instantiation,
+  `dist/esm` facilitates dynamic code loading. When your application needs to render a new component or view based on a
+  JSON blueprint (whether manually crafted, backend-generated, or dynamically produced), the framework efficiently
+  fetches only the specific component modules required for that UI, without loading unnecessary code upfront.
+  This ensures optimized resource usage and faster rendering for dynamic content.
+* ***Unparalleled Debugging in Production***: Since the code remains in its modular, unbundled form (though optimized
+  compared to dev mode), debugging issues in a live `dist/esm` environment is dramatically simpler. You're working
+  directly with the actual files and module structure.
+* ***Seamless Shared Worker Integration***: The same modular `dist/esm` code is efficiently loaded into both the main
+  thread and the application worker(s), ensuring consistent environments and maximizing the benefits of multi-threading
+  for responsive interfaces.
+
+In essence, `dist/esm` is about deploying your Neo.mjs application with the future of the web in mind: native, modular,
+performant, and transparent. It's ideal for environments where modern server capabilities can efficiently serve
+individual ES module files, giving you a deployment that's fast, flexible, and exceptionally easy to maintain and debug.
 
 ## dist/production
 
