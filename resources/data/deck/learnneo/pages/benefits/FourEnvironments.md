@@ -165,11 +165,21 @@ instant development flow.
 
 Understanding Neo.mjs's four distinct environments is crucial, but it's equally important to grasp how they interact,
 especially when your application needs to load additional, code-based modules dynamically—for instance, code written by
-users within a Monaco editor that contains its own import statements. These scenarios present a unique challenge: how
-does the framework ensure consistent and correct module loading across different deployment contexts?
+users within a Monaco editor that contains its own `import` statements. These scenarios present a unique challenge:
+How does the framework ensure consistent and correct module loading across different deployment contexts?
 
-Neo.mjs's architecture handles this by defining specific loading behaviors for dynamically acquired code, ensuring
-compatibility while maintaining integrity:
+For most traditional frontend frameworks relying on bundlers, handling such truly dynamic, run-time imports of
+"anything" (i.e., modules that aren't known at build time) is either impossible or astronomically expensive.
+Bundlers are designed to pre-analyze your application's static import graph and create optimized bundles or code-split
+chunks. To accommodate every possible module combination that could be dynamically imported at runtime would require
+generating an unmanageable number of split chunks, leading to insane overhead for internal bundler maps and a bloated,
+inefficient deployment.
+
+This is precisely where Neo.mjs comes to the rescue with its intelligent environment combinations – a novel approach
+that, to our knowledge, no other framework has truly accomplished. By leveraging native browser module loading
+capabilities and a sophisticated class registry, Neo.mjs ensures that even dynamically loaded code, with its arbitrary
+import statements, integrates seamlessly and efficiently into your application, regardless of the core environment
+it's running in.
 
 ### Loading Behavior for Dynamic Code Modules
 
