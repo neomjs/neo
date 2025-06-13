@@ -1,4 +1,11 @@
 [{
+    "id"          : 23,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/liquid-glass.png",
+    "name"        : "Liquid Glass effect",
+    "sourceUrl"   : "https://github.com/neomjs/liquid-glass-demo/blob/main/apps/myapp/view/GlassComponent.mjs",
+    "url"         : "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/esm/apps/myapp/index.html"
+}, {
     "id"          : 22,
     "environments": ["Desktop", "Mobile"],
     "image"       : "devmode/bigData.png",
