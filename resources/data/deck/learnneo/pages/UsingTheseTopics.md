@@ -1,3 +1,4 @@
+
 ***Welcome to these Neo.mjs guides and learning resources!*** Neo.mjs is a groundbreaking JavaScript framework designed
 to help you build lightning-fast, highly scalable, and exceptionally maintainable web applications. This guide will help
 you understand the structure of these topics and get the most out of our comprehensive content.
@@ -13,6 +14,7 @@ This documentation is organized into the following main sections, each serving a
   before diving deeper into Neo.mjs.
 * ***Tutorials***: Offers hands-on tutorials where you'll code a few simple Neo.mjs applications.
 * ***Guides***: Contains in-depth discussions of various topics related to Neo.mjs concepts and features.
+
 
 ---
 
@@ -30,7 +32,7 @@ You'll find a few special features integrated into our content to enhance your l
 
 ### Disclosure widgets
 
-Topics sometimes contain "disclosure" widgets, which are just `&lt;details>` tags. These are used in cases 
+Topics sometimes contain "disclosure" widgets, which are just `<details>` tags. These are used in cases 
 where we want to present high-level points and reveal details when the disclosure is expanded.
 
 <details>
@@ -55,11 +57,16 @@ class MainView extends Container {
         className: 'Example.view.MainView',
         layout   : {ntype:'vbox', align:'start'},
         items    : [{
-            module : Button,
-            text   : 'Button'
+            module: Button,
+            text  : 'Button'
         }]
     }
 }
 
 MainView = Neo.setupClass(MainView);
 </pre>
+
+---
+
+Your journey into Neo.mjs starts here. The next page will guide you through its core benefits, or if you're ready to get
+hands-on, jump directly to [Getting Started](#/learn/gettingstarted.Setup) to build your first application.
