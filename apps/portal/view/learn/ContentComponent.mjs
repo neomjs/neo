@@ -5,8 +5,8 @@ import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 const
     labCloseRegex        = /<!--\s*\/lab\s*-->/g,
     labOpenRegex         = /<!--\s*lab\s*-->/g,
-    preJsRegex           = /<pre\s+data-javascript\s*>([\s\S]*?)<\/pre>/g,
-    preNeoRegex          = /<pre\s+data-neo\s*>([\s\S]*?)<\/pre>/g,
+    preLivePreviewRegex  = /<pre\s+data-code-livepreview\s*>([\s\S]*?)<\/pre>/g,
+    preJsRegex           = /<pre\s+data-code-readonly\s*>([\s\S]*?)<\/pre>/g,
     preNeoComponentRegex = /<pre\s+data-neo-component\s*>([\s\S]*?)<\/pre>/g;
 
 /**
@@ -185,7 +185,7 @@ class ContentComponent extends Component {
             // Replace <pre data-neo></pre> with <div id='neo-preview-1'/>
             // and create a map keyed by ID, whose value is the javascript
             // from the <pre>
-            modifiedHtml = me.extractNeoContent(modifiedHtml, neoDivs);
+            modifiedHtml = me.extractLivePreviewContent(modifiedHtml, neoDivs);
 
             html = marked.parse(modifiedHtml);
             html = me.insertLabDivs(html);
@@ -248,11 +248,11 @@ class ContentComponent extends Component {
      * @param {Object} map
      * @returns {String}
      */
-    extractNeoContent(htmlString, map) {
+    extractLivePreviewContent(htmlString, map) {
         // 1. Replace <pre data-neo> with <div id='neo-pre-live-preview-x'/>
         // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
         // Replace the content with tokens, and create a promise to update the corresponding content
-        return htmlString.replace(preNeoRegex, (match, preContent) => {
+        return htmlString.replace(preLivePreviewRegex, (match, preContent) => {
             const key = Neo.core.IdGenerator.getId('pre-live-preview');
             map[key] = preContent;
             return `<div id="${key}"></div>`

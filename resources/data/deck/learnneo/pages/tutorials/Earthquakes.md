@@ -187,7 +187,7 @@ later in the lab.
 Use a code editor and look at `workspace/apps/earthquakes/src/view/MainView.mjs`. You'll see the 
 following class definition: 
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
 import MainStateProvider from './MainStateProvider.mjs';
@@ -223,7 +223,7 @@ that buttons have various configs, such as `text`, which is the button text, `ic
 is typically a FontAwesome CSS class used to show an icon, and `handler`, which specifies
 which method to run when the button is clicked. We'll use `text`.
 
-<pre data-javascript>
+<pre data-code-readonly>
 
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
@@ -271,7 +271,7 @@ for the classes you define.
 
 Let's change the layout to arrange items vertically, with items aligned horizontally at the start.
 
-<pre data-javascript>
+<pre data-code-readonly>
 layout: {
     ntype: 'vbox',
     align: 'start'
@@ -422,7 +422,7 @@ its methods. Let's try that out by adding a method.
 
 Edit `apps/earthquakes/view/MainView.mjs` and add a method.
 
-<pre data-javascript>
+<pre data-code-readonly>
 
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
@@ -494,7 +494,7 @@ At this point we have a application with minimal content. You also know how to d
 
 Replace the button with a table by replacing `MainView.mjs` with the following content.
 
-<pre data-javascript>
+<pre data-code-readonly>
 
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Table             from '../../../node_modules/neo.mjs/src/table/Container.mjs';
@@ -582,7 +582,7 @@ Let's review the code and see what it's doing.
 A store is a collection of records. A record is described in the `model` and the model's `fields`.
 Here's the config for the store.
 
-<pre data-javascript>
+<pre data-code-readonly>
 {
     module: Store,
     model: {
@@ -602,7 +602,7 @@ Here's the config for the store.
 </pre>
 
 The feed looks like this.
-<pre data-javascript>
+<pre data-code-readonly>
 {
   "data": [{
       "timestamp": "2024-09-29T16:45:14.000Z",
@@ -632,7 +632,7 @@ of items.
 
 Tables have two key configs: `store` and `columns`. Here's the columns config:
 
-<pre data-javascript>
+<pre data-code-readonly>
 columns: [{
     dataField: "timestamp",
     text: "Date",
@@ -672,7 +672,7 @@ abstract, and it allows those classes to be tested in isolation.
 
 Create a new file named `apps/earthquakes/view/earthquakes/Table.mjs` with this content.
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Base from '../../../../node_modules/neo.mjs/src/table/Container.mjs';
 
 class Table extends Base {
@@ -735,7 +735,7 @@ You can confirm that an instance _was created_ by using the DevTools console and
 <details>
 <summary>Here's the code</summary>
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
 import EarthquakesTable  from './earthquakes/Table.mjs';
@@ -858,7 +858,7 @@ State Providers have two key configs: `data` and `stores`.
 
 Add a `stores` property to the state provider config that holds a copy of the store.
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
 import EarthquakesTable  from './earthquakes/Table.mjs';
@@ -972,7 +972,7 @@ value is assigned to the table's `store` property.
 
 Replace each table's `store` config with the binding.
 
-<pre data-javascript>
+<pre data-code-readonly>
 
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
@@ -1033,7 +1033,7 @@ Save, refresh, and look at network traffic: you'll see a _single_ call to the we
 
 You can further prove we're using a shared instance by running these statements in the console.
 
-<pre data-javascript>
+<pre data-code-readonly>
 a = Neo.findFirst({ntype:'earthquakes-main'}).stateProvider.stores.earthquakes;
 b = Neo.find({ntype:'earthquakes-table'})[0].store;
 c = Neo.find({ntype:'earthquakes-table'})[1].store;
@@ -1056,7 +1056,7 @@ Since the starter app already provides `MainStateProvider`, all we need to do is
 
 Here's the resulting code you should place into `MainStateProvider.mjs`.
 
-<pre data-javascript>
+<pre data-code-readonly>
 import StateProvider from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
 import Store         from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
@@ -1091,7 +1091,7 @@ export default Neo.setupClass(MainStateProvider);
 
 And you need to remove the `stores` config from the main view as follows.
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Container         from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
 import EarthquakesTable  from './earthquakes/Table.mjs';
@@ -1188,7 +1188,7 @@ directory, but instead, move the files to their individual locations.
 
 Edit `apps/earthquakes/neo-config.json` and add entries for the Google Maps add-on and the map key.
 
-<pre data-javascript>
+<pre data-code-readonly>
 {
     "appPath": "../../apps/earthquakes/app.mjs",
     "basePath": "../../",
@@ -1227,7 +1227,7 @@ lets us implement those via two properties:
 
 Edit `apps/earthquakes/view/MainStateProvider.mjs` and modify `fields` as follows.
 
-<pre data-javascript>
+<pre data-code-readonly>
 fields: [{
     name: "location",
 }, {
@@ -1278,7 +1278,7 @@ and show it implace of the top table. The map should be centered on Iceland. To 
 
 If we replace the top table with the map, `view/MainView.mjs` ends up with this content.
 
-<pre data-javascript>
+<pre data-code-readonly>
 
 import Container           from '../container/Base.mjs';
 import Controller          from './MainViewController.mjs';
@@ -1333,7 +1333,7 @@ export default Neo.setupClass(MainView);
  
 Add this config to the map.
 
-<pre data-javascript>
+<pre data-code-readonly>
 bind: {
     markerStore: 'stores.earthquakes'
 }
@@ -1365,7 +1365,7 @@ Table Views fire a select event, passing an object that contains a reference to 
 
 Add this table config:
 
-<pre data-javascript>
+<pre data-code-readonly>
 viewConfig: {
     listeners: {
         select: (data) => console.log(data.record)
@@ -1391,7 +1391,7 @@ After changing the value you should immediately see it reflected in the table ro
 
 Now add a `markerClick` listener to the Google Map.
 
-<pre data-javascript>
+<pre data-code-readonly>
 listeners: {
     markerClick: data => console.log(data.data.record)
 }

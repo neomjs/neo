@@ -1,4 +1,4 @@
-<pre data-javascript>
+<pre data-code-readonly>
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {
@@ -15,7 +15,7 @@ export default Mammal;        // Makes the class available elsewhere.
 
 
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {

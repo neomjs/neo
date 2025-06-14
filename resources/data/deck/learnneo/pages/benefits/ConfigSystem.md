@@ -10,7 +10,7 @@ and nested approach to their configuration, a gap that a class config system aim
 ## A bad example
 I recently found this Angular code snippet (new public API draft) on LinkedIn:
 
-<pre data-javascript>
+<pre data-code-readonly>
 // MyComponent with an attribute
 <MyComponent myAttribute="someValue" />
 

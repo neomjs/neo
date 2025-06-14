@@ -3,7 +3,7 @@ Neo has a feature that allows shared, bindable, data.
 A _state provider_ &mdash; `Neo.state.Provider` &mdash; instance holds properties that 
 can be bound to component properties.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from  '../container/Base.mjs';
 import Label     from  '../component/Label.mjs';
 import TextField from  '../form/field/Text.mjs';
@@ -55,7 +55,7 @@ usually coded as separate classes.)
 
 Below is another example.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from  '../container/Base.mjs';
 import Label     from  '../component/Label.mjs';
 import Panel     from  '../container/Panel.mjs';

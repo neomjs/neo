@@ -10,7 +10,7 @@ Other libraries or frameworks often call state providers "Stores".
 
 ## Inline State Providers
 ### Direct Bindings
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -58,7 +58,7 @@ We can easily bind 1:1 to specific data props using the following syntax:</br>
 `bind: {text: data => data.hello}`
 
 ### Bindings with multiple data props
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -128,7 +128,7 @@ data.component equals to the Button instance itself. Since the Button instance d
 `getStateProvider()` will return the closest stateProvider inside the parent chain.
 
 ### Nested Inline State Providers
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -203,7 +203,7 @@ We can even change data props which live inside different stateProviders at once
 Hint: Modify the example code (Button handler) to try it out right away!
 
 ### Nested Data Properties
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -262,7 +262,7 @@ Or we can directly pass the object containing the change(s):</br>
 Hint: This will not override left out nested data props (lastname in this case).
 
 ### Dialog connecting to a Container
-<pre data-neo>
+<pre data-code-livepreview>
 import Controller from '../controller/Component.mjs';
 import Dialog     from '../dialog/Base.mjs';
 import Panel      from '../container/Panel.mjs';
@@ -384,7 +384,7 @@ MainView = Neo.setupClass(MainView);
 When your stateProviders contain many data props or need custom logic, you can easily move them into their own classes.
 
 ### Direct Bindings
-<pre data-neo>
+<pre data-code-livepreview>
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
 import Label         from '../component/Label.mjs';

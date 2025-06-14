@@ -18,7 +18,7 @@ please return a specified `window` property." Neo.mjs
 lets you do that via `Neo.Main.getByPath()`. For
 example, the following statement logs the URL query string.
 
-<pre data-javascript>
+<pre data-code-readonly>
 const search = await Neo.Main.getByPath({path: 'window.location.search'});
 console.log(search); // Logs the search string
 </pre>
