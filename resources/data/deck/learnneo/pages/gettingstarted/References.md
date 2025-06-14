@@ -10,7 +10,7 @@ There are two common ways of doing that:
 Here's an example with one button. Clicking on the button will disable it. 
 As you can see, the handler uses the component reference pass in via `data.component`.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button     from '../button/Base.mjs';
 import Container  from '../container/Base.mjs';
 import Controller from '../controller/Component.mjs';
@@ -47,7 +47,7 @@ But what if we need to get a reference to another component in the view? In that
 you tag the component you need with a `reference` config, then use `getReference()` in
 the controller.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button     from '../button/Base.mjs';
 import Container  from '../container/Base.mjs';
 import Controller from '../controller/Component.mjs';
@@ -102,7 +102,7 @@ But app logic should never use `Neo.findFirst()` and very rarely use `up()` or `
 The following example gets a reference to the _Learn_ button at the top of this site, and changes its `text`.
 Again &mdash; that use of `Neo.findFirst()` might be handy when debugging, but it should never be used in app logic.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 

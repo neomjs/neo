@@ -25,7 +25,7 @@ primitive. Components introduce various properties, such as `width`, `height`, `
 
 Here's a container, with one child item.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -47,7 +47,7 @@ MainView = Neo.setupClass(MainView);
 Components also have an `html`. The `html` property is rarely used, and goes against the abstract philosophy of Neo.mjs, but
 sometimes it's handy as a placeholder as you stub out views.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -77,7 +77,7 @@ some commonly-used layouts.
 
 Fix is used when there's a single child. The component is sized to fit the container.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -98,7 +98,7 @@ MainView = Neo.setupClass(MainView);
 
 With `vbox` and `hbox`, items are arranged vertically or horizontally.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -125,7 +125,7 @@ MainView = Neo.setupClass(MainView);
 
 A card container has multiple child items, one of which is visible. 
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -177,7 +177,7 @@ MainView = Neo.setupClass(MainView);
 Neo.mjs is class-based, and thus, any component or container can be defined as its own class, and reused like any
 other component in the framework.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button from '../button/Base.mjs';
 // In practice this would be some handy reusable component
 class MySpecialButton extends Button {

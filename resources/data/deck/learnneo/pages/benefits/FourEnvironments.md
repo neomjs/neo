@@ -1,7 +1,10 @@
 ## Introduction
 
-Neo.mjs was the very first frontend framework, which enabled full support for a zero builds instant development mode,
-while sticking to the latest ECMAScript features (e.g. the ES6 class system, modules and dynamic imports).
+Neo.mjs was the very first frontend framework, which enabled full support for a ***zero builds instant development mode***,
+while sticking to the latest ECMAScript features (e.g., the ES6 class system, modules and dynamic imports).
+This means that your ***primary development workflow*** with Neo.mjs involves creating and debugging your application
+***entirely within this instant, zero-builds environment***, with builds typically reserved only for ***deployment or
+specific testing scenarios***.
 
 Developers can save massive amounts of time when creating and debugging their apps, but at some point apps want to be
 deployed. To do this right, it is crucial to have an overview of the available environments.
@@ -122,12 +125,8 @@ The Webpack build pipeline in `dist/production` applies aggressive optimizations
 * ***Dead Code Elimination*** (Tree Shaking): Removing any code that is not actually used by the application, further
   reducing bundle size.
 
-### Broadest Browser Compatibility
-
-Bundling typically includes polyfills and transpilation for older ECMAScript features, ensuring your application runs
-smoothly even on browsers that don't fully support the latest web standards (which dist/esm relies upon).
-
 ### Simplified Single-File Deployment
+
 For environments where serving multiple module files isn't optimal, or for legacy server setups, `dist/production`
 provides the convenience of deploying just a few highly optimized bundle files.
 
@@ -185,14 +184,14 @@ it's running in.
 
 * ***Zero Builds Development Mode***: Dynamically loaded code-based modules will, naturally, load from the dev mode
   structure itself, leveraging its instant, direct-from-source capabilities.
-* `dist/esm`: When running in the `dist/esm` environment, dynamically loaded code-based modules will be sourced from
+* ***dist/esm***: When running in the `dist/esm` environment, dynamically loaded code-based modules will be sourced from
   the dist/esm structure. This means your application consistently utilizes native ES Modules for both its core and any
   dynamically extended functionalities.
-* `dist/development`: Surprisingly, when running in the `dist/development` environment (the Webpack-bundled, unminified
+* ***dist/development***: Surprisingly, when running in the `dist/development` environment (the Webpack-bundled, unminified
   version), dynamically loaded code-based modules will revert to loading from the dev mode structure. This is because
   dist/development bundles your primary application code, but it doesn't pre-bundle every potential dynamic extension.
   Relying on the dev mode for these ensures they are unminified and retain debugging fidelity.
-* `dist/production`: Similarly, if your core application is deployed in `dist/production` (the fully optimized Webpack
+* ***dist/production***: Similarly, if your core application is deployed in `dist/production` (the fully optimized Webpack
   bundle), dynamically loaded code-based modules will be sourced from the `dist/esm` structure. This is the optimal fallback,
   as `dist/esm` provides highly performant, modular, and standards-compliant loading for individual files, which is critical
   for code that wasn't part of the initial production bundle.

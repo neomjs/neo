@@ -17,7 +17,7 @@ Here's an example of a new component class `Simple` with three config properties
 The `Simple` class introduces syntax. It doesn't have any content, so if you run the code you won't 
 see anything. We'll change that in the next example.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -57,7 +57,7 @@ a _lifecyle property_. A lifecycle property provides methods that are run as the
 updated or accessed. You're free to implment these methods to provide business rules, normalize
 values, or have side-effects, such as updating a view or firing an event.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -110,7 +110,7 @@ Typically, the _afterSet_ method is used to update a view or to fire an event.
 
 Look at this code: `afterSetBar()` fires an event, and the config in the `items[]` is listening to it.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 

@@ -5,7 +5,7 @@ to test.
 
 Consider this code. It's a panel with a header and a table. The table has a store. 
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button from '../button/Base.mjs';
 import Panel  from '../container/Panel.mjs';
 import Table  from '../table/Container.mjs';
@@ -48,7 +48,7 @@ If you wanted, any of the configs can be refactored into their own class. Here, 
 have been refactored into their own classes, and the main view is using them. The main view is simpler and
 more abstract, and each class can be reused, tested, and maintained independently. 
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button from '../button/Base.mjs';
 import Panel  from '../container/Panel.mjs';
 import Store  from '../data/Store.mjs';

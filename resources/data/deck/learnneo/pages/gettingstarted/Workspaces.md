@@ -40,7 +40,7 @@ as well as create new views classes, their controllers, and other application lo
 
 Now let's look at a source file. This is the contents of `MainView.mjs`.
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Container  from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller from './MainViewController.mjs';
 import ViewModel  from './MainViewModel.mjs';
@@ -78,7 +78,7 @@ you see how a component is configured let's put a button in the container.
 First, we need to import the class that defines buttons. Then we'll describe the new button in the
 `items:[].`
 
-<pre data-javascript>
+<pre data-code-readonly>
 import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Container  from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller from './MainViewController.mjs';
@@ -120,7 +120,7 @@ Here's a simplified running example. The `model` and `controller` are omitted, b
 actually used in the example, and the import root path is different to reflect the location of the 
 Neo.mjs library relative to the examples.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 

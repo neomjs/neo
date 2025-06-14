@@ -34,7 +34,7 @@ the class. If you add `console.log(this);`, the output is most likely not want y
 For the second Button we are defining a non-bound function, in which case `this` will point
 to the Component instance.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -72,7 +72,7 @@ A good example would be `tab.header.Toolbar`, where clicking on a Button will ch
 You can use string based listeners. In case the handler method lives within the parent tree (any level),
 we need to prefix these listeners with `up.`.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -107,7 +107,7 @@ to find the closest match.
 
 A good use case would be a form submit Button, where a click will trigger a communication to the backend.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container  from '../container/Base.mjs';
 import Controller from '../controller/Component.mjs';
 
@@ -146,7 +146,7 @@ MainView = Neo.setupClass(MainView);
 
 We can further delegate listeners to specific DOM nodes within our Component:
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -184,7 +184,7 @@ we will get logs when clicking on the blue div too.
 
 We can prevent listeners from bubbling upwards:
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -237,7 +237,7 @@ While we could just manually order the array inside the following example,
 there can be use cases where multiple subscribers get added at run-time and developers
 can not be sure about the adding order.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {

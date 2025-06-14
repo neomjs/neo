@@ -63,8 +63,21 @@
         color: #3E63DD;
     }
 
-    summary::-webkit-details-marker {
-        display: none;
+    .lab {
+        box-shadow   : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        font-size    : 1em;
+        margin-bottom: 1em;
+        padding      : 2px 16px;
+        transition   : 0.3s;
+
+        &:hover {
+            /* On mouse-over, add a deeper shadow */
+            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+        }
+    }
+
+    li::marker {
+        color: #3E63DD;
     }
 
     p {
@@ -78,17 +91,8 @@
         padding      : 12px;
     }
 
-    .lab {
-        box-shadow   : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-        font-size    : 1em;
-        margin-bottom: 1em;
-        padding      : 2px 16px;
-        transition   : 0.3s;
-
-        &:hover {
-            /* On mouse-over, add a deeper shadow */
-            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
-        }
+    summary::-webkit-details-marker {
+        display: none;
     }
 }
 

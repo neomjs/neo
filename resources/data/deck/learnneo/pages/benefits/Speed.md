@@ -20,7 +20,7 @@ Click on Preview, then use your mouse or trackpad to pan and zoom &mdash; the he
 If you move quickly, you might reach 20,000 or 30,000 delta updates per second. We've seen some examples that go over 40,000 updates per 
 second &mdash; but we've never actually hit the limit.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Container from '../container/Base.mjs';
 import Helix     from '../component/Helix.mjs';
 

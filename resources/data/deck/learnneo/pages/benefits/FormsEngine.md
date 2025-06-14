@@ -3,7 +3,7 @@
 You do not need to define a state tree on your own.
 It is sufficient to just use namespaces inside the `name` attribute of each field.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button        from '../button/Base.mjs';
 import FormContainer from '../form/Container.mjs';
 import TextField     from '../form/field/Text.mjs';
@@ -49,7 +49,7 @@ Getting the field values still works like before.
 Use case: In case you have a form split into multiple pages and only one of them is mounted to keep
 the DOM minimal, you can still get all field values.
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
 import FormContainer from '../form/Container.mjs';
@@ -104,7 +104,7 @@ Inside the example preview, clear the user lastname via hitting the x-button.
 Afterwards, click on the 3 buttons at the bottom and inspect the output inside the main window console carefully.
 
 The main form will log:
-<pre data-javascript>
+<pre data-code-readonly>
 {
     account: 'My Account',
     product: {brand: 'Tesla', name: 'Car'},
@@ -114,18 +114,18 @@ The main form will log:
 </pre>
 
 The user form will log:
-<pre data-javascript>
+<pre data-code-readonly>
 {user: {firstname: 'John', lastname: null}}
 'isValid: false'
 </pre>
 
 The product form will log:
-<pre data-javascript>
+<pre data-code-readonly>
 {product: {brand: 'Tesla', name: 'Car'}}
 'isValid: true'
 </pre>
 
-<pre data-neo>
+<pre data-code-livepreview>
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
 import FormContainer from '../form/Container.mjs';
@@ -244,7 +244,7 @@ since it does rely on defining child modules inside their own class files
 and dynamically importing them.
 
 In a nutshell:
-<pre data-javascript>
+<pre data-code-readonly>
 {
     module: TabContainer,
     items : [
