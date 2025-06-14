@@ -15,7 +15,7 @@ your team's velocity and simplifies debugging, letting you focus purely on innov
 
 Moreover, Neo.mjs shifts the paradigm: instead of just writing UI components that feel like HTML, you'll ***create entire
 applications***. Thanks to its revolutionary ***Unified Config System***, you define complex application structures—from
-components and layouts to data models—purely through declarative configurations, gaining unparalleled control and efficiency.
+components and layouts to data models—purely through declarative configurations, gaining exceptional control and efficiency.
 
 ### Unparalleled Performance & Scalability
 
