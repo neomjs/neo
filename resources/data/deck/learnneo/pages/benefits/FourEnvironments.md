@@ -81,7 +81,7 @@ rendering for dynamic content.
 Since the code remains in its modular, unbundled form (though optimized compared to dev mode), debugging issues in a
 live `dist/esm` environment is dramatically simpler. You're working directly with the actual files and module structure.
 
-### Seamless Shared Worker Integration
+### Seamless Web Worker Integration
 
 The same modular `dist/esm` code is efficiently loaded into both the main thread and the application worker(s), ensuring
 consistent environments and maximizing the benefits of multi-threading for responsive interfaces.
