@@ -3,8 +3,6 @@
 to help you build lightning-fast, highly scalable, and exceptionally maintainable web applications. This guide will help
 you understand the structure of these topics and get the most out of our comprehensive content.
 
----
-
 ## Documentation Sections
 
 This documentation is organized into the following main sections, each serving a distinct purpose:
@@ -15,16 +13,11 @@ This documentation is organized into the following main sections, each serving a
 * ***Tutorials***: Offers hands-on tutorials where you'll code a few simple Neo.mjs applications.
 * ***Guides***: Contains in-depth discussions of various topics related to Neo.mjs concepts and features.
 
-
----
-
 ## Navigating These Topics
 
 As you can see, the table of contents is on the left. Topic sections and sub-sections are shown on the right, and the
 content is here in the middle. There are "next" and "previous" buttons at the bottom of each page to make it easier to
 read several topics in sequence.
-
----
 
 ## Special Features
 
