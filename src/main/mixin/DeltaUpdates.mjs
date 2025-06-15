@@ -176,7 +176,7 @@ class DeltaUpdates extends Base {
         if (parentNode) {
             if (!NeoConfig.useStringBasedMounting) {
 
-                console.log(delta);
+                //console.log(delta);
                 let fragment = me.createDomTree(delta.vnode);
                 parentNode.append(fragment);
 

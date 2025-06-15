@@ -46,7 +46,8 @@ class Helper extends Base {
 
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.
-     * The top level vnode contains the outerHTML as a string.
+     * The top level vnode contains the outerHTML as a string,
+     * in case Neo.config.useStringBasedMounting === true
      * @param {Object} opts
      * @param {String} opts.appName
      * @param {Boolean} [opts.autoMount]
@@ -593,9 +594,15 @@ class Helper extends Base {
             parentId   = details.parentNode.id,
             me         = this,
             movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
-            outerHTML  = me.createStringFromVnode(vnode, movedNodes);
+            delta      = {action: 'insertNode', index, parentId};
 
-        deltas.default.push({action: 'insertNode', index, outerHTML, parentId});
+        if (NeoConfig.useStringBasedMounting) {
+            delta.outerHTML = me.createStringFromVnode(vnode, movedNodes)
+        } else {
+            delta.vnode = vnode
+        }
+
+        deltas.default.push(delta);
 
         // Insert the new node into the old tree, to simplify future OPs
         oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);
