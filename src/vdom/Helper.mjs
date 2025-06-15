@@ -6,6 +6,8 @@ import VNode     from './VNode.mjs';
 
 import {rawDimensionTags, voidAttributes, voidElements} from './domConstants.mjs';
 
+const NeoConfig = Neo.config;
+
 /**
  * The central class for the VDom worker to create vnodes & delta updates.
  * @class Neo.vdom.Helper
@@ -56,15 +58,18 @@ class Helper extends Base {
      */
     create(opts) {
         let me = this,
-            outerHTML, returnValue, vnode;
+            returnValue, vnode;
 
         vnode       = me.createVnode(opts.vdom);
-        outerHTML   = me.createStringFromVnode(vnode);
-        returnValue = {...opts, outerHTML, vnode};
+        returnValue = {...opts, vnode};
 
         delete returnValue.vdom;
 
-        return Neo.config.useVdomWorker ? returnValue : Promise.resolve(returnValue)
+        if (NeoConfig.useStringBasedMounting) {
+            returnValue.outerHTML = me.createStringFromVnode(vnode)
+        }
+
+        return NeoConfig.useVdomWorker ? returnValue : Promise.resolve(returnValue)
     }
 
     /**
@@ -309,7 +314,7 @@ class Helper extends Base {
         }
 
         if (vnode.id) {
-            if (Neo.config.useDomIds) {
+            if (NeoConfig.useDomIds) {
                 string += ` id="${vnode.id}"`
             } else {
                 string += ` data-neo-id="${vnode.id}"`
@@ -703,7 +708,7 @@ class Helper extends Base {
 
         let returnObj = {deltas, updateVdom: true, vnode};
 
-        return Neo.config.useVdomWorker ? returnObj : Promise.resolve(returnObj)
+        return NeoConfig.useVdomWorker ? returnObj : Promise.resolve(returnObj)
     }
 }
 
