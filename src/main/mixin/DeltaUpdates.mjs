@@ -16,6 +16,107 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * Recursively creates a DOM element (or DocumentFragment) from a VNode tree.
+     * This method is intended for initial mounting or for inserting new VNode subtrees
+     * directly into the DOM without string serialization/parsing.
+     * @param {Object} vnode The VNode object to convert to a real DOM element.
+     * @param {DocumentFragment|HTMLElement} [parentNode] The parent DOM node to append the created element to.
+     * If not provided, a DocumentFragment is used as a temporary root.
+     * @returns {Comment|DocumentFragment|HTMLElement|null} The created DOM node or DocumentFragment.
+     */
+    createDomTree(vnode, parentNode) {
+        let domNode;
+
+        // 1. Handle VNode types (nodeName, vtype: 'text', vtype: 'comment')
+        if (vnode.nodeName) {
+            if (vnode.ns) { // For SVG, ensure correct namespace
+                domNode = document.createElementNS(vnode.ns, vnode.nodeName)
+            } else {
+                domNode = document.createElement(vnode.nodeName)
+            }
+
+            // 2. Apply Attributes
+            Object.entries(vnode.attributes).forEach(([key, value]) => {
+                if (Neo.vdom.Helper.voidAttributes.has(key)) {
+                    domNode[key] = (value === 'true' || value === true)
+                } else if (key === 'value') {
+                    domNode.value = value
+                } else if (key === 'id') {
+                    domNode[Neo.config.useDomIds ? 'id' : 'data-neo-id'] = value;
+                } else if (value !== null && value !== undefined) {
+                    domNode.setAttribute(key, value)
+                }
+            });
+
+            // 3. Apply Classes
+            if (vnode.className.length > 0) {
+                domNode.classList.add(...vnode.className)
+            }
+
+            // 4. Apply Styles
+            if (Neo.isObject(vnode.style)) {
+                Object.entries(vnode.style).forEach(([key, value]) => {
+                    let important;
+
+                    if (Neo.isString(value) && value.includes('!important')) {
+                        value = value.replace('!important', '').trim();
+                        domNode.style.setProperty(Neo.decamel(key), value, 'important');
+                        important = 'important'
+                    }
+
+                    domNode.style.setProperty(Neo.decamel(key), value, important)
+                })
+            }
+
+            // 5. Handle text content
+            // This applies to elements that contain only plain text (e.g., <span>Hello</span>)
+            // If the VNode has childNodes, this block is skipped, and content is handled recursively.
+            if (vnode.textContent && vnode.childNodes.length < 1) {
+                domNode.textContent = vnode.textContent
+            }
+        } else if (vnode.vtype === 'comment') {
+            domNode = document.createComment(vnode.textContent || '')
+        } else if (vnode.vtype === 'text') {
+            domNode = document.createTextNode(vnode.textContent || '');
+
+            // Wrap in comment if it has an ID, for consistency with delta updates
+            if (vnode.id) {
+                const
+                    commentStart = document.createComment(` ${vnode.id} `),
+                    commentEnd   = document.createComment(' /neo-vtext '),
+                    fragment     = document.createDocumentFragment();
+
+                fragment.append(commentStart, domNode, commentEnd);
+                domNode = fragment
+            }
+        } else {
+            Neo.logError('Unhandled VNode type or missing nodeName:', vnode);
+            return null
+        }
+
+        // 6. Recursively process children
+        vnode.childNodes.forEach(childVnode => {
+            this.createDomTree(childVnode, domNode)
+        })
+
+        // 7. Append to parent or return as fragment
+        if (parentNode) {
+            parentNode.append(domNode);
+            return domNode
+        } else {
+            // If no parentNode was provided for the initial call,
+            // return a DocumentFragment containing the top-level element.
+            const fragment = document.createDocumentFragment();
+
+            if (domNode) { // Ensure domNode was actually created
+                fragment.appendChild(domNode)
+            }
+
+            return fragment
+        }
+    }
+
+    /**
      * @param {HTMLElement} node
      * @param {String} nodeName
      */
