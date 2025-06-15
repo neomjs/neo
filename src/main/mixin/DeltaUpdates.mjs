@@ -172,79 +172,55 @@ class DeltaUpdates extends Base {
      *   the method prioritizes `insertAdjacentHTML()` when `useStringBasedMounting` is true.
      *
      * @param {Object}         delta
-     * @param {Number}         delta.index       The index at which to insert the new node within its parent.
-     * @param {String}         [delta.outerHTML] The string representation of the new node (for string-based mounting).
-     * @param {String}         delta.parentId    The ID of the parent DOM node.
-     * @param {Neo.vdom.VNode} [delta.vnode]     The VNode representation of the new node (for direct DOM API mounting).
+     * @param {Boolean}        delta.hasLeadingTextChildren Flag to honor leading comments, which require special treatment.
+     * @param {Number}         delta.index                  The index at which to insert the new node within its parent.
+     * @param {String}         [delta.outerHTML]            The string representation of the new node (for string-based mounting).
+     * @param {String}         delta.parentId               The ID of the parent DOM node.
+     * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
-    du_insertNode(delta) {
+    du_insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
         let me         = this,
-            parentNode = me.getElementOrBody(delta.parentId);
+            parentNode = me.getElementOrBody(parentId),
+            countChildren;
 
         if (parentNode) {
-            let {index}       = delta,
-                countChildren = parentNode?.childNodes.length,
-                i             = 0,
-                realIndex     = index, // Start realIndex as the logical index from delta
-                hasComments   = false;
-
-            // This complex calculation (and its surrounding "hack" condition)
-            // is to determine the correct physical insertion point
-            // within parentNode.childNodes, regardless of the mounting strategy.
-            if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
-                for (; i < countChildren; i++) {
-                    if (parentNode.childNodes[i].nodeType === 8) { // If it's a comment node
-                        if (i < realIndex) {
-                            // If a comment appears before our target index,
-                            // it means the "real" element index needs to shift
-                            realIndex++
-                        }
-
-                        hasComments = true
-                    }
-                }
-            }
-            // Note: If the above condition (e.g., countChildren > 20) is not met,
-            // hasComments will remain false, and realIndex will remain equal to index.
-            // This is the performance "hack" where we assume no comments or accept the risk.
+            countChildren = parentNode.childNodes.length;
 
             // Direct DOM API mounting: create a DocumentFragment and insert it
             if (!NeoConfig.useStringBasedMounting) {
-                let fragment = me.createDomTree(delta.vnode);
+                let fragment = me.createDomTree(vnode);
 
-                // Use `realIndex` for insertion, as `delta.index` is a logical index.
-                if (realIndex < parentNode.childNodes.length) {
-                    parentNode.insertBefore(fragment, parentNode.childNodes[realIndex])
+                if (index < parentNode.childNodes.length) {
+                    parentNode.insertBefore(fragment, parentNode.childNodes[index])
                 } else {
                     parentNode.appendChild(fragment)
                 }
 
             // String-based mounting logic
             } else {
-                if (!hasComments) {
-                    // If no comments detected (or assumed due to hack), use insertAdjacentHTML
-                    countChildren = parentNode.children.length; // Uses .children for insertAdjacentHTML
+                // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
+                if (hasLeadingTextChildren) {
+                    let node = me.htmlStringToElement(outerHTML);
 
-                    if (index > 0 && index >= countChildren) { // Use `index` here, as realIndex === index in this path
-                        parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+                    if (index < parentNode.childNodes.length) {
+                        parentNode.insertBefore(node, parentNode.childNodes[index])
+                    } else {
+                        parentNode.appendChild(node)
+                    }
+                } else {
+                    // If no comments detected use insertAdjacentHTML
+                    countChildren = parentNode.children.length;
+
+                    if (index > 0 && index >= countChildren) {
+                        parentNode.insertAdjacentHTML('beforeend', outerHTML);
                         return
                     }
                     if (countChildren > 0 && countChildren > index) {
-                        parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML)
+                        parentNode.children[index].insertAdjacentHTML('beforebegin', outerHTML)
                     } else if (countChildren > 0) {
-                        parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML)
+                        parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', outerHTML)
                     } else {
-                        parentNode.insertAdjacentHTML('beforeend', delta.outerHTML)
-                    }
-                // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
-                } else {
-                    let node = me.htmlStringToElement(delta.outerHTML);
-
-                    // Use `realIndex` here.
-                    if (realIndex < parentNode.childNodes.length) {
-                        parentNode.insertBefore(node, parentNode.childNodes[realIndex])
-                    } else {
-                        parentNode.appendChild(node)
+                        parentNode.insertAdjacentHTML('beforeend', outerHTML)
                     }
                 }
             }
