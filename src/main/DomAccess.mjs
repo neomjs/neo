@@ -1169,7 +1169,8 @@ class DomAccess extends Base {
         this.du_insertNode({
             index    : data.parentIndex,
             outerHTML: data.html || data.outerHTML,
-            parentId : data.parentId
+            parentId : data.parentId,
+            vnode    : data.vnode
         })
     }
 }

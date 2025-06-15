@@ -711,7 +711,7 @@ class Helix extends Component {
                 autoMount  : true,
                 parentId   : group.id,
                 parentIndex: store.getCount(),
-                ...itemVdom
+                vdom       : itemVdom
             }).then(data => {
                 me.clonedItems.push(itemVdom);
 

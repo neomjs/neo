@@ -52,34 +52,19 @@ class Helper extends Base {
      * @param {Number} opts.parentIndex
      * @param {Object} opts.vdom
      * @param {Number} opts.windowId
-     * @returns {Neo.vdom.VNode|Promise<Neo.vdom.VNode>}
+     * @returns {Object|Promise<Object>}
      */
     create(opts) {
-        let me        = this,
-            autoMount = opts.autoMount === true,
-            {appName, parentId, parentIndex, windowId} = opts,
-            node;
+        let me = this,
+            outerHTML, returnValue, vnode;
 
-        delete opts.appName;
-        delete opts.autoMount;
-        delete opts.parentId;
-        delete opts.parentIndex;
-        delete opts.windowId;
+        vnode       = me.createVnode(opts.vdom);
+        outerHTML   = me.createStringFromVnode(vnode);
+        returnValue = {...opts, outerHTML, vnode};
 
-        node           = me.createVnode(opts);
-        node.outerHTML = me.createStringFromVnode(node);
+        delete returnValue.vdom;
 
-        if (autoMount) {
-            Object.assign(node, {
-                appName,
-                autoMount: true,
-                parentId,
-                parentIndex,
-                windowId
-            })
-        }
-
-        return Neo.config.useVdomWorker ? node : Promise.resolve(node)
+        return Neo.config.useVdomWorker ? returnValue : Promise.resolve(returnValue)
     }
 
     /**
