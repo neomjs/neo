@@ -30,7 +30,7 @@ class DeltaUpdates extends Base {
     createDomTree(vnode, parentNode) {
         let domNode;
 
-        // 1. Handle VNode types (nodeName, vtype: 'text', vtype: 'comment')
+        // Handle VNode types (nodeName, vtype: 'text', vtype: 'comment')
         if (vnode.nodeName) {
             if (vnode.ns) { // For SVG, ensure correct namespace
                 domNode = document.createElementNS(vnode.ns, vnode.nodeName)
@@ -38,25 +38,26 @@ class DeltaUpdates extends Base {
                 domNode = document.createElement(vnode.nodeName)
             }
 
-            // 2. Apply Attributes
+            // Apply the top-level 'id' property first (guaranteed to exist)
+            domNode[NeoConfig.useDomIds ? 'id' : 'data-neo-id'] = vnode.id;
+
+            // Apply Attributes
             Object.entries(vnode.attributes).forEach(([key, value]) => {
                 if (voidAttributes.has(key)) {
                     domNode[key] = (value === 'true' || value === true)
                 } else if (key === 'value') {
                     domNode.value = value
-                } else if (key === 'id') {
-                    domNode[NeoConfig.useDomIds ? 'id' : 'data-neo-id'] = value;
                 } else if (value !== null && value !== undefined) {
                     domNode.setAttribute(key, value)
                 }
             });
 
-            // 3. Apply Classes
+            // Apply Classes
             if (vnode.className.length > 0) {
                 domNode.classList.add(...vnode.className)
             }
 
-            // 4. Apply Styles
+            // Apply Styles
             if (Neo.isObject(vnode.style)) {
                 Object.entries(vnode.style).forEach(([key, value]) => {
                     let important;
@@ -71,11 +72,15 @@ class DeltaUpdates extends Base {
                 })
             }
 
-            // 5. Handle text content
+            // Handle innerHTML & textContent
             // This applies to elements that contain only plain text (e.g., <span>Hello</span>)
             // If the VNode has childNodes, this block is skipped, and content is handled recursively.
-            if (vnode.textContent && vnode.childNodes.length < 1) {
-                domNode.textContent = vnode.textContent
+            if (vnode.childNodes.length < 1) {
+                if (vnode.innerHTML) {
+                    domNode.innerHTML = vnode.innerHTML
+                } else if (vnode.textContent) {
+                    domNode.textContent = vnode.textContent
+                }
             }
         } else if (vnode.vtype === 'comment') {
             domNode = document.createComment(vnode.textContent || '')
@@ -97,12 +102,12 @@ class DeltaUpdates extends Base {
             return null
         }
 
-        // 6. Recursively process children
+        // Recursively process children
         vnode.childNodes.forEach(childVnode => {
             this.createDomTree(childVnode, domNode)
         })
 
-        // 7. Append to parent or return as fragment
+        // Append to parent or return as fragment
         if (parentNode) {
             parentNode.append(domNode);
             return domNode
@@ -169,49 +174,57 @@ class DeltaUpdates extends Base {
             parentNode = me.getElementOrBody(delta.parentId);
 
         if (parentNode) {
-            let {index}       = delta,
-                countChildren = parentNode?.childNodes.length,
-                i             = 0,
-                realIndex     = index,
-                hasComments   = false,
-                node;
+            if (!NeoConfig.useStringBasedMounting) {
 
-            // console.log('insertNode', index, countChildren, delta.parentId);
+                console.log(delta);
+                let fragment = me.createDomTree(delta.vnode);
+                parentNode.append(fragment);
 
-            if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
-                for (; i < countChildren; i++) {
-                    if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
-                        if (i < realIndex) {
-                            realIndex++
+            } else {
+                let {index}       = delta,
+                    countChildren = parentNode?.childNodes.length,
+                    i             = 0,
+                    realIndex     = index,
+                    hasComments   = false,
+                    node;
+
+                // console.log('insertNode', index, countChildren, delta.parentId);
+
+                if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
+                    for (; i < countChildren; i++) {
+                        if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
+                            if (i < realIndex) {
+                                realIndex++
+                            }
+
+                            hasComments = true
                         }
-
-                        hasComments = true
                     }
                 }
-            }
 
-            if (!hasComments) {
-                countChildren = parentNode.children.length;
+                if (!hasComments) {
+                    countChildren = parentNode.children.length;
 
-                if (index > 0 && index >= countChildren) {
-                    parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
-                    return
-                }
+                    if (index > 0 && index >= countChildren) {
+                        parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+                        return
+                    }
 
-                if (countChildren > 0 && countChildren > index) {
-                    parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML)
-                } else if (countChildren > 0) {
-                    parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML)
+                    if (countChildren > 0 && countChildren > index) {
+                        parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML)
+                    } else if (countChildren > 0) {
+                        parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML)
+                    } else {
+                        parentNode.insertAdjacentHTML('beforeend', delta.outerHTML)
+                    }
                 } else {
-                    parentNode.insertAdjacentHTML('beforeend', delta.outerHTML)
-                }
-            } else {
-                node = this.htmlStringToElement(delta.outerHTML);
+                    node = this.htmlStringToElement(delta.outerHTML);
 
-                if (countChildren > 0 && countChildren > realIndex) {
-                    parentNode.insertBefore(node, parentNode.childNodes[realIndex])
-                } else {
-                    parentNode.appendChild(node)
+                    if (countChildren > 0 && countChildren > realIndex) {
+                        parentNode.insertBefore(node, parentNode.childNodes[realIndex])
+                    } else {
+                        parentNode.appendChild(node)
+                    }
                 }
             }
         }
@@ -320,6 +333,10 @@ class DeltaUpdates extends Base {
     du_updateNode(delta) {
         let me   = this,
             node = me.getElementOrBody(delta.id);
+
+        if (!node) {
+            console.log('node not found', delta.id);
+        }
 
         if (node) {
             Object.entries(delta).forEach(([prop, value]) => {
