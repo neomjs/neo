@@ -8,7 +8,7 @@ class VNode {
      */
     constructor(config) {
         /**
-         * @member {Array} attributes=[]
+         * @member {Object} attributes={}
          */
 
         /**
@@ -46,7 +46,7 @@ class VNode {
          */
 
         Object.assign(this, {
-            attributes: config.attributes || [],
+            attributes: config.attributes || {},
             childNodes: config.childNodes || [],
             className : config.className  || [],
             id        : config.id         || Neo.getId('vnode'),
