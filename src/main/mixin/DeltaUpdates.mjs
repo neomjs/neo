@@ -228,29 +228,35 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * Moves an existing DOM node to a new position within its parent
+     * or to a new parent.
+     * This method directly manipulates the DOM using the pre-calculated physical index.
+     *
      * @param {Object} delta
-     * @param {String} delta.id
-     * @param {String} delta.index
-     * @param {String} delta.parentId
+     * @param {String} delta.id       The ID of the DOM node to move.
+     * @param {Number} delta.index    The physical index at which to insert the node
+     * @param {String} delta.parentId The ID of the target parent DOM node.
      */
     du_moveNode({id, index, parentId}) {
         let node       = this.getElement(id),
-            parentNode = this.getElement(parentId),
-            currentNode;
+            parentNode = this.getElement(parentId);
 
         if (node && parentNode) {
-            if (index >= parentNode.children.length) {
+            // If the target index is at or beyond the end of the parent's current childNodes, append the node.
+            if (index >= parentNode.childNodes.length) {
                 parentNode.appendChild(node)
             } else {
-                currentNode = parentNode.children[index];
+                // Get the reference node at the target physical index.
+                let referenceNode = parentNode.childNodes[index];
 
-                if (node && currentNode.id !== id) {
-                    // Check for a direct swap OP
-                    if (node === currentNode.nextElementSibling) {
-                        node.replaceWith(currentNode)
+                // Only proceed if the node is not already at its target position.
+                if (node !== referenceNode) {
+                    // Perform a direct swap operation if immediate element siblings.
+                    if (node.nodeType === 1 && node === referenceNode.nextElementSibling) {
+                        node.replaceWith(referenceNode)
                     }
 
-                    parentNode.insertBefore(node, currentNode)
+                    parentNode.insertBefore(node, referenceNode)
                 }
             }
         }

@@ -660,16 +660,15 @@ class Helper extends Base {
      * @param {Map}            config.vnodeMap
      */
     moveNode({deltas, insertDelta, oldVnodeMap, vnode, vnodeMap}) {
-        let details                = vnodeMap.get(vnode.id),
-            {index, parentNode}    = details,
-            parentId               = parentNode.id,
-            movedNode              = oldVnodeMap.get(vnode.id),
-            movedParentNode        = movedNode.parentNode,
-            {childNodes}           = movedParentNode,
-            delta                  = {action: 'moveNode', id: vnode.id, parentId},
-            hasLeadingTextChildren = false,
-            physicalIndex          = index, // Start with the logical index
-            i                      = 0,
+        let details             = vnodeMap.get(vnode.id),
+            {index, parentNode} = details,
+            parentId            = parentNode.id,
+            movedNode           = oldVnodeMap.get(vnode.id),
+            movedParentNode     = movedNode.parentNode,
+            {childNodes}        = movedParentNode,
+            delta               = {action: 'moveNode', id: vnode.id, parentId},
+            physicalIndex       = index, // Start with the logical index
+            i                   = 0,
             siblingVnode;
 
         // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
@@ -678,14 +677,13 @@ class Helper extends Base {
         for (; i < index; i++) {
             siblingVnode = parentNode.childNodes[i];
 
-            // If we encounter a text VNode before the insertion point, adjust physicalIndex
             if (siblingVnode?.vtype === 'text') {
-                physicalIndex += 2; // Each text VNode adds 2 comment nodes to the physical count
-                hasLeadingTextChildren = true
+                // Each text VNode adds 2 comment nodes to the physical count
+                physicalIndex += 2
             }
         }
 
-        Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex + insertDelta});
+        Object.assign(delta, {index: physicalIndex + insertDelta});
         deltas.default.push(delta);
 
         // This block implements the "corrupting the old tree" optimization for performance.
