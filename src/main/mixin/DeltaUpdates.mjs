@@ -22,9 +22,10 @@ class DeltaUpdates extends Base {
      * Recursively creates a DOM element (or DocumentFragment) from a VNode tree.
      * This method is intended for initial mounting or for inserting new VNode subtrees
      * directly into the DOM without string serialization/parsing.
-     * @param {Object} vnode The VNode object to convert to a real DOM element.
+     *
+     * @param {Object}                       vnode        The VNode object to convert to a real DOM element.
      * @param {DocumentFragment|HTMLElement} [parentNode] The parent DOM node to append the created element to.
-     * If not provided, a DocumentFragment is used as a temporary root.
+     *   If not provided, a DocumentFragment is used as a temporary root.
      * @returns {Comment|DocumentFragment|HTMLElement|null} The created DOM node or DocumentFragment.
      */
     createDomTree(vnode, parentNode) {
@@ -116,7 +117,7 @@ class DeltaUpdates extends Base {
             // return a DocumentFragment containing the top-level element.
             const fragment = document.createDocumentFragment();
 
-            if (domNode) { // Ensure domNode was actually created
+            if (domNode) {
                 fragment.appendChild(domNode)
             }
 
@@ -126,7 +127,7 @@ class DeltaUpdates extends Base {
 
     /**
      * @param {HTMLElement} node
-     * @param {String} nodeName
+     * @param {String}      nodeName
      */
     du_changeNodeName(node, nodeName) {
         let {attributes} = node,
@@ -207,8 +208,8 @@ class DeltaUpdates extends Base {
                     } else {
                         parentNode.appendChild(node)
                     }
+                // If no comments detected use insertAdjacentHTML
                 } else {
-                    // If no comments detected use insertAdjacentHTML
                     countChildren = parentNode.children.length;
 
                     if (index > 0 && index >= countChildren) {
