@@ -184,7 +184,14 @@ class Tree extends Base {
         let me                   = this,
             {folderCls, itemCls} = me,
             cls                  = [itemCls],
+            contentCls           = [itemCls + '-content'],
             itemVdom;
+
+        if (record.iconCls) {
+            contentCls.push(
+                Array.isArray(record.iconCls) ? record.iconCls : record.iconCls.split(' ')
+            )
+        }
 
         if (record.isLeaf) {
             cls.push(itemCls + (record.singleton ? '-leaf-singleton' : '-leaf'))
@@ -202,7 +209,7 @@ class Tree extends Base {
             id : me.getItemId(record.id),
             cn : [{
                 tag      : 'span',
-                cls      : [itemCls + '-content', record.iconCls],
+                cls      : contentCls,
                 innerHTML: record.name,
                 style    : {pointerEvents: 'none'}
             }],
