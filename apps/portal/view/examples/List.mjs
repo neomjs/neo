@@ -163,7 +163,7 @@ class List extends BaseList {
     createSourceLink(record) {
         let vdom = {
             tag   : 'a',
-            cls   : ['fab fa-github', 'neo-github-image'],
+            cls   : ['fab', 'fa-github', 'neo-github-image'],
             href  : record.sourceUrl,
             target: '_blank'
         };
