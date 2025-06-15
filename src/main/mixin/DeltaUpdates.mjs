@@ -156,60 +156,79 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * node.children contains the "real" nodes (tags)
-     * node.childNodes contains texts & comments as nodes too
-     * since every vtype:'text' is wrapped inside a comment block (as an id),
-     * we need the amount of nodes which are not comments to get the "realIndex".
-     * insertAdjacentHTML() is faster than creating a node (template), but only available
-     * for children and not for childNodes.
-     * In case there are no comments (=> vtype: 'text' nodes), we stick to it for performance reasons.
+     * Inserts a new node into the DOM tree based on delta updates.
+     * This method handles both string-based (outerHTML) and direct DOM API (vnode) mounting.
+     * It ensures the node is inserted at the correct index within the parent.
      *
-     * @param {Object} delta
-     * @param {String} delta.index
-     * @param {String} delta.outerHTML
-     * @param {String} delta.parentId
+     * Implementation Details & Considerations:
+     * - `parentNode.children` contains only element nodes (tags).
+     * - `parentNode.childNodes` contains all nodes, including text and comment nodes.
+     * - Since every `vtype:'text'` is wrapped inside a comment block (as an ID),
+     *   calculating a "realIndex" is necessary for string-based insertions to
+     *   correctly account for non-element nodes.
+     * - `insertAdjacentHTML()` is generally faster than creating a node via template,
+     *   but it's only available for manipulating children (elements), not `childNodes` (all nodes).
+     * - For performance, in cases where there are no comment nodes (i.e., no wrapped text nodes),
+     *   the method prioritizes `insertAdjacentHTML()` when `useStringBasedMounting` is true.
+     *
+     * @param {Object}         delta
+     * @param {Number}         delta.index       The index at which to insert the new node within its parent.
+     * @param {String}         [delta.outerHTML] The string representation of the new node (for string-based mounting).
+     * @param {String}         delta.parentId    The ID of the parent DOM node.
+     * @param {Neo.vdom.VNode} [delta.vnode]     The VNode representation of the new node (for direct DOM API mounting).
      */
     du_insertNode(delta) {
         let me         = this,
             parentNode = me.getElementOrBody(delta.parentId);
 
         if (parentNode) {
-            if (!NeoConfig.useStringBasedMounting) {
+            let {index}       = delta,
+                countChildren = parentNode?.childNodes.length,
+                i             = 0,
+                realIndex     = index, // Start realIndex as the logical index from delta
+                hasComments   = false;
 
-                //console.log(delta);
-                let fragment = me.createDomTree(delta.vnode);
-                parentNode.append(fragment);
-
-            } else {
-                let {index}       = delta,
-                    countChildren = parentNode?.childNodes.length,
-                    i             = 0,
-                    realIndex     = index,
-                    hasComments   = false,
-                    node;
-
-                // console.log('insertNode', index, countChildren, delta.parentId);
-
-                if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
-                    for (; i < countChildren; i++) {
-                        if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
-                            if (i < realIndex) {
-                                realIndex++
-                            }
-
-                            hasComments = true
+            // This complex calculation (and its surrounding "hack" condition)
+            // is to determine the correct physical insertion point
+            // within parentNode.childNodes, regardless of the mounting strategy.
+            if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
+                for (; i < countChildren; i++) {
+                    if (parentNode.childNodes[i].nodeType === 8) { // If it's a comment node
+                        if (i < realIndex) {
+                            // If a comment appears before our target index,
+                            // it means the "real" element index needs to shift
+                            realIndex++
                         }
+
+                        hasComments = true
                     }
                 }
+            }
+            // Note: If the above condition (e.g., countChildren > 20) is not met,
+            // hasComments will remain false, and realIndex will remain equal to index.
+            // This is the performance "hack" where we assume no comments or accept the risk.
 
+            // Direct DOM API mounting: create a DocumentFragment and insert it
+            if (!NeoConfig.useStringBasedMounting) {
+                let fragment = me.createDomTree(delta.vnode);
+
+                // Use `realIndex` for insertion, as `delta.index` is a logical index.
+                if (realIndex < parentNode.childNodes.length) {
+                    parentNode.insertBefore(fragment, parentNode.childNodes[realIndex])
+                } else {
+                    parentNode.appendChild(fragment)
+                }
+
+            // String-based mounting logic
+            } else {
                 if (!hasComments) {
-                    countChildren = parentNode.children.length;
+                    // If no comments detected (or assumed due to hack), use insertAdjacentHTML
+                    countChildren = parentNode.children.length; // Uses .children for insertAdjacentHTML
 
-                    if (index > 0 && index >= countChildren) {
+                    if (index > 0 && index >= countChildren) { // Use `index` here, as realIndex === index in this path
                         parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
                         return
                     }
-
                     if (countChildren > 0 && countChildren > index) {
                         parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML)
                     } else if (countChildren > 0) {
@@ -217,10 +236,12 @@ class DeltaUpdates extends Base {
                     } else {
                         parentNode.insertAdjacentHTML('beforeend', delta.outerHTML)
                     }
+                // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
                 } else {
-                    node = this.htmlStringToElement(delta.outerHTML);
+                    let node = me.htmlStringToElement(delta.outerHTML);
 
-                    if (countChildren > 0 && countChildren > realIndex) {
+                    // Use `realIndex` here.
+                    if (realIndex < parentNode.childNodes.length) {
                         parentNode.insertBefore(node, parentNode.childNodes[realIndex])
                     } else {
                         parentNode.appendChild(node)
