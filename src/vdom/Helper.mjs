@@ -588,13 +588,32 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      */
-    insertNode(config) {
-        let {deltas, index, oldVnodeMap, vnode, vnodeMap} = config,
-            details    = vnodeMap.get(vnode.id),
-            parentId   = details.parentNode.id,
-            me         = this,
-            movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
-            delta      = {action: 'insertNode', index, parentId};
+    insertNode({deltas, index, oldVnodeMap, vnode, vnodeMap}) {
+        let details                = vnodeMap.get(vnode.id),
+            {parentNode}           = details,
+            parentId               = parentNode.id,
+            me                     = this,
+            movedNodes             = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
+            delta                  = {action: 'insertNode', parentId},
+            hasLeadingTextChildren = false,
+            physicalIndex          = index, // Start with the logical index
+            i                      = 0,
+            siblingVnode;
+
+        // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
+        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
+        // up to the logical insertion point.
+        for (; i < index; i++) {
+            siblingVnode = parentNode.childNodes[i];
+
+            // If we encounter a text VNode before the insertion point, adjust physicalIndex
+            if (siblingVnode?.vtype === 'text') {
+                physicalIndex += 2; // Each text VNode adds 2 comment nodes to the physical count
+                hasLeadingTextChildren = true
+            }
+        }
+
+        Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
 
         if (NeoConfig.useStringBasedMounting) {
             delta.outerHTML = me.createStringFromVnode(vnode, movedNodes)
@@ -640,31 +659,55 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      */
-    moveNode(config) {
-        let {deltas, insertDelta, oldVnodeMap, vnode, vnodeMap} = config,
-            details             = vnodeMap.get(vnode.id),
-            {index, parentNode} = details,
-            parentId            = parentNode.id,
-            movedNode           = oldVnodeMap.get(vnode.id),
-            movedParentNode     = movedNode.parentNode,
-            {childNodes}        = movedParentNode;
+    moveNode({deltas, insertDelta, oldVnodeMap, vnode, vnodeMap}) {
+        let details                = vnodeMap.get(vnode.id),
+            {index, parentNode}    = details,
+            parentId               = parentNode.id,
+            movedNode              = oldVnodeMap.get(vnode.id),
+            movedParentNode        = movedNode.parentNode,
+            {childNodes}           = movedParentNode,
+            delta                  = {action: 'moveNode', id: vnode.id, parentId},
+            hasLeadingTextChildren = false,
+            physicalIndex          = index, // Start with the logical index
+            i                      = 0,
+            siblingVnode;
 
+        // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
+        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
+        // up to the logical insertion point.
+        for (; i < index; i++) {
+            siblingVnode = parentNode.childNodes[i];
+
+            // If we encounter a text VNode before the insertion point, adjust physicalIndex
+            if (siblingVnode?.vtype === 'text') {
+                physicalIndex += 2; // Each text VNode adds 2 comment nodes to the physical count
+                hasLeadingTextChildren = true
+            }
+        }
+
+        Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex + insertDelta});
+        deltas.default.push(delta);
+
+        // This block implements the "corrupting the old tree" optimization for performance.
+        // It pre-modifies the old VNode map to reflect the move, preventing redundant deltas later.
         if (parentId !== movedParentNode.id) {
             // We need to remove the node from the old parent childNodes
             // (which must not be the same as the node they got moved into)
             NeoArray.remove(childNodes, movedNode.vnode);
 
+            // Get the VNode representing the *new parent* from the 'old VNode map'.
+            // This is crucial: 'oldParentNode' here is the *old state's VNode for the new parent*.
             let oldParentNode = oldVnodeMap.get(parentId);
 
             if (oldParentNode) {
                 // If moved into a new parent node, update the reference inside the flat map
                 movedNode.parentNode = oldParentNode.vnode;
 
+                // Reassign 'childNodes' property to now point to the 'childNodes' array
+                // of this 'old state's VNode for the new parent'.
                 childNodes = movedNode.parentNode.childNodes
             }
         }
-
-        deltas.default.push({action: 'moveNode', id: vnode.id, index: index + insertDelta, parentId});
 
         // Add the node into the old vnode tree to simplify future OPs.
         // NeoArray.insert() will switch to move() in case the node already exists.
