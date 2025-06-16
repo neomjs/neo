@@ -31,8 +31,12 @@ class DeltaUpdates extends Base {
     createDomTree(vnode, parentNode) {
         let domNode;
 
+        // just a reference node, nothing to do
+        if (vnode.componentId) {
+            return null
+        }
         // Handle VNode types (nodeName, vtype: 'text', vtype: 'comment')
-        if (vnode.nodeName) {
+        else if (vnode.nodeName) {
             if (vnode.ns) { // For SVG, ensure correct namespace
                 domNode = document.createElementNS(vnode.ns, vnode.nodeName)
             } else {
@@ -99,7 +103,7 @@ class DeltaUpdates extends Base {
                 domNode = fragment
             }
         } else {
-            Neo.logError('Unhandled VNode type or missing nodeName:', vnode);
+            console.error('Unhandled VNode type or missing nodeName:', vnode);
             return null
         }
 
@@ -191,10 +195,13 @@ class DeltaUpdates extends Base {
             if (!NeoConfig.useStringBasedMounting) {
                 let fragment = me.createDomTree(vnode);
 
-                if (index < parentNode.childNodes.length) {
-                    parentNode.insertBefore(fragment, parentNode.childNodes[index])
-                } else {
-                    parentNode.appendChild(fragment)
+                // Can be null
+                if (fragment) {
+                    if (index < parentNode.childNodes.length) {
+                        parentNode.insertBefore(fragment, parentNode.childNodes[index])
+                    } else {
+                        parentNode.appendChild(fragment)
+                    }
                 }
 
             // String-based mounting logic
