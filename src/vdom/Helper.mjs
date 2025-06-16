@@ -322,7 +322,6 @@ class Helper extends Base {
 
                 switch (key) {
                     case 'tag':
-                    case 'nodeName':
                         node.nodeName = value;
                         break
                     case 'html':
