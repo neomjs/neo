@@ -463,8 +463,7 @@ class Helper extends Base {
      */
     async importStringifier() {
         if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.Stringifier) {
-            const module = await import('./util/StringFromVnode.mjs');
-            Stringifier = module.default
+            await import('./util/StringFromVnode.mjs')
         }
     }
 
