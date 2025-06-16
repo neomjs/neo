@@ -1,3 +1,5 @@
+import StringUtil from '../util/String.mjs';
+
 /**
  * Wrapper class for vnode objects.
  * For convenience, a VNode instance will always contain a childNodes array, which can be empty.
@@ -13,6 +15,7 @@ class VNode {
      */
     constructor(config) {
         /**
+         * Not set for vtype='text' nodes
          * @member {Object} attributes={}
          */
 
@@ -21,6 +24,7 @@ class VNode {
          */
 
         /**
+         * Not set for vtype='text' nodes
          * @member {Array} className=[]
          */
 
@@ -42,6 +46,7 @@ class VNode {
          */
 
         /**
+         * Not set for vtype='text' nodes
          * @member {Object} style
          */
 
@@ -54,26 +59,40 @@ class VNode {
          * @member {String} vtype='vnode'
          */
 
-        let me = this;
+        let me            = this,
+            {textContent} = config,
+            hasInnerHtml  = Object.hasOwn(config, 'innerHTML'),
+            isVText       = config.vtype === 'text',
+            content;
 
         Object.assign(me, {
-            attributes: config.attributes || {},
             childNodes: config.childNodes || [],
-            className : config.className  || [],
-            id        : config.id         || Neo.getId('vnode'),
-            nodeName  : config.nodeName,
-            style     : config.style,
+            id        : config.id         || Neo.getId(isVText ? 'vtext' : 'vnode'),
             vtype     : config.vtype      || 'vnode'
         });
 
-        // We only apply innerHTML, in case it has content
-        if (config.innerHTML) {
-            me.innerHTML = config.innerHTML
-        }
+        if (isVText) {
+            // XSS Security: a pure text node is not supposed to contain HTML
+            content = StringUtil.escapeHtml(hasInnerHtml ? config.innerHTML : textContent);
 
-        // We only apply textContent, in case it has content
-        else if (config.textContent) {
-            me.textContent = config.textContent
+            me.innerHTML = `<!-- ${me.id} -->${content}<!-- /neo-vtext -->`
+        } else {
+            Object.assign(me, {
+                attributes: config.attributes || {},
+                className : config.className  || [],
+                nodeName  : config.nodeName   || 'div',
+                style     : config.style
+            });
+
+            // Use vdom.html on your own risk, it is not fully XSS secure.
+            if (hasInnerHtml) {
+                me.innerHTML = config.innerHTML
+            }
+
+            // We only apply textContent, in case it has content
+            else if (Object.hasOwn(config, 'textContent')) {
+                me.textContent = Neo.config.useStringBasedMounting ? StringUtil.escapeHtml(textContent) : textContent
+            }
         }
 
         // We only apply the static attribute, in case the value is true

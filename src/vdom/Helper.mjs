@@ -285,9 +285,8 @@ class Helper extends Base {
     createVnode(opts) {
         // do not create vnode instances for component reference objects
         if (opts.componentId) {
-            if (!opts.id) {
-                opts.id = opts.componentId
-            }
+            opts.childNodes ??= []; // Consistency: Every VNode has a childNodes array
+            opts.id         ??= opts.componentId
 
             return opts
         }
@@ -296,32 +295,15 @@ class Helper extends Base {
             return null
         }
 
-        if (opts.vtype === 'text') {
-            if (!opts.id) {
-                opts.id = Neo.getId('vtext') // adding an id to be able to find vtype='text' items inside the vnode tree
-            }
-
-            const content = opts.html || opts.text || '';
-
-            opts.innerHTML = `<!-- ${opts.id} -->${content}<!-- /neo-vtext -->`;
-            delete opts.html;
-            delete opts.text;
-            return opts
-        }
-
         let me   = this,
-            node = {attributes: {}, childNodes: [], style: {}},
+            node = {attributes: {}, style: {}},
             potentialNode;
-
-        if (!opts.tag) {
-            opts.tag = 'div'
-        }
 
         Object.entries(opts).forEach(([key, value]) => {
             if (value !== undefined && value !== null && key !== 'flag' && key !== 'removeDom') {
                 let hasUnit, newValue, style;
 
-                switch (key) {
+                switch(key) {
                     case 'tag':
                         node.nodeName = value;
                         break
@@ -397,6 +379,16 @@ class Helper extends Base {
                 }
             }
         });
+
+        // Especially relevant for vtype='text'
+        if (Object.keys(node.attributes).length < 1) {
+            delete node.attributes
+        }
+
+        // Especially relevant for vtype='text'
+        if (Object.keys(node.style).length < 1) {
+            delete node.style
+        }
 
         return new VNode(node)
     }
