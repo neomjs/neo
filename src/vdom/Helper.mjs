@@ -623,8 +623,8 @@ class Helper extends Base {
      * @protected
      */
     removeNode({deltas, oldVnode, oldVnodeMap}) {
-        if (oldVnode.componentId && !oldVnode.id) {
-            oldVnode.id = oldVnode.componentId
+        if (oldVnode.componentId) {
+            oldVnode.id ??= oldVnode.componentId
         }
 
         let delta        = {action: 'removeNode', id: oldVnode.id},
