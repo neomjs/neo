@@ -113,6 +113,6 @@ const StringFromVnode = {
 };
 
 const ns = Neo.ns('Neo.vdom.util', true);
-ns['StringFromVnode'] = StringFromVnode;
+ns.StringFromVnode = StringFromVnode;
 
 export default StringFromVnode;
