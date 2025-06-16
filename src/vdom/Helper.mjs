@@ -138,6 +138,7 @@ class Helper extends Base {
                         break
                     case 'nodeName':
                     case 'innerHTML':
+                    case 'textContent':
                         if (value !== oldVnode[prop]) {
                             delta[prop] = value
                         }
