@@ -38,38 +38,6 @@ class Helper extends Base {
     }
 
     /**
-     * Creates a Neo.vdom.VNode tree for the given vdom template.
-     * The top level vnode contains the outerHTML as a string,
-     * in case Neo.config.useStringBasedMounting === true
-     * @param {Object} opts
-     * @param {String} opts.appName
-     * @param {Boolean} [opts.autoMount]
-     * @param {String} opts.parentId
-     * @param {Number} opts.parentIndex
-     * @param {Object} opts.vdom
-     * @param {Number} opts.windowId
-     * @returns {Promise<Object>}
-     */
-    async create(opts) {
-        let me = this,
-            returnValue, vnode;
-
-        await me.importDomApiVnodeCreator();
-        await me.importStringFromVnode();
-
-        vnode       = me.createVnode(opts.vdom);
-        returnValue = {...opts, vnode};
-
-        delete returnValue.vdom;
-
-        if (NeoConfig.useStringBasedMounting) {
-            returnValue.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode)
-        }
-
-        return returnValue
-    }
-
-    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -175,6 +143,38 @@ class Helper extends Base {
         }
 
         return deltas
+    }
+
+    /**
+     * Creates a Neo.vdom.VNode tree for the given vdom template.
+     * The top level vnode contains the outerHTML as a string,
+     * in case Neo.config.useStringBasedMounting === true
+     * @param {Object} opts
+     * @param {String} opts.appName
+     * @param {Boolean} [opts.autoMount]
+     * @param {String} opts.parentId
+     * @param {Number} opts.parentIndex
+     * @param {Object} opts.vdom
+     * @param {Number} opts.windowId
+     * @returns {Promise<Object>}
+     */
+    async create(opts) {
+        let me = this,
+            returnValue, vnode;
+
+        await me.importDomApiVnodeCreator();
+        await me.importStringFromVnode();
+
+        vnode       = me.createVnode(opts.vdom);
+        returnValue = {...opts, vnode};
+
+        delete returnValue.vdom;
+
+        if (NeoConfig.useStringBasedMounting) {
+            returnValue.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode)
+        }
+
+        return returnValue
     }
 
     /**
