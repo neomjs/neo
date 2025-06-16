@@ -295,17 +295,16 @@ class Helper extends Base {
             return null
         }
 
-        if (typeof opts === 'string') {
-
-        }
-
         if (opts.vtype === 'text') {
             if (!opts.id) {
                 opts.id = Neo.getId('vtext') // adding an id to be able to find vtype='text' items inside the vnode tree
             }
 
-            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtext -->`;
+            const content = opts.html || opts.text || '';
+
+            opts.innerHTML = `<!-- ${opts.id} -->${content}<!-- /neo-vtext -->`;
             delete opts.html;
+            delete opts.text;
             return opts
         }
 
@@ -318,9 +317,9 @@ class Helper extends Base {
         }
 
         Object.entries(opts).forEach(([key, value]) => {
-            let hasUnit, newValue, style;
+            if (value !== undefined && value !== null && key !== 'flag' && key !== 'removeDom') {
+                let hasUnit, newValue, style;
 
-            if (value !== undefined && value !== null && key !== 'flag') {
                 switch (key) {
                     case 'tag':
                     case 'nodeName':
@@ -329,6 +328,9 @@ class Helper extends Base {
                     case 'html':
                     case 'innerHTML':
                         node.innerHTML = value.toString(); // support for numbers
+                        break
+                    case 'text':
+                        node.textContent = value
                         break
                     case 'children':
                     case 'childNodes':
@@ -393,9 +395,7 @@ class Helper extends Base {
                         }
                         break
                     default:
-                        if (key !== 'removeDom') { // could be set to false
-                            node.attributes[key] = value + ''
-                        }
+                        node.attributes[key] = value + '';
                         break
                 }
             }
