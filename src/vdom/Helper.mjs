@@ -559,7 +559,7 @@ class Helper extends Base {
             i                   = 0,
             siblingVnode;
 
-        // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
+        // Calculate physicalIndex for DOM insertion.
         // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
         // up to the logical insertion point.
         for (; i < index; i++) {
