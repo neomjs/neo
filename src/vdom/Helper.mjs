@@ -332,8 +332,6 @@ class Helper extends Base {
                     case 'text':
                         node.textContent = value
                         break
-                    case 'children':
-                    case 'childNodes':
                     case 'cn':
                         if (!Array.isArray(value)) {
                             value = [value]
