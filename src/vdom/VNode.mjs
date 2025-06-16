@@ -62,8 +62,7 @@ class VNode {
         let me            = this,
             {textContent} = config,
             hasInnerHtml  = Object.hasOwn(config, 'innerHTML'),
-            isVText       = config.vtype === 'text',
-            content;
+            isVText       = config.vtype === 'text';
 
         Object.assign(me, {
             childNodes: config.childNodes || [],
@@ -73,9 +72,7 @@ class VNode {
 
         if (isVText) {
             // XSS Security: a pure text node is not supposed to contain HTML
-            content = StringUtil.escapeHtml(hasInnerHtml ? config.innerHTML : textContent);
-
-            me.innerHTML = `<!-- ${me.id} -->${content}<!-- /neo-vtext -->`
+            me.textContent = StringUtil.escapeHtml(hasInnerHtml ? config.innerHTML : textContent)
         } else {
             Object.assign(me, {
                 attributes: config.attributes || {},

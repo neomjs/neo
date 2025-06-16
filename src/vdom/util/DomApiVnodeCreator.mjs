@@ -10,12 +10,14 @@ const DomApiVnodeCreator = {
      */
     create(vnode, movedNodes) {
         /*
+         * A vnode itself can be null (removeDom: true) => opt out.
+         *
          * If the node has a componentId, there is nothing to do (scoped vdom updates), opt out.
          *
          * If this specific vnode is in the movedNodes map, it means its DOM element
          * will be moved by a separate delta. So, we should not include it in this fragment.
          */
-        if (vnode.componentId || (vnode.id && movedNodes?.get(vnode.id))) {
+        if (!vnode || vnode.componentId || (vnode.id && movedNodes?.get(vnode.id))) {
             return null // Prune this branch
         }
 

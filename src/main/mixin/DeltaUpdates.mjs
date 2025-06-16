@@ -31,8 +31,8 @@ class DeltaUpdates extends Base {
     createDomTree(vnode, parentNode) {
         let domNode;
 
-        // just a reference node, nothing to do
-        if (vnode.componentId) {
+        // No node or just a reference node, opt out
+        if (!vnode || vnode.componentId) {
             return null
         }
         // Handle VNode types (nodeName, vtype: 'text', vtype: 'comment')
@@ -92,16 +92,14 @@ class DeltaUpdates extends Base {
         } else if (vnode.vtype === 'text') {
             domNode = document.createTextNode(vnode.textContent || '');
 
-            // Wrap in comment if it has an ID, for consistency with delta updates
-            if (vnode.id) {
-                const
-                    commentStart = document.createComment(` ${vnode.id} `),
-                    commentEnd   = document.createComment(' /neo-vtext '),
-                    fragment     = document.createDocumentFragment();
+            // Wrap in comment for consistency with delta updates
+            const
+                commentStart = document.createComment(` ${vnode.id} `),
+                commentEnd   = document.createComment(' /neo-vtext '),
+                fragment     = document.createDocumentFragment();
 
-                fragment.append(commentStart, domNode, commentEnd);
-                domNode = fragment
-            }
+            fragment.append(commentStart, domNode, commentEnd);
+            domNode = fragment
         } else {
             console.error('Unhandled VNode type or missing nodeName:', vnode);
             return null

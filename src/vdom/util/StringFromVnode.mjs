@@ -80,7 +80,10 @@ const StringFromVnode = {
             case 'root':
                 return me.create(vnode.childNodes[0], movedNodes)
             case 'text':
-                return vnode.innerHTML === undefined ? '' : String(vnode.innerHTML)
+                // For text VNodes, `vnode.textContent` holds the HTML-escaped content.
+                // Add the comment wrappers here for string output, aligning with main.mixin.DeltaUpdates.createDomTree().
+                // `vnode.textContent || ''` ensures robustness in case vnode.textContent is not a string (e.g., a number or null).
+                return `<!-- ${vnode.id} -->${vnode.textContent}<!-- /neo-vtext -->`
             case 'vnode':
                 return me.createOpenTag(vnode) + me.createTagContent(vnode, movedNodes) + me.createCloseTag(vnode)
             default:
