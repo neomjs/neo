@@ -3,6 +3,7 @@ import NeoArray           from '../util/Array.mjs';
 import Style              from '../util/Style.mjs';
 import {rawDimensionTags} from './domConstants.mjs';
 import VNode              from './VNode.mjs';
+import DomApiVnodeCreator from "src/vdom/util/DomApiVnodeCreator.mjs";
 
 const NeoConfig = Neo.config;
 
@@ -51,11 +52,14 @@ class Helper extends Base {
      * @returns {Promise<Object>}
      */
     async create(opts) {
-        await this.importStringifier();
+        let me = this,
+            returnValue, vnode;
 
-        let me          = this,
-            vnode       = me.createVnode(opts.vdom),
-            returnValue = {...opts, vnode};
+        await me.importDomApiVnodeCreator();
+        await me.importStringFromVnode();
+
+        vnode       = me.createVnode(opts.vdom),
+        returnValue = {...opts, vnode};
 
         delete returnValue.vdom;
 
@@ -458,11 +462,21 @@ class Helper extends Base {
     }
 
     /**
-     * Convenience shortcut
+     * Only import for the DOM API based mount adapter.
      * @returns {Promise<void>}
      */
-    async importStringifier() {
-        if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.Stringifier) {
+    async importDomApiVnodeCreator() {
+        if (!NeoConfig.useStringBasedMounting && !Neo.vdom.util?.DomApiVnodeCreator) {
+            await import('./util/DomApiVnodeCreator.mjs')
+        }
+    }
+
+    /**
+     * Only import for the string based mount adapter.
+     * @returns {Promise<void>}
+     */
+    async importStringFromVnode() {
+        if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.StringFromVnode) {
             await import('./util/StringFromVnode.mjs')
         }
     }
@@ -633,10 +647,14 @@ class Helper extends Base {
      * @returns {Promise<Object>}
      */
     async update(opts) {
-        await this.importStringifier();
+        let me = this,
+            deltas, vnode;
 
-        let vnode  = this.createVnode(opts.vdom),
-            deltas = this.createDeltas({oldVnode: opts.vnode, vnode});
+        await me.importDomApiVnodeCreator();
+        await me.importStringFromVnode();
+
+        vnode  = me.createVnode(opts.vdom),
+        deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
 
         // Trees to remove could contain nodes which we want to re-use (move),
         // so we need to execute the removeNode OPs last.
