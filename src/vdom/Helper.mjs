@@ -57,7 +57,7 @@ class Helper extends Base {
         await me.importDomApiVnodeCreator();
         await me.importStringFromVnode();
 
-        vnode       = me.createVnode(opts.vdom),
+        vnode       = me.createVnode(opts.vdom);
         returnValue = {...opts, vnode};
 
         delete returnValue.vdom;
@@ -665,7 +665,7 @@ class Helper extends Base {
         await me.importDomApiVnodeCreator();
         await me.importStringFromVnode();
 
-        vnode  = me.createVnode(opts.vdom),
+        vnode  = me.createVnode(opts.vdom);
         deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
 
         // Trees to remove could contain nodes which we want to re-use (move),
