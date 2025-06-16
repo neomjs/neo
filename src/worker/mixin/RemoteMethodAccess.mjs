@@ -98,7 +98,19 @@ class RemoteMethodAccess extends Base {
 
         if (out instanceof Promise) {
             out
-                .catch(err => {me.reject(msg, err)})
+                /*
+                 * Intended logic:
+                 * If the code of a remote method fails, it would not show any errors inside the console,
+                 * so we want to manually log the error for debugging.
+                 * Rejecting the Promise gives us the chance to recover.
+                 *
+                 * Example:
+                 * Neo.vdom.Helper.update(opts).catch(err => {
+                 *     me.isVdomUpdating = false;
+                 *     reject?.()
+                 * }).then(data => {...})
+                 */
+                .catch(err => {console.error(err); me.reject(msg, err)})
                 .then(data => {me.resolve(msg, data)})
         } else {
             me.resolve(msg, out)
