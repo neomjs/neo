@@ -3,7 +3,6 @@ import NeoArray           from '../util/Array.mjs';
 import Style              from '../util/Style.mjs';
 import {rawDimensionTags} from './domConstants.mjs';
 import VNode              from './VNode.mjs';
-import DomApiVnodeCreator from "src/vdom/util/DomApiVnodeCreator.mjs";
 
 const NeoConfig = Neo.config;
 
@@ -77,6 +76,7 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      * @returns {Object} deltas
+     * @protected
      */
     compareAttributes(config) {
         let {deltas, oldVnode, vnode, vnodeMap} = config,
@@ -184,6 +184,7 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode|Object} config.vnode
      * @param {Map}                   [config.vnodeMap]
      * @returns {Object} deltas
+     * @protected
      */
     createDeltas(config) {
         let {deltas={default: [], remove: []}, oldVnode, vnode} = config,
@@ -278,6 +279,7 @@ class Helper extends Base {
     /**
      * @param {Object} opts
      * @returns {Object|Neo.vdom.VNode|null}
+     * @protected
      */
     createVnode(opts) {
         // do not create vnode instances for component reference objects
@@ -414,6 +416,7 @@ class Helper extends Base {
      *     {Number}         index
      *     {String}         parentId
      *     {Neo.vdom.VNode} vnode
+     * @protected
      */
     createVnodeMap(config) {
         let {vnode, parentNode=null, index=0, map=new Map()} = config,
@@ -441,6 +444,7 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      * @returns {Map}
+     * @protected
      */
     findMovedNodes(config) {
         let {movedNodes=new Map(), oldVnodeMap, vnode, vnodeMap} = config,
@@ -464,6 +468,7 @@ class Helper extends Base {
     /**
      * Only import for the DOM API based mount adapter.
      * @returns {Promise<void>}
+     * @protected
      */
     async importDomApiVnodeCreator() {
         if (!NeoConfig.useStringBasedMounting && !Neo.vdom.util?.DomApiVnodeCreator) {
@@ -474,6 +479,7 @@ class Helper extends Base {
     /**
      * Only import for the string based mount adapter.
      * @returns {Promise<void>}
+     * @protected
      */
     async importStringFromVnode() {
         if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.StringFromVnode) {
@@ -488,6 +494,7 @@ class Helper extends Base {
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
+     * @protected
      */
     insertNode({deltas, index, oldVnodeMap, vnode, vnodeMap}) {
         let details                = vnodeMap.get(vnode.id),
@@ -517,9 +524,11 @@ class Helper extends Base {
         Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
 
         if (NeoConfig.useStringBasedMounting) {
+            // For string-based mounting, pass a string excluding moved nodes
             delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
         } else {
-            delta.vnode = vnode
+            // For direct DOM API mounting, pass the pruned VNode tree
+            delta.vnode = Neo.vdom.util.DomApiVnodeCreator.create(vnode, movedNodes)
         }
 
         deltas.default.push(delta);
@@ -542,6 +551,7 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} vnode
      * @param {Map} oldVnodeMap
      * @returns {Boolean}
+     * @protected
      */
     isMovedNode(vnode, oldVnodeMap) {
         let oldVnode = oldVnodeMap.get(vnode.id);
@@ -559,6 +569,7 @@ class Helper extends Base {
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
+     * @protected
      */
     moveNode({deltas, insertDelta, oldVnodeMap, vnode, vnodeMap}) {
         let details             = vnodeMap.get(vnode.id),
@@ -620,6 +631,7 @@ class Helper extends Base {
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Map}            config.oldVnodeMap
+     * @protected
      */
     removeNode({deltas, oldVnode, oldVnodeMap}) {
         if (oldVnode.componentId && !oldVnode.id) {
