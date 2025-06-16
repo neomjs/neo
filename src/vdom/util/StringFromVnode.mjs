@@ -94,8 +94,10 @@ const StringFromVnode = {
      * @protected
      */
     createTagContent(vnode, movedNodes) {
-        if (vnode.innerHTML) {
-            return vnode.innerHTML
+        const hasContent = vnode.innerHTML || vnode.textContent;
+
+        if (hasContent) {
+            return hasContent
         }
 
         let string = '',
