@@ -410,13 +410,13 @@ class FileUpload extends Field {
                 escapedFileName = StringUtil.escapeHtml(file.name);
 
             if (me.types && !types[type]) {
-                body.cn[0].innerHTML = escapedFileName;
-                body.cn[1].innerHTML = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
+                body.cn[0].html = escapedFileName;
+                body.cn[1].html = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
                 me.error = me.pleaseUseTheseTypes?.replace('{allowedFileTypes}', Object.keys(types).join(' .'))
             }
             else if (file.size > me.maxSize) {
-                body.cn[0].innerHTML = escapedFileName;
-                body.cn[1].innerHTML = me.formatSize(file.size);
+                body.cn[0].html = escapedFileName;
+                body.cn[1].html = me.formatSize(file.size);
                 me.error = me.fileSizeMoreThan?.replace('{allowedFileSize}', String(me._maxSize).toUpperCase());
             }
             // If it passes the type and maxSize check, upload it
@@ -448,7 +448,7 @@ class FileUpload extends Field {
         await me.timeout(100);
         me.focus(me.vdom.cn[2].id);
 
-        me.vdom.cn[1].cn[0].innerHTML = StringUtil.escapeHtml(file.name);
+        me.vdom.cn[1].cn[0].html = StringUtil.escapeHtml(file.name);
         me.update();
         me.state = 'uploading';
 
@@ -492,7 +492,7 @@ class FileUpload extends Field {
 
         (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
 
-        vdom.cn[1].cn[1].innerHTML = `${this.uploading}... (${Math.round(progress * 100)}%)`;
+        vdom.cn[1].cn[1].html = `${this.uploading}... (${Math.round(progress * 100)}%)`;
 
         this.uploadSize = loaded;
         this.update();
@@ -673,7 +673,7 @@ class FileUpload extends Field {
 
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);
-            me.vdom.cn[1].cn[0].innerHTML = StringUtil.escapeHtml(document.fileName);
+            me.vdom.cn[1].cn[0].html = StringUtil.escapeHtml(document.fileName);
             me.state = me.documentStatusMap[document.status];
         }
     }
@@ -704,15 +704,15 @@ class FileUpload extends Field {
                 isChangeEventNeeded = true;
                 break;
             case 'upload-failed':
-                status.innerHTML = `${me.uploadFailed}${isNaN(me.progress) ? '' : `... (${Math.round(me.progress * 100)}%)`}`;
+                status.html = `${me.uploadFailed}${isNaN(me.progress) ? '' : `... (${Math.round(me.progress * 100)}%)`}`;
                 isChangeEventNeeded = true;
                 break;
             case 'processing':
-                status.innerHTML = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
+                status.html = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
                 vdom.inert = true;
                 break;
             case 'scan-failed':
-                status.innerHTML = `${me.malwareFoundInFile}. \u2022 ${me.fileSize}`;
+                status.html = `${me.malwareFoundInFile}. \u2022 ${me.fileSize}`;
                 me.error = me.pleaseCheck;
                 isChangeEventNeeded = true;
                 break;
@@ -721,19 +721,19 @@ class FileUpload extends Field {
                 anchor.href = me.createUrl(me.downloadUrl, {
                     [me.documentIdParameter] : me.documentId
                 });
-                status.innerHTML = me.fileSize;
+                status.html = me.fileSize;
                 isChangeEventNeeded = true;
                 break;
             case 'not-downloadable':
-                status.innerHTML = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
+                status.html = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
                 isChangeEventNeeded = true;
                 break;
             case 'deleted':
-                status.innerHTML = me.fileWasDeleted;
+                status.html = me.fileWasDeleted;
                 isChangeEventNeeded = true;
                 break;
             case 'error':
-                status.innerHTML = me.fileIsInAnErrorState;
+                status.html = me.fileIsInAnErrorState;
                 me.error = me.pleaseCheck;
                 isChangeEventNeeded = true;
             }

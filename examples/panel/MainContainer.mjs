@@ -113,7 +113,7 @@ class MainContainer extends Panel {
             items: [{
                 ntype: 'component',
                 vdom : {
-                    innerHTML: 'item 1'
+                    html: 'item 1'
                 }
             }]
         }, {
@@ -157,7 +157,7 @@ class MainContainer extends Panel {
             items: [{
                 ntype: 'component',
                 vdom : {
-                    innerHTML: 'item 2'
+                    html: 'item 2'
                 }
             }]
         }]

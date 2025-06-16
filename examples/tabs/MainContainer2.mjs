@@ -37,7 +37,7 @@ class MainContainer2 extends Container {
                     text   : 'Tab 1'
                 },
                 vdom: {
-                    innerHTML: 'Tab Content 1'
+                    html: 'Tab Content 1'
                 }
             }, {
                 header: {
@@ -45,7 +45,7 @@ class MainContainer2 extends Container {
                     text   : 'Tab 2'
                 },
                 vdom: {
-                    innerHTML: 'Tab Content 2'
+                    html: 'Tab Content 2'
                 }
             }, {
                 ntype : 'container',
@@ -133,7 +133,7 @@ class MainContainer2 extends Container {
                             text   : 'Dynamic Tab ' + this.tabCount
                         },
                         vdom: {
-                            innerHTML: 'Dynamic Tab ' + this.tabCount
+                            html: 'Dynamic Tab ' + this.tabCount
                         }
                     });
                 }

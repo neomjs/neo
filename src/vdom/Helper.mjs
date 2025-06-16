@@ -326,7 +326,6 @@ class Helper extends Base {
                         node.nodeName = value;
                         break
                     case 'html':
-                    case 'innerHTML':
                         node.innerHTML = value.toString(); // support for numbers
                         break
                     case 'text':

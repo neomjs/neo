@@ -283,7 +283,7 @@ class Timer extends Component {
         let me    = this,
             timer = me.vdom.cn[0].cn[1].cn[0].cn[1].cn[0];
 
-        timer.innerHTML = value;
+        timer.html = value;
         me.update()
     }
 

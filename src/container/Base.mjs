@@ -389,7 +389,7 @@ class Container extends Component {
             case 'String': {
                 item = Neo.create({
                     module: Component,
-                    vdom  : {innerHTML: item},
+                    vdom  : {html: item},
                     ...config
                 });
 

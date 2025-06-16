@@ -594,7 +594,7 @@ class Text extends Field {
             value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
         }
 
-        me.getLabelEl().innerHTML = value;
+        me.getLabelEl().html = value;
 
         if (!me.hideLabel) {
             if (me.labelPosition === 'inline') {

@@ -15,8 +15,8 @@ class CardAdministrationDenied extends Container {
         baseCls: ['route_card_simple_page','neo-container'],
 
         vdom: {
-            tag: 'h1',
-            innerHTML: 'Access Denied.'
+            tag : 'h1',
+            html: 'Access Denied.'
         }
     }
 }

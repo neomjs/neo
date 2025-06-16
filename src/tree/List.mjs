@@ -208,10 +208,10 @@ class Tree extends Base {
             cls,
             id : me.getItemId(record.id),
             cn : [{
-                tag      : 'span',
-                cls      : contentCls,
-                innerHTML: record.name,
-                style    : {pointerEvents: 'none'}
+                tag  : 'span',
+                cls  : contentCls,
+                html : record.name,
+                style: {pointerEvents: 'none'}
             }],
             style: {
                 display : record.hidden ? 'none' : 'flex',
@@ -336,7 +336,7 @@ class Tree extends Base {
                 directMatch = false;
                 node        = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                node.cn[0].innerHTML = item[property].replace(valueRegEx, match => {
+                node.cn[0].html = item[property].replace(valueRegEx, match => {
                     directMatch = true;
                     return `<span class="neo-highlight-search">${match}</span>`
                 });

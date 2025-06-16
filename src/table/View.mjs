@@ -231,7 +231,7 @@ class View extends Component {
         }
 
         if (Neo.typeOf(rendererOutput) === 'Object') {
-            cellConfig.innerHTML = rendererOutput.html  || ''
+            cellConfig.html = rendererOutput.html  || ''
         } else {
             cellConfig.cn = rendererOutput
         }

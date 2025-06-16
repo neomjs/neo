@@ -64,12 +64,12 @@ class HeaderComponent extends Component {
             }
         }
 
-        me.vdom.cn[0].innerHTML = singleton ? (className + ' → Singleton') : className;
+        me.vdom.cn[0].html = singleton ? (className + ' → Singleton') : className;
 
         if (record.description) {
             me.vdom.cn.push({
-                cls      : ['neo-docs-header-description'],
-                innerHTML: record.description
+                cls : ['neo-docs-header-description'],
+                html: record.description
             })
         }
 

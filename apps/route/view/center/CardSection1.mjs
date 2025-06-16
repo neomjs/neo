@@ -15,8 +15,8 @@ class CardSection1 extends Container {
         baseCls: ['route_card_simple_page','neo-container'],
 
         vdom: {
-            tag: 'h1',
-            innerHTML: 'This is section 1 of the example.'
+            tag : 'h1',
+            html: 'This is section 1 of the example.'
         }
     }
 }

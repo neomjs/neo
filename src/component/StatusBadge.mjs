@@ -329,7 +329,7 @@ class StatusBadge extends Base {
                     break;
             }
 
-            labelNode.innerHTML = showLabel;
+            labelNode.html = showLabel;
 
             me.updateStateIconNode(showStateIcon);
             me.updateSideIconNode(showSideIcon)
@@ -382,7 +382,7 @@ class StatusBadge extends Base {
     updateLabelNode(value) {
         let labelNode = this.getVdomRoot().cn[1];
 
-        labelNode.innerHTML = value;
+        labelNode.html      = value;
         labelNode.removeDom = !Boolean(value);
 
         this.update()

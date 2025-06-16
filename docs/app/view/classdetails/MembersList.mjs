@@ -127,8 +127,8 @@ class MembersList extends Base {
             vdom.cn.push({
                 // scrolling placeholder
             }, {
-                cls      : ['neo-docs-memberlist-group-header'],
-                innerHTML: 'Configs',
+                cls : ['neo-docs-memberlist-group-header'],
+                html: 'Configs',
                 'data-list-header': 'Configs'
             })
         }
@@ -152,9 +152,9 @@ class MembersList extends Base {
             vdom.cn.push({
                 // scrolling placeholder
             }, {
-                cls      : ['neo-docs-memberlist-group-header'],
-                innerHTML: 'Events',
-                style    : {zIndex: 3},
+                cls  : ['neo-docs-memberlist-group-header'],
+                html : 'Events',
+                style: {zIndex: 3},
                 'data-list-header': 'Events'
             })
         }
@@ -182,9 +182,9 @@ class MembersList extends Base {
             vdom.cn.push({
                 // scrolling placeholder
             }, {
-                cls      : ['neo-docs-memberlist-group-header'],
-                innerHTML: 'Methods',
-                style    : {zIndex: 2},
+                cls  : ['neo-docs-memberlist-group-header'],
+                html : 'Methods',
+                style: {zIndex: 2},
                 'data-list-header': 'Methods'
             })
         }
@@ -281,26 +281,26 @@ class MembersList extends Base {
                 cn : [{
                     cls: ['neo-list-item-header-container'],
                     cn : [{
-                        cls      : ['neo-list-item-header'],
-                        innerHTML: headerText
+                        cls : ['neo-list-item-header'],
+                        html: headerText
                     }, {
                         style: {
                             flex: 1
                         }
                     }, {
-                        cls      : ['neo-list-item-header'],
-                        innerHTML: itemAttributes.join(', ')
+                        cls : ['neo-list-item-header'],
+                        html: itemAttributes.join(', ')
                     }]
                 }, {
                     cls: 'neo-docs-view-source-link-container',
                     cn :[{
-                        tag      : 'a',
-                        cls      : ['neo-docs-view-source-link'],
-                        href     : `#/viewSource/${item.neoClassName}/line/${item.meta.lineno}`,
-                        innerHTML: `Source: ${path}/${item.meta.filename} (Line ${item.meta.lineno})`
+                        tag : 'a',
+                        cls : ['neo-docs-view-source-link'],
+                        href: `#/viewSource/${item.neoClassName}/line/${item.meta.lineno}`,
+                        html: `Source: ${path}/${item.meta.filename} (Line ${item.meta.lineno})`
                     }]
                 }, {
-                    innerHTML: item.description
+                    html: item.description
                 }]
             };
 
@@ -325,7 +325,7 @@ class MembersList extends Base {
 
             if (item.returns?.[0].type && item.kind !== 'event') {
                 itemConfig.cn.push({
-                    innerHTML: 'Returns {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '} ') + (item.returns[0].description || '')
+                    html: 'Returns {' + MembersList.escapeHtml(item.returns[0].type.names.join('|') + '} ') + (item.returns[0].description || '')
                 })
             }
 
@@ -365,37 +365,37 @@ class MembersList extends Base {
             cn : [{
                 tag: 'thead',
                 cn : [{
-                    tag      : 'th',
-                    innerHTML: 'Name'
+                    tag : 'th',
+                    html: 'Name'
                 }, {
-                    tag      : 'th',
-                    innerHTML: 'Type'
+                    tag : 'th',
+                    html: 'Type'
                 }, {
-                    tag      : 'th',
-                    innerHTML: 'Description'
+                    tag : 'th',
+                    html: 'Description'
                 }]
             }]
         };
 
         if (hasDefaultValues) {
             paramTable.cn[0].cn.splice(2, 0, {
-                tag      : 'th',
-                innerHTML: 'Default'
+                tag : 'th',
+                html: 'Default'
             })
         }
 
         if (hasOptionalParams) {
             paramTable.cn[0].cn.splice(2, 0, {
-                tag      : 'th',
-                innerHTML: 'Optional'
+                tag : 'th',
+                html: 'Optional'
             })
         }
 
         params.forEach(param => {
             if (param.name.indexOf('.') < 0) { // ignore nested params
                 description = {
-                    tag      : 'td',
-                    innerHTML: param.description
+                    tag : 'td',
+                    html: param.description
                 };
                 nestedParams = [];
 
@@ -414,36 +414,33 @@ class MembersList extends Base {
                 if (nestedParams.length > 0) {
                     description = {
                         tag: 'td',
-                        cn : [{
-                            innerHTML: description.innerHTML
-                        },
-                            MembersList.createParametersTable(nestedParams)]
+                        cn : [
+                            {html: description.html},
+                            MembersList.createParametersTable(nestedParams)
+                        ]
                     }
                 }
 
                 paramTable.cn.push({
                     tag: 'tr',
-                    cn : [{
-                        tag      : 'td',
-                        innerHTML: param.name
-                    }, {
-                        tag      : 'td',
-                        innerHTML: param.type ? MembersList.escapeHtml(param.type.names.join(' | ')) : ''
-                    },
-                        description]
+                    cn : [
+                        {tag: 'td', html: param.name},
+                        {tag: 'td', html: param.type ? MembersList.escapeHtml(param.type.names.join(' | ')) : ''},
+                        description
+                    ]
                 });
 
                 if (hasDefaultValues) {
                     paramTable.cn[paramTable.cn.length - 1].cn.splice(2, 0, {
-                        tag      : 'td',
-                        innerHTML: param.defaultvalue === undefined ? '' : (param.defaultvalue + '')
+                        tag : 'td',
+                        html: param.defaultvalue === undefined ? '' : (param.defaultvalue + '')
                     })
                 }
 
                 if (hasOptionalParams) {
                     paramTable.cn[paramTable.cn.length - 1].cn.splice(2, 0, {
-                        tag      : 'td',
-                        innerHTML: param.optional
+                        tag : 'td',
+                        html: param.optional
                     })
                 }
             }

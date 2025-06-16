@@ -152,7 +152,7 @@ class MainContainer extends TabContainer {
                 text   : 'Tab 2'
             },
             vdom: {
-                innerHTML: 'Test 2'
+                html: 'Test 2'
             }
         }, {
             header: {
@@ -160,7 +160,7 @@ class MainContainer extends TabContainer {
                 text   : 'Tab 3'
             },
             vdom: {
-                innerHTML: 'Test 3'
+                html: 'Test 3'
             }
         }]
     }

@@ -272,18 +272,18 @@ class AccordionTree extends TreeList {
                         cls  : [itemCls + '-content'],
                         id   : id + '__item-content',
                         style: {pointerEvents: 'none'},
-                        cn   : [{
-                            flag     : 'name',
-                            tag      : 'span',
-                            cls      : [itemCls + '-content-header'],
-                            id       : id + '__item-content-header',
-                            innerHTML: item[me.fields.header]
+                        cn: [{
+                            flag: 'name',
+                            tag : 'span',
+                            cls : [itemCls + '-content-header'],
+                            id  : id + '__item-content-header',
+                            html: item[me.fields.header]
                         }, {
-                            flag     : 'content',
-                            tag      : 'span',
-                            cls      : [itemCls + '-content-text'],
-                            id       : id + '__item-content-text',
-                            innerHTML: item[me.fields.text]
+                            flag: 'content',
+                            tag : 'span',
+                            cls : [itemCls + '-content-text'],
+                            id  : id + '__item-content-text',
+                            html: item[me.fields.text]
                         }]
                     }],
                     style: {

@@ -249,7 +249,7 @@ class MainContainer extends Container {
                 text   : 'Date'
             },
             vdom: {
-                innerHTML: 'todo'
+                html: 'todo'
             }
         }]
     }

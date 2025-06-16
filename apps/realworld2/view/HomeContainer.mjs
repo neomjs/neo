@@ -60,7 +60,7 @@ class HomeContainer extends Container {
                     cls   : ['neo-examples-tab-component'],
                     header: {iconCls: 'fa fa-user-ninja', text: 'Your Feed'},
                     style : {padding: '20px'},
-                    vdom  : {innerHTML: 'todo'}
+                    vdom  : {html: 'todo'}
                 }, {
                     module: PreviewList,
                     header: {iconCls: 'fa fa-globe-europe', text: 'Global Feed'}

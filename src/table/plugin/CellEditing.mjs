@@ -161,7 +161,7 @@ class CellEditing extends Plugin {
         me.mountedEditor = editor;
 
         cellNode.cn = [editor.createVdomReference()];
-        delete cellNode.innerHTML;
+        delete cellNode.html;
 
         view.updateDepth = -1;
 

@@ -44,14 +44,14 @@ class MainView extends Container {
         style    : {padding: '1em'},
 
         items: [{
-            vdom: {tag: 'button', innerHTML: 'Button 1'},
+            vdom: {tag: 'button', html: 'Button 1'},
 
             domListeners: [{
                 click: data => Neo.Main.log({value: `Clicked on ${data.component.id}`})
             }]
         }, {
             style: {marginTop: '1em'},
-            vdom : {tag: 'button', innerHTML: 'Button 2'},
+            vdom : {tag: 'button', html: 'Button 2'},
 
             domListeners: [{
                 click(data) {
@@ -82,7 +82,7 @@ class MainView extends Container {
         style    : {padding: '1em'},
 
         items: [{
-            vdom: {tag: 'button', innerHTML: 'Button 1'},
+            vdom: {tag: 'button', html: 'Button 1'},
 
             domListeners: [{
                 click: 'up.onButtonClick'
@@ -129,7 +129,7 @@ class MainView extends Container {
         style     : {padding: '1em'},
 
         items: [{
-            vdom: {tag: 'button', innerHTML: 'Button 1'},
+            vdom: {tag: 'button', html: 'Button 1'},
 
             domListeners: [{
                 click: 'onButtonClick'
@@ -247,7 +247,7 @@ class MainView extends Container {
         style    : {padding: '1em'},
 
         items: [{
-            vdom : {tag: 'button', innerHTML: 'Button 1'},
+            vdom : {tag: 'button', html: 'Button 1'},
 
             domListeners: [
                 {click: data => Neo.Main.log({value: 'Listener 1'})},
