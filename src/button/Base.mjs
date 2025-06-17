@@ -380,7 +380,7 @@ class Button extends Component {
         textNode.removeDom = isEmpty;
 
         if (!isEmpty) {
-            textNode.innerHTML = value
+            textNode.html = value
         }
 
         me.update()

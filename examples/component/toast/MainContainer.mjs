@@ -112,24 +112,24 @@ class MainContainer extends Viewport {
 
             itemTpl: data => {
                 return [
-                    {cls: 'import', innerHTML: 'import Toast from \'../../../../node_modules/neo.mjs/src/component/Toast.mjs\';'},
-                    {innerHTML: 'Neo.toast({'},
+                    {cls: 'import', html: 'import Toast from \'../../../../node_modules/neo.mjs/src/component/Toast.mjs\';'},
+                    {html: 'Neo.toast({'},
                     {cls: 'tab', cn: [
-                        {cls: 'grey', innerHTML: '/* mandatory */'},
-                        {innerHTML: `appName: '${data.appName}',`},
-                        {innerHTML: `msg: '${data.msg}',`},
-                        {innerHTML: `windowId: '${data.windowId}',`},
-                        {innerHTML: '/* optional */'},
-                        {innerHTML: `title: '${data.title}',`, removeDom: !data.title},
-                        {innerHTML: `iconCls: '${data.iconCls}',`, removeDom: !data.iconCls},
-                        {innerHTML: `closable: ${data.closable},`, removeDom: !data.closable},
-                        {innerHTML: `position: '${data.position}',`, removeDom: !data.position},
-                        {innerHTML: `slideDirection: '${data.slideDirection}',`, removeDom: !data.slideDirection},
-                        {innerHTML: `maxWidth: ${data.maxWidth},`, removeDom: !data.maxWidth},
-                        {innerHTML: `minHeight: ${data.minHeight},`, removeDom: !data.minHeight},
-                        {innerHTML: `ui: '${data.ui}'`, removeDom: !data.ui},
+                        {cls: 'grey', html: '/* mandatory */'},
+                        {html: `appName: '${data.appName}',`},
+                        {html: `msg: '${data.msg}',`},
+                        {html: `windowId: '${data.windowId}',`},
+                        {html: '/* optional */'},
+                        {html: `title: '${data.title}',`, removeDom: !data.title},
+                        {html: `iconCls: '${data.iconCls}',`, removeDom: !data.iconCls},
+                        {html: `closable: ${data.closable},`, removeDom: !data.closable},
+                        {html: `position: '${data.position}',`, removeDom: !data.position},
+                        {html: `slideDirection: '${data.slideDirection}',`, removeDom: !data.slideDirection},
+                        {html: `maxWidth: ${data.maxWidth},`, removeDom: !data.maxWidth},
+                        {html: `minHeight: ${data.minHeight},`, removeDom: !data.minHeight},
+                        {html: `ui: '${data.ui}'`, removeDom: !data.ui},
                     ]},
-                    {innerHTML: '})'}
+                    {html: '})'}
                 ]
             }
         }]

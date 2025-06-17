@@ -27,10 +27,10 @@ class MarkerDialog extends DialogBase {
         }],
 
         itemTpl: data => [
-            {cls: ['detail-depth'],   innerHTML: `Depth: ${data.depth}`},
-            {cls: ['detail-date'],    innerHTML: `${data.visualDate}`},
-            {cls: ['detail-quality'], innerHTML: `Quality: ${data.quality}`},
-            {cls: ['detail-quality'], innerHTML: `Size: ${data.size}`}
+            {cls: ['detail-depth'],   html: `Depth: ${data.depth}`},
+            {cls: ['detail-date'],    html: `${data.visualDate}`},
+            {cls: ['detail-quality'], html: `Quality: ${data.quality}`},
+            {cls: ['detail-quality'], html: `Size: ${data.size}`}
         ]
     }
 

@@ -179,13 +179,13 @@ class MainContainer extends ConfigurationViewport {
 
             items: [{
                 header: {iconCls: 'fa fa-home', text: 'Tab 1', flag: 'tab1',},
-                vdom  : {innerHTML: 'Tab 1 Content'}
+                vdom  : {html: 'Tab 1 Content'}
             }, {
                 header: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
-                vdom  : {innerHTML: 'Tab 2 Content'}
+                vdom  : {html: 'Tab 2 Content'}
             }, {
                 header: {iconCls: 'fa fa-user', text: 'Tab 3', badgeText: 'hello'},
-                vdom  : {innerHTML: 'Tab 3 Content'}
+                vdom  : {html: 'Tab 3 Content'}
             }],
 
             listeners: {

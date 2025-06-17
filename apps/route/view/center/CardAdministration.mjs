@@ -17,14 +17,14 @@ class CardAdministration extends Container {
         username_: '',
 
         vdom: {
-            tag: 'h1',
-            innerHTML: 'Access Granted.'
+            tag : 'h1',
+            html: 'Access Granted.'
         }
     }
 
 
     afterSetUsername(value, oldValue) {
-        this.vdom.innerHTML = `Access Granted to ${this.username}.`;
+        this.vdom.html = `Access Granted to ${this.username}.`;
     }
 }
 

@@ -109,7 +109,7 @@ class Range extends Number {
         let me = this;
 
         if (me.showResultInLabel) {
-            me.getLabelEl().innerHTML = `[${me.value}] ` + me.labelText
+            me.getLabelEl().html = `[${me.value}] ` + me.labelText
         }
     }
 }

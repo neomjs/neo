@@ -15,8 +15,8 @@ class CardHome extends Container {
         baseCls: ['route_card_simple_page','neo-container'],
 
         vdom: {
-            tag: 'h1',
-            innerHTML: 'This is the landing page of the example.'
+            tag : 'h1',
+            html: 'This is the landing page of the example.'
         }
     }
 }

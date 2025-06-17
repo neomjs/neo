@@ -66,7 +66,7 @@ class TutorialComponent extends Component {
         if (me.fileType === 'json') {
             me.vdom.cn = data
         } else {
-            me.vdom.innerHTML = data
+            me.vdom.html = data
         }
 
         me.update();

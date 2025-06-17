@@ -247,6 +247,18 @@ const DefaultConfig = {
      */
     useSharedWorkers: false,
     /**
+     * `true` will let the `vdom.Helper` create a String-based representation of the vnode tree.
+     * Main will then use e.g.`parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);`
+     * This affects the initial painting of your apps, but also the creation of new component trees at run-time.
+     * `false` will skip the creation of the String, and instead use DOM APIs to generate a fragment inside Main,
+     * into which the vnode tree will get applied.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useStringBasedMounting
+     * @type Boolean
+     */
+    useStringBasedMounting: false,
+    /**
      * True will generate a new task worker, which can get filled with own expensive remote methods
      * @default false
      * @memberOf! module:Neo
@@ -264,12 +276,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '9.16.0'
+     * @default '10.0.0-alpha.1'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '9.16.0'
+    version: '10.0.0-alpha.1'
 };
 
 Object.assign(DefaultConfig, {

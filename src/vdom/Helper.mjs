@@ -1,8 +1,10 @@
-import Base      from '../core/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
-import NeoString from '../util/String.mjs';
-import Style     from '../util/Style.mjs';
-import VNode     from './VNode.mjs';
+import Base               from '../core/Base.mjs';
+import NeoArray           from '../util/Array.mjs';
+import Style              from '../util/Style.mjs';
+import {rawDimensionTags} from './domConstants.mjs';
+import VNode              from './VNode.mjs';
+
+const NeoConfig = Neo.config;
 
 /**
  * The central class for the VDom worker to create vnodes & delta updates.
@@ -36,128 +38,13 @@ class Helper extends Base {
     }
 
     /**
-     * The following top-level attributes will get converted into styles:
-     * height, maxHeight, maxWidth, minHeight, minWidth, width
-     *
-     * Some tags must not do the transformation, so we add them here.
-     * @member {Set} rawDimensionTags
-     */
-    rawDimensionTags = new Set([
-        'circle',
-        'clipPath',
-        'ellipse',
-        'filter',
-        'foreignObject',
-        'image',
-        'marker',
-        'mask',
-        'pattern',
-        'rect',
-        'svg',
-        'use'
-    ])
-    /**
-     * @member {Boolean} returnChildNodeOuterHtml=false
-     */
-    returnChildNodeOuterHtml = false
-    /**
-     * Void attributes inside html tags
-     * @member {Set} voidAttributes
-     * @protected
-     */
-    voidAttributes = new Set([
-        'checked',
-        'defer',
-        'disabled',
-        'ismap',
-        'multiple',
-        'nohref',
-        'noresize',
-        'noshade',
-        'nowrap',
-        'open',
-        'readonly',
-        'required',
-        'reversed',
-        'selected'
-    ])
-    /**
-     * Void html tags
-     * @member {Set} voidElements
-     * @protected
-     */
-    voidElements = new Set([
-        'area',
-        'base',
-        'br',
-        'col',
-        'embed',
-        'hr',
-        'img',
-        'input',
-        'link',
-        'meta',
-        'param',
-        'source',
-        'track',
-        'wbr'
-    ])
-
-    /**
-     * Creates a Neo.vdom.VNode tree for the given vdom template.
-     * The top level vnode contains the outerHTML as a string.
-     * @param {Object} opts
-     * @param {String} opts.appName
-     * @param {Boolean} [opts.autoMount]
-     * @param {String} opts.parentId
-     * @param {Number} opts.parentIndex
-     * @param {Object} opts.vdom
-     * @param {Number} opts.windowId
-     * @returns {Neo.vdom.VNode|Promise<Neo.vdom.VNode>}
-     */
-    create(opts) {
-        let me        = this,
-            autoMount = opts.autoMount === true,
-            {appName, parentId, parentIndex, windowId} = opts,
-            node;
-
-        delete opts.appName;
-        delete opts.autoMount;
-        delete opts.parentId;
-        delete opts.parentIndex;
-        delete opts.windowId;
-
-        node           = me.createVnode(opts);
-        node.outerHTML = me.createStringFromVnode(node);
-
-        if (autoMount) {
-            Object.assign(node, {
-                appName,
-                autoMount: true,
-                parentId,
-                parentIndex,
-                windowId
-            })
-        }
-
-        return Neo.config.useVdomWorker ? node : Promise.resolve(node)
-    }
-
-    /**
-     * @param {Object} vnode
-     * @protected
-     */
-    createCloseTag(vnode) {
-        return this.voidElements.has(vnode.nodeName) ? '' : '</' + vnode.nodeName + '>'
-    }
-
-    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      * @returns {Object} deltas
+     * @protected
      */
     compareAttributes(config) {
         let {deltas, oldVnode, vnode, vnodeMap} = config,
@@ -219,6 +106,7 @@ class Helper extends Base {
                         break
                     case 'nodeName':
                     case 'innerHTML':
+                    case 'textContent':
                         if (value !== oldVnode[prop]) {
                             delta[prop] = value
                         }
@@ -258,13 +146,46 @@ class Helper extends Base {
     }
 
     /**
-     * @param {Object}         config
-     * @param {Object}         [config.deltas={default: [], remove: []}]
-     * @param {Neo.vdom.VNode} config.oldVnode
-     * @param {Map}            [config.oldVnodeMap]
-     * @param {Neo.vdom.VNode} config.vnode
-     * @param {Map}            [config.vnodeMap]
+     * Creates a Neo.vdom.VNode tree for the given vdom template.
+     * The top level vnode contains the outerHTML as a string,
+     * in case Neo.config.useStringBasedMounting === true
+     * @param {Object} opts
+     * @param {String} opts.appName
+     * @param {Boolean} [opts.autoMount]
+     * @param {String} opts.parentId
+     * @param {Number} opts.parentIndex
+     * @param {Object} opts.vdom
+     * @param {Number} opts.windowId
+     * @returns {Promise<Object>}
+     */
+    async create(opts) {
+        let me = this,
+            returnValue, vnode;
+
+        await me.importDomApiVnodeCreator();
+        await me.importStringFromVnode();
+
+        vnode       = me.createVnode(opts.vdom);
+        returnValue = {...opts, vnode};
+
+        delete returnValue.vdom;
+
+        if (NeoConfig.useStringBasedMounting) {
+            returnValue.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode)
+        }
+
+        return returnValue
+    }
+
+    /**
+     * @param {Object}                config
+     * @param {Object}                [config.deltas={default: [], remove: []}]
+     * @param {Neo.vdom.VNode|Object} config.oldVnode
+     * @param {Map}                   [config.oldVnodeMap]
+     * @param {Neo.vdom.VNode|Object} config.vnode
+     * @param {Map}                   [config.vnodeMap]
      * @returns {Object} deltas
+     * @protected
      */
     createDeltas(config) {
         let {deltas={default: [], remove: []}, oldVnode, vnode} = config,
@@ -357,123 +278,15 @@ class Helper extends Base {
     }
 
     /**
-     * @param {Object} vnode
-     * @protected
-     */
-    createOpenTag(vnode) {
-        let string       = '<' + vnode.nodeName,
-            {attributes} = vnode,
-            cls          = vnode.className,
-            style;
-
-        if (vnode.style) {
-            style = Neo.createStyles(vnode.style);
-
-            if (style !== '') {
-                string += ` style="${style}"`
-            }
-        }
-
-        if (cls) {
-            if (Array.isArray(cls)) {
-                cls = cls.join(' ')
-            }
-
-            if (cls !== '') {
-                string += ` class="${cls}"`
-            }
-        }
-
-        if (vnode.id) {
-            if (Neo.config.useDomIds) {
-                string += ` id="${vnode.id}"`
-            } else {
-                string += ` data-neo-id="${vnode.id}"`
-            }
-        }
-
-        Object.entries(attributes).forEach(([key, value]) => {
-            if (this.voidAttributes.has(key)) {
-                if (value === 'true') { // vnode attribute values get converted into strings
-                    string += ` ${key}`
-                }
-            } else if (key !== 'removeDom') {
-                if (key === 'value') {
-                    value = NeoString.escapeHtml(value)
-                }
-
-                string += ` ${key}="${value?.replaceAll?.('"', '&quot;') ?? value}"`
-            }
-        });
-
-        return string + '>'
-    }
-
-    /**
-     * @param {Neo.vdom.VNode} vnode
-     * @param {Map}            [movedNodes]
-     */
-    createStringFromVnode(vnode, movedNodes) {
-        let me = this,
-            id = vnode?.id;
-
-        if (id && movedNodes?.get(id)) {
-            return ''
-        }
-
-        switch (vnode.vtype) {
-            case 'root':
-                return me.createStringFromVnode(vnode.childNodes[0], movedNodes)
-            case 'text':
-                return vnode.innerHTML === undefined ? '' : String(vnode.innerHTML)
-            case 'vnode':
-                return me.createOpenTag(vnode) + me.createTagContent(vnode, movedNodes) + me.createCloseTag(vnode)
-            default:
-                return ''
-        }
-    }
-
-    /**
-     * @param {Neo.vdom.VNode} vnode
-     * @param {Map}            [movedNodes]
-     * @protected
-     */
-    createTagContent(vnode, movedNodes) {
-        if (vnode.innerHTML) {
-            return vnode.innerHTML
-        }
-
-        let string = '',
-            len    = vnode.childNodes ? vnode.childNodes.length : 0,
-            i      = 0,
-            childNode, outerHTML;
-
-        for (; i < len; i++) {
-            childNode = vnode.childNodes[i];
-            outerHTML = this.createStringFromVnode(childNode, movedNodes);
-
-            if (childNode.innerHTML !== outerHTML) {
-                if (this.returnChildNodeOuterHtml) {
-                    childNode.outerHTML = outerHTML
-                }
-            }
-
-            string += outerHTML
-        }
-
-        return string
-    }
-
-    /**
      * @param {Object} opts
      * @returns {Object|Neo.vdom.VNode|null}
+     * @protected
      */
     createVnode(opts) {
         // do not create vnode instances for component reference objects
         if (opts.componentId) {
-            if (!opts.id) {
-                opts.id = opts.componentId
-            }
+            opts.childNodes ??= []; // Consistency: Every VNode has a childNodes array
+            opts.id         ??= opts.componentId
 
             return opts
         }
@@ -482,43 +295,24 @@ class Helper extends Base {
             return null
         }
 
-        if (typeof opts === 'string') {
-
-        }
-
-        if (opts.vtype === 'text') {
-            if (!opts.id) {
-                opts.id = Neo.getId('vtext') // adding an id to be able to find vtype='text' items inside the vnode tree
-            }
-
-            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtext -->`;
-            delete opts.html;
-            return opts
-        }
-
         let me   = this,
-            node = {attributes: {}, childNodes: [], style: {}},
+            node = {attributes: {}, style: {}},
             potentialNode;
 
-        if (!opts.tag) {
-            opts.tag = 'div'
-        }
-
         Object.entries(opts).forEach(([key, value]) => {
-            let hasUnit, newValue, style;
+            if (value !== undefined && value !== null && key !== 'flag' && key !== 'removeDom') {
+                let hasUnit, newValue, style;
 
-            if (value !== undefined && value !== null && key !== 'flag') {
-                switch (key) {
+                switch(key) {
                     case 'tag':
-                    case 'nodeName':
                         node.nodeName = value;
                         break
                     case 'html':
-                    case 'innerHTML':
                         node.innerHTML = value.toString(); // support for numbers
                         break
-                    case 'children':
-                    case 'childNodes':
+                    case 'text':
+                        node.textContent = value
+                        break
                     case 'cn':
                         if (!Array.isArray(value)) {
                             value = [value]
@@ -559,7 +353,7 @@ class Helper extends Base {
                     case 'minHeight':
                     case 'minWidth':
                     case 'width':
-                        if (me.rawDimensionTags.has(node.nodeName)) {
+                        if (rawDimensionTags.has(node.nodeName)) {
                             node.attributes[key] = value + ''
                         } else {
                             hasUnit = value != parseInt(value);
@@ -580,13 +374,21 @@ class Helper extends Base {
                         }
                         break
                     default:
-                        if (key !== 'removeDom') { // could be set to false
-                            node.attributes[key] = value + ''
-                        }
+                        node.attributes[key] = value + '';
                         break
                 }
             }
         });
+
+        // Especially relevant for vtype='text'
+        if (Object.keys(node.attributes).length < 1) {
+            delete node.attributes
+        }
+
+        // Especially relevant for vtype='text'
+        if (Object.keys(node.style).length < 1) {
+            delete node.style
+        }
 
         return new VNode(node)
     }
@@ -603,6 +405,7 @@ class Helper extends Base {
      *     {Number}         index
      *     {String}         parentId
      *     {Neo.vdom.VNode} vnode
+     * @protected
      */
     createVnodeMap(config) {
         let {vnode, parentNode=null, index=0, map=new Map()} = config,
@@ -630,6 +433,7 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
      * @returns {Map}
+     * @protected
      */
     findMovedNodes(config) {
         let {movedNodes=new Map(), oldVnodeMap, vnode, vnodeMap} = config,
@@ -651,22 +455,72 @@ class Helper extends Base {
     }
 
     /**
+     * Only import for the DOM API based mount adapter.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async importDomApiVnodeCreator() {
+        if (!NeoConfig.useStringBasedMounting && !Neo.vdom.util?.DomApiVnodeCreator) {
+            await import('./util/DomApiVnodeCreator.mjs')
+        }
+    }
+
+    /**
+     * Only import for the string based mount adapter.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async importStringFromVnode() {
+        if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.StringFromVnode) {
+            await import('./util/StringFromVnode.mjs')
+        }
+    }
+
+    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Number}         config.index
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
+     * @protected
      */
-    insertNode(config) {
-        let {deltas, index, oldVnodeMap, vnode, vnodeMap} = config,
-            details    = vnodeMap.get(vnode.id),
-            parentId   = details.parentNode.id,
-            me         = this,
-            movedNodes = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
-            outerHTML  = me.createStringFromVnode(vnode, movedNodes);
+    insertNode({deltas, index, oldVnodeMap, vnode, vnodeMap}) {
+        let details                = vnodeMap.get(vnode.id),
+            {parentNode}           = details,
+            parentId               = parentNode.id,
+            me                     = this,
+            movedNodes             = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
+            delta                  = {action: 'insertNode', parentId},
+            hasLeadingTextChildren = false,
+            physicalIndex          = index, // Start with the logical index
+            i                      = 0,
+            siblingVnode;
 
-        deltas.default.push({action: 'insertNode', index, outerHTML, parentId});
+        // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
+        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
+        // up to the logical insertion point.
+        for (; i < index; i++) {
+            siblingVnode = parentNode.childNodes[i];
+
+            // If we encounter a text VNode before the insertion point, adjust physicalIndex
+            if (siblingVnode?.vtype === 'text') {
+                physicalIndex += 2; // Each text VNode adds 2 comment nodes to the physical count
+                hasLeadingTextChildren = true
+            }
+        }
+
+        Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
+
+        if (NeoConfig.useStringBasedMounting) {
+            // For string-based mounting, pass a string excluding moved nodes
+            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
+        } else {
+            // For direct DOM API mounting, pass the pruned VNode tree
+            delta.vnode = Neo.vdom.util.DomApiVnodeCreator.create(vnode, movedNodes)
+        }
+
+        deltas.default.push(delta);
 
         // Insert the new node into the old tree, to simplify future OPs
         oldVnodeMap.get(parentId).vnode.childNodes.splice(index, 0, vnode);
@@ -686,6 +540,7 @@ class Helper extends Base {
      * @param {Neo.vdom.VNode} vnode
      * @param {Map} oldVnodeMap
      * @returns {Boolean}
+     * @protected
      */
     isMovedNode(vnode, oldVnodeMap) {
         let oldVnode = oldVnodeMap.get(vnode.id);
@@ -703,32 +558,55 @@ class Helper extends Base {
      * @param {Map}            config.oldVnodeMap
      * @param {Neo.vdom.VNode} config.vnode
      * @param {Map}            config.vnodeMap
+     * @protected
      */
-    moveNode(config) {
-        let {deltas, insertDelta, oldVnodeMap, vnode, vnodeMap} = config,
-            details             = vnodeMap.get(vnode.id),
+    moveNode({deltas, insertDelta, oldVnodeMap, vnode, vnodeMap}) {
+        let details             = vnodeMap.get(vnode.id),
             {index, parentNode} = details,
             parentId            = parentNode.id,
             movedNode           = oldVnodeMap.get(vnode.id),
             movedParentNode     = movedNode.parentNode,
-            {childNodes}        = movedParentNode;
+            {childNodes}        = movedParentNode,
+            delta               = {action: 'moveNode', id: vnode.id, parentId},
+            physicalIndex       = index, // Start with the logical index
+            i                   = 0,
+            siblingVnode;
 
+        // Calculate physicalIndex for DOM insertion.
+        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
+        // up to the logical insertion point.
+        for (; i < index; i++) {
+            siblingVnode = parentNode.childNodes[i];
+
+            if (siblingVnode?.vtype === 'text') {
+                // Each text VNode adds 2 comment nodes to the physical count
+                physicalIndex += 2
+            }
+        }
+
+        Object.assign(delta, {index: physicalIndex + insertDelta});
+        deltas.default.push(delta);
+
+        // This block implements the "corrupting the old tree" optimization for performance.
+        // It pre-modifies the old VNode map to reflect the move, preventing redundant deltas later.
         if (parentId !== movedParentNode.id) {
             // We need to remove the node from the old parent childNodes
             // (which must not be the same as the node they got moved into)
             NeoArray.remove(childNodes, movedNode.vnode);
 
+            // Get the VNode representing the *new parent* from the 'old VNode map'.
+            // This is crucial: 'oldParentNode' here is the *old state's VNode for the new parent*.
             let oldParentNode = oldVnodeMap.get(parentId);
 
             if (oldParentNode) {
                 // If moved into a new parent node, update the reference inside the flat map
                 movedNode.parentNode = oldParentNode.vnode;
 
+                // Reassign 'childNodes' property to now point to the 'childNodes' array
+                // of this 'old state's VNode for the new parent'.
                 childNodes = movedNode.parentNode.childNodes
             }
         }
-
-        deltas.default.push({action: 'moveNode', id: vnode.id, index: index + insertDelta, parentId});
 
         // Add the node into the old vnode tree to simplify future OPs.
         // NeoArray.insert() will switch to move() in case the node already exists.
@@ -742,10 +620,11 @@ class Helper extends Base {
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
      * @param {Map}            config.oldVnodeMap
+     * @protected
      */
     removeNode({deltas, oldVnode, oldVnodeMap}) {
-        if (oldVnode.componentId && !oldVnode.id) {
-            oldVnode.id = oldVnode.componentId
+        if (oldVnode.componentId) {
+            oldVnode.id ??= oldVnode.componentId
         }
 
         let delta        = {action: 'removeNode', id: oldVnode.id},
@@ -766,20 +645,23 @@ class Helper extends Base {
      * @param {Object} opts
      * @param {Object} opts.vdom
      * @param {Object} opts.vnode
-     * @returns {Object|Promise<Object>}
+     * @returns {Promise<Object>}
      */
-    update(opts) {
-        let me     = this,
-            vnode  = me.createVnode(opts.vdom),
-            deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
+    async update(opts) {
+        let me = this,
+            deltas, vnode;
+
+        await me.importDomApiVnodeCreator();
+        await me.importStringFromVnode();
+
+        vnode  = me.createVnode(opts.vdom);
+        deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
 
         // Trees to remove could contain nodes which we want to re-use (move),
         // so we need to execute the removeNode OPs last.
         deltas = deltas.default.concat(deltas.remove);
 
-        let returnObj = {deltas, updateVdom: true, vnode};
-
-        return Neo.config.useVdomWorker ? returnObj : Promise.resolve(returnObj)
+        return {deltas, updateVdom: true, vnode}
     }
 }
 

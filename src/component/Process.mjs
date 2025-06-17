@@ -173,8 +173,8 @@ class Process extends Base {
             content = curItem.cn[3];
 
             content.cn[0].cls.push(newItem.iconCls);
-            content.cn[1].innerHTML = newItem.title;
-            content.cn[2].innerHTML = newItem.text;
+            content.cn[1].html = newItem.title;
+            content.cn[2].html = newItem.text;
 
             NeoArray.add(vdomRoot.cn, curItem)
         })

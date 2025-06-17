@@ -1663,7 +1663,7 @@ class Component extends Base {
         controller = me.getConfigInstanceByNtype('controller', ntype);
 
         if (!ntype) {
-            me[closestController] = controller;
+            me[closestController] = controller
         }
 
         return controller
@@ -1911,7 +1911,7 @@ class Component extends Base {
         } else {
             let style = me.style;
             style.visibility = 'hidden';
-            me.style = style;
+            me.style = style
         }
 
         me._hidden = true
@@ -2136,14 +2136,14 @@ class Component extends Base {
     onFocusEnter(data) {
         // If we are hidden, or unmounted while we still contain focus, we have to revert
         // focus to where it came from if possible
-        this.focusEnterData = data;
+        this.focusEnterData = data
     }
 
     /**
      * @param {Object} data
      */
     onFocusLeave(data) {
-        this.focusEnterData = null;
+        this.focusEnterData = null
     }
 
     /**
@@ -2171,11 +2171,11 @@ class Component extends Base {
 
     /**
      * Gets called from the render() promise success handler
-     * @param {Object} data
+     * @param {Object} vnode
      * @param {Boolean} autoMount Mount the DOM after the vnode got created
      * @protected
      */
-    onRender(data, autoMount) {
+    onRender(vnode, autoMount) {
         let me    = this,
             {app} = me;
 
@@ -2189,9 +2189,9 @@ class Component extends Base {
                 app.fire('render')
             }
 
-            me.vnode = data;
+            me.vnode = vnode;
 
-            let childIds = ComponentManager.getChildIds(data),
+            let childIds = ComponentManager.getChildIds(vnode),
                 i        = 0,
                 len      = childIds.length,
                 child;
@@ -2333,11 +2333,11 @@ class Component extends Base {
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
-                windowId   : me.windowId,
-                ...ComponentManager.getVdomTree(me.vdom)
+                vdom       : ComponentManager.getVdomTree(me.vdom),
+                windowId   : me.windowId
             });
 
-            me.onRender(data, useVdomWorker ? autoMount : false);
+            me.onRender(data.vnode, useVdomWorker ? autoMount : false);
             me.isVdomUpdating = false;
 
             autoMount && !useVdomWorker && me.mount();

@@ -44,8 +44,8 @@ class SpinUpDown extends Base {
         let me = this;
 
         me.vdom.cn = [
-            {cls: ['neo-spin-button', 'neo-up',   me.spinButtonUpIconCls]},
-            {cls: ['neo-spin-button', 'neo-down', me.spinButtonDownIconCls]}
+            {cls: ['neo-spin-button', 'neo-up',   ...me.spinButtonUpIconCls  .split(' ')]},
+            {cls: ['neo-spin-button', 'neo-down', ...me.spinButtonDownIconCls.split(' ')]}
         ];
 
         me.update();

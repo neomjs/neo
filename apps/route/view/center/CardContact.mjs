@@ -16,8 +16,8 @@ class CardContact extends Container {
 
         items: [
             { cls : ['route_card_simple_page'], vdom: { cn: [
-                {tag: 'h1',innerHTML: 'Contact' },
-                {tag: 'a',  href: 'https://github.com/neomjs/neo', target: '_blank', innerHTML: 'please visit https://github.com/neomjs/neo'}
+                {tag: 'h1', html: 'Contact' },
+                {tag: 'a',  href: 'https://github.com/neomjs/neo', target: '_blank', html: 'please visit https://github.com/neomjs/neo'}
             ] } }
         ]
     }

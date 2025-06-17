@@ -77,7 +77,7 @@ class List extends ComponentList {
 
         return [
             checkBox.createVdomReference(),
-            {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}
+            {tag: 'i', cls: ['neo-edit-icon', 'fas', 'fa-edit'], id: me.getEditIconId(index)}
         ]
     }
 

@@ -137,10 +137,10 @@ class Base extends Component {
     afterSetIconCls(value, oldValue) {
         let {cls} = this;
 
-        NeoArray.remove(cls, oldValue);
+        NeoArray.remove(cls, oldValue?.split(' '));
 
         if (value && value !== '') {
-            NeoArray.add(cls, value)
+            NeoArray.add(cls, value?.split(' '))
         }
 
         this.cls = cls

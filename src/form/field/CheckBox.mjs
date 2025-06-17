@@ -324,7 +324,7 @@ class CheckBox extends Field {
             value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
         }
 
-        me.vdom.cn[0].cn[0].innerHTML = value;
+        me.vdom.cn[0].cn[0].html = value;
         me.update()
     }
 
@@ -397,7 +397,7 @@ class CheckBox extends Field {
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
-            valueLabel.innerHTML = value
+            valueLabel.html = value
         }
 
         valueLabel.removeDom = !showLabel;

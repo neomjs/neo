@@ -1,6 +1,7 @@
 import Neo           from './Neo.mjs';
 import * as core     from './core/_export.mjs';
-import DomAccess     from './main/DomAccess.mjs';
+import DomAccess     from './main/DomAccess.mjs'; // has to get imported before DeltaUpdates
+import DeltaUpdates  from './main/DeltaUpdates.mjs';
 import DomEvents     from './main/DomEvents.mjs';
 import Observable    from './core/Observable.mjs';
 import WorkerManager from './worker/Manager.mjs';
@@ -336,8 +337,9 @@ class Main extends core.Base {
      * @protected
      */
     processQueue(queue, start) {
-        let me    = this,
-            limit = me.timeLimit,
+        let me     = this,
+            {mode} = me,
+            limit  = me.timeLimit,
             operation;
 
         while (operation = queue.shift()) {
@@ -345,7 +347,14 @@ class Main extends core.Base {
                 queue.unshift(operation);
                 return requestAnimationFrame(me.renderFrame.bind(me))
             } else {
-                DomAccess[me.mode](operation);
+                if (mode === 'read') {
+                    DomAccess.read(operation)
+                } else if (mode === 'write') {
+                    DeltaUpdates.insertNode(operation)
+                } else {
+                    DeltaUpdates.update(operation)
+                }
+
                 WorkerManager.resolveDomOperationPromise(operation.replyId)
             }
         }
@@ -531,7 +540,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Open a new popup window and return if successfull
+     * Open a new popup window and return if successful
      * @param {Object} data
      * @param {String} data.url
      * @param {String} data.windowFeatures

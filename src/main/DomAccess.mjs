@@ -1,9 +1,7 @@
-import Base         from '../core/Base.mjs';
-import DeltaUpdates from './mixin/DeltaUpdates.mjs';
-import DomUtils     from './DomUtils.mjs';
-import Observable   from '../core/Observable.mjs';
-import Rectangle    from '../util/Rectangle.mjs';
-import StringUtil   from '../util/String.mjs';
+import Base       from '../core/Base.mjs';
+import DomUtils   from './DomUtils.mjs';
+import Rectangle  from '../util/Rectangle.mjs';
+import StringUtil from '../util/String.mjs';
 
 const
     doPreventDefault = e => e.preventDefault(),
@@ -43,6 +41,13 @@ const
  * @singleton
  */
 class DomAccess extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.main.DomAccess'
@@ -64,13 +69,6 @@ class DomAccess extends Base {
          * @protected
          */
         countUpdates: 0,
-        /**
-         * @member {Array} mixins=[DeltaUpdates, Observable]
-         */
-        mixins: [
-            DeltaUpdates,
-            Observable
-        ],
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -113,16 +111,7 @@ class DomAccess extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Void attributes inside html tags
-         * @member {String[]} voidAttributes
-         * @protected
-         */
-        voidAttributes: [
-            'checked',
-            'required'
-        ]
+        singleton: true
     }
 
     /**
@@ -865,7 +854,7 @@ class DomAccess extends Base {
      * @protected
      */
     read(data) {
-        typeof data === 'function' && data()
+        Neo.isFunction(data) && data()
     }
 
     /**
@@ -1158,18 +1147,6 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
-        })
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    write(data) {
-        this.du_insertNode({
-            index    : data.parentIndex,
-            outerHTML: data.html || data.outerHTML,
-            parentId : data.parentId
         })
     }
 }

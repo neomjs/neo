@@ -15,13 +15,13 @@ your team's velocity and simplifies debugging, letting you focus purely on innov
 
 Moreover, Neo.mjs shifts the paradigm: instead of just writing UI components that feel like HTML, you'll ***create entire
 applications***. Thanks to its revolutionary ***Unified Config System***, you define complex application structures—from
-components and layouts to data models—purely through declarative configurations, gaining unparalleled control and efficiency.
+components and layouts to data models—purely through declarative configurations, gaining exceptional control and efficiency.
 
 ### Unparalleled Performance & Scalability
 
 Neo.mjs is engineered from the ground up for extreme performance. Unlike most frameworks that are limited to a single CPU
 core per browser tab, Neo.mjs leverages a ***truly multi-threaded architecture***. Your application logic runs ***off the
-main thread*** across dedicated Web Workers, ensuring your UI remains silky smooth, responsive, and free from freezes,
+main thread*** across Web Workers, ensuring your UI remains silky smooth, responsive, and free from freezes,
 even under heavy computation.
 
 This unique design enables your applications to scale not just in raw performance, but also in ***complexity and scope,
@@ -32,7 +32,8 @@ application growth and intricate multi-window experiences.
 ### Architectural Brilliance & Future-Proofing
 
 Built on cutting-edge web standards, Neo.mjs embraces an "Application Worker being the Main Actor" paradigm.
-This robust architecture inherently prevents common issues like UI blocking and memory leaks. Furthermore, Neo.mjs
+This robust architecture inherently prevents common issues like UI blocking, and its isolated thread model significantly
+helps to mitigate memory leaks by containing them within specific worker contexts. Furthermore, Neo.mjs
 uniquely handles ***dynamic, run-time module imports*** without the traditional bundler overhead, offering flexibility
 for advanced scenarios like user-editable code.
 
