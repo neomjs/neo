@@ -24,133 +24,43 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Recursively creates a DOM element (or DocumentFragment) from a VNode tree.
-     * This method handles two primary modes based on `isRoot`:
-     * 1. If `isRoot` is true:
-     *   a. Builds a detached DocumentFragment: if `parentNode` is null. Returns the fragment.
-     *   b. Builds and inserts directly into a host DOM: if `parentNode` is provided. Inserts the fragment.
-     * 2. If `isRoot` is false (default for recursive calls):
-     *   Appends created DOM nodes directly to the provided `parentNode` (which is the DOM element of the direct parent VNode).
-     *
-     * @param {Object}      config
-     * @param {Number}      [config.index]           The index within `parentNode` to insert the root fragment (used when `isRoot` is true).
-     * @param {Boolean}     [config.isRoot=false]    If true, this is the root call for the VNode tree.
-     * @param {HTMLElement} [config.parentNode=null] The parent DOM node to insert into. Its role changes based on `isRoot`.
-     * @param {Object}      config.vnode             The VNode object to convert to a real DOM element.
-     * @returns {DocumentFragment|HTMLElement|null}  The created DOM node, the root DocumentFragment, or null.
+     * Private property to store the dynamically loaded renderer module.
+     * @member {Neo.main.render.DomApiRenderer|Neo.main.render.DomApiRenderer|null} #renderer=null
      * @private
      */
-    #createDomTree({index, isRoot=false, parentNode, vnode}) {
-        let domNode;
+    #renderer = null
 
-        // No node or just a reference node, opt out
-        if (!vnode || vnode.componentId) {
-            return null
-        }
+    /**
+     * Private property to signal that the renderer module has been loaded.
+     * This will be a Promise that resolves when the module is ready.
+     * @private
+     * @member {Promise<void>|null} #_readyPromise
+     */
+    #_readyPromise = null
 
-        // Handle text nodes
-        if (vnode.vtype === 'text') {
-            domNode = document.createTextNode(vnode.textContent || '');
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
 
-            // Wrap in comment for consistency with delta updates
-            const
-                commentStart = document.createComment(` ${vnode.id} `),
-                commentEnd   = document.createComment(' /neo-vtext '),
-                fragment     = document.createDocumentFragment();
+        // Initiate the asynchronous loading of the renderer here.
+        this.#_readyPromise = (async () => {
+            try {
+                let module;
 
-            fragment.append(commentStart, domNode, commentEnd);
-            domNode = fragment
-        }
-        // Handle regular elements
-        else if (vnode.nodeName) {
-            if (vnode.ns) { // For SVG, ensure correct namespace
-                domNode = document.createElementNS(vnode.ns, vnode.nodeName)
-            } else {
-                domNode = document.createElement(vnode.nodeName)
-            }
-
-            // Apply the top-level 'id' property first (guaranteed to exist)
-            domNode[NeoConfig.useDomIds ? 'id' : 'data-neo-id'] = vnode.id;
-
-            // Apply Attributes
-            Object.entries(vnode.attributes).forEach(([key, value]) => {
-                if (voidAttributes.has(key)) {
-                    domNode[key] = (value === 'true' || value === true)
-                } else if (key === 'value') {
-                    domNode.value = value
-                } else if (value !== null && value !== undefined) {
-                    domNode.setAttribute(key, value)
-                }
-            });
-
-            // Apply Classes
-            if (vnode.className.length > 0) {
-                domNode.classList.add(...vnode.className)
-            }
-
-            // Apply Styles
-            if (Neo.isObject(vnode.style)) {
-                Object.entries(vnode.style).forEach(([key, value]) => {
-                    let important;
-
-                    if (Neo.isString(value) && value.includes('!important')) {
-                        value = value.replace('!important', '').trim();
-                        domNode.style.setProperty(Neo.decamel(key), value, 'important');
-                        important = 'important'
-                    }
-
-                    domNode.style.setProperty(Neo.decamel(key), value, important)
-                })
-            }
-
-            // Handle innerHTML & textContent
-            // This applies to elements that contain only plain text (e.g., <span>Hello</span>)
-            // If the VNode has childNodes, this block is skipped, and content is handled recursively.
-            if (vnode.childNodes.length < 1) {
-                if (vnode.innerHTML) {
-                    domNode.innerHTML = vnode.innerHTML
-                } else if (vnode.textContent) {
-                    domNode.textContent = vnode.textContent
-                }
-            }
-        } else {
-            console.error('Unhandled VNode type or missing nodeName:', vnode);
-            return null
-        }
-
-        // Recursively process children
-        vnode.childNodes.forEach(childVnode => {
-            this.#createDomTree({parentNode: domNode, vnode: childVnode})
-        })
-
-        // Final step: handle insertion based on `isRoot` and `parentNode`
-        if (isRoot) {
-            // This will be either HTMLElement or a DocumentFragment (for text vnodes)
-            let nodeToInsert = domNode;
-
-            if (nodeToInsert && parentNode && index !== -1) {
-                // If a specific host and index are provided, perform the insertion directly
-                if (index < parentNode.childNodes.length) {
-                    parentNode.insertBefore(nodeToInsert, parentNode.childNodes[index])
+                if (NeoConfig.useStringBasedMounting) {
+                    module = await import('./render/StringBasedRenderer.mjs')
                 } else {
-                    parentNode.appendChild(nodeToInsert)
+                    module = await import('./render/DomApiRenderer.mjs')
                 }
 
-                // Return the actual root DOM node (or fragment for text) that was inserted
-                return domNode
-            } else {
-                // If no specific host or index, return the detached nodeToInsert (HTMLElement or DocumentFragment)
-                return nodeToInsert
+                this.#renderer = module.default
+            } catch (err) {
+                console.error('DeltaUpdates: Failed to load renderer module:', err);
+                throw err // Re-throw to propagate initialization failures
             }
-        } else {
-            // For recursive calls (isRoot is false), append directly to the provided parentNode.
-            if (parentNode) { // parentNode here is the intermediate DOM parent
-                parentNode.append(domNode)
-            }
-
-            // Return the appended node (or null)
-            return domNode
-        }
+        })()
     }
 
     /**
@@ -185,16 +95,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * @param {String} html representing a single element
-     * @returns {DocumentFragment}
-     */
-    htmlStringToElement(html) {
-        const template = document.createElement('template');
-        template.innerHTML = html;
-        return template.content
-    }
-
-    /**
      * Inserts a new node into the DOM tree based on delta updates.
      * This method handles both string-based (outerHTML) and direct DOM API (vnode) mounting.
      * It ensures the node is inserted at the correct index within the parent.
@@ -218,55 +118,19 @@ class DeltaUpdates extends Base {
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
     insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
+        // This method is synchronous and *expects* the renderer to be loaded
+        if (!this.#renderer) {
+            console.error('DeltaUpdates renderer not ready during insertNode!');
+            return
+        }
+
         const parentNode = DomAccess.getElementOrBody(parentId);
 
         if (parentNode) {
             if (!NeoConfig.useStringBasedMounting) {
-                this.#createDomTree({index, isRoot: true, parentNode, vnode})
+                this.#renderer.createDomTree({index, isRoot: true, parentNode, vnode})
             } else {
-                this.#insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
-            }
-        }
-    }
-
-    /**
-     * Handles string-based insertion of a new node into the DOM.
-     * This method is called by `insertNode()` when `NeoConfig.useStringBasedMounting` is true.
-     *
-     * @param {Object}      data
-     * @param {Boolean}     data.hasLeadingTextChildren Flag to honor leading comments.
-     * @param {Number}      data.index                  The index at which to insert the new node.
-     * @param {String}      data.outerHTML              The HTML string of the node to insert.
-     * @param {HTMLElement} data.parentNode             The parent DOM node to insert into.
-     * @private
-     */
-    #insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode}) {
-        let me = this;
-
-        // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
-        if (hasLeadingTextChildren) {
-            let node = me.htmlStringToElement(outerHTML);
-
-            if (index < parentNode.childNodes.length) {
-                parentNode.insertBefore(node, parentNode.childNodes[index])
-            } else {
-                parentNode.appendChild(node)
-            }
-        }
-        // If no comments detected, use insertAdjacentHTML for element nodes.
-        else {
-            let countChildren = parentNode.children.length; // Use `children` for `insertAdjacentHTML` context
-
-            if (index > 0 && index >= countChildren) {
-                parentNode.insertAdjacentHTML('beforeend', outerHTML);
-                return
-            }
-            if (countChildren > 0 && countChildren > index) {
-                parentNode.children[index].insertAdjacentHTML('beforebegin', outerHTML)
-            } else if (countChildren > 0) {
-                parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', outerHTML)
-            } else {
-                parentNode.insertAdjacentHTML('beforeend', outerHTML)
+                this.#renderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
             }
         }
     }
@@ -479,6 +343,12 @@ class DeltaUpdates extends Base {
      * @param {String} [data.origin='app']
      */
     update(data) {
+        // This method is synchronous and *expects* the renderer to be loaded
+        if (!this.#renderer) {
+            console.error('DeltaUpdates renderer not ready during insertNode!');
+            return
+        }
+
         let me       = this,
             {deltas} = data,
             i        = 0,
