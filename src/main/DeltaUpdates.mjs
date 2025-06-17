@@ -30,7 +30,7 @@ class DeltaUpdates extends Base {
      *
      * @param {Object}                       vnode        The VNode object to convert to a real DOM element.
      * @param {DocumentFragment|HTMLElement} [parentNode] The parent DOM node to append the created element to.
-     *   If not provided, a DocumentFragment is used as a temporary root.
+     * If not provided, a DocumentFragment is used as a temporary root.
      * @returns {Comment|DocumentFragment|HTMLElement|null} The created DOM node or DocumentFragment.
      */
     createDomTree(vnode, parentNode) {
@@ -40,7 +40,22 @@ class DeltaUpdates extends Base {
         if (!vnode || vnode.componentId) {
             return null
         }
-        // Handle VNode types (nodeName, vtype: 'text', vtype: 'comment')
+
+        if (vnode.vtype === 'comment') {
+            domNode = document.createComment(vnode.textContent || '')
+        } else if (vnode.vtype === 'text') {
+            domNode = document.createTextNode(vnode.textContent || '');
+
+            // Wrap in comment for consistency with delta updates
+            const
+                commentStart = document.createComment(` ${vnode.id} `),
+                commentEnd   = document.createComment(' /neo-vtext '),
+                fragment     = document.createDocumentFragment();
+
+            fragment.append(commentStart, domNode, commentEnd);
+            domNode = fragment
+        }
+        // Handle regular elements
         else if (vnode.nodeName) {
             if (vnode.ns) { // For SVG, ensure correct namespace
                 domNode = document.createElementNS(vnode.ns, vnode.nodeName)
@@ -92,19 +107,6 @@ class DeltaUpdates extends Base {
                     domNode.textContent = vnode.textContent
                 }
             }
-        } else if (vnode.vtype === 'comment') {
-            domNode = document.createComment(vnode.textContent || '')
-        } else if (vnode.vtype === 'text') {
-            domNode = document.createTextNode(vnode.textContent || '');
-
-            // Wrap in comment for consistency with delta updates
-            const
-                commentStart = document.createComment(` ${vnode.id} `),
-                commentEnd   = document.createComment(' /neo-vtext '),
-                fragment     = document.createDocumentFragment();
-
-            fragment.append(commentStart, domNode, commentEnd);
-            domNode = fragment
         } else {
             console.error('Unhandled VNode type or missing nodeName:', vnode);
             return null
@@ -308,7 +310,7 @@ class DeltaUpdates extends Base {
             node = parentId && DomAccess.getElementOrBody(parentId);
 
             if (node) {
-                startTag = `<!-- ${delta.id} -->`;
+                startTag = `<!-- ${id} -->`;
                 reg      = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
                 node.innerHTML = node.innerHTML.replace(reg, '')
@@ -395,7 +397,7 @@ class DeltaUpdates extends Base {
                         node.innerHTML = value || '';
                         break
                     case 'nodeName':
-                        me.du_changeNodeName(node, value);
+                        me.changeNodeName(node, value);
                         break
                     case 'outerHTML':
                         node.outerHTML = value || '';
