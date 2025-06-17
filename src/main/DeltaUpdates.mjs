@@ -25,16 +25,22 @@ class DeltaUpdates extends Base {
 
     /**
      * Recursively creates a DOM element (or DocumentFragment) from a VNode tree.
-     * This method is intended for initial mounting or for inserting new VNode subtrees
-     * directly into the DOM without string serialization/parsing.
+     * This method handles two primary modes based on `isRoot`:
+     * 1. If `isRoot` is true:
+     *   a. Builds a detached DocumentFragment: if `parentNode` is null. Returns the fragment.
+     *   b. Builds and inserts directly into a host DOM: if `parentNode` is provided. Inserts the fragment.
+     * 2. If `isRoot` is false (default for recursive calls):
+     *   Appends created DOM nodes directly to the provided `parentNode` (which is the DOM element of the direct parent VNode).
      *
-     * @param {Object}                       vnode        The VNode object to convert to a real DOM element.
-     * @param {DocumentFragment|HTMLElement} [parentNode] The parent DOM node to append the created element to.
-     * If not provided, a DocumentFragment is used as a temporary root.
-     * @returns {Comment|DocumentFragment|HTMLElement|null} The created DOM node or DocumentFragment.
+     * @param {Object}      config
+     * @param {Number}      [config.index]           The index within `parentNode` to insert the root fragment (used when `isRoot` is true).
+     * @param {Boolean}     [config.isRoot=false]    If true, this is the root call for the VNode tree.
+     * @param {HTMLElement} [config.parentNode=null] The parent DOM node to insert into. Its role changes based on `isRoot`.
+     * @param {Object}      config.vnode             The VNode object to convert to a real DOM element.
+     * @returns {DocumentFragment|HTMLElement|null}  The created DOM node, the root DocumentFragment, or null.
      * @private
      */
-    #createDomTree(vnode, parentNode) {
+    #createDomTree({index, isRoot=false, parentNode, vnode}) {
         let domNode;
 
         // No node or just a reference node, opt out
@@ -114,23 +120,36 @@ class DeltaUpdates extends Base {
 
         // Recursively process children
         vnode.childNodes.forEach(childVnode => {
-            this.#createDomTree(childVnode, domNode)
+            this.#createDomTree({parentNode: domNode, vnode: childVnode})
         })
 
-        // Append to parent or return as fragment
-        if (parentNode) {
-            parentNode.append(domNode);
-            return domNode
-        } else {
-            // If no parentNode was provided for the initial call,
-            // return a DocumentFragment containing the top-level element.
-            const fragment = document.createDocumentFragment();
+        // Final step: handle insertion based on `isRoot` and `parentNode`
+        if (isRoot) {
+            // This will be either HTMLElement or a DocumentFragment (for text vnodes)
+            let nodeToInsert = domNode;
 
-            if (domNode) {
-                fragment.appendChild(domNode)
+            if (nodeToInsert && parentNode && index !== -1) {
+                // If a specific host and index are provided, perform the insertion directly
+                if (index < parentNode.childNodes.length) {
+                    parentNode.insertBefore(nodeToInsert, parentNode.childNodes[index])
+                } else {
+                    parentNode.appendChild(nodeToInsert)
+                }
+
+                // Return the actual root DOM node (or fragment for text) that was inserted
+                return domNode
+            } else {
+                // If no specific host or index, return the detached nodeToInsert (HTMLElement or DocumentFragment)
+                return nodeToInsert
+            }
+        } else {
+            // For recursive calls (isRoot is false), append directly to the provided parentNode.
+            if (parentNode) { // parentNode here is the intermediate DOM parent
+                parentNode.append(domNode)
             }
 
-            return fragment
+            // Return the appended node (or null)
+            return domNode
         }
     }
 
@@ -167,7 +186,7 @@ class DeltaUpdates extends Base {
 
     /**
      * @param {String} html representing a single element
-     * @returns {ChildNode}
+     * @returns {DocumentFragment}
      */
     htmlStringToElement(html) {
         const template = document.createElement('template');
@@ -199,26 +218,13 @@ class DeltaUpdates extends Base {
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
     insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
-        let me         = this,
-            parentNode = DomAccess.getElementOrBody(parentId);
+        const parentNode = DomAccess.getElementOrBody(parentId);
 
         if (parentNode) {
-            // Direct DOM API mounting: create a DocumentFragment and insert it
             if (!NeoConfig.useStringBasedMounting) {
-                let fragment = me.#createDomTree(vnode);
-
-                // Can be null
-                if (fragment) {
-                    if (index < parentNode.childNodes.length) {
-                        parentNode.insertBefore(fragment, parentNode.childNodes[index])
-                    } else {
-                        parentNode.appendChild(fragment)
-                    }
-                }
-
-            // String-based mounting logic
+                this.#createDomTree({index, isRoot: true, parentNode, vnode})
             } else {
-                me.#insertNodeAsString({parentNode, hasLeadingTextChildren, index, outerHTML})
+                this.#insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
             }
         }
     }
