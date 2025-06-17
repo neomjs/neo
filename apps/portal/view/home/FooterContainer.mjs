@@ -107,7 +107,7 @@ class FooterContainer extends Container {
             }, {
                 module: Component,
                 cls   : ['neo-version'],
-                html  : 'v9.16.0'
+                html  : 'v10.0.0-alpha.1'
             }]
         }],
         /**
