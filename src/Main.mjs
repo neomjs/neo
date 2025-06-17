@@ -349,8 +349,8 @@ class Main extends core.Base {
             } else {
                 if (mode === 'read') {
                     DomAccess.read(operation)
-                } else if (mode === 'write') {console.log(operation);
-                    DeltaUpdates.du_insertNode(operation)
+                } else if (mode === 'write') {
+                    DeltaUpdates.insertNode(operation)
                 } else {
                     DeltaUpdates.update(operation)
                 }

@@ -136,7 +136,7 @@ class DeltaUpdates extends Base {
      * @param {HTMLElement} node
      * @param {String}      nodeName
      */
-    du_changeNodeName(node, nodeName) {
+    changeNodeName(node, nodeName) {
         let {attributes} = node,
             clone        = document.createElement(nodeName),
             i            = 0,
@@ -159,8 +159,18 @@ class DeltaUpdates extends Base {
      * @param {Object} delta
      * @param {String} delta.id
      */
-    du_focusNode({id}) {
+    focusNode({id}) {
         DomAccess.getElement(id)?.focus()
+    }
+
+    /**
+     * @param {String} html representing a single element
+     * @returns {ChildNode}
+     */
+    htmlStringToElement(html) {
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        return template.content
     }
 
     /**
@@ -186,7 +196,7 @@ class DeltaUpdates extends Base {
      * @param {String}         delta.parentId               The ID of the parent DOM node.
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
-    du_insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
+    insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
         let me         = this,
             parentNode = DomAccess.getElementOrBody(parentId),
             countChildren;
@@ -248,7 +258,7 @@ class DeltaUpdates extends Base {
      * @param {Number} delta.index    The physical index at which to insert the node
      * @param {String} delta.parentId The ID of the target parent DOM node.
      */
-    du_moveNode({id, index, parentId}) {
+    moveNode({id, index, parentId}) {
         let node       = DomAccess.getElement(id),
             parentNode = DomAccess.getElement(parentId);
 
@@ -277,7 +287,7 @@ class DeltaUpdates extends Base {
      * @param {Object} delta
      * @param {String} delta.parentId
      */
-    du_removeAll({parentId}) {
+    removeAll({parentId}) {
         let node = DomAccess.getElement(parentId);
 
         if (node) {
@@ -290,7 +300,7 @@ class DeltaUpdates extends Base {
      * @param {String} delta.id
      * @param {String} delta.parentId
      */
-    du_removeNode({id, parentId}) {
+    removeNode({id, parentId}) {
         let node = DomAccess.getElement(id),
             reg, startTag;
 
@@ -314,7 +324,7 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      * @param {String} delta.toId
      */
-    du_replaceChild({fromId, parentId, toId}) {
+    replaceChild({fromId, parentId, toId}) {
         let node = DomAccess.getElement(parentId);
 
         node?.replaceChild(DomAccess.getElement(toId), DomAccess.getElement(fromId))
@@ -325,7 +335,7 @@ class DeltaUpdates extends Base {
      * @param {String} [delta.id]
      * @param {String} [delta.value
      */
-    du_setTextContent({id, value}) {
+    setTextContent({id, value}) {
         let node = DomAccess.getElement(id);
 
         if (node) {
@@ -342,7 +352,7 @@ class DeltaUpdates extends Base {
      * @param {String} [delta.outerHTML]
      * @param {Object} [delta.style]
      */
-    du_updateNode(delta) {
+    updateNode(delta) {
         let me   = this,
             node = DomAccess.getElementOrBody(delta.id);
 
@@ -415,23 +425,13 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      * @param {String} delta.value
      */
-    du_updateVtext({id, parentId, value}) {
+    updateVtext({id, parentId, value}) {
         let node      = DomAccess.getElement(parentId),
             innerHTML = node.innerHTML,
             startTag  = `<!-- ${id} -->`,
             reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
         node.innerHTML = innerHTML.replace(reg, value)
-    }
-
-    /**
-     * @param {String} html representing a single element
-     * @returns {ChildNode}
-     */
-    htmlStringToElement(html) {
-        const template = document.createElement('template');
-        template.innerHTML = html;
-        return template.content
     }
 
     /**
@@ -444,7 +444,7 @@ class DeltaUpdates extends Base {
         let me       = this,
             {deltas} = data,
             i        = 0,
-            len, map;
+            len;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
@@ -459,20 +459,8 @@ class DeltaUpdates extends Base {
             me.countDeltasPer250ms += len
         }
 
-        map = {
-            focusNode     : me.du_focusNode,
-            insertNode    : me.du_insertNode,
-            moveNode      : me.du_moveNode,
-            removeAll     : me.du_removeAll,
-            removeNode    : me.du_removeNode,
-            replaceChild  : me.du_replaceChild,
-            setTextContent: me.du_setTextContent,
-            updateVtext   : me.du_updateVtext,
-            default       : me.du_updateNode
-        };
-
         for (; i < len; i++) {
-            (map[deltas[i].action] || map['default']).call(me, deltas[i])
+            me[deltas[i].action || 'updateNode'](deltas[i])
         }
 
         Neo.worker.Manager.sendMessage(data.origin || 'app', {
