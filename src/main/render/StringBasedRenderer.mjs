@@ -1,5 +1,3 @@
-
-
 const StringBasedRenderer = {
     /**
      * @param {String} html representing a single element
