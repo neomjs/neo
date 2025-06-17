@@ -1,4 +1,5 @@
 import Base             from '../core/Base.mjs';
+import DomAccess        from './DomAccess.mjs';
 import {voidAttributes} from '../vdom/domConstants.mjs';
 
 const NeoConfig = Neo.config;
@@ -158,8 +159,8 @@ class DeltaUpdates extends Base {
      * @param {Object} delta
      * @param {String} delta.id
      */
-    du_focusNode(delta) {
-        this.getElement(delta.id)?.focus()
+    du_focusNode({id}) {
+        DomAccess.getElement(id)?.focus()
     }
 
     /**
@@ -187,7 +188,7 @@ class DeltaUpdates extends Base {
      */
     du_insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
         let me         = this,
-            parentNode = me.getElementOrBody(parentId),
+            parentNode = DomAccess.getElementOrBody(parentId),
             countChildren;
 
         if (parentNode) {
@@ -248,8 +249,8 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId The ID of the target parent DOM node.
      */
     du_moveNode({id, index, parentId}) {
-        let node       = this.getElement(id),
-            parentNode = this.getElement(parentId);
+        let node       = DomAccess.getElement(id),
+            parentNode = DomAccess.getElement(parentId);
 
         if (node && parentNode) {
             // If the target index is at or beyond the end of the parent's current childNodes, append the node.
@@ -276,8 +277,8 @@ class DeltaUpdates extends Base {
      * @param {Object} delta
      * @param {String} delta.parentId
      */
-    du_removeAll(delta) {
-        let node = this.getElement(delta.parentId);
+    du_removeAll({parentId}) {
+        let node = DomAccess.getElement(parentId);
 
         if (node) {
             node.innerHTML = ''
@@ -289,12 +290,12 @@ class DeltaUpdates extends Base {
      * @param {String} delta.id
      * @param {String} delta.parentId
      */
-    du_removeNode(delta) {
-        let node = this.getElement(delta.id),
+    du_removeNode({id, parentId}) {
+        let node = DomAccess.getElement(id),
             reg, startTag;
 
         if (!node) { // could be a vtype: text
-            node = delta.parentId && this.getElementOrBody(delta.parentId);
+            node = parentId && DomAccess.getElementOrBody(parentId);
 
             if (node) {
                 startTag = `<!-- ${delta.id} -->`;
@@ -313,11 +314,10 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      * @param {String} delta.toId
      */
-    du_replaceChild(delta) {
-        let me   = this,
-            node = me.getElement(delta.parentId);
+    du_replaceChild({fromId, parentId, toId}) {
+        let node = DomAccess.getElement(parentId);
 
-        node?.replaceChild(me.getElement(delta.toId), me.getElement(delta.fromId))
+        node?.replaceChild(DomAccess.getElement(toId), DomAccess.getElement(fromId))
     }
 
     /**
@@ -325,12 +325,11 @@ class DeltaUpdates extends Base {
      * @param {String} [delta.id]
      * @param {String} [delta.value
      */
-    du_setTextContent(delta) {
-        let me   = this,
-            node = me.getElement(delta.id);
+    du_setTextContent({id, value}) {
+        let node = DomAccess.getElement(id);
 
         if (node) {
-            node.textContent = delta.value
+            node.textContent = value
         }
     }
 
@@ -345,7 +344,7 @@ class DeltaUpdates extends Base {
      */
     du_updateNode(delta) {
         let me   = this,
-            node = me.getElementOrBody(delta.id);
+            node = DomAccess.getElementOrBody(delta.id);
 
         if (!node) {
             console.log('node not found', delta.id);
@@ -356,7 +355,7 @@ class DeltaUpdates extends Base {
                 switch(prop) {
                     case 'attributes':
                         Object.entries(value).forEach(([key, val]) => {
-                            if (me.voidAttributes.includes(key)) {
+                            if (voidAttributes.has(key)) {
                                 node[key] = val === 'true' // vnode attribute values get converted into strings
                             } else if (val === null || val === '') {
                                 if (key === 'value') {
@@ -416,14 +415,13 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      * @param {String} delta.value
      */
-    du_updateVtext(delta) {
-        let me        = this,
-            node      = me.getElement(delta.parentId),
+    du_updateVtext({id, parentId, value}) {
+        let node      = DomAccess.getElement(parentId),
             innerHTML = node.innerHTML,
-            startTag  = `<!-- ${delta.id} -->`,
+            startTag  = `<!-- ${id} -->`,
             reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
-        node.innerHTML = innerHTML.replace(reg, delta.value)
+        node.innerHTML = innerHTML.replace(reg, value)
     }
 
     /**

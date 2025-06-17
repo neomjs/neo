@@ -111,16 +111,7 @@ class DomAccess extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Void attributes inside html tags
-         * @member {String[]} voidAttributes
-         * @protected
-         */
-        voidAttributes: [
-            'checked',
-            'required'
-        ]
+        singleton: true
     }
 
     /**
@@ -863,7 +854,7 @@ class DomAccess extends Base {
      * @protected
      */
     read(data) {
-        typeof data === 'function' && data()
+        Neo.isFunction(data) && data()
     }
 
     /**
@@ -1156,19 +1147,6 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
-        })
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    write(data) {
-        DeltaUpdates.du_insertNode({
-            index    : data.parentIndex,
-            outerHTML: data.html || data.outerHTML,
-            parentId : data.parentId,
-            vnode    : data.vnode
         })
     }
 }
