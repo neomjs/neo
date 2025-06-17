@@ -1663,7 +1663,7 @@ class Component extends Base {
         controller = me.getConfigInstanceByNtype('controller', ntype);
 
         if (!ntype) {
-            me[closestController] = controller;
+            me[closestController] = controller
         }
 
         return controller
@@ -1911,7 +1911,7 @@ class Component extends Base {
         } else {
             let style = me.style;
             style.visibility = 'hidden';
-            me.style = style;
+            me.style = style
         }
 
         me._hidden = true
@@ -2136,14 +2136,14 @@ class Component extends Base {
     onFocusEnter(data) {
         // If we are hidden, or unmounted while we still contain focus, we have to revert
         // focus to where it came from if possible
-        this.focusEnterData = data;
+        this.focusEnterData = data
     }
 
     /**
      * @param {Object} data
      */
     onFocusLeave(data) {
-        this.focusEnterData = null;
+        this.focusEnterData = null
     }
 
     /**
