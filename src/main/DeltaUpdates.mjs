@@ -41,9 +41,8 @@ class DeltaUpdates extends Base {
             return null
         }
 
-        if (vnode.vtype === 'comment') {
-            domNode = document.createComment(vnode.textContent || '')
-        } else if (vnode.vtype === 'text') {
+        // Handle text nodes
+        if (vnode.vtype === 'text') {
             domNode = document.createTextNode(vnode.textContent || '');
 
             // Wrap in comment for consistency with delta updates
