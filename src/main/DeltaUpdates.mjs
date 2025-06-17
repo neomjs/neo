@@ -32,8 +32,9 @@ class DeltaUpdates extends Base {
      * @param {DocumentFragment|HTMLElement} [parentNode] The parent DOM node to append the created element to.
      * If not provided, a DocumentFragment is used as a temporary root.
      * @returns {Comment|DocumentFragment|HTMLElement|null} The created DOM node or DocumentFragment.
+     * @private
      */
-    createDomTree(vnode, parentNode) {
+    #createDomTree(vnode, parentNode) {
         let domNode;
 
         // No node or just a reference node, opt out
@@ -113,7 +114,7 @@ class DeltaUpdates extends Base {
 
         // Recursively process children
         vnode.childNodes.forEach(childVnode => {
-            this.createDomTree(childVnode, domNode)
+            this.#createDomTree(childVnode, domNode)
         })
 
         // Append to parent or return as fragment
@@ -199,15 +200,12 @@ class DeltaUpdates extends Base {
      */
     insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
         let me         = this,
-            parentNode = DomAccess.getElementOrBody(parentId),
-            countChildren;
+            parentNode = DomAccess.getElementOrBody(parentId);
 
         if (parentNode) {
-            countChildren = parentNode.childNodes.length;
-
             // Direct DOM API mounting: create a DocumentFragment and insert it
             if (!NeoConfig.useStringBasedMounting) {
-                let fragment = me.createDomTree(vnode);
+                let fragment = me.#createDomTree(vnode);
 
                 // Can be null
                 if (fragment) {
@@ -220,31 +218,49 @@ class DeltaUpdates extends Base {
 
             // String-based mounting logic
             } else {
-                // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
-                if (hasLeadingTextChildren) {
-                    let node = me.htmlStringToElement(outerHTML);
+                me.#insertNodeAsString({parentNode, hasLeadingTextChildren, index, outerHTML})
+            }
+        }
+    }
 
-                    if (index < parentNode.childNodes.length) {
-                        parentNode.insertBefore(node, parentNode.childNodes[index])
-                    } else {
-                        parentNode.appendChild(node)
-                    }
-                // If no comments detected use insertAdjacentHTML
-                } else {
-                    countChildren = parentNode.children.length;
+    /**
+     * Handles string-based insertion of a new node into the DOM.
+     * This method is called by `insertNode()` when `NeoConfig.useStringBasedMounting` is true.
+     *
+     * @param {Object}      data
+     * @param {Boolean}     data.hasLeadingTextChildren Flag to honor leading comments.
+     * @param {Number}      data.index                  The index at which to insert the new node.
+     * @param {String}      data.outerHTML              The HTML string of the node to insert.
+     * @param {HTMLElement} data.parentNode             The parent DOM node to insert into.
+     * @private
+     */
+    #insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode}) {
+        let me = this;
 
-                    if (index > 0 && index >= countChildren) {
-                        parentNode.insertAdjacentHTML('beforeend', outerHTML);
-                        return
-                    }
-                    if (countChildren > 0 && countChildren > index) {
-                        parentNode.children[index].insertAdjacentHTML('beforebegin', outerHTML)
-                    } else if (countChildren > 0) {
-                        parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', outerHTML)
-                    } else {
-                        parentNode.insertAdjacentHTML('beforeend', outerHTML)
-                    }
-                }
+        // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
+        if (hasLeadingTextChildren) {
+            let node = me.htmlStringToElement(outerHTML);
+
+            if (index < parentNode.childNodes.length) {
+                parentNode.insertBefore(node, parentNode.childNodes[index])
+            } else {
+                parentNode.appendChild(node)
+            }
+        }
+        // If no comments detected, use insertAdjacentHTML for element nodes.
+        else {
+            let countChildren = parentNode.children.length; // Use `children` for `insertAdjacentHTML` context
+
+            if (index > 0 && index >= countChildren) {
+                parentNode.insertAdjacentHTML('beforeend', outerHTML);
+                return
+            }
+            if (countChildren > 0 && countChildren > index) {
+                parentNode.children[index].insertAdjacentHTML('beforebegin', outerHTML)
+            } else if (countChildren > 0) {
+                parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', outerHTML)
+            } else {
+                parentNode.insertAdjacentHTML('beforeend', outerHTML)
             }
         }
     }
