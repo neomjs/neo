@@ -303,20 +303,35 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      */
     removeNode({id, parentId}) {
-        let node = DomAccess.getElement(id),
-            reg, startTag;
+        const node = DomAccess.getElement(id);
 
-        if (!node) { // could be a vtype: text
-            node = parentId && DomAccess.getElementOrBody(parentId);
+        if (node) {
+            node.remove();
+        }
+        // Potentially a vtype: 'text' node (wrapped between 2 comments)
+        else if (parentId) {
+            const
+                parentNode = DomAccess.getElementOrBody(parentId),
+                isComment  = Node.COMMENT_NODE;
 
-            if (node) {
-                startTag = `<!-- ${id} -->`;
-                reg      = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
+            if (parentNode) {
+                // Find the starting comment node using its id marker
+                const startComment = Array.from(parentNode.childNodes).find(n =>
+                    n.nodeType === isComment && n.nodeValue.includes(` ${id} `)
+                );
 
-                node.innerHTML = node.innerHTML.replace(reg, '')
+                if (startComment) {
+                    const
+                        textNode = startComment.nextSibling,
+                        // Ensure endComment is a comment node before attempting to remove
+                        endComment = textNode?.nextSibling?.nodeType === isComment ? textNode.nextSibling : null;
+
+                    // Remove the three parts: start comment, text node, end comment
+                    startComment.remove();
+                    textNode?.remove();
+                    endComment?.remove()
+                }
             }
-        } else {
-            node.remove()
         }
     }
 
