@@ -1,5 +1,6 @@
 import Neo           from './Neo.mjs';
 import * as core     from './core/_export.mjs';
+import DeltaUpdates  from './main/DeltaUpdates.mjs';
 import DomAccess     from './main/DomAccess.mjs';
 import DomEvents     from './main/DomEvents.mjs';
 import Observable    from './core/Observable.mjs';
@@ -531,7 +532,7 @@ class Main extends core.Base {
     }
 
     /**
-     * Open a new popup window and return if successfull
+     * Open a new popup window and return if successful
      * @param {Object} data
      * @param {String} data.url
      * @param {String} data.windowFeatures
