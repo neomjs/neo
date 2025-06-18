@@ -21,9 +21,9 @@ class ImageStore extends Store {
          */
         model: ImageModel,
         /**
-         * @member {String} url='../../resources/examples/data/ai_contacts.json'
+         * @member {String} url=Neo.config.basePath+'resources/examples/data/ai_contacts.json'
          */
-        url: '../../resources/examples/data/ai_contacts.json'
+        url: Neo.config.basePath + 'resources/examples/data/ai_contacts.json'
     }
 }
 
