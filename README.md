@@ -41,8 +41,12 @@ Traditional single-threaded frontend frameworks often struggle with performance 
     Whether building sophisticated enterprise dashboards, data-intensive Gen AI interfaces, or desktop-like multi-window applications, Neo.mjs's modular, worker-driven architecture effortlessly scales. Components are persistent, stateful instances that can be unmounted, moved, and even remounted across browser windows without losing their logic or state. This is key to preventing the "re-rendering madness" common in other frameworks.
 
 </br></br>
-## :rocket: Real-World Win: Crushing UI Lag in Action
-Imagine a developer building a stock trading app with live feeds updating every millisecond. Traditional frameworks often choke, freezing the UI under the data flood. With Neo.mjs, the heavy lifting happens in worker threads, keeping the main thread free. Traders get real-time updates with zero lag, and the app feels like a native desktop tool. Now, imagine extending this with **multiple synchronized browser windows**, each displaying different real-time views, all remaining butter-smooth. That’s Neo.mjs in action—solving problems others can’t touch.
+## 📊  Real-World Win: Crushing UI Lag in Action
+Imagine a developer building a stock trading app with live feeds updating every millisecond. Traditional frameworks often choke,
+freezing the UI under the data flood. With Neo.mjs, the heavy lifting happens in worker threads, keeping the main thread free.
+Traders get real-time updates with zero lag, and the app feels like a native desktop tool. Now, imagine extending this with
+**multiple synchronized browser windows**, each displaying different real-time views, all remaining butter-smooth.
+That’s Neo.mjs in action—solving problems others can’t touch.
 
 </br></br>
 ## 🌟 Key Features (and How They Supercharge Your App)
