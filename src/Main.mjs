@@ -252,12 +252,6 @@ class Main extends core.Base {
 
         DomAccess.onDomContentLoaded();
 
-        // We need different publicPath values for the main thread inside the webpack based dist envs,
-        // depending on the hierarchy level of the app entry point
-        if (environment === 'dist/development' || environment === 'dist/production') {
-            __webpack_require__.p = config.basePath.substring(6)
-        }
-
         // Intended for the online examples where we need an easy way to add GA to every generated app
         if (config.useGoogleAnalytics && !mainThreadAddons.includes('AnalyticsByGoogle')) {
             mainThreadAddons.push('AnalyticsByGoogle')

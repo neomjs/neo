@@ -69,10 +69,17 @@ class DeltaUpdates extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me            = this,
+            {environment} = NeoConfig;
 
-        if (Neo.config.renderCountDeltas) {
+        if (NeoConfig.renderCountDeltas) {
             me.renderCountDeltas = true
+        }
+
+        // We need different publicPath values for the main thread inside the webpack based dist envs,
+        // depending on the hierarchy level of the app entry point
+        if (environment === 'dist/development' || environment === 'dist/production') {
+            __webpack_require__.p = NeoConfig.basePath.substring(6)
         }
 
         // Initiate the asynchronous loading of the renderer here.
