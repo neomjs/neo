@@ -16,7 +16,10 @@
 
 💻 ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
 
-Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **It is simply the best option for browser-based multi-window applications**, operating fundamentally differently from traditional frameworks.
+Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how
+many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**.
+**While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**,
+operating fundamentally different from traditional frameworks.
 
 By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensures your UI remains butter-smooth, even during computationally intensive tasks like complex data processing or advanced graphics rendering. The main thread is kept free for one purpose: **flawless user interactions and seamless DOM updates.**
 
@@ -27,22 +30,32 @@ By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensur
 
 </br></br>
 ## 🚀 Why Choose Neo.mjs? Solving the Toughest UI Challenges
-Traditional single-threaded frontend frameworks often struggle with performance bottlenecks and UI freezes, especially for large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundamentally different solution, designed for **uncompromising performance, enhanced security, and superior developer experience.**
+Traditional single-threaded frontend frameworks often struggle with performance bottlenecks and UI freezes, especially for
+large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundamentally different solution, designed for
+**uncompromising performance, enhanced security, and superior developer experience.**
 
 1. **Eliminate UI Freezes with True Multithreading**:
    > *"The browser's main thread should be treated like a neurosurgeon: only perform precise, scheduled operations with zero distractions."*</br></br>
    — Neo.mjs Core Philosophy
     
    Neo.mjs's OMT architecture inherently prevents UI freezes. With v10's optimized rendering pipeline, your UI will remain even *more*
-   consistently responsive, even during intense data processing or complex graphics rendering. It achieves an astonishing rate of **over 40,000 delta updates per second** in optimized environments. This translates to an engine with vast untapped potential, limited only by user interaction, not the framework.
+   consistently responsive, even during intense data processing or complex graphics rendering. It achieves an astonishing
+   rate of **over 40,000 delta updates per second** in optimized environments. This translates to an engine with vast untapped
+   potential, limited only by user interaction, not the framework.
+ 
 2. **Unmatched Developer Experience: Transpilation-Free ESM**:
-   Say goodbye to complex build steps for development. Neo.mjs apps run **natively as ES Modules directly in the browser**. This means **zero builds or transpilations** in dev mode, offering instant reloads and an **unmatched debugging experience**. You modify code, and your app updates in real-time.
+   Say goodbye to complex build steps for development. Neo.mjs apps run **natively as ES Modules directly in the browser**.
+   This means **zero builds or transpilations** in dev mode, offering instant reloads and an **unmatched debugging experience**.
+   You modify code, and your app updates in real-time.
+ 
 3. **Inherent Security by Design**:
    By prioritizing direct DOM API manipulation over string-based methods (like `innerHTML`), Neo.mjs fundamentally reduces
    the attack surface for vulnerabilities like Cross-Site Scripting (XSS), building a more robust and secure application from the ground up.
+ 
 4. **Declarative, Consistent, & Reusable Architecture**:
    Neo.mjs's unique **unified class config system** allows you to define components, layouts, and logic in a clean, declarative,
    and highly consistent way. This significantly reduces boilerplate, improves maintainability, and makes complex UI composition surprisingly straightforward.
+
 5. **Scalability for Enterprise & Beyond**:
    Whether building sophisticated enterprise dashboards, data-intensive Gen AI interfaces, or desktop-like multi-window applications,
    Neo.mjs's modular, worker-driven architecture effortlessly scales. Components are persistent, stateful instances that can be unmounted,
@@ -60,19 +73,26 @@ That’s Neo.mjs in action—solving problems others can’t touch.
 </br></br>
 ## 🌟 Key Features (and How They Supercharge Your App)
 
-* **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved. No more wasteful re-creations – just surgical, efficient updates.
+* **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved.
+  No more wasteful re-creations – just surgical, efficient updates.
 
-* **Reactive State Management**: Built-in reactivity ensures dynamic, efficient updates between components and state providers, all handled off the main thread.
+* **Reactive State Management**: Built-in reactivity ensures dynamic, efficient updates between components and state providers,
+  all handled off the main thread.
 
-* **Hierarchical State Management**: Seamlessly manage state between parent and child components with nested state providers. Components intelligently bind to the closest provider, combining data for powerful, maintainable patterns.
+* **Hierarchical State Management**: Seamlessly manage state between parent and child components with nested state providers.
+  Components intelligently bind to the closest provider, combining data for powerful, maintainable patterns.
 
-* **Clean Architecture (MVVM-inspired)**: View controllers ensure a clear separation of concerns, isolating business logic from UI components for easier maintenance, testing, and team collaboration.
+* **Clean Architecture (MVVM-inspired)**: View controllers ensure a clear separation of concerns, isolating business logic
+  from UI components for easier maintenance, testing, and team collaboration.
 
-* **Multi-Window & Single-Page Applications (SPAs)**: Easily build and manage complex applications that require multiple browser windows or traditional SPAs, all powered by the same underlying multi-threaded architecture without requiring any native shell.
+* **Multi-Window & Single-Page Applications (SPAs)**: Easily build and manage complex applications that require multiple
+  browser windows or traditional SPAs, all powered by the same underlying multi-threaded architecture without requiring any native shell.
 
-* **No npm Dependency Hell**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling. This means smaller bundles, fewer conflicts, and a simpler dependency graph.
+* **No npm Dependency Hell**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling.
+  This means smaller bundles, fewer conflicts, and a simpler dependency graph.
 
-* **Cutting-Edge Use Cases**: Ideal for **data-intensive applications, real-time dashboards, web-based IDEs, banking applications, and complex multi-window Gen AI interfaces** where performance and responsiveness are non-negotiable.
+* **Cutting-Edge Use Cases**: Ideal for **data-intensive applications, real-time dashboards, web-based IDEs, banking
+  applications, and complex multi-window Gen AI interfaces** where performance and responsiveness are non-negotiable.
 
 <p align="center">
   <img src="./resources/images/workers-focus.svg" alt="Neo.mjs Worker Architecture Diagram - Shows Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend connections.">
