@@ -455,6 +455,27 @@ class Helper extends Base {
     }
 
     /**
+     * For delta updates to work, every node inside the live DOM needs a unique ID.
+     * Text nodes need to get wrapped into comment nodes, which contain the ID to ensure consistency.
+     * As the result, we need a physical index which counts every text node as 3 nodes.
+     * @param {Neo.vdom.VNode} parentNode
+     * @param {Number}         logicalIndex
+     * @returns {Number}
+     */
+    getPhysicalIndex(parentNode, logicalIndex) {
+        let physicalIndex = logicalIndex,
+            i              = 0;
+
+        for (; i < logicalIndex; i++) {
+            if (parentNode.childNodes[i]?.vtype === 'text') {
+                physicalIndex += 2 // Accounts for <!--neo-vtext--> wrappers
+            }
+        }
+
+        return physicalIndex
+    }
+
+    /**
      * Only import for the DOM API based mount adapter.
      * @returns {Promise<void>}
      * @protected
@@ -493,22 +514,7 @@ class Helper extends Base {
             movedNodes             = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
             delta                  = {action: 'insertNode', parentId},
             hasLeadingTextChildren = false,
-            physicalIndex          = index, // Start with the logical index
-            i                      = 0,
-            siblingVnode;
-
-        // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
-        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
-        // up to the logical insertion point.
-        for (; i < index; i++) {
-            siblingVnode = parentNode.childNodes[i];
-
-            // If we encounter a text VNode before the insertion point, adjust physicalIndex
-            if (siblingVnode?.vtype === 'text') {
-                physicalIndex += 2; // Each text VNode adds 2 comment nodes to the physical count
-                hasLeadingTextChildren = true
-            }
-        }
+            physicalIndex          = me.getPhysicalIndex(parentNode, index); // Processes the children of the *NEW* parent's VNode in the *current* state
 
         Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
 
@@ -568,21 +574,7 @@ class Helper extends Base {
             movedParentNode     = movedNode.parentNode,
             {childNodes}        = movedParentNode,
             delta               = {action: 'moveNode', id: vnode.id, parentId},
-            physicalIndex       = index, // Start with the logical index
-            i                   = 0,
-            siblingVnode;
-
-        // Calculate physicalIndex for DOM insertion.
-        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
-        // up to the logical insertion point.
-        for (; i < index; i++) {
-            siblingVnode = parentNode.childNodes[i];
-
-            if (siblingVnode?.vtype === 'text') {
-                // Each text VNode adds 2 comment nodes to the physical count
-                physicalIndex += 2
-            }
-        }
+            physicalIndex       = this.getPhysicalIndex(parentNode, index); // Processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
 
         Object.assign(delta, {index: physicalIndex + insertDelta});
         deltas.default.push(delta);
