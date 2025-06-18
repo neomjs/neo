@@ -57,7 +57,7 @@ That’s Neo.mjs in action—solving problems others can’t touch.
 
 * **Hierarchical State Management**: Seamlessly manage state between parent and child components with nested state providers. Components intelligently bind to the closest provider, combining data for powerful, maintainable patterns.
 
-* **Clean Architecture (MVC-inspired)**: View controllers ensure a clear separation of concerns, isolating business logic from UI components for easier maintenance, testing, and team collaboration.
+* **Clean Architecture (MVVM-inspired)**: View controllers ensure a clear separation of concerns, isolating business logic from UI components for easier maintenance, testing, and team collaboration.
 
 * **Multi-Window & Single-Page Applications (SPAs)**: Easily build and manage complex applications that require multiple browser windows or traditional SPAs, all powered by the same underlying multi-threaded architecture without requiring any native shell.
 
@@ -128,7 +128,7 @@ Run this command:
 npx neo-app@latest
 ```
 
-This one-liner sets up everything you need to start building with Neo, including:
+This one-liner sets up everything you need to start building with Neo.mjs, including:
 
 * A new app workspace.
 * A pre-configured app shell.
