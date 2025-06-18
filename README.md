@@ -116,16 +116,15 @@ export default Neo.setupClass(MyComponent);
 For more details, check out the [Class Config System documentation](https://neomjs.com/dist/production/apps/portal/index.html#/learn/gettingstarted.Config).
 
 </br></br>
-## 🚀 Get Started in Seconds!
-Quick Start
+## 🚀 Jump In: Your First Neo.mjs App in Minutes
 
-Run the following command in your terminal, and your new Neo.mjs app will be created, the local web server will start, and your app will open in a new browser window:
-
-This one-liner sets up everything you need to start building with Neo.mjs, including:
+Run this command:
 
 ```bash
 npx neo-app@latest
 ```
+
+This one-liner sets up everything you need to start building with Neo, including:
 
 * A new app workspace.
 * A pre-configured app shell.
@@ -135,9 +134,6 @@ npx neo-app@latest
 :book: More details? Check out our [Getting Started Guide](./.github/GETTING_STARTED.md)
 
 :student: Make sure to dive into the [Learning Section](https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup)
-
-:brain: The most advanced tutorial to help you with getting up to speed is this one:
-[Earthquakes Tutorial](https://neomjs.com/dist/production/apps/portal/#/learn/tutorials.Earthquakes)
 
 Next steps:
 
