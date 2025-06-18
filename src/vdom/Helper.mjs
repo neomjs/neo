@@ -307,6 +307,9 @@ class Helper extends Base {
                     case 'tag':
                         node.nodeName = value;
                         break
+                    case 'cls':
+                        node.className = value;
+                        break
                     case 'html':
                         node.innerHTML = value.toString(); // support for numbers
                         break
@@ -333,13 +336,7 @@ class Helper extends Base {
 
                         node.childNodes = newValue;
                         break
-                    case 'cls':
-                        if (value && !Array.isArray(value)) {
-                            node.className = [value]
-                        } else if (!(Array.isArray(value) && value.length < 1)) {
-                            node.className = value
-                        }
-                        break
+
                     case 'data':
                         if (value && Neo.typeOf(value) === 'Object') {
                             Object.entries(value).forEach(([key, val]) => {

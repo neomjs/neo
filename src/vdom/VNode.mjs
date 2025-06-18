@@ -76,7 +76,7 @@ class VNode {
         } else {
             Object.assign(me, {
                 attributes: config.attributes || {},
-                className : config.className  || [],
+                className : normalizeClassName(config.className),
                 nodeName  : config.nodeName   || 'div',
                 style     : config.style
             });
@@ -97,6 +97,40 @@ class VNode {
             me.static = true
         }
     }
+}
+
+/**
+ * vdom cls definitions might contain spaces, especially when it comes to iconCls.
+ * @example: myVdom = {cls: ['my-button', 'fa fa-user']}
+ *
+ * On DOM level, classList.add() will throw, in case it gets an input containing a space.
+ *
+ * important: module based method, not class based
+ * VNodes get serialised to get passed via ´postMessage()´, so there would be more iterations
+ * Negligible from a performance perspective, but the main argument is purity
+ * @param {String|String[]} classNameInput
+ * @returns {String[]}
+ * @private
+ */
+function normalizeClassName(classNameInput) {
+    let normalizedClasses = [];
+
+    if (Neo.isString(classNameInput)) {
+        normalizedClasses = classNameInput.split(' ').filter(Boolean)
+    } else if (Array.isArray(classNameInput)) {
+        classNameInput.forEach(cls => {
+            if (Neo.isString(cls)) {
+                if (cls.includes(' ')) {
+                    normalizedClasses.push(...cls.split(' ').filter(Boolean))
+                } else if (cls !== '') {
+                    normalizedClasses.push(cls)
+                }
+            }
+        })
+    }
+
+    // Remove duplicates if necessary
+    return [...new Set(normalizedClasses)]
 }
 
 const ns = Neo.ns('Neo.vdom', true);
