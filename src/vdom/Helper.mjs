@@ -432,9 +432,8 @@ class Helper extends Base {
      * @returns {Map}
      * @protected
      */
-    findMovedNodes(config) {
-        let {movedNodes=new Map(), oldVnodeMap, vnode, vnodeMap} = config,
-            id = vnode?.id;
+    findMovedNodes({movedNodes=new Map(), oldVnodeMap, vnode, vnodeMap}) {
+        let id = vnode?.id;
 
         if (id) {
             if (this.isMovedNode(vnode, oldVnodeMap)) {
