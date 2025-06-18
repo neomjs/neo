@@ -46,13 +46,13 @@ class Helper extends Base {
      * @returns {Object} deltas
      * @protected
      */
-    compareAttributes(config) {
-        let {deltas, oldVnode, vnode, vnodeMap} = config,
-            attributes, delta, value, keys, styles, add, remove;
-
+    compareAttributes({deltas, oldVnode, vnode, vnodeMap}) {
+        // Do not compare attributes for component references
         if (oldVnode.componentId && (oldVnode.id === vnode.id || oldVnode.componentId === vnode.id)) {
             return deltas
         }
+
+        let attributes, delta, value, keys, styles, add, remove;
 
         if (vnode.vtype === 'text' && vnode.innerHTML !== oldVnode.innerHTML) {
             deltas.default.push({
