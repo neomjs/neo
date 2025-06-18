@@ -16,6 +16,8 @@ Markdown
 # Build Ultra-Fast, Desktop-Like Web Apps. Period. :zap:
 :rocket: **Break Free from UI Freezes – Experience True Multithreading & Uncompromised Responsiveness.**
 
+***Neo.mjs v10 isn't an upgrade—it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
+
 Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **It is simply the best option for browser-based multi-window applications**, operating fundamentally differently from traditional frameworks.
 
 By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensures your UI remains butter-smooth, even during computationally intensive tasks like complex data processing or advanced graphics rendering. The main thread is kept free for one purpose: **flawless user interactions and seamless DOM updates.**
@@ -29,16 +31,25 @@ By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensur
 ## 🚀 Why Choose Neo.mjs? Solving the Toughest UI Challenges
 Traditional single-threaded frontend frameworks often struggle with performance bottlenecks and UI freezes, especially for large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundamentally different solution, designed for **uncompromising performance, enhanced security, and superior developer experience.**
 
-1.  **Eliminate UI Freezes with True Multithreading**:
-    Neo.mjs's OMT paradigm moves heavy tasks—like application logic, state management, complex VDom calculation, and even graphics rendering via OffscreenCanvas—to dedicated worker threads. This keeps the browser's main thread free, ensuring a **smooth, jank-free user experience** even during peak loads.
-2.  **Unmatched Developer Experience: Transpilation-Free ESM**:
-    Say goodbye to complex build steps for development. Neo.mjs apps run **natively as ES Modules directly in the browser**. This means **zero builds or transpilations** in dev mode, offering instant reloads and an **unmatched debugging experience**. You modify code, and your app updates in real-time.
-3.  **Inherent Security by Design**:
-    By prioritizing direct DOM API manipulation over string-based methods (like `innerHTML`), Neo.mjs fundamentally reduces the attack surface for vulnerabilities like Cross-Site Scripting (XSS), building a more robust and secure application from the ground up.
-4.  **Declarative, Consistent, & Reusable Architecture**:
-    Neo.mjs's unique **unified class config system** allows you to define components, layouts, and logic in a clean, declarative, and highly consistent way. This significantly reduces boilerplate, improves maintainability, and makes complex UI composition surprisingly straightforward.
-5.  **Scalability for Enterprise & Beyond**:
-    Whether building sophisticated enterprise dashboards, data-intensive Gen AI interfaces, or desktop-like multi-window applications, Neo.mjs's modular, worker-driven architecture effortlessly scales. Components are persistent, stateful instances that can be unmounted, moved, and even remounted across browser windows without losing their logic or state. This is key to preventing the "re-rendering madness" common in other frameworks.
+1. **Eliminate UI Freezes with True Multithreading**:
+   > *"The browser's main thread should be treated like a neurosurgeon: only perform precise, scheduled operations with zero distractions."*</br></br>
+   — Neo.mjs Core Philosophy
+    
+   Neo.mjs's OMT architecture inherently prevents UI freezes. With v10's optimized rendering pipeline, your UI will remain even *more*
+   consistently responsive, even during intense data processing or complex graphics rendering. It achieves an astonishing rate of **over 40,000 delta updates per second** in optimized environments. This translates to an engine with vast untapped potential, limited only by user interaction, not the framework.
+2. **Unmatched Developer Experience: Transpilation-Free ESM**:
+   Say goodbye to complex build steps for development. Neo.mjs apps run **natively as ES Modules directly in the browser**. This means **zero builds or transpilations** in dev mode, offering instant reloads and an **unmatched debugging experience**. You modify code, and your app updates in real-time.
+3. **Inherent Security by Design**:
+   By prioritizing direct DOM API manipulation over string-based methods (like `innerHTML`), Neo.mjs fundamentally reduces
+   the attack surface for vulnerabilities like Cross-Site Scripting (XSS), building a more robust and secure application from the ground up.
+4. **Declarative, Consistent, & Reusable Architecture**:
+   Neo.mjs's unique **unified class config system** allows you to define components, layouts, and logic in a clean, declarative,
+   and highly consistent way. This significantly reduces boilerplate, improves maintainability, and makes complex UI composition surprisingly straightforward.
+5. **Scalability for Enterprise & Beyond**:
+   Whether building sophisticated enterprise dashboards, data-intensive Gen AI interfaces, or desktop-like multi-window applications,
+   Neo.mjs's modular, worker-driven architecture effortlessly scales. Components are persistent, stateful instances that can be unmounted,
+   moved, and even remounted across browser windows without losing their logic or state. This is key to preventing the "re-rendering madness"
+   common in other frameworks.
 
 </br></br>
 ## 📊  Real-World Win: Crushing UI Lag in Action
