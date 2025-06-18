@@ -16,7 +16,7 @@ Markdown
 # Build Ultra-Fast, Desktop-Like Web Apps. Period. :zap:
 🚀 **Break Free from UI Freezes – Experience True Multithreading & Uncompromised Responsiveness.**
 
-✨ ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
+🌐 ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
 
 Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **It is simply the best option for browser-based multi-window applications**, operating fundamentally differently from traditional frameworks.
 
