@@ -1,5 +1,3 @@
-Markdown
-
 <p align="center">
   <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/logo/neo_logo_text_primary.svg" alt="Neo.mjs Logo">
 </p>
@@ -14,7 +12,7 @@ Markdown
 </p>
 
 # Build Ultra-Fast, Desktop-Like Web Apps. Period. :zap:
-🚀 **Break Free from UI Freezes – Experience True Multithreading & Uncompromised Responsiveness.**
+🚀 **Break Free from UI Freezes — Experience True Multithreading & Uncompromised Responsiveness.**
 
 🌐 ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
 
