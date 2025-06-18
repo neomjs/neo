@@ -265,7 +265,7 @@ class Helper extends Base {
                 if (me.isMovedNode(childNode, oldVnodeMap)) {
                     me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
-                    me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
+                    me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 }
 
                 if (oldChildNode && vnodeId === vnodeMap.get(oldChildNodeId)?.parentNode.id) {
@@ -380,12 +380,12 @@ class Helper extends Base {
             }
         });
 
-        // Especially relevant for vtype='text'
+        // Relevant for vtype='text'
         if (Object.keys(node.attributes).length < 1) {
             delete node.attributes
         }
 
-        // Especially relevant for vtype='text'
+        // Relevant for vtype='text'
         if (Object.keys(node.style).length < 1) {
             delete node.style
         }
