@@ -55,21 +55,6 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
-         * @member {Number} countDeltas=0
-         * @protected
-         */
-        countDeltas: 0,
-        /**
-         * @member {Number} countDeltasPer250ms=0
-         * @protected
-         */
-        countDeltasPer250ms: 0,
-        /**
-         * @member {Number} countUpdates=0
-         * @protected
-         */
-        countUpdates: 0,
-        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -103,22 +88,11 @@ class DomAccess extends Base {
             ]
         },
         /**
-         * @member {Boolean} renderCountDeltas_=false
-         * @protected
-         */
-        renderCountDeltas_: false,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true
     }
-
-    /**
-     * @member {Number} logDeltasIntervalId=0
-     * @protected
-     */
-    logDeltasIntervalId = 0
 
     /**
      * @returns {HTMLElement}
@@ -142,10 +116,6 @@ class DomAccess extends Base {
         super.construct(config);
 
         let me = this;
-
-        if (Neo.config.renderCountDeltas) {
-            me.renderCountDeltas = true
-        }
 
         me.initGlobalListeners();
 
@@ -216,35 +186,6 @@ class DomAccess extends Base {
         Object.assign(script, data);
 
         document.head.appendChild(script)
-    }
-
-    /**
-     * Triggered after the renderCountDeltas config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetRenderCountDeltas(value, oldValue) {
-        let me                    = this,
-            {logDeltasIntervalId} = me,
-            node;
-
-        if (value) {
-            if (logDeltasIntervalId === 0) {
-                me.logDeltasIntervalId = setInterval(() => {
-                    node = document.getElementById('neo-delta-updates');
-
-                    if (node) {
-                        node.innerHTML = String(me.countDeltasPer250ms * 4)
-                    }
-
-                    me.countDeltasPer250ms = 0
-                }, 250)
-            }
-        } else {
-            logDeltasIntervalId && clearInterval(logDeltasIntervalId);
-            me.logDeltasInterval = 0
-        }
     }
 
     /**

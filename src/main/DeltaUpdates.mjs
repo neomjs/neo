@@ -18,11 +18,36 @@ class DeltaUpdates extends Base {
          */
         className: 'Neo.main.DeltaUpdates',
         /**
+         * @member {Number} countDeltas=0
+         * @protected
+         */
+        countDeltas: 0,
+        /**
+         * @member {Number} countDeltasPer250ms=0
+         * @protected
+         */
+        countDeltasPer250ms: 0,
+        /**
+         * @member {Number} countUpdates=0
+         * @protected
+         */
+        countUpdates: 0,
+        /**
+         * @member {Boolean} renderCountDeltas_=false
+         * @protected
+         */
+        renderCountDeltas_: false,
+        /**
          * @member {Boolean} singleton=true
          */
         singleton: true
     }
 
+    /**
+     * @member {Number} logDeltasIntervalId=0
+     * @protected
+     */
+    logDeltasIntervalId = 0
     /**
      * Private property to store the dynamically loaded renderer module.
      * @member {Neo.main.render.DomApiRenderer|Neo.main.render.DomApiRenderer|null} #renderer=null
@@ -44,8 +69,14 @@ class DeltaUpdates extends Base {
     construct(config) {
         super.construct(config);
 
+        let me = this;
+
+        if (Neo.config.renderCountDeltas) {
+            me.renderCountDeltas = true
+        }
+
         // Initiate the asynchronous loading of the renderer here.
-        this.#_readyPromise = (async () => {
+        me.#_readyPromise = (async () => {
             try {
                 let module;
 
@@ -55,12 +86,41 @@ class DeltaUpdates extends Base {
                     module = await import('./render/DomApiRenderer.mjs')
                 }
 
-                this.#renderer = module.default
+                me.#renderer = module.default
             } catch (err) {
                 console.error('DeltaUpdates: Failed to load renderer module:', err);
                 throw err // Re-throw to propagate initialization failures
             }
         })()
+    }
+
+    /**
+     * Triggered after the renderCountDeltas config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRenderCountDeltas(value, oldValue) {
+        let me                    = this,
+            {logDeltasIntervalId} = me,
+            node;
+
+        if (value) {
+            if (logDeltasIntervalId === 0) {
+                me.logDeltasIntervalId = setInterval(() => {
+                    node = document.getElementById('neo-delta-updates');
+
+                    if (node) {
+                        node.innerHTML = String(me.countDeltasPer250ms * 4)
+                    }
+
+                    me.countDeltasPer250ms = 0
+                }, 250)
+            }
+        } else {
+            logDeltasIntervalId && clearInterval(logDeltasIntervalId);
+            me.logDeltasInterval = 0
+        }
     }
 
     /**

@@ -487,7 +487,7 @@ class Main extends core.Base {
 
         Neo.config[key] = data.value;
 
-        key === 'renderCountDeltas' && DomAccess.set({[key]: value})
+        key === 'renderCountDeltas' && DeltaUpdates.set({[key]: value})
     }
 
     /**

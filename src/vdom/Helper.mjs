@@ -46,13 +46,13 @@ class Helper extends Base {
      * @returns {Object} deltas
      * @protected
      */
-    compareAttributes(config) {
-        let {deltas, oldVnode, vnode, vnodeMap} = config,
-            attributes, delta, value, keys, styles, add, remove;
-
+    compareAttributes({deltas, oldVnode, vnode, vnodeMap}) {
+        // Do not compare attributes for component references
         if (oldVnode.componentId && (oldVnode.id === vnode.id || oldVnode.componentId === vnode.id)) {
             return deltas
         }
+
+        let attributes, delta, value, keys, styles, add, remove;
 
         if (vnode.vtype === 'text' && vnode.innerHTML !== oldVnode.innerHTML) {
             deltas.default.push({
@@ -265,7 +265,7 @@ class Helper extends Base {
                 if (me.isMovedNode(childNode, oldVnodeMap)) {
                     me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
-                    me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap});
+                    me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 }
 
                 if (oldChildNode && vnodeId === vnodeMap.get(oldChildNodeId)?.parentNode.id) {
@@ -380,12 +380,12 @@ class Helper extends Base {
             }
         });
 
-        // Especially relevant for vtype='text'
+        // Relevant for vtype='text'
         if (Object.keys(node.attributes).length < 1) {
             delete node.attributes
         }
 
-        // Especially relevant for vtype='text'
+        // Relevant for vtype='text'
         if (Object.keys(node.style).length < 1) {
             delete node.style
         }
@@ -396,10 +396,10 @@ class Helper extends Base {
     /**
      * Creates a flat map of the tree, containing ids as keys and infos as values
      * @param {Object}         config
-     * @param {Neo.vdom.VNode} config.vnode
-     * @param {Neo.vdom.VNode} [config.parentNode=null]
      * @param {Number}         [config.index=0]
      * @param {Map}            [config.map=new Map()]
+     * @param {Neo.vdom.VNode} [config.parentNode=null]
+     * @param {Neo.vdom.VNode} config.vnode
      * @returns {Map}
      *     {String}         id vnode.id (convenience shortcut)
      *     {Number}         index
@@ -407,18 +407,15 @@ class Helper extends Base {
      *     {Neo.vdom.VNode} vnode
      * @protected
      */
-    createVnodeMap(config) {
-        let {vnode, parentNode=null, index=0, map=new Map()} = config,
-            id;
-
+    createVnodeMap({index=0, map=new Map(), parentNode=null, vnode}) {
         if (vnode) {
-            id = vnode.id || vnode.componentId;
+            let id = vnode.id || vnode.componentId;
 
             map.set(id, {id, index, parentNode, vnode});
 
             vnode.childNodes?.forEach((childNode, index) => {
-                this.createVnodeMap({vnode: childNode, parentNode: vnode, index, map})
-            });
+                this.createVnodeMap({index, map, parentNode: vnode, vnode: childNode})
+            })
         }
 
         return map
@@ -435,9 +432,8 @@ class Helper extends Base {
      * @returns {Map}
      * @protected
      */
-    findMovedNodes(config) {
-        let {movedNodes=new Map(), oldVnodeMap, vnode, vnodeMap} = config,
-            id = vnode?.id;
+    findMovedNodes({movedNodes=new Map(), oldVnodeMap, vnode, vnodeMap}) {
+        let id = vnode?.id;
 
         if (id) {
             if (this.isMovedNode(vnode, oldVnodeMap)) {
@@ -452,6 +448,27 @@ class Helper extends Base {
         }
 
         return movedNodes
+    }
+
+    /**
+     * For delta updates to work, every node inside the live DOM needs a unique ID.
+     * Text nodes need to get wrapped into comment nodes, which contain the ID to ensure consistency.
+     * As the result, we need a physical index which counts every text node as 3 nodes.
+     * @param {Neo.vdom.VNode} parentNode
+     * @param {Number}         logicalIndex
+     * @returns {Number}
+     */
+    getPhysicalIndex(parentNode, logicalIndex) {
+        let physicalIndex = logicalIndex,
+            i              = 0;
+
+        for (; i < logicalIndex; i++) {
+            if (parentNode.childNodes[i]?.vtype === 'text') {
+                physicalIndex += 2 // Accounts for <!--neo-vtext--> wrappers
+            }
+        }
+
+        return physicalIndex
     }
 
     /**
@@ -493,22 +510,7 @@ class Helper extends Base {
             movedNodes             = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
             delta                  = {action: 'insertNode', parentId},
             hasLeadingTextChildren = false,
-            physicalIndex          = index, // Start with the logical index
-            i                      = 0,
-            siblingVnode;
-
-        // Calculate physicalIndex for DOM insertion and hasLeadingTextChildren flag
-        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
-        // up to the logical insertion point.
-        for (; i < index; i++) {
-            siblingVnode = parentNode.childNodes[i];
-
-            // If we encounter a text VNode before the insertion point, adjust physicalIndex
-            if (siblingVnode?.vtype === 'text') {
-                physicalIndex += 2; // Each text VNode adds 2 comment nodes to the physical count
-                hasLeadingTextChildren = true
-            }
-        }
+            physicalIndex          = me.getPhysicalIndex(parentNode, index); // Processes the children of the *NEW* parent's VNode in the *current* state
 
         Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
 
@@ -568,21 +570,7 @@ class Helper extends Base {
             movedParentNode     = movedNode.parentNode,
             {childNodes}        = movedParentNode,
             delta               = {action: 'moveNode', id: vnode.id, parentId},
-            physicalIndex       = index, // Start with the logical index
-            i                   = 0,
-            siblingVnode;
-
-        // Calculate physicalIndex for DOM insertion.
-        // This loop processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
-        // up to the logical insertion point.
-        for (; i < index; i++) {
-            siblingVnode = parentNode.childNodes[i];
-
-            if (siblingVnode?.vtype === 'text') {
-                // Each text VNode adds 2 comment nodes to the physical count
-                physicalIndex += 2
-            }
-        }
+            physicalIndex       = this.getPhysicalIndex(parentNode, index); // Processes the children of the *NEW* parent's VNode in the *current* state (parentNode.childNodes)
 
         Object.assign(delta, {index: physicalIndex + insertDelta});
         deltas.default.push(delta);
