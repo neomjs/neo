@@ -126,7 +126,7 @@ This one-liner sets up everything you need to start building with Neo.mjs, inclu
 ```bash
 npx neo-app@latest
 ```
-* 
+
 * A new app workspace.
 * A pre-configured app shell.
 * A local development server.
@@ -142,13 +142,9 @@ npx neo-app@latest
 Next steps:
 
 * :star: **Experience stunning Demos & Examples here**: [Neo.mjs Examples Portal](https://neomjs.com/dist/production/apps/portal/#/examples)
-    * *See Neo.mjs's unique capabilities in action, including the cube layout transition and multi-window applications!*
-
 * Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
   & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
-
 * :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
-    * *Explore topics like building multi-window Gen AI interfaces with JSON blueprints.*
 
 </br></br>
 ## :handshake: Join the Community
