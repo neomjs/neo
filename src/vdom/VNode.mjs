@@ -105,9 +105,11 @@ class VNode {
  *
  * On DOM level, classList.add() will throw, in case it gets an input containing a space.
  *
- * important: module based method, not class based
- * VNodes get serialised to get passed via ´postMessage()´, so there would be more iterations
- * Negligible from a performance perspective, but the main argument is purity
+ * This is a module-scoped utility function, not a method of the VNode class.
+ * VNodes are transferred via structured cloning (e.g., in postMessage()), which strips methods.
+ * Keeping this logic separate from the VNode class itself ensures conceptual purity and a cleaner data model,
+ * as methods defined on the VNode instance would be lost during transfer anyway.
+ *
  * @param {String|String[]} classNameInput
  * @returns {String[]}
  * @private
