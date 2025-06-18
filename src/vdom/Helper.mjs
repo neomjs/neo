@@ -396,10 +396,10 @@ class Helper extends Base {
     /**
      * Creates a flat map of the tree, containing ids as keys and infos as values
      * @param {Object}         config
-     * @param {Neo.vdom.VNode} config.vnode
-     * @param {Neo.vdom.VNode} [config.parentNode=null]
      * @param {Number}         [config.index=0]
      * @param {Map}            [config.map=new Map()]
+     * @param {Neo.vdom.VNode} [config.parentNode=null]
+     * @param {Neo.vdom.VNode} config.vnode
      * @returns {Map}
      *     {String}         id vnode.id (convenience shortcut)
      *     {Number}         index
@@ -407,18 +407,15 @@ class Helper extends Base {
      *     {Neo.vdom.VNode} vnode
      * @protected
      */
-    createVnodeMap(config) {
-        let {vnode, parentNode=null, index=0, map=new Map()} = config,
-            id;
-
+    createVnodeMap({index=0, map=new Map(), parentNode=null, vnode}) {
         if (vnode) {
-            id = vnode.id || vnode.componentId;
+            let id = vnode.id || vnode.componentId;
 
             map.set(id, {id, index, parentNode, vnode});
 
             vnode.childNodes?.forEach((childNode, index) => {
-                this.createVnodeMap({vnode: childNode, parentNode: vnode, index, map})
-            });
+                this.createVnodeMap({index, map, parentNode: vnode, vnode: childNode})
+            })
         }
 
         return map
