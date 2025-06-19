@@ -38,6 +38,26 @@ class Helper extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        // Ensure Neo.currentWorker is defined before attaching listeners
+        Promise.resolve().then(async () => {
+            // Subscribe to global Neo.config changes for dynamic renderer switching.
+            Neo.currentWorker.on({
+                neoConfigChange: me.onNeoConfigChange,
+                scope          : me
+            });
+
+            await me.importUtil()
+        })
+    }
+
+    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -165,14 +185,12 @@ class Helper extends Base {
      * @param {Number} opts.parentIndex
      * @param {Object} opts.vdom
      * @param {Number} opts.windowId
-     * @returns {Promise<Object>}
+     * @returns {Object}
      */
-    async create(opts) {
-        let me = this,
+    create(opts) {
+        let me     = this,
+            {util} = Neo.vdom,
             returnValue, vnode;
-
-        await me.importDomApiVnodeCreator();
-        await me.importStringFromVnode();
 
         vnode       = me.createVnode(opts.vdom);
         returnValue = {...opts, vnode};
@@ -180,7 +198,11 @@ class Helper extends Base {
         delete returnValue.vdom;
 
         if (!NeoConfig.useDomApiRenderer) {
-            returnValue.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode)
+            if (!util.StringFromVnode) {
+                throw new Error('VDom Helper render utilities are not loaded yet!')
+            }
+
+            returnValue.outerHTML = util.StringFromVnode.create(vnode)
         }
 
         return returnValue
@@ -478,24 +500,23 @@ class Helper extends Base {
     }
 
     /**
-     * Only import for the DOM API based mount adapter.
+     * Imports either (if not already imported):
+     * `Neo.vdom.util.DomApiVnodeCreator` if Neo.config.useDomApiRenderer === true
+     * `Neo.vdom.util.StringFromVnode`    if Neo.config.useDomApiRenderer === false
      * @returns {Promise<void>}
      * @protected
      */
-    async importDomApiVnodeCreator() {
-        if (NeoConfig.useDomApiRenderer && !Neo.vdom.util?.DomApiVnodeCreator) {
-            await import('./util/DomApiVnodeCreator.mjs')
-        }
-    }
+    async importUtil() {
+        const {util} = Neo.vdom;
 
-    /**
-     * Only import for the string based mount adapter.
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async importStringFromVnode() {
-        if (!NeoConfig.useDomApiRenderer && !Neo.vdom.util?.StringFromVnode) {
-            await import('./util/StringFromVnode.mjs')
+        if (NeoConfig.useDomApiRenderer) {
+            if (!util?.DomApiVnodeCreator) {
+                await import('./util/DomApiVnodeCreator.mjs')
+            }
+        } else {
+            if (!util?.StringFromVnode) {
+                await import('./util/StringFromVnode.mjs')
+            }
         }
     }
 
@@ -610,6 +631,18 @@ class Helper extends Base {
     }
 
     /**
+     * Handler for global Neo.config changes.
+     * If 'useDomApiRenderer' property changes, this method dynamically loads/clears the renderer utilities.
+     * @param {Object} config
+     * @return {Promise<void>}
+     */
+    async onNeoConfigChange(config) {
+        if(Object.hasOwn(config, 'useDomApiRenderer')) {
+            await this.importUtil()
+        }
+    }
+
+    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -639,14 +672,22 @@ class Helper extends Base {
      * @param {Object} opts
      * @param {Object} opts.vdom
      * @param {Object} opts.vnode
-     * @returns {Promise<Object>}
+     * @returns {Object}
      */
-    async update(opts) {
-        let me = this,
+    update(opts) {
+        let me     = this,
+            {util} = Neo.vdom,
             deltas, vnode;
 
-        await me.importDomApiVnodeCreator();
-        await me.importStringFromVnode();
+        if (NeoConfig.useDomApiRenderer) {
+            if (!util.DomApiVnodeCreator) {
+                throw new Error('Neo.vdom.Helper: DomApiVnodeCreator is not loaded yet for updates!')
+            }
+        } else {
+            if (!util.StringFromVnode) {
+                throw new Error('Neo.vdom.Helper: StringFromVnode is not loaded yet for updates!');
+            }
+        }
 
         vnode  = me.createVnode(opts.vdom);
         deltas = me.createDeltas({oldVnode: opts.vnode, vnode});

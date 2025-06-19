@@ -467,7 +467,7 @@ class Manager extends Base {
 
         Neo.merge(Neo.config, config);
 
-        me.fire('setNeoConfig', config);
+        me.fire('neoConfigChange', config);
 
         me.broadcast({action: 'setNeoConfig', config})
     }

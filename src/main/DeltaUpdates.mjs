@@ -54,7 +54,6 @@ class DeltaUpdates extends Base {
      * @private
      */
     #renderer = null
-
     /**
      * Private property to signal that the renderer module has been loaded.
      * This will be a Promise that resolves when the module is ready.

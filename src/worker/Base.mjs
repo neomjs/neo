@@ -266,7 +266,7 @@ class Worker extends Base {
 
         Neo.merge(Neo.config, config);
 
-        me.fire('setNeoConfig', config)
+        me.fire('neoConfigChange', config)
     }
 
     /**
