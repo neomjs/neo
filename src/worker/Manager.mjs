@@ -28,11 +28,6 @@ class Manager extends Base {
          */
         className: 'Neo.worker.Manager',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * @member {Number} activeWorkers=0
          * @protected
          */
@@ -52,11 +47,28 @@ class Manager extends Base {
          */
         mixins: [Observable, RemoteMethodAccess],
         /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app   : ['setNeoConfig'],
+            canvas: ['setNeoConfig'],
+            data  : ['setNeoConfig'],
+            task  : ['setNeoConfig'],
+            vdom  : ['setNeoConfig']
+        },
+        /**
          * True in case the current browser supports window.SharedWorker.
          * @member {Boolean} sharedWorkersEnabled=false
          * @protected
          */
         sharedWorkersEnabled: false,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
         /**
          * Internal flag to stop the worker communication in case their creation fails
          * @member {Boolean} stopCommunication=false
@@ -71,7 +83,7 @@ class Manager extends Base {
          */
         webWorkersEnabled: false,
         /**
-         * Using the current timestamp as an unique window identifier
+         * Using the current timestamp as a unique window identifier
          * @member {Number} windowId=new Date().getTime()
          * @protected
          */
@@ -385,7 +397,14 @@ class Manager extends Base {
 
         return new Promise((resolve, reject) => {
             let message = me.sendMessage(dest, opts, transfer),
-                msgId   = message.id;
+                msgId;
+
+            if (!message) {
+                reject(new Error(me.stopCommunication ? 'Communication is stopped.' : `Target worker '${dest}' does not exist.`));
+                return
+            }
+
+            msgId = message.id;
 
             me.promises[msgId] = {reject, resolve}
         })
@@ -412,7 +431,7 @@ class Manager extends Base {
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
      * and becomes available only to the worker it was sent to.
-     * @returns {Neo.worker.Message}
+     * @returns {Neo.worker.Message|null}
      * @protected
      */
     sendMessage(dest, opts, transfer) {
@@ -427,17 +446,26 @@ class Manager extends Base {
                 worker = me.getWorker(dest)
             }
 
-            if (!worker) {
-                throw new Error('Called sendMessage for a worker that does not exist: ' + dest)
+            if (worker) {
+                opts.destination = dest;
+
+                message = new Message(opts);
+
+                (worker.port ? worker.port : worker).postMessage(message, transfer);
+                return message
             }
-
-            opts.destination = dest;
-
-            message = new Message(opts);
-
-            (worker.port ? worker.port : worker).postMessage(message, transfer);
-            return message
         }
+
+        return null
+    }
+
+    /**
+     * Change a Neo.config from the app worker
+     * @param {Object} data
+     * @param {Object} data.config
+     */
+    setNeoConfig(data) {
+        // todo
     }
 }
 

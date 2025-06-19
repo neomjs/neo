@@ -42,7 +42,7 @@ class Main extends core.Base {
         readQueue: [],
         /**
          * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
+         * @member {Object} remote
          * @protected
          */
         remote: {
