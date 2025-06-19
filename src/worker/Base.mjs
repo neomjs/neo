@@ -223,7 +223,7 @@ class Worker extends Base {
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
-        Neo.config = Neo.config || {};
+        Neo.ns('Neo.config', true);
 
         let me         = this,
             {windowId} = msg.data,
