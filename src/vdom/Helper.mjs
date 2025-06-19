@@ -148,7 +148,7 @@ class Helper extends Base {
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.
      * The top level vnode contains the outerHTML as a string,
-     * in case Neo.config.useStringBasedMounting === true
+     * in case Neo.config.useDomApiRenderer === false
      * @param {Object} opts
      * @param {String} opts.appName
      * @param {Boolean} [opts.autoMount]
@@ -170,7 +170,7 @@ class Helper extends Base {
 
         delete returnValue.vdom;
 
-        if (NeoConfig.useStringBasedMounting) {
+        if (!NeoConfig.useDomApiRenderer) {
             returnValue.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode)
         }
 
@@ -474,7 +474,7 @@ class Helper extends Base {
      * @protected
      */
     async importDomApiVnodeCreator() {
-        if (!NeoConfig.useStringBasedMounting && !Neo.vdom.util?.DomApiVnodeCreator) {
+        if (NeoConfig.useDomApiRenderer && !Neo.vdom.util?.DomApiVnodeCreator) {
             await import('./util/DomApiVnodeCreator.mjs')
         }
     }
@@ -485,7 +485,7 @@ class Helper extends Base {
      * @protected
      */
     async importStringFromVnode() {
-        if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.StringFromVnode) {
+        if (!NeoConfig.useDomApiRenderer && !Neo.vdom.util?.StringFromVnode) {
             await import('./util/StringFromVnode.mjs')
         }
     }
@@ -511,12 +511,12 @@ class Helper extends Base {
 
         Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
 
-        if (NeoConfig.useStringBasedMounting) {
-            // For string-based mounting, pass a string excluding moved nodes
-            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
-        } else {
+        if (NeoConfig.useDomApiRenderer) {
             // For direct DOM API mounting, pass the pruned VNode tree
             delta.vnode = Neo.vdom.util.DomApiVnodeCreator.create(vnode, movedNodes)
+        } else {
+            // For string-based mounting, pass a string excluding moved nodes
+            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
         }
 
         deltas.default.push(delta);

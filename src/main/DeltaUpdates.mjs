@@ -87,10 +87,10 @@ class DeltaUpdates extends Base {
             try {
                 let module;
 
-                if (NeoConfig.useStringBasedMounting) {
-                    module = await import('./render/StringBasedRenderer.mjs')
-                } else {
+                if (NeoConfig.useDomApiRenderer) {
                     module = await import('./render/DomApiRenderer.mjs')
+                } else {
+                    module = await import('./render/StringBasedRenderer.mjs')
                 }
 
                 me.#renderer = module.default
@@ -175,7 +175,7 @@ class DeltaUpdates extends Base {
      * - `insertAdjacentHTML()` is generally faster than creating a node via template,
      *   but it's only available for manipulating children (elements), not `childNodes` (all nodes).
      * - For performance, in cases where there are no comment nodes (i.e., no wrapped text nodes),
-     *   the method prioritizes `insertAdjacentHTML()` when `useStringBasedMounting` is true.
+     *   the method prioritizes `insertAdjacentHTML()` when `useDomApiRenderer` is false.
      *
      * @param {Object}         delta
      * @param {Boolean}        delta.hasLeadingTextChildren Flag to honor leading comments, which require special treatment.
@@ -185,8 +185,10 @@ class DeltaUpdates extends Base {
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
     insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
+        let me = this;
+
         // This method is synchronous and *expects* the renderer to be loaded
-        if (!this.#renderer) {
+        if (!me.#renderer) {
             console.error('DeltaUpdates renderer not ready during insertNode!');
             return
         }
@@ -194,10 +196,10 @@ class DeltaUpdates extends Base {
         const parentNode = DomAccess.getElementOrBody(parentId);
 
         if (parentNode) {
-            if (!NeoConfig.useStringBasedMounting) {
-                this.#renderer.createDomTree({index, isRoot: true, parentNode, vnode})
+            if (NeoConfig.useDomApiRenderer) {
+                me.#renderer.createDomTree({index, isRoot: true, parentNode, vnode})
             } else {
-                this.#renderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
+                me.#renderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
             }
         }
     }

@@ -88,7 +88,7 @@ class VNode {
 
             // We only apply textContent, in case it has content
             else if (Object.hasOwn(config, 'textContent')) {
-                me.textContent = Neo.config.useStringBasedMounting ? StringUtil.escapeHtml(textContent) : textContent
+                me.textContent = Neo.config.useDomApiRenderer ? textContent : StringUtil.escapeHtml(textContent)
             }
         }
 

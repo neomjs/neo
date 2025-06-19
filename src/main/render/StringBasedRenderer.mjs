@@ -11,7 +11,7 @@ const StringBasedRenderer = {
 
     /**
      * Handles string-based insertion of a new node into the DOM.
-     * This method is called by `insertNode()` when `NeoConfig.useStringBasedMounting` is true.
+     * This method is called by `insertNode()` when `NeoConfig.useDomApiRenderer` is false.
      *
      * @param {Object}      data
      * @param {Boolean}     data.hasLeadingTextChildren Flag to honor leading comments.
