@@ -220,6 +220,10 @@ class Worker extends Base {
     }
 
     /**
+     * Triggered when receiving a worker message with `{action: 'registerNeoConfig'}`
+     *
+     * This method will get triggered right after the worker creation, setting the initial state of Neo.config
+     *
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
@@ -236,7 +240,25 @@ class Worker extends Base {
             }
         }
 
-        Object.assign(Neo.config, msg.data)
+        Neo.merge(Neo.config, msg.data)
+    }
+
+    /**
+     * Triggered when receiving a worker message with `{action: 'setNeoConfig'}`
+     *
+     * This method is the receiver for runtime global config changes, e.g. triggered via:
+     * `Neo.worker.Manager.setNeoConfig({foo: 'bar'})`
+     * from a different worker (e.g. app worker).
+     *
+     * @param {Object} msg
+     * @param {Object} msg.config
+     */
+    onSetNeoConfig({config}) {
+        let me = this;
+
+        Neo.merge(Neo.config, config);
+
+        me.fire('setNeoConfig', config);
     }
 
     /**

@@ -459,12 +459,17 @@ class Manager extends Base {
     }
 
     /**
-     * Change a Neo.config from the app worker
-     * @param {Object} data
-     * @param {Object} data.config
+     * Change Neo.config globally from a worker
+     * @param {Object} config
      */
-    setNeoConfig(data) {
-        // todo
+    setNeoConfig(config) {
+        let me = this;
+
+        Neo.merge(Neo.config, config);
+
+        me.fire('setNeoConfig', config);
+
+        me.broadcast({action: 'setNeoConfig', config})
     }
 }
 
