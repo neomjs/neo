@@ -65,11 +65,11 @@ class Helper extends Base {
             keys = Object.keys(vnode);
 
             Object.keys(oldVnode).forEach(prop => {
-                if (!vnode.hasOwnProperty(prop)) {
+                if (!Object.hasOwn(vnode, prop)) {
                     keys.push(prop)
-                } else if (prop === 'attributes') { // find removed attributes
+                } else if (prop === 'attributes') { // Find removed attributes
                     Object.keys(oldVnode[prop]).forEach(attr => {
-                        if (!vnode[prop].hasOwnProperty(attr)) {
+                        if (!Object.hasOwn(vnode[prop], attr)) {
                             vnode[prop][attr] = null
                         }
                     })
@@ -85,13 +85,22 @@ class Helper extends Base {
                         attributes = {};
 
                         Object.entries(value).forEach(([key, value]) => {
-                            if (!(oldVnode.attributes.hasOwnProperty(key) && oldVnode.attributes[key] === value)) {
-                                if (value !== null && !Neo.isString(value) && Neo.isEmpty(value)) {
-                                    // ignore empty arrays & objects
-                                } else {
-                                    attributes[key] = value
-                                }
+                            const
+                                oldValue    = oldVnode.attributes[key],
+                                hasOldValue = Object.hasOwn(oldVnode.attributes, 'key');
+
+                            // If the attribute has an old value AND the value hasn't changed, skip.
+                            if (hasOldValue && oldValue === value) {
+                                return
                             }
+
+                            // If the current value is null, or it's a non-string empty value (e.g., [], {}), skip.
+                            // Note: An empty string ('') is a valid value and should NOT be skipped here.
+                            if (value !== null && !Neo.isString(value) && Neo.isEmpty(value)) {
+                                return
+                            }
+
+                            attributes[key] = value
                         });
 
                         if (Object.keys(attributes).length > 0) {
