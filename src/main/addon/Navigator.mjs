@@ -212,7 +212,7 @@ class Navigator extends Base {
         let {key, target} = keyEvent,
             newActiveElement;
 
-        switch(key) {
+        switch (key) {
             // Move to the previous navigable item
             case data.previousKey:
                 newActiveElement = me.navigateGetAdjacent(-1, data);

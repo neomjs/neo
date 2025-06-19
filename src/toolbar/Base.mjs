@@ -177,7 +177,7 @@ class Toolbar extends Container {
             layoutConfig;
 
         if (me.dock) {
-            switch(me.dock) {
+            switch (me.dock) {
                 case 'bottom':
                 case 'top':
                     layoutConfig = {

@@ -258,7 +258,7 @@ class Cube extends Card {
         if (index < 6) {
             wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Object.keys(Cube.faces)[index]);
 
-            switch(index) {
+            switch (index) {
                 case 0:
                 case 1:
                     wrapperCls = NeoArray.union(wrapperCls, 'neo-face-z');
@@ -341,7 +341,7 @@ class Cube extends Card {
         if (index < 6) {
             NeoArray.remove(wrapperCls, ['neo-face', Object.keys(Cube.faces)[index]]);
 
-            switch(index) {
+            switch (index) {
                 case 0:
                 case 1:
                     NeoArray.remove(wrapperCls, 'neo-face-z');

@@ -214,7 +214,7 @@ class MainContainerController extends ComponentController {
             {dragStartWindowRect, targetWindowSize} = me,
             left, top;
 
-        switch(side) {
+        switch (side) {
             case 'bottom':
                 left = `${proxyRect.left}px`;
                 top  = `${fullyIncludeIntoWindow ? 0 : proxyRect.top - dragStartWindowRect.height}px`;
@@ -524,7 +524,7 @@ class MainContainerController extends ComponentController {
                 size   = me.dockedWindowSize,
                 height, left, top, width;
 
-            switch(dock) {
+            switch (dock) {
                 case 'bottom':
                     height = size;
                     left   = data.screenLeft;

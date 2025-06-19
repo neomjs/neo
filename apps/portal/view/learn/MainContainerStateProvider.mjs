@@ -76,7 +76,7 @@ class MainContainerStateProvider extends StateProvider {
 
         let me = this;
 
-        switch(key) {
+        switch (key) {
             case 'countSections': {
                 if (value < 1) {
                     me.component.getReference('page-sections-container')?.toggleCls('neo-expanded', false)

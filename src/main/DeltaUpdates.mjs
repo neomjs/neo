@@ -333,7 +333,7 @@ class DeltaUpdates extends Base {
 
         if (node) {
             Object.entries(delta).forEach(([prop, value]) => {
-                switch(prop) {
+                switch (prop) {
                     case 'attributes':
                         Object.entries(value).forEach(([key, val]) => {
                             if (voidAttributes.has(key)) {

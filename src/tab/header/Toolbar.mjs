@@ -92,7 +92,7 @@ class Toolbar extends BaseToolbar {
     getLayoutConfig() {
         let layoutConfig;
 
-        switch(this.dock) {
+        switch (this.dock) {
             case 'bottom':
             case 'top':
                 layoutConfig = {

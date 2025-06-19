@@ -312,7 +312,7 @@ class Helper extends Base {
             if (value !== undefined && value !== null && key !== 'flag' && key !== 'removeDom') {
                 let hasUnit, newValue, style;
 
-                switch(key) {
+                switch (key) {
                     case 'tag':
                         node.nodeName = value;
                         break
