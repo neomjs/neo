@@ -66,7 +66,7 @@ large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundame
 ## 📦 Batteries Included: A Comprehensive Component Library
 
 While other frameworks provide just the view layer, Neo.mjs delivers a complete, natively integrated ecosystem. You'll find a rich
-suite of high-performance UI components—from advanced data grids, forms, and trees, to versatile containers and specialized elements
+suite of high-performance UI components — from advanced data grids, forms, and trees, to versatile containers and specialized elements
 like a full calendar, carousels, and chart wrappers. All components are pre-built and optimized to work seamlessly within the
 multi-threaded architecture, significantly accelerating development and eliminating the complexity of integrating disparate
 external component libraries.
