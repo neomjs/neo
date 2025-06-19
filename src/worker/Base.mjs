@@ -220,11 +220,14 @@ class Worker extends Base {
     }
 
     /**
-     * Triggered when receiving a worker message with `{action: 'registerNeoConfig'}`
+     * Handles the initial registration of the `Neo.config` for this worker's realm.
+     * Triggered when receiving a worker message with `{action: 'registerNeoConfig'}` from the Main Thread's `Neo.worker.Manager`.
+     * This method is primarily responsible for setting the initial global `Neo.config` object in this worker's scope
+     * upon its creation. It also handles associating `windowId` with `MessagePort`s for Shared Workers.
      *
-     * This method will get triggered right after the worker creation, setting the initial state of Neo.config
-     *
-     * @param {Object} msg
+     * @param {Object} msg The incoming message object.
+     * @param {Object} msg.data The initial global Neo.config data object.
+     * @param {Number} msg.data.windowId The unique ID of the window/tab (relevant for SharedWorkers).
      */
     onRegisterNeoConfig(msg) {
         Neo.ns('Neo.config', true);
@@ -244,21 +247,26 @@ class Worker extends Base {
     }
 
     /**
-     * Triggered when receiving a worker message with `{action: 'setNeoConfig'}`
+     * Handles runtime updates to the global `Neo.config` for this worker's realm.
+     * Triggered when receiving a worker message with `{action: 'setNeoConfig'}`.
+     * This message is typically broadcast by the Main Thread's `Neo.worker.Manager`
+     * (e.g., in response to `Neo.worker.Manager.setNeoConfig()` being called from another worker).
      *
-     * This method is the receiver for runtime global config changes, e.g. triggered via:
-     * `Neo.worker.Manager.setNeoConfig({foo: 'bar'})`
-     * from a different worker (e.g. app worker).
+     * This method merges the incoming configuration changes into this worker's local `Neo.config`
+     * and fires a local `setNeoConfig` event, allowing other instances within this worker to react.
      *
-     * @param {Object} msg
-     * @param {Object} msg.config
+     * **Important Note:** For the Manager's `promiseMessage` to resolve when broadcasting,
+     * this method (or a subsequent listener) must send a `reply` message back to the originating Manager.
+     *
+     * @param {Object} msg The destructured arguments from the message payload.
+     * @param {Object} msg.config The partial or full `Neo.config` object to merge.
      */
     onSetNeoConfig({config}) {
         let me = this;
 
         Neo.merge(Neo.config, config);
 
-        me.fire('setNeoConfig', config);
+        me.fire('setNeoConfig', config)
     }
 
     /**
