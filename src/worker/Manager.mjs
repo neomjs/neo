@@ -148,18 +148,17 @@ class Manager extends Base {
 
     /**
      * Sends a message to each worker defined inside the this.workers config.
-     * @param {Object} msg
+     * Only sends to workers that are currently active and available.
+     * @param {Object} msg The message payload to broadcast.
      */
     broadcast(msg) {
-        Object.keys(this.workers).forEach(name => {
-            if (!(
-                name === 'canvas' && !NeoConfig.useCanvasWorker ||
-                name === 'task'   && !NeoConfig.useTaskWorker   ||
-                name === 'vdom'   && !NeoConfig.useVdomWorker
-            )) {
-                this.sendMessage(name, msg)
+        let me = this;
+
+        Object.keys(me.workers).forEach(name => {
+            if (me.getWorker(name)) {
+                me.sendMessage(name, msg)
             }
-        });
+        })
     }
 
     /**
