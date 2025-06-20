@@ -133,7 +133,8 @@ class Manager extends Base {
 
         !Neo.insideWorker && me.createWorkers();
 
-        Neo.workerId = 'main';
+        Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
+        Neo.workerId        = 'main';
 
         me.promises = {};
 
@@ -336,8 +337,10 @@ class Manager extends Base {
                     data = data.data
                 }
 
-                promise[data.reject ? 'reject' : 'resolve'](data);
-                delete me.promises[replyId]
+                if (data) {
+                    promise[data.reject ? 'reject' : 'resolve'](data);
+                    delete me.promises[replyId]
+                }
             }
         }
 
@@ -459,17 +462,30 @@ class Manager extends Base {
     }
 
     /**
-     * Change Neo.config globally from a worker
+     * Use `Neo.setGlobalConfig(config)` instead.
+     * Do not pass the full current config object, but you can pass multiple keys to change inside the config object.
+     * Especially for the multi-window scope, it is crucial that the app worker is in charge to ping all connected
+     * main threads.
      * @param {Object} config
      */
-    setNeoConfig(config) {
+    setGlobalConfig(config) {
+        Neo.worker.App.setGlobalConfig(config)
+    }
+
+    /**
+     * Change Neo.config globally from a worker
+     * @param {Object}  data
+     * @param {Boolean} data.broadcast
+     * @param {Object}  data.config
+     */
+    setNeoConfig({broadcast, config}) {
         let me = this;
 
         Neo.merge(Neo.config, config);
 
         me.fire('neoConfigChange', config);
 
-        me.broadcast({action: 'setNeoConfig', config})
+        broadcast && me.broadcast({action: 'setNeoConfig', config})
     }
 }
 

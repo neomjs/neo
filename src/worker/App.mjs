@@ -35,7 +35,8 @@ class App extends Base {
                 'destroyNeoInstance',
                 'fireEvent',
                 'getConfigs',
-                'setConfigs'
+                'setConfigs',
+                'setGlobalConfig' // points to worker.Base: setGlobalConfig()
             ]
         },
         /**

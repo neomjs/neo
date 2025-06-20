@@ -71,8 +71,9 @@ class Worker extends Base {
             gt.onmessage = me.onMessage.bind(me)
         }
 
-        Neo.currentWorker = me;
-        Neo.workerId      = me.workerId
+        Neo.currentWorker   = me;
+        Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
+        Neo.workerId        = me.workerId
     }
 
     /**
@@ -336,6 +337,27 @@ class Worker extends Base {
         }
 
         return message
+    }
+
+    /**
+     * Convenience shortcut.
+     * Do not pass the full current config object, but you can pass multiple keys to change inside the config object.
+     * @param config
+     */
+    setGlobalConfig(config) {
+        const {Manager} = Neo.worker; // remote access proxy object
+
+        if (this.isSharedWorker) {
+            this.ports.forEach((port, index) => {
+                // Send the change to each connected Main Thread.
+                // The `broadcast` flag is used here to instruct the *receiving* Main Thread.
+                // Only the first port gets `broadcast: true`.
+                // All other ports (other windows) get `broadcast: false`.
+                Manager.setNeoConfig({broadcast: index < 1, config, windowId: port.windowId})
+            })
+        } else {
+            Manager.setNeoConfig({broadcast: true, config})
+        }
     }
 }
 
