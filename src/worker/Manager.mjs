@@ -150,13 +150,14 @@ class Manager extends Base {
     /**
      * Sends a message to each worker defined inside the this.workers config.
      * Only sends to workers that are currently active and available.
-     * @param {Object} msg The message payload to broadcast.
+     * @param {Object} msg             The message payload to broadcast.
+     * @param {Object} [excludeOrigin] Optionally pass the origin realm name to exclude from the broadcast.
      */
-    broadcast(msg) {
+    broadcast(msg, excludeOrigin) {
         let me = this;
 
         Object.keys(me.workers).forEach(name => {
-            if (me.getWorker(name)) {
+            if (name !== excludeOrigin && me.getWorker(name)) {
                 me.sendMessage(name, msg)
             }
         })
@@ -462,13 +463,21 @@ class Manager extends Base {
     }
 
     /**
-     * Use `Neo.setGlobalConfig(config)` instead.
-     * Do not pass the full current config object, but you can pass multiple keys to change inside the config object.
-     * Especially for the multi-window scope, it is crucial that the app worker is in charge to ping all connected
-     * main threads.
-     * @param {Object} config
+     * Initiates a global Neo.config change from the Main Thread.
+     *
+     * This method acts as a proxy, routing the config change request to the App Worker.
+     * This design centralizes the complex multi-threaded and multi-window synchronization
+     * logic within the App Worker's `setGlobalConfig` method.
+     *
+     * Developers should typically use `Neo.setGlobalConfig(config)` directly,
+     * which will correctly resolve to this proxy when called from the Main Thread.
+     *
+     * @param {Object} config The partial or full Neo.config object with changes to apply.
      */
     setGlobalConfig(config) {
+        // Remotely calls the App Worker's setGlobalConfig method.
+        // This ensures all global config changes are processed through the App Worker
+        // which contains the centralized multi-window synchronization logic.
         Neo.worker.App.setGlobalConfig(config)
     }
 
@@ -477,15 +486,16 @@ class Manager extends Base {
      * @param {Object}  data
      * @param {Boolean} data.broadcast
      * @param {Object}  data.config
+     * @param {String}  [data.excludeOrigin]
      */
-    setNeoConfig({broadcast, config}) {
+    setNeoConfig({broadcast, config, excludeOrigin}) {
         let me = this;
 
         Neo.merge(Neo.config, config);
 
         me.fire('neoConfigChange', config);
 
-        broadcast && me.broadcast({action: 'setNeoConfig', config})
+        broadcast && me.broadcast({action: 'setNeoConfig', config}, excludeOrigin)
     }
 }
 
