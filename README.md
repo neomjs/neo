@@ -180,9 +180,12 @@ export default Neo.setupClass(MyComponent);
 
 For each config property ending with an underscore (_), Neo.mjs automatically generates a getter and a setter on the class prototype. These setters ensure that changes trigger corresponding lifecycle hooks, providing a powerful, built-in reactive system:
 
-* `beforeGetMyConfig(value)`: (Optional) Called before the config value is returned via its getter, allowing for last-minute transformations.
-* `beforeSetMyConfig(value, oldValue)`: (Optional) Called before the config value is set, allowing you to intercept, validate, or modify the new value. Returning undefined will cancel the update.
-* `afterSetMyConfig(value, oldValue)`: (Optional) Called after the config value has been successfully set and a change has been detected, allowing for side effects or reactions to the new value.
+* `beforeGetMyConfig(value)`:</br>
+  (Optional) Called before the config value is returned via its getter, allowing for last-minute transformations.
+* `beforeSetMyConfig(value, oldValue)`:</br>
+  (Optional) Called before the config value is set, allowing you to intercept, validate, or modify the new value. Returning undefined will cancel the update.
+* `afterSetMyConfig(value, oldValue)`:</br>
+  (Optional) Called after the config value has been successfully set and a change has been detected, allowing for side effects or reactions to the new value.
 
 For more details, check out the [Class Config System documentation](https://neomjs.com/dist/production/apps/portal/index.html#/learn/gettingstarted.Config).
 
