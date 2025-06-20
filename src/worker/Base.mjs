@@ -340,7 +340,7 @@ class Worker extends Base {
     }
 
     /**
-     * Convenience shortcut.
+     * Use `Neo.setGlobalConfig(config)` instead.
      * Do not pass the full current config object, but you can pass multiple keys to change inside the config object.
      * @param config
      */
