@@ -413,7 +413,7 @@ async onAppConnect(data) {
 {
     module: LegacyWrapper,
     items: [{
-        ntype: 'component',
+        ntype: 'component', // Default value, only added for clarity
         tag  : 'legacy-widget',                   // Custom element - SECURE
     //  html : '<legacy-widget></legacy-widget>', // AVOID - XSS risk
         domListeners: {
@@ -446,7 +446,7 @@ class CustomComponent extends Component {
 
         // VDom structure definition
         vdom: {
-            tag: 'div',
+            tag: 'div', // Default value, only added for clarity
             cn: [
                 {tag: 'header', flag: 'headerNode'},
                 {tag: 'main',   flag: 'contentNode'}
