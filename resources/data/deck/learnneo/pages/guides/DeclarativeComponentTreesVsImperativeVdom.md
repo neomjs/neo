@@ -43,7 +43,8 @@ function App() {
 }
 ```
 
-Your mental model: *"I write DOM structure and insert components as custom HTML tags."*
+Your mental model:</br>
+*"I write DOM structure and insert components as custom HTML tags."*
 
 ### The Neo.mjs Approach
 
@@ -71,8 +72,8 @@ class App extends Container {
 }
 ```
 
-Your new mental model: *"I configure a component tree abstraction that sits above the VDom layer. Components define their
-internal DOM via `vdom`."*
+Your new mental model:</br>
+*"I configure a component tree abstraction that sits above the VDom layer. Components define their internal DOM via `vdom`."*
 
 ### Key Architectural Differences
 
