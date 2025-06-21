@@ -52,9 +52,9 @@ In Neo.mjs, you work with **declarative component configurations** that create a
 
 ```javascript
 // Neo.mjs pattern - component relationship configuration
-class App extends Container {
+class Viewport extends Container {
     static config = {
-        cls: ['viewport'],
+        cls  : ['viewport'],
         items: [{
             module: HeaderToolbar
         }, {
