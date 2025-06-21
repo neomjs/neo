@@ -431,7 +431,6 @@ async onAppConnect(data) {
 - **From React**: Component configs replace JSX, `items` replaces children composition, reactive updates replace manual state management
 - **From Vue**: Similar reactive patterns but with better performance isolation through worker threading
 - **From Angular**: More explicit separation between component hierarchy (items) and internal template structure (vdom)
-```
 
 ## Advanced Topics
 
