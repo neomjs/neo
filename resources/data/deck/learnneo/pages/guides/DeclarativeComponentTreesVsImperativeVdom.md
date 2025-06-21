@@ -1,9 +1,31 @@
-## Critical Mental Model Shift for React/Vue/Angular Developers
+## Overview
 
-**If you're coming from React, Vue, or Angular:** Neo.mjs requires a fundamental shift in how you think about UI composition.
-This isn't just different syntax — it's a completely different paradigm with a unique two-tier architecture.
+Neo.mjs employs a unique two-tier architecture that separates **declarative component configuration** from **imperative
+virtual DOM (VDom) operations**. This design provides both developer productivity and framework performance optimization
+while maintaining clear separation of concerns across different abstraction layers.
 
-### What You're Used To (Other Frameworks)
+**Target Audience**: This guide is essential for developers coming from React, Vue, or Angular who need to understand
+Neo.mjs's fundamentally different approach to UI composition.
+
+## Architecture at a Glance
+
+Neo.mjs operates on two distinct abstraction layers:
+
+- **Component Tree Layer** (Application Development): Declarative, mutable, reactive component configurations
+- **VDom Tree Layer** (Framework Internals): Imperative virtual DOM operations for performance optimization
+
+```
+Your Application Code → Component Tree (declarative, mutable, reactive)
+                            ↓
+                        VDom Tree (imperative, optimized)
+                            ↓
+                        Real DOM
+```
+
+## Mental Model Shift for Framework Migrants
+
+### What You're Used To (React/Vue/Angular)
+
 In React, Vue, and Angular, you compose UIs by writing templates/JSX that mix HTML elements with custom components:
 
 ```jsx
@@ -21,18 +43,11 @@ function App() {
 }
 ```
 
-Your mental model: *"I write the DOM structure I want, and insert components as custom HTML tags."*
+Your mental model: *"I write DOM structure and insert components as custom HTML tags."*
 
-### Neo.mjs Two-Tier Architecture
+### The Neo.mjs Approach
 
-Neo.mjs operates on **two distinct abstraction layers**:
-
-1. **Component Tree Layer** (Application Development): Declarative, mutable, reactive component configurations
-2. **VDom Tree Layer** (Framework Internals): Imperative virtual DOM operations for performance optimization
-
-### What Neo.mjs Actually Does
-
-In Neo.mjs, you compose UIs through **declarative component configurations** that create a **component tree abstraction** sitting on top of the underlying VDom tree:
+In Neo.mjs, you work with **declarative component configurations** that create a component tree abstraction:
 
 ```javascript
 // Neo.mjs pattern - component relationship configuration
@@ -56,106 +71,23 @@ class App extends Container {
 }
 ```
 
-Your new mental model: *"I configure a declarative component tree through `items`. This component tree is an abstraction layer that sits on top of the VDom tree. Individual components define their internal DOM structure through `vdom`."*
+Your new mental model: *"I configure a component tree abstraction that sits above the VDom layer. Components define their
+internal DOM via `vdom`."*
 
-### The Component Tree: Declarative, Mutable & Reactive
+### Key Architectural Differences
 
-The component tree in Neo.mjs has three critical characteristics:
+| Aspect | Other Frameworks | Neo.mjs |
+|--------|------------------|---------|
+| **Layers** | Single virtual DOM layer | Two-tier: Component tree + VDom |
+| **Composition** | Mix HTML + components | Pure component hierarchies via `items` |
+| **Updates** | Manual state management | Automatic reactive updates |
+| **Mutability** | Recreate tree on changes | Runtime mutable component tree |
 
-#### 1. Declarative Configuration
-Components are defined through static configuration objects, not imperative DOM manipulation:
+## Component Tree Layer (Application Development)
 
-```javascript
-// Declarative - you describe WHAT you want
-static config = {
-    items: [{
-        module: Button,
-        text: 'Click me',
-        handler: 'onButtonClick'
-    }]
-}
-```
+### Declarative Configuration
 
-#### 2. Mutable at Runtime
-The live component tree is **dynamic and mutable**, allowing imperative operations on the component hierarchy:
-
-```javascript
-// Runtime mutations on the component tree
-container.add({module: NewComponent});           // Add component
-container.removeAt(0);                           // Remove component
-container.insert(1, {module: AnotherComponent}); // Insert component
-```
-
-#### 3. Reactive Updates
-**Every component tree configuration change automatically triggers UI updates** - no manual DOM manipulation required:
-
-```javascript
-// These changes automatically update the UI
-button.text = 'New Text';           // Component property change → UI update
-button.iconCls = 'fa fa-home';      // Config change → UI update
-container.layout.activeIndex = 1;   // Layout change → UI update
-```
-
-### The Key Architectural Difference
-
-- **Other frameworks**: Single-layer - you directly manipulate a virtual representation of the DOM
-- **Neo.mjs**: Two-tier - you work with a component tree abstraction that sits on top of a separate VDom layer
-
-```
-Other Frameworks:
-Your Code → Virtual DOM → Real DOM
-
-Neo.mjs:
-Your Code → Component Tree (declarative, mutable, reactive)
-                    ↓
-            VDom Tree (imperative, optimized)
-                    ↓
-               Real DOM
-```
-
-### When to Use Each Layer
-
-- **Component Tree Layer** (99% of application development):
-  - Building UIs through `items` configuration
-  - Managing component hierarchies and relationships
-  - Implementing application logic and state management
-  - All reactive property updates
-
-- **VDom Tree Layer** (1% - framework development):
-  - Creating custom components (defining their internal `vdom` structure)
-  - Optimizing internal component rendering performance
-  - Direct DOM manipulation for animations or complex interactions
-
-### Why This Architecture Matters
-
-This two-tier separation provides:
-
-1. **Developer Productivity**: Work at the component abstraction level
-2. **Performance Optimization**: Framework handles VDom operations efficiently
-3. **Multi-threading**: Heavy lifting offloaded to worker threads
-4. **Reactive Updates**: Automatic UI synchronization with minimal boilerplate
-5. **Clear Separation of Concerns**: Application logic vs. rendering optimization
-
----
-
-## Introduction
-
-Neo.mjs employs a unique two-tier architecture that separates **declarative component configuration** from **imperative virtual DOM (VDom) operations**. This design provides both developer productivity and framework performance optimization while maintaining clear separation of concerns across different abstraction layers.
-
-## Abstraction Layer Separation
-
-Neo.mjs operates on two distinct levels:
-
-- **Application Layer**: Developers work with declarative & reactive component configurations.
-- **Framework Layer**: Internal imperative VDom operations handle performance optimization.
-
-## Declarative Component Trees
-
-### Structure Definition
-
-Components are defined through configuration objects that describe relationships and behavior. In Neo.mjs, the declarative
-component hierarchy is primarily established using the `items` config property of container components. This defines a tree
-of **component instances or modules**.
+Components are defined through static configuration objects that describe relationships and behavior:
 
 ```javascript
 // Declarative component hierarchy
@@ -180,14 +112,39 @@ class Viewport extends BaseViewport {
 }
 ```
 
-### Key Characteristics
+### Runtime Mutability
 
-- **Configuration-Based**: Components defined as static config objects (`static config = { ... }`).
-- **Lazy Loading**: Dynamic imports enable code splitting.
-- **Hierarchical**: Nested `items` arrays establish parent-child relationships.
-- **Referential**: `reference` property enables component lookup.
-- **Mutable Structure**: The live component instance tree is **dynamic and mutable at runtime**, allowing developers to
-  imperatively add, remove, or reorder components using methods like `add()`, `remove()` and `insert()`.
+The component tree is **dynamic and mutable at runtime**:
+
+```javascript
+// Runtime mutations on the component tree
+container.add({module: NewComponent});           // Add component
+container.removeAt(0);                           // Remove component  
+container.insert(1, {module: AnotherComponent}); // Insert component
+
+// Move components between containers
+let sourceView = sourceContainer.removeAt(0, false);
+targetContainer.add(sourceView);
+```
+
+### Reactive Updates
+
+**Every component tree configuration change automatically triggers UI updates**:
+
+```javascript
+// These changes automatically update the UI
+button.text    = 'New Text';        // Property change → UI update
+button.iconCls = 'fa fa-home';      // Config change → UI update
+container.layout.activeIndex = 1;   // Layout change → UI update
+
+// State changes automatically trigger UI updates
+viewport.stateProvider.setData({size: 'large'});
+
+// Shorthand Syntax
+viewport.setState({size: 'large'}); // State change → UI update
+
+
+```
 
 ### State Provider Integration
 
@@ -202,18 +159,14 @@ class ViewportStateProvider extends StateProvider {
 }
 
 // State changes automatically trigger UI updates
-viewport.stateProvider.setData({size: 'large'});
-
-// Shorthand syntax:
-viewport.setState({size: 'large'});
+viewportStateProvider.setData({size: 'large'});
 ```
 
-## Imperative VDom Operations
+## VDom Layer (Framework Internals)
 
 ### Internal VDom Structure
 
-Framework components define the structure of their own root DOM element and any static child HTML elements through their
-`vdom` config property. This `vdom` config represents a Virtual DOM node and adheres to the `VDomNodeConfig` interface.
+Framework components define their internal DOM structure through `vdom` config:
 
 ```javascript
 // Neo.button.Base
@@ -226,20 +179,18 @@ class Button extends Component {
             {cls: ['neo-button-badge']},
             {cls: ['neo-button-ripple-wrapper'], cn: [
                 {cls: ['neo-button-ripple']}
-            ]}
-        ]}
+              ]}
+          ]}
     }
 }
 ```
 
-### Direct Vdom Manipulation
+### Imperative VDom Operations
 
-Framework code (typically within component lifecycle methods or setters like `afterSet*`) performs imperative operations
-directly on properties of VDom nodes. After imperatively modifying a VDom node's properties (e.g., `text`, `cls`, `style`),
-the component calls `this.update()` to signal the framework to reconcile the VDom changes with the real DOM.
+Framework code performs imperative operations on VDom node properties:
 
 ```javascript
-// Neo.button.Base
+// Neo.button.Base - internal framework code
 afterSetIconCls(value, oldValue) {
     let {iconNode} = this;
     
@@ -248,27 +199,28 @@ afterSetIconCls(value, oldValue) {
     NeoArray.add(iconNode.cls, value);
     iconNode.removeDom = !value;
     
-    this.update();
+    this.update(); // Trigger DOM reconciliation
 }
 
 afterSetText(value, oldValue) {
-  let {textNode} = this;
-
-  // Direct imperative manipulation
-  textNode.removeDom = !value || value === '';
-  if (value) {
-    textNode.text = value;
-  }
-
-  // Trigger DOM reconciliation
-  this.update();
+    let {textNode} = this;
+    
+    // Direct imperative manipulation
+    textNode.removeDom = !value || value === '';
+    if (value) {
+        textNode.text = value;
+    }
+    
+    this.update();
 }
 ```
+
+**Note**: While `this.update()` is not required for creating the initial VDom tree, it is **crucial** for runtime updates.
 
 ### Performance Optimizations
 
 ```javascript
-// Neo.button.Base
+// Neo.button.Base - optimized animations
 async showRipple(data) {
     let rippleEl = this.rippleWrapper.cn[0];
     
@@ -292,93 +244,14 @@ async showRipple(data) {
 }
 ```
 
-## Practical Examples from Real Applications
-
-### 1. Navigation System Architecture
-
-```javascript
-// Portal.view.ViewportController
-// Declarative route configuration
-static config = {
-    routes: {
-        '/home' : 'onHomeRoute',
-        '/learn': 'onLearnRoute',
-        '/blog' : 'onBlogRoute'
-    }
-}
-
-// Imperative navigation handling
-onHomeRoute(params, value, oldValue) {
-    this.setMainContentIndex(0);  // Triggers layout changes
-}
-
-async setMainContentIndex(index) {
-    let container = this.getReference('main-content');
-    
-    // Imperative layout manipulation
-    if (this.mainContentLayout === 'cube') {
-        container.layout = {
-            ntype      : 'cube', 
-            activeIndex: index,
-            fitContainer: true
-        };
-    }
-
-    // Imperative timing control
-    await this.timeout(200);
-    container.layout.activeIndex = index; // reactive
-}
-```
-
-### 2. Responsive Design Handling
-
-If needed, this can be done via JavaScript too (instead of purely focussing on CSS)
-
-```javascript
-// Portal.view.Viewport
-// Declarative size definitions
-static sizes = ['large', 'medium', 'small', 'x-small', null];
-
-static config = {
-  size_: null,
-}
-
-// Imperative responsive updates
-afterSetSize(value, oldValue) {
-    let cls = this.cls;
-    
-    // Direct class manipulation
-    NeoArray.remove(cls, 'portal-size-' + oldValue);
-    NeoArray.add(cls, 'portal-size-' + value);
-    this.cls = cls;
-    
-    // State synchronization
-    this.stateProvider.setData({size: value});
-    this.controller.size = value;
-}
-```
-
-### 3. Dynamic Component Management
-
-```javascript
-// Portal.view.ViewportController
-async onAppConnect(data) {
-    let app = Neo.apps[data.appName];
-    let sourceView = sourceContainer.removeAt(0, false);  // Imperative removal of a component instance
-    mainView.add(sourceView);                             // Imperative addition of a component instance
-
-  // Imperative reactive config updates on component instances:
-    tabContainer.activeIndex = 0;
-    tabContainer.getTabAtIndex(1).disabled = true;
-}
-```
-
 ## Developer Experience Benefits
 
-### Application Developer Perspective
+### What You Write vs. What the Framework Handles
+
+Understanding the value proposition of Neo.mjs's two-tier architecture:
 
 ```javascript
-// Developers write declarative configurations
+// What developers write - declarative configurations
 {
     module   : Button,
     text     : 'Click Me',
@@ -387,81 +260,151 @@ async onAppConnect(data) {
     badgeText: '5'
 }
 
-// Framework automatically handles:
-// - Vdom node creation and management
-// - Event binding and cleanup  
-// - DOM updates and reconciliation
-// - Performance optimizations via multi-threading
+// What the framework automatically handles:
+// ✓ VDom node creation and management
+// ✓ Event binding and cleanup  
+// ✓ DOM updates and reconciliation
+// ✓ Performance optimizations via multi-threading
+// ✓ Cross-worker communication
+// ✓ Batched updates and efficient rendering
 ```
 
-### Framework Developer Perspective
+This separation allows developers to focus on **what** they want to build rather than **how** the DOM should be manipulated.
+
+## Real-World Application Examples
+
+### Navigation System Architecture
 
 ```javascript
-// Framework developers handle imperative optimizations
-afterSetBadgeText(value, oldValue) {
-    let {badgeNode} = this;
+// Portal.view.ViewportController
+// Declarative route configuration
+static config = {
+    routes: {
+        '/home' : 'onHomeRoute',
+        '/learn': 'onLearnRoute', 
+        '/blog' : 'onBlogRoute'
+    }
+}
+
+// Component tree manipulation
+async setMainContentIndex(index) {
+    let container = this.getReference('main-content');
     
-    badgeNode.removeDom = !Boolean(value);
-    badgeNode.text = value;
-    
-    this.update(); // Triggers efficient DOM reconciliation
+    // Reactive layout changes
+    if (this.mainContentLayout === 'cube') {
+        container.layout = {
+            ntype      : 'cube',
+            activeIndex: index,
+            fitContainer: true
+        };
+    }
+
+    await this.timeout(200);
+    container.layout.activeIndex = index; // Automatic UI update
 }
 ```
 
-## When to Use Each Approach
+### Responsive Design Handling
 
-### Use Declarative Components When:
+```javascript
+// Portal.view.Viewport
+static sizes = ['large', 'medium', 'small', 'x-small', null];
+
+// Reactive size changes
+afterSetSize(value, oldValue) {
+    let cls = this.cls;
+    
+    // Component tree updates
+    NeoArray.remove(cls, 'portal-size-' + oldValue);
+    NeoArray.add(cls, 'portal-size-' + value);
+    this.cls = cls; // Automatic UI update
+    
+    // State synchronization
+    this.stateProvider.setData({size: value});
+    this.controller.size = value;
+}
+```
+
+### Dynamic Component Management
+
+```javascript
+// Portal.view.ViewportController
+async onAppConnect(data) {
+    let app = Neo.apps[data.appName];
+    
+    // Component tree mutations
+    let sourceView = sourceContainer.removeAt(0, false);
+    mainView.add(sourceView);
+
+    // Reactive config updates
+    tabContainer.activeIndex = 0;
+    tabContainer.getTabAtIndex(1).disabled = true;
+}
+```
+
+## When to Use Each Layer
+
+### Use Component Tree Layer When (99% of development):
+
 - Building application interfaces
-- Defining component hierarchies through Composition
-- Managing application state
-- Implementing business logic
+- Defining component hierarchies through composition
+- Managing application state and business logic
 - Creating reusable UI patterns
+- Implementing user interactions and workflows
 
-### Use Imperative Vdom When:
-- Creating custom app or framework components (defining their root `vdom` structure)
-- Implementing component lifecycle methods (`afterSet*`, `beforeSet*`, `beforeGet*`) that modify a component's own VDom properties.
-- Optimizing rendering performance (by triggering `this.update()`)
-- Building low-level UI utilities or complex animations that directly manipulate VDom node properties.
-- Fine-tuning DOM operations
+### Use VDom Layer When (1% of development):
 
-## Performance Implications
+- Creating custom framework components
+- Defining component internal DOM structure (`vdom`)
+- Implementing component lifecycle methods (`afterSet*`, `beforeSet*`, `beforeGet*`)
+- Optimizing rendering performance
+- Building complex animations or effects
 
-### Declarative Benefits:
-- **Predictable Performance**: The framework handles optimizations automatically.
+## Performance Benefits
+
+### Component Tree Advantages:
+
+- **Predictable Performance**: Framework handles optimizations automatically
 - **Automatic Batching**: Updates are batched and optimized
 - **Memory Efficiency**: Shared component instances and configs
-- **Worker Threading**: Non-blocking UI operations as heavy lifting is offloaded.
+- **Worker Threading**: Non-blocking UI operations
 
-### Imperative Benefits:
-- **Fine-Grained Control**: Direct manipulation of VDom node properties when needed.
-- **Custom Optimizations**: Tailored performance strategies for specific cases.
-- **Minimal Overhead**: Direct property access and updates on VDom nodes.
+### VDom Layer Advantages:
+
+- **Fine-Grained Control**: Direct VDom node manipulation when needed
+- **Custom Optimizations**: Tailored performance strategies
+- **Minimal Overhead**: Direct property access and updates
 - **Animation Control**: Precise timing and effects
 
 ## Best Practices
 
 ### For Application Development:
 
-1. **Favor Declarative**: Use component configurations over Vdom manipulation.
-   Primarily use component configurations (`items`) for building UIs.
-2. **State Management**: Leverage reactive state providers
-3. **Component Composition**: Build complex UIs through item hierarchies
-4. **Reference Usage**: Use `reference` for component communication
+1. **Favor Component Tree**: Use `items` configurations over VDom manipulation
+2. **Leverage Reactivity**: Trust automatic UI updates from config changes
+3. **Use State Providers**: Manage application state reactively
+4. **Component References**: Use `reference` for component communication
 
 ### For Framework Development:
 
 1. **Encapsulate Complexity**: Hide imperative operations behind declarative APIs
-2. **Optimize Updates**: Batch DOM changes and use `update()` efficiently
+2. **Optimize VDom Updates**: Batch changes and use `update()` efficiently
 3. **Memory Management**: Clean up event listeners and references
 4. **Worker Communication**: Minimize cross-worker message passing
 
-## Migration and Integration
+## Migration from Other Frameworks
 
-### From Other Frameworks:
+### Key Mental Shifts:
+- **From**: Direct DOM/Virtual DOM manipulation
+- **To**: Component tree configuration and reactive updates
 
-- **React**: Similar component concepts, but configs replace JSX
-- **Vue**: Comparable reactive patterns with better performance isolation
-- **Angular**: More explicit separation between template and logic
+
+- **From**: Manual state management and re-rendering
+- **To**: Automatic reactivity and UI synchronization
+
+
+- **From**: Mixing HTML structure with components
+- **To**: Pure component hierarchies via `items`
 
 ### Integration Patterns:
 
@@ -470,9 +413,9 @@ afterSetBadgeText(value, oldValue) {
 {
     module: LegacyWrapper,
     items: [{
-        ntype: 'component',     // default value, just added for clarity
-    //  html : '<legacy-widget></legacy-widget>',
-        tag  : 'legacy-widget', // custom tag name
+        ntype: 'component',
+        tag  : 'legacy-widget', // Custom element - SECURE
+        // html : '<legacy-widget></legacy-widget>', // AVOID - XSS risk
         domListeners: {
             'legacy-event': 'onLegacyEvent'
         }
@@ -480,8 +423,14 @@ afterSetBadgeText(value, oldValue) {
 }
 ```
 
-**Recommendation**: Using tag instead of html is crucial for security as it prevents Cross-Site Scripting (XSS)
-vulnerabilities by avoiding raw HTML injection for element creation.
+> **Security Note**: Using `tag` instead of `html` is crucial for preventing Cross-Site Scripting (XSS) vulnerabilities by avoiding raw HTML injection for element creation.
+
+### Framework-Specific Migration Notes:
+
+- **From React**: Component configs replace JSX, `items` replaces children composition, reactive updates replace manual state management
+- **From Vue**: Similar reactive patterns but with better performance isolation through worker threading
+- **From Angular**: More explicit separation between component hierarchy (items) and internal template structure (vdom)
+```
 
 ## Advanced Topics
 
@@ -493,12 +442,12 @@ import VdomUtil  from './src/util/Vdom.mjs';
 
 class CustomComponent extends Component {
     static config = {
-        // Declarative configuration
+        // Component tree configuration
         customProperty_: null,
 
-        // Vdom structure
+        // VDom structure definition
         vdom: {
-            tag: 'div', // default value, just for clarity here
+            tag: 'div',
             cn: [
                 {tag: 'header', flag: 'headerNode'},
                 {tag: 'main',   flag: 'contentNode'}
@@ -506,33 +455,33 @@ class CustomComponent extends Component {
         }
     }
     
-    // Imperative update handling
+    // VDom layer manipulation using VdomUtil
     afterSetCustomProperty(value, oldValue) {
-        VdomUtil.getByFlag('headerNode').text = value;
-        this.update(); // Triggers efficient DOM reconciliation via VDom Worker
+        let headerNode = VdomUtil.getByFlag(this, 'headerNode');
+        headerNode.text = value;
+        this.update(); // Trigger DOM reconciliation
     }
 }
 ```
 
+Neo.mjs provides utilities such as `VdomUtil` for direct interaction with VDom nodes within a component's lifecycle methods.
+
 ### Performance Monitoring
 
 ```javascript
-Neo.config.logDeltaUpdates = true;  // Enables update timing logs
+Neo.config.logDeltaUpdates = true;  // Enable update timing logs
 ```
 
 ## Conclusion
 
 Neo.mjs's two-tier architecture successfully balances developer productivity with framework performance through:
 
-- **Clear Separation**: Declarative application layer, imperative framework layer
-- **Multi-Threading**: Optimal resource utilization across worker threads
-- **Reactive Updates**: Automatic UI synchronization with state changes
-- **Performance Optimization**: Framework-level imperative optimizations
-- **Developer Experience**: Elegant, maintainable application code
+- **Clear Abstraction Layers**: Component tree for apps, VDom for framework optimization
+- **Multi-Threading Architecture**: Optimal resource utilization across worker threads
+- **Reactive Component Tree**: Automatic UI synchronization with configuration changes
+- **Runtime Mutability**: Dynamic component tree modifications without recreation
+- **Performance Optimization**: Framework-level imperative optimizations when needed
 
 This architecture enables developers to build complex, performant web applications while focusing on business logic rather
-than DOM manipulation details. The framework's imperative Vdom operations provide the performance foundation, while the
-declarative component system delivers the developer experience.
-
-Understanding this distinction is crucial for effectively leveraging Neo.mjs's capabilities and building maintainable,
-scalable applications.
+than DOM manipulation details. Understanding the distinction between these layers is crucial for effectively leveraging
+Neo.mjs's capabilities and building maintainable, scalable applications.
