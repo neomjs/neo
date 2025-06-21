@@ -59,13 +59,13 @@ class App extends Container {
             module: HeaderToolbar
         }, {
             module: Container,
-            cls: ['main-content'],
-            items: [{
+            cls   : ['main-content'],
+            items : [{
                 module: CustomButton,
-                text: 'Click me'
+                text  : 'Click me'
             }, {
                 module: DataGrid,
-                data: users
+                data  : users
             }]
         }]
     }
@@ -77,7 +77,7 @@ Your new mental model:</br>
 
 ### Key Architectural Differences
 
-| Aspect | Other Frameworks | Neo.mjs |
+| Aspect | Other Frameworks | Neo.jms |
 |--------|------------------|---------|
 | **Layers** | Single virtual DOM layer | Two-tier: Component tree + VDom |
 | **Composition** | Mix HTML + components | Pure component hierarchies via `items` |
@@ -228,18 +228,18 @@ async showRipple(data) {
     // Direct style manipulation for performance
     rippleEl.style = Object.assign(rippleEl.style || {}, {
         animation: 'none',
-        height: `${diameter}px`,
-        left: `${data.clientX - buttonRect.left - radius}px`,
-        top: `${data.clientY - buttonRect.top - radius}px`,
-        width: `${diameter}px`
+        height   : `${diameter}px`,
+        left     : `${data.clientX - buttonRect.left - radius}px`,
+        top      : `${data.clientY - buttonRect.top - radius}px`,
+        width    : `${diameter}px`
     });
-    
+
     // Asynchronous DOM updates
     delete this.rippleWrapper.removeDom;
     this.update();
-    
+
     await this.timeout(1);
-    
+
     rippleEl.style.animation = `ripple ${duration}ms linear`;
     this.update();
 }
