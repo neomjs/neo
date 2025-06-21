@@ -1,3 +1,64 @@
+## Critical Mental Model Shift for React/Vue/Angular Developers
+
+**If you're coming from React, Vue, or Angular:** Neo.mjs requires a fundamental shift in how you think about UI composition. This isn't just different syntax—it's a completely different paradigm.
+
+### What You're Used To (Other Frameworks)
+In React, Vue, and Angular, you compose UIs by writing templates/JSX that mix HTML elements with custom components:
+
+```jsx
+// React/Vue/Angular pattern - mixing HTML with components
+function App() {
+  return (
+    <div className="viewport">
+      <HeaderToolbar />
+      <div className="main-content">
+        <CustomButton text="Click me" />
+        <DataGrid data={users} />
+      </div>
+    </div>
+  );
+}
+```
+
+Your mental model: *"I write the DOM structure I want, and insert components as custom HTML tags."*
+
+### What Neo.mjs Actually Does
+In Neo.mjs, you compose UIs through **declarative component configurations** that describe relationships:
+
+```javascript
+// Neo.mjs pattern - component relationship configuration
+class App extends Container {
+    static config = {
+        cls: ['viewport'],
+        items: [{
+            module: HeaderToolbar
+        }, {
+            module: Container,
+            cls: ['main-content'],
+            items: [{
+                module: CustomButton,
+                text: 'Click me'
+            }, {
+                module: DataGrid,
+                data: users
+            }]
+        }]
+    }
+}
+```
+
+Your new mental model: *"I configure component relationships through `items`, and components define their own internal DOM structure through `vdom`."*
+
+### The Key Difference
+- **Other frameworks**: You write DOM structure first, then add components as tags
+- **Neo.mjs**: You configure component hierarchies via `items`. Individual components define their internal DOM via `vdom`
+
+### When to Use Each Approach
+- **Component composition via `items`** (99% of application development): Building UIs, managing hierarchies, application logic
+- **VDom manipulation** (1% - framework development): Creating custom components, optimizing internal component rendering
+
+---
+
 ## Introduction
 
 Neo.mjs employs a unique two-tier architecture that separates **declarative component configuration** from **imperative virtual DOM (VDom) operations**. This design provides both developer productivity and framework performance optimization while maintaining clear separation of concerns across different abstraction layers.
@@ -47,7 +108,7 @@ class Viewport extends BaseViewport {
 - **Hierarchical**: Nested `items` arrays establish parent-child relationships.
 - **Referential**: `reference` property enables component lookup.
 - **Mutable Structure**: The live component instance tree is **dynamic and mutable at runtime**, allowing developers to
-  imperatively add, remove, or reorder components using methods like `add()`, `remove()` and `insert()`."
+  imperatively add, remove, or reorder components using methods like `add()`, `remove()` and `insert()`.
 
 ### State Provider Integration
 
@@ -303,7 +364,7 @@ afterSetBadgeText(value, oldValue) {
 ### For Application Development:
 
 1. **Favor Declarative**: Use component configurations over Vdom manipulation.
-   Primarily use component configurations (`items`) for building UIs. 
+   Primarily use component configurations (`items`) for building UIs.
 2. **State Management**: Leverage reactive state providers
 3. **Component Composition**: Build complex UIs through item hierarchies
 4. **Reference Usage**: Use `reference` for component communication
