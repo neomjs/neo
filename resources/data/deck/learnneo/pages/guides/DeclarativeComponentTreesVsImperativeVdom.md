@@ -124,6 +124,7 @@ container.removeAt(0);                           // Remove component
 container.insert(1, {module: AnotherComponent}); // Insert component
 
 // Move components between containers
+// => This re-uses the same component JS instance & works accross different browser windows
 let sourceView = sourceContainer.removeAt(0, false);
 targetContainer.add(sourceView);
 ```
