@@ -287,6 +287,11 @@ static config = {
     }
 }
 
+// Imperative navigation handling
+onHomeRoute(params, value, oldValue) {
+    this.setMainContentIndex(0);  // Triggers layout changes
+}
+
 // Component tree manipulation
 async setMainContentIndex(index) {
     let container = this.getReference('main-content');
