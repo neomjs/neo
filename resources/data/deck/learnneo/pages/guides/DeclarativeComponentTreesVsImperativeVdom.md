@@ -396,14 +396,13 @@ async onAppConnect(data) {
 ## Migration from Other Frameworks
 
 ### Key Mental Shifts:
+
 - **From**: Direct DOM/Virtual DOM manipulation
 - **To**: Component tree configuration and reactive updates
-
-
+</br></br>
 - **From**: Manual state management and re-rendering
 - **To**: Automatic reactivity and UI synchronization
-
-
+</br></br>
 - **From**: Mixing HTML structure with components
 - **To**: Pure component hierarchies via `items`
 
