@@ -277,6 +277,9 @@ This separation allows developers to focus on **what** they want to build rather
 
 ### Navigation System Architecture
 
+Routing happens inside view controllers, instead of being tag-based.
+Developers are in full control to define what route-changes should do.
+
 ```javascript
 // Portal.view.ViewportController
 // Declarative route configuration
