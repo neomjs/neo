@@ -313,6 +313,8 @@ async setMainContentIndex(index) {
 
 ### Responsive Design Handling
 
+If needed, this can be done via JavaScript too (instead of purely focussing on CSS).
+
 ```javascript
 // Portal.view.Viewport
 static sizes = ['large', 'medium', 'small', 'x-small', null];
