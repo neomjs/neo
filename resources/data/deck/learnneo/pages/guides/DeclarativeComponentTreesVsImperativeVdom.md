@@ -77,12 +77,12 @@ Your new mental model:</br>
 
 ### Key Architectural Differences
 
-| Aspect | Other Frameworks | Neo.jms |
-|--------|------------------|---------|
-| **Layers** | Single virtual DOM layer | Two-tier: Component tree + VDom |
+| Aspect | Other Frameworks | Neo.mjs                                |
+|--------|------------------|----------------------------------------|
+| **Layers** | Single virtual DOM layer | Two-tier: Component tree + VDom        |
 | **Composition** | Mix HTML + components | Pure component hierarchies via `items` |
-| **Updates** | Manual state management | Automatic reactive updates |
-| **Mutability** | Recreate tree on changes | Runtime mutable component tree |
+| **Updates** | Manual state management | Automatic reactive updates             |
+| **Mutability** | Recreate tree on changes | Runtime mutable component tree         |
 
 ## Component Tree Layer (Application Development)
 
