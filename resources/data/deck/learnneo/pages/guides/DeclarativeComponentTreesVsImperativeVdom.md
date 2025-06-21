@@ -415,8 +415,8 @@ async onAppConnect(data) {
     module: LegacyWrapper,
     items: [{
         ntype: 'component',
-        tag  : 'legacy-widget', // Custom element - SECURE
-        // html : '<legacy-widget></legacy-widget>', // AVOID - XSS risk
+        tag  : 'legacy-widget',                   // Custom element - SECURE
+    //  html : '<legacy-widget></legacy-widget>', // AVOID - XSS risk
         domListeners: {
             'legacy-event': 'onLegacyEvent'
         }
