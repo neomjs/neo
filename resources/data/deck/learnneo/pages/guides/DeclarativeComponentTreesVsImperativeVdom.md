@@ -81,8 +81,8 @@ The live component tree is **dynamic and mutable**, allowing imperative operatio
 
 ```javascript
 // Runtime mutations on the component tree
-container.add({module: NewComponent});     // Add component
-container.removeAt(0);                     // Remove component
+container.add({module: NewComponent});           // Add component
+container.removeAt(0);                           // Remove component
 container.insert(1, {module: AnotherComponent}); // Insert component
 ```
 
