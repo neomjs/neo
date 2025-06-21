@@ -1,6 +1,7 @@
 ## Critical Mental Model Shift for React/Vue/Angular Developers
 
-**If you're coming from React, Vue, or Angular:** Neo.mjs requires a fundamental shift in how you think about UI composition. This isn't just different syntax—it's a completely different paradigm.
+**If you're coming from React, Vue, or Angular:** Neo.mjs requires a fundamental shift in how you think about UI composition.
+This isn't just different syntax — it's a completely different paradigm with a unique two-tier architecture.
 
 ### What You're Used To (Other Frameworks)
 In React, Vue, and Angular, you compose UIs by writing templates/JSX that mix HTML elements with custom components:
@@ -22,8 +23,16 @@ function App() {
 
 Your mental model: *"I write the DOM structure I want, and insert components as custom HTML tags."*
 
+### Neo.mjs Two-Tier Architecture
+
+Neo.mjs operates on **two distinct abstraction layers**:
+
+1. **Component Tree Layer** (Application Development): Declarative, mutable, reactive component configurations
+2. **VDom Tree Layer** (Framework Internals): Imperative virtual DOM operations for performance optimization
+
 ### What Neo.mjs Actually Does
-In Neo.mjs, you compose UIs through **declarative component configurations** that describe relationships:
+
+In Neo.mjs, you compose UIs through **declarative component configurations** that create a **component tree abstraction** sitting on top of the underlying VDom tree:
 
 ```javascript
 // Neo.mjs pattern - component relationship configuration
@@ -47,15 +56,85 @@ class App extends Container {
 }
 ```
 
-Your new mental model: *"I configure component relationships through `items`, and components define their own internal DOM structure through `vdom`."*
+Your new mental model: *"I configure a declarative component tree through `items`. This component tree is an abstraction layer that sits on top of the VDom tree. Individual components define their internal DOM structure through `vdom`."*
 
-### The Key Difference
-- **Other frameworks**: You write DOM structure first, then add components as tags
-- **Neo.mjs**: You configure component hierarchies via `items`. Individual components define their internal DOM via `vdom`
+### The Component Tree: Declarative, Mutable & Reactive
 
-### When to Use Each Approach
-- **Component composition via `items`** (99% of application development): Building UIs, managing hierarchies, application logic
-- **VDom manipulation** (1% - framework development): Creating custom components, optimizing internal component rendering
+The component tree in Neo.mjs has three critical characteristics:
+
+#### 1. Declarative Configuration
+Components are defined through static configuration objects, not imperative DOM manipulation:
+
+```javascript
+// Declarative - you describe WHAT you want
+static config = {
+    items: [{
+        module: Button,
+        text: 'Click me',
+        handler: 'onButtonClick'
+    }]
+}
+```
+
+#### 2. Mutable at Runtime
+The live component tree is **dynamic and mutable**, allowing imperative operations on the component hierarchy:
+
+```javascript
+// Runtime mutations on the component tree
+container.add({module: NewComponent});     // Add component
+container.removeAt(0);                     // Remove component
+container.insert(1, {module: AnotherComponent}); // Insert component
+```
+
+#### 3. Reactive Updates
+**Every component tree configuration change automatically triggers UI updates** - no manual DOM manipulation required:
+
+```javascript
+// These changes automatically update the UI
+button.text = 'New Text';           // Component property change → UI update
+button.iconCls = 'fa fa-home';      // Config change → UI update
+container.layout.activeIndex = 1;   // Layout change → UI update
+```
+
+### The Key Architectural Difference
+
+- **Other frameworks**: Single-layer - you directly manipulate a virtual representation of the DOM
+- **Neo.mjs**: Two-tier - you work with a component tree abstraction that sits on top of a separate VDom layer
+
+```
+Other Frameworks:
+Your Code → Virtual DOM → Real DOM
+
+Neo.mjs:
+Your Code → Component Tree (declarative, mutable, reactive)
+                    ↓
+            VDom Tree (imperative, optimized)
+                    ↓
+               Real DOM
+```
+
+### When to Use Each Layer
+
+- **Component Tree Layer** (99% of application development):
+  - Building UIs through `items` configuration
+  - Managing component hierarchies and relationships
+  - Implementing application logic and state management
+  - All reactive property updates
+
+- **VDom Tree Layer** (1% - framework development):
+  - Creating custom components (defining their internal `vdom` structure)
+  - Optimizing internal component rendering performance
+  - Direct DOM manipulation for animations or complex interactions
+
+### Why This Architecture Matters
+
+This two-tier separation provides:
+
+1. **Developer Productivity**: Work at the component abstraction level
+2. **Performance Optimization**: Framework handles VDom operations efficiently
+3. **Multi-threading**: Heavy lifting offloaded to worker threads
+4. **Reactive Updates**: Automatic UI synchronization with minimal boilerplate
+5. **Clear Separation of Concerns**: Application logic vs. rendering optimization
 
 ---
 
