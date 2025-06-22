@@ -322,42 +322,18 @@ Once the component tree is built:
 5. CSS styling and layout are applied
 6. The event system is activated
 
-
-## Troubleshooting Common Bootstrap Issues
-
-### Configuration Problems
-
-```
-Error: Failed to resolve module
-Solution: Check appPath and basePath in neo-config.json
-```
-
-### Worker Loading Failures
-
-```
-Error: Worker script failed to load
-Solution: Verify workerBasePath and main thread configuration
-```
-
-### Application Module Issues
-
-```
-Error: onStart is not a function
-Solution: Ensure app.mjs exports onStart function correctly
-```
-
 ## Summary
 
 The Neo.mjs application bootstrap process follows these key steps:
 
 1. **index.html** loads the MicroLoader
 2. **MicroLoader.mjs** fetches the configuration and imports Neo.Main
-3. **Neo.Main** initializes the main thread and creates the WorkerManager
-4. **WorkerManager** creates the workers (App, VDom, Data, etc.)
-5. When all workers are constructed, WorkerManager sends a 'loadApplication' message to the App worker
-6. **App Worker** receives the message and dynamically imports the application module
+3. **Neo.Main** initializes the main thread and creates the Neo.worker.Manager
+4. **Neo.worker.Manager** creates the workers (Neo.worker.App, VDom, Data, etc.)
+5. When all workers are constructed, Neo.worker.Manager sends a 'loadApplication' message to the Neo.worker.App worker
+6. **Neo.worker.App** receives the message and dynamically imports the application module
 7. **app.mjs** is executed, and its onStart function creates the application
-8. **Component Tree** is constructed in the App Worker
+8. **Component Tree** is constructed in the Neo.worker.App worker
 9. **VDom Generation and Rendering** creates the actual DOM in the main thread
 
-This multi-threaded architecture allows your application code to run in a dedicated App Worker, completely separate from DOM manipulation, providing better performance and responsiveness.
+This multi-threaded architecture allows your application code to run in either a dedicated or shared Neo.worker.App worker, completely separate from DOM manipulation, providing better performance and responsiveness.
