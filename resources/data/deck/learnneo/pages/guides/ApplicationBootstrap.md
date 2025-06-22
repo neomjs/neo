@@ -212,7 +212,7 @@ The WorkerManager:
 
 ### 6. App Worker: Loading the Application
 
-The App worker receives the 'loadApplication' message and loads the application:
+The App worker receives the 'loadApplication' message and loads the application. It's important to note that an "App" in Neo.mjs is an instance of Neo.controller.Application, which is not common in other frameworks like React, Angular, or Vue (which typically just use a tag):
 
 ```javascript
 class App extends Base {
@@ -318,8 +318,8 @@ Once the component tree is built:
 1. Each component generates its virtual DOM structure
 2. The framework builds a complete virtual DOM tree
 3. The VDom Worker calculates the initial DOM structure
-4. The Main Thread creates the actual DOM elements
-5. CSS styling and layout are applied
+4. Relevant CSS files will get lazy-loaded before the DOM is touched to avoid reflows
+5. The Main Thread creates the actual DOM elements
 6. The event system is activated
 
 ## Summary
