@@ -26,6 +26,7 @@
         {"name": "Todo List",                              "parentId": "Tutorials",                          "id": "tutorials.TodoList"},
     {"name": "Guides",                                     "parentId": null,                "isLeaf": false, "id": "InDepth",  "collapsed": true},
         {"name": "Declarative Component Trees VS Imperative Vdom", "parentId": "InDepth",                    "id": "guides.DeclarativeComponentTreesVsImperativeVdom"},
+        {"name": "Working with VDom",                      "parentId": "InDepth",                            "id": "guides.WorkingWithVDom"},
         {"name": "Instance Lifecycle",                     "parentId": "InDepth",                            "id": "guides.InstanceLifecycle", "hidden": true},
         {"name": "User Input (Forms)",                     "parentId": "InDepth",                            "id": "guides.Forms",  "hidden": true},
         {"name": "Component and Container Basics",         "parentId": "InDepth",                            "id": "guides.ComponentsAndContainers"},
