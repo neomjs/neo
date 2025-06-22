@@ -1,37 +1,67 @@
-**Understanding how Neo.mjs applications start, initialize, and come to life**
+# Neo.mjs Application Bootstrap Process
+
+This guide explains how Neo.mjs applications start, initialize, and come to life - from the initial HTML file to your first rendered component.
 
 ## Overview
 
-When you run `npm start` and see your Neo.mjs application in the browser, a sophisticated multi-threaded orchestration
-happens behind the scenes. This guide explains the complete application bootstrap process, from initial configuration
-loading to your first rendered component.
+When you run a Neo.mjs application in the browser, a sophisticated multi-threaded orchestration happens behind the scenes. Unlike traditional web frameworks that run everything on the main thread, Neo.mjs distributes work across multiple threads using Web Workers.
 
-## The Big Picture
-
-Neo.mjs applications don't start like traditional web apps. Instead of running everything on the main browser thread,
-Neo.mjs creates a **multi-worker architecture** where your application logic runs in a dedicated **App Worker**,
-completely separate from DOM manipulation.
-
-```
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ │ Main Thread │ │ App Worker │ │ VDom Worker │ │ │ │ │ │ │ │ • DOM Updates │ │ • Your App Code │ │ • VDom Diffing │ │ • Event Capture │ │ • Components │ │ • Optimization │ │ • Rendering │ │ • Business Logic│ │ • Delta Calc │ └─────────────────┘ └─────────────────┘ └─────────────────┘
-``` 
-
-**Key Insight:** Your application code lives entirely in the **App Worker** - a rich JavaScript environment with full framework access, while DOM operations happen automatically on the Main Thread.
+> **Note:** For a deeper understanding of Neo.mjs's multi-threaded architecture, see the [Off The Main Thread](../benefits/OffTheMainThread.md) guide.
 
 ## Bootstrap Sequence
 
-### 1. Configuration Loading
+### 1. Entry Point: index.html
 
-Every Neo.mjs application starts with a `neo-config.json` file that defines how the application should initialize:
+The bootstrap process begins with a minimal HTML file:
+
+```html
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>My Neo.mjs App</title>
+</head>
+<body>
+    <script src="../../src/MicroLoader.mjs" type="module"></script>
+</body>
+</html>
+```
+
+The only JavaScript file imported is the `MicroLoader.mjs`, which is loaded as an ES module.
+
+### 2. MicroLoader: Configuration Loading
+
+The `MicroLoader.mjs` is a small script that fetches the application configuration and bootstraps the main thread:
+
+```javascript
+fetch('./neo-config.json').then(r => r.json()).then(d => {
+    globalThis.Neo = {config: {...d}};
+    import(d.mainPath)
+})
+```
+
+It performs these steps:
+1. Fetches the `neo-config.json` file from the current directory
+2. Parses the JSON response
+3. Creates a global `Neo` object with the `config` property set to the parsed JSON
+4. Dynamically imports the module specified by the `mainPath` property from the config
+
+### 3. Configuration: neo-config.json
+
+The `neo-config.json` file contains essential configuration for the application bootstrap:
+
 ```json
 {
-    "appPath"       : "../../apps/portal/app.mjs",
-    "basePath"      : "../../",
-    "environment"   : "development",
-    "mainPath"      : "../src/Main.mjs",
-    "workerBasePath": "../../src/worker/"
+    "appPath": "apps/myapp/app.mjs",
+    "basePath": "../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "workerBasePath": "../../src/worker/",
+    "useSharedWorkers": false,
+    "themes": ["neo-theme-light"]
 }
-``` 
+```
 
 **Key Configuration Properties:**
 - **`appPath`** - Points to your application's entry point (app.mjs)
@@ -39,75 +69,213 @@ Every Neo.mjs application starts with a `neo-config.json` file that defines how 
 - **`environment`** - Controls optimization and debugging features
 - **`mainPath`** - Framework's main thread bootstrap file
 - **`workerBasePath`** - Location of worker initialization files
+- **`useSharedWorkers`** - Whether to use SharedWorkers (for multi-window apps)
+- **`themes`** - CSS themes to load
 
-### 2. Main Thread Initialization
+### 4. Main Thread Initialization
 
-The main thread starts by loading `src/Main.mjs`, which:
+The MicroLoader imports `Main.mjs`, which initializes the main thread:
 
-1. **Creates the Worker Manager** - Coordinates all worker threads
-2. **Spawns Workers** - App Worker, VDom Worker, Data Worker (if needed)
-3. **Establishes Communication** - Sets up message passing between threads
-4. **Loads Configuration** - Distributes neo-config.json to all workers
-
-### 3. Worker Spawning and Setup
-
-**App Worker Creation:**
 ```javascript
-// Main Thread creates App Worker
-const appWorker = new Worker('src/worker/App.mjs', {type: 'module'});
+import Neo           from './Neo.mjs';
+import * as core     from './core/_export.mjs';
+import DomAccess     from './main/DomAccess.mjs';
+import DeltaUpdates  from './main/DeltaUpdates.mjs';
+import DomEvents     from './main/DomEvents.mjs';
+import Observable    from './core/Observable.mjs';
+import WorkerManager from './worker/Manager.mjs';
 
-// App Worker receives configuration and initializes
-// worker/App.mjs loads your application entry point
-``` 
+class Main extends core.Base {
+    // ...
 
-**VDom Worker Creation:**
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        WorkerManager.on({
+            'automount'        : me.onRender,
+            'message:mountDom' : me.onMountDom,
+            'message:updateDom': me.onUpdateDom,
+            'updateVdom'       : me.onUpdateVdom,
+            scope              : me
+        });
+
+        DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
+
+        if (document.readyState !== 'loading') {
+            DomEvents.onDomContentLoaded()
+        }
+    }
+
+    // ...
+}
+```
+
+The Main class:
+1. Imports the WorkerManager and other core modules
+2. Sets up event listeners for worker messages
+3. Listens for the 'domContentLoaded' event
+4. When the DOM is loaded, it loads any main thread addons and notifies the WorkerManager
+
+### 5. Worker Manager: Creating Workers
+
+The `WorkerManager` is responsible for creating and managing the workers:
+
 ```javascript
-// VDom Worker handles virtual DOM operations
-const vdomWorker = new Worker('src/worker/VDom.mjs', {type: 'module'});
-// Optimizes rendering and calculates DOM deltas
-``` 
+class Manager extends Base {
+    // ...
 
-### 4. Application Loading Process
+    createWorkers() {
+        let me                   = this,
+            config               = Neo.clone(NeoConfig, true),
+            {hash, href, search} = location,
+            {windowId}           = me,
+            key, value;
 
-Once workers are initialized, the magic begins:
+        // Configure the workers
+        // ...
 
-**Step 1: Dynamic Import**
+        for ([key, value] of Object.entries(me.workers)) {
+            if (key === 'canvas' && !config.useCanvasWorker ||
+                key === 'task'   && !config.useTaskWorker   ||
+                key === 'vdom'   && !config.useVdomWorker
+            ) {
+                continue
+            }
+
+            try {
+                value.worker = me.createWorker(value)
+            } catch (e) {
+                document.body.innerHTML = e;
+                me.stopCommunication = true;
+                break
+            }
+
+            me.sendMessage(key, {
+                action: 'registerNeoConfig',
+                data  : {...config, windowId}
+            })
+        }
+    }
+
+    onWorkerConstructed(data) {
+        let me = this;
+
+        me.constructedThreads++;
+
+        if (me.constructedThreads === me.activeWorkers) {
+            // All workers are constructed, load the application
+            NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
+                me.loadApplication(NeoConfig.appPath)
+            })
+        }
+    }
+
+    loadApplication(path) {
+        this.sendMessage('app', {
+            action       : 'loadApplication',
+            path,
+            resourcesPath: NeoConfig.resourcesPath
+        })
+    }
+
+    // ...
+}
+```
+
+The WorkerManager:
+1. Detects browser features (Web Workers, SharedWorkers)
+2. Creates workers for App, VDom, Data, etc. based on configuration
+3. Sends the Neo.config to each worker
+4. When all workers are constructed, it loads the application by sending a message to the App worker
+
+### 6. App Worker: Loading the Application
+
+The App worker receives the 'loadApplication' message and loads the application:
+
 ```javascript
-// App Worker dynamically imports your app.mjs
-const module = await import('../../apps/portal/app.mjs');
-// Your entry point gets loaded into the App Worker context
-``` 
+class App extends Base {
+    // ...
 
-**Step 2: Entry Point Execution**
+    onLoadApplication(data) {
+        let me       = this,
+            {config} = Neo,
+            app, path;
+
+        if (data) {
+            me.data = data;
+            config.resourcesPath = data.resourcesPath
+        }
+
+        path = me.data.path;
+
+        if (config.environment !== 'development') {
+            path = path.startsWith('/') ? path.substring(1) : path
+        }
+
+        me.importApp(path).then(module => {
+            app = module.onStart();
+
+            // short delay to ensure Component Controllers are ready
+            config.hash && me.timeout(5).then(() => {
+                HashHistory.push(config.hash);
+            })
+        })
+    }
+
+    importApp(path) {
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -4)
+        }
+
+        return import(
+            /* webpackInclude: /(?:\/|\\)app.mjs$/ */
+            /* webpackExclude: /(?:\/|\\)(dist|node_modules)/ */
+            /* webpackMode: "lazy" */
+            `../../${path}.mjs`
+        )
+    }
+
+    // ...
+}
+```
+
+The App worker:
+1. Receives the 'loadApplication' message with the path to the application
+2. Calls importApp(path) to dynamically import the application module
+3. When the module is loaded, it calls the onStart method of the module
+4. If there's a hash in the config, it pushes it to the HashHistory after a short delay
+
+### 7. Application Entry Point: app.mjs
+
+Finally, the application's `app.mjs` file is loaded and executed:
+
 ```javascript
-// Your app.mjs exports an onStart function export
-const onStart = () => Neo.app({
-    mainView: Viewport,
-    name    : 'Portal'
-});
-// Framework calls this function to bootstrap your application
-``` 
+import Overwrites from './Overwrites.mjs'; // Optional framework extensions
+import Viewport   from './view/Viewport.mjs'; // Your main UI component
 
-**Step 3: Application Controller Creation**
-```javascript
-// Neo.app() creates an Application controller
-const app = Neo.create({
-    module  : Neo.controller.Application,
-    mainView: Viewport, // Your main UI component
-    name    : 'Portal', // Application identifier 
-    appName : 'Portal' // Used for CSS scoping, routing 
-});
-``` 
+export const onStart = () => Neo.app({
+    mainView: Viewport, // Root component of your application
+    name    : 'MyApp'   // Application identifier
+})
+```
 
-### 5. Component Tree Construction
+The app.mjs file:
+1. Imports any overwrites and the main view (Viewport)
+2. Exports an onStart function that creates a new Neo application
+3. The application is configured with a main view and a name
 
-Your `mainView` component (like `Viewport`) gets instantiated:
+### 8. Component Tree Construction
+
+When Neo.app() is called, it creates an Application controller and instantiates your mainView component:
+
 ```javascript
 // Your Viewport component
 class Viewport extends Container {
     static config = {
-        className: 'Portal.view.Viewport',
-        layout : 'vbox',
+        className: 'MyApp.view.Viewport',
+        layout: 'vbox',
         items: [
             HeaderComponent, // Child components
             MainContainer,   // All created in App Worker
@@ -115,275 +283,88 @@ class Viewport extends Container {
         ]
     }
 }
-``` 
+```
 
-**Component Instantiation Process:**
-1. **Viewport created** in App Worker with rich component APIs
-2. **Child components instantiated** recursively
-3. **Event listeners attached** via framework's event system
-4. **Data bindings established** for reactive updates
+The component instantiation process:
+1. Viewport is created in the App Worker
+2. Child components are instantiated recursively
+3. Event listeners are attached via the framework's event system
+4. Data bindings are established for reactive updates
 
-### 6. VDom Generation and Initial Render
+### 9. VDom Generation and Initial Render
 
 Once the component tree is built:
 
-1. **VDom Generation** - Each component generates its virtual DOM structure
-2. **VDom Tree Assembly** - Framework builds complete virtual DOM tree
-3. **Initial DOM Creation** - VDom Worker calculates initial DOM structure
-4. **DOM Projection** - Main Thread creates actual DOM elements
-5. **CSS Application** - Styling and layout applied
-6. **Event Delegation Setup** - Event system activated
+1. Each component generates its virtual DOM structure
+2. The framework builds a complete virtual DOM tree
+3. The VDom Worker calculates the initial DOM structure
+4. The Main Thread creates the actual DOM elements
+5. CSS styling and layout are applied
+6. The event system is activated
 
-## The app.mjs Pattern
+## Common Configuration Options
 
-Your application entry point follows a simple but powerful pattern:
-```javascript
-// apps/myapp/app.mjs
-import Overwrites from './Overwrites.mjs'; // Optional framework extensions
-import Viewport from './view/Viewport.mjs'; // Your main UI component
-
-export const onStart = () => Neo.app({
-    mainView: Viewport, // Root component of your application
-    name    : 'MyApp'   // Application identifier
-});
-``` 
-
-**Why This Pattern Works:**
-- **Minimal Entry Point** - Framework handles complex initialization
-- **Component-Centric** - Your app is just a component tree
-- **Configuration-Driven** - Declarative approach to app structure
-- **Import-Based** - Clean dependency management
-
-## App Worker: Your Development Environment
-
-Once bootstrap completes, your entire application runs in the **App Worker** - a rich JavaScript environment with:
-
-### Full Framework Access
-
-```javascript
-// Inside any component in your app:
-class MyComponent extends Component {
-    someMethod() { // Component management
-        Neo.getComponent('my-button');
-
-        // Data access
-        Neo.data.Store.getById('users');
-    
-        // Routing
-        Neo.HashHistory.push({page: 'settings'});
-        
-        // Utilities
-        Neo.util.Array.add(myArray, item);
-        
-        // State management
-        this.getViewModel().setData({loading: true});
-        this.getController().loadData();
-    }
-}
-``` 
-
-### Event-Driven Architecture
-
-```javascript
-// Components communicate via events
-class ProductGrid extends Grid {
-    static config = {
-        listeners: { select: 'onProductSelect' }
-    }
-
-    onProductSelect(data) {
-        // Fire custom events that bubble up
-        this.fire('productSelected', {
-            product: data.record,
-            grid   : this
-        });
-    }
-}
-``` 
-
-### Reactive Configuration System
-
-```javascript
-// Configs automatically trigger UI updates
-class UserProfile extends Component {
-    static config = {
-        user_: null, // Reactive config
-        // UI updates automatically when user changes
-        bind: {
-            html: data => `Welcome, ${data.user?.name || 'Guest'}!`
-        }
-    }
-
-    afterSetUser(value, oldValue) {
-        // Automatic lifecycle method
-        console.log('User changed:', value);
-    }
-}
-``` 
-
-## Multi-Application Scenarios
-
-Neo.mjs supports multiple applications in a single browser session:
-
-### Shared Worker Multi-App
-
-```javascript
-// Multiple apps can run simultaneously
-// apps/crm/app.mjs
-export const onStart = () => Neo.app({ mainView: CrmViewport, name : 'CRM' });
-// apps/accounting/app.mjs
-export const onStart = () => Neo.app({ mainView: AccountingViewport, name : 'Accounting' });
-// Both run in same App Worker, different browser windows
-``` 
-
-### Cross-App Communication
-
-```javascript
-// Apps can communicate and share data
-Neo.apps.CRM.mainView.fire('customerUpdated', { customerId: 123, changes : {status: 'active'} });
-// Shared stores, utilities, and state possible
-``` 
-
-## Performance and Optimization
-
-### Automatic Optimizations
-
-The bootstrap process includes built-in optimizations:
-
-- **Worker Thread Isolation** - Main thread never blocks
-- **Lazy Loading** - Components load only when needed
-- **VDom Diffing** - Minimal DOM updates calculated automatically
-- **Event Delegation** - Efficient event handling across component tree
-- **Memory Management** - Proper cleanup and garbage collection
-
-### Development vs Production
-
-**Development Mode:**
-- Source maps for debugging
-- Detailed error messages
-- Hot reload support
-- Performance monitoring
-
-**Production Mode:**
-- Minified bundles
-- Optimized worker loading
-- Reduced debug overhead
-- Enhanced caching
-
-## Configuration Deep Dive
-
-### Common Configuration Options
+Neo.mjs applications can be configured with various options in the neo-config.json file:
 
 ```json
 {
-    "appPath": "../../apps/myapp/app.mjs",
+    "appPath": "apps/myapp/app.mjs",
     "basePath": "../../",
     "environment": "development",
+    "mainPath": "./Main.mjs",
+    "workerBasePath": "../../src/worker/",
     "useSharedWorkers": false,
+    "useVdomWorker": true,
+    "useDataWorker": false,
+    "useCanvasWorker": false,
+    "useTaskWorker": false,
     "useServiceWorker": false,
     "themes": ["neo-theme-light"],
-    "mainThreadAddons": ["Stylesheet"],
-    "workerBasePath": "../../src/worker/"
+    "mainThreadAddons": ["Stylesheet"]
 }
 ```
 
 **Configuration Categories:**
 - **Path Resolution** - Where to find files and modules
-- **Worker Settings** - How workers should be configured
-- **Theme Management** - CSS and styling options
-- **Addon Loading** - Additional framework features
-- **Environment Flags** - Development vs production settings
+- **Worker Settings** - Which workers to use and how they should be configured
+- **Theme Management** - CSS themes to load
+- **Addon Loading** - Additional main thread features to load
 
-### Environment-Specific Configs
+## Troubleshooting Common Bootstrap Issues
 
-Different environments can use different configurations:
-- **`neo-config.json`** - Default configuration
-- **`neo-config-development.json`** - Development overrides
-- **`neo-config-production.json`** - Production optimizations
+### Configuration Problems
 
-## Debugging and Troubleshooting
-
-### Common Startup Issues
-
-**Configuration Problems:**
-``` 
+```
 Error: Failed to resolve module
 Solution: Check appPath and basePath in neo-config.json
 ```
-**Worker Loading Failures:**
-``` 
+
+### Worker Loading Failures
+
+```
 Error: Worker script failed to load
 Solution: Verify workerBasePath and main thread configuration
 ```
-**Application Module Issues:**
-``` 
+
+### Application Module Issues
+
+```
 Error: onStart is not a function
 Solution: Ensure app.mjs exports onStart function correctly
 ```
 
-### Debug Tools
+## Summary
 
-**Worker Communication:**
-```javascript
-// Enable worker message logging
-Neo.config.logLevel = 'debug';
+The Neo.mjs application bootstrap process follows these key steps:
 
-// Monitor worker messages in browser console
-```
+1. **index.html** loads the MicroLoader
+2. **MicroLoader.mjs** fetches the configuration and imports Neo.Main
+3. **Neo.Main** initializes the main thread and creates the WorkerManager
+4. **WorkerManager** creates the workers (App, VDom, Data, etc.)
+5. When all workers are constructed, WorkerManager sends a 'loadApplication' message to the App worker
+6. **App Worker** receives the message and dynamically imports the application module
+7. **app.mjs** is executed, and its onStart function creates the application
+8. **Component Tree** is constructed in the App Worker
+9. **VDom Generation and Rendering** creates the actual DOM in the main thread
 
-**Performance Monitoring:**
-```javascript
-// Track bootstrap timing
-Neo.config.renderCountDeltas = true;
-
-// Monitor component creation
-Neo.config.logLevel = 'info';
-```
-
-## Best Practices
-
-### Application Structure
-
-``` 
-apps/myapp/
-├── app.mjs              ← Entry point
-├── neo-config.json      ← Configuration
-├── view/                ← UI components
-│   ├── Viewport.mjs     ← Main component
-│   ├── Header.mjs       ← Child components
-│   └── MainPanel.mjs
-├── store/               ← Data management
-├── model/               ← Data models
-└── controller/          ← Business logic
-```
-
-### Entry Point Guidelines
-
-```javascript
-// Keep app.mjs minimal and focused
-import Overwrites from './Overwrites.mjs';  // Optional
-import Viewport   from './view/Viewport.mjs';
-
-export const onStart = () => Neo.app({
-    mainView: Viewport,    // Always use a meaningful main component
-    name    : 'MyApp'      // Use consistent naming
-});
-
-// Avoid complex logic in app.mjs - put it in components
-```
-### Configuration Management
-
-```json
-{
-    // Use relative paths for portability
-    "appPath": "../../apps/myapp/app.mjs",
-    
-    // Keep development-specific settings separate
-    "environment": "development",
-    
-    // Document custom configuration
-    "customSettings": {
-        "apiEndpoint": "https://api.example.com"
-    }
-}
-```
+This multi-threaded architecture allows your application code to run in a dedicated App Worker, completely separate from DOM manipulation, providing better performance and responsiveness.
