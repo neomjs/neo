@@ -51,7 +51,7 @@ It performs these steps:
 
 ### 3. Configuration: neo-config.json
 
-The `neo-config.json` file contains essential configuration for the application bootstrap:
+The `neo-config.json` file contains essential configuration for the application bootstrap. For a complete overview of all available configuration options, you can refer to the `src/DefaultConfig.mjs` file in the Neo.mjs framework:
 
 ```json
 {
@@ -61,7 +61,13 @@ The `neo-config.json` file contains essential configuration for the application 
     "mainPath": "./Main.mjs",
     "workerBasePath": "../../src/worker/",
     "useSharedWorkers": false,
-    "themes": ["neo-theme-light"]
+    "useVdomWorker": true,
+    "useDataWorker": false,
+    "useCanvasWorker": false,
+    "useTaskWorker": false,
+    "useServiceWorker": false,
+    "themes": ["neo-theme-light"],
+    "mainThreadAddons": ["Stylesheet"]
 }
 ```
 
@@ -71,8 +77,20 @@ The `neo-config.json` file contains essential configuration for the application 
 - **`environment`** - Controls optimization and debugging features
 - **`mainPath`** - Framework's main thread bootstrap file
 - **`workerBasePath`** - Location of worker initialization files
-- **`useSharedWorkers`** - Whether to use SharedWorkers (for multi-window apps)
+- **`useSharedWorkers`** - When set to true, ALL workers (App, VDom, Data, etc.) will be created as SharedWorkers, enabling multi-window applications. When false, all workers will be dedicated workers (better for single-page applications). The `worker.Base` class provides an abstraction layer that supports both types with a consistent API, allowing developers to create an app with dedicated workers first (which are easier to debug) and then switch to shared workers with just a one-line configuration change.
+- **`useVdomWorker`** - Controls whether to use a separate worker for virtual DOM operations
+- **`useDataWorker`** - Controls whether to use a separate worker for data operations
+- **`useCanvasWorker`** - Controls whether to use a separate worker for canvas operations
+- **`useTaskWorker`** - Controls whether to use a separate worker for background tasks
+- **`useServiceWorker`** - Controls whether to use a service worker for caching
 - **`themes`** - CSS themes to load
+- **`mainThreadAddons`** - Additional features to load in the main thread
+
+**Configuration Categories:**
+- **Path Resolution** - Where to find files and modules
+- **Worker Settings** - Which workers to use and how they should be configured
+- **Theme Management** - CSS themes to load
+- **Addon Loading** - Additional main thread features to load
 
 ### 4. Main Thread Initialization
 
@@ -304,33 +322,6 @@ Once the component tree is built:
 5. CSS styling and layout are applied
 6. The event system is activated
 
-## Common Configuration Options
-
-Neo.mjs applications can be configured with various options in the neo-config.json file:
-
-```json
-{
-    "appPath": "apps/myapp/app.mjs",
-    "basePath": "../../",
-    "environment": "development",
-    "mainPath": "./Main.mjs",
-    "workerBasePath": "../../src/worker/",
-    "useSharedWorkers": false,
-    "useVdomWorker": true,
-    "useDataWorker": false,
-    "useCanvasWorker": false,
-    "useTaskWorker": false,
-    "useServiceWorker": false,
-    "themes": ["neo-theme-light"],
-    "mainThreadAddons": ["Stylesheet"]
-}
-```
-
-**Configuration Categories:**
-- **Path Resolution** - Where to find files and modules
-- **Worker Settings** - Which workers to use and how they should be configured
-- **Theme Management** - CSS themes to load
-- **Addon Loading** - Additional main thread features to load
 
 ## Troubleshooting Common Bootstrap Issues
 
