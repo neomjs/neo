@@ -1,12 +1,16 @@
 # Neo.mjs Application Bootstrap Process
 
-This guide explains how Neo.mjs applications start, initialize, and come to life - from the initial HTML file to your first rendered component.
+This guide explains how Neo.mjs applications start, initialize, and come to life - from the initial HTML file to your
+first rendered component.
 
 ## Overview
 
-When you run a Neo.mjs application in the browser, a sophisticated multi-threaded orchestration happens behind the scenes. Unlike traditional web frameworks that run everything on the main thread, Neo.mjs distributes work across multiple threads using Web Workers.
+When you run a Neo.mjs application in the browser, a sophisticated multi-threaded orchestration happens behind the scenes. 
+Unlike traditional web frameworks that run everything on the main thread, Neo.mjs distributes work across multiple threads 
+using Web Workers.
 
-> **Note:** For a deeper understanding of Neo.mjs's multi-threaded architecture, see the [Off The Main Thread](../benefits/OffTheMainThread.md) guide.
+> **Note:** For a deeper understanding of Neo.mjs's multi-threaded architecture, see the
+> [Off The Main Thread](../benefits/OffTheMainThread.md) guide.
 
 ## Bootstrap Sequence
 
@@ -30,7 +34,9 @@ The bootstrap process begins with a minimal HTML file:
 
 The only JavaScript file imported is the `MicroLoader.mjs`, which is loaded as an ES module.
 
-> **Note:** You don't need to create these files manually. Neo.mjs provides CLI tools to generate the basic application structure. You can use `npm run create-app` inside the framework repo or `npx neo-app` to generate a workspace with the same structure.
+> **Note:** You don't need to create these files manually. Neo.mjs provides CLI tools to generate the basic 
+> application structure. You can use `npm run create-app` inside the framework repo or `npx neo-app` to generate 
+> a workspace with the same structure.
 
 ### 2. MicroLoader: Configuration Loading
 
@@ -51,7 +57,8 @@ It performs these steps:
 
 ### 3. Configuration: neo-config.json
 
-The `neo-config.json` file contains essential configuration for the application bootstrap. For a complete overview of all available configuration options, you can refer to the `src/DefaultConfig.mjs` file in the Neo.mjs framework:
+The `neo-config.json` file contains essential configuration for the application bootstrap. For a complete overview 
+of all available configuration options, you can refer to the `src/DefaultConfig.mjs` file in the Neo.mjs framework:
 
 ```json
 {
@@ -77,7 +84,11 @@ The `neo-config.json` file contains essential configuration for the application 
 - **`environment`** - Controls optimization and debugging features
 - **`mainPath`** - Framework's main thread bootstrap file
 - **`workerBasePath`** - Location of worker initialization files
-- **`useSharedWorkers`** - When set to true, ALL workers (App, VDom, Data, etc.) will be created as SharedWorkers, enabling multi-window applications. When false, all workers will be dedicated workers (better for single-page applications). The `worker.Base` class provides an abstraction layer that supports both types with a consistent API, allowing developers to create an app with dedicated workers first (which are easier to debug) and then switch to shared workers with just a one-line configuration change.
+- **`useSharedWorkers`** - When set to true, ALL workers (App, VDom, Data, etc.) will be created as SharedWorkers, 
+  enabling multi-window applications. When false, all workers will be dedicated workers (better for single-page applications). 
+  The `worker.Base` class provides an abstraction layer that supports both types with a consistent API, allowing developers 
+  to create an app with dedicated workers first (which are easier to debug) and then switch to shared workers with just 
+  a one-line configuration change.
 - **`useVdomWorker`** - Controls whether to use a separate worker for virtual DOM operations
 - **`useDataWorker`** - Controls whether to use a separate worker for data operations
 - **`useCanvasWorker`** - Controls whether to use a separate worker for canvas operations
@@ -212,7 +223,9 @@ The WorkerManager:
 
 ### 6. App Worker: Loading the Application
 
-The App worker receives the 'loadApplication' message and loads the application. It's important to note that an "App" in Neo.mjs is an instance of Neo.controller.Application, which is not common in other frameworks like React, Angular, or Vue (which typically just use a tag):
+The App worker receives the 'loadApplication' message and loads the application. It's important to note that an "App" 
+in Neo.mjs is an instance of Neo.controller.Application, which is not common in other frameworks like React, Angular, 
+or Vue (which typically just use a tag):
 
 ```javascript
 class App extends Base {
@@ -336,4 +349,5 @@ The Neo.mjs application bootstrap process follows these key steps:
 8. **Component Tree** is constructed in the Neo.worker.App worker
 9. **VDom Generation and Rendering** creates the actual DOM in the main thread
 
-This multi-threaded architecture allows your application code to run in either a dedicated or shared Neo.worker.App worker, completely separate from DOM manipulation, providing better performance and responsiveness.
+This multi-threaded architecture allows your application code to run in either a dedicated or shared Neo.worker.App worker, 
+completely separate from DOM manipulation, providing better performance and responsiveness.
