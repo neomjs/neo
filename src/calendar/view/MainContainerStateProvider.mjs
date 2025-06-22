@@ -154,7 +154,7 @@ class MainContainerStateProvider extends StateProvider {
 
         let {data} = this;
 
-        switch(key) {
+        switch (key) {
             case 'locale': {
                 data.intlFormat_time = new Intl.DateTimeFormat(value, data.timeFormat);
                 break

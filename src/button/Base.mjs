@@ -225,8 +225,8 @@ class Button extends Component {
     afterSetBadgeText(value, oldValue) {
         let {badgeNode} = this;
 
-        badgeNode.html      = value;
         badgeNode.removeDom = !Boolean(value);
+        badgeNode.text      = value;
 
         this.update()
     }
@@ -380,7 +380,7 @@ class Button extends Component {
         textNode.removeDom = isEmpty;
 
         if (!isEmpty) {
-            textNode.html = value
+            textNode.text = value
         }
 
         me.update()

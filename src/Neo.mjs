@@ -437,6 +437,22 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
+     * Updates the global Neo.config object across all active workers and connected browser windows.
+     *
+     * This is the unified entry point for changing global framework configurations.
+     * The framework automatically handles the complex multi-threaded and multi-window
+     * synchronization (via App Workers and Shared Workers, if active), ensuring
+     * consistency across the entire application without boilerplate.
+     *
+     * You can pass a partial config object to update specific keys.
+     * For nested objects, Neo.mjs performs a deep merge to preserve existing properties.
+     *
+     * @memberOf module:Neo
+     * @function setGlobalConfig
+     * @param {Object} config The partial or full Neo.config object with changes to apply.
+     */
+
+    /**
      * Internally used at the end of each class / module definition
      * @memberOf module:Neo
      * @template T

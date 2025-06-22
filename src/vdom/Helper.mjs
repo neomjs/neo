@@ -38,6 +38,26 @@ class Helper extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        // Ensure Neo.currentWorker is defined before attaching listeners
+        Promise.resolve().then(async () => {
+            // Subscribe to global Neo.config changes for dynamic renderer switching.
+            Neo.currentWorker.on({
+                neoConfigChange: me.onNeoConfigChange,
+                scope          : me
+            });
+
+            await me.importUtil()
+        })
+    }
+
+    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -65,11 +85,11 @@ class Helper extends Base {
             keys = Object.keys(vnode);
 
             Object.keys(oldVnode).forEach(prop => {
-                if (!vnode.hasOwnProperty(prop)) {
+                if (!Object.hasOwn(vnode, prop)) {
                     keys.push(prop)
-                } else if (prop === 'attributes') { // find removed attributes
+                } else if (prop === 'attributes') { // Find removed attributes
                     Object.keys(oldVnode[prop]).forEach(attr => {
-                        if (!vnode[prop].hasOwnProperty(attr)) {
+                        if (!Object.hasOwn(vnode[prop], attr)) {
                             vnode[prop][attr] = null
                         }
                     })
@@ -85,13 +105,22 @@ class Helper extends Base {
                         attributes = {};
 
                         Object.entries(value).forEach(([key, value]) => {
-                            if (!(oldVnode.attributes.hasOwnProperty(key) && oldVnode.attributes[key] === value)) {
-                                if (value !== null && !Neo.isString(value) && Neo.isEmpty(value)) {
-                                    // ignore empty arrays & objects
-                                } else {
-                                    attributes[key] = value
-                                }
+                            const
+                                oldValue    = oldVnode.attributes[key],
+                                hasOldValue = Object.hasOwn(oldVnode.attributes, 'key');
+
+                            // If the attribute has an old value AND the value hasn't changed, skip.
+                            if (hasOldValue && oldValue === value) {
+                                return
                             }
+
+                            // If the current value is null, or it's a non-string empty value (e.g., [], {}), skip.
+                            // Note: An empty string ('') is a valid value and should NOT be skipped here.
+                            if (value !== null && !Neo.isString(value) && Neo.isEmpty(value)) {
+                                return
+                            }
+
+                            attributes[key] = value
                         });
 
                         if (Object.keys(attributes).length > 0) {
@@ -148,7 +177,7 @@ class Helper extends Base {
     /**
      * Creates a Neo.vdom.VNode tree for the given vdom template.
      * The top level vnode contains the outerHTML as a string,
-     * in case Neo.config.useStringBasedMounting === true
+     * in case Neo.config.useDomApiRenderer === false
      * @param {Object} opts
      * @param {String} opts.appName
      * @param {Boolean} [opts.autoMount]
@@ -156,22 +185,24 @@ class Helper extends Base {
      * @param {Number} opts.parentIndex
      * @param {Object} opts.vdom
      * @param {Number} opts.windowId
-     * @returns {Promise<Object>}
+     * @returns {Object}
      */
-    async create(opts) {
-        let me = this,
+    create(opts) {
+        let me     = this,
+            {util} = Neo.vdom,
             returnValue, vnode;
-
-        await me.importDomApiVnodeCreator();
-        await me.importStringFromVnode();
 
         vnode       = me.createVnode(opts.vdom);
         returnValue = {...opts, vnode};
 
         delete returnValue.vdom;
 
-        if (NeoConfig.useStringBasedMounting) {
-            returnValue.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode)
+        if (!NeoConfig.useDomApiRenderer) {
+            if (!util.StringFromVnode) {
+                throw new Error('VDom Helper render utilities are not loaded yet!')
+            }
+
+            returnValue.outerHTML = util.StringFromVnode.create(vnode)
         }
 
         return returnValue
@@ -303,9 +334,12 @@ class Helper extends Base {
             if (value !== undefined && value !== null && key !== 'flag' && key !== 'removeDom') {
                 let hasUnit, newValue, style;
 
-                switch(key) {
+                switch (key) {
                     case 'tag':
                         node.nodeName = value;
+                        break
+                    case 'cls':
+                        node.className = value;
                         break
                     case 'html':
                         node.innerHTML = value.toString(); // support for numbers
@@ -333,13 +367,7 @@ class Helper extends Base {
 
                         node.childNodes = newValue;
                         break
-                    case 'cls':
-                        if (value && !Array.isArray(value)) {
-                            node.className = [value]
-                        } else if (!(Array.isArray(value) && value.length < 1)) {
-                            node.className = value
-                        }
-                        break
+
                     case 'data':
                         if (value && Neo.typeOf(value) === 'Object') {
                             Object.entries(value).forEach(([key, val]) => {
@@ -472,24 +500,23 @@ class Helper extends Base {
     }
 
     /**
-     * Only import for the DOM API based mount adapter.
+     * Imports either (if not already imported):
+     * `Neo.vdom.util.DomApiVnodeCreator` if Neo.config.useDomApiRenderer === true
+     * `Neo.vdom.util.StringFromVnode`    if Neo.config.useDomApiRenderer === false
      * @returns {Promise<void>}
      * @protected
      */
-    async importDomApiVnodeCreator() {
-        if (!NeoConfig.useStringBasedMounting && !Neo.vdom.util?.DomApiVnodeCreator) {
-            await import('./util/DomApiVnodeCreator.mjs')
-        }
-    }
+    async importUtil() {
+        const {util} = Neo.vdom;
 
-    /**
-     * Only import for the string based mount adapter.
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async importStringFromVnode() {
-        if (NeoConfig.useStringBasedMounting && !Neo.vdom.util?.StringFromVnode) {
-            await import('./util/StringFromVnode.mjs')
+        if (NeoConfig.useDomApiRenderer) {
+            if (!util?.DomApiVnodeCreator) {
+                await import('./util/DomApiVnodeCreator.mjs')
+            }
+        } else {
+            if (!util?.StringFromVnode) {
+                await import('./util/StringFromVnode.mjs')
+            }
         }
     }
 
@@ -514,12 +541,12 @@ class Helper extends Base {
 
         Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
 
-        if (NeoConfig.useStringBasedMounting) {
-            // For string-based mounting, pass a string excluding moved nodes
-            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
-        } else {
+        if (NeoConfig.useDomApiRenderer) {
             // For direct DOM API mounting, pass the pruned VNode tree
             delta.vnode = Neo.vdom.util.DomApiVnodeCreator.create(vnode, movedNodes)
+        } else {
+            // For string-based mounting, pass a string excluding moved nodes
+            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
         }
 
         deltas.default.push(delta);
@@ -604,6 +631,18 @@ class Helper extends Base {
     }
 
     /**
+     * Handler for global Neo.config changes.
+     * If 'useDomApiRenderer' property changes, this method dynamically loads/clears the renderer utilities.
+     * @param {Object} config
+     * @return {Promise<void>}
+     */
+    async onNeoConfigChange(config) {
+        if(Object.hasOwn(config, 'useDomApiRenderer')) {
+            await this.importUtil()
+        }
+    }
+
+    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -633,14 +672,22 @@ class Helper extends Base {
      * @param {Object} opts
      * @param {Object} opts.vdom
      * @param {Object} opts.vnode
-     * @returns {Promise<Object>}
+     * @returns {Object}
      */
-    async update(opts) {
-        let me = this,
+    update(opts) {
+        let me     = this,
+            {util} = Neo.vdom,
             deltas, vnode;
 
-        await me.importDomApiVnodeCreator();
-        await me.importStringFromVnode();
+        if (NeoConfig.useDomApiRenderer) {
+            if (!util.DomApiVnodeCreator) {
+                throw new Error('Neo.vdom.Helper: DomApiVnodeCreator is not loaded yet for updates!')
+            }
+        } else {
+            if (!util.StringFromVnode) {
+                throw new Error('Neo.vdom.Helper: StringFromVnode is not loaded yet for updates!');
+            }
+        }
 
         vnode  = me.createVnode(opts.vdom);
         deltas = me.createDeltas({oldVnode: opts.vnode, vnode});

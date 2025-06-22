@@ -71,8 +71,9 @@ class Worker extends Base {
             gt.onmessage = me.onMessage.bind(me)
         }
 
-        Neo.currentWorker = me;
-        Neo.workerId      = me.workerId
+        Neo.currentWorker   = me;
+        Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
+        Neo.workerId        = me.workerId
     }
 
     /**
@@ -220,10 +221,17 @@ class Worker extends Base {
     }
 
     /**
-     * @param {Object} msg
+     * Handles the initial registration of the `Neo.config` for this worker's realm.
+     * Triggered when receiving a worker message with `{action: 'registerNeoConfig'}` from the Main Thread's `Neo.worker.Manager`.
+     * This method is primarily responsible for setting the initial global `Neo.config` object in this worker's scope
+     * upon its creation. It also handles associating `windowId` with `MessagePort`s for Shared Workers.
+     *
+     * @param {Object} msg The incoming message object.
+     * @param {Object} msg.data The initial global Neo.config data object.
+     * @param {Number} msg.data.windowId The unique ID of the window/tab (relevant for SharedWorkers).
      */
     onRegisterNeoConfig(msg) {
-        Neo.config = Neo.config || {};
+        Neo.ns('Neo.config', true);
 
         let me         = this,
             {windowId} = msg.data,
@@ -236,7 +244,29 @@ class Worker extends Base {
             }
         }
 
-        Object.assign(Neo.config, msg.data)
+        Neo.merge(Neo.config, msg.data)
+    }
+
+    /**
+     * Handles runtime updates to the global `Neo.config` for this worker's realm.
+     * This method is triggered when receiving a worker message with `{action: 'setNeoConfig'}`
+     * from the Main Thread's `Neo.worker.Manager`. This message signifies a global config change
+     * that originated either from this worker's Main Thread or was broadcast from another
+     * connected browser window via a Shared Worker.
+     *
+     * It merges the incoming configuration changes into this worker's local `Neo.config`
+     * and fires a local `neoConfigChange` event, allowing other instances within this worker
+     * to react to the updated configuration.
+     *
+     * @param {Object} msg The destructured arguments from the message payload.
+     * @param {Object} msg.config The partial or full `Neo.config` object to merge.
+     */
+    onSetNeoConfig({config}) {
+        let me = this;
+
+        Neo.merge(Neo.config, config);
+
+        me.fire('neoConfigChange', config)
     }
 
     /**
@@ -306,6 +336,58 @@ class Worker extends Base {
         }
 
         return message
+    }
+
+    /**
+     * Initiates a global Neo.config change from a worker's context.
+     * This method is exposed globally as `Neo.setGlobalConfig` within each worker realm.
+     *
+     * It orchestrates the propagation of the config change to the Main Thread
+     * and, if a Shared Worker is active, across all connected browser windows,
+     * ensuring a single, consistent Neo.config state everywhere.
+     *
+     * You can pass a partial config object to update specific keys.
+     * For nested objects, Neo.mjs performs a deep merge.
+     *
+     * @param {Object} config The partial or full Neo.config object with changes to apply.
+     */
+    setGlobalConfig(config) {
+        const
+            me        = this,
+            {Manager} = Neo.worker; // Remote access proxy object
+
+        // Apply the config change locally to this worker's Neo.config and
+        // trigger its local change events immediately. This ensures immediate
+        // feedback and an updated state for the worker that initiated the change.
+        me.onSetNeoConfig({config});
+
+        if (me.isSharedWorker) {
+            // This block executes when the calling worker instance is a Shared Worker.
+            // This happens if `Neo.config.useSharedWorkers` is true, meaning App, VDom,
+            // Data, Canvas, and Task workers are all SharedWorker instances.
+            // This Shared Worker (the one where setGlobalConfig was called) acts as the
+            // central point to inform all connected Main Threads (browser windows).
+            me.ports.forEach((port, index) => {
+                // Send the config change to each connected Main Thread.
+                // The `broadcast` flag is crucial here for the *receiving* Main Thread:
+                // - `broadcast: true` (for the first port/Main Thread in the list): This Main Thread
+                //   will apply the config locally and is then responsible for propagating it to *all*
+                //   its own associated Shared Workers connected to that Main Thread),
+                //   **excluding the worker that originated this change**.
+                // - `broadcast: false` (for all other ports/Main Threads): These Main Threads
+                //   will simply apply the config locally and stop. They are passive recipients
+                //   of the broadcast, synchronizing their state without initiating further actions back.
+                // The `excludeOrigin` parameter ensures the originating worker doesn't receive a redundant broadcast.
+                Manager.setNeoConfig({broadcast: index < 1, config, excludeOrigin: me.workerId, windowId: port.windowId})
+            })
+        } else {
+            // This Dedicated Worker (the one where setGlobalConfig was called) informs
+            // its single, connected Main Thread. The Main Thread will then:
+            // 1. Apply the config locally.
+            // 2. Broadcast this change to *all* other Dedicated Workers connected to
+            //    *that same Main Thread*, **excluding the sender worker itself**.
+            Manager.setNeoConfig({broadcast: true, config, excludeOrigin: me.workerId})
+        }
     }
 }
 

@@ -163,9 +163,10 @@ class ContentComponent extends Component {
         let me                  = this,
             {appName, windowId} = me,
             path                = me.getStateProvider().getData('contentPath'),
+            pagesFolder         = path.includes('/learn/') ? '' : 'pages/',
             baseConfigs, content, data, html, instance, modifiedHtml, neoComponents, neoDivs;
 
-        path += `/pages/${record.id.replaceAll('.', '/')}.md`;
+        path += `${pagesFolder + record.id.replaceAll('.', '/')}.md`;
 
         if (record.isLeaf && path) {
             baseConfigs   = {appName, autoMount: true, autoRender: true, parentComponent: me, windowId};

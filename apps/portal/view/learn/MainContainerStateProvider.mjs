@@ -14,10 +14,6 @@ class MainContainerStateProvider extends StateProvider {
          */
         className: 'Portal.view.learn.MainContainerStateProvider',
         /**
-         * @member {String} contentBasePath=Neo.config.basePath+'resources/data/deck/'
-         */
-        contentBasePath: Neo.config.basePath + 'resources/data/deck/',
-        /**
          * @member {Object} data
          */
         data: {
@@ -76,7 +72,7 @@ class MainContainerStateProvider extends StateProvider {
 
         let me = this;
 
-        switch(key) {
+        switch (key) {
             case 'countSections': {
                 if (value < 1) {
                     me.component.getReference('page-sections-container')?.toggleCls('neo-expanded', false)
@@ -127,7 +123,8 @@ class MainContainerStateProvider extends StateProvider {
 
             case 'deck': {
                 if (value) {
-                    me.data.contentPath = me.contentBasePath + value;
+                    const folder = value === 'learnneo' ? 'learn/' : `resources/data/deck/${value}/`;
+                    me.data.contentPath = Neo.config.basePath + folder
                 }
 
                 break

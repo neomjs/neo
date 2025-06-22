@@ -201,6 +201,31 @@ const DefaultConfig = {
      */
     useCanvasWorker: false,
     /**
+     * `true` will enable the advanced, secure, and performant direct DOM API rendering strategy (recommended).
+     * In this mode, `Neo.vdom.Helper` will create and send structured VNode object graphs to the Main Thread.
+     * `Neo.main.DeltaUpdates` will then use `Neo.main.render.DomApiRenderer` to directly manipulate the DOM.
+     * Crucially, `Neo.main.render.DomApiRenderer` builds new **DOM subtrees** (from the received VNode object graphs)
+     * as detached DocumentFragments or elements, entirely outside the live DOM tree.
+     * These fully constructed fragments are then inserted into the live document in a **single, atomic operation**.
+     * This approach inherently minimizes costly browser reflows/repaints, drastically reduces Cross-Site Scripting (XSS) risks,
+     * and optimizes for surgical, atomic DOM updates for unparalleled performance.
+     *
+     * `false` will enable the legacy string-based rendering strategy.
+     * In this mode, `Neo.vdom.Helper` will generate complete HTML strings (`outerHTML`) for VNode subtrees.
+     * `Neo.main.DeltaUpdates` will then use `Neo.main.render.StringBasedRenderer` to insert these
+     * strings into the DOM using methods like `parentNode.insertAdjacentHTML()`.
+     * While performant for large insertions, this mode is generally less secure due to potential XSS vectors
+     * and relies on browser HTML parsing, which can be less efficient for granular updates.
+     *
+     * This configuration affects both the initial painting of your applications and the creation
+     * of new component trees at runtime.
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useDomApiRenderer
+     * @type Boolean
+     */
+    useDomApiRenderer: true,
+    /**
      * Flag if vdom ids should get mapped into DOM element ids.
      * false will convert them into a "data-neo-id" attribute.
      * @default true
@@ -247,18 +272,6 @@ const DefaultConfig = {
      */
     useSharedWorkers: false,
     /**
-     * `true` will let the `vdom.Helper` create a String-based representation of the vnode tree.
-     * Main will then use e.g.`parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);`
-     * This affects the initial painting of your apps, but also the creation of new component trees at run-time.
-     * `false` will skip the creation of the String, and instead use DOM APIs to generate a fragment inside Main,
-     * into which the vnode tree will get applied.
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useStringBasedMounting
-     * @type Boolean
-     */
-    useStringBasedMounting: false,
-    /**
      * True will generate a new task worker, which can get filled with own expensive remote methods
      * @default false
      * @memberOf! module:Neo
@@ -276,12 +289,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '10.0.0-alpha.3'
+     * @default '10.0.0-alpha.4'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '10.0.0-alpha.3'
+    version: '10.0.0-alpha.4'
 };
 
 Object.assign(DefaultConfig, {

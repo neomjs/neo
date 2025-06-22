@@ -265,7 +265,7 @@ class MainContainerController extends ComponentController {
             name = data.appName,
             style, toolbar, view;
 
-        switch(name) {
+        switch (name) {
             case 'SharedCovidChart':
                 view = me.getReference('controls-panel');
 

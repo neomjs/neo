@@ -28,11 +28,6 @@ class Manager extends Base {
          */
         className: 'Neo.worker.Manager',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * @member {Number} activeWorkers=0
          * @protected
          */
@@ -52,11 +47,28 @@ class Manager extends Base {
          */
         mixins: [Observable, RemoteMethodAccess],
         /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app   : ['setNeoConfig'],
+            canvas: ['setNeoConfig'],
+            data  : ['setNeoConfig'],
+            task  : ['setNeoConfig'],
+            vdom  : ['setNeoConfig']
+        },
+        /**
          * True in case the current browser supports window.SharedWorker.
          * @member {Boolean} sharedWorkersEnabled=false
          * @protected
          */
         sharedWorkersEnabled: false,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
         /**
          * Internal flag to stop the worker communication in case their creation fails
          * @member {Boolean} stopCommunication=false
@@ -71,7 +83,7 @@ class Manager extends Base {
          */
         webWorkersEnabled: false,
         /**
-         * Using the current timestamp as an unique window identifier
+         * Using the current timestamp as a unique window identifier
          * @member {Number} windowId=new Date().getTime()
          * @protected
          */
@@ -121,7 +133,8 @@ class Manager extends Base {
 
         !Neo.insideWorker && me.createWorkers();
 
-        Neo.workerId = 'main';
+        Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
+        Neo.workerId        = 'main';
 
         me.promises = {};
 
@@ -136,18 +149,18 @@ class Manager extends Base {
 
     /**
      * Sends a message to each worker defined inside the this.workers config.
-     * @param {Object} msg
+     * Only sends to workers that are currently active and available.
+     * @param {Object} msg             The message payload to broadcast.
+     * @param {Object} [excludeOrigin] Optionally pass the origin realm name to exclude from the broadcast.
      */
-    broadcast(msg) {
-        Object.keys(this.workers).forEach(name => {
-            if (!(
-                name === 'canvas' && !NeoConfig.useCanvasWorker ||
-                name === 'task'   && !NeoConfig.useTaskWorker   ||
-                name === 'vdom'   && !NeoConfig.useVdomWorker
-            )) {
-                this.sendMessage(name, msg)
+    broadcast(msg, excludeOrigin) {
+        let me = this;
+
+        Object.keys(me.workers).forEach(name => {
+            if (name !== excludeOrigin && me.getWorker(name)) {
+                me.sendMessage(name, msg)
             }
-        });
+        })
     }
 
     /**
@@ -325,8 +338,10 @@ class Manager extends Base {
                     data = data.data
                 }
 
-                promise[data.reject ? 'reject' : 'resolve'](data);
-                delete me.promises[replyId]
+                if (data) {
+                    promise[data.reject ? 'reject' : 'resolve'](data);
+                    delete me.promises[replyId]
+                }
             }
         }
 
@@ -385,7 +400,14 @@ class Manager extends Base {
 
         return new Promise((resolve, reject) => {
             let message = me.sendMessage(dest, opts, transfer),
-                msgId   = message.id;
+                msgId;
+
+            if (!message) {
+                reject(new Error(me.stopCommunication ? 'Communication is stopped.' : `Target worker '${dest}' does not exist.`));
+                return
+            }
+
+            msgId = message.id;
 
             me.promises[msgId] = {reject, resolve}
         })
@@ -412,7 +434,7 @@ class Manager extends Base {
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
      * and becomes available only to the worker it was sent to.
-     * @returns {Neo.worker.Message}
+     * @returns {Neo.worker.Message|null}
      * @protected
      */
     sendMessage(dest, opts, transfer) {
@@ -427,17 +449,53 @@ class Manager extends Base {
                 worker = me.getWorker(dest)
             }
 
-            if (!worker) {
-                throw new Error('Called sendMessage for a worker that does not exist: ' + dest)
+            if (worker) {
+                opts.destination = dest;
+
+                message = new Message(opts);
+
+                (worker.port ? worker.port : worker).postMessage(message, transfer);
+                return message
             }
-
-            opts.destination = dest;
-
-            message = new Message(opts);
-
-            (worker.port ? worker.port : worker).postMessage(message, transfer);
-            return message
         }
+
+        return null
+    }
+
+    /**
+     * Initiates a global Neo.config change from the Main Thread.
+     *
+     * This method acts as a proxy, routing the config change request to the App Worker.
+     * This design centralizes the complex multi-threaded and multi-window synchronization
+     * logic within the App Worker's `setGlobalConfig` method.
+     *
+     * Developers should typically use `Neo.setGlobalConfig(config)` directly,
+     * which will correctly resolve to this proxy when called from the Main Thread.
+     *
+     * @param {Object} config The partial or full Neo.config object with changes to apply.
+     */
+    setGlobalConfig(config) {
+        // Remotely calls the App Worker's setGlobalConfig method.
+        // This ensures all global config changes are processed through the App Worker
+        // which contains the centralized multi-window synchronization logic.
+        Neo.worker.App.setGlobalConfig(config)
+    }
+
+    /**
+     * Change Neo.config globally from a worker
+     * @param {Object}  data
+     * @param {Boolean} data.broadcast
+     * @param {Object}  data.config
+     * @param {String}  [data.excludeOrigin]
+     */
+    setNeoConfig({broadcast, config, excludeOrigin}) {
+        let me = this;
+
+        Neo.merge(Neo.config, config);
+
+        me.fire('neoConfigChange', config);
+
+        broadcast && me.broadcast({action: 'setNeoConfig', config}, excludeOrigin)
     }
 }
 

@@ -96,7 +96,7 @@ class Button extends BaseButton {
             {cls}     = me,
             container = me.up('grid-container');
 
-        switch(value) {
+        switch (value) {
             case null:
                 NeoArray.add(cls, 'neo-sort-hidden');
                 break

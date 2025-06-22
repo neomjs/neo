@@ -11,7 +11,7 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Build Ultra-Fast, Desktop-Like Web Apps. Period. :zap:
+# Build Ultra-Fast, Desktop-Like Web Apps :zap:
 🚀 **Break Free from UI Freezes — Experience True Multithreading & Uncompromised Responsiveness.**
 
 💻 ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
@@ -63,13 +63,21 @@ large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundame
    common in other frameworks.
 
 </br></br>
+## 📦 Batteries Included: A Comprehensive Component Library
+
+While other frameworks provide just the view layer, Neo.mjs delivers a complete, natively integrated ecosystem. You'll find a rich
+suite of high-performance UI components — from advanced data grids, forms, and trees, to versatile containers and specialized elements
+like a full calendar, carousels, and chart wrappers. All components are pre-built and optimized to work seamlessly within the
+multi-threaded architecture, significantly accelerating development and eliminating the complexity of integrating disparate
+external component libraries.
+</br></br>
 ## 📊  Real-World Win: Crushing UI Lag in Action
+
 Imagine a developer building a stock trading app with live feeds updating every millisecond. Traditional frameworks often choke,
 freezing the UI under the data flood. With Neo.mjs, the heavy lifting happens in worker threads, keeping the main thread free.
 Traders get real-time updates with zero lag, and the app feels like a native desktop tool. Now, imagine extending this with
 **multiple synchronized browser windows**, each displaying different real-time views, all remaining butter-smooth.
-That’s Neo.mjs in action—solving problems others can’t touch.
-
+That’s Neo.mjs in action — solving problems others can’t touch.
 </br></br>
 ## 🌟 Key Features (and How They Supercharge Your App)
 
@@ -79,14 +87,27 @@ That’s Neo.mjs in action—solving problems others can’t touch.
 * **Reactive State Management**: Built-in reactivity ensures dynamic, efficient updates between components and state providers,
   all handled off the main thread.
 
-* **Hierarchical State Management**: Seamlessly manage state between parent and child components with nested state providers.
-  Components intelligently bind to the closest provider, combining data for powerful, maintainable patterns.
+* **Reactive State Management**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
+  Components declare their data needs via a concise `bind` config. These `bind` functions act as powerful inline formulas, allowing
+  Components to automatically react to changes and combine data from multiple state providers within the component hierarchy.
+  This ensures dynamic, efficient updates — from simple property changes to complex computed values — all handled off the main thread.
+  ```javascript
+  // Example: A component binding its text to state
+  static config = {
+      bind: {
+          // 'data' here represents the combined state from all parent providers
+          myComputedText: data => `User: ${data.userName || 'Guest'} | Status: ${data.userStatus || 'Offline'}`
+      }
+  }
+  ```
 
 * **Clean Architecture (MVVM-inspired)**: View controllers ensure a clear separation of concerns, isolating business logic
   from UI components for easier maintenance, testing, and team collaboration.
 
-* **Multi-Window & Single-Page Applications (SPAs)**: Easily build and manage complex applications that require multiple
-  browser windows or traditional SPAs, all powered by the same underlying multi-threaded architecture without requiring any native shell.
+* **Multi-Window & Single-Page Applications (SPAs)***: Beyond traditional SPAs, Neo.mjs excels at complex multi-window applications.
+  Its unique architecture, powered by seamless cross-worker communication (enabled by `Neo.worker.mixin.RemoteMethodAccess`) and
+  extensible Main Thread addons (`Neo.main.addon.*`), enables truly native-like, persistent experiences across browser windows,
+  all without a native shell.
 
 * **No npm Dependency Hell**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling.
   This means smaller bundles, fewer conflicts, and a simpler dependency graph.
@@ -94,9 +115,14 @@ That’s Neo.mjs in action—solving problems others can’t touch.
 * **Cutting-Edge Use Cases**: Ideal for **data-intensive applications, real-time dashboards, web-based IDEs, banking
   applications, and complex multi-window Gen AI interfaces** where performance and responsiveness are non-negotiable.
 
+* **Unparalleled Debugging Experience**: Benefit from Neo.mjs's built-in debugging capabilities. Easily inspect the full component
+  tree across workers, live-modify component configurations directly in the browser console, and observe real-time UI updates,
+  all without complex tooling setup.
+
 <p align="center">
   <img src="./resources/images/workers-focus.svg" alt="Neo.mjs Worker Architecture Diagram - Shows Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend connections.">
 </p>
+
 *Diagram: A high-level overview of Neo.mjs's multi-threaded architecture (Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend). Optional workers fade in on hover on neomjs.com.*
 
 </br></br>
@@ -116,13 +142,19 @@ Wondering how Neo.mjs stacks up against React, Angular, or Vue.js? Here’s the 
 **Neo.mjs Edge**: True multithreading, a no-build development mode, and a scalable, secure architecture combine to deliver a framework that's faster to build with and fundamentally faster and more stable to run.
 
 </br></br>
-## 📦 Declarative Class Configuration: Build Faster, Maintain Easier
+## ⚙️ Declarative Class Configuration: Build Faster, Maintain Easier
 
-Neo.mjs’s class config system allows you to define and manage classes in a declarative and reusable way. This simplifies class creation, reduces boilerplate code, and improves maintainability.
+Neo.mjs’s class config system allows you to define and manage classes in a declarative and reusable way. This simplifies
+class creation, reduces boilerplate code, and improves maintainability.
 
 ```javascript
 import Component from '../../src/component/Base.mjs';
 
+/**
+ * Lives within the App Worker
+ * @class MyComponent
+ * @extends Neo.component.Base
+ */
 class MyComponent extends Component {
     static config = {
         className   : 'MyComponent',
@@ -132,7 +164,7 @@ class MyComponent extends Component {
         }
     }
 
-    // Automatically called when myConfig_ changes
+    // Triggered automatically by the config setter when myConfig changes
     afterSetMyConfig(value, oldValue) {
        console.log('myConfig changed:', value, oldValue);
     }
@@ -145,6 +177,15 @@ class MyComponent extends Component {
 
 export default Neo.setupClass(MyComponent);
 ```
+
+For each config property ending with an underscore (_), Neo.mjs automatically generates a getter and a setter on the class prototype. These setters ensure that changes trigger corresponding lifecycle hooks, providing a powerful, built-in reactive system:
+
+* `beforeGetMyConfig(value)`</br>
+  (Optional) Called before the config value is returned via its getter, allowing for last-minute transformations.
+* `beforeSetMyConfig(value, oldValue)`</br>
+  (Optional) Called before the config value is set, allowing you to intercept, validate, or modify the new value. Returning undefined will cancel the update.
+* `afterSetMyConfig(value, oldValue)`</br>
+  (Optional) Called after the config value has been successfully set and a change has been detected, allowing for side effects or reactions to the new value.
 
 For more details, check out the [Class Config System documentation](https://neomjs.com/dist/production/apps/portal/index.html#/learn/gettingstarted.Config).
 
@@ -162,7 +203,7 @@ This one-liner sets up everything you need to start building with Neo.mjs, inclu
 * A new app workspace.
 * A pre-configured app shell.
 * A local development server.
-* Launching your app in a new browser window—all in one go.
+* Launching your app in a new browser window — all in one go.
 
 :book: More details? Check out our [Getting Started Guide](./.github/GETTING_STARTED.md)
 

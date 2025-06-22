@@ -66,7 +66,7 @@ class VDom extends Base {
 
         optsArray.forEach(([key, value]) => {
             if (vdom.hasOwnProperty(key)) {
-                switch(key) {
+                switch (key) {
                     case 'cls':
                         if (typeof value === 'string' && Neo.isArray(vdom[key])) {
                             if (vdom[key].includes(value)) {

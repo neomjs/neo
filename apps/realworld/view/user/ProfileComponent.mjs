@@ -273,7 +273,7 @@ class ProfileComponent extends Component {
             params     = {};
 
         if (!el.vdom.cls.includes('disabled')) {
-            switch(el.vdom.html) {
+            switch (el.vdom.html) {
                 case 'Favorited Articles':
                     params = {
                         favorited: me.username

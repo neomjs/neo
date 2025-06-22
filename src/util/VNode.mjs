@@ -43,7 +43,7 @@ class VNode extends Base {
 
         optsArray.forEach(([key, value]) => {
             if (vnode.hasOwnProperty(key)) {
-                switch(key) {
+                switch (key) {
                     case 'attributes':
                         if (Neo.isObject(value) && Neo.isObject(vnode[key])) {
                             Object.entries(value).forEach(([attrKey, attrValue]) => {

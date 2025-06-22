@@ -76,7 +76,7 @@ class VNode {
         } else {
             Object.assign(me, {
                 attributes: config.attributes || {},
-                className : config.className  || [],
+                className : normalizeClassName(config.className),
                 nodeName  : config.nodeName   || 'div',
                 style     : config.style
             });
@@ -88,7 +88,7 @@ class VNode {
 
             // We only apply textContent, in case it has content
             else if (Object.hasOwn(config, 'textContent')) {
-                me.textContent = Neo.config.useStringBasedMounting ? StringUtil.escapeHtml(textContent) : textContent
+                me.textContent = Neo.config.useDomApiRenderer ? textContent : StringUtil.escapeHtml(textContent)
             }
         }
 
@@ -97,6 +97,42 @@ class VNode {
             me.static = true
         }
     }
+}
+
+/**
+ * vdom cls definitions might contain spaces, especially when it comes to iconCls.
+ * @example: myVdom = {cls: ['my-button', 'fa fa-user']}
+ *
+ * On DOM level, classList.add() will throw, in case it gets an input containing a space.
+ *
+ * This is a module-scoped utility function, not a method of the VNode class.
+ * VNodes are transferred via structured cloning (e.g., in postMessage()), which strips methods.
+ * Keeping this logic separate from the VNode class itself ensures conceptual purity and a cleaner data model,
+ * as methods defined on the VNode instance would be lost during transfer anyway.
+ *
+ * @param {String|String[]} classNameInput
+ * @returns {String[]}
+ * @private
+ */
+function normalizeClassName(classNameInput) {
+    let normalizedClasses = [];
+
+    if (Neo.isString(classNameInput)) {
+        normalizedClasses = classNameInput.split(' ').filter(Boolean)
+    } else if (Array.isArray(classNameInput)) {
+        classNameInput.forEach(cls => {
+            if (Neo.isString(cls)) {
+                if (cls.includes(' ')) {
+                    normalizedClasses.push(...cls.split(' ').filter(Boolean))
+                } else if (cls !== '') {
+                    normalizedClasses.push(cls)
+                }
+            }
+        })
+    }
+
+    // Remove duplicates if necessary
+    return [...new Set(normalizedClasses)]
 }
 
 const ns = Neo.ns('Neo.vdom', true);
