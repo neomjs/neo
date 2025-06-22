@@ -49,26 +49,412 @@ class CustomButton extends Component {
         ntype    : 'custom-button',
         
         // Define internal DOM structure
+        vdom: {
+            cls: ['neo-button', 'neo-custom-button'], 
+            cn: [
+                {tag: 'span', cls: ['neo-button-icon'], flag: 'iconNode'},
+                {tag: 'span', cls: ['neo-button-text'], flag: 'textNode'},
+                {cls: ['neo-button-badge'], flag: 'badgeNode', removeDom: true}
+            ]
+        },
+
+        // Define DOM event listeners in static config
+        domListeners: [{
+            click: 'onButtonClick'
+        }]
+    }
+
+    onButtonClick(data) {
+        console.log('Button clicked:', data);
+    }
+}
+```
+
+## DOM Event Handling in Neo.mjs
+
+### Core Principles
+
+Neo.mjs uses a **delegated global DOM event system**. By default, the framework attaches listeners for all common events to `document.body` and uses event delegation to route events to the appropriate components.
+
+**Key Rules:**
+- Event listeners are **never** defined in VDom
+- Event handling is separated from markup representation
+- All DOM events are delegated through a global system
+- Components subscribe to events via `domListeners` config
+
+### Static Configuration Approach (Recommended)
+
+The recommended approach is to define `domListeners` in the static config for class-based event handling:
+
+```javascript
+class InteractiveComponent extends Component {
+    static config = {
+        className: 'Neo.examples.InteractiveComponent',
+        
         vdom:
-        {cls: ['neo-button', 'neo-custom-button'], cn: [
-            {tag: 'span', cls: ['neo-button-icon'], flag: 'iconNode'},
-            {tag: 'span', cls: ['neo-button-text'], flag: 'textNode'},
-            {cls: ['neo-button-badge'], flag: 'badgeNode', removeDom: true}
+        {cls: ['neo-interactive'], cn: [
+            {tag: 'button', text: 'Click Me', cls: ['neo-button']},
+            {cls: ['neo-content', 'hoverable-area'], text: 'Hover over me'}
+        ]},
+
+        // ✅ Define listeners in static config
+        domListeners: [{
+            click: 'onButtonClick'
+        }, {
+            mouseenter: 'onContentMouseEnter',
+            mouseleave: 'onContentMouseLeave',
+            delegate  : '.hoverable-area'
+        }]
+    }
+
+    onButtonClick(data) {
+        console.log('Button clicked:', data);
+        
+        // Update VDom in response to event
+        let buttonNode = this.vdom.cn[0];
+        buttonNode.disabled = true;
+        this.update();
+    }
+
+    onContentMouseEnter(data) {
+        // Update VDom styling
+        let contentNode = this.vdom.cn[1];
+        contentNode.style = {backgroundColor: '#f0f0f0'};
+        this.update();
+    }
+
+    onContentMouseLeave(data) {
+        let contentNode = this.vdom.cn[1];
+        contentNode.style = {};
+        this.update();
+    }
+}
+```
+
+### Programmatic Event Handling
+
+Use `addDomListeners()` when you need to add listeners dynamically or keep static config open for class extensions:
+
+```javascript
+class DynamicComponent extends Component {
+    static config = {
+        className: 'Neo.examples.DynamicComponent',
+        
+        vdom:
+        {cls: ['neo-dynamic'], cn: [
+            {tag: 'button', text: 'Dynamic Button', cls: ['dynamic-btn']}
         ]}
+        // Keep domListeners empty for extension flexibility
     }
 
     construct(config) {
         super.construct(config);
         
-        // Event handling happens at component level
-        this.addDomListeners({
+        // ✅ Add listeners programmatically
+        this.addDomListeners([{
             click: this.onButtonClick,
             scope: this
-        })
+        }]);
+
+        // Conditional event handling
+        if (this.enableHover) {
+            this.addDomListeners([{
+                mouseenter: this.onMouseEnter,
+                mouseleave: this.onMouseLeave,
+                scope     : this
+            }])
+        }
     }
 
     onButtonClick(data) {
-        console.log('Button clicked')
+        console.log('Dynamic button clicked')
+    }
+}
+```
+
+### String-Based Handler Resolution
+
+Neo.mjs provides flexible handler resolution for string-based listeners:
+
+```javascript
+class HandlerResolutionExample extends Component {
+    static config = {
+        domListeners: [
+            // Method in current component
+            {click: 'onLocalClick'},
+            
+            // Method in parent component tree (any level up)
+            {click: 'up.onParentClick'},
+            
+            // Method in ViewController
+            {click: 'onControllerClick'}
+        ]
+    }
+
+    onLocalClick(data) {
+        // Handled by this component
+    }
+}
+
+class ParentContainer extends Container {
+    static config = {
+        items: [HandlerResolutionExample]
+    }
+
+    onParentClick(data) {
+        // Handled by parent in component tree
+    }
+}
+
+class MainViewController extends Controller {
+    onControllerClick(data) {
+        // Handled by ViewController
+    }
+}
+```
+
+### Multiple Listeners and Event Options
+
+You can define multiple listeners with various options:
+
+```javascript
+class AdvancedEventComponent extends Component {
+    static config = {
+        domListeners: [
+            // Multiple listeners for same event
+            {
+                click   : 'onFirstClick',
+                priority: 2  // Higher priority executes first
+            },
+            {
+                click   : 'onSecondClick',
+                priority: 1
+            },
+            
+            // Event delegation
+            {
+                click   : 'onItemClick',
+                delegate: '.list-item'
+            },
+            
+            // Prevent bubbling
+            {
+                click   : 'onInnerClick',
+                delegate: '.inner-element',
+                bubble  : false
+            },
+            
+            // Multiple events, same handler
+            {
+                mouseenter: 'onMouseEvent',
+                mouseleave: 'onMouseEvent',
+                delegate  : '.hover-target'
+            }
+        ]
+    }
+
+    onFirstClick(data) {
+        console.log('First click handler - executes first due to priority');
+    }
+
+    onSecondClick(data) {
+        console.log('Second click handler - executes second');
+    }
+
+    onItemClick(data) {
+        // Only fires when clicking on .list-item elements
+        let itemId = data.target.dataset.itemId;
+        console.log('Item clicked:', itemId);
+    }
+
+    onInnerClick(data) {
+        // Won't bubble up due to bubble: false
+        console.log('Inner click - no bubbling');
+    }
+
+    onMouseEvent(data) {
+        console.log('Mouse event:', data.type); // 'mouseenter' or 'mouseleave'
+    }
+}
+```
+
+### Event Delegation Patterns
+
+Event delegation is crucial for performance and dynamic content:
+
+```javascript
+class ListComponent extends Component {
+    static config = {
+        vdom: {
+            cls: ['neo-list'],
+            cn: [] // Will be populated with list items
+        },
+
+        domListeners: [
+            // Delegate events to dynamically created items
+            {
+                click   : 'onItemClick',
+                delegate: '.neo-list-item'
+            },
+            {
+                click   : 'onDeleteClick',
+                delegate: '.delete-button'
+            },
+            {
+                mouseenter: 'onItemHover',
+                mouseleave: 'onItemLeave',
+                delegate  : '.neo-list-item'
+            }
+        ]
+    }
+
+    createListItems(data) {
+        let items = data.map((item, index) => ({
+            cls: ['neo-list-item'],
+            data: {itemId: item.id}, // Use data attributes for identification
+            cn: [{
+                tag : 'span',
+                text: item.name,
+                cls : ['item-name']
+            }, {
+                tag : 'button',
+                text: 'Delete',
+                cls : ['delete-button', 'btn-danger']
+            }]
+        }));
+
+        this.vdom.cn = items;
+        this.update();
+    }
+
+    onItemClick(data) {
+        let itemId = data.target.dataset.itemId;
+        console.log('Item clicked:', itemId);
+    }
+
+    onDeleteClick(data) {
+        let itemElement = data.target.closest('.neo-list-item');
+        let itemId = itemElement.dataset.itemId;
+        this.fire('deleteItem', {itemId});
+    }
+
+    onItemHover(data) {
+        data.target.style.backgroundColor = '#e0e0e0';
+    }
+
+    onItemLeave(data) {
+        data.target.style.backgroundColor = '';
+    }
+}
+```
+
+### Form Event Handling
+
+Complex form interactions with multiple input types:
+
+```javascript
+class FormComponent extends Component {
+    static config = {
+        vdom: {
+            tag: 'form',
+            cls: ['neo-form'],
+            cn : [{
+                tag        : 'input',
+                type       : 'text',
+                placeholder: 'Enter name',
+                cls        : ['form-input', 'name-input']
+            }, {
+                tag        : 'textarea',
+                placeholder: 'Enter description',
+                cls        : ['form-input', 'description-input']
+            }, {
+                tag : 'button',
+                type: 'submit',
+                text: 'Submit',
+                cls : ['submit-button']
+            }]
+        },
+
+        domListeners: [
+            // Form-level event handling
+            {
+                submit: 'onFormSubmit'
+            },
+            
+            // Input change events via delegation
+            {
+                input   : 'onInputChange',
+                delegate: '.form-input'
+            },
+            
+            // Button-specific events
+            {
+                click   : 'onSubmitClick',
+                delegate: '.submit-button'
+            }
+        ]
+    }
+
+    onFormSubmit(data) {
+        data.preventDefault();
+        
+        let formData = {
+            name       : this.vdom.cn[0].value,
+            description: this.vdom.cn[1].value
+        };
+        
+        this.fire('formSubmit', formData);
+    }
+
+    onInputChange(data) {
+        let input = data.target;
+        
+        // Update component state, not VDom
+        if (input.classList.contains('name-input')) {
+            this.name = input.value;
+        } else if (input.classList.contains('description-input')) {
+            this.description = input.value;
+        }
+    }
+
+    onSubmitClick(data) {
+        // Validate before submission
+        if (!this.name || !this.description) {
+            this.showValidationError();
+        }
+    }
+}
+```
+
+### Inline Event Handlers (For Debugging)
+
+While not recommended for production, inline handlers can be useful for debugging:
+
+```javascript
+class DebugComponent extends Component {
+    static config = {
+        vdom: {
+            cn: [
+                {tag: 'button', text: 'Debug Button 1'},
+                {tag: 'button', text: 'Debug Button 2'}
+            ]
+        },
+
+        domListeners: [
+            // Fat arrow function - scope points to class
+            {
+                click: data => Neo.Main.log({value: `Clicked on ${data.component.id}`}),
+                delegate: 'button:first-child'
+            },
+            
+            // Regular function - scope points to component instance
+            {
+                click: function(data) {
+                    Neo.Main.log({value: `Clicked on ${this.id}`});
+                },
+                delegate: 'button:last-child'
+            }
+        ]
     }
 }
 ```
@@ -141,238 +527,6 @@ class AdvancedComponent extends Component {
 - Working with large datasets where diffing would be expensive
 - You need precise control over DOM update timing
 
-## Event Handling in Neo.mjs
-
-### Component-Level Event Management
-
-**Critical**: Event listeners are managed at the Component level, never in VDom:
-
-```javascript
-class InteractiveComponent extends Component {
-    static config = {
-        vdom: {
-            cls: ['neo-interactive'],
-            cn: [
-                {
-                    tag: 'button',
-                    text: 'Click Me',
-                    cls: ['neo-button'],
-                    id: 'interactive-button'
-                    // ❌ NO onclick in VDom
-                },
-                {
-                    cls: ['neo-content', 'hoverable-area'],
-                    text: 'Hover over me'
-                    // ❌ NO onmouseenter/onmouseleave in VDom
-                }
-            ]
-        }
-    }
-
-    construct(config) {
-        super.construct(config);
-        
-        // ✅ Event listeners added at component level
-        this.addDomListeners({
-            click: this.onButtonClick,
-            scope: this
-        });
-
-        this.addDomListeners({
-            mouseenter: this.onContentMouseEnter,
-            mouseleave: this.onContentMouseLeave,
-            delegate  : '.hoverable-area',
-            scope     : this
-        });
-    }
-
-    onButtonClick(data) {
-        console.log('Button clicked:', data);
-        
-        // Update VDom in response to event
-        let buttonNode = this.vdom.cn[0];
-        buttonNode.disabled = true;
-        this.update();
-    }
-
-    onContentMouseEnter(data) {
-        // Update VDom styling
-        let contentNode = this.vdom.cn[1];
-        contentNode.style = {backgroundColor: '#f0f0f0'};
-        this.update();
-    }
-
-    onContentMouseLeave(data) {
-        let contentNode = this.vdom.cn[1];
-        contentNode.style = {};
-        this.update();
-    }
-}
-```
-
-### Event Delegation Patterns
-
-Use event delegation for dynamic content and performance optimization:
-
-```javascript
-class ListComponent extends Component {
-    static config = {
-        vdom: {
-            cls: ['neo-list'],
-            cn: [] // Will be populated with list items
-        }
-    }
-
-    construct(config) {
-        super.construct(config);
-        
-        // Delegate events to dynamically created items
-        this.addDomListeners({
-            click   : this.onItemClick,
-            delegate: '.neo-list-item',
-            scope   : this
-        });
-
-        this.addDomListeners({
-            click   : this.onDeleteClick,
-            delegate: '.delete-button',
-            scope   : this
-        });
-
-        this.addDomListeners({
-            mouseenter: this.onItemHover,
-            mouseleave: this.onItemLeave,
-            delegate  : '.neo-list-item',
-            scope     : this
-        });
-    }
-
-    createListItems(data) {
-        let items = data.map((item, index) => ({
-            cls: ['neo-list-item'],
-            data: {itemId: item.id}, // Use data attributes for identification
-            cn: [
-                {
-                    tag: 'span',
-                    text: item.name,
-                    cls: ['item-name']
-                },
-                {
-                    tag: 'button',
-                    text: 'Delete',
-                    cls: ['delete-button', 'btn-danger']
-                }
-            ]
-        }));
-
-        this.vdom.cn = items;
-        this.update();
-    }
-
-    onItemClick(data) {
-        let itemId = data.target.dataset.itemId;
-        console.log('Item clicked:', itemId);
-    }
-
-    onDeleteClick(data) {
-        let itemElement = data.target.closest('.neo-list-item');
-        let itemId = itemElement.dataset.itemId;
-        this.fire('deleteItem', {itemId});
-    }
-
-    onItemHover(data) {
-        data.target.style.backgroundColor = '#e0e0e0';
-    }
-
-    onItemLeave(data) {
-        data.target.style.backgroundColor = '';
-    }
-}
-```
-
-### Complex Event Scenarios
-
-```javascript
-class FormComponent extends Component {
-    static config = {
-        vdom: {
-            tag: 'form',
-            cls: ['neo-form'],
-            cn: [
-                {
-                    tag: 'input',
-                    type: 'text',
-                    placeholder: 'Enter name',
-                    cls: ['form-input', 'name-input']
-                },
-                {
-                    tag: 'textarea',
-                    placeholder: 'Enter description',
-                    cls: ['form-input', 'description-input']
-                },
-                {
-                    tag: 'button',
-                    type: 'submit',
-                    text: 'Submit',
-                    cls: ['submit-button']
-                }
-            ]
-        }
-    }
-
-    construct(config) {
-        super.construct(config);
-        
-        // Form-level event handling
-        this.addDomListeners({
-            submit: this.onFormSubmit,
-            scope: this
-        });
-
-        // Input change events via delegation
-        this.addDomListeners({
-            input: this.onInputChange,
-            delegate: '.form-input',
-            scope: this
-        });
-
-        // Button-specific events
-        this.addDomListeners({
-            click: this.onSubmitClick,
-            delegate: '.submit-button',
-            scope: this
-        });
-    }
-
-    onFormSubmit(data) {
-        let formData = {
-            name       : this.vdom.cn[0].value,
-            description: this.vdom.cn[1].value
-        };
-        
-        this.fire('formSubmit', formData);
-    }
-
-    onInputChange(data) {
-        let input = data.target;
-        
-        // Update component state, not VDom
-        if (input.classList.contains('name-input')) {
-            this.name = input.value;
-        } else if (input.classList.contains('description-input')) {
-            this.description = input.value;
-        }
-    }
-
-    onSubmitClick(data) {
-        // Validate before submission
-        if (!this.name || !this.description) {
-            this.showValidationError();
-        }
-    }
-}
-```
-
 ## VDom Manipulation Patterns
 
 ### 1. Using Flag-Based References
@@ -390,17 +544,11 @@ class IconButton extends Component {
                 {tag: 'i',    cls: ['neo-icon'], flag: 'iconNode'},
                 {tag: 'span', cls: ['neo-text'], flag: 'textNode'}
             ]
-        }
-    }
+        },
 
-    construct(config) {
-        super.construct(config);
-        
-        // Events at component level
-        this.addDomListeners({
-            click: this.onClick,
-            scope: this
-        });
+        domListeners: [{
+            click: 'onClick'
+        }]
     }
 
     // Access nodes via flags
@@ -454,24 +602,18 @@ class DataList extends Component {
         vdom: {
             cls: ['neo-data-list'],
             cn: [] // Will be populated dynamically
-        }
-    }
+        },
 
-    construct(config) {
-        super.construct(config);
-        
-        // Event delegation for dynamic items
-        this.addDomListeners({
-            click   : this.onItemClick,
-            delegate: '.neo-list-item',
-            scope   : this
-        });
-
-        this.addDomListeners({
-            click   : this.onAvatarClick,
-            delegate: '.neo-avatar',
-            scope   : this
-        });
+        domListeners: [
+            {
+                click: 'onItemClick',
+                delegate: '.neo-list-item'
+            },
+            {
+                click: 'onAvatarClick',
+                delegate: '.neo-avatar'
+            }
+        ]
     }
 
     // Create VDom items from data
@@ -494,7 +636,7 @@ class DataList extends Component {
                         {tag: 'p', text: record.description}
                     ]
                 }]
-            });
+            })
         });
 
         vdom.cn = items;
@@ -502,17 +644,17 @@ class DataList extends Component {
     }
 
     afterSetData(value, oldValue) {
-        value && this.createListItems();
+        value && this.createListItems()
     }
 
     onItemClick(data) {
         let recordId = data.target.closest('.neo-list-item').dataset.recordId;
-        this.fire('itemSelect', {recordId});
+        this.fire('itemSelect', {recordId})
     }
 
     onAvatarClick(data) {
         let recordId = data.target.closest('.neo-list-item').dataset.recordId;
-        this.fire('avatarClick', {recordId});
+        this.fire('avatarClick', {recordId})
     }
 }
 ```
@@ -523,23 +665,21 @@ For sophisticated UI patterns, combine multiple VDom operations:
 
 ```javascript
 class Helix extends Component {
-    construct(config) {
-        super.construct(config);
-        
-        // Mouse interaction for 3D rotation
-        this.addDomListeners({
-            mousemove: this.onMouseMove,
-            mousedown: this.onMouseDown,
-            mouseup  : this.onMouseUp,
-            scope    : this
-        });
-
-        // Item selection via delegation
-        this.addDomListeners({
-            click   : this.onItemClick,
-            delegate: '.helix-item',
-            scope   : this
-        });
+    static config = {
+        domListeners: [
+            // Mouse interaction for 3D rotation
+            {
+                mousemove: 'onMouseMove',
+                mousedown: 'onMouseDown',
+                mouseup  : 'onMouseUp'
+            },
+            
+            // Item selection via delegation
+            {
+                click   : 'onItemClick',
+                delegate: '.helix-item'
+            }
+        ]
     }
 
     refresh() {
@@ -597,34 +737,150 @@ class Helix extends Component {
 }
 ```
 
+## Event Handler Patterns and Best Practices
+
+### 1. Handler Method Naming
+
+Use consistent naming conventions for event handlers:
+
+```javascript
+class ComponentWithConsistentNaming extends Component {
+    static config = {
+        domListeners: [
+            {click     : 'onButtonClick'}, // on + EventType + Target
+            {submit    : 'onFormSubmit'},  // on + EventType + Context
+            {change    : 'onInputChange'}, // on + EventType + Element
+            {mouseenter: 'onItemHover'},   // on + Target + Action
+            {mouseleave: 'onItemLeave'}    // on + Target + Action
+        ]
+    }
+
+    // Clear, descriptive handler names
+    onButtonClick(data) { /* ... */ }
+    onFormSubmit(data) { /* ... */ }
+    onInputChange(data) { /* ... */ }
+    onItemHover(data) { /* ... */ }
+    onItemLeave(data) { /* ... */ }
+}
+```
+
+### 2. Event Data Utilization
+
+Make full use of the event data provided by Neo.mjs:
+
+```javascript
+class EventDataExample extends Component {
+    static config = {
+        domListeners: [{
+            click: 'onElementClick'
+        }]
+    }
+
+    onElementClick(data) {
+        // Available properties in event data
+        console.log('Event type:', data.type);           // 'click'
+        console.log('Target element:', data.target);     // DOM element clicked
+        console.log('Component:', data.component);       // Component instance
+        console.log('Original event:', data.originalEvent); // Browser event
+        console.log('Current target:', data.currentTarget); // Delegated element
+        
+        // Use data attributes for identification
+        let itemId = data.target.dataset.itemId;
+        let actionType = data.target.dataset.action;
+        
+        // Prevent default behavior if needed
+        if (data.target.tagName === 'A') {
+            data.preventDefault();
+        }
+        
+        // Stop propagation if necessary
+        if (data.target.classList.contains('no-bubble')) {
+            data.stopPropagation();
+        }
+    }
+}
+```
+
+### 3. Conditional Event Handling
+
+Handle different scenarios within the same event handler:
+
+```javascript
+class ConditionalEventComponent extends Component {
+    static config = {
+        domListeners: [{
+            click   : 'onUniversalClick',
+            delegate: '.interactive-element'
+        }]
+    }
+
+    onUniversalClick(data) {
+        let element     = data.target.closest('.interactive-element'); // todo: WRONG => no elements inside the app worker
+        let elementType = element.dataset.elementType;
+        let elementId   = element.dataset.elementId;
+        
+        // Route based on element type
+        switch (elementType) {
+            case 'button':
+                this.handleButtonAction(elementId, data);
+                break;
+                
+            case 'card':
+                this.handleCardSelection(elementId, data);
+                break;
+                
+            case 'menu-item':
+                this.handleMenuAction(elementId, data);
+                break;
+                
+            default:
+                this.handleGenericClick(elementId, data);
+        }
+    }
+
+    handleButtonAction(buttonId, data) {
+        let action = data.target.dataset.action;
+        
+        if (action === 'delete') {
+            this.confirmDelete(buttonId);
+        } else if (action === 'edit') {
+            this.startEdit(buttonId);
+        }
+    }
+
+    handleCardSelection(cardId, data) {
+        this.selectCard(cardId);
+        this.fire('cardSelected', {cardId});
+    }
+
+    handleMenuAction(menuId, data) {
+        let menuItem = data.target.dataset.menuItem;
+        this.fire('menuAction', {menuId, menuItem});
+    }
+}
+```
+
 ## Advanced VDom Techniques
 
 ### 1. VDom Node Lifecycle Management
 
 ```javascript
 class ExpandableCard extends Component {
-    construct(config) {
-        super.construct(config);
-        
-        // Event delegation for expand/collapse
-        this.addDomListeners({
-            click   : this.onToggleClick,
-            delegate: '.toggle-button',
-            scope   : this
-        });
-
-        this.addDomListeners({
-            click   : this.onCardClick,
-            delegate: '.expandable-card',
-            scope   : this
-        });
+    static config = {
+        domListeners: [{
+            click: 'onToggleClick',
+            delegate: '.toggle-button'
+        }, {
+            click: 'onCardClick',
+            delegate: '.expandable-card'
+        }]
     }
 
     expandItem(itemId) {
-        let me = this,
+        let me               = this,
             {appName, store} = me,
-            record = store.get(itemId),
-            itemVdom = Neo.clone(me.getItemVdom(itemId), true);
+            record           = store.get(itemId),
+            itemVdom         = Neo.clone(me.getItemVdom(itemId), true);
 
         // Modify cloned VDom
         itemVdom.id = itemVdom.id + '__expanded';
@@ -691,26 +947,16 @@ class ExpandableCard extends Component {
 ```javascript
 class VirtualScrollList extends Component {
     static config = {
-        itemHeight: 50,
+        bufferItems : 5,
+        itemHeight  : 50,
         visibleItems: 20,
-        bufferItems: 5
-    }
 
-    construct(config) {
-        super.construct(config);
-        
-        // Scroll event handling
-        this.addDomListeners({
-            scroll: this.onScroll,
-            scope: this
-        });
-
-        // Item interaction via delegation
-        this.addDomListeners({
-            click: this.onItemClick,
-            delegate: '.neo-list-item',
-            scope: this
-        });
+        domListeners: [{
+            scroll: 'onScroll'
+        }, {
+            click   : 'onItemClick',
+            delegate: '.neo-list-item'
+        }]
     }
 
     updateVisibleItems() {
@@ -750,20 +996,13 @@ class VirtualScrollList extends Component {
 
 ```javascript
 class AnimatedComponent extends Component {
-    construct(config) {
-        super.construct(config);
-        
-        // Animation trigger events
-        this.addDomListeners({
-            click: this.onTriggerAnimation,
-            delegate: '.animate-trigger',
-            scope: this
-        });
-
-        this.addDomListeners({
-            transitionend: this.onTransitionEnd,
-            scope: this
-        });
+    static config = {
+        domListeners: [{
+            click   : 'onTriggerAnimation',
+            delegate: '.animate-trigger'
+        }, {
+            transitionend: 'onTransitionEnd'
+        }]
     }
 
     // Coordinate VDom changes with CSS transitions
@@ -783,22 +1022,22 @@ class AnimatedComponent extends Component {
             // Remove transition class after animation
             me.timeout(duration + 50).then(() => {
                 Neo.applyDeltas(me.appName, {
-                    id: me.id,
+                    id : me.id,
                     cls: {remove: [transitionClass]}
-                });
-            });
-        });
+                })
+            })
+        })
     }
 
     slideIn() {
         this.applyTransition(() => {
-            this.vdom.style.transform = 'translateX(0)';
+            this.vdom.style.transform = 'translateX(0)'
         }, 500);
     }
 
     slideOut() {
         this.applyTransition(() => {
-            this.vdom.style.transform = 'translateX(-100%)';
+            this.vdom.style.transform = 'translateX(-100%)'
         }, 500);
     }
 
@@ -856,25 +1095,22 @@ class VdomTemplates {
         return {
             cls: ['neo-card', ...(options.cls || [])],
             data: options.data || {},
-            cn: [
-                {
-                    cls: ['neo-card-header'],
-                    cn: [{tag: 'h3', text: title}]
-                },
-                {
-                    cls: ['neo-card-body'],
-                    cn: Array.isArray(content) ? content : [{text: content}]
-                }
-            ]
+            cn: [{
+                cls: ['neo-card-header'],
+                cn: [{tag: 'h3', text: title}]
+            }, {
+                cls: ['neo-card-body'],
+                cn: Array.isArray(content) ? content : [{text: content}]
+            }]
         };
     }
 
     static createButton(text, iconCls, options = {}) {
         return {
-            tag: 'button',
-            cls: ['neo-button', ...(options.cls || [])],
+            tag : 'button',
+            cls : ['neo-button', ...(options.cls || [])],
             data: options.data || {},
-            cn: [
+            cn  : [
                 iconCls ? {tag: 'i', cls: [iconCls]} : null,
                 {tag: 'span', text}
             ].filter(Boolean)
@@ -1091,71 +1327,29 @@ class ConditionalComponent extends Component {
 
 ```javascript
 class ListComponent extends Component {
+    static config = {
+        //...
+        domListeners: [{
+            click: 'onDeleteItem'
+        }]
+    }
+    
     renderItems(items) {
         let listItems = items.map(item => ({
             cls: ['list-item'],
             cn: [
-                {tag: 'span', text: item.name},
-                {tag: 'button', text: 'Delete', onclick: 'onDeleteItem', itemId: item.id}
+                {tag: 'span',   text: item.name},
+                {tag: 'button', text: 'Delete', itemId: item.id}
             ]
         }));
 
         this.listNode.cn = listItems;
-        this.update(); // STANDARD: Engine handles diffing
+        this.update()
     }
 
     onDeleteItem(data) {
         let itemId = data.target.itemId;
-        this.fire('deleteItem', {itemId});
-    }
-}
-```
-
-### 3. Form Controls
-
-```javascript
-class FormComponent extends Component {
-    static config = {
-        vdom: {
-            tag: 'form',
-            cn: [
-                {
-                    tag: 'input',
-                    type: 'text',
-                    placeholder: 'Enter name',
-                    flag: 'nameInput',
-                    oninput: 'onNameChange'
-                },
-                {
-                    tag: 'textarea',
-                    placeholder: 'Enter description',
-                    flag: 'descriptionInput',
-                    oninput: 'onDescriptionChange'
-                },
-                {
-                    tag: 'button',
-                    type: 'submit',
-                    text: 'Submit',
-                    onclick: 'onSubmit'
-                }
-            ]
-        }
-    }
-
-    onNameChange(data) {
-        this.name = data.target.value;
-    }
-
-    onDescriptionChange(data) {
-        this.description = data.target.value;
-    }
-
-    onSubmit(data) {
-        data.preventDefault();
-        this.fire('submit', {
-            name: this.name,
-            description: this.description
-        });
+        this.fire('deleteItem', {itemId})
     }
 }
 ```
