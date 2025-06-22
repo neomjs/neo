@@ -30,7 +30,7 @@
         {"name": "Working with VDom",                              "parentId": "InDepth",                            "id": "guides.WorkingWithVDom"},
         {"name": "Instance Lifecycle",                             "parentId": "InDepth",                            "id": "guides.InstanceLifecycle", "hidden": true},
         {"name": "User Input (Forms)",                             "parentId": "InDepth",                            "id": "guides.Forms",  "hidden": true},
-        {"name": "Component and Container Basics",                "parentId": "InDepth",                             "id": "guides.ComponentsAndContainers"},
+        {"name": "Component and Container Basics",                "parentId": "InDepth",                            "id": "guides.ComponentsAndContainers"},
         {"name": "Layouts",                                        "parentId": "InDepth",           "isLeaf": false, "id": "guides.Layouts", "hidden": true},
         {"name": "Shared Bindable Data (State Providers)",         "parentId": "InDepth",                            "id": "guides.StateProviders"},
         {"name": "Custom Components",                              "parentId": "InDepth",                            "id": "guides.CustomComponents", "hidden": true},

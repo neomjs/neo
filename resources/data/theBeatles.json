@@ -1,0 +1,22 @@
+[
+    {
+        "first": "John",
+        "last": "Lennon",
+        "dob": "1940/10/09"
+    },
+    {
+        "first": "Paul",
+        "last": "McCartney",
+        "dob": "1942/06/18"
+    },
+    {
+        "first": "George",
+        "last": "Harrison",
+        "dob": "1943/02/25"
+    },
+    {
+        "first": "Ringo",
+        "last": "Starr",
+        "dob": "1940/07/07"
+    }
+]
