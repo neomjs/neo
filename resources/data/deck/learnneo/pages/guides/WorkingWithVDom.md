@@ -1,4 +1,3 @@
-# Working with VDom
 ## A Comprehensive Guide to Custom Component Development
 
 **Target Audience**: Developers building custom Neo.mjs components who need to work directly with the VDom layer for performance optimization, complex animations, or advanced UI patterns.
@@ -13,25 +12,27 @@ While 99% of Neo.mjs development happens at the Component Tree layer, creating c
 
 ### VDom Structure
 
-Neo.mjs VDom nodes are plain JavaScript objects that represent DOM elements:
+Neo.mjs VDom nodes are plain JavaScript objects that represent DOM elements. **Important**: VDom only contains structure, styling, content, and attributes - **never event listeners**.
 
 ```javascript
 // Basic VDom node structure
 {
-    tag     : 'div',           // HTML tag (default: 'div')
-    id      : 'unique-id',     // DOM element ID
-    cls     : ['class1', 'class2'], // CSS classes array
-    style   : {color: 'red'},  // Inline styles object
-    html    : 'Text content',  // Inner HTML
-    text    : 'Text content',  // Text content (safer than html)
-    cn      : [],              // Child nodes array
-    flag    : 'headerNode',    // Reference flag for VdomUtil
-    removeDom: false,          // Hide/show element
-    // DOM attributes
+    tag      : 'div',                // HTML tag (default: 'div')
+    id       : 'unique-id',          // DOM element ID
+    cls      : ['class1', 'class2'], // CSS classes array
+    style    : {color: 'red'},       // Inline styles object
+    html     : 'Text content',       // Inner HTML (exclusive with text/cn)
+    text     : 'Text content',       // Text content (exclusive with html/cn)
+    cn       : [],                   // Child nodes array (exclusive with html/text)
+    vtype    : 'vnode',              // VNode type: 'vnode', 'text', 'root'
+    static   : false,                // Exclude from delta updates
+    removeDom: false,                // Hide/show element
+    data     : {custom: 'value'},    // data-* attributes
+    // Standard HTML attributes
     disabled: true,
     tabIndex: -1,
-    // Event listeners
-    onclick : 'onButtonClick'
+    role    : 'button'
+    // ❌ NO EVENT LISTENERS IN VDOM
 }
 ```
 
@@ -48,14 +49,26 @@ class CustomButton extends Component {
         ntype    : 'custom-button',
         
         // Define internal DOM structure
-        vdom: {
-            cls: ['neo-button', 'neo-custom-button'],
-            cn: [
-                {tag: 'span', cls: ['neo-button-icon'], flag: 'iconNode'},
-                {tag: 'span', cls: ['neo-button-text'], flag: 'textNode'},
-                {cls: ['neo-button-badge'], flag: 'badgeNode', removeDom: true}
-            ]
-        }
+        vdom:
+        {cls: ['neo-button', 'neo-custom-button'], cn: [
+            {tag: 'span', cls: ['neo-button-icon'], flag: 'iconNode'},
+            {tag: 'span', cls: ['neo-button-text'], flag: 'textNode'},
+            {cls: ['neo-button-badge'], flag: 'badgeNode', removeDom: true}
+        ]}
+    }
+
+    construct(config) {
+        super.construct(config);
+        
+        // Event handling happens at component level
+        this.addDomListeners({
+            click: this.onButtonClick,
+            scope: this
+        })
+    }
+
+    onButtonClick(data) {
+        console.log('Button clicked')
     }
 }
 ```
@@ -74,7 +87,7 @@ class StandardComponent extends Component {
         this.iconNode.cls = ['fa', 'fa-star'];
         
         // Send entire VDom to VDom worker via engine
-        this.update(); // Engine calculates what changed
+        this.update() // Engine calculates what changed
     }
 }
 ```
@@ -99,23 +112,19 @@ For performance-critical scenarios, you can bypass the engine and send manually 
 class AdvancedComponent extends Component {
     optimizedUpdate() {
         // Manually craft precise deltas
-        let deltas = [
-            {
-                id: this.getItemId('item-1'),
-                style: {opacity: 0.5}
-            },
-            {
-                id: this.getItemId('item-2'), 
-                cls: {add: ['active'], remove: ['inactive']}
-            },
-            {
-                id: this.textNodeId,
-                text: 'Updated text'
-            }
-        ];
-        
+        const deltas = [{
+            id   : this.getItemId('item-1'),
+            style: {opacity: 0.5}
+        }, {
+            id : this.getItemId('item-2'), 
+            cls: {add: ['active'], remove: ['inactive']}
+        }, {
+            id  : this.textNodeId,
+            text: 'Updated text'
+        }];
+
         // Send deltas directly from App worker to Main
-        Neo.applyDeltas(this.appName, deltas);
+        Neo.applyDeltas(this.appName, deltas)
     }
 }
 ```
@@ -132,6 +141,238 @@ class AdvancedComponent extends Component {
 - Working with large datasets where diffing would be expensive
 - You need precise control over DOM update timing
 
+## Event Handling in Neo.mjs
+
+### Component-Level Event Management
+
+**Critical**: Event listeners are managed at the Component level, never in VDom:
+
+```javascript
+class InteractiveComponent extends Component {
+    static config = {
+        vdom: {
+            cls: ['neo-interactive'],
+            cn: [
+                {
+                    tag: 'button',
+                    text: 'Click Me',
+                    cls: ['neo-button'],
+                    id: 'interactive-button'
+                    // ❌ NO onclick in VDom
+                },
+                {
+                    cls: ['neo-content', 'hoverable-area'],
+                    text: 'Hover over me'
+                    // ❌ NO onmouseenter/onmouseleave in VDom
+                }
+            ]
+        }
+    }
+
+    construct(config) {
+        super.construct(config);
+        
+        // ✅ Event listeners added at component level
+        this.addDomListeners({
+            click: this.onButtonClick,
+            scope: this
+        });
+
+        this.addDomListeners({
+            mouseenter: this.onContentMouseEnter,
+            mouseleave: this.onContentMouseLeave,
+            delegate  : '.hoverable-area',
+            scope     : this
+        });
+    }
+
+    onButtonClick(data) {
+        console.log('Button clicked:', data);
+        
+        // Update VDom in response to event
+        let buttonNode = this.vdom.cn[0];
+        buttonNode.disabled = true;
+        this.update();
+    }
+
+    onContentMouseEnter(data) {
+        // Update VDom styling
+        let contentNode = this.vdom.cn[1];
+        contentNode.style = {backgroundColor: '#f0f0f0'};
+        this.update();
+    }
+
+    onContentMouseLeave(data) {
+        let contentNode = this.vdom.cn[1];
+        contentNode.style = {};
+        this.update();
+    }
+}
+```
+
+### Event Delegation Patterns
+
+Use event delegation for dynamic content and performance optimization:
+
+```javascript
+class ListComponent extends Component {
+    static config = {
+        vdom: {
+            cls: ['neo-list'],
+            cn: [] // Will be populated with list items
+        }
+    }
+
+    construct(config) {
+        super.construct(config);
+        
+        // Delegate events to dynamically created items
+        this.addDomListeners({
+            click   : this.onItemClick,
+            delegate: '.neo-list-item',
+            scope   : this
+        });
+
+        this.addDomListeners({
+            click   : this.onDeleteClick,
+            delegate: '.delete-button',
+            scope   : this
+        });
+
+        this.addDomListeners({
+            mouseenter: this.onItemHover,
+            mouseleave: this.onItemLeave,
+            delegate  : '.neo-list-item',
+            scope     : this
+        });
+    }
+
+    createListItems(data) {
+        let items = data.map((item, index) => ({
+            cls: ['neo-list-item'],
+            data: {itemId: item.id}, // Use data attributes for identification
+            cn: [
+                {
+                    tag: 'span',
+                    text: item.name,
+                    cls: ['item-name']
+                },
+                {
+                    tag: 'button',
+                    text: 'Delete',
+                    cls: ['delete-button', 'btn-danger']
+                }
+            ]
+        }));
+
+        this.vdom.cn = items;
+        this.update();
+    }
+
+    onItemClick(data) {
+        let itemId = data.target.dataset.itemId;
+        console.log('Item clicked:', itemId);
+    }
+
+    onDeleteClick(data) {
+        let itemElement = data.target.closest('.neo-list-item');
+        let itemId = itemElement.dataset.itemId;
+        this.fire('deleteItem', {itemId});
+    }
+
+    onItemHover(data) {
+        data.target.style.backgroundColor = '#e0e0e0';
+    }
+
+    onItemLeave(data) {
+        data.target.style.backgroundColor = '';
+    }
+}
+```
+
+### Complex Event Scenarios
+
+```javascript
+class FormComponent extends Component {
+    static config = {
+        vdom: {
+            tag: 'form',
+            cls: ['neo-form'],
+            cn: [
+                {
+                    tag: 'input',
+                    type: 'text',
+                    placeholder: 'Enter name',
+                    cls: ['form-input', 'name-input']
+                },
+                {
+                    tag: 'textarea',
+                    placeholder: 'Enter description',
+                    cls: ['form-input', 'description-input']
+                },
+                {
+                    tag: 'button',
+                    type: 'submit',
+                    text: 'Submit',
+                    cls: ['submit-button']
+                }
+            ]
+        }
+    }
+
+    construct(config) {
+        super.construct(config);
+        
+        // Form-level event handling
+        this.addDomListeners({
+            submit: this.onFormSubmit,
+            scope: this
+        });
+
+        // Input change events via delegation
+        this.addDomListeners({
+            input: this.onInputChange,
+            delegate: '.form-input',
+            scope: this
+        });
+
+        // Button-specific events
+        this.addDomListeners({
+            click: this.onSubmitClick,
+            delegate: '.submit-button',
+            scope: this
+        });
+    }
+
+    onFormSubmit(data) {
+        let formData = {
+            name       : this.vdom.cn[0].value,
+            description: this.vdom.cn[1].value
+        };
+        
+        this.fire('formSubmit', formData);
+    }
+
+    onInputChange(data) {
+        let input = data.target;
+        
+        // Update component state, not VDom
+        if (input.classList.contains('name-input')) {
+            this.name = input.value;
+        } else if (input.classList.contains('description-input')) {
+            this.description = input.value;
+        }
+    }
+
+    onSubmitClick(data) {
+        // Validate before submission
+        if (!this.name || !this.description) {
+            this.showValidationError();
+        }
+    }
+}
+```
+
 ## VDom Manipulation Patterns
 
 ### 1. Using Flag-Based References
@@ -146,10 +387,20 @@ class IconButton extends Component {
         vdom: {
             cls: ['neo-icon-button'],
             cn: [
-                {tag: 'i', cls: ['neo-icon'], flag: 'iconNode'},
+                {tag: 'i',    cls: ['neo-icon'], flag: 'iconNode'},
                 {tag: 'span', cls: ['neo-text'], flag: 'textNode'}
             ]
         }
+    }
+
+    construct(config) {
+        super.construct(config);
+        
+        // Events at component level
+        this.addDomListeners({
+            click: this.onClick,
+            scope: this
+        });
     }
 
     // Access nodes via flags
@@ -172,7 +423,6 @@ class IconButton extends Component {
         // Hide/show based on value
         iconNode.removeDom = !value;
         
-        // STANDARD: Let engine handle the diffing
         this.update();
     }
 
@@ -182,8 +432,14 @@ class IconButton extends Component {
         textNode.text = value;
         textNode.removeDom = !value;
         
-        // STANDARD: Let engine calculate deltas
         this.update();
+    }
+
+    onClick(data) {
+        this.fire('buttonClick', {
+            iconCls: this.iconCls,
+            text   : this.text
+        });
     }
 }
 ```
@@ -201,6 +457,23 @@ class DataList extends Component {
         }
     }
 
+    construct(config) {
+        super.construct(config);
+        
+        // Event delegation for dynamic items
+        this.addDomListeners({
+            click   : this.onItemClick,
+            delegate: '.neo-list-item',
+            scope   : this
+        });
+
+        this.addDomListeners({
+            click   : this.onAvatarClick,
+            delegate: '.neo-avatar',
+            scope   : this
+        });
+    }
+
     // Create VDom items from data
     createListItems() {
         let {data, vdom} = this,
@@ -209,30 +482,37 @@ class DataList extends Component {
         data.forEach((record, index) => {
             items.push({
                 cls: ['neo-list-item'],
-                cn: [
-                    {
-                        tag: 'img',
-                        src: record.avatar,
-                        cls: ['neo-avatar']
-                    },
-                    {
-                        cls: ['neo-content'],
-                        cn: [
-                            {tag: 'h3', text: record.name},
-                            {tag: 'p', text: record.description}
-                        ]
-                    }
-                ]
+                data: {recordId: record.id}, // For event identification
+                cn: [{
+                    tag: 'img',
+                    src: record.avatar,
+                    cls: ['neo-avatar']
+                }, {
+                    cls: ['neo-content'],
+                    cn: [
+                        {tag: 'h3', text: record.name},
+                        {tag: 'p', text: record.description}
+                    ]
+                }]
             });
         });
 
-        // STANDARD: Engine handles VDom diffing
         vdom.cn = items;
         this.update();
     }
 
     afterSetData(value, oldValue) {
         value && this.createListItems();
+    }
+
+    onItemClick(data) {
+        let recordId = data.target.closest('.neo-list-item').dataset.recordId;
+        this.fire('itemSelect', {recordId});
+    }
+
+    onAvatarClick(data) {
+        let recordId = data.target.closest('.neo-list-item').dataset.recordId;
+        this.fire('avatarClick', {recordId});
     }
 }
 ```
@@ -242,8 +522,26 @@ class DataList extends Component {
 For sophisticated UI patterns, combine multiple VDom operations:
 
 ```javascript
-// From the Helix component example
 class Helix extends Component {
+    construct(config) {
+        super.construct(config);
+        
+        // Mouse interaction for 3D rotation
+        this.addDomListeners({
+            mousemove: this.onMouseMove,
+            mousedown: this.onMouseDown,
+            mouseup  : this.onMouseUp,
+            scope    : this
+        });
+
+        // Item selection via delegation
+        this.addDomListeners({
+            click   : this.onItemClick,
+            delegate: '.helix-item',
+            scope   : this
+        });
+    }
+
     refresh() {
         let me = this,
             deltas = [],
@@ -284,6 +582,18 @@ class Helix extends Component {
         // ADVANCED: Bypass engine with precise deltas
         Neo.applyDeltas(me.appName, deltas);
     }
+
+    onMouseMove(data) {
+        if (this.isDragging) {
+            this.updateRotation(data.clientX, data.clientY);
+        }
+    }
+
+    onItemClick(data) {
+        let itemElement = data.target.closest('.helix-item');
+        let itemId = itemElement.dataset.itemId;
+        this.fire('itemSelect', {itemId});
+    }
 }
 ```
 
@@ -293,6 +603,23 @@ class Helix extends Component {
 
 ```javascript
 class ExpandableCard extends Component {
+    construct(config) {
+        super.construct(config);
+        
+        // Event delegation for expand/collapse
+        this.addDomListeners({
+            click   : this.onToggleClick,
+            delegate: '.toggle-button',
+            scope   : this
+        });
+
+        this.addDomListeners({
+            click   : this.onCardClick,
+            delegate: '.expandable-card',
+            scope   : this
+        });
+    }
+
     expandItem(itemId) {
         let me = this,
             {appName, store} = me,
@@ -321,7 +648,6 @@ class ExpandableCard extends Component {
         }).then(() => {
             // Animate expansion
             me.timeout(50).then(() => {
-                // ADVANCED: Direct delta application bypasses VDom worker
                 Neo.applyDeltas(appName, {
                     id: itemVdom.id,
                     cls: {add: ['neo-animate-in']}
@@ -333,7 +659,6 @@ class ExpandableCard extends Component {
     collapseItem(itemId) {
         let expandedId = itemId + '__expanded';
         
-        // ADVANCED: Manual delta for precise control
         Neo.applyDeltas(this.appName, {
             id: expandedId,
             cls: {add: ['neo-animate-out']}
@@ -346,6 +671,18 @@ class ExpandableCard extends Component {
             });
         });
     }
+
+    onToggleClick(data) {
+        let itemElement = data.target.closest('.expandable-card');
+        let itemId = itemElement.dataset.itemId;
+        let isExpanded = itemElement.classList.contains('neo-expanded');
+        
+        if (isExpanded) {
+            this.collapseItem(itemId);
+        } else {
+            this.expandItem(itemId);
+        }
+    }
 }
 ```
 
@@ -354,10 +691,26 @@ class ExpandableCard extends Component {
 ```javascript
 class VirtualScrollList extends Component {
     static config = {
-        // Large datasets require viewport-based rendering
         itemHeight: 50,
         visibleItems: 20,
         bufferItems: 5
+    }
+
+    construct(config) {
+        super.construct(config);
+        
+        // Scroll event handling
+        this.addDomListeners({
+            scroll: this.onScroll,
+            scope: this
+        });
+
+        // Item interaction via delegation
+        this.addDomListeners({
+            click: this.onItemClick,
+            delegate: '.neo-list-item',
+            scope: this
+        });
     }
 
     updateVisibleItems() {
@@ -370,21 +723,25 @@ class VirtualScrollList extends Component {
         // Only update VDom nodes that changed
         let newItems = me.data.slice(startIndex, endIndex).map((record, index) => ({
             cls: ['neo-list-item'],
+            data: {itemId: record.id}, // For event handling
             style: {
                 transform: `translateY(${(startIndex + index) * itemHeight}px)`
             },
             cn: [{text: record.name}]
         }));
 
-        // STANDARD: Let engine diff the VDom changes
         fragment.cn = newItems;
         this.update();
     }
 
     onScroll(data) {
-        this.scrollTop = data.scrollTop;
-        // Throttle updates for performance
+        this.scrollTop = data.target.scrollTop;
         this.throttledUpdate();
+    }
+
+    onItemClick(data) {
+        let itemId = data.target.dataset.itemId;
+        this.fire('itemClick', {itemId});
     }
 }
 ```
@@ -393,19 +750,35 @@ class VirtualScrollList extends Component {
 
 ```javascript
 class AnimatedComponent extends Component {
+    construct(config) {
+        super.construct(config);
+        
+        // Animation trigger events
+        this.addDomListeners({
+            click: this.onTriggerAnimation,
+            delegate: '.animate-trigger',
+            scope: this
+        });
+
+        this.addDomListeners({
+            transitionend: this.onTransitionEnd,
+            scope: this
+        });
+    }
+
     // Coordinate VDom changes with CSS transitions
     applyTransition(callback, duration = 300) {
         let me = this,
             transitionClass = `neo-transition-${duration}`;
 
-        // ADVANCED: Direct delta application for animation
+        // Add transition class
         Neo.applyDeltas(me.appName, {
             id: me.id,
             cls: {add: [transitionClass]}
         }).then(() => {
-            // STANDARD: Use update() for VDom changes
-            this.vdom.style.transform = 'translateX(0)';
-            this.update();
+            // Modify VDom structure
+            callback.call(me);
+            me.update();
             
             // Remove transition class after animation
             me.timeout(duration + 50).then(() => {
@@ -419,18 +792,31 @@ class AnimatedComponent extends Component {
 
     slideIn() {
         this.applyTransition(() => {
-            // STANDARD: Modify VDom, let engine handle diffing
             this.vdom.style.transform = 'translateX(0)';
-            this.update();
         }, 500);
     }
 
     slideOut() {
         this.applyTransition(() => {
-            // STANDARD: Modify VDom, let engine handle diffing  
             this.vdom.style.transform = 'translateX(-100%)';
-            this.update();
         }, 500);
+    }
+
+    onTriggerAnimation(data) {
+        let animationType = data.target.dataset.animationType;
+        
+        switch (animationType) {
+            case 'slideIn':
+                this.slideIn();
+                break;
+            case 'slideOut':
+                this.slideOut();
+                break;
+        }
+    }
+
+    onTransitionEnd(data) {
+        console.log('Animation completed:', data.propertyName);
     }
 }
 ```
@@ -456,7 +842,6 @@ class UtilityComponent extends Component {
         // Get child by index
         let firstChild = VdomUtil.getChildAt(this.vdom, 0);
         
-        // STANDARD: Let engine handle diffing
         this.update();
     }
 }
@@ -470,6 +855,7 @@ class VdomTemplates {
     static createCard(title, content, options = {}) {
         return {
             cls: ['neo-card', ...(options.cls || [])],
+            data: options.data || {},
             cn: [
                 {
                     cls: ['neo-card-header'],
@@ -483,99 +869,59 @@ class VdomTemplates {
         };
     }
 
-    static createButton(text, iconCls, handler) {
+    static createButton(text, iconCls, options = {}) {
         return {
             tag: 'button',
-            cls: ['neo-button'],
+            cls: ['neo-button', ...(options.cls || [])],
+            data: options.data || {},
             cn: [
                 iconCls ? {tag: 'i', cls: [iconCls]} : null,
                 {tag: 'span', text}
-            ].filter(Boolean),
-            onclick: handler
+            ].filter(Boolean)
+            // No event handlers in VDom template
         };
     }
 }
 
 // Usage in components
 class CardList extends Component {
+    construct(config) {
+        super.construct(config);
+        
+        // Event delegation for all cards and buttons
+        this.addDomListeners({
+            click: this.onCardClick,
+            delegate: '.neo-card',
+            scope: this
+        });
+
+        this.addDomListeners({
+            click: this.onButtonClick,
+            delegate: '.neo-button',
+            scope: this
+        });
+    }
+
     createCards() {
         let cards = this.data.map(item => 
             VdomTemplates.createCard(item.title, item.content, {
-                cls: ['custom-card']
+                cls: ['custom-card'],
+                data: {itemId: item.id}
             })
         );
         
-        // STANDARD: Engine calculates what changed
         this.vdom.cn = cards;
         this.update();
     }
-}
-```
 
-## Event Handling in VDom
-
-### DOM Event Binding
-
-```javascript
-class InteractiveComponent extends Component {
-    static config = {
-        vdom: {
-            cls: ['neo-interactive'],
-            cn: [
-                {
-                    tag: 'button',
-                    text: 'Click Me',
-                    onclick: 'onButtonClick',  // Method name as string
-                    flag: 'button'
-                },
-                {
-                    cls: ['neo-content'],
-                    onmouseenter: 'onContentEnter',
-                    onmouseleave: 'onContentLeave'
-                }
-            ]
-        }
+    onCardClick(data) {
+        let itemId = data.target.dataset.itemId;
+        this.fire('cardClick', {itemId});
     }
 
     onButtonClick(data) {
-        // data contains event information
-        console.log('Button clicked:', data);
-        
-        // STANDARD: Let engine handle the update
-        let buttonNode = VdomUtil.getByFlag(this, 'button');
-        buttonNode.disabled = true;
-        this.update();
-    }
-
-    onContentEnter(data) {
-        // STANDARD: Hover effects via VDom
-        data.target.style.backgroundColor = '#f0f0f0';
-        this.update();
-    }
-}
-```
-
-### Dynamic Event Management
-
-```javascript
-class DynamicEventComponent extends Component {
-    addEventListeners() {
-        // Add listeners programmatically
-        this.addDomListeners({
-            click: this.onClick,
-            scroll: this.onScroll,
-            resize: this.onResize,
-            scope: this
-        });
-    }
-
-    removeEventListeners() {
-        this.removeDomListeners({
-            click: this.onClick,
-            scroll: this.onScroll,
-            resize: this.onResize,
-            scope: this
-        });
+        let itemId = data.target.closest('.neo-card').dataset.itemId;
+        this.fire('buttonClick', {itemId});
     }
 }
 ```
@@ -609,7 +955,6 @@ class SecureComponent extends Component {
     setSafeHtml(content) {
         // Use a trusted sanitization library
         let sanitized = DOMPurify.sanitize(content);
-        // STANDARD: Let engine diff changes
         this.containerNode.html = sanitized;
         this.update();
     }
@@ -622,7 +967,7 @@ class SecureComponent extends Component {
 
 ```javascript
 class PerformantComponent extends Component {
-    // BAD: Multiple individual updates via engine
+    // BAD: Multiple individual updates
     updateItemsBad(items) {
         items.forEach(item => {
             let node = this.getItemNode(item.id);
@@ -652,42 +997,43 @@ class PerformantComponent extends Component {
             });
         });
         
-        // Direct App worker -> Main thread
         Neo.applyDeltas(this.appName, deltas);
     }
 }
 ```
 
-### 2. Efficient VDom Structure
+### 2. Efficient Event Delegation
 
 ```javascript
-class OptimizedList extends Component {
-    static config = {
-        // Use flags for frequently accessed nodes
-        vdom: {
-            cls: ['neo-list'],
-            cn: [
-                {cls: ['neo-list-header'], flag: 'headerNode'},
-                {cls: ['neo-list-body'], flag: 'bodyNode'},
-                {cls: ['neo-list-footer'], flag: 'footerNode'}
-            ]
+class EfficientEventComponent extends Component {
+    construct(config) {
+        super.construct(config);
+        
+        // Single delegated listener handles multiple item types
+        this.addDomListeners({
+            click: this.onItemInteraction,
+            delegate: '.interactive-item',
+            scope: this
+        });
+    }
+
+    onItemInteraction(data) {
+        let element = data.target.closest('.interactive-item');
+        let itemType = element.dataset.itemType;
+        let itemId = element.dataset.itemId;
+        
+        // Route based on item type
+        switch (itemType) {
+            case 'button':
+                this.handleButtonClick(itemId, data);
+                break;
+            case 'card':
+                this.handleCardClick(itemId, data);
+                break;
+            case 'menu-item':
+                this.handleMenuClick(itemId, data);
+                break;
         }
-    }
-
-    // Cache VDom node references
-    get headerNode() {
-        return this._headerNode ??= VdomUtil.getByFlag(this, 'headerNode');
-    }
-
-    get bodyNode() {
-        return this._bodyNode ??= VdomUtil.getByFlag(this, 'bodyNode');
-    }
-
-    // Reset cache when VDom structure changes
-    afterUpdate() {
-        this._headerNode = null;
-        this._bodyNode = null;
-        this._footerNode = null;
     }
 }
 ```
@@ -699,7 +1045,6 @@ class MemoryEfficientComponent extends Component {
     destroy(...args) {
         // Clean up VDom references
         this._cachedNodes = null;
-        this._eventHandlers = null;
         
         // Clear transition timeouts
         this.transitionTimeouts?.forEach(clearTimeout);
@@ -708,176 +1053,10 @@ class MemoryEfficientComponent extends Component {
         super.destroy(...args);
     }
 
-    // Avoid memory leaks in closures
+    // Avoid memory leaks in event handlers
     createEventHandler(itemId) {
-        // BAD: Creates closure that holds reference to entire component
-        return (data) => {
-            this.processItem(itemId, data);
-        };
-    }
-
-    createEventHandlerOptimized(itemId) {
         // GOOD: Minimal closure scope
-        let handler = this.processItem.bind(this, itemId);
-        return handler;
-    }
-}
-```
-
-## Testing VDom Components
-
-### Unit Testing VDom Structure
-
-```javascript
-// Test VDom generation
-describe('CustomButton VDom', () => {
-    let button;
-
-    beforeEach(() => {
-        button = Neo.create(CustomButton, {
-            text: 'Test Button',
-            iconCls: 'fa fa-home'
-        });
-    });
-
-    it('should generate correct VDom structure', () => {
-        let vdom = button.vdom;
-        
-        expect(vdom.cls).toContain('neo-button');
-        expect(vdom.cn).toHaveLength(3);
-        expect(vdom.cn[0].cls).toContain('neo-button-icon');
-        expect(vdom.cn[1].text).toBe('Test Button');
-    });
-
-    it('should update VDom when properties change', () => {
-        button.text = 'New Text';
-        
-        let textNode = VdomUtil.getByFlag(button, 'textNode');
-        expect(textNode.text).toBe('New Text');
-    });
-});
-```
-
-### Integration Testing
-
-```javascript
-// Test VDom-to-DOM synchronization
-describe('VDom DOM Integration', () => {
-    it('should sync VDom changes to DOM', async () => {
-        let component = Neo.create(TestComponent);
-        await component.render();
-        
-        // Modify VDom
-        component.headerNode.text = 'Updated Header';
-        component.update();
-        
-        // Wait for DOM update
-        await component.timeout(100);
-        
-        // Verify DOM reflects VDom changes
-        let domElement = Neo.getDomElement(component.headerNode.id);
-        expect(domElement.textContent).toBe('Updated Header');
-    });
-});
-```
-
-## Migration from Other Frameworks
-
-### From React Components
-
-```javascript
-// React pattern
-function ReactButton({text, onClick, disabled}) {
-    return (
-        <button onClick={onClick} disabled={disabled}>
-            {text}
-        </button>
-    );
-}
-
-// Neo.mjs VDom equivalent
-class NeoButton extends Component {
-    static config = {
-        text_: '',
-        disabled_: false,
-        
-        vdom: {
-            tag: 'button',
-            text: '', // Will be set by afterSetText
-            onclick: 'onClick'
-        }
-    }
-
-    afterSetText(value) {
-        this.vdom.text = value;
-        this.update();
-    }
-
-    afterSetDisabled(value) {
-        this.vdom.disabled = value;
-        this.update();
-    }
-
-    onClick(data) {
-        this.fire('click', data);
-    }
-}
-```
-
-### From Vue Templates
-
-```javascript
-// Vue template
-/*
-<template>
-  <div class="card">
-    <h3>{{ title }}</h3>
-    <p v-if="showDescription">{{ description }}</p>
-    <button @click="onAction">{{ buttonText }}</button>
-  </div>
-</template>
-*/
-
-// Neo.mjs VDom equivalent
-class NeoCard extends Component {
-    static config = {
-        title_: '',
-        description_: '',
-        showDescription_: true,
-        buttonText_: 'Action',
-        
-        vdom: {
-            cls: ['card'],
-            cn: [
-                {tag: 'h3', flag: 'titleNode'},
-                {tag: 'p', flag: 'descriptionNode'},
-                {tag: 'button', flag: 'buttonNode', onclick: 'onAction'}
-            ]
-        }
-    }
-
-    afterSetTitle(value) {
-        this.titleNode.text = value;
-        this.update();
-    }
-
-    afterSetDescription(value) {
-        this.descriptionNode.text = value;
-        this.update();
-    }
-
-    afterSetShowDescription(value) {
-        this.descriptionNode.removeDom = !value;
-        this.update();
-    }
-
-    afterSetButtonText(value) {
-        this.buttonNode.text = value;
-        this.update();
-    }
-
-    onAction(data) {
-        this.fire('action', data);
+        return this.processItem.bind(this, itemId);
     }
 }
 ```
