@@ -174,7 +174,8 @@ class Xhr extends Base {
         } else {
             if (!opts.insideNeo && location.href.includes('/node_modules/neo.mjs/') && !location.href.startsWith('https://neomjs.com/')) {
                 if (opts.url.startsWith('./') || opts.url.startsWith('../')) {
-                    opts.url = '../../' + opts.url
+                    console.log(location.href, opts.url, 'insideNeo', opts.insideNeo);
+                    //opts.url = '../../' + opts.url
                 }
             }
 
