@@ -347,7 +347,8 @@ The Neo.mjs application bootstrap process follows these key steps:
 6. **Neo.worker.App** receives the message and dynamically imports the application module
 7. **app.mjs** is executed, and its onStart function creates the application
 8. **Component Tree** is constructed in the Neo.worker.App worker
-9. **VDom Generation and Rendering** creates the actual DOM in the main thread
+9. **VDom Generation and Rendering** processes vdom changes: App Worker sends vdom to VDom Worker, which calculates deltas,
+  and Main Thread applies these deltas to the DOM
 
 This multi-threaded architecture allows your application code to run in either a dedicated or shared Neo.worker.App worker, 
 completely separate from DOM manipulation, providing better performance and responsiveness.
