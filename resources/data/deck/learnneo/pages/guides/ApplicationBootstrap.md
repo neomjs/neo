@@ -81,27 +81,39 @@ const module = await import('../../apps/portal/app.mjs');
 **Step 2: Entry Point Execution**
 ```javascript
 // Your app.mjs exports an onStart function export
-const onStart = () => Neo.app({ mainView: Viewport, name : 'Portal' });
+const onStart = () => Neo.app({
+    mainView: Viewport,
+    name    : 'Portal'
+});
 // Framework calls this function to bootstrap your application
 ``` 
 
 **Step 3: Application Controller Creation**
 ```javascript
 // Neo.app() creates an Application controller
-const app = Neo.create({ module: Neo.controller.Application, mainView: Viewport, // Your main UI component name: 'Portal', // Application identifier appName: 'Portal' // Used for CSS scoping, routing });
+const app = Neo.create({
+    module  : Neo.controller.Application,
+    mainView: Viewport, // Your main UI component
+    name    : 'Portal', // Application identifier 
+    appName : 'Portal' // Used for CSS scoping, routing 
+});
 ``` 
 
 ### 5. Component Tree Construction
 
 Your `mainView` component (like `Viewport`) gets instantiated:
-```
-javascript // Your Viewport component class Viewport extends Container { static config = { className: 'Portal.view.Viewport', layout : 'vbox',
-items: [
-HeaderComponent,    // Child components
-MainPanel,         // All created in App Worker
-FooterComponent
-]
-}
+```javascript
+// Your Viewport component
+class Viewport extends Container {
+    static config = {
+        className: 'Portal.view.Viewport',
+        layout : 'vbox',
+        items: [
+            HeaderComponent, // Child components
+            MainContainer,   // All created in App Worker
+            FooterComponent
+        ]
+    }
 }
 ``` 
 
@@ -125,9 +137,15 @@ Once the component tree is built:
 ## The app.mjs Pattern
 
 Your application entry point follows a simple but powerful pattern:
-```
-javascript // apps/myapp/app.mjs import Overwrites from './Overwrites.mjs'; // Optional framework extensions import Viewport from './view/Viewport.mjs'; // Your main UI component
-export const onStart = () => Neo.app({ mainView: Viewport, // Root component of your application name : 'MyApp' // Application identifier });
+```javascript
+// apps/myapp/app.mjs
+import Overwrites from './Overwrites.mjs'; // Optional framework extensions
+import Viewport from './view/Viewport.mjs'; // Your main UI component
+
+export const onStart = () => Neo.app({
+    mainView: Viewport, // Root component of your application
+    name    : 'MyApp'   // Application identifier
+});
 ``` 
 
 **Why This Pattern Works:**
@@ -141,50 +159,65 @@ export const onStart = () => Neo.app({ mainView: Viewport, // Root component of 
 Once bootstrap completes, your entire application runs in the **App Worker** - a rich JavaScript environment with:
 
 ### Full Framework Access
-```
-javascript // Inside any component in your app: class MyComponent extends Component { someMethod() { // Component management Neo.getComponent('my-button');
-// Data access
-Neo.data.Store.getById('users');
 
-    // Routing
-    Neo.HashHistory.push({page: 'settings'});
+```javascript
+// Inside any component in your app:
+class MyComponent extends Component {
+    someMethod() { // Component management
+        Neo.getComponent('my-button');
+
+        // Data access
+        Neo.data.Store.getById('users');
     
-    // Utilities
-    Neo.util.Array.add(myArray, item);
-    
-    // State management
-    this.getViewModel().setData({loading: true});
-    this.getController().loadData();
-}
+        // Routing
+        Neo.HashHistory.push({page: 'settings'});
+        
+        // Utilities
+        Neo.util.Array.add(myArray, item);
+        
+        // State management
+        this.getViewModel().setData({loading: true});
+        this.getController().loadData();
+    }
 }
 ``` 
 
 ### Event-Driven Architecture
-```
-javascript // Components communicate via events class ProductGrid extends Grid { static config = { listeners: { select: 'onProductSelect' } }
-onProductSelect(data) {
-// Fire custom events that bubble up
-this.fire('productSelected', {
-product: data.record,
-grid   : this
-});
-}
+
+```javascript
+// Components communicate via events
+class ProductGrid extends Grid {
+    static config = {
+        listeners: { select: 'onProductSelect' }
+    }
+
+    onProductSelect(data) {
+        // Fire custom events that bubble up
+        this.fire('productSelected', {
+            product: data.record,
+            grid   : this
+        });
+    }
 }
 ``` 
 
 ### Reactive Configuration System
-```
-javascript // Configs automatically trigger UI updates class UserProfile extends Component { static config = { user_: null, // Reactive config
-// UI updates automatically when user changes
-bind: {
-html: data => `Welcome, ${data.user?.name || 'Guest'}!`
-}
-}
 
-afterSetUser(value, oldValue) {
-// Automatic lifecycle method
-console.log('User changed:', value);
-}
+```javascript
+// Configs automatically trigger UI updates
+class UserProfile extends Component {
+    static config = {
+        user_: null, // Reactive config
+        // UI updates automatically when user changes
+        bind: {
+            html: data => `Welcome, ${data.user?.name || 'Guest'}!`
+        }
+    }
+
+    afterSetUser(value, oldValue) {
+        // Automatic lifecycle method
+        console.log('User changed:', value);
+    }
 }
 ``` 
 
@@ -193,16 +226,21 @@ console.log('User changed:', value);
 Neo.mjs supports multiple applications in a single browser session:
 
 ### Shared Worker Multi-App
-```
-javascript // Multiple apps can run simultaneously // apps/crm/app.mjs export const onStart = () => Neo.app({ mainView: CrmViewport, name : 'CRM' });
+
+```javascript
+// Multiple apps can run simultaneously
+// apps/crm/app.mjs
+export const onStart = () => Neo.app({ mainView: CrmViewport, name : 'CRM' });
 // apps/accounting/app.mjs
 export const onStart = () => Neo.app({ mainView: AccountingViewport, name : 'Accounting' });
 // Both run in same App Worker, different browser windows
 ``` 
 
 ### Cross-App Communication
-```
-javascript // Apps can communicate and share data Neo.apps.CRM.mainView.fire('customerUpdated', { customerId: 123, changes : {status: 'active'} });
+
+```javascript
+// Apps can communicate and share data
+Neo.apps.CRM.mainView.fire('customerUpdated', { customerId: 123, changes : {status: 'active'} });
 // Shared stores, utilities, and state possible
 ``` 
 
@@ -248,7 +286,7 @@ The bootstrap process includes built-in optimizations:
     "workerBasePath": "../../src/worker/"
 }
 ```
-```
+
 **Configuration Categories:**
 - **Path Resolution** - Where to find files and modules
 - **Worker Settings** - How workers should be configured
@@ -257,13 +295,16 @@ The bootstrap process includes built-in optimizations:
 - **Environment Flags** - Development vs production settings
 
 ### Environment-Specific Configs
+
 Different environments can use different configurations:
 - **`neo-config.json`** - Default configuration
 - **`neo-config-development.json`** - Development overrides
 - **`neo-config-production.json`** - Production optimizations
 
 ## Debugging and Troubleshooting
+
 ### Common Startup Issues
+
 **Configuration Problems:**
 ``` 
 Error: Failed to resolve module
@@ -279,24 +320,30 @@ Solution: Verify workerBasePath and main thread configuration
 Error: onStart is not a function
 Solution: Ensure app.mjs exports onStart function correctly
 ```
+
 ### Debug Tools
+
 **Worker Communication:**
-``` javascript
+```javascript
 // Enable worker message logging
 Neo.config.logLevel = 'debug';
 
 // Monitor worker messages in browser console
 ```
+
 **Performance Monitoring:**
-``` javascript
+```javascript
 // Track bootstrap timing
 Neo.config.renderCountDeltas = true;
 
 // Monitor component creation
 Neo.config.logLevel = 'info';
 ```
+
 ## Best Practices
+
 ### Application Structure
+
 ``` 
 apps/myapp/
 ├── app.mjs              ← Entry point
@@ -309,8 +356,10 @@ apps/myapp/
 ├── model/               ← Data models
 └── controller/          ← Business logic
 ```
+
 ### Entry Point Guidelines
-``` javascript
+
+```javascript
 // Keep app.mjs minimal and focused
 import Overwrites from './Overwrites.mjs';  // Optional
 import Viewport   from './view/Viewport.mjs';
@@ -323,7 +372,8 @@ export const onStart = () => Neo.app({
 // Avoid complex logic in app.mjs - put it in components
 ```
 ### Configuration Management
-``` json
+
+```json
 {
     // Use relative paths for portability
     "appPath": "../../apps/myapp/app.mjs",
@@ -337,4 +387,3 @@ export const onStart = () => Neo.app({
     }
 }
 ```
-## What's Next?
