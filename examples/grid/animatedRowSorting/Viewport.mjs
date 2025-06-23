@@ -52,12 +52,12 @@ class Viewport extends BaseViewport {
             store       : MainStore,
             wrapperStyle: {maxWidth: '902px'},
 
-            columnDefaults: {
-                width: 200
+            bodyConfig: {
+                animatedRowSorting: true
             },
 
-            viewConfig: {
-                animatedRowSorting: true
+            columnDefaults: {
+                width: 200
             },
 
             columns: [

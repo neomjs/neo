@@ -55,7 +55,7 @@ class AnimatedChange extends Column {
      */
     async onRecordChange({fields, record}) {
         let me     = this,
-            {view} = me.parent,
+            {body} = me.parent,
             cellId, field, node;
 
         for (field of fields) {
@@ -63,16 +63,16 @@ class AnimatedChange extends Column {
                 // Wait for the next animation frame
                 await me.timeout(20);
 
-                cellId = view.getCellId(me.parent.store.indexOf(record), me.dataField);
-                node   = VdomUtil.find(view.vdom, cellId)?.vdom;
+                cellId = body.getCellId(me.parent.store.indexOf(record), me.dataField);
+                node   = VdomUtil.find(body.vdom, cellId)?.vdom;
 
                 if (node) {
                     NeoArray.add(node.cls, me.getAnimationCls(record));
 
-                    // This will trigger a 2nd view update, after grid.View: onStoreRecordChange()
+                    // This will trigger a 2nd body update, after grid.Body: onStoreRecordChange()
                     // It is crucial to restart the keyframe based animation
                     // => The previous update call will remove the last animationCls
-                    view.update()
+                    body.update()
                 }
 
                 break

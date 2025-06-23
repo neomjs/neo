@@ -18,6 +18,13 @@ class GridContainer extends BaseGridContainer {
          */
         amountColumns_: 50,
         /**
+         * @member {Object} bodyConfig
+         */
+        bodyConfig: {
+            bufferColumnRange: 3,
+            bufferRowRange   : 5
+        },
+        /**
          * Default configs for each column
          * @member {Object} columnDefaults
          */
@@ -29,14 +36,7 @@ class GridContainer extends BaseGridContainer {
         /**
          * @member {Object[]} store=MainStore
          */
-        store: MainStore,
-        /**
-         * @member {Object} viewConfig
-         */
-        viewConfig: {
-            bufferColumnRange: 3,
-            bufferRowRange   : 5
-        }
+        store: MainStore
     }
 
     /**

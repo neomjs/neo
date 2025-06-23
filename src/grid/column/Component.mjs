@@ -76,7 +76,7 @@ class Component extends Column {
      */
     cellRenderer(data) {
         let {gridContainer, record, rowIndex} = data,
-            {appName, view, windowId}         = gridContainer,
+            {appName, body, windowId}         = gridContainer,
             me               = this,
             {recordProperty} = me,
             id               = me.getComponentId(rowIndex),
@@ -104,7 +104,7 @@ class Component extends Column {
                 ...componentConfig,
                 appName,
                 id,
-                parentComponent : view,
+                parentComponent : body,
                 [recordProperty]: record,
                 windowId
             });
@@ -118,10 +118,10 @@ class Component extends Column {
         }
 
         if (me.useBindings) {
-            view.getStateProvider()?.parseConfig(component)
+            body.getStateProvider()?.parseConfig(component)
         }
 
-        view.updateDepth = -1;
+        body.updateDepth = -1;
 
         return component.createVdomReference()
     }
@@ -132,9 +132,9 @@ class Component extends Column {
      */
     getComponentId(rowIndex) {
         let me     = this,
-            {view} = me.parent;
+            {body} = me.parent;
 
-        return `${me.id}-component-${rowIndex % (view.availableRows + 2 * view.bufferRowRange)}`
+        return `${me.id}-component-${rowIndex % (body.availableRows + 2 * body.bufferRowRange)}`
     }
 }
 

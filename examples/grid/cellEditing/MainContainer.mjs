@@ -114,6 +114,10 @@ class MainContainer extends ConfigurationViewport {
             store       : MainStore,
             wrapperStyle: {maxWidth: '1002px'},
 
+            bodyConfig: {
+                selectionModel: CellModel
+            },
+
             columnDefaults: {
                 editable: true,
                 width   : 200
@@ -160,11 +164,7 @@ class MainContainer extends ConfigurationViewport {
                 dataField: 'githubId',
                 editable : false,
                 text     : 'Github Id (Non-editable)'
-            }],
-
-            viewConfig: {
-                selectionModel: CellModel
-            }
+            }]
         }
     }
 

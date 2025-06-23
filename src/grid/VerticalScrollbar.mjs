@@ -53,9 +53,9 @@ class VerticalScrollbar extends Component {
 
         if (mounted) {
             ScrollSync.register({
-                fromId: me.parent.view.vdom.id,
+                fromId: me.parent.body.vdom.id,
                 toId  : me.id,
-                twoWay: !Neo.config.hasTouchEvents, // Syncing the scroller back to the view affects mobile scrolling
+                twoWay: !Neo.config.hasTouchEvents, // Syncing the scroller back to the body affects mobile scrolling
                 ...params
             })
         } else {

@@ -14,7 +14,7 @@
     }
 }
 
-.neo-grid-wrapper:has(.neo-grid-view.neo-is-scrolling) {
+.neo-grid-wrapper:has(.neo-grid-body.neo-is-scrolling) {
     .neo-grid-vertical-scrollbar {
         opacity: 1;
     }
