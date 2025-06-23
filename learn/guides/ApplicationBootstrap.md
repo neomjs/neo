@@ -66,7 +66,7 @@ of all available configuration options, you can refer to the `src/DefaultConfig.
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"],
+    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
     "themes"          : ["neo-theme-light"],
     "useCanvasWorker" : false,
     "useDataWorker"   : false,
