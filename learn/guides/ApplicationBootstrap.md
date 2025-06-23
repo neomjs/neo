@@ -14,6 +14,15 @@ using Web Workers.
 
 ## Bootstrap Sequence
 
+```
+myapp/
+├── view/
+│   └── Viewport.mjs // The app main view
+├── app.mjs           // The entry-point for your code inside the app worker
+├── index.html        // The entry-point for a main-thread
+└── neo-config.json   // Framework global configs for your app
+```
+
 ### 1. Entry Point: index.html
 
 The bootstrap process begins with a minimal HTML file:
@@ -149,12 +158,10 @@ The Main class:
 3. Listens for the 'domContentLoaded' event
 4. When the DOM is loaded, it loads any main thread addons and notifies the WorkerManager
 
-### 5. Worker Manager: Creating Workers
-
-`Neo.worker.Manager` is responsible for creating and managing the workers:
+### 5. Neo.worker.Manager: Creating Workers
 
 ```javascript
-class Manager extends Base {
+class Manager extends core.Base {
     // ...
 
     createWorkers() {
@@ -258,12 +265,7 @@ class App extends Base {
             path = path.slice(0, -4)
         }
 
-        return import(
-            /* webpackInclude: /(?:\/|\\)app.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(dist|node_modules)/ */
-            /* webpackMode: "lazy" */
-            `../../${path}.mjs`
-        )
+        return import(`../../${path}.mjs`)
     }
 
     // ...
