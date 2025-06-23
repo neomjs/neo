@@ -285,7 +285,7 @@ The App worker:
 Finally, the application's `app.mjs` file is loaded and executed:
 
 ```javascript
-import Overwrites from './Overwrites.mjs'; // Optional framework extensions
+import Overwrites from './Overwrites.mjs';    // Optional class config default value changes for framework classes
 import Viewport   from './view/Viewport.mjs'; // Your main UI component
 
 export const onStart = () => Neo.app({
