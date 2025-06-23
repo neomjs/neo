@@ -151,7 +151,7 @@ The Main class:
 
 ### 5. Worker Manager: Creating Workers
 
-The `WorkerManager` is responsible for creating and managing the workers:
+`Neo.worker.Manager` is responsible for creating and managing the workers:
 
 ```javascript
 class Manager extends Base {
@@ -215,7 +215,7 @@ class Manager extends Base {
 }
 ```
 
-The WorkerManager:
+`Neo.worker.Manager`:
 1. Detects browser features (Web Workers, SharedWorkers)
 2. Creates workers for App, VDom, Data, etc. based on configuration
 3. Sends the Neo.config to each worker
