@@ -47,11 +47,6 @@ class App extends Base {
     }
 
     /**
-     * @member {Object|null} data=null
-     * @protected
-     */
-    data = null
-    /**
      * @member {Boolean} isUsingStateProviders=false
      * @protected
      */
@@ -388,23 +383,16 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me       = this,
-            {config} = Neo,
-            app, path;
-
-        if (data) {
-            me.data = data;
-            config.resourcesPath = data.resourcesPath
-        }
-
-        path = me.data.path;
+        let me        = this,
+            {config}  = Neo,
+            {appPath} = config;
 
         if (config.environment !== 'development') {
-            path = path.startsWith('/') ? path.substring(1) : path
+            appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
         }
 
-        me.importApp(path).then(module => {
-            app = module.onStart();
+        me.importApp(appPath).then(module => {
+            module.onStart();
 
             // short delay to ensure Component Controllers are ready
             config.hash && me.timeout(5).then(() => {

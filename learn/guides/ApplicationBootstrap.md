@@ -198,17 +198,13 @@ class Manager extends Base {
         if (me.constructedThreads === me.activeWorkers) {
             // All workers are constructed, load the application
             NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
-                me.loadApplication(NeoConfig.appPath)
+                me.loadApplication()
             })
         }
     }
 
-    loadApplication(path) {
-        this.sendMessage('app', {
-            action       : 'loadApplication',
-            path,
-            resourcesPath: NeoConfig.resourcesPath
-        })
+    loadApplication() {
+        this.sendMessage('app', {action: 'loadApplication' })
     }
 
     // ...
