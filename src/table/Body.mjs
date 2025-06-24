@@ -132,18 +132,17 @@ class TableBody extends Component {
     }
 
     /**
-     * @param {Object} data
-     * @param {String} [data.cellId]
-     * @param {Object} data.column
-     * @param {Number} data.columnIndex
-     * @param {Object} data.record
-     * @param {Number} data.rowIndex
+     * @param {Object}              data
+     * @param {String}              [data.cellId]
+     * @param {Object}              data.column
+     * @param {Number}              data.columnIndex
+     * @param {Object}              data.record
+     * @param {Number}              data.rowIndex
      * @param {Neo.table.Container} data.tableContainer
      * @returns {Object}
      */
-    applyRendererOutput(data) {
-        let {cellId, column, columnIndex, record, rowIndex, tableContainer} = data,
-            me          = this,
+    applyRendererOutput({cellId, column, columnIndex, record, rowIndex, tableContainer}) {
+        let me          = this,
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
