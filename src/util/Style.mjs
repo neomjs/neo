@@ -36,19 +36,15 @@ class Style extends Base {
             return null
         } else if (!oldStyle) {
             return Neo.clone(newStyle)
-        } else if (!newStyle) {
-            Object.keys(oldStyle).forEach(function(style) {
-                styles[style] = null
-            });
         } else {
-            Object.keys(newStyle).forEach(style => {
+            newStyle && Object.keys(newStyle).forEach(style => {
                 if (!oldStyle.hasOwnProperty(style) || oldStyle[style] !== newStyle[style]) {
                     styles[style] = newStyle[style]
                 }
             });
 
             Object.keys(oldStyle).forEach(style => {
-                if (!newStyle.hasOwnProperty(style)) {
+                if (!newStyle  || !newStyle.hasOwnProperty(style)) {
                     styles[style] = null
                 }
             });
