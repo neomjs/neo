@@ -38,7 +38,7 @@ class Helper extends Base {
     }
 
     /**
-     * @return {Promise<void>}
+     * @returns {Promise<void>}
      */
     async initAsync() {
         let me = this;
