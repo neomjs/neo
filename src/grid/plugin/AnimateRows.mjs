@@ -1,5 +1,4 @@
 import Base     from '../../plugin/Base.mjs';
-import CssUtil  from '../../util/Css.mjs';
 import NeoArray from '../../util/Array.mjs';
 
 /**
@@ -151,7 +150,7 @@ class AnimateRows extends Base {
 
         for (rowIndex=mountedRows[0]; rowIndex < mountedRows[1]; rowIndex++) {
             record  = owner.store.getAt(rowIndex);
-            id      = owner.getRowId(record, rowIndex)
+            id      = owner.getRowId(rowIndex)
             mapItem = map[id];
 
             if (mapItem) {

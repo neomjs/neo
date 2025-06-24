@@ -14,6 +14,15 @@ using Web Workers.
 
 ## Bootstrap Sequence
 
+```
+myapp/
+├── view/
+│   └── Viewport.mjs // The app main view
+├── app.mjs           // The entry-point for your code inside the app worker
+├── index.html        // The entry-point for a main-thread
+└── neo-config.json   // Framework global configs for your app
+```
+
 ### 1. Entry Point: index.html
 
 The bootstrap process begins with a minimal HTML file:
@@ -66,7 +75,7 @@ of all available configuration options, you can refer to the `src/DefaultConfig.
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["Stylesheet"],
+    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
     "themes"          : ["neo-theme-light"],
     "useCanvasWorker" : false,
     "useDataWorker"   : false,
@@ -149,12 +158,10 @@ The Main class:
 3. Listens for the 'domContentLoaded' event
 4. When the DOM is loaded, it loads any main thread addons and notifies the WorkerManager
 
-### 5. Worker Manager: Creating Workers
-
-The `WorkerManager` is responsible for creating and managing the workers:
+### 5. Neo.worker.Manager: Creating Workers
 
 ```javascript
-class Manager extends Base {
+class Manager extends core.Base {
     // ...
 
     createWorkers() {
@@ -198,24 +205,20 @@ class Manager extends Base {
         if (me.constructedThreads === me.activeWorkers) {
             // All workers are constructed, load the application
             NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
-                me.loadApplication(NeoConfig.appPath)
+                me.loadApplication()
             })
         }
     }
 
-    loadApplication(path) {
-        this.sendMessage('app', {
-            action       : 'loadApplication',
-            path,
-            resourcesPath: NeoConfig.resourcesPath
-        })
+    loadApplication() {
+        this.sendMessage('app', {action: 'loadApplication' })
     }
 
     // ...
 }
 ```
 
-The WorkerManager:
+`Neo.worker.Manager`:
 1. Detects browser features (Web Workers, SharedWorkers)
 2. Creates workers for App, VDom, Data, etc. based on configuration
 3. Sends the Neo.config to each worker
@@ -262,12 +265,7 @@ class App extends Base {
             path = path.slice(0, -4)
         }
 
-        return import(
-            /* webpackInclude: /(?:\/|\\)app.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(dist|node_modules)/ */
-            /* webpackMode: "lazy" */
-            `../../${path}.mjs`
-        )
+        return import(`../../${path}.mjs`)
     }
 
     // ...
@@ -285,7 +283,7 @@ The App worker:
 Finally, the application's `app.mjs` file is loaded and executed:
 
 ```javascript
-import Overwrites from './Overwrites.mjs'; // Optional framework extensions
+import Overwrites from './Overwrites.mjs';    // Optional class config default value changes for framework classes
 import Viewport   from './view/Viewport.mjs'; // Your main UI component
 
 export const onStart = () => Neo.app({

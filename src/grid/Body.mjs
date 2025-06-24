@@ -6,21 +6,21 @@ import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 
 /**
- * @class Neo.grid.View
+ * @class Neo.grid.Body
  * @extends Neo.component.Base
  */
-class GridView extends Component {
+class GridBody extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.grid.View'
+         * @member {String} className='Neo.grid.Body'
          * @protected
          */
-        className: 'Neo.grid.View',
+        className: 'Neo.grid.Body',
         /**
-         * @member {String} ntype='grid-view'
+         * @member {String} ntype='grid-body'
          * @protected
          */
-        ntype: 'grid-view',
+        ntype: 'grid-body',
         /**
          * @member {Boolean} animatedRowSorting_=false
          */
@@ -36,23 +36,23 @@ class GridView extends Component {
          */
         availableRows_: 0,
         /**
-         * Internal flag. Gets calculated after mounting grid.View rows
+         * Internal flag. Gets calculated after mounting grid.Body rows
          * @member {Number} availableWidth_=0
          */
         availableWidth_: 0,
         /**
-         * @member {String[]} baseCls=['neo-grid-view']
+         * @member {String[]} baseCls=['neo-grid-body']
          * @protected
          */
-        baseCls: ['neo-grid-view'],
+        baseCls: ['neo-grid-body'],
         /**
-         * The amount of columns (cells) to paint before the first & after the last visible column,
+         * The number of columns (cells) to paint before the first and after the last visible column,
          * to enhance the scrolling performance
          * @member {Number} bufferColumnRange_=0
          */
         bufferColumnRange_: 0,
         /**
-         * The amount of rows to paint before the first & after the last visible row,
+         * The number of rows to paint before the first and after the last visible row,
          * to enhance the scrolling performance
          * @member {Number} bufferRowRange_=3
          */
@@ -63,7 +63,7 @@ class GridView extends Component {
          */
         colspanField: 'colspan',
         /**
-         * Internal flag. Gets calculated after mounting grid.View rows
+         * Internal flag. Gets calculated after mounting grid.Body rows
          * @member {Number} containerWidth_=0
          */
         containerWidth_: 0,
@@ -150,9 +150,9 @@ class GridView extends Component {
          */
         visibleRows: [0, 0],
         /**
-         * @member {String[]} wrapperCls=[]
+         * @member {String[]} wrapperCls=['neo-grid-body-wrapper']
          */
-        wrapperCls: ['neo-grid-view-wrapper'],
+        wrapperCls: ['neo-grid-body-wrapper'],
         /**
          * @member {Object} _vdom
          */
@@ -686,7 +686,7 @@ class GridView extends Component {
             dataField = me.getCellDataField(id),
             record    = me.getRecord(id);
 
-        me.parent.fire(eventName, {data, dataField, record, view: me})
+        me.parent.fire(eventName, {body: me, data, dataField, record})
     }
 
     /**
@@ -698,7 +698,7 @@ class GridView extends Component {
             id     = data.currentTarget,
             record = me.getRecord(id);
 
-        me.parent.fire(eventName, {data, record, view: me})
+        me.parent.fire(eventName, {body: me, data, record})
     }
 
     /**
@@ -1133,4 +1133,4 @@ class GridView extends Component {
     }
 }
 
-export default Neo.setupClass(GridView);
+export default Neo.setupClass(GridBody);

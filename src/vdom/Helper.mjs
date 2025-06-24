@@ -107,7 +107,7 @@ class Helper extends Base {
                         Object.entries(value).forEach(([key, value]) => {
                             const
                                 oldValue    = oldVnode.attributes[key],
-                                hasOldValue = Object.hasOwn(oldVnode.attributes, 'key');
+                                hasOldValue = Object.hasOwn(oldVnode.attributes, key);
 
                             // If the attribute has an old value AND the value hasn't changed, skip.
                             if (hasOldValue && oldValue === value) {

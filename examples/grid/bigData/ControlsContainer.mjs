@@ -207,7 +207,7 @@ class ControlsContainer extends Container {
      */
     onBufferColumnRangeChange(data) {
         if (data.oldValue) {
-            this.grid.view.bufferColumnRange = parseInt(data.value.id)
+            this.grid.body.bufferColumnRange = parseInt(data.value.id)
         }
     }
 
@@ -216,7 +216,7 @@ class ControlsContainer extends Container {
      */
     onBufferRowRangeChange(data) {
         if (data.oldValue) {
-            this.grid.view.bufferRowRange = parseInt(data.value.id)
+            this.grid.body.bufferRowRange = parseInt(data.value.id)
         }
     }
 
@@ -263,7 +263,7 @@ class ControlsContainer extends Container {
      * @param {Object} data
      */
     onSelectionModelChange(data) {
-        this.grid.view.selectionModel = data.component.selectionModel
+        this.grid.body.selectionModel = data.component.selectionModel
     }
 
     /**

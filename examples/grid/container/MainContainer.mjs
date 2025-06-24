@@ -88,16 +88,16 @@ class MainContainer extends ConfigurationViewport {
                 width: 200
             },
 
+            bodyConfig: {
+                selectionModel: CellModel
+            },
+
             columns: [
                 {dataField: 'firstname', text: 'Firstname'},
                 {dataField: 'lastname',  text: 'Lastname'},
                 {dataField: 'githubId',  text: 'Github Id'},
                 {dataField: 'country',   text: 'Country'}
             ],
-
-            viewConfig: {
-                selectionModel: CellModel
-            },
 
             wrapperStyle: {
                 height: '250px'

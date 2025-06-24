@@ -270,14 +270,10 @@ class Manager extends Base {
     }
 
     /**
-     * @param {String} path
+     *
      */
-    loadApplication(path) {
-        this.sendMessage('app', {
-            action       : 'loadApplication',
-            path,
-            resourcesPath: NeoConfig.resourcesPath
-        })
+    loadApplication() {
+        this.sendMessage('app', {action: 'loadApplication' })
     }
 
     /**
@@ -291,7 +287,7 @@ class Manager extends Base {
         if (me.constructedThreads === me.activeWorkers) {
             // better safe than sorry => all remotes need to be registered
             NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
-                me.loadApplication(NeoConfig.appPath)
+                me.loadApplication()
             })
         }
     }

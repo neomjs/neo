@@ -174,7 +174,7 @@ class List extends BaseList {
             record   = store.getAt(index);
             name     = record.name.replace(List.nameRegEx, "$1");
 
-            item.style = item.style || {};
+            item.style ??= {};
 
             if (emptyValue) {
                 itemName.html = name;

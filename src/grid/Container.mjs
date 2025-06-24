@@ -1,7 +1,7 @@
 import BaseContainer     from '../container/Base.mjs';
 import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Collection        from '../collection/Base.mjs';
-import GridView          from './View.mjs';
+import GridBody          from './Body.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
@@ -52,6 +52,16 @@ class GridContainer extends BaseContainer {
          * @protected
          */
         baseCls: ['neo-grid-container'],
+        /**
+         * Configs for Neo.grid.Body
+         * @member {Object|null} [bodyConfig=null]
+         */
+        bodyConfig: null,
+        /**
+         * @member {String|null} bodyId_=null
+         * @protected
+         */
+        bodyId_: null,
         /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
@@ -106,16 +116,6 @@ class GridContainer extends BaseContainer {
          */
         store_: null,
         /**
-         * Configs for Neo.grid.View
-         * @member {Object|null} [viewConfig=null]
-         */
-        viewConfig: null,
-        /**
-         * @member {String|null} viewId_=null
-         * @protected
-         */
-        viewId_: null,
-        /**
          * @member {Array|null} items=null
          * @protected
          */
@@ -142,19 +142,19 @@ class GridContainer extends BaseContainer {
     scrollManager = null
 
     /**
+     * Convenience method to access the Neo.grid.Body
+     * @returns {Neo.grid.Body|null}
+     */
+    get body() {
+        return Neo.getComponent(this.bodyId) || Neo.get(this.bodyId)
+    }
+
+    /**
      * Convenience method to access the Neo.grid.header.Toolbar
      * @returns {Neo.grid.header.Toolbar|null}
      */
     get headerToolbar() {
         return Neo.getComponent(this.headerToolbarId) || Neo.get(this.headerToolbarId)
-    }
-
-    /**
-     * Convenience method to access the Neo.grid.View
-     * @returns {Neo.grid.View|null}
-     */
-    get view() {
-        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
     }
 
     /**
@@ -166,8 +166,8 @@ class GridContainer extends BaseContainer {
         let me = this,
             {appName, rowHeight, store, windowId} = me;
 
+        me.bodyId          = Neo.getId('grid-body');
         me.headerToolbarId = Neo.getId('grid-header-toolbar');
-        me.viewId          = Neo.getId('grid-view');
 
         me.items = [{
             module           : header.Toolbar,
@@ -176,13 +176,13 @@ class GridContainer extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module       : GridView,
+            module       : GridBody,
             flex         : 1,
             gridContainer: me,
-            id           : me.viewId,
+            id           : me.bodyId,
             rowHeight,
             store,
-            ...me.viewConfig
+            ...me.bodyConfig
         }];
 
         me.scrollbar = Neo.create({
@@ -218,7 +218,7 @@ class GridContainer extends BaseContainer {
 
         if (mounted) {
             ResizeObserver.register(resizeParams);
-            await me.passSizeToView()
+            await me.passSizeToBody()
         } else {
             me.initialResizeEvent = true;
             ResizeObserver.unregister(resizeParams)
@@ -262,9 +262,9 @@ class GridContainer extends BaseContainer {
 
             await me.timeout(50);
 
-            await me.passSizeToView();
+            await me.passSizeToBody();
 
-            me.view?.createViewData()
+            me.body?.createViewData()
         }
     }
 
@@ -287,14 +287,14 @@ class GridContainer extends BaseContainer {
      */
     afterSetRowHeight(value, oldValue) {
         if (value > 0) {
-            let {scrollbar, view} = this;
+            let {body, scrollbar} = this;
 
             if (scrollbar) {
                 scrollbar.rowHeight = value
             }
 
-            if (view) {
-                view.rowHeight = value
+            if (body) {
+                body.rowHeight = value
             }
         }
     }
@@ -340,10 +340,20 @@ class GridContainer extends BaseContainer {
         value   ?.on(listeners);
         oldValue?.un(listeners);
 
-        // in case we dynamically change the store, the view needs to get the new reference
-        if (me.view) {
-            me.view.store = value
+        // in case we dynamically change the store, grid.Body needs to get the new reference
+        if (me.body) {
+            me.body.store = value
         }
+    }
+
+    /**
+     * Triggered before the bodyId config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetBodyId(value, oldValue) {
+        return value || oldValue
     }
 
     /**
@@ -385,35 +395,25 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered before the viewId config gets changed.
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    beforeSetViewId(value, oldValue) {
-        return value || oldValue
-    }
-
-    /**
      * In case you want to update multiple existing records in parallel,
      * using this method is faster than updating each record one by one.
      * At least until we introduce row based vdom updates.
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        let {store, view} = this,
+        let {body, store} = this,
             {keyProperty} = store;
 
-        if (view) {
-            view.silentVdomUpdate = true;
+        if (body) {
+            body.silentVdomUpdate = true;
 
             records.forEach(item => {
                 store.get(item[keyProperty])?.set(item)
             });
 
-            view.silentVdomUpdate = false;
+            body.silentVdomUpdate = false;
 
-            view.update()
+            body.update()
         }
     }
 
@@ -527,9 +527,9 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.scrollManager = Neo.create({
+            gridBody     : me.body,
             module       : ScrollManager,
-            gridContainer: me,
-            gridView     : me.view
+            gridContainer: me
         })
     }
 
@@ -540,11 +540,11 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         if (!me.initialResizeEvent) {
-            await me.passSizeToView(true);
+            await me.passSizeToBody(true);
 
-            me.view.updateMountedAndVisibleColumns();
+            me.body.updateMountedAndVisibleColumns();
 
-            await me.headerToolbar.passSizeToView()
+            await me.headerToolbar.passSizeToBody()
         } else {
             me.initialResizeEvent = false
         }
@@ -561,7 +561,7 @@ class GridContainer extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        opts.direction && me.view.onStoreLoad()
+        opts.direction && me.body.onStoreLoad()
     }
 
     /**
@@ -589,16 +589,16 @@ class GridContainer extends BaseContainer {
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
-    async passSizeToView(silent=false) {
+    async passSizeToBody(silent=false) {
         let me                          = this,
             [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbarId]);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
             await me.timeout(100);
-            await me.passSizeToView(silent)
+            await me.passSizeToBody(silent)
         } else {
-            me.view[silent ? 'setSilent' : 'set']({
+            me.body[silent ? 'setSilent' : 'set']({
                 availableHeight: containerRect.height - headerRect.height,
                 containerWidth : containerRect.width
             })
@@ -624,8 +624,8 @@ class GridContainer extends BaseContainer {
      */
     scrollByColumns(index, step) {
         let me           = this,
-            {view}       = me,
-            {columnPositions, containerWidth, mountedColumns, visibleColumns} = view,
+            {body}       = me,
+            {columnPositions, containerWidth, mountedColumns, visibleColumns} = body,
             countColumns = columnPositions.getCount(),
             newIndex     = index + step,
             column, mounted, scrollLeft, visible;

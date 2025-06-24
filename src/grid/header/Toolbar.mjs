@@ -89,7 +89,7 @@ class Toolbar extends BaseToolbar {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        value && this.passSizeToView()
+        value && this.passSizeToBody()
     }
 
     /**
@@ -181,7 +181,7 @@ class Toolbar extends BaseToolbar {
 
         me.promiseUpdate().then(() => {
             // To prevent duplicate calls, we need to check the mounted state before the update call
-            mounted && me.passSizeToView()
+            mounted && me.passSizeToBody()
         })
     }
 
@@ -203,10 +203,10 @@ class Toolbar extends BaseToolbar {
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
-    async passSizeToView(silent=false) {
+    async passSizeToBody(silent=false) {
         let me              = this,
             {items}         = me,
-            {view}          = me.parent,
+            {body}          = me.parent,
             rects           = await me.getDomRect(items.map(item => item.id)),
             lastItem        = rects[rects.length - 1],
             columnPositions = rects.map((item, index) => ({dataField: items[index].dataField, width: item.width, x: item.x - rects[0].x})),
@@ -225,16 +225,16 @@ class Toolbar extends BaseToolbar {
         // Delay for slow connections, where the container-sizing is not done yet
         if (!layoutFinished) {
             await me.timeout(100);
-            await me.passSizeToView(silent)
+            await me.passSizeToBody(silent)
         } else {
-            view.columnPositions.clear();
-            view.columnPositions.add(columnPositions);
+            body.columnPositions.clear();
+            body.columnPositions.add(columnPositions);
 
-            view[silent ? 'setSilent' : 'set']({
+            body[silent ? 'setSilent' : 'set']({
                 availableWidth: lastItem.x + lastItem.width - rects[0].x
             });
 
-            !silent && view.updateMountedAndVisibleColumns()
+            !silent && body.updateMountedAndVisibleColumns()
         }
     }
 

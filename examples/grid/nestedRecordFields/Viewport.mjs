@@ -51,6 +51,10 @@ class Viewport extends BaseViewport {
             bind     : {store: 'stores.mainStore'},
             reference: 'grid',
 
+            bodyConfig: {
+                highlightModifiedCells: true
+            },
+
             columnDefaults: {
                 width: 200
             },
@@ -66,11 +70,7 @@ class Viewport extends BaseViewport {
                     handler: 'editButtonHandler',
                     text   : 'Edit'
                 }}
-            ],
-
-            viewConfig: {
-                highlightModifiedCells: true
-            }
+            ]
         }]
     }
 }
