@@ -107,8 +107,7 @@ class Base {
     }
 
     /**
-     * If a class extension does not implement `async initAsync()`, `construct()` will set this internal flag to `true`.
-     * Otherwise, the flag will get set to `true` once the Promise of `async initAsync()` is resolved.
+     * The internal flag will get set to `true` once the Promise of `async initAsync()` is resolved.
      * method body.
      * @member {Boolean} isReady=false
      */
@@ -175,21 +174,13 @@ class Base {
 
         if (me.initAsync) {
             // Triggers async logic after the construction chain is done.
-            me.readyPromise = (async () => {
+            me.readyPromise = Promise.resolve().then(async () => {
                 await me.initAsync();
                 me.isReady = true
-            })()
+            })
         } else {
             me.isReady = true
         }
-
-        /*
-         *  We have to use the macro task queue here. initRemote() relies on accessing Neo.currentWorker, which does
-         *  get defined inside worker.Base: construct(). Workers can import singletons inside static top-level imports.
-         *  The micro task queue will execute before the worker construction chain starts, so using it here
-         *  would lead to errors, since Neo.currentWorker will be undefined.
-         */
-        me.remote && setTimeout(me.initRemote.bind(me), 0)
     }
 
     /**
@@ -406,14 +397,18 @@ class Base {
     init() {}
 
     /**
-     * You can implement this method in subclasses to perform asynchronous initialization logic.
+     * You can override this method in subclasses to perform asynchronous initialization logic.
+     * Make sure to use the parent call `await super.initAsync()` at the beginning of their implementations.
      *
      * A common use case is requiring conditional or optional dynamic imports or fetching initial data.
      *
      * The promise returned by this method (or implicitly created if it's an `async` function)
-     * will be stored in `this.readyPromise`. Once this promise is fulfilled, the `this.isReady` flag will be set to `true`.
+     * will be stored in `this.readyPromise`. Once this `Promise` is fulfilled, the `this.isReady` flag will be set to `true`.
      * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
      */
+    async initAsync() {
+        this.remote && this.initRemote()
+    }
 
     /**
      * Applies all class configs to this instance
