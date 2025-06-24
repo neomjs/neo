@@ -72,8 +72,8 @@ class MainContainer3 extends Container {
             }]
         }, {
             module             : TableContainer,
+            bodyConfig         : {useRowRecordIds: false},
             reference          : 'table',
-            viewConfig         : {useRowRecordIds: false},
             useCustomScrollbars: false,
             width              : '100%',
 
@@ -146,7 +146,7 @@ class MainContainer3 extends Container {
             rows      = me.getReference('amount-rows-field').value,
             inputData = me.up('viewport').createRandomData(columns, rows);
 
-        table.view.createViewData(inputData)
+        table.body.createViewData(inputData)
     }
 
     /**

@@ -69,7 +69,7 @@ class CellEditing extends Plugin {
             me.onSelectionModelChange({value: selectionModel})
         }
 
-        owner.view.keys.add({
+        owner.body.keys.add({
             Enter: 'onTableKeyDown',
             Space: 'onTableKeyDown',
             scope: me
@@ -109,9 +109,9 @@ class CellEditing extends Plugin {
 
         let me                  = this,
             {appName, windowId} = me,
-            {view}              = me.owner,
-            cellId              = view.getCellId(record, dataField),
-            cellNode            = VdomUtil.find(view.vdom, cellId).vdom,
+            {body}              = me.owner,
+            cellId              = body.getCellId(record, dataField),
+            cellNode            = VdomUtil.find(body.vdom, cellId).vdom,
             column              = me.owner.headerToolbar.getColumn(dataField),
             editor              = me.editors[dataField],
             value               = record[dataField],
@@ -133,7 +133,7 @@ class CellEditing extends Plugin {
                 cls      : me.editorCls,
                 dataField,
                 hideLabel: true,
-                parentId : view.id,
+                parentId : body.id,
                 record,
                 value,
                 windowId,
@@ -163,9 +163,9 @@ class CellEditing extends Plugin {
         cellNode.cn = [editor.createVdomReference()];
         delete cellNode.html;
 
-        view.updateDepth = -1;
+        body.updateDepth = -1;
 
-        await view.promiseUpdate();
+        await body.promiseUpdate();
 
         await me.timeout(30);
 
@@ -175,13 +175,13 @@ class CellEditing extends Plugin {
     /**
      *
      * @param {Object} data
-     * @param {Object} data.data
-     * @param {String} data.dataField
-     * @param {Object} data.record
-     * @param {Neo.table.View} data.view
+     * @param {Neo.table.Body} data.body
+     * @param {Object}         data.data
+     * @param {String}         data.dataField
+     * @param {Object}         data.record
      * @returns {Promise<void>}
      */
-    async onCellDoubleClick({data, dataField, record, view}) {
+    async onCellDoubleClick({body, data, dataField, record}) {
         await this.mountEditor(record, dataField)
     }
 
@@ -262,12 +262,12 @@ class CellEditing extends Plugin {
     async onTableKeyDown(data) {
         let me       = this,
             {target} = data,
-            {view}   = me.owner,
+            {body}   = me.owner,
             dataField, record;
 
         if (!me.mountedEditor && target.cls?.includes('neo-selected')) {
-            dataField = view.getCellDataField(target.id);
-            record    = view.getRecord(target.id);
+            dataField = body.getCellDataField(target.id);
+            record    = body.getRecord(target.id);
 
             await me.mountEditor(record, dataField)
         }
@@ -328,13 +328,13 @@ class CellEditing extends Plugin {
 
         let me       = this,
             record   = me.mountedEditor.record,
-            {view}   = me.owner,
-            rowIndex = view.store.indexOf(record);
+            {body}   = me.owner,
+            rowIndex = body.store.indexOf(record);
 
         me.mountedEditor = null;
 
-        view.getVdomRoot().cn[rowIndex] = view.createRow({record, rowIndex});
-        await view.promiseUpdate()
+        body.getVdomRoot().cn[rowIndex] = body.createRow({record, rowIndex});
+        await body.promiseUpdate()
     }
 }
 

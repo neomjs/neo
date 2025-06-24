@@ -151,10 +151,10 @@ class MainContainer extends Viewport {
             }]
         }, {
             module      : TableContainer,
+            bodyConfig  : {selectionModel: CellModel},
             id          : 'myTableStoreContainer',
             reference   : 'table',
             store       : MainStore,
-            viewConfig  : {selectionModel: CellModel},
             width       : '100%',
             wrapperStyle: {height: '300px'},
 
@@ -179,7 +179,7 @@ class MainContainer extends Viewport {
      */
     updateSelectionModel(data) {
         if (data.value) {
-            this.getReference('table').view.selectionModel = {
+            this.getReference('table').body.selectionModel = {
                 ntype: data.component.value
             }
         }

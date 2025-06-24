@@ -113,7 +113,7 @@ class MainContainer extends ConfigurationViewport {
             parentId   : this.id,
             store      : MainStore,
 
-            viewConfig: {
+            bodyConfig: {
                 selectionModel: CellModel
             },
 

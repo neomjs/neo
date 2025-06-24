@@ -3,7 +3,7 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import CssUtil         from '../util/Css.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
-import View            from './View.mjs';
+import TableBody       from './Body.mjs';
 import * as header     from './header/_export.mjs';
 
 /**
@@ -26,6 +26,16 @@ class Container extends BaseContainer {
          * @member {String[]} baseCls=['neo-table-container']
          */
         baseCls: ['neo-table-container'],
+        /**
+         * Configs for Neo.table.Body
+         * @member {Object|null} [bodyConfig=null]
+         */
+        bodyConfig: null,
+        /**
+         * @member {String|null} bodyId_=null
+         * @protected
+         */
+        bodyId_: null,
         /**
          * true uses table.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
@@ -76,16 +86,6 @@ class Container extends BaseContainer {
          */
         useCustomScrollbars_: true,
         /**
-         * Configs for Neo.table.View
-         * @member {Object|null} [viewConfig=null]
-         */
-        viewConfig: null,
-        /**
-         * @member {String|null} viewId_=null
-         * @protected
-         */
-        viewId_: null,
-        /**
          * @member {Array|null} items=null
          * @protected
          */
@@ -100,19 +100,19 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Convenience method to access the Neo.table.Body
+     * @returns {Neo.table.Body|null}
+     */
+    get body() {
+        return Neo.getComponent(this.bodyId) || Neo.get(this.bodyId)
+    }
+
+    /**
      * Convenience method to access the Neo.table.header.Toolbar
      * @returns {Neo.table.header.Toolbar|null}
      */
     get headerToolbar() {
         return Neo.getComponent(this.headerToolbarId) || Neo.get(this.headerToolbarId)
-    }
-
-    /**
-     * Convenience method to access the Neo.table.View
-     * @returns {Neo.table.View|null}
-     */
-    get view() {
-        return Neo.getComponent(this.viewId) || Neo.get(this.viewId)
     }
 
     /**
@@ -123,8 +123,8 @@ class Container extends BaseContainer {
 
         let me = this;
 
+        me.bodyId          = Neo.getId('table-body');
         me.headerToolbarId = Neo.getId('table-header-toolbar');
-        me.viewId          = Neo.getId('table-view');
 
         me.items = [{
             module           : header.Toolbar,
@@ -133,11 +133,11 @@ class Container extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module     : View,
+            module     : TableBody,
             containerId: me.id,
-            id         : me.viewId,
+            id         : me.bodyId,
             store      : me.store,
-            ...me.viewConfig
+            ...me.bodyConfig
         }];
 
         me.vdom.id = me.getWrapperId();
@@ -184,7 +184,7 @@ class Container extends BaseContainer {
                 headerToolbar.createItems()
             }
 
-            me.view?.createViewData()
+            me.body?.createViewData()
         }
     }
 
@@ -229,9 +229,9 @@ class Container extends BaseContainer {
         value   ?.on(listeners);
         oldValue?.un(listeners);
 
-        // in case we dynamically change the store, the view needs to get the new reference
-        if (me.view) {
-            me.view.store = value
+        // in case we dynamically change the store, the body needs to get the new reference
+        if (me.body) {
+            me.body.store = value
         }
     }
 
@@ -268,6 +268,16 @@ class Container extends BaseContainer {
         }
 
         me.scrollbarsCssApplied = true
+    }
+
+    /**
+     * Triggered before the bodyId config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetBodyId(value, oldValue) {
+        return value || oldValue
     }
 
     /**
@@ -309,35 +319,25 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Triggered before the viewId config gets changed.
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    beforeSetViewId(value, oldValue) {
-        return value || oldValue
-    }
-
-    /**
      * In case you want to update multiple existing records in parallel,
      * using this method is faster than updating each record one by one.
      * At least until we introduce row based vdom updates.
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        let {store, view} = this,
+        let {body, store} = this,
             {keyProperty} = store;
 
-        if (view) {
-            view.silentVdomUpdate = true;
+        if (body) {
+            body.silentVdomUpdate = true;
 
             records.forEach(item => {
                 store.get(item[keyProperty])?.set(item)
             });
 
-            view.silentVdomUpdate = false;
+            body.silentVdomUpdate = false;
 
-            view.update()
+            body.update()
         }
     }
 
@@ -426,7 +426,7 @@ class Container extends BaseContainer {
 
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
-        opts.direction && me.view.onStoreLoad()
+        opts.direction && me.body.onStoreLoad()
     }
 
     /**

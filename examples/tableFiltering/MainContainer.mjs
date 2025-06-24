@@ -46,10 +46,10 @@ class MainContainer extends Viewport {
             }]
         }, {
             module           : TableContainer,
+            bodyConfig       : {selectionModel: CellModel},
             id               : 'myTableFilterContainer',
             showHeaderFilters: true,
             store            : MainStore,
-            viewConfig       : {selectionModel: CellModel},
             width            : '100%',
             wrapperStyle     : {height: '300px'},
 
