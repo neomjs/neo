@@ -96,9 +96,28 @@ class Base {
          * @member {Class} module=null
          * @protected
          */
-        module: null
+        module: null,
+        /**
+         * Remote method access for other threads. Example use case:
+         * remote: {app: ['myRemoteMethod']}
+         * @member {Object|null} remote=null
+         * @protected
+         */
+        remote: null
     }
 
+    /**
+     * If a class extension does not implement `async initAsync()`, `construct()` will set this internal flag to `true`.
+     * Otherwise, the flag will get set to `true` once the Promise of `async initAsync()` is resolved.
+     * method body.
+     * @member {Boolean} isReady=false
+     */
+    isReady = false
+    /**
+     * This internal flag will Store the Promise for `async initAsync()`, in case a class extension implements the method.
+     * @member {Promise<void>|null} readyPromise=null
+     */
+    readyPromise = null
     /**
      * Internal cache for all timeout ids when using this.timeout()
      * @member {Number[]} timeoutIds=[]
@@ -154,7 +173,23 @@ class Base {
          */
         intercept(me, 'destroy', me.isDestroyedCheck, me);
 
-        me.remote && setTimeout(me.initRemote.bind(me), 1)
+        if (me.initAsync) {
+            // Triggers async logic after the construction chain is done.
+            me.readyPromise = (async () => {
+                await me.initAsync();
+                me.isReady = true
+            })()
+        } else {
+            me.isReady = true
+        }
+
+        /*
+         *  We have to use the macro task queue here. initRemote() relies on accessing Neo.currentWorker, which does
+         *  get defined inside worker.Base: construct(). Workers can import singletons inside static top-level imports.
+         *  The micro task queue will execute before the worker construction chain starts, so using it here
+         *  would lead to errors, since Neo.currentWorker will be undefined.
+         */
+        me.remote && setTimeout(me.initRemote.bind(me), 0)
     }
 
     /**
@@ -367,10 +402,18 @@ class Base {
 
     /**
      * Gets triggered after onConstructed() is done
-     * @see {@link Neo.core.Base#onConstructed onConstructed}
-     * @tutorial 02_ClassSystem
      */
     init() {}
+
+    /**
+     * You can implement this method in subclasses to perform asynchronous initialization logic.
+     *
+     * A common use case is requiring conditional or optional dynamic imports or fetching initial data.
+     *
+     * The promise returned by this method (or implicitly created if it's an `async` function)
+     * will be stored in `this.readyPromise`. Once this promise is fulfilled, the `this.isReady` flag will be set to `true`.
+     * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
+     */
 
     /**
      * Applies all class configs to this instance
