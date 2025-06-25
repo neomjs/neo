@@ -175,6 +175,12 @@ class Base {
          */
         intercept(me, 'destroy', me.isDestroyedCheck, me);
 
+        // Moving initRemote() outside the construction chain is crucial,
+        // since it does rely on Neo.currentWorker being defined.
+        Promise.resolve().then(() => {
+            me.remote && me.initRemote()
+        });
+
         if (me.initAsync) {
             // Triggers async logic after the construction chain is done.
             Promise.resolve().then(async () => {
@@ -427,9 +433,6 @@ class Base {
      * will be stored in `this.readyPromise`. Once this `Promise` is fulfilled, the `this.isReady` flag will be set to `true`.
      * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
      */
-    async initAsync() {
-        this.remote && this.initRemote()
-    }
 
     /**
      * Applies all class configs to this instance

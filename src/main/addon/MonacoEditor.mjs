@@ -131,8 +131,7 @@ class MonacoEditor extends Base {
             DomAccess.loadScript(path + '/editor/editor.main.js')
         ]);
 
-        me.isLoading = false;
-        me.isReady   = true
+        me.isLoading = false
     }
 
     /**

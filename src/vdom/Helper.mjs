@@ -43,8 +43,6 @@ class Helper extends Base {
     async initAsync() {
         let me = this;
 
-        await super.initAsync();
-
         // Subscribe to global Neo.config changes for dynamic renderer switching.
         Neo.currentWorker.on({
             neoConfigChange: me.onNeoConfigChange,
