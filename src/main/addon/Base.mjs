@@ -30,7 +30,7 @@ class Base extends CoreBase {
          * @member {Boolean|Number} preloadFilesDelay=5000
          * @protected
          */
-        preloadFilesDelay: 5000,
+        preloadFilesDelay: 5000
     }
 
     /**
@@ -135,21 +135,17 @@ class Base extends CoreBase {
      * When `isReady` becomes true, any cached remote method calls are executed.
      * At this point, `initAsync` has already ensured that `me.#loadFilesPromise` is resolved.
      *
+     * This method is kept synchronous, delegating the async cache processing to a private method.
+     *
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetIsReady(value, oldValue) {
+    afterSetIsReady(value, oldValue) { // Keep this synchronous
         if (value) {
-            let me = this,
-                returnValue;
-
-            me.cache.forEach(item => {
-                returnValue = me[item.fn](item.data);
-                item.resolve(returnValue)
-            });
-
-            me.cache = []
+            // Initiate the asynchronous processing of cached method calls.
+            // This method itself does not need to be awaited here.
+            this.#processCachedMethodCalls();
         }
     }
 
@@ -169,7 +165,7 @@ class Base extends CoreBase {
         }
 
         return new Promise((resolve, reject) => {
-            me.cache.push({...item, resolve})
+            me.cache.push({...item, reject, resolve})
         })
     }
 
@@ -182,6 +178,42 @@ class Base extends CoreBase {
      * @returns {Promise<void>}
      */
     async loadFiles() {}
+
+    /**
+     * Sequentially processes any method calls that were cached while the addon was not ready.
+     * This method is asynchronous to allow awaiting the execution of individual cached methods.
+     * @returns {Promise<void>} A promise that resolves when all cached methods have been processed.
+     * @private
+     */
+    async #processCachedMethodCalls() {
+        let me = this;
+
+        // Iterate over the cache items and await each one in sequence
+        for (const item of me.cache) {
+            let returnValue;
+
+            try {
+                returnValue = me[item.fn](item.data);
+
+                if (Neo.isPromise(returnValue)) {
+                    returnValue = await returnValue;
+                }
+
+                item.resolve(returnValue)
+            } catch (e) {
+                // If an error occurs (either synchronous or a promise rejection),
+                // reject the promise associated with the current cached item.
+                item.reject(e)
+
+                // *** FAIL-FAST STRATEGY ***
+                // If any cached method call fails, we assume subsequent cached calls
+                // (especially for the same addon instance) are likely to also fail.
+                break
+            }
+        }
+
+        me.cache = []
+    }
 }
 
 export default Neo.setupClass(Base);
