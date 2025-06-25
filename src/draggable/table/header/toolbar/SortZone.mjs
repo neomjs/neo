@@ -63,7 +63,7 @@ class SortZone extends BaseSortZone {
         owner.updateDepth = 2;
         owner.update();
 
-        owner.parent.view.createViewData()
+        owner.parent.body.createViewData()
     }
 }
 
