@@ -41,6 +41,8 @@ class Helper extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
+        super.initAsync();
+
         let me = this;
 
         // Subscribe to global Neo.config changes for dynamic renderer switching.

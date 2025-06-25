@@ -87,10 +87,7 @@ class Base {
          */
         isConstructed: false,
         /**
-         * The config will get set to `true`:
-         * - If an initAsync() method is defined: Once the Promise of `async initAsync()` is resolved.
-         * - Otherwise at the end of the construct() method
-         *
+         * The config will get set to `true` once the Promise of `async initAsync()` is resolved.
          * You can use `afterSetIsReady()` to get notified once the ready state is reached.
          * Since not all classes use the Observable mixin, Neo will not fire an event.
          * method body.
@@ -175,21 +172,11 @@ class Base {
          */
         intercept(me, 'destroy', me.isDestroyedCheck, me);
 
-        // Moving initRemote() outside the construction chain is crucial,
-        // since it does rely on Neo.currentWorker being defined.
-        Promise.resolve().then(() => {
-            me.remote && me.initRemote()
-        });
-
-        if (me.initAsync) {
-            // Triggers async logic after the construction chain is done.
-            Promise.resolve().then(async () => {
-                await me.initAsync();
-                me.isReady = true
-            })
-        } else {
+        // Triggers async logic after the construction chain is done.
+        Promise.resolve().then(async () => {
+            await me.initAsync();
             me.isReady = true
-        }
+        })
     }
 
     /**
@@ -424,15 +411,18 @@ class Base {
     init() {}
 
     /**
-     * You can override this method in subclasses to perform asynchronous initialization logic.
-     * Make sure to use the parent call `await super.initAsync()` at the beginning of their implementations.
+     * You can use this method in subclasses to perform asynchronous initialization logic.
+     * Make sure to use the parent call `await super.initAsync()` at the beginning of their implementations,
+     * or the registration of remote methods will get delayed.
      *
      * A common use case is requiring conditional or optional dynamic imports or fetching initial data.
      *
-     * The promise returned by this method (or implicitly created if it's an `async` function)
-     * will be stored in `this.readyPromise`. Once this `Promise` is fulfilled, the `this.isReady` flag will be set to `true`.
+     * Once the promise returned by this method is fulfilled, the `isReady` config will be set to `true`.
      * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
      */
+    async initAsync() {
+        this.remote && this.initRemote()
+    }
 
     /**
      * Applies all class configs to this instance

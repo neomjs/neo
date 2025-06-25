@@ -34,8 +34,8 @@ class Base extends CoreBase {
     }
 
     /**
-     * @member {Object[]} cache=[]
      * Internal cache for remote method calls received when `isReady` is false.
+     * @member {Object[]} cache=[]
      */
     cache = []
     /**
@@ -47,14 +47,14 @@ class Base extends CoreBase {
         return !!this.#loadFilesPromise && !!this.#loadFilesPromiseResolver
     }
     /**
-     * @member {Promise<void>|null} #loadFilesPromise=null
      * A private promise that tracks the completion of `loadFiles()`.
      * This ensures `loadFiles()` is called only once and can be awaited by multiple consumers.
+     * @member {Promise<void>|null} #loadFilesPromise=null
      */
     #loadFilesPromise = null
     /**
-     * @member {Function|null} #loadFilesPromiseResolver=null
      * The `resolve` function for `#loadFilesPromise`, allowing external control over its resolution.
+     * @member {Function|null} #loadFilesPromiseResolver=null
      */
     #loadFilesPromiseResolver = null
 
@@ -117,10 +117,11 @@ class Base extends CoreBase {
     /**
      * Async initialization hook for instances.
      * `initAsync` MUST await for `loadFiles()` to be completed. Only then the addon is ready.
-     *
      * @returns {Promise<void>}
      */
     async initAsync() {
+        await super.initAsync();
+
         let me = this;
 
         // `initAsync` must always wait for `me.#loadFilesPromise` to complete its resolution,
@@ -180,9 +181,7 @@ class Base extends CoreBase {
      * or a resolved promise if files are already loaded.
      * @returns {Promise<void>}
      */
-    async loadFiles() {
-        return Promise.resolve()
-    }
+    async loadFiles() {}
 }
 
 export default Neo.setupClass(Base);
