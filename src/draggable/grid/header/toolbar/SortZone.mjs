@@ -54,15 +54,15 @@ class SortZone extends BaseSortZone {
 
         let me            = this,
             grid          = me.owner.parent,
-            {view}        = grid,
-            gridRows      = view.getVdomRoot().cn,
+            {body}        = grid,
+            bodyWrapperId = Neo.getId('grid-body-wrapper'),
+            gridRows      = body.getVdomRoot().cn,
             columnIndex   = me.dragElement['aria-colindex'] - 1,
-            {dataField}   = view.columnPositions.getAt(columnIndex),
-            cells         = view.getColumnCells(dataField),
+            {dataField}   = body.columnPositions.getAt(columnIndex),
+            cells         = body.getColumnCells(dataField),
             rows          = [],
             config        = await super.createDragProxy(data, false),
             rect          = await grid.getDomRect(),
-            viewWrapperId = Neo.getId('grid-view-wrapper'),
             row;
 
         config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
@@ -85,9 +85,9 @@ class SortZone extends BaseSortZone {
         {cn: [
             {cls: ['neo-grid-container'], cn: [
                 {...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']},
-                {cls: ['neo-grid-view-wrapper'], id: viewWrapperId, cn: [
-                    {cls: ['neo-grid-view'], cn: rows},
-                    {cls: ['neo-grid-scrollbar'], style: {height: view.vdom.cn[0].height}}
+                {cls: ['neo-grid-body-wrapper'], id: bodyWrapperId, cn: [
+                    {cls: ['neo-grid-body'], cn: rows},
+                    {cls: ['neo-grid-scrollbar'], style: {height: body.vdom.cn[0].height}}
                 ]}
             ]}
         ]};
@@ -95,8 +95,8 @@ class SortZone extends BaseSortZone {
         config.listeners = {
             mounted() {
                 Neo.main.DomAccess.scrollTo({
-                    id      : viewWrapperId,
-                    value   : view.scrollTop,
+                    id      : bodyWrapperId,
+                    value   : body.scrollTop,
                     windowId: this.windowId
                 })
             }
@@ -133,11 +133,11 @@ class SortZone extends BaseSortZone {
         owner.updateDepth = 2;
         owner.update();
 
-        await owner.passSizeToView();
+        await owner.passSizeToBody();
 
         await this.timeout(20);
 
-        owner.parent.view.createViewData()
+        owner.parent.body.createViewData()
     }
 
     /**
@@ -148,11 +148,11 @@ class SortZone extends BaseSortZone {
 
         if (this.moveColumnContent) {
             let me             = this,
-                {view}         = me.owner.parent,
+                {body}         = me.owner.parent,
                 columnIndex    = me.dragElement['aria-colindex'] - 1,
-                columnPosition = view.columnPositions.getAt(columnIndex),
+                columnPosition = body.columnPositions.getAt(columnIndex),
                 {dataField}    = columnPosition,
-                cells          = view.getColumnCells(dataField);
+                cells          = body.getColumnCells(dataField);
 
             columnPosition.hidden = true;
 
@@ -160,7 +160,7 @@ class SortZone extends BaseSortZone {
                 cell.style.visibility = 'hidden'
             });
 
-            view.update()
+            body.update()
         }
     }
 
@@ -174,12 +174,12 @@ class SortZone extends BaseSortZone {
         if (this.moveColumnContent) {
             let me                = this,
                 {itemRects}       = me,
-                {view}            = me.owner.parent,
-                {columnPositions} = view,
+                {body}            = me.owner.parent,
+                {columnPositions} = body,
                 column1Position   = columnPositions.getAt(index1),
                 column2Position   = columnPositions.getAt(index2),
-                column1Cells      = view.getColumnCells(column1Position.dataField),
-                column2Cells      = view.getColumnCells(column2Position.dataField);
+                column1Cells      = body.getColumnCells(column1Position.dataField),
+                column2Cells      = body.getColumnCells(column2Position.dataField);
 
             Object.assign(column1Position, {
                 width: itemRects[index2].width,
@@ -203,7 +203,7 @@ class SortZone extends BaseSortZone {
                 node.style.width = column2Position.width + 'px'
             });
 
-            view.update()
+            body.update()
         }
     }
 }
