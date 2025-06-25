@@ -87,6 +87,17 @@ class Base {
          */
         isConstructed: false,
         /**
+         * The config will get set to `true`:
+         * - If an initAsync() method is defined: Once the Promise of `async initAsync()` is resolved.
+         * - Otherwise at the end of the construct() method
+         *
+         * You can use `afterSetIsReady()` to get notified once the ready state is reached.
+         * Since not all classes use the Observable mixin, Neo will not fire an event.
+         * method body.
+         * @member {Boolean} isReady=false
+         */
+        isReady_: false,
+        /**
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
@@ -106,17 +117,6 @@ class Base {
         remote: null
     }
 
-    /**
-     * The internal flag will get set to `true` once the Promise of `async initAsync()` is resolved.
-     * method body.
-     * @member {Boolean} isReady=false
-     */
-    isReady = false
-    /**
-     * This internal flag will Store the Promise for `async initAsync()`, in case a class extension implements the method.
-     * @member {Promise<void>|null} readyPromise=null
-     */
-    readyPromise = null
     /**
      * Internal cache for all timeout ids when using this.timeout()
      * @member {Number[]} timeoutIds=[]
@@ -174,7 +174,7 @@ class Base {
 
         if (me.initAsync) {
             // Triggers async logic after the construction chain is done.
-            me.readyPromise = Promise.resolve().then(async () => {
+            Promise.resolve().then(async () => {
                 await me.initAsync();
                 me.isReady = true
             })
