@@ -96,7 +96,7 @@ class RemoteMethodAccess extends Base {
             out = method.call(pkg, msg.data)
         }
 
-        if (out instanceof Promise) {
+        if (Neo.isPromise(out)) {
             out
                 /*
                  * Intended logic:
