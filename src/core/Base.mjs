@@ -439,7 +439,7 @@ class Base {
             throw new Error('Remote method access is only functional for Singleton classes ' + className)
         }
 
-        if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
+        if (!Neo.config.unitTestMode) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
                 currentWorker.on('connected', () => {
                     Base.sendRemotes(className, remote)
