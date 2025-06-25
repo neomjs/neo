@@ -111,10 +111,13 @@ class Base {
         /**
          * Remote method access for other threads. Example use case:
          * remote: {app: ['myRemoteMethod']}
-         * @member {Object|null} remote=null
+         *
+         * ONLY supported for singletons.
+         *
+         * @member {Object|null} remote_=null
          * @protected
          */
-        remote: null
+        remote_: null
     }
 
     /**
@@ -282,6 +285,24 @@ class Base {
     }
 
     /**
+     * Triggered before the remote config gets changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @returns {Object|null}
+     * @protected
+     */
+    beforeSetRemote(value, oldValue) {
+        let me = this;
+
+        // Only allow remote access for singletons or main thread addons
+        if (value && !me.singleton && !me.isMainThreadAddon) {
+            throw new Error('Remote method access is only functional for Singleton classes ' + me.className)
+        }
+
+        return value
+    }
+
+    /**
      * @param {String} fn               The name of a function to find in the passed scope object.
      * @param {Object} originName       The name of the method inside the originScope.
      * @param {Object} scope            The scope to find the function in if it is specified as a string.
@@ -431,19 +452,14 @@ class Base {
      * @protected
      */
     initRemote() {
-        let me                  = this,
-            {className, remote} = me,
+        let {className, remote} = this,
             {currentWorker}     = Neo;
-
-        if (!me.singleton && !me.isMainThreadAddon) {
-            throw new Error('Remote method access is only functional for Singleton classes ' + className)
-        }
 
         if (!Neo.config.unitTestMode) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
                 currentWorker.on('connected', () => {
                     Base.sendRemotes(className, remote)
-                }, me, {once: true})
+                }, this, {once: true})
             } else {
                 Base.sendRemotes(className, remote)
             }
