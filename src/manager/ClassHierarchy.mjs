@@ -25,6 +25,13 @@ class ClassHierarchy extends BaseManager {
     }
 
     /**
+     * Memoizes the return values of isA() calls
+     * @member {Map} isAQueryMap=new Map()
+     * @protected
+     */
+    isAQueryMap = new Map()
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -58,25 +65,36 @@ class ClassHierarchy extends BaseManager {
             return true
         }
 
-        let parent = descendant;
+        let parent        = descendant,
+            {isAQueryMap} = this,
+            queryName     = `${descendant},${ancestor}`,
+            returnValue   = false;
+
+        if (isAQueryMap.has(queryName)) {
+            return isAQueryMap.get(queryName)
+        }
 
         while (parent = this.get(parent)?.parentClassName) {console.log(parent);
             if (parent === ancestor) {
-                return true
+                returnValue = true;
+                break
             }
 
             // Assumption: component.Base directly extends core.Base
             if (parent === 'Neo.component.Base' && ancestor !== 'Neo.core.Base') {
-                return false
+                returnValue =  false;
+                break
             }
 
             if (parent === 'Neo.core.Base') {
-                return false
+                returnValue =  false;
+                break
             }
         }
 
-        // Cover wrong inputs
-        return false
+        isAQueryMap.set(queryName, returnValue);
+
+        return returnValue
     }
 }
 
