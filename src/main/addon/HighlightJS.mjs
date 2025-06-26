@@ -68,16 +68,10 @@ class HighlightJS extends Base {
 
     /**
      * @param {Object} data
-     * @returns {Boolean}
+     * @returns {Promise<void>}
      */
     async loadFiles(data) {
         let me = this;
-
-        if (me.isLoading || me.isReady) {
-            return true
-        }
-
-        me.isLoading = true;
 
         if (data) {
             delete data.appName;
@@ -91,12 +85,7 @@ class HighlightJS extends Base {
         await Promise.all([
             DomAccess.loadScript(me.highlightJsLineNumbersPath),
             Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
-        ]);
-
-        me.isLoading = false;
-        me.isReady   = true;
-
-        return true
+        ])
     }
 
     /**
