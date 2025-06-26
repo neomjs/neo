@@ -40,6 +40,44 @@ class ClassHierarchy extends BaseManager {
         this.add(Object.values(Neo.classHierarchyMap));
         delete Neo.classHierarchyMap
     }
+
+    /**
+     * Both params represent classNames.
+     *
+     * Example use cases:
+     * - isA('Neo.button.Menu',    'Neo.button.Base')    => true
+     * - isA('Neo.button.Base',    'Neo.button.Menu')    => false
+     * - isA('Neo.button.Base',    'Neo.component.Base') => true
+     * - isA('Neo.component.Base', 'Neo.core.Base')      => true
+     * @param {String} descendant
+     * @param {String} ancestor
+     * @returns {Boolean}
+     */
+    isA(descendant, ancestor) {
+        if (descendant === ancestor) {
+            return true
+        }
+
+        let parent = descendant;
+
+        while (parent = this.get(parent)?.parentClassName) {console.log(parent);
+            if (parent === ancestor) {
+                return true
+            }
+
+            // Assumption: component.Base directly extends core.Base
+            if (parent === 'Neo.component.Base' && ancestor !== 'Neo.core.Base') {
+                return false
+            }
+
+            if (parent === 'Neo.core.Base') {
+                return false
+            }
+        }
+
+        // Cover wrong inputs
+        return false
+    }
 }
 
 export default Neo.setupClass(ClassHierarchy);
