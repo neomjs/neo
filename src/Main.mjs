@@ -1,10 +1,11 @@
-import Neo           from './Neo.mjs';
-import * as core     from './core/_export.mjs';
-import DomAccess     from './main/DomAccess.mjs'; // has to get imported before DeltaUpdates
-import DeltaUpdates  from './main/DeltaUpdates.mjs';
-import DomEvents     from './main/DomEvents.mjs';
-import Observable    from './core/Observable.mjs';
-import WorkerManager from './worker/Manager.mjs';
+import Neo                   from './Neo.mjs';
+import * as core             from './core/_export.mjs';
+import ClassHierarchyManager from './manager/ClassHierarchy.mjs';
+import DomAccess             from './main/DomAccess.mjs'; // has to get imported before DeltaUpdates
+import DeltaUpdates          from './main/DeltaUpdates.mjs';
+import DomEvents             from './main/DomEvents.mjs';
+import Observable            from './core/Observable.mjs';
+import WorkerManager         from './worker/Manager.mjs';
 
 /**
  * @class Neo.Main
