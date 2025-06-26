@@ -574,8 +574,18 @@ Neo = globalThis.Neo = Object.assign({
 
         proto = cls.prototype || cls;
 
+        ntypeChain.forEach(ntype => {
+            proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
+        });
+
+        if (proto.singleton) {
+            cls = Neo.create(cls);
+            Neo.applyToGlobalNs(cls)
+        }
+
         hierarchyInfo = {
             className      : proto.className,
+            module         : cls,
             ntype          : Object.hasOwn(proto, 'ntype') ? proto.ntype : null,
             parentClassName: proto.__proto__?.className || null
         };
@@ -585,15 +595,6 @@ Neo = globalThis.Neo = Object.assign({
         } else {
             Neo.classHierarchyMap ??= {};
             Neo.classHierarchyMap[proto.className] = hierarchyInfo
-        }
-
-        ntypeChain.forEach(ntype => {
-            proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
-        });
-
-        if (proto.singleton) {
-            cls = Neo.create(cls);
-            Neo.applyToGlobalNs(cls)
         }
 
         return cls
