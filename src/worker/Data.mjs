@@ -1,12 +1,10 @@
-import Neo     from '../Neo.mjs';
-import Base    from './Base.mjs';
-import Compare from '../core/Compare.mjs';
-import Fetch   from '../Fetch.mjs';
-import Util    from '../core/Util.mjs';
-import Xhr     from '../Xhr.mjs';
+import Neo   from '../Neo.mjs';
+import Base  from './Base.mjs';
+import Fetch from '../Fetch.mjs';
+import Xhr   from '../Xhr.mjs';
 
 /**
- * The Data worker is responsible to handle all of the communication to the backend (e.g. Ajax-calls).
+ * The Data worker is responsible to handle all the communication to the backend (e.g. Ajax-calls).
  * See the tutorials for further infos.
  * @class Neo.worker.Data
  * @extends Neo.worker.Base

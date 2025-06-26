@@ -203,7 +203,7 @@ class Base {
             if (hasManager) {
                 Neo.manager.Instance.register(me);
             } else {
-                Neo.idMap = Neo.idMap || {};
+                Neo.idMap ??= {};
                 Neo.idMap[me.id] = me
             }
         }

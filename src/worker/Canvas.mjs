@@ -1,6 +1,5 @@
-import Neo       from '../Neo.mjs';
-import Base      from './Base.mjs';
-import * as core from '../core/_export.mjs';
+import Neo  from '../Neo.mjs';
+import Base from './Base.mjs';
 
 /**
  * The Canvas worker is responsible for dynamically manipulating offscreen canvas.

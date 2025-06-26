@@ -1,11 +1,11 @@
-import Manager from './Base.mjs';
+import BaseManager from './Base.mjs';
 
 /**
  * @class Neo.manager.ClassHierarchy
  * @extends Neo.manager.Base
  * @singleton
  */
-class Instance extends Manager {
+class ClassHierarchy extends BaseManager {
     static config = {
         /**
          * @member {String} className='Neo.manager.ClassHierarchy'
@@ -29,17 +29,17 @@ class Instance extends Manager {
      */
     construct(config) {
         super.construct(config);
-        this.consumeNeoClassHierarchyMap()
+        this.consumeTempMap()
     }
 
     /**
      * Register all classes that got applied to the Neo namespace before this instance got created
      * @protected
      */
-    consumeNeoClassHierarchyMap() {
+    consumeTempMap() {
         this.add(Object.values(Neo.classHierarchyMap));
         delete Neo.classHierarchyMap
     }
 }
 
-export default Neo.setupClass(Instance);
+export default Neo.setupClass(ClassHierarchy);
