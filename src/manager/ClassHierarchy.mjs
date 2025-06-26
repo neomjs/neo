@@ -55,8 +55,10 @@ class ClassHierarchy extends BaseManager {
      * @protected
      */
     consumeTempMap() {
-        this.add(Object.values(Neo.classHierarchyMap));
-        delete Neo.classHierarchyMap
+        if (Neo.classHierarchyMap) {
+            this.add(Object.values(Neo.classHierarchyMap));
+            delete Neo.classHierarchyMap
+        }
     }
 
     /**
