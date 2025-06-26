@@ -14,7 +14,7 @@ Neo.mjs operates on two distinct abstraction layers:
 - **Component Tree Layer** (Application Development): Declarative, mutable, reactive component configurations
 - **VDom Tree Layer** (Framework Internals): Imperative virtual DOM operations for performance optimization
 
-```
+```text
 Your Application Code → Component Tree (declarative, mutable, reactive)
                             ↓
                         VDom Tree (imperative, optimized)
@@ -28,7 +28,7 @@ Your Application Code → Component Tree (declarative, mutable, reactive)
 
 In React, Vue, and Angular, you compose UIs by writing templates/JSX that mix HTML elements with custom components:
 
-```jsx
+```javascript readonly
 // React/Vue/Angular pattern - mixing HTML with components
 function App() {
   return (
@@ -50,7 +50,7 @@ Your mental model:</br>
 
 In Neo.mjs, you work with **declarative component configurations** that create a component tree abstraction:
 
-```javascript
+```javascript readonly
 // Neo.mjs pattern - component relationship configuration
 class Viewport extends Container {
     static config = {
@@ -91,7 +91,7 @@ Your new mental model:</br>
 
 Components are defined through static configuration objects that describe relationships and behavior:
 
-```javascript
+```javascript readonly
 // Declarative component hierarchy
 class Viewport extends BaseViewport {
     static config = {
@@ -118,7 +118,7 @@ class Viewport extends BaseViewport {
 
 The component tree is **dynamic and mutable at runtime**:
 
-```javascript
+```javascript readonly
 // Runtime mutations on the component tree
 container.add({module: NewComponent});           // Add component
 container.removeAt(0);                           // Remove component  
@@ -134,7 +134,7 @@ targetContainer.add(sourceView);
 
 **Every component tree configuration change automatically triggers UI updates**:
 
-```javascript
+```javascript readonly
 // These changes automatically update the UI
 button.text    = 'New Text';        // Property change → UI update
 button.iconCls = 'fa fa-home';      // Config change → UI update
@@ -151,7 +151,7 @@ viewport.setState({size: 'large'}); // State change → UI update
 
 ### State Provider Integration
 
-```javascript
+```javascript readonly
 // Portal.view.ViewportStateProvider
 class ViewportStateProvider extends StateProvider {
     static config = {
@@ -171,7 +171,7 @@ viewportStateProvider.setData({size: 'large'});
 
 Framework components define their internal DOM structure through `vdom` config:
 
-```javascript
+```javascript readonly
 // Neo.button.Base
 class Button extends Component {
     static config = {
@@ -192,7 +192,7 @@ class Button extends Component {
 
 Framework code performs imperative operations on VDom node properties:
 
-```javascript
+```javascript readonly
 // Neo.button.Base - internal framework code
 afterSetIconCls(value, oldValue) {
     let {iconNode} = this;
@@ -222,7 +222,7 @@ afterSetText(value, oldValue) {
 
 ### Performance Optimizations
 
-```javascript
+```javascript readonly
 // Neo.button.Base - optimized animations
 async showRipple(data) {
     let rippleEl = this.rippleWrapper.cn[0];
@@ -253,7 +253,7 @@ async showRipple(data) {
 
 Understanding the value proposition of Neo.mjs's two-tier architecture:
 
-```javascript
+```javascript readonly
 // What developers write - declarative configurations
 {
     module   : Button,
@@ -281,7 +281,7 @@ This separation allows developers to focus on **what** they want to build rather
 Routing happens inside view controllers, instead of being tag-based.
 Developers are in full control to define what route-changes should do.
 
-```javascript
+```javascript readonly
 // Portal.view.ViewportController
 // Declarative route configuration
 static config = {
@@ -319,7 +319,7 @@ async setMainContentIndex(index) {
 
 If needed, this can be done via JavaScript too (instead of purely focussing on CSS).
 
-```javascript
+```javascript readonly
 // Portal.view.Viewport
 static sizes = ['large', 'medium', 'small', 'x-small', null];
 
@@ -340,7 +340,7 @@ afterSetSize(value, oldValue) {
 
 ### Dynamic Component Management
 
-```javascript
+```javascript readonly
 // Portal.view.ViewportController
 async onAppConnect(data) {
     let app = Neo.apps[data.appName];
@@ -420,7 +420,7 @@ async onAppConnect(data) {
 
 ### Integration Patterns:
 
-```javascript
+```javascript readonly
 // Wrapping existing components or custom elements
 {
     module: LegacyWrapper,
@@ -449,7 +449,7 @@ async onAppConnect(data) {
 
 ### Custom Component Development
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs';
 import VdomUtil  from './src/util/Vdom.mjs';
 
@@ -481,7 +481,7 @@ Neo.mjs provides utilities such as `VdomUtil` for direct interaction with VDom n
 
 ### Performance Monitoring
 
-```javascript
+```javascript readonly
 Neo.config.logDeltaUpdates = true;  // Enable update timing logs
 ```
 
