@@ -74,7 +74,7 @@ class ClassHierarchy extends BaseManager {
             return isAQueryMap.get(queryName)
         }
 
-        while (parent = this.get(parent)?.parentClassName) {console.log(parent);
+        while (parent = this.get(parent)?.parentClassName) {
             if (parent === ancestor) {
                 returnValue = true;
                 break
@@ -82,12 +82,12 @@ class ClassHierarchy extends BaseManager {
 
             // Assumption: component.Base directly extends core.Base
             if (parent === 'Neo.component.Base' && ancestor !== 'Neo.core.Base') {
-                returnValue =  false;
+                returnValue = false;
                 break
             }
 
             if (parent === 'Neo.core.Base') {
-                returnValue =  false;
+                returnValue = false;
                 break
             }
         }
