@@ -1,6 +1,6 @@
 @use "sass:color";
 
-:root .neo-theme-light { // .neo-table-view
+:root .neo-theme-neo-light { // .neo-table-body
     --table-cell-background-color-hover                    : #{color.adjust(#33343d, $lightness: 70%)};
     --table-cell-ismodified-color                          : orange;
     --table-cell-ismodified-size                           : 10px;

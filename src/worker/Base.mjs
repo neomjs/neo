@@ -4,7 +4,7 @@ import Message            from './Message.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 /**
- * The abstract base class for the App, Data & VDom worker
+ * The abstract base class for e.g. the App, Data & VDom worker
  * @class Neo.worker.Base
  * @extends Neo.core.Base
  * @abstract

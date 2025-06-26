@@ -175,7 +175,18 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isObject(value) {
-        return value?.constructor?.name === 'Object' || false
+        return value?.constructor?.name === 'Object'
+    }
+
+    /**
+     * Returns true if the passed value is a promise.
+     * We are intentionally not checking for `value instanceof Promise`,
+     * to support any "thenable" objects for flexibility.
+     * @param {Object} value The value to test
+     * @returns {Boolean}
+     */
+    static isPromise(value) {
+        return typeof value?.then === 'function'
     }
 
     /**
@@ -184,7 +195,7 @@ class Util extends Base {
      * @returns {Boolean}
      */
     static isRecord(value) {
-        return value?.constructor?.name === 'Record' || false
+        return value?.constructor?.name === 'Record'
     }
 
     /**
@@ -233,6 +244,7 @@ Neo.applyFromNs(Neo, Util, {
     isFunction       : 'isFunction',
     isNumber         : 'isNumber',
     isObject         : 'isObject',
+    isPromise        : 'isPromise',
     isRecord         : 'isRecord',
     isString         : 'isString',
     toArray          : 'toArray'

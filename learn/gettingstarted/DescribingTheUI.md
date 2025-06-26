@@ -10,7 +10,7 @@ use to describe the component you're creating> You can also access or set the pr
 
 ## A view with one component
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -27,7 +27,7 @@ class MainView extends Container {
 }
 
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 
 The button config is just an object describing the button being created. In the example, it has three
@@ -46,7 +46,7 @@ Let's put a second button in the container.
 
 ## A view with two components
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -67,7 +67,7 @@ class MainView extends Container {
 }
 
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 If you run the example you'll see two buttons, arranged according to the `layout`. If you'd like, 
 modify the code to specify `ntype:'hbox'` and run it again. 

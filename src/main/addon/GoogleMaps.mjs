@@ -8,16 +8,19 @@ import Observable from '../../core/Observable.mjs';
  * @extends Neo.main.addon.Base
  */
 class GoogleMaps extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.main.addon.GoogleMaps'
          * @protected
          */
         className: 'Neo.main.addon.GoogleMaps',
-        /**
-         * @member {Neo.core.Base[]} mixins=[Observable]
-         */
-        mixins: [Observable],
         /**
          * @member {Object} remote
          * @protected
@@ -51,14 +54,6 @@ class GoogleMaps extends Base {
      * @member {Object} markers={}
      */
     markers = {}
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        this.loadApi()
-    }
 
     /**
      * @param {Object} data
@@ -176,13 +171,11 @@ class GoogleMaps extends Base {
     /**
      * @protected
      */
-    loadApi() {
+    async loadFiles() {
         let key = Neo.config.googleMapsApiKey,
             url = ' https://maps.googleapis.com/maps/api/js';
 
-        DomAccess.loadScript(`${url}?key=${key}&v=weekly&callback=Neo.emptyFn`).then(() => {
-            console.log('GoogleMaps API loaded')
-        })
+        await DomAccess.loadScript(`${url}?key=${key}&v=weekly&callback=Neo.emptyFn`)
     }
 
     /**

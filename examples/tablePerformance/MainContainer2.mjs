@@ -72,8 +72,8 @@ class MainContainer2 extends Container {
             }]
         }, {
             module    : TableContainer,
+            bodyConfig: {useRowRecordIds: false},
             reference : 'table',
-            viewConfig: {useRowRecordIds: false},
             width     : '100%',
 
             columnDefaults: {

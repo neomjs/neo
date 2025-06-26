@@ -119,8 +119,6 @@ class MonacoEditor extends Base {
         let me   = this,
             path = me.libraryBasePath;
 
-        me.isLoading = true;
-
         window.require = {paths: {vs: path}};
 
         await DomAccess.loadScript(path + '/loader.js');
@@ -129,10 +127,7 @@ class MonacoEditor extends Base {
             DomAccess.loadStylesheet(path + '/editor/editor.main.css', {name: 'vs/editor/editor.main'}),
             DomAccess.loadScript(path + '/editor/editor.main.nls.js'),
             DomAccess.loadScript(path + '/editor/editor.main.js')
-        ]);
-
-        me.isLoading = false;
-        me.isReady   = true
+        ])
     }
 
     /**

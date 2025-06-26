@@ -5,9 +5,9 @@ import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 const
     labCloseRegex        = /<!--\s*\/lab\s*-->/g,
     labOpenRegex         = /<!--\s*lab\s*-->/g,
-    preLivePreviewRegex  = /<pre\s+data-code-livepreview\s*>([\s\S]*?)<\/pre>/g,
-    preJsRegex           = /<pre\s+data-code-readonly\s*>([\s\S]*?)<\/pre>/g,
-    preNeoComponentRegex = /<pre\s+data-neo-component\s*>([\s\S]*?)<\/pre>/g;
+    regexLivePreview     = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n```/g,
+    regexNeoComponent    = /```json\s+neo-component\s*\n([\s\S]*?)\n```/g,
+    regexReadonly        = /```(javascript|html|css|json)\s+readonly\s*\n([\s\S]*?)\n```/g;
 
 /**
  * @class Portal.view.learn.ContentComponent
@@ -164,48 +164,48 @@ class ContentComponent extends Component {
             {appName, windowId} = me,
             path                = me.getStateProvider().getData('contentPath'),
             pagesFolder         = path.includes('/learn/') ? '' : 'pages/',
-            baseConfigs, content, data, html, instance, modifiedHtml, neoComponents, neoDivs;
+            baseConfigs, content, data, html, instance, neoComponents, neoDivs;
 
         path += `${pagesFolder + record.id.replaceAll('.', '/')}.md`;
 
         if (record.isLeaf && path) {
-            baseConfigs   = {appName, autoMount: true, autoRender: true, parentComponent: me, windowId};
-            data          = await fetch(path);
-            content       = await data.text();
-            content       = me.updateContentSectionsStore(content); // also replaces ## with h2 tags
-            content       = `<h1 class='neo-h1'>${record.name}</h1>\n${content}`;
-            modifiedHtml  = await me.highlightPreContent(content);
+            baseConfigs = {appName, autoMount: true, autoRender: true, parentComponent: me, windowId};
+            data        = await fetch(path);
+            content     = await data.text();
+            // Update content sections (modifies markdown content with h2/h3 tags and IDs)
+            content = me.updateContentSectionsStore(content);
+            content = `<h1 class='neo-h1'>${record.name}</h1>\n${content}`;
+            // Initialize maps for custom components and live previews
             neoComponents = {};
             neoDivs       = {};
+            // Process custom Neo.mjs component blocks (synchronous)
+            content = me.processNeoComponentsBlocks(content, neoComponents);
+            // Process custom Live Preview blocks (synchronous)
+            content = me.processLivePreviewBlocks(content, neoDivs);
+            // Process custom Readonly Code blocks (asynchronous due to HighlightJS)
+            // This will replace the markdown fenced block with the highlighted HTML <pre> tag.
+            content = await me.processReadonlyCodeBlocks(content, windowId);
+            // Parse the (now modified) markdown content into HTML
+            // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
+            html = marked.parse(content);
+            // Insert lab divs (these are markdown comments, so process on the final HTML)
+            html = me.insertLabDivs(html); // Keep existing method
 
-            // Replace <pre neo-component></pre> with <div id='neo-component-x'/>
-            // and create a map keyed by ID, whose value is the javascript
-            // from the <pre>
-            modifiedHtml = me.extractNeoComponents(modifiedHtml, neoComponents);
+            me.toggleCls('lab', record.name?.startsWith('Lab:')); // Keep existing method
 
-            // Replace <pre data-neo></pre> with <div id='neo-preview-1'/>
-            // and create a map keyed by ID, whose value is the javascript
-            // from the <pre>
-            modifiedHtml = me.extractLivePreviewContent(modifiedHtml, neoDivs);
-
-            html = marked.parse(modifiedHtml);
-            html = me.insertLabDivs(html);
-
-            me.toggleCls('lab', record.name?.startsWith('Lab:'));
-
-            me.html = html;
+            me.html = html; // Set the component's HTML
 
             await me.timeout(Neo.config.environment === 'development' ? 100 : 150);
 
+            // Create instances for custom components and live previews (keep existing logic)
             Object.keys(neoComponents).forEach(key => {
                 instance = Neo.create({
                     ...baseConfigs,
-                    className: 'Neo.component.Base',
+                    className: 'Neo.component.Base', // Adjust if specific component classes are implied by JSON
                     parentId : key,
                     ...neoComponents[key]
                 });
-
-                me.customComponents.push(instance)
+                me.customComponents.push(instance);
             });
 
             Object.keys(neoDivs).forEach(key => {
@@ -213,10 +213,9 @@ class ContentComponent extends Component {
                     ...baseConfigs,
                     module  : LivePreview,
                     parentId: key,
-                    value   : neoDivs[key]
+                    value   : neoDivs[key].code // Pass the extracted code content
                 });
-
-                me.livePreviews.push(instance)
+                me.livePreviews.push(instance);
             });
 
             Neo.main.addon.IntersectionObserver.observe({
@@ -224,85 +223,8 @@ class ContentComponent extends Component {
                 id        : me.id,
                 observe   : ['.neo-h2', '.neo-h3'],
                 windowId  : me.windowId
-            })
+            });
         }
-    }
-
-    /**
-     * @param {String} htmlString
-     * @param {Object} map
-     * @returns {String}
-     */
-    extractNeoComponents(htmlString, map) {
-        // 1. Replace <pre data-neo-component> with <div id='neo-learn-content-component-x'/>
-        // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
-        // Replace the content with tokens, and create a promise to update the corresponding content
-        return htmlString.replace(preNeoComponentRegex, (match, preContent) => {
-            const key = Neo.core.IdGenerator.getId('learn-content-component');
-            map[key] = JSON.parse(preContent);
-            return `<div id="${key}"></div>`
-        })
-    }
-
-    /**
-     * @param {String} htmlString
-     * @param {Object} map
-     * @returns {String}
-     */
-    extractLivePreviewContent(htmlString, map) {
-        // 1. Replace <pre data-neo> with <div id='neo-pre-live-preview-x'/>
-        // and update map with key/value pairs, where the key is the ID and the value is the <pre> contents.
-        // Replace the content with tokens, and create a promise to update the corresponding content
-        return htmlString.replace(preLivePreviewRegex, (match, preContent) => {
-            const key = Neo.core.IdGenerator.getId('pre-live-preview');
-            map[key] = preContent;
-            return `<div id="${key}"></div>`
-        })
-    }
-
-    /**
-     * @param preContent
-     * @param token
-     * @param id
-     * @returns {Object}
-     */
-    getHighlightPromise(preContent, token, id) {
-        // Resolves to an object of the form {after, token}, where after is the updated <pre> tag content
-        return Neo.main.addon.HighlightJS.highlightAuto({html: preContent, windowId: this.windowId})
-            .then(value => ({after: `<pre data-javascript id="${id}">${value}</pre>`, token}))
-    }
-
-    /**
-     * @param {String} htmlString
-     * @returns {Promise<*>}
-     */
-    async highlightPreContent(htmlString) {
-        // 1. Replace <pre data-javascript> with unique tokens and create a HighlightJS.highlightAuto promise for each
-        // 2. When all promises are resolved, use their values to replace the tokens.
-
-        // Note that if we were to import HighlightJS directly, we wouldn't need all this async code.
-
-        // Create an array to store promises for each replacement
-        const replacementPromises = [];
-        let count = 0;
-
-        // Replace the content with tokens, and create a promise to update the corresponding content
-        let updatedHtml = htmlString.replace(preJsRegex, (match, preContent) => {
-            const token = `__NEO-PRE-TOKEN-${++count}__`;
-            replacementPromises.push(this.getHighlightPromise(preContent, token, `pre-preview-${Neo.core.IdGenerator.getId()}`));
-            return token
-        });
-
-        // Assert: updateHtml is the original, but with <pre data-javascript> replaced with tokens.
-
-        // Wait for all replacement promises to resolve
-        let replacements = await Promise.all(replacementPromises)
-
-        // Replace each token with the resolved content
-        replacements.forEach((replacement) => updatedHtml = updatedHtml.replace(replacement.token, replacement.after));
-
-        // Return the final updated HTML string
-        return updatedHtml
     }
 
     /**
@@ -333,6 +255,75 @@ class ContentComponent extends Component {
         else if (!altKey && metaKey && shiftKey) {
             me.fire('refresh', {component: me, record})
         }
+    }
+
+    /**
+     * Extracts live preview code blocks from Markdown content before marked.js parsing.
+     * Replaces them with HTML placeholders.
+     * @param {String} contentString The raw Markdown content string.
+     * @param {Object} map A map to store the extracted code content keyed by placeholder ID.
+     * @returns {String} The modified Markdown content string with placeholders.
+     */
+    processLivePreviewBlocks(contentString, map) {
+        return contentString.replace(regexLivePreview, (match, language, code) => {
+            const key = Neo.core.IdGenerator.getId('pre-live-preview');
+            map[key] = {code, language};
+            return `<div id="${key}"></div>`
+        })
+    }
+
+    /**
+     * Extracts Neo.mjs component config blocks from Markdown content before marked.js parsing.
+     * Replaces them with HTML placeholders.
+     * @param {String} contentString The raw Markdown content string.
+     * @param {Object} map A map to store the extracted JSON config keyed by placeholder ID.
+     * @returns {String} The modified Markdown content string with placeholders.
+     */
+    processNeoComponentsBlocks(contentString, map) {
+        return contentString.replace(regexNeoComponent, (match, code) => {
+            const key = Neo.core.IdGenerator.getId('learn-content-component');
+            map[key] = JSON.parse(code);
+            return `<div id="${key}"></div>`
+        })
+    }
+
+    /**
+     * Highlights readonly code blocks using HighlightJS.
+     * Replaces the Markdown fenced block with the highlighted HTML <pre> tag.
+     * @param {String} contentString The raw Markdown content string.
+     * @param {String} windowId The ID of the current window for HighlightJS.
+     * @returns {Promise<String>} A promise that resolves to the modified Markdown string with highlighted HTML.
+     */
+    async processReadonlyCodeBlocks(contentString, windowId) {
+        let replacementPromises = [],
+            count               = 0,
+            replacements;
+
+        // Replace the content with tokens, and create a promise to update the corresponding content
+        let updatedContent = contentString.replace(regexReadonly, (match, language, code) => {
+            const token = `__NEO-READONLY-TOKEN-${++count}__`;
+            // Call HighlightJS.highlightAuto for each block.
+            // The result will be HTML. We'll wrap it in a <pre data-javascript> later.
+            replacementPromises.push(
+                Neo.main.addon.HighlightJS.highlightAuto({html: code, windowId})
+                    .then(highlightedHtml => ({
+                        after: `<pre data-javascript id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml}</pre>`,
+                        token: token
+                    }))
+            );
+
+            return token; // Replace the original Markdown block with a temporary token
+        });
+
+        // Wait for all highlighting promises to resolve
+        replacements = await Promise.all(replacementPromises);
+
+        // Replace each token with the resolved highlighted HTML content
+        replacements.forEach(replacement => {
+            updatedContent = updatedContent.replace(replacement.token, replacement.after)
+        });
+
+        return updatedContent
     }
 
     /**

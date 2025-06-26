@@ -40,7 +40,7 @@ as well as create new views classes, their controllers, and other application lo
 
 Now let's look at a source file. This is the contents of `MainView.mjs`.
 
-<pre data-code-readonly>
+```javascript readonly
 import Container  from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller from './MainViewController.mjs';
 import ViewModel  from './MainViewModel.mjs';
@@ -58,7 +58,7 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 
 export default MainView;
-</pre>
+```
 
 Neo.mjs views are composed of components. A component can be a "container", which means it
 visually holds or groups other components, or a regular component, like a button. The main
@@ -78,7 +78,7 @@ you see how a component is configured let's put a button in the container.
 First, we need to import the class that defines buttons. Then we'll describe the new button in the
 `items:[].`
 
-<pre data-code-readonly>
+```javascript readonly
 import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Container  from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller from './MainViewController.mjs';
@@ -100,7 +100,7 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 
 export default MainView;
-</pre>
+```
 
 
 Note the entry in `items:[]`. That's a description of the button that will be the single item in our 
@@ -120,7 +120,7 @@ Here's a simplified running example. The `model` and `controller` are omitted, b
 actually used in the example, and the import root path is different to reflect the location of the 
 Neo.mjs library relative to the examples.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -136,5 +136,5 @@ class MainView extends Container {
 }
 
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 

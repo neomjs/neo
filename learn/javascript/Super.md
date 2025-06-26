@@ -1,6 +1,6 @@
 To call a super-class method use the `super` keyword.
 
-<pre class="neo" style="color:gray">
+```javascript readonly
 class Mammal extends Base {
     static config = {
         className: 'Simple.example.Mammal',
@@ -12,8 +12,9 @@ class Mammal extends Base {
     }
 }
 Neo.setupClass(Mammal);
-</pre>
-<pre class="neo" style="color:gray">
+```
+
+```javascript readonly
 class Human extends Mammal {
     static config = {
         className: 'Simple.example.Human',
@@ -30,12 +31,12 @@ const myPerson = Neo.create(Human, {
 myPerson.doSomething();
 
 Neo.setupClass(Mammal);
-</pre>
+```
 
 Sometimes you aren't sure if a super class has a method. In that case use the
 conditional chaining operator &mdash; `?.`
 
-<pre class="neo" style="color:gray">
+```javascript readonly
 class Mammal extends Base {
     static config = {
         className: 'Simple.example.Mammal',
@@ -47,8 +48,9 @@ class Mammal extends Base {
     }
 }
 Neo.setupClass(Mammal);
-</pre>
-<pre class="neo" style="color:gray">
+```
+
+```javascript readonly
 class Human extends Mammal {
     static config = {
         className: 'Simple.example.Human',
@@ -65,4 +67,4 @@ const myPerson = Neo.create(Human, {
 myPerson.doSomething();
 
 Neo.setupClass(Mammal);
-</pre>
+```

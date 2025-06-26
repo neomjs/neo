@@ -10,7 +10,7 @@ and nested approach to their configuration, a gap that a class config system aim
 ## A bad example
 I recently found this Angular code snippet (new public API draft) on LinkedIn:
 
-<pre data-code-readonly>
+```javascript readonly
 // MyComponent with an attribute
 <MyComponent myAttribute="someValue" />
 
@@ -25,7 +25,7 @@ I recently found this Angular code snippet (new public API draft) on LinkedIn:
 
 // Scoped inputs for MyDirective
 <MyComponent @MyDirective(input1="someString" [input2]="mySignal()") />
-</pre>
+```
 
 Now you might wonder why I think that this is not a good way to create apps.
 

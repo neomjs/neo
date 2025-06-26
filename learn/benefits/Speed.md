@@ -20,7 +20,7 @@ Click on Preview, then use your mouse or trackpad to pan and zoom &mdash; the he
 If you move quickly, you might reach 20,000 or 30,000 delta updates per second. We've seen some examples that go over 40,000 updates per 
 second &mdash; but we've never actually hit the limit.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 import Helix     from '../component/Helix.mjs';
 
@@ -43,7 +43,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 
 If you're interested, there's <a href="../../examples/component/helix/index.html" target="_blank">a more full-featured helix example</a> that includes showing delta updates, 

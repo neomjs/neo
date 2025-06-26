@@ -419,9 +419,8 @@ class GridBody extends Component {
      * @param {Number} data.rowIndex
      * @returns {Object}
      */
-    applyRendererOutput(data) {
-        let {cellId, column, columnIndex, record, rowIndex} = data,
-            me                     = this,
+    applyRendererOutput({cellId, column, columnIndex, record, rowIndex}) {
+        let me                     = this,
             gridContainer          = me.parent,
             {selectedCells, store} = me,
             cellCls                = ['neo-grid-cell'],

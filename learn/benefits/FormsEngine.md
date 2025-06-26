@@ -3,7 +3,7 @@
 You do not need to define a state tree on your own.
 It is sufficient to just use namespaces inside the `name` attribute of each field.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button        from '../button/Base.mjs';
 import FormContainer from '../form/Container.mjs';
 import TextField     from '../form/field/Text.mjs';
@@ -38,7 +38,7 @@ class MainView extends FormContainer {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Forms can get validated without being mounted
 
@@ -49,7 +49,7 @@ Getting the field values still works like before.
 Use case: In case you have a form split into multiple pages and only one of them is mounted to keep
 the DOM minimal, you can still get all field values.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
 import FormContainer from '../form/Container.mjs';
@@ -89,7 +89,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Nested Forms
 
@@ -104,28 +104,28 @@ Inside the example preview, clear the user lastname via hitting the x-button.
 Afterwards, click on the 3 buttons at the bottom and inspect the output inside the main window console carefully.
 
 The main form will log:
-<pre data-code-readonly>
+```javascript readonly
 {
     account: 'My Account',
     product: {brand: 'Tesla', name: 'Car'},
     user   : {firstname: 'John', lastname: null}
 }
 'isValid: false'
-</pre>
+```
 
 The user form will log:
-<pre data-code-readonly>
+```javascript readonly
 {user: {firstname: 'John', lastname: null}}
 'isValid: false'
-</pre>
+```
 
 The product form will log:
-<pre data-code-readonly>
+```javascript readonly
 {product: {brand: 'Tesla', name: 'Car'}}
 'isValid: true'
-</pre>
+```
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
 import FormContainer from '../form/Container.mjs';
@@ -223,7 +223,7 @@ class MainView extends FormContainer {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 Bonus: Inspect the DOM Inside the `TabContainer`.
 You will notice that only the active Tab is mounted inside the DOM.
@@ -244,7 +244,7 @@ since it does rely on defining child modules inside their own class files
 and dynamically importing them.
 
 In a nutshell:
-<pre data-code-readonly>
+```javascript readonly
 {
     module: TabContainer,
     items : [
@@ -252,4 +252,4 @@ In a nutshell:
         {module: () => import('./MyChildForm2.mjs')}
     ]
 }
-</pre>
+```

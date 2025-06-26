@@ -84,6 +84,18 @@
         margin: 0.5em 0 0.7em 0;
     }
 
+    pre code.language-text {
+        &:not(.hljs) {
+            background-color: #F8F8F8;
+            border          : thin solid lightgray;
+            display         : block;
+            font-size       : 13px;
+            overflow-x      : auto;
+            padding         : 12px;
+            white-space     : pre;
+        }
+    }
+
     pre[data-javascript] {
         border       : thin solid lightgray;
         border-radius: 4px;

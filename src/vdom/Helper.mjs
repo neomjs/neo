@@ -38,23 +38,20 @@ class Helper extends Base {
     }
 
     /**
-     * @param {Object} config
+     * @returns {Promise<void>}
      */
-    construct(config) {
-        super.construct(config);
+    async initAsync() {
+        super.initAsync();
 
         let me = this;
 
-        // Ensure Neo.currentWorker is defined before attaching listeners
-        Promise.resolve().then(async () => {
-            // Subscribe to global Neo.config changes for dynamic renderer switching.
-            Neo.currentWorker.on({
-                neoConfigChange: me.onNeoConfigChange,
-                scope          : me
-            });
+        // Subscribe to global Neo.config changes for dynamic renderer switching.
+        Neo.currentWorker.on({
+            neoConfigChange: me.onNeoConfigChange,
+            scope          : me
+        });
 
-            await me.importUtil()
-        })
+        await me.importUtil()
     }
 
     /**

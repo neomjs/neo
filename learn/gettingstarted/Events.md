@@ -13,7 +13,7 @@ pairs as you need.
 The code below shows two text fields, with `listeners` for `change` and `focusEnter`.
 (The events for any component are documented in the API docs.)
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
 
@@ -38,7 +38,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 If you run the example, and open the browser's debugger, you'll see the console being logged as you type or give
 focus to either field.
@@ -52,7 +52,7 @@ that with a _component controller_.
 A `Neo.controller.Component` is a simple class associated with a component class. As a view is created, an 
 instance of its associated controller is automatically created. 
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Base from '../controller/Component.mjs';
 
 class MainViewController extends Base {
@@ -86,7 +86,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 
 
@@ -116,7 +116,7 @@ automatically get lifecycle methods run before the value is assigned, after the 
 before the value is accessed. We're using the _after_ method to fire a `change` event.
 
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -154,4 +154,4 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```

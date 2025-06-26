@@ -87,6 +87,14 @@ class Base {
          */
         isConstructed: false,
         /**
+         * The config will get set to `true` once the Promise of `async initAsync()` is resolved.
+         * You can use `afterSetIsReady()` to get notified once the ready state is reached.
+         * Since not all classes use the Observable mixin, Neo will not fire an event.
+         * method body.
+         * @member {Boolean} isReady=false
+         */
+        isReady_: false,
+        /**
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
@@ -96,7 +104,17 @@ class Base {
          * @member {Class} module=null
          * @protected
          */
-        module: null
+        module: null,
+        /**
+         * Remote method access for other threads. Example use case:
+         * remote: {app: ['myRemoteMethod']}
+         *
+         * ONLY supported for singletons.
+         *
+         * @member {Object|null} remote_=null
+         * @protected
+         */
+        remote_: null
     }
 
     /**
@@ -154,7 +172,11 @@ class Base {
          */
         intercept(me, 'destroy', me.isDestroyedCheck, me);
 
-        me.remote && setTimeout(me.initRemote.bind(me), 1)
+        // Triggers async logic after the construction chain is done.
+        Promise.resolve().then(async () => {
+            await me.initAsync();
+            me.isReady = true
+        })
     }
 
     /**
@@ -250,6 +272,24 @@ class Base {
         if (!values.includes(value)) {
             console.error(`Supported values for ${name} are:`, ...values, this);
             return oldValue
+        }
+
+        return value
+    }
+
+    /**
+     * Triggered before the remote config gets changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @returns {Object|null}
+     * @protected
+     */
+    beforeSetRemote(value, oldValue) {
+        let me = this;
+
+        // Only allow remote access for singletons or main thread addons
+        if (value && !me.singleton && !me.isMainThreadAddon) {
+            throw new Error('Remote method access is only functional for Singleton classes ' + me.className)
         }
 
         return value
@@ -367,10 +407,22 @@ class Base {
 
     /**
      * Gets triggered after onConstructed() is done
-     * @see {@link Neo.core.Base#onConstructed onConstructed}
-     * @tutorial 02_ClassSystem
      */
     init() {}
+
+    /**
+     * You can use this method in subclasses to perform asynchronous initialization logic.
+     * Make sure to use the parent call `await super.initAsync()` at the beginning of their implementations,
+     * or the registration of remote methods will get delayed.
+     *
+     * A common use case is requiring conditional or optional dynamic imports or fetching initial data.
+     *
+     * Once the promise returned by this method is fulfilled, the `isReady` config will be set to `true`.
+     * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
+     */
+    async initAsync() {
+        this.remote && this.initRemote()
+    }
 
     /**
      * Applies all class configs to this instance
@@ -393,19 +445,14 @@ class Base {
      * @protected
      */
     initRemote() {
-        let me                  = this,
-            {className, remote} = me,
+        let {className, remote} = this,
             {currentWorker}     = Neo;
 
-        if (!me.singleton && !me.isMainThreadAddon) {
-            throw new Error('Remote method access is only functional for Singleton classes ' + className)
-        }
-
-        if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
+        if (!Neo.config.unitTestMode) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
                 currentWorker.on('connected', () => {
                     Base.sendRemotes(className, remote)
-                }, me, {once: true})
+                }, this, {once: true})
             } else {
                 Base.sendRemotes(className, remote)
             }

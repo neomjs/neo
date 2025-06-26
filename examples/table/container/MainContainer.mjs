@@ -115,7 +115,7 @@ class MainContainer extends ConfigurationViewport {
             id   : 'myTableStoreContainer',
             store: MainStore,
 
-            viewConfig: {
+            bodyConfig: {
                 selectionModel: CellModel
             },
 
@@ -139,7 +139,7 @@ class MainContainer extends ConfigurationViewport {
                                 text    : 'Edit'
                             }));
 
-                        me.view.updateDepth = -1;
+                        me.body.updateDepth = -1;
 
                         return button.createVdomReference()
                     }
@@ -168,7 +168,7 @@ class MainContainer extends ConfigurationViewport {
                                 }
                             }));
 
-                        me.view.updateDepth = -1;
+                        me.body.updateDepth = -1;
 
                         return button.createVdomReference()
                     }

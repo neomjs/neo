@@ -40,17 +40,17 @@ class Viewport extends BaseViewport {
             module: TableContainer,
             bind  : {store : 'stores.mainStore'},
 
+            bodyConfig: {
+                highlightModifiedCells: true
+            },
+
             columns: [
                 {dataField: 'user.firstname', text: 'Firstname'},
                 {dataField: 'user.lastname',  text: 'Lastname'},
                 {dataField: 'githubId',       text: 'Github Id'},
                 {dataField: 'country',        text: 'Country',     renderer: 'up.countryRenderer'},
                 {dataField: 'edit',           text: 'Edit Action', renderer: 'up.editRenderer'}
-            ],
-
-            viewConfig: {
-                highlightModifiedCells: true
-            }
+            ]
         }]
     }
 
@@ -118,7 +118,7 @@ class Viewport extends BaseViewport {
                 windowId
             }));
 
-        me.view.updateDepth = -1;
+        me.body.updateDepth = -1;
 
         return button.createVdomReference()
     }

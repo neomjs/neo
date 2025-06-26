@@ -41,7 +41,7 @@ You can also launch the preview in a window by going to the Preview tab, then cl
 icon on the right  <span class="far fa-xs fa-window-maximize"></span>. This web site is a Neo.mjs application,
 and the ability to launch browser windows &mdash; all integrated within a single app &mdash; is a unique feature of Neo.mjs!
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -57,7 +57,7 @@ class MainView extends Container {
 }
 
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ---
 

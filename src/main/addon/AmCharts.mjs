@@ -192,7 +192,7 @@ class AmCharts extends Base {
      * => fetching the other files after core.js is loaded
      * @param {Boolean} useFallback=false
      */
-    loadFiles(useFallback=false) {
+    async loadFiles(useFallback=false) {
         let me              = this,
             useFallbackPath = me.useFallbackPath || useFallback,
             basePath;
@@ -207,24 +207,21 @@ class AmCharts extends Base {
             basePath = useFallbackPath ? me.fallbackPath : me.downloadPath
         }
 
-        me.isLoading = true;
+        try {
+            await DomAccess.loadScript(basePath + 'core.js');
 
-        DomAccess.loadScript(basePath + 'core.js').then(() => {
-            Promise.all([
+            await Promise.all([
                 DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
                 DomAccess.loadScript(basePath + 'themes/dark.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
-            ]).then(() => {
-                me.isLoading = false;
-                me.isReady   = true
-            })
-        }).catch(e => {
+            ])
+        } catch(e) {
             if (!useFallback && !me.useFallbackPath) {
                 console.log('Download from amcharts.com failed, switching to fallback', e);
-                me.loadFiles(true)
+                await me.loadFiles(true)
             }
-        })
+        }
     }
 
     /**

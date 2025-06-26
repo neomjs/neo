@@ -14,7 +14,7 @@ running the code. Even though it's running in a new window, it's still part of t
 (In this case, the app is the web site you're looking at now.) That means both the code in both windows 
 seamlessly share events, data, etc. &mdash; the code doesn't care that some code is running in a
 separate window.
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
@@ -31,6 +31,6 @@ class MainView extends Container {
 }
 
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 </details>

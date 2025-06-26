@@ -29,17 +29,17 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
-     * Storing data from observe() calls which arrived prior to register()
-     * @member {Object} map={}
-     * @protected
-     */
-    cache = {}
-    /**
      * Storing component ids and their IntersectionObservers
      * @member {Object} map={}
      * @protected
      */
     map = {}
+    /**
+     * Storing data from observe() calls which arrived prior to register()
+     * @member {Object} observeCache={}
+     * @protected
+     */
+    observeCache = {}
 
     /**
      * @param {Object} data
@@ -107,12 +107,12 @@ class NeoIntersectionObserver extends Base {
      *     {Number}  opts.countTargets: amount of found target nodes inside the DOM
      */
     observe(data) {
-        let me            = this,
-            cache         = me.cache,
-            cached        = false,
-            {id, observe} = data,
-            observer      = me.map[data.id],
-            targets       = [];
+        let me             = this,
+            cached         = false,
+            {id, observe}  = data,
+            {observeCache} = me,
+            observer       = me.map[data.id],
+            targets        = [];
 
         if (!Neo.isArray(observe)) {
             observe = [observe]
@@ -131,11 +131,11 @@ class NeoIntersectionObserver extends Base {
         } else {
             cached = true;
 
-            if (!cache[id]) {
-                cache[id] = []
+            if (!observeCache[id]) {
+                observeCache[id] = []
             }
 
-            cache[id].push(data);
+            observeCache[id].push(data);
         }
 
         return {
@@ -157,10 +157,10 @@ class NeoIntersectionObserver extends Base {
      *     if data.observe is not passed: true
      */
     register(data) {
-        let me            = this,
-            {cache}       = me,
-            {id, observe} = data,
-            returnValue   = true,
+        let me             = this,
+            {observeCache} = me,
+            {id, observe}  = data,
+            returnValue    = true,
             observer;
 
         me.map[id] = observer = new IntersectionObserver(me[data.callback].bind(me), {
@@ -175,9 +175,9 @@ class NeoIntersectionObserver extends Base {
             returnValue = me.observe({id, observe})
         }
 
-        if (cache[id]) {
-            cache[id].forEach(item => me.observe(item));
-            delete cache[id]
+        if (observeCache[id]) {
+            observeCache[id].forEach(item => me.observe(item));
+            delete observeCache[id]
         }
 
         return returnValue

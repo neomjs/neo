@@ -5,25 +5,25 @@ import RowModel        from '../selection/table/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 
 /**
- * @class Neo.table.View
+ * @class Neo.table.Body
  * @extends Neo.component.Base
  */
-class View extends Component {
+class TableBody extends Component {
     static config = {
         /**
-         * @member {String} className='Neo.table.View'
+         * @member {String} className='Neo.table.Body'
          * @protected
          */
-        className: 'Neo.table.View',
+        className: 'Neo.table.Body',
         /**
-         * @member {String} ntype='table-view'
+         * @member {String} ntype='table-body'
          * @protected
          */
-        ntype: 'table-view',
+        ntype: 'table-body',
         /**
-         * @member {String[]} baseCls=['neo-table-view']
+         * @member {String[]} baseCls=['neo-table-body']
          */
-        baseCls: ['neo-table-view'],
+        baseCls: ['neo-table-body'],
         /**
          * Define which model field contains the value of colspan definitions
          * @member {String} colspanField='colspan'
@@ -132,18 +132,17 @@ class View extends Component {
     }
 
     /**
-     * @param {Object} data
-     * @param {String} [data.cellId]
-     * @param {Object} data.column
-     * @param {Number} data.columnIndex
-     * @param {Object} data.record
-     * @param {Number} data.rowIndex
+     * @param {Object}              data
+     * @param {String}              [data.cellId]
+     * @param {Object}              data.column
+     * @param {Number}              data.columnIndex
+     * @param {Object}              data.record
+     * @param {Number}              data.rowIndex
      * @param {Neo.table.Container} data.tableContainer
      * @returns {Object}
      */
-    applyRendererOutput(data) {
-        let {cellId, column, columnIndex, record, rowIndex, tableContainer} = data,
-            me          = this,
+    applyRendererOutput({cellId, column, columnIndex, record, rowIndex, tableContainer}) {
+        let me          = this,
             cellCls     = ['neo-table-cell'],
             colspan     = record[me.colspanField],
             {dataField} = column,
@@ -382,7 +381,7 @@ class View extends Component {
             dataField = me.getCellDataField(id),
             record    = me.getRecord(id);
 
-        me.parent.fire(eventName, {data, dataField, record, view: me})
+        me.parent.fire(eventName, {body: me, data, dataField, record})
     }
 
     /**
@@ -394,7 +393,7 @@ class View extends Component {
             id     = data.currentTarget,
             record = me.getRecord(id);
 
-        me.parent.fire(eventName, {data, record, view: me})
+        me.parent.fire(eventName, {body: me, data, record})
     }
 
     /**
@@ -619,4 +618,4 @@ class View extends Component {
     }
 }
 
-export default Neo.setupClass(View);
+export default Neo.setupClass(TableBody);
