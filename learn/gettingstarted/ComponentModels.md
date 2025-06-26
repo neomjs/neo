@@ -3,7 +3,7 @@ Neo has a feature that allows shared, bindable, data.
 A _state provider_ &mdash; `Neo.state.Provider` &mdash; instance holds properties that 
 can be bound to component properties.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from  '../container/Base.mjs';
 import Label     from  '../component/Label.mjs';
 import TextField from  '../form/field/Text.mjs';
@@ -35,7 +35,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 View model properties are visible down the containment hierarchy:
 Properties introduced in a parent container will be available to any child component, and properties
@@ -55,7 +55,7 @@ usually coded as separate classes.)
 
 Below is another example.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from  '../container/Base.mjs';
 import Label     from  '../component/Label.mjs';
 import Panel     from  '../container/Panel.mjs';
@@ -107,7 +107,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 In this case, the main view has three child items of type `MyPanel`, each containing a label. 
 The main view has a state provider with a `foo` property, and the third child has its own state provider with a `foo` property.

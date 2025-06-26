@@ -27,9 +27,9 @@ The setting will get stored inside the LocalStorage,
 so you will need to click the following Button a 2nd time to deactivate it again.
 Or you can clear the LocalStorage manually.</br></br>
 
-<pre data-neo-component>
+```json neo-component
 {
     "className": "Portal.view.learn.CubeLayoutButton",
     "style"    : {"margin": 0}
 }
-</pre>
+```

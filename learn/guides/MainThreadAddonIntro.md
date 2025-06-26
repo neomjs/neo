@@ -18,10 +18,10 @@ please return a specified `window` property." Neo.mjs
 lets you do that via `Neo.Main.getByPath()`. For
 example, the following statement logs the URL query string.
 
-<pre data-code-readonly>
+```javascript readonly
 const search = await Neo.Main.getByPath({path: 'window.location.search'});
 console.log(search); // Logs the search string
-</pre>
+```
 
 `Neo.Main` & `Neo.main.DomAccess` provide some basic methods for accessing the 
 main thread, but in case you want to use a third party library which relies on directly

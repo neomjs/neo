@@ -1,6 +1,7 @@
 Neo.mjs uses standard modular JavaScript, so you're free to use other class 
 features, like private members.
-<pre><code class="javascript">
+
+```javascript readonly
 class Human extends Mammal {
     static config = {
         className: 'Simple.example.Human',
@@ -33,4 +34,4 @@ const myPerson = Neo.create(Human, {
 });
 
 myPerson.speak(true);
-</code></pre>
+```

@@ -3,7 +3,7 @@
 In case you did not work with neo yet, but come from a more HTML driven ecosystem,
 you could achieve the task in a similar way.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 import VdomUtil  from '../util/VDom.mjs';
@@ -110,13 +110,13 @@ class MainComponent extends Component {
 }
 
 MainComponent = Neo.setupClass(MainComponent);
-</pre>
+```
 
 ## Neo Style
 
 content
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 import List      from '../list/Base.mjs';
 import Model     from '../data/Model.mjs';
@@ -228,4 +228,4 @@ class MainContainer extends Container {
 }
 
 MainContainer = Neo.setupClass(MainContainer);
-</pre>
+```

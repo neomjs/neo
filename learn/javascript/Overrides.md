@@ -3,7 +3,7 @@ In Neo.mjs you sub-class and override methods in the usual way.
 Here, we'll extend `Mammal` and override the `speak()` method. 
 (For brevity, we'll exclude `export` and `import` statements.)
 
-<pre data-code-readonly>
+```javascript readonly
 class Mammal extends Base {
     static config = {
         className: 'Simple.example.Mammal',
@@ -15,9 +15,9 @@ class Mammal extends Base {
     }
 }
 Neo.setupClass(Mammal);
-</pre>
+```
 
-<pre data-code-readonly>
+```javascript readonly
 class Human extends Mammal {
     static config = {
         className: 'Simple.example.Human',
@@ -33,12 +33,12 @@ const myMammal = Neo.create(Human, {
 myMammal.speak();        // Logs "Hello! My name is Herbert. I am not married."
 
 Neo.setupClass(Mammal);
-</pre>
+```
 
 Any class in the hierarchy is free to add new properties and methods. Let's add
 a property and behavior (method) to the Human class.
 
-<pre data-code-readonly>
+```javascript readonly
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {
@@ -51,9 +51,9 @@ class Mammal extends Base {
         console.log(`(${this.name} is grunting)`);
     }
 }
-</pre>
+```
 
-<pre data-code-readonly>
+```javascript readonly
 class Human extends Mammal {
     static config = {
         className: 'Simple.example.Human',
@@ -74,4 +74,4 @@ myPerson.speak();        // Logs "Hello! My name is Herbert. I am not married."
 myPerson.yodel();        // Logs "Yodelay hee hoo!"
 
 Neo.setupClass(Human);
-</pre>
+```

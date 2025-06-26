@@ -34,7 +34,7 @@ the class. If you add `console.log(this);`, the output is most likely not want y
 For the second Button we are defining a non-bound function, in which case `this` will point
 to the Component instance.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -62,7 +62,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ### Handler inside the Component Tree
 
@@ -72,7 +72,7 @@ A good example would be `tab.header.Toolbar`, where clicking on a Button will ch
 You can use string based listeners. In case the handler method lives within the parent tree (any level),
 we need to prefix these listeners with `up.`.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -95,7 +95,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ### Handler inside a ViewController
 
@@ -107,7 +107,7 @@ to find the closest match.
 
 A good use case would be a form submit Button, where a click will trigger a communication to the backend.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container  from '../container/Base.mjs';
 import Controller from '../controller/Component.mjs';
 
@@ -138,7 +138,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Listener Options
 
@@ -146,7 +146,7 @@ MainView = Neo.setupClass(MainView);
 
 We can further delegate listeners to specific DOM nodes within our Component:
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -172,7 +172,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 In case you click on the blue div, no console logs will appear.
 They do, when clicking on the white inner div.
@@ -184,7 +184,7 @@ we will get logs when clicking on the blue div too.
 
 We can prevent listeners from bubbling upwards:
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -221,7 +221,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 Clicking on the inner (white) div will only trigger the inner listener and you will get one log.
 
@@ -237,7 +237,7 @@ While we could just manually order the array inside the following example,
 there can be use cases where multiple subscribers get added at run-time and developers
 can not be sure about the adding order.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 
 class MainView extends Container {
@@ -257,7 +257,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 Try it: In case you remove `priority: 2` inside the source view,
 the order of the logs will change.

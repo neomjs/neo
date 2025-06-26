@@ -89,13 +89,13 @@ The worst case that could happen now is that your app worker will slow down and 
 this will not affect your UI (rendering thread → main).
 Probably the best solution for single page apps (SPAs) as well as multi-window apps (MWAs) looks like this:
 
-<pre data-neo-component>
+```json neo-component
 {
     "cls" : "neo-worker-setup",
     "tag" : "element-loader",
     "vdom": {"src": "./resources/images/workers-focus.svg"}
 }
-</pre>
+```
 
 To prevent the app worker from handling too much logic, we can optionally spawn more workers.
 Each thread has its fixed scope. Let us take a quick look into each of them.

@@ -1,4 +1,4 @@
-<pre data-code-readonly>
+```javascript readonly
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {
@@ -11,11 +11,11 @@ const myMammal = Neo.create(Mammal);
 
 Mammal = Neo.setupClass(Mammal); // Where Neo.mjs initializes the class config. 
 export default Mammal;        // Makes the class available elsewhere.
-</pre>
+```
 
 
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';
 
 class Mammal extends Base {
@@ -28,4 +28,4 @@ const myMammal = Neo.create(Mammal);
 
 Mammal = Neo.setupClass(Mammal); // Where Neo.mjs initializes the class config. 
 export default Mammal;        // Makes the class available elsewhere.
-</pre>
+```

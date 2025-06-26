@@ -9,7 +9,7 @@ Neo.mjs is class-based, which means you're free to extend any component (or any 
 
 ## Lifecycle config properties
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Button from '../button/Base.mjs';
 // In practice this would be some handy reusable component
 class MySpecialButton extends Button {
@@ -41,5 +41,5 @@ class MainView extends Container {
 }
 
 Neo.setupClass(MainView);
-</pre>
+```
 

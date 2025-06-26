@@ -1,7 +1,7 @@
 As you read in the <a href="#/learn/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
 
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
 
@@ -26,7 +26,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Event listeners
 
@@ -35,7 +35,7 @@ MainView = Neo.setupClass(MainView);
 The event listener function can be coded in-line. Normally you want event handlers to be in a view's 
 controller, but for very simple situation it can be convenient to use this syntax.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
 
@@ -54,7 +54,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ### As a view method
 
@@ -62,7 +62,7 @@ You can also use the `up.` qualifier to specify a method in the component's pare
 in-line syntax you saw above, using the `up.` syntax might be convenient for simple classees, 
 or when you simply haven't gotten around to defining a view's controller.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
 
@@ -84,7 +84,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ### As a controller method
 
@@ -92,7 +92,7 @@ Despite the examples above, the most correct way of setting up event handlers is
 Any view class can specify a controller &mdash; wWhen the view is created a controller instance is
 also created. 
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
@@ -125,7 +125,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Adding listeners procedurally
 
@@ -134,7 +134,7 @@ a listener procedurally.
 
 Any observable class has an `addListener` method, along with an easier-to-type version called `on`.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
@@ -167,11 +167,11 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 The method specified in `on()` doesn't have to be an arrow function; you can use a controller function.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Controller from '../controller/Component.mjs';
 
 class MainViewController extends Controller {
@@ -208,7 +208,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Events versus binding
 
@@ -241,7 +241,7 @@ will automatically be reflected in the view model.
 To contrast syntax, and to illustrate the simplicity of a binding, let's look at two exmaples of updating a component
 to reflect the value of a text field. THe first example uses events; the second uses bindings.
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
@@ -277,9 +277,9 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
-<pre data-code-livepreview>
+```javascript live-preview
 import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import TextField from '../form/field/Text.mjs';
@@ -313,7 +313,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ##How are events set up?
 

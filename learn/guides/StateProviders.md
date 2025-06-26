@@ -10,7 +10,7 @@ Other libraries or frameworks often call state providers "Stores".
 
 ## Inline State Providers
 ### Direct Bindings
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -49,7 +49,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 We use a Container with a stateProvider containing the data props `hello` and `world`.
 Inside the Container are 2 Labels which bind their `text` config to a data prop directly.
@@ -58,7 +58,7 @@ We can easily bind 1:1 to specific data props using the following syntax:</br>
 `bind: {text: data => data.hello}`
 
 ### Bindings with multiple data props
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -104,7 +104,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 We use a Container with a stateProvider containing the data props `hello` and `world`.
 Inside the Container are 3 Labels which bind their `text` config to a combination of both data props.
@@ -128,7 +128,7 @@ data.component equals to the Button instance itself. Since the Button instance d
 `getStateProvider()` will return the closest stateProvider inside the parent chain.
 
 ### Nested Inline State Providers
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -182,7 +182,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 The output of this demo is supposed to exactly look the same like the previous demo.
 
@@ -203,7 +203,7 @@ We can even change data props which live inside different stateProviders at once
 Hint: Modify the example code (Button handler) to try it out right away!
 
 ### Nested Data Properties
-<pre data-code-livepreview>
+```javascript live-preview
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
@@ -244,7 +244,7 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 Data props inside VMs can be nested. Our stateProvider contains a `user` data prop as an object,
 which contains the nested props `firstname` and `lastname`.
 
@@ -262,7 +262,7 @@ Or we can directly pass the object containing the change(s):</br>
 Hint: This will not override left out nested data props (lastname in this case).
 
 ### Dialog connecting to a Container
-<pre data-code-livepreview>
+```javascript live-preview
 import Controller from '../controller/Component.mjs';
 import Dialog     from '../dialog/Base.mjs';
 import Panel      from '../container/Panel.mjs';
@@ -378,13 +378,13 @@ class MainView extends Viewport {
 }
 
 MainView = Neo.setupClass(MainView);
-</pre>
+```
 
 ## Class based State Providers
 When your stateProviders contain many data props or need custom logic, you can easily move them into their own classes.
 
 ### Direct Bindings
-<pre data-code-livepreview>
+```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
 import Label         from '../component/Label.mjs';
@@ -436,4 +436,4 @@ class MainView extends Container {
     }
 }
 MainView = Neo.setupClass(MainView);
-</pre>
+```
