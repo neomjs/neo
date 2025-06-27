@@ -224,7 +224,7 @@ class TableContainerController extends ComponentController {
 
         me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
 
-        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
+        me.getReference('historical-data-label').text = 'Historical Data (' + (record?.country || 'World') + ')';
     }
 
     /**

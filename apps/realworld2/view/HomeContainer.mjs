@@ -38,10 +38,10 @@ class HomeContainer extends Container {
                     cn : [{
                         tag : 'h1',
                         cls : ['logo-font'],
-                        html: 'conduit v2'
+                        text: 'conduit v2'
                     }, {
                         tag : 'p',
-                        html: 'A place to share your knowledge.'
+                        text: 'A place to share your knowledge.'
                     }]
                 }]
             }
@@ -60,7 +60,7 @@ class HomeContainer extends Container {
                     cls   : ['neo-examples-tab-component'],
                     header: {iconCls: 'fa fa-user-ninja', text: 'Your Feed'},
                     style : {padding: '20px'},
-                    vdom  : {html: 'todo'}
+                    vdom  : {text: 'todo'}
                 }, {
                     module: PreviewList,
                     header: {iconCls: 'fa fa-globe-europe', text: 'Global Feed'}

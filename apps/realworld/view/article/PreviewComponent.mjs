@@ -227,7 +227,7 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        VDomUtil.getByFlag(this.vdom, 'title').html = value;
+        VDomUtil.getByFlag(this.vdom, 'title').text = value;
         this.update();
     }
 

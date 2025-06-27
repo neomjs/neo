@@ -69,7 +69,7 @@ class ProfileComponent extends Component {
                             ]},
                             {tag: 'a', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'], flag: 'edit-profile', href: '#/settings', removeDom: true, cn: [
                                 {tag: 'i', cls: ['ion-gear-a']},
-                                {vtype: 'text', html: ' Edit Profile Settings'}
+                                {vtype: 'text', text: ' Edit Profile Settings'}
                             ]}
                         ]}
                     ]}
@@ -81,10 +81,10 @@ class ProfileComponent extends Component {
                         {cls: ['articles-toggle'], cn: [
                             {tag: 'ul', cls: ['nav', 'nav-pills', 'outline-active'], flag: 'feed-header', cn: [
                                 {tag: 'li', cls: ['nav-item'], cn: [
-                                    {tag: 'a', cls: ['nav-link', 'prevent-click', 'active'], href: '', html: 'My Articles'}
+                                    {tag: 'a', cls: ['nav-link', 'prevent-click', 'active'], href: '', text: 'My Articles'}
                                 ]},
                                 {tag: 'li', cls: ['nav-item'], cn: [
-                                    {tag: 'a', cls: ['nav-link', 'prevent-click'], href: '', html: 'Favorited Articles'}
+                                    {tag: 'a', cls: ['nav-link', 'prevent-click'], href: '', text: 'Favorited Articles'}
                                 ]}
                             ]}
                         ]}
@@ -170,7 +170,7 @@ class ProfileComponent extends Component {
      */
     afterSetBio(value, oldValue) {
         if (value) {
-            VDomUtil.getByFlag(this.vdom, 'bio').html = value;
+            VDomUtil.getByFlag(this.vdom, 'bio').text = value;
             this.update();
         }
     }
@@ -190,7 +190,7 @@ class ProfileComponent extends Component {
             NeoArray.add(node.cls, value ? 'btn-secondary' : 'btn-outline-secondary');
 
             node.cn[0].cls  = [value ? 'ion-minus-round' : 'ion-plus-round'];
-            node.cn[1].html = value ? ' Unfollow ' : ' Follow ';
+            node.cn[1].text = value ? ' Unfollow ' : ' Follow ';
             this.update();
         }
     }
@@ -231,8 +231,8 @@ class ProfileComponent extends Component {
     afterSetUsername(value, oldValue) {
         let vdom = this.vdom;
 
-        VDomUtil.getByFlag(vdom, 'following').cn[2].html = value;
-        VDomUtil.getByFlag(vdom, 'username').html = value;
+        VDomUtil.getByFlag(vdom, 'following').cn[2].text = value;
+        VDomUtil.getByFlag(vdom, 'username').text = value;
         this.update();
     }
 
@@ -273,7 +273,7 @@ class ProfileComponent extends Component {
             params     = {};
 
         if (!el.vdom.cls.includes('disabled')) {
-            switch (el.vdom.html) {
+            switch (el.vdom.text) {
                 case 'Favorited Articles':
                     params = {
                         favorited: me.username

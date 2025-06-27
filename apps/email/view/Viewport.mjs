@@ -42,13 +42,13 @@ class Viewport extends BaseViewport {
                     iconCls: 'fa fa-home',
                     text   : 'Tab 1'
                 },
-                vdom: {html: 'Welcome to your new Neo App.'}
+                text: 'Welcome to your new Neo App.'
             }, {
                 header: {
                     iconCls: 'fa fa-play-circle',
                     text   : 'Tab 2'
                 },
-                vdom: {html: 'Have fun creating something awesome!'}
+                text: 'Have fun creating something awesome!'
             }]
         }]
     }

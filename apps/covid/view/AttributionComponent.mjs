@@ -21,7 +21,7 @@ class AttributionComponent extends Component {
          */
         vdom:
         {style: {margin: '20px'}, cn: [
-            {tag: 'h2', html: 'Attribution'},
+            {tag: 'h2', text: 'Attribution'},
             {tag: 'ul', cn: [
                 {tag: 'li', html: 'The logos were created by <a target="_blank" href="https://www.driefmeier.com/">Sebastian Driefmeier</a>. Thank you!'},
                 {tag: 'li', html: ['The logos are based on the image from <a target="_blank" href="https://phil.cdc.gov/Details.aspx?pid=23312">CDC Public Health Image Library (PHIL)</a>,</br>',

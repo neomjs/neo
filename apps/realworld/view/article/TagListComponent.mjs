@@ -36,7 +36,7 @@ class TagListComponent extends Component {
         _vdom:
         {cn: [
             {cls: ['sidebar'], cn: [
-                {tag: 'p', html: 'Popular Tags'},
+                {tag: 'p', text: 'Popular Tags'},
                 {cls: ['tag-list']}
             ]}
         ]}
@@ -96,7 +96,7 @@ class TagListComponent extends Component {
                     tag : 'a',
                     cls : ['tag-pill', 'tag-default'],
                     href: '',
-                    html: item,
+                    text: item,
                     id  : me.getTagVdomId(item)
                 });
             });

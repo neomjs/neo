@@ -30,7 +30,7 @@ class FooterComponent extends Component {
                     tag : 'a',
                     cls : ['logo-font'],
                     href: '#/',
-                    html: 'conduit'
+                    text: 'conduit'
                 }, {
                     tag : 'span',
                     cls : 'attribution',

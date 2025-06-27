@@ -93,7 +93,7 @@ class SignUpComponent extends Component {
         Object.entries(value || {}).forEach(([key, value]) => {
             list.cn.push({
                 tag : 'li',
-                html: key + ' ' + value.join(' and ')
+                text: key + ' ' + value.join(' and ')
             });
         });
 
@@ -141,16 +141,16 @@ class SignUpComponent extends Component {
             contentDiv = me.vdom.cn[0].cn[0].cn[0];
 
         // vdom bulk update
-        contentDiv.cn[0].html = isSignup ? 'Sign up' : 'Sign in';
+        contentDiv.cn[0].text = isSignup ? 'Sign up' : 'Sign in';
 
         contentDiv.cn[1].cn[0].href = isSignup ? '#/login' : '#/register';
-        contentDiv.cn[1].cn[0].html = isSignup ? 'Have an account?' : 'Need an account?';
+        contentDiv.cn[1].cn[0].text = isSignup ? 'Have an account?' : 'Need an account?';
 
         // remove the username fieldset if needed
         contentDiv.cn[3].cn[0].cn[0].removeDom = !isSignup;
 
         // submit button text
-        contentDiv.cn[3].cn[0].cn[3].html = isSignup ? 'Sign up' : 'Sign in';
+        contentDiv.cn[3].cn[0].cn[3].text = isSignup ? 'Sign up' : 'Sign in';
 
         me.update();
     }

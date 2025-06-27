@@ -16,7 +16,7 @@ class CardHome extends Container {
 
         vdom: {
             tag : 'h1',
-            html: 'This is the landing page of the example.'
+            text: 'This is the landing page of the example.'
         }
     }
 }

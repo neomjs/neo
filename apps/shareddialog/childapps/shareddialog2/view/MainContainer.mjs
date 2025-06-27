@@ -35,7 +35,7 @@ class MainContainer extends Viewport {
         }, {
             ntype: 'component',
             flex : 1,
-            html : '#2',
+            text : '#2',
 
             style: {
                 alignItems    : 'center',

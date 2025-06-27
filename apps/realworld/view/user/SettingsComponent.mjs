@@ -44,7 +44,7 @@ class SettingsComponent extends Component {
             {cls: ['container', 'page'], cn: [
                 {cls: ['row'], cn: [
                     {cls: ['col-md-6', 'offset-md-3', 'col-xs-12'], cn: [
-                        {tag: 'h1', cls: ['text-xs-center'], html: 'Your Settings'},
+                        {tag: 'h1', cls: ['text-xs-center'], text: 'Your Settings'},
                         {tag: 'ul', cls: ['error-messages'], flag: 'errors', removeDom: true},
                         {tag: 'form', cn: [
                             {tag: 'fieldset', cn: [
@@ -63,11 +63,11 @@ class SettingsComponent extends Component {
                                 {tag: 'fieldset', cls: ['form-group'], cn: [
                                     {tag: 'input', cls: ['form-control', 'form-control-lg'], flag: 'password', placeholder: 'Password', type: 'password'}
                                 ]},
-                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], html: 'Update Settings'}
+                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], text: 'Update Settings'}
                             ]}
                         ]},
                         {tag: 'hr'},
-                        {tag: 'button', cls: ['btn', 'btn-outline-danger'], html: 'Or click here to logout.'}
+                        {tag: 'button', cls: ['btn', 'btn-outline-danger'], text: 'Or click here to logout.'}
                     ]}
                 ]}
             ]}
@@ -133,7 +133,7 @@ class SettingsComponent extends Component {
         Object.entries(value).forEach(([key, value]) => {
             list.cn.push({
                 tag : 'li',
-                html: key + ' ' + value.join(' and ')
+                text: key + ' ' + value.join(' and ')
             });
         });
 

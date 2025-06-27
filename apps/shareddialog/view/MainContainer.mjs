@@ -92,7 +92,7 @@ class MainContainer extends Viewport {
         }, {
             ntype: 'component',
             flex : 1,
-            html : '#1',
+            text : '#1',
 
             style: {
                 alignItems    : 'center',

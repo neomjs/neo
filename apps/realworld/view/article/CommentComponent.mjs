@@ -49,7 +49,7 @@ class CommentComponent extends Component {
                 {tag: 'a', cls : ['comment-author'], href: '', cn: [
                     {tag: 'img', cls: ['comment-author-img']}
                 ]},
-                {vtype: 'text', html: '&nbsp;'},
+                {vtype: 'text', text: ' '},
                 {tag: 'a', cls: ['comment-author'], href: ''},
                 {tag: 'span', cls : ['date-posted']},
                 {tag: 'span', cls : ['mod-options'], flag: 'mod-options', cn: [
@@ -90,7 +90,7 @@ class CommentComponent extends Component {
             let me = this;
 
             me.vdom.cn[1].cn[0].cn[0].src = value.image;
-            me.vdom.cn[1].cn[2].html      = value.username;
+            me.vdom.cn[1].cn[2].text      = value.username;
 
             me.update();
             me.onCurrentUserChange();
@@ -105,7 +105,7 @@ class CommentComponent extends Component {
      */
     afterSetBody(value, oldValue) {
         if (value) {
-            this.vdom.cn[0].cn[0].html = value;
+            this.vdom.cn[0].cn[0].text = value;
             this.update();
         }
     }
@@ -118,7 +118,7 @@ class CommentComponent extends Component {
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
-            this.vdom.cn[1].cn[3].html = new Intl.DateTimeFormat('en-US', {
+            this.vdom.cn[1].cn[3].text = new Intl.DateTimeFormat('en-US', {
                 day  : 'numeric',
                 month: 'long',
                 year : 'numeric'
