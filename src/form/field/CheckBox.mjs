@@ -397,7 +397,7 @@ class CheckBox extends Field {
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
-            valueLabel.html = value
+            valueLabel.text = value
         }
 
         valueLabel.removeDom = !showLabel;
@@ -582,16 +582,16 @@ class CheckBox extends Field {
         if (!(me.clean && !me.mounted)) {
             me._error = value; // silent update
 
-            NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
+            NeoArray.toggle(cls, 'neo-invalid', value);
             me.cls = cls;
 
             errorWrapper = me.vdom.cn[1];
             errorNode    = errorWrapper.cn[0];
 
             if (showError) {
-                errorNode.html = value
+                errorNode.text = value
             } else {
-                delete errorNode.html
+                delete errorNode.text
             }
 
             errorWrapper.removeDom = !showError;

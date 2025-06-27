@@ -104,7 +104,7 @@ class DayViewComponent extends Base {
         for (; i < len; i++) {
             config =
             {cls: ['neo-cell'], cn: [
-                {cls : ['neo-cell-content'], html: me.intlFormatDay.format(date)}
+                {cls : ['neo-cell-content'], text: me.intlFormatDay.format(date)}
             ]};
 
             day = date.getDay();
@@ -168,7 +168,7 @@ class DayViewComponent extends Base {
                     tabIndex: hasContent ? -1 : null,
                     cn: [{
                         cls : ['neo-cell-content'],
-                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
+                        text: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 };
 

@@ -332,7 +332,7 @@ class SelectorContainer extends Container {
             for (; i < 7; i++) {
                 node = centerEl.cn[i];
 
-                node.cn[0].html = me.intlFormatDay.format(date);
+                node.cn[0].text = me.intlFormatDay.format(date);
 
                 day = date.getDay();
 

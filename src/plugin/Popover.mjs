@@ -18,10 +18,10 @@ import Plugin    from './Base.mjs';
  *             ntype  : 'panel',
  *             headers: [{
  *                 dock: 'top',
- *                 html: 'HEADER'
+ *                 text: 'HEADER'
  *             }],
  *             items  : [{
- *                 html: 'This is a comment about the button'
+ *                 text: 'This is a comment about the button'
  *             }]
  *         }]
  *     }]

@@ -60,8 +60,8 @@ class Color extends List {
             }
         }, {
             vtype: 'text',
-            html : record[me.displayField],
-            id   : me.getListItemVtextId(id)
+            id   : me.getListItemVtextId(id),
+            text : record[me.displayField]
         }]
     }
 

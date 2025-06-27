@@ -277,13 +277,13 @@ class AccordionTree extends TreeList {
                             tag : 'span',
                             cls : [itemCls + '-content-header'],
                             id  : id + '__item-content-header',
-                            html: item[me.fields.header]
+                            text: item[me.fields.header]
                         }, {
                             flag: 'content',
                             tag : 'span',
                             cls : [itemCls + '-content-text'],
                             id  : id + '__item-content-text',
-                            html: item[me.fields.text]
+                            text: item[me.fields.text]
                         }]
                     }],
                     style: {
@@ -428,7 +428,7 @@ class AccordionTree extends TreeList {
                     NeoArray.add(cls, clsItems);
                     itemVdom.cls = cls
                 } else {
-                    itemVdom.html = field.value
+                    itemVdom.text = field.value
                 }
             }
         });
