@@ -63,7 +63,7 @@ class ColorsList extends List {
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a string.
      */
     createItemContent(record, index) {
         return {style: {

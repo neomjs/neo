@@ -450,8 +450,8 @@ class EventDragZone extends DragZone {
                 endDate = me.adjustEndDate(endDate);
 
                 deltas.push({
-                    id       : me.dragProxy.vdom.cn[2].id,
-                    innerHTML: owner.intlFormat_time.format(endDate)
+                    id         : me.dragProxy.vdom.cn[2].id,
+                    textContent: owner.intlFormat_time.format(endDate)
                 });
 
                 if (keepEndDate || keepStartDate) {
@@ -460,8 +460,8 @@ class EventDragZone extends DragZone {
                 }
 
                 deltas.push({
-                    id       : me.dragProxy.vdom.cn[0].id,
-                    innerHTML: owner.intlFormat_time.format(startDate)
+                    id         : me.dragProxy.vdom.cn[0].id,
+                    textContent: owner.intlFormat_time.format(startDate)
                 });
 
                 // check if the node got added yet

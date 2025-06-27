@@ -582,8 +582,8 @@ class Component extends BaseComponent {
 
         header =
         {cls: ['neo-header-row-item'], removeDom: removeDom, cn: [
-            {cls: ['neo-day'], html: me.intlFormat_day.format(date)},
-            {cls: dateCls,     html: currentDate}
+            {cls: ['neo-day'], text: me.intlFormat_day.format(date)},
+            {cls: dateCls,     text: currentDate}
         ]};
 
         return {column, header}
@@ -906,17 +906,17 @@ class Component extends BaseComponent {
 
                             cn: [{
                                 cls : ['neo-event-time'],
-                                html: me.intlFormat_time.format(record.startDate),
-                                id  : `${me.id}__time__${recordKey}`
+                                id  : `${me.id}__time__${recordKey}`,
+                                text: me.intlFormat_time.format(record.startDate)
                             }, {
                                 cls : ['neo-event-title'],
-                                html: record.title,
-                                id  : `${me.id}__title__${recordKey}`
+                                id  : `${me.id}__title__${recordKey}`,
+                                text: record.title
                             }, {
                                 cls      : ['neo-event-time', 'neo-event-end-time'],
-                                html     : me.intlFormat_time.format(record.endDate),
                                 id       : `${me.id}__enddate__${recordKey}`,
-                                removeDom: !showEventEndTime
+                                removeDom: !showEventEndTime,
+                                text     : me.intlFormat_time.format(record.endDate)
                             }],
 
                             style: {
@@ -975,8 +975,8 @@ class Component extends BaseComponent {
 
                 header.cn.push(
                 {cls: ['neo-header-row-item'], id: headerId, removeDom, cn: [
-                    {cls: ['neo-day'], html: me.intlFormat_day.format(date), id: `${headerId}_day`},
-                    {cls : dateCls,    html: currentDate,                    id: `${headerId}_date`}
+                    {cls: ['neo-day'], id: `${headerId}_day`,  text: me.intlFormat_day.format(date)},
+                    {cls : dateCls,    id: `${headerId}_date`, text: currentDate}
                 ]})
             } else {
                 Object.assign(content.cn[i], {
@@ -987,8 +987,8 @@ class Component extends BaseComponent {
                 });
 
                 Object.assign(header.cn[i],       {id: headerId, removeDom});
-                Object.assign(header.cn[i].cn[0], {html: me.intlFormat_day.format(date), id: `${headerId}_day`});
-                Object.assign(header.cn[i].cn[1], {cls: dateCls, html: currentDate, id: `${headerId}_date`})
+                Object.assign(header.cn[i].cn[0], {id: `${headerId}_day`, text: me.intlFormat_day.format(date)});
+                Object.assign(header.cn[i].cn[1], {cls: dateCls, id: `${headerId}_date`, text: currentDate})
             }
 
             date.setDate(date.getDate() + 1)

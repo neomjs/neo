@@ -485,10 +485,10 @@ class Component extends BaseComponent {
                             tag : 'span',
                             cls : ['neo-month-name'],
                             flag: 'month-name',
-                            html: me.intlFormat_month.format(date)
+                            text: me.intlFormat_month.format(date)
                         }, {
                             vtype: 'text',
-                            html : ` ${date.getFullYear()}`
+                            text : ` ${date.getFullYear()}`
                         }]
                     }]
                 };
@@ -499,8 +499,8 @@ class Component extends BaseComponent {
                 id : `${me.id}__day__${ymdDate}`,
                 cn : [{
                     cls : ['neo-day-number'],
-                    html: day,
-                    id : `${me.id}__day_number__${ymdDate}`
+                    id : `${me.id}__day_number__${ymdDate}`,
+                    text: day
                 }]
             };
 
@@ -530,12 +530,12 @@ class Component extends BaseComponent {
 
                             cn: [{
                                 cls : ['neo-event-title'],
-                                html: record.title,
-                                id  : me.id + '__title__' + recordKey
+                                id  : me.id + '__title__' + recordKey,
+                                text: record.title
                             }, {
                                 cls : ['neo-event-time'],
-                                html: me.intlFormat_time.format(record.startDate),
-                                id  : me.id + '__time__' + recordKey
+                                id  : me.id + '__time__' + recordKey,
+                                text: me.intlFormat_time.format(record.startDate)
                             }]
                         });
                     }
@@ -729,8 +729,8 @@ class Component extends BaseComponent {
             if (flag) {
                 date = new Date(flag);
                 date.setMonth(date.getMonth() + 1);
-                header.cn[0].html = me.intlFormat_month.format(date);
-                header.cn[1].html = ` ${date.getFullYear()}`;
+                header.cn[0].text = me.intlFormat_month.format(date);
+                header.cn[1].text = ` ${date.getFullYear()}`;
                 break
             }
         }
@@ -753,8 +753,8 @@ class Component extends BaseComponent {
             i      = 1,
             day, node;
 
-        header.cn[0].html = me.intlFormat_month.format(date);
-        header.cn[1].html = ` ${date.getFullYear()}`;
+        header.cn[0].text = me.intlFormat_month.format(date);
+        header.cn[1].text = ` ${date.getFullYear()}`;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
@@ -764,7 +764,7 @@ class Component extends BaseComponent {
             if (create) {
                 node = {
                     cls : ['neo-day-name'],
-                    html: me.intlFormat_day.format(date)
+                    text: me.intlFormat_day.format(date)
                 };
 
                 if (!me.showWeekends && (day === 0 || day === 6)) {
@@ -777,7 +777,7 @@ class Component extends BaseComponent {
 
                 // the method could be called before the header content got created
                 if (node) {
-                    node.html = me.intlFormat_day.format(date);
+                    node.text = me.intlFormat_day.format(date);
 
                     if (!me.showWeekends && (day === 0 || day === 6)) {
                         node.removeDom = true
@@ -802,7 +802,7 @@ class Component extends BaseComponent {
             months = VDomUtil.getFlags(me.vdom, 'month-name');
 
         months.forEach(month => {
-            month.html = me.intlFormat_month.format(date);
+            month.text = me.intlFormat_month.format(date);
             date.setMonth(date.getMonth() + 1);
         });
 
