@@ -302,19 +302,6 @@ class DeltaUpdates extends Base {
 
     /**
      * @param {Object} delta
-     * @param {String} [delta.id]
-     * @param {String} [delta.value
-     */
-    setTextContent({id, value}) {
-        let node = DomAccess.getElement(id);
-
-        if (node) {
-            node.textContent = value
-        }
-    }
-
-    /**
-     * @param {Object} delta
      * @param {Object} [delta.attributes]
      * @param {String} [delta.cls]
      * @param {String} [delta.id]
@@ -383,6 +370,9 @@ class DeltaUpdates extends Base {
                                 node.style.setProperty(Neo.decamel(key), val, important)
                             })
                         }
+                        break
+                    case 'textContent':
+                        node.textContent = value;
                         break
                 }
             })
