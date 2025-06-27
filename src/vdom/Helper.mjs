@@ -38,23 +38,6 @@ class Helper extends Base {
     }
 
     /**
-     * @returns {Promise<void>}
-     */
-    async initAsync() {
-        super.initAsync();
-
-        let me = this;
-
-        // Subscribe to global Neo.config changes for dynamic renderer switching.
-        Neo.currentWorker.on({
-            neoConfigChange: me.onNeoConfigChange,
-            scope          : me
-        });
-
-        await me.importUtil()
-    }
-
-    /**
      * @param {Object}         config
      * @param {Object}         config.deltas
      * @param {Neo.vdom.VNode} config.oldVnode
@@ -515,6 +498,23 @@ class Helper extends Base {
                 await import('./util/StringFromVnode.mjs')
             }
         }
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        super.initAsync();
+
+        let me = this;
+
+        // Subscribe to global Neo.config changes for dynamic renderer switching.
+        Neo.currentWorker.on({
+            neoConfigChange: me.onNeoConfigChange,
+            scope          : me
+        });
+
+        await me.importUtil()
     }
 
     /**
