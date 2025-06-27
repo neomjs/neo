@@ -629,12 +629,12 @@ class Helper extends Base {
 
     /**
      * Handler for global Neo.config changes.
-     * If 'useDomApiRenderer' property changes, this method dynamically loads/clears the renderer utilities.
+     * If the `Neo.config.useDomApiRenderer` value changes, this method dynamically loads the renderer utilities.
      * @param {Object} config
      * @return {Promise<void>}
      */
     async onNeoConfigChange(config) {
-        if(Object.hasOwn(config, 'useDomApiRenderer')) {
+        if (Object.hasOwn(config, 'useDomApiRenderer')) {
             await this.importUtil()
         }
     }
