@@ -29,13 +29,13 @@ class References extends BaseContainer {
         }, {
             cls : 'neo-h1',
             flex: 'none',
-            html: 'References',
-            tag : 'h1'
+            tag : 'h1',
+            text: 'References'
         }, {
             cls : 'neo-h2',
             flex: 'none',
-            html: 'What people think about Neo',
-            tag : 'h2'
+            tag : 'h2',
+            text: 'What people think about Neo'
         }, {
             module: Carousel,
             // will automatically change to the next extry every 5500 ms
@@ -74,10 +74,10 @@ class References extends BaseContainer {
             // each item will be created like the itemTpl structure
             itemTpl: data => [{
                 cls : 'neo-quote',
-                html: data.quote
+                text: data.quote
             }, {
                 cls : 'neo-details',
-                html: `${data.publisher} - ${data.date}`
+                text: `${data.publisher} - ${data.date}`
             }]
         }]
     }

@@ -20,8 +20,8 @@ class Container extends Base {
          * @member {Object[]} items
          */
         items: [{
-            html: 'Meet the Team',
-            tag : 'h1'
+            tag : 'h1',
+            text: 'Meet the Team'
         }, {
             module         : MemberContainer,
             location       : 'Germany',

@@ -117,8 +117,8 @@ class List extends BaseList {
                     {cls: ['neo-top-20'], cn: [
                         {...me.createSourceLink(record)},
                         {cls: ['neo-inner-content'], cn: [
-                            {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
-                            {cls: ['neo-inner-details'], html: record.environments.join(', ')}
+                            {cls: ['neo-inner-details'], text: record.browsers.join(', ')},
+                            {cls: ['neo-inner-details'], text: record.environments.join(', ')}
                         ]}
                     ]}
                 ]}
@@ -137,8 +137,8 @@ class List extends BaseList {
         vdom = {
             tag : 'a',
             cls : ['neo-title'],
-            cn  : [{html: record.name.replace(List.nameRegEx, "$1")}],
-            href: record.url
+            href: record.url,
+            text: record.name.replace(List.nameRegEx, '$1')
         };
 
         // We can use a shorter syntax for pointing examples to neomjs.com, but not all examples have to be there.

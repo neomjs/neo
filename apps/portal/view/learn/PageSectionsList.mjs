@@ -32,12 +32,12 @@ class PageSectionsList extends List {
     /**
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a string.
      */
     createItemContent(record, index) {
         return {
             cls : `neo-${record.tag}`,
-            html: record[this.displayField]
+            text: record[this.displayField]
         }
     }
 

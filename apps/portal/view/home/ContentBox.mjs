@@ -46,7 +46,7 @@ class ContentBox extends Base {
      */
     afterSetContent(value, oldValue) {
         value?.forEach(item => {
-            this.vdom.cn[1].cn.push({tag: 'li', html: item})
+            this.vdom.cn[1].cn.push({tag: 'li', text: item})
         })
 
         this.update()
@@ -59,7 +59,7 @@ class ContentBox extends Base {
      * @protected
      */
     afterSetHeader(value, oldValue) {
-        this.vdom.cn[0].html = value;
+        this.vdom.cn[0].text = value;
         this.update()
     }
 
