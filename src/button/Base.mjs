@@ -100,9 +100,9 @@ class Button extends Component {
         route_: null,
         /**
          * The text displayed on the button [optional]
-         * @member {String|null} text_=null
+         * @member {String|null} text=null
          */
-        text_: null,
+        text: null,
         /**
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} url_=null

@@ -76,12 +76,7 @@ class Tooltip extends Container {
          * True prevents the tooltip from hiding while the mouse cursor is above it
          * @member {Boolean|null} stayOnHover_=true
          */
-        stayOnHover_: true,
-        /**
-         * Shortcut to add a label item
-         * @member {String} text_=null
-         */
-        text_: null
+        stayOnHover_: true
     }
 
     /**

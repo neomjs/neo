@@ -27,9 +27,9 @@ class Legend extends Component {
          */
         iconCls_: 'far fa-check',
         /**
-         * @member {String} text_=''
+         * @member {String} text=''
          */
-        text_: '',
+        text: '',
         /**
          * @member {Boolean} useIcon_=true
          */

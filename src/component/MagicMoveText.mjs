@@ -52,9 +52,9 @@ class MagicMoveText extends Component {
          */
         fontFamily_: 'Helvetica Neue',
         /**
-         * @member {String} text_=null
+         * @member {String} text=null
          */
-        text_: null,
+        text: null,
         /**
          * Time in ms for the fadeIn, fadeOut and move character OPs
          * @member {Number} transitionTime_=500
