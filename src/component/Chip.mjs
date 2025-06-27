@@ -132,7 +132,7 @@ class Chip extends Component {
             textNode.removeDom = true
         } else {
             textNode.removeDom = false;
-            textNode.html      = value
+            textNode.text      = value
         }
 
         this.update()

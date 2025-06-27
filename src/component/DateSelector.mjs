@@ -250,7 +250,7 @@ class DateSelector extends Component {
 
             me.updateHeaderDays(me.dayNameFormat, '', true);
 
-            me.getHeaderMonthEl().html = dt.format(me.currentDate);
+            me.getHeaderMonthEl().text = dt.format(me.currentDate);
 
             me.update()
         }
@@ -588,7 +588,7 @@ class DateSelector extends Component {
         for (; i < len; i++) {
             config =
             {cls: ['neo-cell'], cn: [
-                {cls : ['neo-cell-content'], html: me.intlFormat_day.format(date)}
+                {cls : ['neo-cell-content'], text: me.intlFormat_day.format(date)}
             ]};
 
             day = date.getDay();
@@ -652,7 +652,7 @@ class DateSelector extends Component {
                     tabIndex: hasContent ? -1 : null,
                     cn: [{
                         cls : ['neo-cell-content'],
-                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
+                        text: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 };
 
@@ -748,7 +748,7 @@ class DateSelector extends Component {
             cellEl = VDomUtil.find(me.vdom, data.path[0].id),
             date   = me.currentDate; // cloned
 
-        date.setDate(parseInt(cellEl.vdom.cn[0].html));
+        date.setDate(parseInt(cellEl.vdom.cn[0].text));
         date = DateUtil.convertToyyyymmdd(date);
 
         // We want to always trigger a change event.
@@ -893,7 +893,7 @@ class DateSelector extends Component {
             for (; i < 7; i++) {
                 node = centerEl.cn[i];
 
-                node.cn[0].html = me.intlFormat_day.format(date);
+                node.cn[0].text = me.intlFormat_day.format(date);
 
                 day = date.getDay();
 
@@ -927,7 +927,7 @@ class DateSelector extends Component {
             headerCenterEl, y;
 
         if (!me.mounted || !me.useAnimations) {
-            monthEl.html = currentMonth;
+            monthEl.text = currentMonth;
             !silent && me.update();
             return null
         } else {
@@ -954,7 +954,7 @@ class DateSelector extends Component {
 
             headerCenterEl.cn[0].cn[0].cn.push({
                 cls : ['neo-month-text'],
-                html: currentMonth
+                text: currentMonth
             });
 
             headerCenterEl.cn[0].cn[0].cn[slideDirection === 'top' ? 'unshift' : 'push'](headerCenterEl.cn[1]);
@@ -1012,7 +1012,7 @@ class DateSelector extends Component {
         let me     = this,
             yearEl = me.getHeaderYearEl();
 
-        yearEl.html = me.currentDate.getFullYear();
+        yearEl.text = me.currentDate.getFullYear();
 
         !silent && me.update()
     }

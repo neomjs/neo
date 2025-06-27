@@ -62,7 +62,7 @@ class Legend extends Component {
      * @protected
      */
     afterSetText(value, oldValue) {
-        this.vdom.cn[1].html = value;
+        this.vdom.cn[1].text = value;
         this.update()
     }
 

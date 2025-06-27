@@ -850,8 +850,8 @@ class Circle extends Component {
         let me          = this,
             innerCircle = me.getInnerCircle();
 
-        innerCircle.cn[0].html = me.store?.getCount() || 0;
-        innerCircle.cn[1].html = me.title;
+        innerCircle.cn[0].text = me.store?.getCount() || 0;
+        innerCircle.cn[1].text = me.title;
 
         !silent && me.update()
     }

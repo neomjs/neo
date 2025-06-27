@@ -1417,8 +1417,8 @@ class Component extends Base {
                     cls: this.loadingSpinnerCls
                 }, {
                     cls      : ['neo-loading-message'],
-                    html     : loadingMessage,
-                    removeDom: !Neo.isString(loadingMessage)
+                    removeDom: !Neo.isString(loadingMessage),
+                    text     : loadingMessage
                 }]
             }]
         }

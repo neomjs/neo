@@ -702,7 +702,7 @@ class Helix extends Component {
             if (me.showCloneInfo) {
                 itemVdom.cn.push({
                     cls : ['contact-name'],
-                    html: record.firstname + ' ' + record.lastname
+                    text: record.firstname + ' ' + record.lastname
                 })
             }
 

@@ -262,7 +262,7 @@ class MagicMoveText extends Component {
                     char = '&#32;'
                 }
 
-                measureElement.cn.push({tag: 'span', html: char})
+                measureElement.cn.push({tag: 'span', text: char})
             });
 
             if (me.mounted) {
@@ -301,8 +301,8 @@ class MagicMoveText extends Component {
 
                 charsContainer.push({
                     cls  : ['neo-char'],
-                    html : char.name,
-                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top}
+                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top},
+                    text : char.name
                 })
             }
         });
@@ -491,7 +491,7 @@ class MagicMoveText extends Component {
 
         charsContainer.cn.length = 0;
 
-        charsContainer.cn.push({html: me.text});
+        charsContainer.cn.push({text: me.text});
         await me.promiseUpdate();
 
         me.isTransitioning = false

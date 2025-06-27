@@ -74,7 +74,7 @@ class Timer extends Component {
                             {tag: 'button',cls: 'fa fa-play'}
                         ]},
                         {cls: 'flip-card-back', cn : [
-                            {cls: 'runner', html: '00:00'}
+                            {cls: 'runner', text: '00:00'}
                         ]}
                     ]}
                 ]}
@@ -283,7 +283,7 @@ class Timer extends Component {
         let me    = this,
             timer = me.vdom.cn[0].cn[1].cn[0].cn[1].cn[0];
 
-        timer.html = value;
+        timer.text = value;
         me.update()
     }
 
