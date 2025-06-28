@@ -240,7 +240,7 @@ Neo.ntype({
         { // Another button with a handler
             className: 'Neo.button.Base',
             text     : 'Hello Alert',
-            handler  : () => alert('Hello from a nested button!')
+            handler  : () => console.log('Hello from a nested button!')
         }
     ]
 });
@@ -370,18 +370,264 @@ class Viewport extends BaseViewport {
 }
 ```
 
+Neo.mjs provides several ways to configure these entities within the `static config` block:
 
+1. **Direct Module Reference (Most Common)**</br>
+  You can directly provide the imported class module to the controller or stateProvider config.
+  Neo.mjs will automatically create an instance of that class and assign it to the property.
+  This is the simplest and most common approach, as seen in the Viewport example above.
+  ```javascript readonly
+// In MyContainer.mjs (a non-leaf component)
+import MyController from './MyController.mjs';
 
+class MyContainer extends Container {
+    static config = {
+        controller: MyController // Neo.mjs will instantiate MyController
+    }
+}
+  ```
 
+2. **Config Object with `module`**</br>
+  If you need to pass additional configuration properties to the controller or state provider at the time of its creation,
+  you can provide a config object that includes the `module` property along with any other desired properties.
+  Neo.mjs will use this full config object to create the instance.
+  ```javascript readonly
+// In MyContainer.mjs
+import MyController from './MyController.mjs';
 
+class MyContainer extends Container {
+    static config = {
+        controller: {
+            module          : MyController,
+            myCustomProperty: 'initialValue',
+            anotherSetting  : true
+        }
+    }
+}
+  ```
 
+3.  **Inline Class Definition (for tightly coupled cases)** </br>
+  For very specific or small controllers/state providers that are tightly coupled to a single component and don't
+  require external reusability, you can define them inline as a nested configuration object within the component's config.
+  While this reduces external reusability, it keeps highly related code together and maintains the declarative paradigm.
+  ```javascript readonly
+// In MyContainer.mjs
+class MyContainer extends Container {
+    static config = {
+        stateProvider: {
+            data: {
+                foo: 'bar'
+            }
+        }
+    }
+}
+  ```
+  This approach allows you to fully define the state provider's behavior and dependencies directly within the container's configuration.
 
+These options provide a powerful and consistent way to inject behavior and state management into your components,
+all within the unified class config system, further demonstrating its versatility for both UI and non-UI logic.
 
+**Note**: This section focuses on the configuration methods for controllers and state providers. Detailed explanations of
+controller methods, state management patterns, and specific API functionalities will be covered in dedicated guides on
+Controllers and State Management.
 
+### 5. Non-DOM Entity Configuration: Routing with routes
 
+Neo.mjs enables declarative routing directly within the static config of your controllers (or other relevant classes), often a ViewportController for top-level application navigation. This allows you to define URL hash patterns and map them to specific controller methods, creating a clear, maintainable routing system.
 
+Consider the ViewportController.mjs
+[[Source: ViewportController.mjs](https://github.com/neomjs/neo/blob/dev/apps/portal/view/ViewportController.mjs)]:
 
+```javascript readonly
+// From: Portal.view.ViewportController
+import Controller        from '../../../src/controller/Component.mjs';
+// ... other imports
 
+class ViewportController extends Controller {
+    static config = {
+        className: 'Portal.view.ViewportController',
+        ntype    : 'viewport-controller',
+        // ... other configurations
+        /**
+         * @member {Object} routes
+         */
+        routes: {
+            '/about-us'         : 'onAboutUsRoute',
+            '/blog'             : 'onBlogRoute',
+            '/docs'             : 'onDocsRoute',
+            '/examples'         : 'onExamplesRoute',
+            '/examples/{itemId}': 'onExamplesRoute',
+            '/home'             : 'onHomeRoute',
+            '/learn'            : 'onLearnRoute',
+            '/learn/{itemId}'   : 'onLearnRoute',
+            '/services'         : 'onServicesRoute'
+        },
+        // ... other configurations
+    }
+    // ... controller methods like onAboutUsRoute, onBlogRoute, etc.
+}
+```
+
+In this `ViewportController`'s `static config`:
+
+* The `routes` object maps URL hash patterns (keys) to controller method names (values).
+
+* For example, when the browser's hash changes to `#/home`, the `onHomeRoute` method within `ViewportController` is automatically invoked.
+
+* Routes can include dynamic parameters using curly braces, like `/examples/{itemId}`. When such a route is matched
+  (e.g., `#/examples/my-component`), the `onExamplesRoute` method will be called, and the `itemId` value (`my-component`)
+  will be passed as a parameter to the method.
+
+* This declarative setup centralizes your application's routing logic, making it easy to understand the application's
+  navigation paths and their corresponding actions at a glance.
+
+* The controller methods, such as `onHomeRoute`, then typically manage the application's UI state based on the route,
+  for instance, by setting the `activeIndex` of a card layout container to display the correct view:
+
+```javascript readonly
+// From: Portal.view.ViewportController
+// ...
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onHomeRoute(params, value, oldValue) {
+      this.setMainContentIndex(0)
+    }
+    
+    /**
+     * @param {Number} index
+     */
+    async setMainContentIndex(index) {
+      let me                               = this,
+          {activeIndex, mainContentLayout} = me,
+          container                        = me.getReference('main-content');
+      // ... logic to update the main content container's activeIndex
+      if (index !== activeIndex) {
+        me.activeIndex = index;
+        // ... more complex layout transition logic
+        container.layout.activeIndex = index;
+      }
+    }
+```
+
+This demonstrates a complete declarative flow: the `static config` defines the routes, which then trigger methods within
+the same controller to update the UI, all within a consistent declarative pattern.
+
+**Note**: This section focuses on how routes are defined and linked to controller methods through the `static config`.
+A comprehensive guide on Neo.mjs routing, including advanced features like route guards, nested routes, and router
+history management, will be provided in a separate, dedicated guide.
+
+### 6. Dynamic Configuration & afterSet Handlers: An In-depth Example
+
+Let's further explore dynamic configuration changes and the role of `afterSet` methods with the Neo.examples.core.config.
+MainContainer [Source: MainContainer.mjs]. This example highlights how declarative UI structures defined in
+static config can be combined with reactive updates based on other config properties.
+
+**Original MainContainer with items in construct (for context)**
+
+The original `MainContainer.mjs` defined its `items` array inside the `construct` method.
+This allowed for procedural creation of child components.
+
+```javascript readonly
+// From: Neo.examples.core.config.MainContainer (original approach)
+import Panel    from '../../../src/container/Panel.mjs';
+import Viewport from '../../../src/container/Viewport.mjs';
+
+class MainContainer extends Viewport {
+    static config = {
+        className: 'Neo.examples.core.config.MainContainer',
+        a_       : null,
+        b_       : null,
+        style    : { padding: '20px' }
+    }
+    
+    construct(config) {
+        super.construct(config);
+        let me = this;
+
+        me.items = [{ // Items defined here
+            module: Panel,
+            containerConfig: { layout: {ntype: 'vbox', align: 'start'}, style : {padding: '20px'} },
+            headers: [{
+                dock : 'top',
+                items: [{ ntype: 'label', flag : 'label1' }, { ntype: 'label', flag : 'label2' }, { ntype: 'component', flex : 1 }, {
+                    handler: me.changeConfig.bind(me), // Bound handler
+                    iconCls: 'fa fa-user',
+                    text   : 'Change configs'
+                }]
+            }],
+            items: [{ ntype: 'label', text : 'Click the change configs button!' }]
+          }]
+    }
+    // ... changeConfig, afterSetA, afterSetB, onConstructed methods
+}
+```
+
+**Refactored `MainContainer` with `items` in `static config` and Declarative Handler**
+
+To fully embrace the declarative nature of the class config system, the entire `items` array can be moved into the
+`static config` block. This makes the component's structure visible at a glance within its static definition.
+When moving the `handler`, we can leverage Neo.mjs's declarative event handling by using `'up.methodName'`,
+which tells the framework to look for methodName on the direct parent instance or higher in the component hierarchy.
+
+```javascript readonly
+// Refactored Neo.examples.core.config.MainContainer (recommended approach)
+import Panel    from '../../../src/container/Panel.mjs';
+import Viewport from '../../../src/container/Viewport.mjs';
+
+class MainContainer extends Viewport {
+    static config = {
+        className: 'Neo.examples.core.config.MainContainer',
+        a_       : null,
+        b_       : null,
+        style    : { padding: '20px' },
+        /**
+         * @member {Object[]} items
+         */
+        items: [{ // Items now defined declaratively within static config
+            module: Panel,
+            containerConfig: {
+                layout: {ntype: 'vbox', align: 'start'},
+                style : {padding: '20px'}
+            },
+            headers: [{
+                dock : 'top',
+                items: [{
+                    ntype: 'label',
+                    flag : 'label1'
+                }, {
+                    ntype: 'label',
+                    flag : 'label2'
+                }, {
+                    ntype: 'component',
+                    flex : 1
+                }, {
+                    handler  : 'up.changeConfig', // Declarative handler: 'up' references the parent instance (MainContainer)
+                    iconCls  : 'fa fa-user',
+                    text     : 'Change configs'
+                }]
+            }],
+            items: [{
+                ntype: 'label',
+                text : 'Click the change configs button!'
+            }]
+        }]
+    }
+
+    // `construct` method would now be simpler or removed if no other logic is needed here
+    construct(config) {
+        super.construct(config);
+        // Any other non-config related construction logic would go here
+    }
+
+    // ... changeConfig, afterSetA, afterSetB, onConstructed methods (remain the same)
+}
+```
+
+This refactored version clearly demonstrates the power of defining the entire component hierarchy and event wiring
+declaratively within `static config`, reducing the need for imperative UI construction in `construct`.
 
 
 
