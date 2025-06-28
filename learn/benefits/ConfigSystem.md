@@ -90,9 +90,9 @@ offers several key advantages:
   values change. For instance, simply assigning a new value to a config directly:
 
     ```javascript readonly
-myButton.text    = 'New Button Text'; // UI will update automatically
-  myButton.iconCls = 'fa fa-check';     // UI will update automatically
-```
+    myButton.text    = 'New Button Text'; // UI will update automatically
+    myButton.iconCls = 'fa fa-check';     // UI will update automatically
+    ```
 
   For optimal performance when changing multiple configs simultaneously, it's recommended to use the `set()` method.
   This ensures all changes are processed within a single, efficient update cycle, avoiding unnecessary redraws.
