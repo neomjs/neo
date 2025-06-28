@@ -101,10 +101,30 @@ offers several key advantages:
   `beforeGetMyConfig()`, `beforeSetMyConfig()`, and `afterSetMyConfig(). These powerful hooks allow you to intercept, validate,
   transform, or react to config changes, providing fine-grained control over data flow and enabling clean side effects.
 
+* **Direct DevTools Interaction**: The declarative and accessible nature of Neo.mjs class configs allows developers to
+  easily inspect, modify, and experiment with component and application state directly within the browser's developer
+  tools console. This live interaction capability significantly streamlines debugging, prototyping, and understanding
+  complex application behavior.
+
 While existing frameworks have made significant strides in declarative UI development, the concept of extending this
 declarative, nested configuration approach consistently to all aspects of an application, particularly the non-DOM realm,
 represents a powerful next step. Neo.mjs's class config system holds the promise of a more unified, maintainable, and
 understandable way to build complex modern web applications.
+
+## Unifying Creation and Updates: The Consistent Config Experience
+
+A particularly powerful aspect of the Neo.mjs config system's "unified" nature lies in its consistent application
+across object creation and dynamic updates. The same declarative `static config` block that defines your class's properties
+also serves as the blueprint for its instances.
+
+When you initially create a component or any Neo.mjs class using `Neo.create()`, you pass a config object that directly
+leverages this blueprint. Crucially, when you later need to change properties of an existing instance
+(e.g., `myButton.set({ text: 'New Text' })` or `myButton.text = 'New Text'`),
+you use the **exact same declarative config syntax**.
+This consistency means developers only need to learn one powerful way to interact with an object's properties,
+whether for initial setup or reactive modifications throughout its lifecycle. This predictability significantly
+streamlines development, reduces cognitive load, and enhances code readability,
+making the entire application more intuitive to manage.
 
 ## The static config Block: Your Declarative Blueprint
 
