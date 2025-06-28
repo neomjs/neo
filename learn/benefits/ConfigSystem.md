@@ -511,16 +511,12 @@ class ViewportController extends Controller {
 In this `ViewportController`'s `static config`:
 
 * The `routes` object maps URL hash patterns (keys) to controller method names (values).
-
 * For example, when the browser's hash changes to `#/home`, the `onHomeRoute` method within `ViewportController` is automatically invoked.
-
 * Routes can include dynamic parameters using curly braces, like `/examples/{itemId}`. When such a route is matched
   (e.g., `#/examples/my-component`), the `onExamplesRoute` method will be called, and the `itemId` value (`my-component`)
   will be passed as a parameter to the method.
-
 * This declarative setup centralizes your application's routing logic, making it easy to understand the application's
   navigation paths and their corresponding actions at a glance.
-
 * The controller methods, such as `onHomeRoute`, then typically manage the application's UI state based on the route,
   for instance, by setting the `activeIndex` of a card layout container to display the correct view:
 
