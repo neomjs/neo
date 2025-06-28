@@ -90,8 +90,8 @@ offers several key advantages:
   values change. For instance, simply assigning a new value to a config directly:
 
     ```javascript readonly
-myButton.text    = 'New Button Text'; // UI will update automatically
-  myButton.iconCls = 'fa fa-check';     // UI will update automatically
+    myButton.text    = 'New Button Text'; // UI will update automatically
+    myButton.iconCls = 'fa fa-check';     // UI will update automatically
     ```
 
   For optimal performance when changing multiple configs simultaneously, it's recommended to use the `set()` method.
@@ -389,53 +389,54 @@ Neo.mjs provides several ways to configure these entities within the `static con
   Neo.mjs will automatically create an instance of that class and assign it to the property.
   This is the simplest and most common approach, as seen in the Viewport example above.
 
-```javascript readonly
-// In MyContainer.mjs (a non-leaf component)
-import MyController from './MyController.mjs';
-
-class MyContainer extends Container {
-    static config = {
-        controller: MyController // Neo.mjs will instantiate MyController
+    ```javascript readonly
+    // In MyContainer.mjs (a non-leaf component)
+    import MyController from './MyController.mjs';
+    
+    class MyContainer extends Container {
+        static config = {
+            controller: MyController // Neo.mjs will instantiate MyController
+        }
     }
-}
-```
+    ```
 
 2. **Config Object with `module`**</br>
   If you need to pass additional configuration properties to the controller or state provider at the time of its creation,
   you can provide a config object that includes the `module` property along with any other desired properties.
   Neo.mjs will use this full config object to create the instance.
-```javascript readonly
-// In MyContainer.mjs
-import MyController from './MyController.mjs';
 
-class MyContainer extends Container {
-    static config = {
-        controller: {
-            module          : MyController,
-            myCustomProperty: 'initialValue',
-            anotherSetting  : true
+    ```javascript readonly
+    // In MyContainer.mjs
+    import MyController from './MyController.mjs';
+    
+    class MyContainer extends Container {
+        static config = {
+            controller: {
+                module          : MyController,
+                myCustomProperty: 'initialValue',
+                anotherSetting  : true
+            }
         }
     }
-}
-```
+    ```
 
 3.  **Inline Class Definition (for tightly coupled cases)** </br>
   For very specific or small controllers/state providers that are tightly coupled to a single component and don't
   require external reusability, you can define them inline as a nested configuration object within the component's config.
   While this reduces external reusability, it keeps highly related code together and maintains the declarative paradigm.
 
-```javascript readonly
-// In MyContainer.mjs
-class MyContainer extends Container {
-    static config = {
-        stateProvider: {
-            data: {
-                foo: 'bar'
+    ```javascript readonly
+    // In MyContainer.mjs
+    class MyContainer extends Container {
+        static config = {
+            stateProvider: {
+                data: {
+                    foo: 'bar'
+                }
             }
         }
     }
-}
-```
+    ```
 
 This approach allows you to fully define the state provider's behavior and dependencies directly within the container's configuration.
 
