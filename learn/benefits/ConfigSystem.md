@@ -85,9 +85,21 @@ offers several key advantages:
   such as visual editors or automatic documentation generators, that can understand and manipulate the entire application's
   structure. It also allows for higher levels of abstraction, potentially simplifying the definition of complex application patterns.
 
-* **Reactive Configuration**: Similar to how UI frameworks react to state changes and update the DOM, a reactive class config
-  system can react to changes in the configuration itself (in a development context, for example) to facilitate hot module
-  replacement or dynamic updates of non-DOM entities. This is a powerful capability for developer productivity.
+* **Reactive Configuration & Lifecycle Hooks:**: Neo.mjs configs are inherently reactive. Similar to how UI frameworks
+  react to state changes and update the DOM, Neo.mjs's reactive class config system automatically updates views when config
+  values change. For instance, simply assigning a new value to a config directly:
+
+    ```javascript readonly
+myButton.text    = 'New Button Text'; // UI will update automatically
+  myButton.iconCls = 'fa fa-check';     // UI will update automatically
+```
+
+  For optimal performance when changing multiple configs simultaneously, it's recommended to use the `set()` method.
+  This ensures all changes are processed within a single, efficient update cycle, avoiding unnecessary redraws.
+
+  Furthermore, any config defined with a trailing underscore (e.g., `myConfig_`) automatically gains optional lifecycle hooks:
+  `beforeGetMyConfig()`, `beforeSetMyConfig()`, and `afterSetMyConfig(). These powerful hooks allow you to intercept, validate,
+  transform, or react to config changes, providing fine-grained control over data flow and enabling clean side effects.
 
 While existing frameworks have made significant strides in declarative UI development, the concept of extending this
 declarative, nested configuration approach consistently to all aspects of an application, particularly the non-DOM realm,
@@ -521,3 +533,21 @@ the same controller to update the UI, all within a consistent declarative patter
 **Note**: This section focuses on how routes are defined and linked to controller methods through the `static config`.
 A comprehensive guide on Neo.mjs routing, including advanced features like route guards, nested routes, and router
 history management, will be provided in a separate, dedicated guide.
+
+## Conclusion: Empowering Declarative Development with Neo.mjs Configs
+
+The Neo.mjs Unified Class Config System is a cornerstone of the framework's design, extending the power of declarative
+programming beyond traditional UI elements to encompass every aspect of your application. By providing a consistent,
+intuitive, and hierarchical way to define and manage properties for all classes — from UI components to data stores,
+controllers, and routers—Neo.mjs significantly reduces cognitive load and enhances maintainability.
+
+This system empowers developers to describe the desired state and behavior of their applications in a clear, concise,
+and unified manner. The inherent reactivity of configs, coupled with powerful lifecycle hooks like beforeGet, beforeSet,
+and afterSet, offers unparalleled control and flexibility, enabling dynamic updates and sophisticated data flow management.
+
+Ultimately, the Neo.mjs config system streamlines application development, making it easier to build complex,
+high-performance, and maintainable web applications. It's a testament to Neo.mjs's commitment to providing a truly
+unified and developer-friendly experience.
+
+For a detailed understanding of the internal mechanics, advanced usage patterns, and the full power of config lifecycle
+hooks, please refer to the [Config System Deep Dive guide](#/learn/guides.ConfigSystemDeepDive).
