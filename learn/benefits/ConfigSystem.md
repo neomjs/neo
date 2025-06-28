@@ -98,7 +98,11 @@ offers several key advantages:
   This ensures all changes are processed within a single, efficient update cycle, avoiding unnecessary redraws.
 
   Furthermore, any config defined with a trailing underscore (e.g., `myConfig_`) automatically gains optional lifecycle hooks:
-  `beforeGetMyConfig()`, `beforeSetMyConfig()`, and `afterSetMyConfig(). These powerful hooks allow you to intercept, validate,
+  * `beforeGetMyConfig(value)`
+  * `beforeSetMyConfig(value, oldValue)`
+  * `afterSetMyConfig(value, oldValue)`
+
+  These powerful hooks allow you to intercept, validate,
   transform, or react to config changes, providing fine-grained control over data flow and enabling clean side effects.
 
 * **Direct DevTools Interaction**: The declarative and accessible nature of Neo.mjs class configs allows developers to
