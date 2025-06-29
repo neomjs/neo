@@ -97,3 +97,59 @@ construct(config) {
 
 In summary, always use `construct()` for your initialization logic. It provides the flexibility needed to work
 within the Neo.mjs lifecycle and config system, a flexibility that the standard `constructor()` cannot offer.
+
+## 3. The Asynchronous Initialization Flow
+
+After the synchronous creation methods are complete, the instance lifecycle moves into an asynchronous phase. This is
+where you should place any logic that cannot be executed synchronously, such as loading external files, fetching
+data from a server, or waiting for other resources to become available.
+
+This phase is orchestrated by a microtask scheduled from within the `construct()` method.
+
+### `initAsync()`: The Asynchronous Entry Point
+
+The core of this phase is the `async initAsync()` method.
+
+*   **Scheduling**: Immediately after the synchronous `construct()` logic is finished, the framework schedules a
+    microtask (`Promise.resolve().then(...)`) that will execute after the current JavaScript execution block is empty.
+*   **Execution**: This microtask calls and `await`s the `initAsync()` method. This is the designated place for all
+    asynchronous initialization logic. You can override this method in your own classes to perform tasks like
+    dynamic imports or initial data fetching.
+*   **Parent Call**: When overriding `initAsync()`, it is crucial to call `await super.initAsync()` at the beginning
+    of your implementation to ensure that parent classes can perform their own asynchronous setup, such as
+    registering remote methods.
+
+```javascript
+// In your component class
+async initAsync() {
+    // Always call the parent method first!
+    await super.initAsync();
+
+    // Your async logic here
+    const myModule = await import('./MyOptionalModule.mjs');
+    this.data = await myService.fetchInitialData();
+}
+```
+
+### `isReady`: The Signal of Completion
+
+Once the `initAsync()` promise resolves, the framework sets the instance's `isReady` config to `true`.
+
+*   **`isReady_`**: The config is defined as `isReady_` (with a trailing underscore), which means it gets an
+    `afterSetIsReady(value, oldValue)` hook.
+*   **Reacting to Readiness**: You can implement the `afterSetIsReady()` method to be notified precisely when the
+    instance is fully initialized and ready for interaction. This is the most reliable way to coordinate logic that
+    depends on the component's full readiness.
+
+```javascript
+// In your component class
+afterSetIsReady(isReady, wasReady) {
+    if (isReady && !wasReady) {
+        console.log('The instance is now fully ready!');
+        // Perform actions that require the component to be fully initialized
+    }
+}
+```
+
+This `initAsync` -> `isReady` pattern provides a robust and predictable way to manage the asynchronous parts of the
+instance lifecycle, ensuring that dependent logic only runs when the instance is in a known, ready state.
