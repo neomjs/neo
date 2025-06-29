@@ -5,6 +5,20 @@ instance's life, from its creation to its destruction.
 This guide will walk you through the entire lifecycle, starting with the initial synchronous steps and moving on to
 the asynchronous parts and destruction.
 
+## How the Lifecycle is Triggered
+
+While this guide details the lifecycle methods of an instance, it's important to understand how that lifecycle begins.
+In typical Neo.mjs application code, you will rarely call `Neo.create()` directly.
+
+The most common way to create component instances is declaratively, by defining configuration objects within a container's
+`items` array. The framework then internally uses `Neo.create()` to turn these configuration objects into fully-fledged
+instances, automatically initiating their lifecycle.
+
+It is crucial to **never** create a Neo.mjs class instance using the `new` keyword (e.g., `new MyComponent()`),
+as this would bypass the entire lifecycle initialization process described below, resulting in a broken and
+improperly configured instance. Always let the framework handle instantiation, either through declarative `items`
+configs or, in less common cases, by using `Neo.create()` directly.
+
 ## 1. The Synchronous Creation Flow
 
 When you create a new instance of a Neo.mjs class using `Neo.create()`, the framework executes a sequence of
