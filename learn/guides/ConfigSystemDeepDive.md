@@ -262,8 +262,8 @@ change automatically propagates through the component logic.
 
 *   **Embrace Declarativity:** Define your entire UI structure inside `static config` whenever possible. This improves
     readability and maintainability.
-*   **Use the `_` Suffix Wisely:** Only add the trailing underscore to configs that need `afterSet` logic. For simple
-    value properties, omit it to avoid unnecessary overhead.
+*   **Use the `_` Suffix Wisely:** Only add the trailing underscore to configs that need `afterSet`, `beforeSet` or
+  `beforeGet` based logic. For simple value properties, omit it to avoid unnecessary overhead.
 *   **Keep `afterSet` Handlers Pure:** An `afterSet` handler should ideally only react to the change of its own
     property and update other parts of the application. Avoid triggering complex chains of `set()` calls from within
     an `afterSet` if possible.
