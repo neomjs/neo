@@ -14,13 +14,13 @@ At its heart, the config system is built on a few key principles:
 *   **`static config` Block:** All configurable properties of a class are declared in a `static config = {}` block.
     This provides a single, clear source of truth for a class's API.
 *   **`_` Suffix Convention:** Config properties that require custom logic when they change are declared with a trailing
-    underscore (e.g., `myValue_`). This signals the framework to automatically generate a getter, a setter, and a
-    `beforeSet` / `afterSet` hook for it.
-*   **Auto-Generated Methods:** For a config like `myValue_`, the framework creates:
-    *   `getMyValue()`: A public getter.
-    *   `setMyValue()`: A public setter.
-    *   `beforeSetMyValue(value, oldValue)`: A hook called before the value is set.
-    *   `afterSetMyValue(value, oldValue)`: A hook called after the value has been set.
+    underscore (e.g., `myValue_`). This signals the framework to automatically create a native getter and setter on the
+    class's prototype for this property.
+*   **Lifecycle Hooks:** For a config like `myValue_`, the framework provides optional lifecycle hooks that you can
+    implement in your class:
+    *   `beforeGetMyValue(value)`: Called before the getter returns the value.
+    *   `beforeSetMyValue(value, oldValue)`: Called before the setter applies the new value.
+    *   `afterSetMyValue(value, oldValue)`: Called after the setter has applied the new value.
 *   **Reactivity:** The `afterSet` hooks are the heart of the reactive system. They allow you to define logic that
     automatically runs whenever a specific config property changes, ensuring your UI and application state are always
     in sync.
