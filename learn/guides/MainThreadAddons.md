@@ -284,7 +284,7 @@ directory of your workspace (the output of `npx neo-app`).
 }
 ```
 
-Now, any call to `Neo.main.addon.LocalStorage.readLocalStorageItem()` or `updateLocalStorageItem()`
+Now, any call to `Neo.main.addon.CustomLocalStorage.readLocalStorageItem()` or `updateLocalStorageItem()`
 from your app worker will actually be routed to your `CustomLocalStorage` instance on the main thread,
 automatically applying your custom key prefix. This demonstrates how easily you can swap out or extend
 framework-provided functionality with your own custom implementations.
