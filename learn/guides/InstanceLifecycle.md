@@ -49,3 +49,51 @@ The synchronous lifecycle methods are called in the following order:
 
 It's important to remember that all of these methods are synchronous. Any asynchronous operations should be handled
 in the later, asynchronous phases of the lifecycle.
+
+## 2. `constructor()` vs `construct()`: A Critical Distinction
+
+While you *can* define a standard JavaScript `constructor()` method on a Neo.mjs class, it is strongly discouraged
+and considered a bad practice. The framework provides the `construct()` lifecycle hook for a very specific and
+powerful reason: **pre-processing configs**.
+
+### The `constructor()` Limitation
+
+In standard JavaScript class inheritance, you **cannot** access the `this` context in a constructor before calling
+`super()`. This is a language-level restriction.
+
+```javascript
+// Anti-pattern: Do not do this in Neo.mjs
+constructor(config) {
+    // ERROR! 'this' is not available before super()
+    console.log(this.someClassField); 
+
+    super(config); // Assuming a parent constructor call
+}
+```
+
+### The `construct()` Advantage
+
+The `construct()` method, however, is just a regular method called by the framework *after* the instance has been
+fully created (via `new YourClass()`). This means that inside `construct()`, you have full access to `this` from the
+very first line.
+
+This enables a powerful pattern: you can inspect or modify the incoming `config` object *before* passing it up the
+inheritance chain with `super.construct(config)`. This is invaluable for component-specific logic.
+
+```javascript
+// The correct Neo.mjs pattern
+construct(config) {
+    // 'this' is fully available here!
+    // We can inspect the config and perform logic before the parent class does.
+    if (config.someFlag) {
+        config.title = 'Title set by child class';
+        this.someProperty = true;
+    }
+
+    // Now, pass the (potentially modified) config to the parent.
+    super.construct(config);
+}
+```
+
+In summary, always use `construct()` for your initialization logic. It provides the flexibility needed to work
+within the Neo.mjs lifecycle and config system, a flexibility that the standard `constructor()` cannot offer.
