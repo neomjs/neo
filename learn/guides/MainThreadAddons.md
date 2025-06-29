@@ -48,8 +48,9 @@ async function getMySetting() {
 
 Here's what happens when `getMySetting()` is executed:
 
-// TODO: file does not yet exist
-!Main Thread Addon Communication Flow (https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/main-thread-addon-round-trip.png)
+<!---
+TODO: file does not yet exist yet. !Main Thread Addon Communication Flow (https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/main-thread-addon-round-trip.png)
+-->
 
 1.  **The Call (App Worker)**: Your code calls what looks like a normal static method. However, this
     `readLocalStorageItem` function is actually a "proxy" or "stub" created by the framework.
