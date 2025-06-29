@@ -21,25 +21,30 @@ configs or, in less common cases, by using `Neo.create()` directly.
 
 ## 1. The Synchronous Creation Flow
 
-When you create a new instance of a Neo.mjs class using `Neo.create()`, the framework executes a sequence of
-synchronous methods on the new instance. This initial phase is responsible for setting up the instance's basic
-configuration and state.
+When the framework creates a new instance, it executes a sequence of synchronous methods. This initial phase is
+responsible for setting up the instance's basic configuration and state.
 
 The synchronous lifecycle methods are called in the following order:
 
-1.  **`construct(config)`**: This is the first method called on a new instance. Its primary role is to process the
-    configuration object passed to `Neo.create()`. It's here that the initial values for your configs are
-    processed and applied.
+1.  **`new YourClass()`**: The framework first calls the actual JavaScript class constructor with **no arguments**.
+    This is a crucial step. Its primary purpose is to create the instance and initialize all of its defined class
+    fields. This ensures that by the time any Neo.mjs lifecycle method (like `construct`) or config hook
+    (like `beforeGetX`) is called, all class fields are fully available on `this`, preventing potential race
+    conditions or errors from accessing uninitialized properties.
 
-2.  **`onConstructed()`**: This hook is called immediately after `construct()` has finished. It's the ideal place to
+2.  **`construct(config)`**: This is the first Neo.mjs lifecycle hook called on the new instance. Its primary role is
+    to process the configuration object that was passed to `Neo.create()`. It's here that the initial values for
+    your configs are processed and applied via the config system.
+
+3.  **`onConstructed()`**: This hook is called immediately after `construct()` has finished. It's the ideal place to
     perform any setup that depends on the initial configuration, such as setting initial values for other
     properties or starting a process.
 
-3.  **`onAfterConstructed()`**: This hook is called after `onConstructed()`. It provides another opportunity for
+4.  **`onAfterConstructed()`**: This hook is called after `onConstructed()`. It provides another opportunity for
     setup logic, which can be useful for separating concerns or for logic that needs to run after the primary
     `onConstructed` logic has completed.
 
-4.  **`init()`**: This is the final synchronous hook in the creation process. It's a general-purpose initialization
+5.  **`init()`**: This is the final synchronous hook in the creation process. It's a general-purpose initialization
     method that you can use for any final setup tasks before the instance is returned by `Neo.create()`.
 
 It's important to remember that all of these methods are synchronous. Any asynchronous operations should be handled
