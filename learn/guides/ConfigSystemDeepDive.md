@@ -3,8 +3,9 @@
 first to understand the foundational concepts and benefits.
 
 The Neo.mjs class configuration system is a cornerstone of the framework, providing a powerful, declarative, and
-reactive way to manage the state of your components and classes. This guide will take you on a deep dive into its
-internal mechanics, revealing how it achieves its remarkable consistency and power.
+reactive way to manage the state of your components and classes. Its internal mechanics are deeply intertwined with
+the instance lifecycle, ensuring predictable and consistent behavior. This guide will take you on a deep dive into
+how it achieves its remarkable consistency and power.
 
 ## 1. Core Concepts Recap
 
@@ -55,8 +56,9 @@ set(values={}) {
 ```
 
 Here’s the breakdown:
-1.  **Pre-processing:** The method first checks if the internal `configSymbol` object has any leftover configs from a
-    previous, unfinished operation. If so, it processes them to ensure a clean state.
+1.  **Pre-processing (within `construct()`):** The method first checks if the internal `configSymbol` object has any
+    leftover configs from a previous, unfinished operation (e.g., from a parent class's `construct()` call). If so,
+    it processes them to ensure a clean state before new values are staged.
 2.  **Staging (A):** `Object.assign(me[configSymbol], values)` is the critical first step. All new values from your
     `set()` call are merged into the `configSymbol` object. This object acts as a **temporary staging area**. It
     creates a snapshot of the intended end-state for all properties in this specific `set()` operation *before*
@@ -241,7 +243,8 @@ class MainContainer extends Viewport {
 ### Tracing the Data Flow
 
 1.  **Initialization (`onConstructed`)**:
-    *   `this.set({a: 5, b: 5})` is called.
+    *   `this.set({a: 5, b: 5})` is called. This happens within the `onConstructed()` lifecycle hook, which is guaranteed
+        to run *after* the instance's `construct()` method has fully processed its initial configuration.
     *   `configSymbol` becomes `{a: 5, b: 5}`.
     *   `afterSetA` runs. It calculates `label1.text` as `value (5) + this.b (reads 5 from configSymbol) = 10`.
     *   `afterSetB` runs. It calculates `label2.text` as `value (5) + this.a (reads 5 from _a) = 10`.
@@ -269,8 +272,9 @@ change automatically propagates through the component logic.
     an `afterSet` if possible.
 *   **Batch Updates with `set()`:** When you need to change multiple properties at once, always use a single
     `set({a: 1, b: 2})` call. This is more efficient and ensures consistency, as demonstrated above.
-*   **Use `onConstructed` for Initialization:** Use the `onConstructed` lifecycle method to set the initial state of
-    your configs.
+*   **Use `onConstructed` for Post-Construction Logic:** Use the `onConstructed` lifecycle method to perform any setup
+    that depends on the instance's initial configuration being fully processed. This is the ideal place for logic that
+    requires all configs to be set and potentially other instances to be created (if set-driven).
 
 By understanding these internal mechanics and following best practices, you can leverage the full power of Neo.mjs's
 class config system to build highly complex, reactive, and maintainable applications with confidence.
