@@ -90,7 +90,10 @@ class RemoteMethodAccess extends Base {
             throw new Error('Invalid remote method name "' + msg.remoteMethod + '"')
         }
 
-        if (Array.isArray(msg.data)) {
+        // Check for interception
+        if (!pkg.isReady && pkg.interceptRemotes?.includes(msg.remoteMethod)) {
+            out = pkg.onInterceptRemotes(msg);
+        } else if (Array.isArray(msg.data)) {
             out = method.call(pkg, ...msg.data)
         } else {
             out = method.call(pkg, msg.data)
