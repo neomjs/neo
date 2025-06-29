@@ -173,7 +173,7 @@ different needs.
 ### A. Eager Loading: The Standard Approach
 
 For addons that are essential for your application's initial operation (e.g., `LocalStorage`,
-`DomAccess`), they are typically instantiated at application startup.
+`Stylesheet`), they are typically instantiated at application startup.
 
 1.  **Configuration:** You can specify addons in your application's `neo-config.json` file.
 2.  **Instantiation:** `src/Main.mjs` (the main thread's entry point) is responsible for
