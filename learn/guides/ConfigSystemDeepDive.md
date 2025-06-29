@@ -1,29 +1,40 @@
 # Deep Dive: The Neo.mjs Class Config System
 
-**Pre-requisite:** It is highly recommended to study [The Unified Class Config System](/learn/benefits/UnifiedClassConfigSystem.md) first to understand the foundational concepts and benefits.
+**Pre-requisite:** It is highly recommended to study [The Unified Class Config System](/learn/benefits/UnifiedClassConfigSystem.md)
+first to understand the foundational concepts and benefits.
 
-The Neo.mjs class configuration system is a cornerstone of the framework, providing a powerful, declarative, and reactive way to manage the state of your components and classes. This guide will take you on a deep dive into its internal mechanics, revealing how it achieves its remarkable consistency and power.
+The Neo.mjs class configuration system is a cornerstone of the framework, providing a powerful, declarative, and
+reactive way to manage the state of your components and classes. This guide will take you on a deep dive into its
+internal mechanics, revealing how it achieves its remarkable consistency and power.
 
 ## 1. Core Concepts Recap
 
 At its heart, the config system is built on a few key principles:
 
-*   **`static config` Block:** All configurable properties of a class are declared in a `static config = {}` block. This provides a single, clear source of truth for a class's API.
-*   **`_` Suffix Convention:** Config properties that require custom logic when they change are declared with a trailing underscore (e.g., `myValue_`). This signals the framework to automatically generate a getter, a setter, and a `beforeSet` / `afterSet` hook for it.
+*   **`static config` Block:** All configurable properties of a class are declared in a `static config = {}` block.
+    This provides a single, clear source of truth for a class's API.
+*   **`_` Suffix Convention:** Config properties that require custom logic when they change are declared with a trailing
+    underscore (e.g., `myValue_`). This signals the framework to automatically generate a getter, a setter, and a
+    `beforeSet` / `afterSet` hook for it.
 *   **Auto-Generated Methods:** For a config like `myValue_`, the framework creates:
     *   `getMyValue()`: A public getter.
     *   `setMyValue()`: A public setter.
     *   `beforeSetMyValue(value, oldValue)`: A hook called before the value is set.
     *   `afterSetMyValue(value, oldValue)`: A hook called after the value has been set.
-*   **Reactivity:** The `afterSet` hooks are the heart of the reactive system. They allow you to define logic that automatically runs whenever a specific config property changes, ensuring your UI and application state are always in sync.
+*   **Reactivity:** The `afterSet` hooks are the heart of the reactive system. They allow you to define logic that
+    automatically runs whenever a specific config property changes, ensuring your UI and application state are always
+    in sync.
 
 ## 2. The Internal Mechanics: `set()`, `processConfigs()`, and `configSymbol`
 
-To truly understand how Neo.mjs handles complex scenarios like simultaneous updates and inter-dependencies, we must look at the internal machinery: the `set()` and `processConfigs()` methods in `Neo.core.Base`, and the special `configSymbol` object.
+To truly understand how Neo.mjs handles complex scenarios like simultaneous updates and inter-dependencies, we must
+look at the internal machinery: the `set()` and `processConfigs()` methods in `Neo.core.Base`, and the special
+`configSymbol` object.
 
 ### The `set()` Method: Your Gateway to Updates
 
-The `set()` method is the public interface for changing one or more config properties at once. When you call `this.set({a: 1, b: 2})`, you kick off a carefully orchestrated sequence.
+The `set()` method is the public interface for changing one or more config properties at once. When you call
+`this.set({a: 1, b: 2})`, you kick off a carefully orchestrated sequence.
 
 [[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]
 ```javascript
@@ -45,13 +56,20 @@ set(values={}) {
 ```
 
 Here’s the breakdown:
-1.  **Pre-processing:** The method first checks if the internal `configSymbol` object has any leftover configs from a previous, unfinished operation. If so, it processes them to ensure a clean state.
-2.  **Staging (A):** `Object.assign(me[configSymbol], values)` is the critical first step. All new values from your `set()` call are merged into the `configSymbol` object. This object acts as a **temporary staging area**. It creates a snapshot of the intended end-state for all properties in this specific `set()` operation *before* any individual setters or `afterSet` hooks are invoked.
-3.  **Processing (B):** `me.processConfigs(true)` is called. This kicks off the process of applying the staged values from `configSymbol` to the actual instance properties. The `true` argument (`forceAssign`) is crucial, as we'll see next.
+1.  **Pre-processing:** The method first checks if the internal `configSymbol` object has any leftover configs from a
+    previous, unfinished operation. If so, it processes them to ensure a clean state.
+2.  **Staging (A):** `Object.assign(me[configSymbol], values)` is the critical first step. All new values from your
+    `set()` call are merged into the `configSymbol` object. This object acts as a **temporary staging area**. It
+    creates a snapshot of the intended end-state for all properties in this specific `set()` operation *before*
+    any individual setters or `afterSet` hooks are invoked.
+3.  **Processing (B):** `me.processConfigs(true)` is called. This kicks off the process of applying the staged values
+    from `configSymbol` to the actual instance properties. The `true` argument (`forceAssign`) is crucial, as we'll
+    see next.
 
 ### The `processConfigs()` Method: The Heart of the Operation
 
-This internal method iteratively processes the configs stored in `configSymbol`. It's designed as a recursive function to handle the dynamic nature of config processing, where one `afterSet` might trigger another `set()`.
+This internal method iteratively processes the configs stored in `configSymbol`. It's designed as a recursive
+function to handle the dynamic nature of config processing, where one `afterSet` might trigger another `set()`.
 
 [[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]
 ```javascript
@@ -76,12 +94,15 @@ processConfigs(forceAssign=false) {
 }
 ```
 
-*   **Iteration:** `processConfigs` takes the *first* key from `configSymbol`. It avoids a standard loop to prevent issues if an `afterSet` hook modifies `configSymbol`.
-*   **Assignment (C):** `me[key] = value` triggers the actual auto-generated setter for the config property (e.g., `setA()`). This setter:
+*   **Iteration:** `processConfigs` takes the *first* key from `configSymbol`. It avoids a standard loop to prevent
+    issues if an `afterSet` hook modifies `configSymbol`.
+*   **Assignment (C):** `me[key] = value` triggers the actual auto-generated setter for the config property
+    (e.g., `setA()`). This setter:
     1.  Runs the `beforeSet` hook.
     2.  Updates the internal backing property (e.g., `this._a = value`).
     3.  Runs the `afterSet` hook if the value has changed.
-*   **Deletion (D):** `delete me[configSymbol][key]` removes the property from the staging area. This is vital to prevent infinite loops and marks the config as "processed."
+*   **Deletion (D):** `delete me[configSymbol][key]` removes the property from the staging area. This is vital to
+    prevent infinite loops and marks the config as "processed."
 *   **Recursion (E):** The method calls itself to process the next item in `configSymbol` until it's empty.
 
 ## 3. Solving the "Circular Reference" Problem
@@ -115,21 +136,25 @@ class MyComponent extends Component {
     }
 }
 ```
-When `this.set({a: 10, b: 20})` is called, which `afterSet` runs first? And when it runs, what value will it see for the *other* property?
+When `this.set({a: 10, b: 20})` is called, which `afterSet` runs first? And when it runs, what value will it see
+for the *other* property?
 
 **This is where the brilliance of the `configSymbol` shines.**
 
 Here's the sequence:
 1.  **`set()` called:** `this.set({a: 10, b: 20})` is executed.
-2.  **Staging:** The `configSymbol` is immediately populated: `me[configSymbol] = {a: 10, b: 20}`. The internal backing properties `_a` and `_b` have **not** been updated yet.
+2.  **Staging:** The `configSymbol` is immediately populated: `me[configSymbol] = {a: 10, b: 20}`. The internal
+    backing properties `_a` and `_b` have **not** been updated yet.
 3.  **`processConfigs()` starts:**
     *   It picks `a`. The setter `setA(10)` is called.
     *   Inside `setA`, the internal `this._a` is updated to `10`.
     *   `afterSetA(10, 1)` is triggered.
 4.  **Inside `afterSetA`:**
     *   The code encounters `this.b`. This calls the auto-generated getter for `b`.
-    *   **Crucially, the getter for `b` is smart.** It first checks if `b` exists as a key in the `configSymbol` staging area.
-    *   It finds `b: 20` in `configSymbol` and immediately returns `20`, the **new, pending value**. It does *not* return the old value from `this._b`.
+    *   **Crucially, the getter for `b` is smart.** It first checks if `b` exists as a key in the `configSymbol`
+        staging area.
+    *   It finds `b: 20` in `configSymbol` and immediately returns `20`, the **new, pending value**. It does *not*
+        return the old value from `this._b`.
     *   The console logs: `a changed to 10, b is 20`.
 5.  **`processConfigs()` continues:**
     *   `a` is removed from `configSymbol`.
@@ -142,17 +167,22 @@ Here's the sequence:
     *   It therefore returns the value from the internal backing property, `this._a`, which is now `10`.
     *   The console logs: `b changed to 20, a is 10`.
 
-**Conclusion:** The `configSymbol` acts as a consistent, authoritative snapshot for the duration of a `set()` operation. This guarantees that all `afterSet` handlers, regardless of their execution order, operate on the most current and consistent state of all config properties involved in that operation.
+**Conclusion:** The `configSymbol` acts as a consistent, authoritative snapshot for the duration of a `set()`
+operation. This guarantees that all `afterSet` handlers, regardless of their execution order, operate on the most
+current and consistent state of all config properties involved in that operation.
 
 ## 4. In-depth Example: A Reactive `MainContainer`
 
-Let's analyze a practical example to see these concepts in action. The `Neo.examples.core.config.MainContainer` demonstrates how to build a reactive UI declaratively.
+Let's analyze a practical example to see these concepts in action. The `Neo.examples.core.config.MainContainer`
+demonstrates how to build a reactive UI declaratively.
 
-**The Goal:** Create a container with two labels. The text of each label is calculated based on the values of two config properties, `a` and `b`. A button allows the user to change `a` and `b` simultaneously.
+**The Goal:** Create a container with two labels. The text of each label is calculated based on the values of two
+config properties, `a` and `b`. A button allows the user to change `a` and `b` simultaneously.
 
 **The Declarative Approach (`static config`)**
 
-The entire UI structure, including child components and event handlers, is defined within the `static config` block. This is the recommended approach as it makes the component's structure immediately clear.
+The entire UI structure, including child components and event handlers, is defined within the `static config` block.
+This is the recommended approach as it makes the component's structure immediately clear.
 
 ```javascript
 // From: Neo.examples.core.config.MainContainer
@@ -225,14 +255,22 @@ class MainContainer extends Viewport {
     *   `afterSetB` runs. It calculates `label2.text` as `value (10) + this.a (reads 10 from _a) = 20`.
     *   **New State:** `label1` shows "20", `label2` shows "20".
 
-This example vividly demonstrates the dynamic and reactive nature of the system, where a single declarative state change automatically propagates through the component logic.
+This example vividly demonstrates the dynamic and reactive nature of the system, where a single declarative state
+change automatically propagates through the component logic.
 
 ## 5. Best Practices
 
-*   **Embrace Declarativity:** Define your entire UI structure inside `static config` whenever possible. This improves readability and maintainability.
-*   **Use the `_` Suffix Wisely:** Only add the trailing underscore to configs that need `afterSet` logic. For simple value properties, omit it to avoid unnecessary overhead.
-*   **Keep `afterSet` Handlers Pure:** An `afterSet` handler should ideally only react to the change of its own property and update other parts of the application. Avoid triggering complex chains of `set()` calls from within an `afterSet` if possible.
-*   **Batch Updates with `set()`:** When you need to change multiple properties at once, always use a single `set({a: 1, b: 2})` call. This is more efficient and ensures consistency, as demonstrated above.
-*   **Use `onConstructed` for Initialization:** Use the `onConstructed` lifecycle method to set the initial state of your configs.
+*   **Embrace Declarativity:** Define your entire UI structure inside `static config` whenever possible. This improves
+    readability and maintainability.
+*   **Use the `_` Suffix Wisely:** Only add the trailing underscore to configs that need `afterSet` logic. For simple
+    value properties, omit it to avoid unnecessary overhead.
+*   **Keep `afterSet` Handlers Pure:** An `afterSet` handler should ideally only react to the change of its own
+    property and update other parts of the application. Avoid triggering complex chains of `set()` calls from within
+    an `afterSet` if possible.
+*   **Batch Updates with `set()`:** When you need to change multiple properties at once, always use a single
+    `set({a: 1, b: 2})` call. This is more efficient and ensures consistency, as demonstrated above.
+*   **Use `onConstructed` for Initialization:** Use the `onConstructed` lifecycle method to set the initial state of
+    your configs.
 
-By understanding these internal mechanics and following best practices, you can leverage the full power of Neo.mjs's class config system to build highly complex, reactive, and maintainable applications with confidence.
+By understanding these internal mechanics and following best practices, you can leverage the full power of Neo.mjs's
+class config system to build highly complex, reactive, and maintainable applications with confidence.
