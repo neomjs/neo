@@ -37,7 +37,7 @@ The `set()` method is the public interface for changing one or more config prope
 `this.set({a: 1, b: 2})`, you kick off a carefully orchestrated sequence.
 
 [[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]
-```javascript
+```javascript readonly
 // Simplified for clarity
 set(values={}) {
     let me = this;
@@ -72,7 +72,7 @@ This internal method iteratively processes the configs stored in `configSymbol`.
 function to handle the dynamic nature of config processing, where one `afterSet` might trigger another `set()`.
 
 [[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]
-```javascript
+```javascript readonly
 // Simplified for clarity
 processConfigs(forceAssign=false) {
     let me   = this,
@@ -110,7 +110,7 @@ processConfigs(forceAssign=false) {
 What happens when two `afterSet` methods depend on each other's properties?
 
 Consider this common scenario:
-```javascript
+```javascript readonly
 class MyComponent extends Component {
     static config = {
         a_: 1,
@@ -184,7 +184,7 @@ config properties, `a` and `b`. A button allows the user to change `a` and `b` s
 The entire UI structure, including child components and event handlers, is defined within the `static config` block.
 This is the recommended approach as it makes the component's structure immediately clear.
 
-```javascript
+```javascript readonly
 // From: Neo.examples.core.config.MainContainer
 import Panel    from '../../../src/container/Panel.mjs';
 import Viewport from '../../../src/container/Viewport.mjs';
