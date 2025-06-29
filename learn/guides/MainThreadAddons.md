@@ -48,9 +48,31 @@ async function getMySetting() {
 
 Here's what happens when `getMySetting()` is executed:
 
-<!---
-TODO: file does not yet exist yet. !Main Thread Addon Communication Flow (https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/main-thread-addon-round-trip.png)
--->
+```text
++------------------------------------------------+         +------------------------------------------------+
+|                   App Worker                   |         |                   Main Thread                  |
++------------------------------------------------+         +------------------------------------------------+
+|                                                |         |                                                |
+| 1. Your code calls a proxy method.             |         |                                                |
+|    e.g., `addon.readLocalStorageItem()`        |         |                                                |
+|                                                |         |                                                |
+|    This immediately returns a `Promise`.       |         |                                                |
+|                                                |         |                                                |
+|------------------------------------------------|         |                                                |
+|                                                |         |                                                |
+| 2. A message is sent to the Main Thread        | ---->   | 3. The message is received. The framework      |
+|    containing the target & arguments.          |         |    finds the addon instance and calls the      |
+|                                                |         |    *real* method with the arguments.           |
+|                                                |         |                                                |
+|------------------------------------------------|         |------------------------------------------------|
+|                                                |         |                                                |
+| 5. The Promise from Step 1 is resolved with    | <----   | 4. The method returns a value. The framework   |
+|    the value from the reply message.           |         |    packages this value in a reply message      |
+|                                                |         |    and sends it back to the App Worker.        |
+|    The `await` keyword gets the final value.   |         |                                                |
+|                                                |         |                                                |
++------------------------------------------------+         +------------------------------------------------+
+```
 
 1.  **The Call (App Worker)**: Your code calls what looks like a normal static method. However, this
     `readLocalStorageItem` function is actually a "proxy" or "stub" created by the framework.
