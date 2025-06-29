@@ -48,5 +48,6 @@
         {"name": "Overriding Methods",                               "parentId": "JavaScript",                         "id": "javascript.Overrides"},
         {"name": "Other JavaScript Class Features",                  "parentId": "JavaScript",                         "id": "javascript.ClassFeatures"},
         {"name": "Super",                                            "parentId": "JavaScript",                         "id": "javascript.Super"},
-        {"name": "New Node",                                         "parentId": "JavaScript",                         "id": "javascript.NewNode"}
+        {"name": "New Node",                                         "parentId": "JavaScript",                         "id": "javascript.NewNode"},
+    {"name": "Glossary",                                             "parentId": null,                                 "id": "Glossary"}
 ]}
