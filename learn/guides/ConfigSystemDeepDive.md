@@ -1,350 +1,238 @@
-Pre-requisite: Please study benefits / Unified Class Config System first.
+# Deep Dive: The Neo.mjs Class Config System
 
-## Dynamic Configuration & afterSet Handlers: An In-depth Example
+**Pre-requisite:** It is highly recommended to study [The Unified Class Config System](/learn/benefits/UnifiedClassConfigSystem.md) first to understand the foundational concepts and benefits.
 
-Let's further explore dynamic configuration changes and the role of `afterSet` methods with the Neo.examples.core.config.
-MainContainer [Source: MainContainer.mjs]. This example highlights how declarative UI structures defined in
-static config can be combined with reactive updates based on other config properties.
+The Neo.mjs class configuration system is a cornerstone of the framework, providing a powerful, declarative, and reactive way to manage the state of your components and classes. This guide will take you on a deep dive into its internal mechanics, revealing how it achieves its remarkable consistency and power.
 
-**Original MainContainer with items in construct (for context)**
+## 1. Core Concepts Recap
 
-The original `MainContainer.mjs` defined its `items` array inside the `construct` method.
-This allowed for procedural creation of child components.
+At its heart, the config system is built on a few key principles:
 
-```javascript readonly
-// From: Neo.examples.core.config.MainContainer (original approach)
-import Panel    from '../../../src/container/Panel.mjs';
-import Viewport from '../../../src/container/Viewport.mjs';
+*   **`static config` Block:** All configurable properties of a class are declared in a `static config = {}` block. This provides a single, clear source of truth for a class's API.
+*   **`_` Suffix Convention:** Config properties that require custom logic when they change are declared with a trailing underscore (e.g., `myValue_`). This signals the framework to automatically generate a getter, a setter, and a `beforeSet` / `afterSet` hook for it.
+*   **Auto-Generated Methods:** For a config like `myValue_`, the framework creates:
+    *   `getMyValue()`: A public getter.
+    *   `setMyValue()`: A public setter.
+    *   `beforeSetMyValue(value, oldValue)`: A hook called before the value is set.
+    *   `afterSetMyValue(value, oldValue)`: A hook called after the value has been set.
+*   **Reactivity:** The `afterSet` hooks are the heart of the reactive system. They allow you to define logic that automatically runs whenever a specific config property changes, ensuring your UI and application state are always in sync.
 
-class MainContainer extends Viewport {
-    static config = {
-        className: 'Neo.examples.core.config.MainContainer',
-        a_       : null,
-        b_       : null,
-        style    : { padding: '20px' }
-    }
-    
-    construct(config) {
-        super.construct(config);
-        let me = this;
+## 2. The Internal Mechanics: `set()`, `processConfigs()`, and `configSymbol`
 
-        me.items = [{ // Items defined here
-            module: Panel,
-            containerConfig: { layout: {ntype: 'vbox', align: 'start'}, style : {padding: '20px'} },
-            headers: [{
-                dock : 'top',
-                items: [{ ntype: 'label', flag : 'label1' }, { ntype: 'label', flag : 'label2' }, { ntype: 'component', flex : 1 }, {
-                    handler: me.changeConfig.bind(me), // Bound handler
-                    iconCls: 'fa fa-user',
-                    text   : 'Change configs'
-                }]
-            }],
-            items: [{ ntype: 'label', text : 'Click the change configs button!' }]
-          }]
-    }
-    // ... changeConfig, afterSetA, afterSetB, onConstructed methods
-}
-```
+To truly understand how Neo.mjs handles complex scenarios like simultaneous updates and inter-dependencies, we must look at the internal machinery: the `set()` and `processConfigs()` methods in `Neo.core.Base`, and the special `configSymbol` object.
 
-**Refactored `MainContainer` with `items` in `static config` and Declarative Handler**
+### The `set()` Method: Your Gateway to Updates
 
-To fully embrace the declarative nature of the class config system, the entire `items` array can be moved into the
-`static config` block. This makes the component's structure visible at a glance within its static definition.
-When moving the `handler`, we can leverage Neo.mjs's declarative event handling by using `'up.methodName'`,
-which tells the framework to look for methodName on the direct parent instance or higher in the component hierarchy.
+The `set()` method is the public interface for changing one or more config properties at once. When you call `this.set({a: 1, b: 2})`, you kick off a carefully orchestrated sequence.
 
-```javascript readonly
-// Refactored Neo.examples.core.config.MainContainer (recommended approach)
-import Panel    from '../../../src/container/Panel.mjs';
-import Viewport from '../../../src/container/Viewport.mjs';
-
-class MainContainer extends Viewport {
-    static config = {
-        className: 'Neo.examples.core.config.MainContainer',
-        a_       : null,
-        b_       : null,
-        style    : { padding: '20px' },
-        /**
-         * @member {Object[]} items
-         */
-        items: [{ // Items now defined declaratively within static config
-            module: Panel,
-            containerConfig: {
-                layout: {ntype: 'vbox', align: 'start'},
-                style : {padding: '20px'}
-            },
-            headers: [{
-                dock : 'top',
-                items: [{
-                    ntype: 'label',
-                    flag : 'label1'
-                }, {
-                    ntype: 'label',
-                    flag : 'label2'
-                }, {
-                    ntype: 'component',
-                    flex : 1
-                }, {
-                    handler  : 'up.changeConfig', // Declarative handler: 'up' references the parent instance (MainContainer)
-                    iconCls  : 'fa fa-user',
-                    text     : 'Change configs'
-                }]
-            }],
-            items: [{
-                ntype: 'label',
-                text : 'Click the change configs button!'
-            }]
-        }]
-    }
-
-    // `construct` method would now be simpler or removed if no other logic is needed here
-    construct(config) {
-        super.construct(config);
-        // Any other non-config related construction logic would go here
-    }
-
-    // ... changeConfig, afterSetA, afterSetB, onConstructed methods (remain the same)
-}
-```
-
-This refactored version clearly demonstrates the power of defining the entire component hierarchy and event wiring
-declaratively within `static config`, reducing the need for imperative UI construction in `construct`.
-
-**Initializing Config Values with `onConstructed`**
-
-The `onConstructed` lifecycle method sets the initial values of `a` and `b`:
-
-```javascript readonly
-onConstructed() {
-    super.onConstructed();
-  
-    this.set({
-        a: 5,
-        b: 5
-    })
-}
-```
-
-When `this.set({a: 5, b: 5})` is called, both `this.a` and `this.b` are updated to `5`.
-This triggers their respective `afterSet` methods.
-
-**Reactive Updates with `afterSetA` and `afterSetB`**
-
-The `afterSetA` and `afterSetB` methods react to changes in `a` and `b`, respectively,
-by updating the text of the `label1` and `label2` components.
-
-```javascript readonly
-afterSetA(value, oldValue) {
-    if (oldValue !== undefined) {
-        this.down({flag: 'label1'}).text = value + this.b
-    }
-}
-
-afterSetB(value, oldValue) {
-    if (oldValue !== undefined) {
-        this.down({flag: 'label2'}).text = value + this.a
-    }
-}
-```
-
-**Important Note on Circular Reference (or Mutual Dependency)**:
-
-As you astutely observed, the logic within `afterSetA() (value + this.b)` and `afterSetB() (value + this.a)` showcases a
-mutual dependency. When `this.set({a: X, b: Y})` is called:
-
-// TODO: wrong
-Neo.mjs first updates both `this.a` to `X` and `this.b` to `Y` by setting their internal backing properties (`_a` and `_b`).
-
-Then, it triggers `afterSetA` and `afterSetB`. When `afterSetA` executes and accesses `this.b`, it uses the auto-generated
-getter for `b`. This getter immediately returns the new value of `b` (which is `Y`) from `this._b`, even though `afterSetB`
-might not have been executed yet in the processing queue.
-
-This ensures that all afterSet methods, regardless of their trigger order within a single `set()` operation,
-always operate on the most current and consistent state of all config properties involved.
-
-**`changeConfig` Method: Triggering Dynamic Updates**
-
-The `changeConfig` method is called when the "Change configs" button is clicked.
-
-```javascript readonly
-changeConfig(data) {
-    this.set({
-        a: 10,
-        b: 10
-    })
-}
-```
-
-This demonstrates how an action (button click) can declaratively update config properties,
-which then automatically trigger the reactive `afterSet` handlers.
-
-**Calculating Label Texts**
-
-Let's trace the values:
-
-1. **Initial State (After `onConstructed` executes)**:
-* `this.set({a: 5, b: 5})` is called.
-* `this.a` becomes `5` and `this.b` becomes `5` (internally).
-* `afterSetA` is triggered: `this.down({flag: 'label1'}).text = 5 + this.b` (which is `5 + 5 = 10`).
-* `afterSetB` is triggered: `this.down({flag: 'label2'}).text = 5 + this.a` (which is `5 + 5 = 10`).
-* **Initial Label Texts**: `label1`: "10", `label2`: "10"
-
-2. **After Clicking "Change configs" Button**:
-* `this.set({a: 10, b: 10})` is called.
-* `this.a` becomes `10` and `this.b` becomes `10` (internally).
-* `afterSetA` is triggered: `this.down({flag: 'label1'}).text = 10 + this.b` (which is `10 + 10 = 20`).
-* `afterSetB` is triggered: `this.down({flag: 'label2'}).text = 10 + this.a` (which is `10 + 10 = 20`).
-* **Label Texts after clicking "Change configs"**: `label1`: "20", `label2`: "20"
-
-This example vividly demonstrates the dynamic and reactive nature of Neo.mjs's class config system, where changes to
-config properties automatically propagate and trigger updates in the UI or other dependent logic.
-
-### 6.1. The Internal Mechanics: set(), processConfigs(), and configSymbol
-
-To fully appreciate how Neo.mjs achieves this powerful and consistent behavior, it's essential to understand the internal
-workings of the `set()` and `processConfigs()` methods in `Neo.core.Base`, and how they leverage the `configSymbol` and
-auto-generated getters from `autoGenerateGetSet()`.
-
-The core mechanism for managing config values and resolving potential circular dependencies relies on the internal
-`configSymbol` and a carefully orchestrated process of assigning and re-assigning values.
-
-**The `set()` Method (`Neo.core.Base`)**
-
-The `set()` method is the public interface for changing one or more config properties at once
-[[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)].
-
-```javascript readonly
+[[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]
+```javascript
+// Simplified for clarity
 set(values={}) {
     let me = this;
-  
-    values = me.setFields(values);
-  
-    // If the initial config processing is still running,
-    // finish this one first before dropping new values into the configSymbol.
-    if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
-        me.processConfigs()
+
+    // If there are pending configs from a previous operation, process them first.
+    if (Object.keys(me[configSymbol]).length > 0) {
+        me.processConfigs();
     }
-  
+
+    // Stage the new values in the configSymbol object.
     Object.assign(me[configSymbol], values); // (A)
-    me.processConfigs(true) // (B)
+
+    // Start processing the newly staged values.
+    me.processConfigs(true); // (B)
 }
 ```
 
-Here's what happens:
+Here’s the breakdown:
+1.  **Pre-processing:** The method first checks if the internal `configSymbol` object has any leftover configs from a previous, unfinished operation. If so, it processes them to ensure a clean state.
+2.  **Staging (A):** `Object.assign(me[configSymbol], values)` is the critical first step. All new values from your `set()` call are merged into the `configSymbol` object. This object acts as a **temporary staging area**. It creates a snapshot of the intended end-state for all properties in this specific `set()` operation *before* any individual setters or `afterSet` hooks are invoked.
+3.  **Processing (B):** `me.processConfigs(true)` is called. This kicks off the process of applying the staged values from `configSymbol` to the actual instance properties. The `true` argument (`forceAssign`) is crucial, as we'll see next.
 
-* `values = me.setFields(values);`: This first assigns any non-config class fields directly to the instance
-  and removes them from the `values` object. This ensures that if an `afterSet` method or `beforeSet` method
-  tries to access a non-config field that was part of the same `set()` call, it already has the new value.
-* **Pre-processing**: The if condition checks `if` there are pending configs from a previous `initConfig()` call
-  (during instance construction) that haven't been fully processed yet. If so, `me.processConfigs()` is called without
-  `forceAssign=true` to finish that initial processing. This ensures a clean state before new values are introduced.
-* `Object.assign(me[configSymbol], values);` **(A)**: This is a critical step. All new config values passed to `set()`
-  are first merged into the `configSymbol` internal object. The configSymbol acts as a temporary holding area for all
-  pending config updates. This ensures that even if you set multiple configs (`a` and `b`) in a single `set()` call,
-  their values are all available within the `configSymbol` object before any individual setter or `afterSet` hook is called.
-* `me.processConfigs(true)` **(B)**: Finally, `processConfigs(true)` is called to actually apply the values from
-  `configSymbol` to the instance's properties. The `true` argument for `forceAssign` is crucial here.
+### The `processConfigs()` Method: The Heart of the Operation
 
-**The `processConfigs()` Method (`Neo.core.Base)**
+This internal method iteratively processes the configs stored in `configSymbol`. It's designed as a recursive function to handle the dynamic nature of config processing, where one `afterSet` might trigger another `set()`.
 
-This method iteratively processes the configs stored in `configSymbol`
-[[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]:
-
-```javascript readonly
+[[Source: core.Base.mjs](https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs)]
+```javascript
+// Simplified for clarity
 processConfigs(forceAssign=false) {
     let me   = this,
         keys = Object.keys(me[configSymbol]); // Get keys of pending configs
-  
-    me[forceAssignConfigs] = forceAssign; // Set internal flag
-  
-    // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
+
     if (keys.length > 0) {
-        // The hasOwnProperty check is intended for configs without a trailing underscore
-        // => they could already have been assigned inside an afterSet-method
-        if (forceAssign || !me.hasOwnProperty(keys[0])) { // (C)
-            me[keys[0]] = me[configSymbol][keys[0]] // (D)
-        }
-    
-        // there is a delete-call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
-        // we need to keep this one for configs, which do not use getters (no trailing underscore)
-        delete me[configSymbol][keys[0]]; // (E)
-    
-        me.processConfigs(forceAssign) // (F) - Recursive call
+        let key = keys[0];
+        let value = me[configSymbol][key];
+
+        // The auto-generated setter for the config is triggered here.
+        me[key] = value; // (C)
+
+        // The config is removed from the staging area after its setter is called.
+        delete me[configSymbol][key]; // (D)
+
+        // Recursively call to process the next config.
+        me.processConfigs(forceAssign); // (E)
     }
 }
 ```
 
-Here's the detailed flow and how it handles dependencies:
+*   **Iteration:** `processConfigs` takes the *first* key from `configSymbol`. It avoids a standard loop to prevent issues if an `afterSet` hook modifies `configSymbol`.
+*   **Assignment (C):** `me[key] = value` triggers the actual auto-generated setter for the config property (e.g., `setA()`). This setter:
+    1.  Runs the `beforeSet` hook.
+    2.  Updates the internal backing property (e.g., `this._a = value`).
+    3.  Runs the `afterSet` hook if the value has changed.
+*   **Deletion (D):** `delete me[configSymbol][key]` removes the property from the staging area. This is vital to prevent infinite loops and marks the config as "processed."
+*   **Recursion (E):** The method calls itself to process the next item in `configSymbol` until it's empty.
 
-* **Iteration and `configSymbol`**: `processConfigs` operates by taking the first key from `Object.keys(me[configSymbol])`.
-  It doesn't use a traditional loop (`for` or `forEach`) to avoid issues if a setter or `afterSet` hook modifies the
-  `configSymbol` itself. Instead, it's a recursive call (`me.processConfigs(forceAssign)`).
+## 3. Solving the "Circular Reference" Problem
 
-* **`forceAssignConfigs` Flag**: The `me[forceAssignConfigs] = forceAssign;` line sets an internal flag.
-  This flag is used by the auto-generated setters (from `autoGenerateGetSet` in Neo.mjs) to differentiate between initial
-  config processing (where `forceAssign` is `true` after a `set()` call) and subsequent explicit `set` calls within `afterSet` hooks.
+What happens when two `afterSet` methods depend on each other's properties?
 
-* **`hasOwnProperty` Check (C)**: `if (forceAssign || !me.hasOwnProperty(keys[0]))`:
-    * If `forceAssign` is `true` (which it is after a `set()` call), the condition is met, and the assignment proceeds.
-    * If `forceAssign` is `false` (as during initial `initConfig` calls), it checks `!me.hasOwnProperty(keys[0])`.
-      This is important because configs without a trailing underscore (`_`) can be directly assigned, potentially by other
-      `afterSet methods`. If a property already exists directly on the instance (meaning its value has already been resolved
-      or set), `hasOwnProperty` would be `true`, and the assignment `(D)` is skipped for that config to avoid redundant processing.
+Consider this common scenario:
+```javascript
+class MyComponent extends Component {
+    static config = {
+        a_: 1,
+        b_: 2
+    }
 
-* **Assignment (D)**: `me[keys[0]] = me[configSymbol][keys[0]]`:
-    * This line triggers the actual setter for the config property (e.g., `setMyConfig`). When the setter executes:
-        * It reads the `value` from `me[configSymbol][keys[0]]`.
-        * It gets the `oldValue` from the instance's internal `_` property.
-        * It updates the internal `_` property with the `value` (the new value).
-        * It runs the beforeSet hook (if any), which can modify the value.
-        * **Crucially, if a genuine change is detected (`!Neo.isEqual(value, oldValue)`), it then triggers the `afterSet` hook.**
+    afterSetA(value, oldValue) {
+        // This depends on 'b'
+        console.log(`a changed to ${value}, b is ${this.b}`);
+    }
 
-* **Deletion from configSymbol (E)**: `delete me[configSymbol][keys[0]]`: Once a config property's setter has been invoked,
-  it's removed from the `configSymbol`. This prevents reprocessing and indicates that this specific config has been handled.
+    afterSetB(value, oldValue) {
+        // This depends on 'a'
+        console.log(`b changed to ${value}, a is ${this.a}`);
+    }
 
-* **Recursive Call (F)**: `me.processConfigs(forceAssign)`: The method calls itself recursively. This ensures that the
-  next pending config in `configSymbol` (if any) is processed. The recursion continues until
-  `Object.keys(me[configSymbol]).length` is 0, meaning all pending configs have been processed.
+    onConstructed() {
+        super.onConstructed();
+        this.set({
+            a: 10,
+            b: 20
+        });
+    }
+}
+```
+When `this.set({a: 10, b: 20})` is called, which `afterSet` runs first? And when it runs, what value will it see for the *other* property?
 
-**How Dependencies are Handled (Revisiting the MainContainer Example)**
+**This is where the brilliance of the `configSymbol` shines.**
 
-The combination of `configSymbol` as a staging area and the getters generated by `autoGenerateGetSet()` ensures that when
-`afterSet` hooks are triggered, they always have access to the most up-to-date values of other configs included
-in the same `set()` operation.
+Here's the sequence:
+1.  **`set()` called:** `this.set({a: 10, b: 20})` is executed.
+2.  **Staging:** The `configSymbol` is immediately populated: `me[configSymbol] = {a: 10, b: 20}`. The internal backing properties `_a` and `_b` have **not** been updated yet.
+3.  **`processConfigs()` starts:**
+    *   It picks `a`. The setter `setA(10)` is called.
+    *   Inside `setA`, the internal `this._a` is updated to `10`.
+    *   `afterSetA(10, 1)` is triggered.
+4.  **Inside `afterSetA`:**
+    *   The code encounters `this.b`. This calls the auto-generated getter for `b`.
+    *   **Crucially, the getter for `b` is smart.** It first checks if `b` exists as a key in the `configSymbol` staging area.
+    *   It finds `b: 20` in `configSymbol` and immediately returns `20`, the **new, pending value**. It does *not* return the old value from `this._b`.
+    *   The console logs: `a changed to 10, b is 20`.
+5.  **`processConfigs()` continues:**
+    *   `a` is removed from `configSymbol`.
+    *   The recursion continues, and it now picks `b`. The setter `setB(20)` is called.
+    *   Inside `setB`, `this._b` is updated to `20`.
+    *   `afterSetB(20, 2)` is triggered.
+6.  **Inside `afterSetB`:**
+    *   The code encounters `this.a`. The getter for `a` is called.
+    *   It checks `configSymbol`, but `a` is no longer there (it was processed).
+    *   It therefore returns the value from the internal backing property, `this._a`, which is now `10`.
+    *   The console logs: `b changed to 20, a is 10`.
 
-Let's re-examine the `onConstructed` example with `a` and `b`:
+**Conclusion:** The `configSymbol` acts as a consistent, authoritative snapshot for the duration of a `set()` operation. This guarantees that all `afterSet` handlers, regardless of their execution order, operate on the most current and consistent state of all config properties involved in that operation.
 
-```javascript readonly
-onConstructed() {
-    super.onConstructed();
-  
-    this.set({
-        a: 5,
-        b: 5
-    })
+## 4. In-depth Example: A Reactive `MainContainer`
+
+Let's analyze a practical example to see these concepts in action. The `Neo.examples.core.config.MainContainer` demonstrates how to build a reactive UI declaratively.
+
+**The Goal:** Create a container with two labels. The text of each label is calculated based on the values of two config properties, `a` and `b`. A button allows the user to change `a` and `b` simultaneously.
+
+**The Declarative Approach (`static config`)**
+
+The entire UI structure, including child components and event handlers, is defined within the `static config` block. This is the recommended approach as it makes the component's structure immediately clear.
+
+```javascript
+// From: Neo.examples.core.config.MainContainer
+import Panel    from '../../../src/container/Panel.mjs';
+import Viewport from '../../../src/container/Viewport.mjs';
+
+class MainContainer extends Viewport {
+    static config = {
+        className: 'Neo.examples.core.config.MainContainer',
+        a_: null,
+        b_: null,
+        style    : { padding: '20px' },
+        items: [{
+            module: Panel,
+            // ... panel configs
+            headers: [{
+                dock : 'top',
+                items: [
+                    { ntype: 'label', flag: 'label1' },
+                    { ntype: 'label', flag: 'label2' },
+                    { ntype: 'component', flex: 1 },
+                    {
+                        handler: 'up.changeConfig', // Declarative handler
+                        iconCls: 'fa fa-user',
+                        text   : 'Change configs'
+                    }
+                ]
+            }],
+            items: [{ ntype: 'label', text: 'Click the change configs button!' }]
+        }]
+    }
+
+    onConstructed() {
+        super.onConstructed();
+        this.set({ a: 5, b: 5 });
+    }
+
+    afterSetA(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.down({flag: 'label1'}).text = value + this.b;
+        }
+    }
+
+    afterSetB(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.down({flag: 'label2'}).text = value + this.a;
+        }
+    }
+
+    changeConfig(data) {
+        this.set({ a: 10, b: 10 });
+    }
 }
 ```
 
-1. **Staging**: When `this.set({a: 5, b: 5}) is called, both `a: 5` and `b: 5` are immediately placed into the `me[configSymbol]` object.
-2. **Processing `a` (Example Order)**: `processConfigs` picks `a`. When `me.a = 5` (which triggers `setA` from `autoGenerateGetSet()`) is called:
-* `this._a` is updated to `5`.
-* `afterSetA` is triggered.
+### Tracing the Data Flow
 
-3. **Accessing `b` in `afterSetA`**: Inside afterSetA, the expression this.b triggers the getter for b.
-* This getter does not re-process `b` through `processConfigs`. Instead, it simply retrieves the value from `this._b`.
-* Since `this._b` was already updated to `5` when the original `set({a: 5, b: 5})` call initially staged all values,
-  the getter for `b` correctly returns `5`.
+1.  **Initialization (`onConstructed`)**:
+    *   `this.set({a: 5, b: 5})` is called.
+    *   `configSymbol` becomes `{a: 5, b: 5}`.
+    *   `afterSetA` runs. It calculates `label1.text` as `value (5) + this.b (reads 5 from configSymbol) = 10`.
+    *   `afterSetB` runs. It calculates `label2.text` as `value (5) + this.a (reads 5 from _a) = 10`.
+    *   **Initial State:** `label1` shows "10", `label2` shows "10".
 
-4. **Result**: `this.down({flag: 'label1'}).text = value + this.b` correctly calculates `5 + 5 = 10`.
+2.  **Button Click (`changeConfig`)**:
+    *   The button's `handler: 'up.changeConfig'` finds and calls the `changeConfig` method on the `MainContainer`.
+    *   `this.set({a: 10, b: 10})` is called.
+    *   `configSymbol` becomes `{a: 10, b: 10}`.
+    *   `afterSetA` runs. It calculates `label1.text` as `value (10) + this.b (reads 10 from configSymbol) = 20`.
+    *   `afterSetB` runs. It calculates `label2.text` as `value (10) + this.a (reads 10 from _a) = 20`.
+    *   **New State:** `label1` shows "20", `label2` shows "20".
 
-5. **Processing `b` (Subsequent)**: Later in the `processConfigs` recursion, `b` will be picked. Its setter will run,
-   `this._b` will be updated (to the same value, `5`), and `afterSetB` will be triggered, correctly calculating
-   `value + this.a` as `5 + 5 = 10`.
+This example vividly demonstrates the dynamic and reactive nature of the system, where a single declarative state change automatically propagates through the component logic.
 
-This means that even if `afterSetA` executes before `afterSetB` (or vice-versa), `this.a` and `this.b` will always reflect
-their new values from the ongoing `set()` operation. The `configSymbol` acts as a consistent snapshot of all intended
-new values for the entire `set()` operation, allowing dependencies to correctly resolve against these pending new values
-even before all setters have completed their afterSet calls.
+## 5. Best Practices
 
-This sophisticated yet transparent mechanism is what makes Neo.mjs's declarative config system so powerful and reliable,
-enabling complex inter-config dependencies without concerns about timing or inconsistent data.
+*   **Embrace Declarativity:** Define your entire UI structure inside `static config` whenever possible. This improves readability and maintainability.
+*   **Use the `_` Suffix Wisely:** Only add the trailing underscore to configs that need `afterSet` logic. For simple value properties, omit it to avoid unnecessary overhead.
+*   **Keep `afterSet` Handlers Pure:** An `afterSet` handler should ideally only react to the change of its own property and update other parts of the application. Avoid triggering complex chains of `set()` calls from within an `afterSet` if possible.
+*   **Batch Updates with `set()`:** When you need to change multiple properties at once, always use a single `set({a: 1, b: 2})` call. This is more efficient and ensures consistency, as demonstrated above.
+*   **Use `onConstructed` for Initialization:** Use the `onConstructed` lifecycle method to set the initial state of your configs.
+
+By understanding these internal mechanics and following best practices, you can leverage the full power of Neo.mjs's class config system to build highly complex, reactive, and maintainable applications with confidence.
