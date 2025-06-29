@@ -5,7 +5,7 @@ In the world of web development, the relationship between application complexity
 maintain it is rarely linear. As the chart below illustrates, traditional JavaScript frameworks and even vanilla JavaScript
 often lead to an exponential increase in effort as applications grow in features, data, and user interactions.
 
-<img width="85%" src="https://s3.amazonaws.com/mjs.neo.learning.images/whyneo/ComplexityAndEffort.png"></img>
+<img width="85%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/ComplexityAndEffort.png"></img>
 
 ### The Neo.mjs Advantage: A Linear Path to Scalability
 
