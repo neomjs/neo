@@ -210,6 +210,63 @@ their `static config`. This is a crucial architectural decision that enables pow
     `Neo.worker.App.getAddon()` manages as single instances, the framework provides both the
     convenience of a singleton and the power of class-based extension.
 
+### Example: Customizing `LocalStorage`
+
+Let's say you want to add a custom prefix to all keys stored in `localStorage` for your application.
+You can extend the `Neo.main.addon.LocalStorage` and override its `readLocalStorageItem` and
+`updateLocalStorageItem` methods.
+
+First, create your custom addon (e.g., `workspace/src/addon/CustomLocalStorage.mjs`):
+
+```javascript readonly
+// workspace/src/addon/CustomLocalStorage.mjs
+import LocalStorage from '../../../node_modules/neo.mjs/src/main/addon/LocalStorage.mjs';
+
+class CustomLocalStorage extends LocalStorage {
+    static config = {
+        className: 'MyApp.main.addon.CustomLocalStorage',
+        // This is optional, Neo.Main will always convert main thread addons into singletons.
+        // If you want to keep your class open to further extensions, you can use the "semi-singleton" pattern too.
+        singleton: true,
+        // No need to redefine remote config, it's inherited
+    }
+
+    readLocalStorageItem(opts) {
+        opts.key = 'myApp_' + opts.key; // Add your custom prefix
+        return super.readLocalStorageItem(opts);
+    }
+
+    updateLocalStorageItem(opts) {
+        opts.key = 'myApp_' + opts.key; // Add your custom prefix
+        super.updateLocalStorageItem(opts);
+    }
+}
+
+export default Neo.setupClass(CustomLocalStorage);
+```
+
+Next, configure your `neo-config.json` to use your custom addon instead of the framework's default.
+This is done by mapping your custom class to the framework's original class name using the `WS/` prefix.
+The `WS/` prefix (which stands for "workspace") tells the framework to look for your addon within the `src/main/addon`
+directory of your workspace (the output of `npx neo-app`).
+
+[Side Note]: If you add a new addon to the framework repo, the `WS/` prefix is not needed.
+
+```json
+// neo-config.json
+{
+    "mainThreadAddons": [
+        // ...
+        "WS/CustomLocalStorage"
+    ]
+}
+```
+
+Now, any call to `Neo.main.addon.LocalStorage.readLocalStorageItem()` or `updateLocalStorageItem()`
+from your app worker will actually be routed to your `CustomLocalStorage` instance on the main thread,
+automatically applying your custom key prefix. This demonstrates how easily you can swap out or extend
+framework-provided functionality with your own custom implementations.
+
 ## Asynchronous Initialization: `initAsync` and the `isReady` config
 
 The multi-threaded nature of Neo.mjs introduces a subtle but important challenge: ensuring that an
