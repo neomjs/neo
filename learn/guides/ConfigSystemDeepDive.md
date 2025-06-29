@@ -96,13 +96,14 @@ processConfigs(forceAssign=false) {
 
 *   **Iteration:** `processConfigs` takes the *first* key from `configSymbol`. It avoids a standard loop to prevent
     issues if an `afterSet` hook modifies `configSymbol`.
-*   **Assignment (C):** `me[key] = value` triggers the actual auto-generated setter for the config property
-    (e.g., `setA()`). This setter:
-    1.  Runs the `beforeSet` hook.
-    2.  Updates the internal backing property (e.g., `this._a = value`).
-    3.  Runs the `afterSet` hook if the value has changed.
-*   **Deletion (D):** `delete me[configSymbol][key]` removes the property from the staging area. This is vital to
-    prevent infinite loops and marks the config as "processed."
+*   **Assignment (C):** `me[key] = value` is the most important step. This does **not** directly change a backing
+    field. Instead, it triggers the actual auto-generated **setter** for the config property (e.g., `set a(value)`).
+    This native setter is responsible for:
+    1.  Running the `beforeSet` hook (if it exists).
+    2.  Updating the internal backing property (e.g., `this._a = value`).
+    3.  Running the `afterSet` hook (if it exists and the value has changed).
+*   **Deletion (D):** `delete me[configSymbol][key]` removes the property from the staging area *after* its setter
+    has been invoked. This is vital to prevent reprocessing and to mark the config as handled.
 *   **Recursion (E):** The method calls itself to process the next item in `configSymbol` until it's empty.
 
 ## 3. Solving the "Circular Reference" Problem
