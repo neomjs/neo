@@ -120,7 +120,7 @@ The core of this phase is the `async initAsync()` method.
     registering remote methods.
 
 ```javascript
-// In your component class
+// In your class
 async initAsync() {
     // Always call the parent method first!
     await super.initAsync();
@@ -142,7 +142,7 @@ Once the `initAsync()` promise resolves, the framework sets the instance's `isRe
     depends on the component's full readiness.
 
 ```javascript
-// In your component class
+// In your class
 afterSetIsReady(isReady, wasReady) {
     if (isReady && !wasReady) {
         console.log('The instance is now fully ready!');
@@ -153,3 +153,71 @@ afterSetIsReady(isReady, wasReady) {
 
 This `initAsync` -> `isReady` pattern provides a robust and predictable way to manage the asynchronous parts of the
 instance lifecycle, ensuring that dependent logic only runs when the instance is in a known, ready state.
+
+## 4. Destruction: Cleaning Up with `destroy()`
+
+The final phase of the instance lifecycle is destruction. Properly cleaning up instances when they are no longer needed
+is critical for preventing memory leaks and ensuring your application remains performant over time. The `destroy()`
+method is the designated entry point for all cleanup logic.
+
+### The Base `destroy()` Implementation
+
+The `Neo.core.Base` class provides a foundational `destroy()` method that performs several key actions:
+
+*   **Clears Timeouts**: It clears any pending timeouts that were created using `this.timeout()`.
+*   **Unregisters Instance**: It unregisters the instance from the global `Neo.manager.Instance`, so it can no longer
+    be looked up by its ID.
+*   **Property Deletion**: It iterates over all properties of the instance and deletes them. This is an aggressive
+    strategy to help the JavaScript garbage collector reclaim memory by breaking references.
+*   **Single-Execution Guard**: The base class automatically intercepts the `destroy()` method to ensure that its core
+    logic can only be executed **once**, even if `destroy()` is called multiple times.
+
+### Overriding `destroy()`: Best Practices
+
+When your class holds references to other Neo.mjs instances or external resources, you must override the `destroy()`
+method to manage them correctly. The primary goal is to break all circular references and remove any listeners or
+registrations so that the instance can be safely garbage collected.
+
+Here is an example from `Neo.grid.Container` that illustrates key best practices:
+
+```javascript
+// Example from src/grid/Container.mjs
+destroy(...args) {
+    let me = this;
+
+    // 1. Clean up SHARED instances (e.g., Stores)
+    // We don't destroy the store, as it might be used by other components.
+    // Setting it to null will trigger the afterSetStore hook, which is the
+    // correct place to remove any listeners this grid added to the store.
+    me.store = null;
+
+    // 2. Destroy OWNED instances
+    // The grid container creates and owns its scrollManager, so it's
+    // responsible for destroying it.
+    me.scrollManager.destroy();
+
+    // 3. Unregister from external services/managers
+    // The component had previously registered with the ResizeObserver addon.
+    // It must unregister to prevent the addon from holding a dead reference.
+    me.mounted && Neo.main.addon.ResizeObserver.unregister({
+        id      : me.id,
+        windowId: me.windowId
+    });
+
+    // 4. ALWAYS call super.destroy() LAST
+    // This executes the base cleanup logic after your custom logic is complete.
+    super.destroy(...args);
+}
+```
+
+To summarize the best practices:
+
+1.  **Call `super.destroy()` Last**: Always end your `destroy()` method with `super.destroy(...args)`. If you call it
+    first, `this` will be partially dismantled, and subsequent calls on it will likely fail.
+2.  **Destroy Owned Instances**: If your class creates its own instances of other Neo.mjs classes (e.g., helpers,
+    managers), you are responsible for calling `destroy()` on them.
+3.  **Clean Up Shared Instances**: If your class uses a shared instance (like a `Store` or a global service), do **not**
+    call `destroy()` on it. Instead, remove any listeners you added to it. A good pattern is to set the config
+    property to `null` (e.g., `this.store = null`) and perform the listener cleanup inside the `afterSet` hook.
+4.  **Unregister from Services**: If your class registered itself with any external manager or service (like the
+    `ResizeObserver`), be sure to unregister from it.
