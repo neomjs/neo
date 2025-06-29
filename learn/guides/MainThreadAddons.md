@@ -242,32 +242,20 @@ queue.
 ### The `cacheMethodCall()` Safety Net
 
 The `Neo.main.addon.Base` class provides a crucial utility, `cacheMethodCall()`, for managing remote
-method calls that arrive before an addon is fully `isReady`. Instead of automatic queuing by the
-framework, individual addon methods are responsible for explicitly checking their `isReady` status
-and, if `false`, calling `cacheMethodCall()` to queue the operation. Once `isReady` becomes `true`,
-all cached calls are processed in order.
+method calls that arrive before an addon is fully `isReady`. Thanks to a generic interception
+mechanism in `Neo.worker.mixin.RemoteMethodAccess`, if a remote call for a method listed in the
+addon's `interceptRemotes` config arrives while `isReady` is `false`, the call is automatically
+queued. Once `isReady` becomes `true`, all cached calls are processed in order.
 
-This pattern allows addon developers to control when and how calls are queued, ensuring that operations
-are only performed when the addon's environment is fully prepared.
-
-Here's a typical implementation pattern within an addon method:
+Here's how `onInterceptRemotes()` in `Neo.main.addon.Base` handles this:
 
 ```javascript readonly
-myAddonMethod(data) {
-    let me = this;
-
-    if (!me.isReady) {
-        // If the addon is not ready, cache the method call
-        return me.cacheMethodCall({fn: 'myAddonMethod', data});
-    } else {
-        // Addon is ready, proceed with the actual logic
-        // ...
-    }
+onInterceptRemotes(msg) {
+    return this.cacheMethodCall({fn: msg.remoteMethod, data: msg.data})
 }
 ```
 
-This means you *do* need to manually check `isReady` and call `cacheMethodCall()` within your addon methods if you want
-to leverage this queuing mechanism.
+This significantly simplifies addon development by centralizing the queuing logic.
 
 ## The Component Wrapper Pattern: Putting It All Together
 
@@ -342,9 +330,9 @@ provides a powerful mechanism for this: the `async loadFiles()` method.
 1.  **Implement `loadFiles()`:** Place your library loading logic (e.g., dynamically injecting a
     `<script>` tag) inside the `async loadFiles()` method in your addon. This method **must** return
     a `Promise` that resolves when the library is fully loaded and ready.
-2.  **Explicit Queuing with `cacheMethodCall()`:** Addon methods are responsible for checking the
-    addon's `isReady` status. If `isReady` is `false` and `loadFiles()` has not yet completed, the
-    method should explicitly call `cacheMethodCall()` to queue the remote call.
+2.  **Automatic Queuing via `interceptRemotes`:** For methods listed in an addon's `interceptRemotes`
+    config, the framework automatically handles queuing any remote method calls that arrive before
+    the addon's `isReady` property is `true`.
 
 Here's a conceptual example:
 
@@ -354,8 +342,9 @@ import Base from './Base.mjs';
 
 class ChartingLibrary extends Base {
     static config = {
-        className: 'Neo.main.addon.ChartingLibrary',
-        remote: { app: ['createChart'] }
+        className       : 'Neo.main.addon.ChartingLibrary',
+        interceptRemotes: ['createChart'],         // List methods to be automatically queued
+        remote          : { app: ['createChart'] } // Exposes `createChart` as a remote method to the app worker
     }
 
     async loadFiles() {
@@ -369,27 +358,20 @@ class ChartingLibrary extends Base {
     }
 
     createChart(opts) {
-        let me = this;
-
-        if (!me.isReady) {
-            // If the addon is not ready, cache the method call
-            return me.cacheMethodCall({fn: 'createChart', data: opts});
-        } else {
-            // This code will only run after the script has loaded
-            // and the addon is ready.
-            return window.ExternalChartingLibrary.create(opts.domId, opts.chartConfig);
-        }
+        // This code will only run after the script has loaded
+        // and the addon is ready. The framework handles queuing automatically.
+        return window.ExternalChartingLibrary.create(opts.domId, opts.chartConfig);
     }
 }
 ```
 
 When a worker calls `Neo.main.addon.ChartingLibrary.createChart()` for the first time:
-1.  The `createChart` method checks `isReady`.
-2.  If `isReady` is `false`, it calls `cacheMethodCall()`, which triggers `loadFiles()` if it hasn't
-    started and queues the `createChart` call.
-3.  Once `loadFiles()` resolves and the addon becomes `isReady`, the queued `createChart` call is
+1.  The framework intercepts the call because `createChart` is in `interceptRemotes`.
+2.  If the addon is not `isReady`, the call is automatically queued.
+3.  `loadFiles()` is triggered (if not already running).
+4.  Once `loadFiles()` resolves and the addon becomes `isReady`, the queued `createChart` call is
     executed.
-4.  The `Promise` back in the worker is resolved.
+5.  The `Promise` back in the worker is resolved.
 
 All subsequent calls will execute immediately, as the library will already be loaded. This powerful
 feature ensures optimal performance by deferring the loading of heavy resources until they are
