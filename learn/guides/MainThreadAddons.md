@@ -210,11 +210,11 @@ their `static config`. This is a crucial architectural decision that enables pow
     `Neo.worker.App.getAddon()` manages as single instances, the framework provides both the
     convenience of a singleton and the power of class-based extension.
 
-## Asynchronous Initialization: `initAsync` and the `isReady` Flag
+## Asynchronous Initialization: `initAsync` and the `isReady` config
 
 The multi-threaded nature of Neo.mjs introduces a subtle but important challenge: ensuring that an
 addon is fully initialized and its environment is ready before it's used. This is solved by the
-`initAsync` lifecycle method and the `isReady` flag, managed by `Neo.core.Base`.
+`initAsync` lifecycle method and the `isReady` config, managed by `Neo.core.Base`.
 
 ### The Problem: A Race Condition
 
@@ -236,16 +236,38 @@ queue.
 3.  **`isReady` Signal:** Once `initAsync()` (and any `await`ed operations within it, like
     `loadFiles()`) completes, the addon's `isReady` flag is set to `true`. This is the definitive
     signal that the addon is fully initialized and safe to interact with.
+4. **`afterSetIsReady()`:** If needed, you can listen to changes of the `isReady` config value,
+  using the provided hook.
 
 ### The `cacheMethodCall()` Safety Net
 
-The `Neo.main.addon.Base` class provides a crucial safety net for calls made before an addon is
-`isReady`. If a remote method call arrives while `isReady` is `false`, the call is automatically
-queued using `cacheMethodCall()`. Once `isReady` becomes `true`, all cached calls are processed in
-order.
+The `Neo.main.addon.Base` class provides a crucial utility, `cacheMethodCall()`, for managing remote
+method calls that arrive before an addon is fully `isReady`. Instead of automatic queuing by the
+framework, individual addon methods are responsible for explicitly checking their `isReady` status
+and, if `false`, calling `cacheMethodCall()` to queue the operation. Once `isReady` becomes `true`,
+all cached calls are processed in order.
 
-This means you generally don't need to manually check `isReady` before making a remote call, as the
-addon base class handles the queuing for you.
+This pattern allows addon developers to control when and how calls are queued, ensuring that operations
+are only performed when the addon's environment is fully prepared.
+
+Here's a typical implementation pattern within an addon method:
+
+```javascript readonly
+myAddonMethod(data) {
+    let me = this;
+
+    if (!me.isReady) {
+        // If the addon is not ready, cache the method call
+        return me.cacheMethodCall({fn: 'myAddonMethod', data});
+    } else {
+        // Addon is ready, proceed with the actual logic
+        // ...
+    }
+}
+```
+
+This means you *do* need to manually check `isReady` and call `cacheMethodCall()` within your addon methods if you want
+to leverage this queuing mechanism.
 
 ## The Component Wrapper Pattern: Putting It All Together
 
@@ -320,9 +342,9 @@ provides a powerful mechanism for this: the `async loadFiles()` method.
 1.  **Implement `loadFiles()`:** Place your library loading logic (e.g., dynamically injecting a
     `<script>` tag) inside the `async loadFiles()` method in your addon. This method **must** return
     a `Promise` that resolves when the library is fully loaded and ready.
-2.  **Automatic Queuing:** The `Neo.main.addon.Base` class automatically handles queuing any remote
-    method calls that arrive before `loadFiles()` has completed and the addon's `isReady` property
-    is `true`.
+2.  **Explicit Queuing with `cacheMethodCall()`:** Addon methods are responsible for checking the
+    addon's `isReady` status. If `isReady` is `false` and `loadFiles()` has not yet completed, the
+    method should explicitly call `cacheMethodCall()` to queue the remote call.
 
 Here's a conceptual example:
 
@@ -347,20 +369,27 @@ class ChartingLibrary extends Base {
     }
 
     createChart(opts) {
-        // This code will only run after the script has loaded
-        // and the addon is ready.
-        return window.ExternalChartingLibrary.create(opts.domId, opts.chartConfig);
+        let me = this;
+
+        if (!me.isReady) {
+            // If the addon is not ready, cache the method call
+            return me.cacheMethodCall({fn: 'createChart', data: opts});
+        } else {
+            // This code will only run after the script has loaded
+            // and the addon is ready.
+            return window.ExternalChartingLibrary.create(opts.domId, opts.chartConfig);
+        }
     }
 }
 ```
 
-When a worker calls `Neo.main.addon.ChartingLibrary.createChart()` for the first time, the `Base`
-addon class will automatically:
-1.  Trigger `loadFiles()`.
-2.  Queue the `createChart` call.
-3.  Wait for the script to load and `loadFiles()` to resolve.
-4.  Execute the queued `createChart` call.
-5.  Resolve the `Promise` back in the worker.
+When a worker calls `Neo.main.addon.ChartingLibrary.createChart()` for the first time:
+1.  The `createChart` method checks `isReady`.
+2.  If `isReady` is `false`, it calls `cacheMethodCall()`, which triggers `loadFiles()` if it hasn't
+    started and queues the `createChart` call.
+3.  Once `loadFiles()` resolves and the addon becomes `isReady`, the queued `createChart` call is
+    executed.
+4.  The `Promise` back in the worker is resolved.
 
 All subsequent calls will execute immediately, as the library will already be loaded. This powerful
 feature ensures optimal performance by deferring the loading of heavy resources until they are
