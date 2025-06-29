@@ -17,6 +17,7 @@ class MonacoEditor extends Base {
          */
         className: 'Neo.main.addon.MonacoEditor',
         /**
+         * List methods which must get cached until the addon reaches its `isReady` state
          * @member {String[]} interceptRemotes
          */
         interceptRemotes: [
