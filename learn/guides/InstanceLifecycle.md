@@ -221,3 +221,75 @@ To summarize the best practices:
     property to `null` (e.g., `this.store = null`) and perform the listener cleanup inside the `afterSet` hook.
 4.  **Unregister from Services**: If your class registered itself with any external manager or service (like the
     `ResizeObserver`), be sure to unregister from it.
+
+## 5. Lifecycle of Nested Instances: Set-Driven vs. Get-Driven
+
+A powerful feature of the config system is that a config property can be another Neo.mjs class instance. A common
+example is a grid's `selectionModel`. This raises an important architectural question: when should this nested
+instance be created? The framework supports two patterns, each with different implications for the lifecycle.
+
+### The Set-Driven Approach (Eager Instantiation)
+
+In this pattern, you ensure the instance is created as soon as the config is set. This is typically done inside a
+`beforeSet` hook.
+
+The `Neo.grid.Body` class provides a perfect example with its `selectionModel_` config.
+
+```javascript
+// In Neo.grid.Body
+beforeSetSelectionModel(value, oldValue) {
+    oldValue?.destroy();
+
+    // beforeSetInstance ensures the value is a valid instance,
+    // creating one from a config object if necessary.
+    return ClassSystemUtil.beforeSetInstance(value, RowModel);
+}
+```
+
+When the framework processes the grid body's configs during its `construct` phase, `beforeSetSelectionModel` is
+called. It immediately creates the selection model instance.
+
+**The key takeaway is the guarantee this provides for `onConstructed()`**. Because the selection model was
+instantiated during `construct`, by the time `onConstructed()` is called, you can safely assume the instance exists.
+
+```javascript
+// In Neo.grid.Body
+onConstructed() {
+    super.onConstructed();
+
+    // This is safe because beforeSetSelectionModel already created the instance.
+    this.selectionModel?.register(this);
+}
+```
+
+Use the set-driven approach when a nested instance is **essential** for the component's core functionality and needs
+to be available immediately after construction.
+
+### The Get-Driven Approach (Lazy Instantiation)
+
+Alternatively, you can defer the creation of a nested instance until it's actually needed for the first time. This
+is achieved by creating the instance within a `beforeGet` hook. This "lazy" approach can improve initial creation
+performance if the nested instance is complex or not always used.
+
+`Neo.grid.Body` also demonstrates this pattern with its `columnPositions_` config.
+
+```javascript
+// In Neo.grid.Body
+beforeGetColumnPositions(value) {
+    // If the backing field (_columnPositions) is null...
+    if (!value) {
+        // ...create the instance now.
+        this._columnPositions = value = Neo.create({
+            module     : Collection,
+            keyProperty: 'dataField'
+        });
+    }
+    return value;
+}
+```
+
+With this pattern, the `columnPositions` collection is **not** created during the `construct` phase. It is only
+instantiated the very first time some other code calls `this.columnPositions`.
+
+Use the get-driven approach for non-essential or heavy nested instances to optimize performance and memory usage,
+especially if they are only used in specific scenarios.
