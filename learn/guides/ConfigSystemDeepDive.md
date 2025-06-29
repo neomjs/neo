@@ -1,5 +1,3 @@
-# Deep Dive: The Neo.mjs Class Config System
-
 **Pre-requisite:** It is highly recommended to study [The Unified Class Config System](#/learn/benefits.ConfigSystem)
 first to understand the foundational concepts and benefits.
 
