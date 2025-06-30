@@ -256,7 +256,7 @@ You can check the overall validity of a form using:
     It also triggers validation for all fields.
 
     ```javascript readonly
-    const formIsValid = await myForm.isValid();
+const formIsValid = await myForm.isValid();
     if (formIsValid) {
         console.log('Form is valid!');
     } else {
