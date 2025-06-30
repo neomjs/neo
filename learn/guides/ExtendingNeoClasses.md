@@ -112,7 +112,7 @@ The principles of class extension apply universally across all Neo.mjs class typ
 
 ### Extending `Neo.data.Model`
 
-Models define the structure and behavior of individual data records.
+Models define the structure and behavior of individual data records. While reactive configs can be used for class-level properties of a Model (e.g., a global setting for all products), properties that vary per record (like `price` or `discount`) should be defined as fields within the `fields` array. Neo.mjs provides `convert` and `calculate` functions directly on field definitions for per-record logic.
 
 ```javascript readonly
 import Model from '../../src/data/Model.mjs';
@@ -123,24 +123,34 @@ class ProductModel extends Model {
         fields: [
             {name: 'id',    type: 'Number'},
             {name: 'name',  type: 'String'},
-            {name: 'price', type: 'Number', defaultValue: 0}
-        ],
-        // Add a reactive property for discount
-        discount_: 0 // e.g., 0.10 for 10%
-    }
-
-    // Calculate discounted price
-    beforeGetPrice(value) {
-        return value * (1 - this.discount);
-    }
-
-    // Validate discount value
-    beforeSetDiscount(value) {
-        if (value < 0 || value > 1) {
-            console.warn('Discount must be between 0 and 1');
-            return 0;
-        }
-        return value;
+            {name: 'price', type: 'Number', defaultValue: 0,
+                // Use a convert function for field-level validation or transformation
+                convert: value => {
+                    if (typeof value !== 'number' || value < 0) {
+                        console.warn('Price field must be a non-negative number!');
+                        return 0;
+                    }
+                    return value;
+                }
+            },
+            {name: 'discount', type: 'Number', defaultValue: 0,
+                // Use a convert function for field-level validation or transformation
+                convert: value => {
+                    if (typeof value !== 'number' || value < 0 || value > 1) {
+                        console.warn('Discount field must be a number between 0 and 1!');
+                        return 0;
+                    }
+                    return value;
+                }
+            },
+            {name: 'discountedPrice', type: 'Number',
+                // Use a calculate function for derived values based on other fields in the record
+                calculate: (data) => {
+                    // 'data' contains the raw field values of the current record
+                    return data.price * (1 - data.discount);
+                }
+            }
+        ]
     }
 }
 
