@@ -116,7 +116,8 @@ for fetching the application's configuration and dynamically importing the main 
 ### Mixins
 
 A mechanism in JavaScript (and utilized by Neo.mjs) to compose classes by injecting properties and methods from other
-classes, promoting code reuse without traditional inheritance.
+classes, promoting code reuse without traditional inheritance. **Currently, Neo.mjs mixins copy methods but do not
+automatically merge `static config` properties from the mixin into the consuming class's `static config`.**
 
 ### Multi-threaded architecture
 
@@ -144,10 +145,12 @@ A string alias used in Neo.mjs to declaratively specify the type of a component 
 
 ### Observable
 
-A pattern used in state management where data changes can be "observed" or subscribed to, allowing components to react
-automatically to updates. Neo.mjs's state providers often utilize this.
+A mixin (`Neo.core.Observable`) that provides event-driven capabilities to classes that include it. It enables objects
+to emit custom events using the `fire()` method, and allows other objects to subscribe to these events using the `on()`
+(or `addListener()`) method. This mechanism facilitates a publish-subscribe pattern, allowing components and other parts
+of the application to react automatically to specific updates or actions.
 
-### Off-Main-Thread (OMT)
+### Off the Main Thread (OMT)
 
 The core architectural principle of Neo.mjs, where the majority of the application's logic and processing runs in Web
 Workers, separate from the browser's main thread, to ensure UI responsiveness.
@@ -173,8 +176,9 @@ or other dependent parts of the application.
 
 ### Remote Method Access (RMA)
 
-Neo.mjs's mechanism for seamlessly calling methods on objects that reside in different Web Workers (or even backend
-services), abstracting away the complexities of cross-worker communication.
+Neo.mjs's mechanism for seamlessly calling methods on objects that reside in different Web Workers, Main Threads
+(especially multiple ones in multi-window applications), or even backend services, abstracting away the complexities of
+cross-context communication.
 
 ### RPC Layer
 
@@ -184,7 +188,7 @@ on objects residing in different execution contexts (e.g., between workers, or t
 ### Routing
 
 The process of mapping URL hash patterns to specific application states or views. Neo.mjs supports declarative routing
-within its class config system.
+within its class config system, implemented inside `Neo.controller.Base`.
 
 ## S
 
@@ -206,7 +210,7 @@ deployed code is not directly readable.
 ### State Management
 
 The process of managing and synchronizing the data (state) of an application. Neo.mjs provides elegant features for this,
-including state providers and observable patterns.
+including reactive configs, state providers and observable patterns.
 
 ### State Provider
 
@@ -217,7 +221,7 @@ application. Forms can include their own state providers.
 
 ### Task Worker
 A specialized Web Worker in Neo.mjs that can be used to offload specific, computationally expensive tasks that don't fit
-into the other worker categories, ensuring the main thread remains free.
+into the other worker categories, ensuring the app worker and main thread remain free.
 
 ## U
 
