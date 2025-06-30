@@ -151,5 +151,75 @@ class HBoxExample extends Container {
 Neo.setupClass(HBoxExample);
 ```
 
+#### 3. Card Layout (`ntype: 'card'`)
+
+The Card layout is designed to display one child component at a time, making it ideal for tab panels, wizards, or any
+interface where content needs to be switched without navigating away. Only the active card is visible, while others are
+hidden.
+
+**Key Properties for Card Layouts:**
+
+-   `activeIndex_`: This is the most important config. Changing its value activates a different child component (card).
+    The framework automatically handles showing the new card and hiding the old one.
+
+-   `removeInactiveCards`: A boolean (default `true`). If `true`, the DOM elements of inactive cards are removed from the
+    document flow, keeping only their instances and VDOM trees. This is useful for performance, especially with many
+    cards, as it reduces the number of elements the browser has to render. If `false`, inactive cards remain in the DOM
+    but are hidden via CSS.
+
+-   `slideDirection_`: A string (`'horizontal'`, `'vertical'`, or `null` - default `null`). This property enables
+    animated transitions when switching between cards. Setting it to `'horizontal'` or `'vertical'` will make the cards
+    slide into view.
+
+**Example:**
+
+```javascript live-preview
+import Container from '../container/Base.mjs';
+import Button from '../button/Base.mjs';
+
+class CardExample extends Container {
+    static config = {
+        className: 'Example.view.CardExample',
+        layout: {
+            ntype: 'card',
+            activeIndex: 0 // Start with the first card active
+        },
+        items: [{
+            module: Container,
+            cls: 'card-panel',
+            items: [{
+                module: Button,
+                text: 'Go to Card 2',
+                handler: function() {
+                    this.up('container').layout.activeIndex = 1;
+                }
+            }],
+            style: {
+                backgroundColor: '#e0f7fa',
+                padding: '20px',
+                textAlign: 'center'
+            }
+        }, {
+            module: Container,
+            cls: 'card-panel',
+            items: [{
+                module: Button,
+                text: 'Go to Card 1',
+                handler: function() {
+                    this.up('container').layout.activeIndex = 0;
+                }
+            }],
+            style: {
+                backgroundColor: '#fff3e0',
+                padding: '20px',
+                textAlign: 'center'
+            }
+        }]
+    }
+}
+
+Neo.setupClass(CardExample);
+```
+
 This is just the beginning of understanding layouts in Neo.mjs. In subsequent sections, we will explore more advanced
 layout types and concepts like nesting layouts for complex UI structures.
