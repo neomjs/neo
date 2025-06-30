@@ -75,12 +75,15 @@ In the example below, we create `MySpecialButton` by extending `Neo.button.Base`
 
 ## Introducing New Configs
 
-You can also add entirely new configuration properties to your custom components. Simply add them to the `static config`
-block with a default value. Neo.mjs will automatically generate a getter and a setter for your new config, and you can
-use it to control the behavior of your component.
+You can also add entirely new configuration properties to your custom components. To make a config "reactive" – meaning
+it automatically triggers a lifecycle method when its value changes – you **must** define it with a trailing underscore (`_`).
 
-For example, if we wanted our `MySpecialButton` to have a `specialEffect` config, we could add
-`specialEffect: 'glow'` to its config block.
+For a reactive config like `myConfig_`, the framework provides this behavior:
+- **Reading**: You can access the value directly: `this.myConfig`.
+- **Writing**: Assigning a new value (`this.myConfig = 'new value'`) triggers a prototype-based setter. This is the core of Neo.mjs reactivity.
+- **Hook**: After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
+
+If you define a config without the trailing underscore, it will simply be a static property on the class instance and will not trigger any lifecycle methods.
 
 ## Example: A Custom Button
 
@@ -101,17 +104,14 @@ class MySpecialButton extends Button {
         iconCls: 'far fa-face-grin-wide',
         ui: 'ghost',
 
-        // c. Add a new custom config
-        specialText: 'I am special'
+        // c. Add a new reactive config (note the trailing underscore)
+        specialText_: 'I am special'
     }
 
     // d. Hook into the component lifecycle
-    onConstructed() {
-        // Call the superclass method first
-        super.onConstructed();
-
-        // Access our new config property
-        console.log(this.specialText);
+    afterSetSpecialText(value, oldValue) {
+        // This method is called automatically when `specialText` is changed.
+        console.log(`specialText changed from "${oldValue}" to "${value}"`);
     }
 }
 
@@ -147,9 +147,108 @@ Neo.setupClass(MainView);
 1.  **Class Definition**: We define `MySpecialButton` which `extends` the framework's `Button` class.
 2.  **`className`**: We give our new class a unique `className`. This is important for the framework's class system.
 3.  **Overridden Configs**: We change the default `iconCls` and `ui` to style our button differently.
-4.  **New Config**: We add a `specialText` config. While this example doesn't use it to change the button's
-    appearance, the `onConstructed` method shows how you can access its value.
-5.  **Lifecycle Method**: We use `onConstructed`, which fires after the component is created, to log the value of our
-    new config. We call `super.onConstructed()` to ensure the parent class's logic is executed.
+4.  **New Reactive Config**: We add a `specialText_` config. The trailing underscore makes it reactive.
+5.  **Lifecycle Method**: We use `afterSetSpecialText()` to automatically run logic when the config changes. We also use
+    `onConstructed()` to run logic once when the component is created.
 6.  **Usage**: We use `MySpecialButton` in the `items` array of our `MainView` just like any other component, by
     referencing its `module`.
+
+## Extending `Component.Base`: Building VDom from Scratch
+
+While extending specialized components like `Button` or `Container` is common for adding features (acting like a
+Higher-Order Component), there are times when you need to define a component's HTML structure from the ground up. For
+this, you extend the generic `Neo.component.Base`.
+
+When you extend `component.Base`, you are responsible for defining the component's entire virtual DOM (VDom) structure
+using the `vdom` config. This gives you complete control over the rendered output.
+
+### Example: A Simple Profile Badge
+
+Let's create a `ProfileBadge` component that displays a user's name and an online status indicator.
+
+```javascript live-preview
+import Component from '../component/Base.mjs';
+import Container from '../container/Base.mjs';
+import NeoArray  from '../util/Array.mjs';
+import VdomUtil  from '../util/Vdom.mjs';
+
+// 1. Extend the generic Component.Base
+class ProfileBadge extends Component {
+    static config = {
+        className: 'Example.view.ProfileBadge',
+        ntype    : 'profile-badge',
+
+        // a. Define the VDom from scratch
+        vdom: {
+            cls: ['profile-badge'],
+            cn: [
+                {tag: 'span', cls: ['status-indicator'], flag: 'statusNode'},
+                {tag: 'span', cls: ['username'], flag: 'usernameNode'}
+            ]
+        },
+
+        // b. Add new reactive configs to control the component (note the trailing underscore)
+        online_: false,
+        username_: 'Guest'
+    }
+
+    // d. Define getters for easy access to flagged VDom nodes
+    get statusNode() {
+        return VdomUtil.getByFlag(this, 'statusNode');
+    }
+
+    get usernameNode() {
+        return VdomUtil.getByFlag(this, 'usernameNode');
+    }
+
+    // c. Use lifecycle methods to react to config changes
+    afterSetOnline(value, oldValue) {
+        // Access the VDom node via the getter
+        NeoArray.toggle(this.statusNode.cls, 'online', value);
+        this.update(); // Trigger a VDom update
+    }
+
+    afterSetUsername(value, oldValue) {
+        this.usernameNode.text = value;
+        this.update();
+    }
+}
+
+Neo.setupClass(ProfileBadge);
+
+
+// 2. Use the new component
+class MainView extends Container {
+    static config = {
+        className: 'Example.view.MainView',
+        layout   : {ntype: 'vbox', align: 'start'},
+        items    : [{
+            module: ProfileBadge,
+            username: 'Alice',
+            online: true
+        }, {
+            module: ProfileBadge,
+            username: 'Bob',
+            online: false,
+            style: {marginTop: '10px'}
+        }]
+    }
+}
+
+Neo.setupClass(MainView);
+```
+
+### Key Differences in this Approach:
+
+1.  **Base Class**: We extend `Neo.component.Base` because we are not inheriting complex logic like a `Button` or
+    `Container`.
+2.  **`vdom` Config**: We define the entire HTML structure inside the `vdom` config. We use `flag`s (`statusNode`,
+    `usernameNode`) to easily reference these VDom nodes later.
+3.  **Lifecycle Methods**: We use `afterSet...` methods to react to changes in our custom `online_` and `username_`
+    configs. Inside these methods, we directly manipulate the properties of our VDom nodes and then call `this.update()`
+    to apply the changes to the real DOM.
+
+This approach gives you maximum control, but it also means you are responsible for building the structure yourself.
+
+For a deeper dive into advanced VDom manipulation, including performance best practices and security, please refer to the
+[Working with VDom guide](guides.WorkingWithVDom).
