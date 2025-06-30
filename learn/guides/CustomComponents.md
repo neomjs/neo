@@ -11,6 +11,22 @@ solution.
 
 This guide will walk you through the process.
 
+## Choosing the Right Base Class
+
+In the world of React, developers often use Higher-Order Components (HOCs) to reuse component logic. In Neo.mjs, you
+achieve a similar result through class extension. The key to creating a robust and efficient custom component is
+choosing the correct base class to extend.
+
+Instead of extending the most generic `Neo.component.Base` class, look for a more specialized class that already
+provides the functionality you need.
+
+-   If your component needs to contain other components, extend `Neo.container.Base`.
+-   If you're creating an interactive element, extending `Neo.button.Base` gives you focus and keyboard support.
+-   If you need a custom form field, look for a suitable class within `Neo.form.field`.
+
+By choosing the most specific base class, you inherit a rich set of features, saving you from having to reinvent the
+wheel and ensuring your component integrates smoothly into the framework.
+
 ## Overriding Ancestor Configs
 
 The simplest way to create a custom component is to extend an existing one and override some of its default
