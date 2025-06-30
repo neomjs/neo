@@ -29,7 +29,7 @@ A cornerstone of Neo.mjs's reactivity is the trailing underscore (`_`) conventio
 ```javascript readonly
 class MyReactiveClass extends Neo.core.Base {
     static config = {
-        className: 'My.Reactive.Class',
+        className        : 'My.Reactive.Class',
         myReactiveConfig_: 'initial value' // This config is reactive
     }
 
