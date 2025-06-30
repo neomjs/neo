@@ -81,9 +81,11 @@ it automatically triggers a lifecycle method when its value changes – you **mu
 For a reactive config like `myConfig_`, the framework provides this behavior:
 - **Reading**: You can access the value directly: `this.myConfig`.
 - **Writing**: Assigning a new value (`this.myConfig = 'new value'`) triggers a prototype-based setter. This is the core of Neo.mjs reactivity.
-- **Hook**: After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
+- **Hooks**: The framework provides three optional hooks for each reactive config: `beforeGet`, `beforeSet`, and `afterSet`. After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
 
 If you define a config without the trailing underscore, it will simply be a static property on the class instance and will not trigger any lifecycle methods.
+
+For a complete explanation of the config system, including details on all the lifecycle hooks, please see the [Unified Config System guide](benefits.ConfigSystem).
 
 ## Example: A Custom Button
 
