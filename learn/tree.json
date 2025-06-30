@@ -31,7 +31,7 @@
         {"name": "Main Thread Addons: Interacting with the Browser", "parentId": "InDepth",                            "id": "guides.MainThreadAddons"},
         {"name": "User Input (Forms)",                               "parentId": "InDepth",                            "id": "guides.Forms",  "hidden": true},
         {"name": "Component and Container Basics",                   "parentId": "InDepth",                            "id": "guides.ComponentsAndContainers"},
-        {"name": "Layouts",                                          "parentId": "InDepth",           "isLeaf": false, "id": "guides.Layouts", "hidden": true},
+        {"name": "Layouts",                                          "parentId": "InDepth",           "isLeaf": false, "id": "guides.Layouts"},
         {"name": "Custom Components",                                "parentId": "InDepth",                            "id": "guides.CustomComponents"},
         {"name": "Events",                                           "parentId": "InDepth",           "isLeaf": false, "id": "GuideEvents"},
             {"name": "Custom Events",                                "parentId": "GuideEvents",                        "id": "guides.events.CustomEvents"},
