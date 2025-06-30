@@ -39,6 +39,7 @@ MainView = Neo.setupClass(MainView);
 In this example:
 *   The `store` config is an inline object that gets automatically converted into a `Neo.data.Store`.
 *   The `id` property of each data item is used as the internal value, and `name` is used for display by default.
+*   **Note**: If your data uses different property names for the unique identifier or display value (e.g., `cityId` instead of `id`), you must explicitly define a `model` (even inline) within the `store` config and set the `keyProperty` to match your unique identifier.
 
 ## 2. Data Integration with `Neo.data.Store`
 
