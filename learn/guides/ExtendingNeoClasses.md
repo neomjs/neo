@@ -112,7 +112,7 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for its configuration-driven approach.
 
-## 5. Examples of Extending Non-Component Classes
+## 5. Practical Examples: Models, Stores, and Controllers
 
 The principles of class extension apply universally across all Neo.mjs class types.
 
