@@ -43,7 +43,7 @@ The web portal provides:
 ## 📖 Reading Options
 
 - **🌐 Web Portal** (Recommended): Enhanced experience with live previews
-  → [neomjs.com/learn](https://neomjs.com/dist/production/apps/portal/index.html#/learn)
+  → [neomjs.com#/learn](https://neomjs.com/dist/production/apps/portal/index.html#/learn)
 - **📁 GitHub**: Raw markdown files for quick reference or offline reading
 - **💻 Local**: Clone the repo and browse files directly
 
