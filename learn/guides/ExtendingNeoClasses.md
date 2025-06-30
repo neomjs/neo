@@ -61,6 +61,68 @@ For every reactive config (`myConfig_`), Neo.mjs provides three optional lifecyc
     *   **Purpose**: Intercepts the value *before* it is returned by the getter. Useful for lazy initialization, computing values on demand, or returning a transformed version of the stored value.
     *   **Return Value**: Return the `value` that should be returned by the getter.
 
+### Overriding Lifecycle Hooks: `super` vs. Full Override
+
+When extending a Neo.mjs class, you often need to customize the behavior of inherited lifecycle hooks (like `afterSet*`, `onConstructed`, etc.). You have two primary approaches:
+
+#### 1. Extending Parent Behavior (Calling `super`)
+
+This is the most common and recommended approach. By calling `super.methodName(...)`, you ensure that the parent class's implementation of the hook is executed. You can then add your custom logic either before or after the `super` call.
+
+This approach is crucial for maintaining the framework's intended behavior and ensuring that inherited features continue to function correctly.
+
+```javascript readonly
+import Button from '../../src/button/Base.mjs';
+
+class MyExtendedButton extends Button {
+    static config = {
+        className: 'My.Extended.Component',
+        // text_ config is inherited from Button.Base
+        // We can set a default value here if needed, or rely on button.Base's default
+        text: 'New Default Text'
+    }
+
+    // Example: Adding logic after the parent's afterSetText
+    afterSetText(value, oldValue) {
+        //  Add your custom pre-processing logic here
+        super.afterSetText(value, oldValue);
+        console.log(`Custom logic: Button text changed to "${value}"`);
+        // Add your custom post-processing logic here
+    }
+}
+
+export default Neo.setupClass(MyExtendedButton);
+```
+
+#### 2. Completely Overriding Parent Behavior (No `super` Call)
+
+In rare cases, you might want to completely replace the parent class's implementation of a hook. This is achieved by simply omitting the `super` call within your overridden method.
+
+**Caution**: Use this approach with extreme care. You must fully understand the parent's implementation and ensure that your override does not break essential framework functionality or inherited features. This is generally reserved for advanced scenarios where you need full control over the hook's execution.
+
+```javascript readonly
+import Button from '../../src/button/Base.mjs';
+
+class MyFullyOverriddenButton extends Button {
+    static config = {
+        className: 'My.Fully.Overridden.Component',
+        text     : 'New Default Text'
+    }
+
+    // Example: Completely overriding afterSetText
+    afterSetText(value, oldValue) {
+        // No super.afterSetText(value, oldValue); call
+        console.log(`Fully custom logic: Button text changed to "${value}"`);
+        // The parent's afterSetText will NOT be executed
+        // This means that in this case you need to take care on your own to map the text value to the vdom.
+    }
+}
+
+export default Neo.setupClass(MyFullyOverriddenButton);
+```
+
+
+
 ```javascript readonly
 class MyHookedClass extends Neo.core.Base {
     static config = {
