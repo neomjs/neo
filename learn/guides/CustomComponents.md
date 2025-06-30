@@ -27,6 +27,41 @@ provides the functionality you need.
 By choosing the most specific base class, you inherit a rich set of features, saving you from having to reinvent the
 wheel and ensuring your component integrates smoothly into the framework.
 
+## Real-World Examples inside the Neo.mjs Component Library
+
+The Neo.mjs framework itself uses this principle of extending the most specific class. Let's look at a couple of
+examples from the framework's source code.
+
+### Toolbar Inheritance
+
+-   **`Neo.toolbar.Base`** extends `Neo.container.Base`.
+    It's the foundational toolbar and extends `Container` because its main purpose is to hold other components. It adds
+    features like docking.
+
+-   **`Neo.tab.header.Toolbar`** extends `Neo.toolbar.Base`.
+    This is a specialized toolbar for tab headers. It inherits the ability to hold items and be docked, and adds new
+    logic for managing the active tab indicator.
+
+-   **`Neo.grid.header.Toolbar`** extends `Neo.toolbar.Base`.
+    This toolbar is for grid headers. It also inherits from `toolbar.Base` and adds grid-specific features like column
+    resizing and reordering.
+
+### Button Inheritance
+
+-   **`Neo.button.Base`** extends `Neo.component.Base`.
+    This is the basic button, providing core features like click handling and icon support.
+
+-   **`Neo.tab.header.Button`** extends `Neo.button.Base`.
+    A button used in tab headers. It inherits all the standard button features and adds a visual indicator for the
+    active tab.
+
+-   **`Neo.grid.header.Button`** extends `Neo.button.Base`.
+    A button for grid column headers. It inherits from the base button and adds features for sorting and filtering the
+    grid data.
+
+These examples show how building on top of specialized base classes leads to a clean, maintainable, and powerful
+component architecture.
+
 ## Overriding Ancestor Configs
 
 The simplest way to create a custom component is to extend an existing one and override some of its default
