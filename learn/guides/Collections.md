@@ -94,7 +94,7 @@ The `Neo.collection.Base` class has a `filters_` config which accepts an array o
 
 ### The `allItems` Property
 
-When a collection is filtered, the original, unfiltered set of items is preserved in the `allItems` property. This allows you to easily revert to the full dataset or perform operations on it without losing data.
+When a collection is filtered, the original, unfiltered set of items is preserved in the `allItems` property. This is a significant advantage over simply filtering a JavaScript array, as it allows you to easily revert to the full dataset or perform operations on it without losing the original data.
 
 ### Reactivity of Filters
 
