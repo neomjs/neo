@@ -24,6 +24,15 @@ layout: {
 }
 ```
 
+### The 'base' Layout (`ntype: 'base'`)
+
+In scenarios where you prefer to manage the positioning and sizing of child components entirely through custom CSS or
+in-line styles, you can use the `'base'` layout. This layout type provides minimal interference, essentially acting as a
+pass-through, allowing you full control over the styling of your container's children.
+
+When `ntype: 'base'` is used, the container will not apply any specific flexbox or grid-based layout rules to its children.
+This is useful for highly customized components or when integrating with external styling libraries.
+
 ### Common Layout Types
 
 Neo.mjs provides several built-in layout types to cover a wide range of UI design needs. Here, we'll explore some of the
