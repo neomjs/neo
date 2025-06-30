@@ -93,7 +93,7 @@ Let's look at a practical example. Here, we'll create a custom button that combi
 `specialText_` config to create a dynamic label.
 
 ```javascript live-preview
-import Button from '../button/Base.mjs';
+import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
 // 1. Define our custom component by extending a framework class.
@@ -103,7 +103,7 @@ class MySpecialButton extends Button {
 
         // a. Override configs from the parent class
         iconCls: 'far fa-face-grin-wide',
-        ui: 'ghost',
+        ui     : 'ghost',
 
         // b. Add a new reactive config (note the trailing underscore)
         specialText_: 'I am special'
@@ -111,11 +111,11 @@ class MySpecialButton extends Button {
 
     // c. Hook into the component lifecycle
     afterSetSpecialText(value, oldValue) {
-        this.updateButtonText();
+        this.updateButtonText()
     }
 
     afterSetText(value, oldValue) {
-        this.updateButtonText();
+        this.updateButtonText()
     }
 
     // d. A custom method to update the button's text
@@ -136,16 +136,16 @@ MySpecialButton = Neo.setupClass(MySpecialButton);
 class MainView extends Container {
     static config = {
         className: 'Example.view.MainView',
-        layout: {ntype: 'vbox', align: 'start'},
-        items: [{
+        layout   : {ntype: 'vbox', align: 'start'},
+        items    : [{
             // A standard framework button for comparison
-            module: Button,
+            module : Button,
             iconCls: 'fa fa-home',
-            text: 'A framework button'
+            text   : 'A framework button'
         }, {
             // Our new custom button
-            module: MySpecialButton,
-            text: 'My button',
+            module     : MySpecialButton,
+            text       : 'My button',
             specialText: 'is very special'
         }]
     }
@@ -197,40 +197,40 @@ class ProfileBadge extends Component {
         // a. Define the VDom from scratch
         vdom: {
             cls: ['profile-badge'],
-            cn: [
+            cn : [
                 {tag: 'span', cls: ['status-indicator'], flag: 'statusNode'},
-                {tag: 'span', cls: ['username'], flag: 'usernameNode'}
+                {tag: 'span', cls: ['username'],         flag: 'usernameNode'}
             ]
         },
 
         // b. Add new reactive configs to control the component (note the trailing underscore)
-        online_: false,
+        online_  : false,
         username_: 'Guest'
     }
 
     // d. Define getters for easy access to flagged VDom nodes
     get statusNode() {
-        return VdomUtil.getByFlag(this, 'statusNode');
+        return VdomUtil.getByFlag(this.vdom, 'statusNode')
     }
 
     get usernameNode() {
-        return VdomUtil.getByFlag(this, 'usernameNode');
+        return VdomUtil.getByFlag(this.vdom, 'usernameNode')
     }
 
     // c. Use lifecycle methods to react to config changes
     afterSetOnline(value, oldValue) {
         // Access the VDom node via the getter
         NeoArray.toggle(this.statusNode.cls, 'online', value);
-        this.update(); // Trigger a VDom update
+        this.update() // Trigger a VDom update
     }
 
     afterSetUsername(value, oldValue) {
         this.usernameNode.text = value;
-        this.update();
+        this.update()
     }
 }
 
-Neo.setupClass(ProfileBadge);
+ProfileBadge = Neo.setupClass(ProfileBadge);
 
 
 // 2. Use the new component
@@ -239,19 +239,19 @@ class MainView extends Container {
         className: 'Example.view.MainView',
         layout   : {ntype: 'vbox', align: 'start'},
         items    : [{
-            module: ProfileBadge,
+            module  : ProfileBadge,
             username: 'Alice',
-            online: true
+            online  : true
         }, {
-            module: ProfileBadge,
+            module  : ProfileBadge,
             username: 'Bob',
-            online: false,
-            style: {marginTop: '10px'}
+            online  : false,
+            style   : {marginTop: '10px'}
         }]
     }
 }
 
-Neo.setupClass(MainView);
+MainView= Neo.setupClass(MainView);
 ```
 
 ### Key Differences in this Approach:
