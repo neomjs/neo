@@ -29,7 +29,7 @@
         {"name": "Working with VDom",                                "parentId": "InDepth",                            "id": "guides.WorkingWithVDom"},
         {"name": "Config System Deep Dive",                          "parentId": "InDepth",                            "id": "guides.ConfigSystemDeepDive"},
         {"name": "Main Thread Addons: Interacting with the Browser", "parentId": "InDepth",                            "id": "guides.MainThreadAddons"},
-        {"name": "User Input (Forms)",                               "parentId": "InDepth",                            "id": "guides.Forms",  "hidden": true},
+        {"name": "User Input (Forms)",                               "parentId": "InDepth",                            "id": "guides.Forms"},
         {"name": "Component and Container Basics",                   "parentId": "InDepth",                            "id": "guides.ComponentsAndContainers"},
         {"name": "Layouts",                                          "parentId": "InDepth",           "isLeaf": false, "id": "guides.Layouts"},
         {"name": "Custom Components",                                "parentId": "InDepth",                            "id": "guides.CustomComponents"},
