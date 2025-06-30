@@ -43,6 +43,7 @@
         {"name": "Tables (Stores)",                                  "parentId": "InDepth",                            "id": "guides.Tables", "hidden": true},
         {"name": "Multi-Window Applications",                        "parentId": "InDepth",                            "id": "guides.MultiWindow", "hidden":  true},
         {"name": "Mixins",                                           "parentId": "InDepth",                            "id": "guides.Mixins", "hidden": true},
+        {"name": "Collections",                                      "parentId": "InDepth",                            "id": "guides.Collections"},
     {"name": "Tutorials",                                            "parentId": null,                "isLeaf": false, "id": "Tutorials",  "collapsed": true},
         {"name": "Rock Scissors Paper",                              "parentId": "Tutorials",                          "id": "tutorials.RSP", "hidden": true},
         {"name": "Earthquakes",                                      "parentId": "Tutorials",                          "id": "tutorials.Earthquakes"},
