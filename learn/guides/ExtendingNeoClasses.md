@@ -247,17 +247,37 @@ class ProductsStore extends Store {
 
     // Custom method to filter by price range
     filterByPriceRange(min, max) {
-        this.filter({
+        // The idiomatic way to apply filters is by setting the 'filters' config.
+        // This replaces any existing filters.
+        this.filters = [{
             property: 'price',
             operator: '>=',
             value   : min
-        });
-        this.filter({
+        }, {
+            property: 'price',
+            operator: '<=',
+            value   : max
+        }];
+    }
+
+    // To add filters without replacing existing ones, you would typically
+    // read the current filters, add new ones, and then set the filters config.
+    // Example (conceptual, not part of the class):
+    /*
+    addPriceRangeFilter(min, max) {
+        const currentFilters = this.filters ? [...this.filters] : [];
+        currentFilters.push({
+            property: 'price',
+            operator: '>=',
+            value   : min
+        }, {
             property: 'price',
             operator: '<=',
             value   : max
         });
+        this.filters = currentFilters;
     }
+    */
 }
 
 Neo.setupClass(ProductsStore);
