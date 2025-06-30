@@ -336,7 +336,7 @@ class ContentComponent extends Component {
             contentArray = content.split('\n'),
             i            = 1,
             storeData    = [],
-            tag;
+            sideNavTitle, tag;
 
         contentArray.forEach((line, index) => {
             tag = null;
@@ -352,7 +352,10 @@ class ContentComponent extends Component {
             }
 
             if (tag) {
-                storeData.push({id: i, name: line, sourceId: me.id, tag});
+                // Markdown titles can contain inline code, which we don't want to display inside PageSectionsList.
+                sideNavTitle = line.replaceAll('`', '');
+
+                storeData.push({id: i, name: sideNavTitle, sourceId: me.id, tag});
 
                 contentArray[index] = `<${tag} class="neo-${tag}" data-record-id="${i}">${line}</${tag}>`;
 
