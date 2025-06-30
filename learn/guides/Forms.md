@@ -440,6 +440,10 @@ myFormContainer.on('fieldUserChange', (data) => {
     lazy loading modules for individual pages or fieldsets to improve initial
     application load times. This is demonstrated in `apps/form/view/FormContainer.mjs`
     where pages are imported dynamically.
+*   **Explicit Module Imports**: While the core `Neo` global namespace is always available, it's a best practice to
+  explicitly import all Neo.mjs modules you use (e.g., `import FormContainer from '../../src/form/Container.mjs';`).
+  Relying on implicit availability of classes within `Neo`'s sub-namespaces can lead to less readable and maintainable code.
+  Explicit imports improve code readability, maintainability, and ensure consistent behavior.
 *   **`Neo.overwrites`**: Use global overwrites (as seen in `apps/form/Overwrites.mjs`)
     to enforce consistent styling or behavior across all instances of a
     component type.
