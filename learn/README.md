@@ -16,7 +16,7 @@ Neo.mjs is the **first and only JavaScript framework** that achieves:
 ## 🌐 Best Learning Experience
 
 **For the optimal learning experience, visit:**
-**https://neomjs.com/dist/production/apps/portal/index.html#/learn**
+**[neomjs.com#/learn](https://neomjs.com/dist/production/apps/portal/index.html#/learn)**
 
 The web portal provides:
 - ✨ **Enhanced Markdown rendering** with syntax highlighting
