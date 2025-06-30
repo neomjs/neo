@@ -221,5 +221,26 @@ class CardExample extends Container {
 Neo.setupClass(CardExample);
 ```
 
+#### Lazy Loading with Card Layouts
+
+One powerful feature of the Card layout is its ability to lazy load content. This means that the JavaScript module for a
+card's content is only loaded when that card becomes active, significantly improving initial application load times.
+
+This is achieved by defining the `module` property of an item within the `items` array as a function that returns a
+dynamic `import()` statement. For example, in the Portal app's `Viewport.mjs`,
+modules are lazy-loaded like this:
+
+```javascript
+items: [
+    {module: () => import('./home/MainContainer.mjs')},
+    {module: () => import('./learn/MainContainer.mjs')},
+    // ... other lazy-loaded modules
+]
+```
+
+When `activeIndex` changes to a card configured this way, Neo.mjs automatically executes the import function, loads the
+module, and then creates the component instance. This ensures that resources are only consumed when they are actually
+needed.
+
 This is just the beginning of understanding layouts in Neo.mjs. In subsequent sections, we will explore more advanced
 layout types and concepts like nesting layouts for complex UI structures.
