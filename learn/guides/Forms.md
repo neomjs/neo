@@ -369,7 +369,9 @@ Field triggers are small, interactive icons or buttons that appear within
 or alongside a form field, providing additional functionality. Examples
 include clear buttons, date pickers, or spin buttons for number fields.
 
-Triggers are configured via the `triggers` array on a field.
+Triggers are configured via the `triggers` array on a field. You can
+configure multiple triggers for a single field, and control their placement
+(left or right of the input) using the `align` config on the trigger.
 
 ```javascript readonly
 import DateField    from '../../src/form/field/Date.mjs';
