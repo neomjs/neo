@@ -87,19 +87,19 @@ class Component extends BaseComponent {
                         ]},
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'edit-button'], flag: 'edit-button', removeDom: true, cn: [
                             {tag: 'i', cls: ['ion-edit']},
-                            {vtype: 'text', html: ' Edit Article'}
+                            {vtype: 'text', text: ' Edit Article'}
                         ]},
                         {vtype: 'text', html: '&nbsp;&nbsp;'},
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
                             {tag: 'i', cls: ['ion-heart']},
                             {vtype: 'text', html: '&nbsp;'},
                             {vtype: 'text'},
-                            {vtype: 'text', html: ' Post '},
+                            {vtype: 'text', text: ' Post '},
                             {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
                         ]},
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-danger', 'delete-button'], flag: 'delete-button', removeDom: true, cn: [
                             {tag: 'i', cls: ['ion-trash-a']},
-                            {vtype: 'text', html: ' Delete Article'}
+                            {vtype: 'text', text: ' Delete Article'}
                         ]}
                     ]}
                 ]}
@@ -114,7 +114,7 @@ class Component extends BaseComponent {
                         {tag: 'a', flag: 'userimage', cn: [{tag: 'img'}]},
                         {cls: ['info'], cn: [
                             {tag: 'a', cls: ['author'], flag: 'username'},
-                            {tag: 'span', cls: ['date'], html: 'January 20th'}
+                            {tag: 'span', cls: ['date'], text: 'January 20th'}
                         ]},
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
                             {tag: 'i', flag: 'followIcon'},
@@ -126,7 +126,7 @@ class Component extends BaseComponent {
                             {tag: 'i', cls: ['ion-heart']},
                             {vtype: 'text', html: '&nbsp;'},
                             {vtype: 'text'},
-                            {vtype: 'text', html: ' Post '},
+                            {vtype: 'text', text: ' Post '},
                             {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
                         ]}
                     ]}
@@ -190,7 +190,7 @@ class Component extends BaseComponent {
                 vdom = me.vdom;
 
             VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
-                node.html = value.following ? ' Unfollow ' : ' Follow ';
+                node.text = value.following ? ' Unfollow ' : ' Follow ';
             });
 
             VDomUtil.getFlags(vdom, 'followIcon').forEach(node => {
@@ -204,7 +204,7 @@ class Component extends BaseComponent {
 
             VDomUtil.getFlags(vdom, 'username').forEach(node => {
                 node.href = '#/profile/' + value.username;
-                node.html = value.username;
+                node.text = value.username;
             });
 
             me.update();
@@ -286,7 +286,7 @@ class Component extends BaseComponent {
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
-            VDomUtil.getByFlag(this.vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
+            VDomUtil.getByFlag(this.vdom, 'createdAt').text = new Intl.DateTimeFormat('en-US', {
                 day  : 'numeric',
                 month: 'long',
                 year : 'numeric'
@@ -306,7 +306,7 @@ class Component extends BaseComponent {
         let me = this;
 
         VDomUtil.getFlags(me.vdom, 'favorited').forEach(node => {
-            node.cn[2].html = value ? 'Unfavorite' : 'Favorite';
+            node.cn[2].text = value ? 'Unfavorite' : 'Favorite';
 
             NeoArray.add(node.cls, value ? 'btn-primary' : 'btn-outline-primary');
             NeoArray.remove(node.cls, value ? 'btn-outline-primary' : 'btn-primary');
@@ -331,10 +331,10 @@ class Component extends BaseComponent {
     afterSetFavoritesCount(value, oldValue) {
         if (Neo.isNumber(value)) {
             VDomUtil.getFlags(this.vdom, 'favoritesCount').forEach(node => {
-                node.html = `(${value})`;
+                node.text = `(${value})`;
             });
 
-            this.update();
+            this.update()
         }
     }
 
@@ -360,7 +360,7 @@ class Component extends BaseComponent {
                 tagList.cn.push({
                     tag : 'li',
                     cls : ['tag-default', 'tag-pill', 'tag-outline'],
-                    html: item
+                    text: item
                 })
             });
 
@@ -381,8 +381,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        VDomUtil.getByFlag(this.vdom, 'title').html = value;
-        this.update();
+        VDomUtil.getByFlag(this.vdom, 'title').text = value;
+        this.update()
     }
 
     /**

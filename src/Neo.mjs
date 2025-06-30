@@ -466,11 +466,11 @@ Neo = globalThis.Neo = Object.assign({
             proto      = cls.prototype || cls,
             ns         = Neo.ns(proto.constructor.config.className, false),
             protos     = [],
-            cfg, config, ctor, ntype;
+            cfg, config, ctor, hierarchyInfo, ntype;
 
         /*
          * If the namespace already exists, directly return it.
-         * This can happen when using different versions of neo.mjs
+         * This can happen when using different versions of Neo.mjs
          * => Especially singletons (IdGenerator) must stay unique.
          *
          * This can also happen when using different environments of neo.mjs in parallel.
@@ -581,6 +581,20 @@ Neo = globalThis.Neo = Object.assign({
         if (proto.singleton) {
             cls = Neo.create(cls);
             Neo.applyToGlobalNs(cls)
+        }
+
+        hierarchyInfo = {
+            className      : proto.className,
+            module         : cls,
+            ntype          : Object.hasOwn(proto, 'ntype') ? proto.ntype : null,
+            parentClassName: proto.__proto__?.className || null
+        };
+
+        if (Neo.manager?.ClassHierarchy) {
+            Neo.manager.ClassHierarchy.add(hierarchyInfo)
+        } else {
+            Neo.classHierarchyMap ??= {};
+            Neo.classHierarchyMap[proto.className] = hierarchyInfo
         }
 
         return cls

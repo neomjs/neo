@@ -38,9 +38,9 @@ class Chip extends Component {
         iconCls_: null,
         /**
          * The text displayed on the button [optional]
-         * @member {String|null} text_=null
+         * @member {String|null} text=null
          */
-        text_: null,
+        text: null,
         /**
          * Set this one to false when used in lists
          * @member {Boolean} useDomListeners=true
@@ -132,7 +132,7 @@ class Chip extends Component {
             textNode.removeDom = true
         } else {
             textNode.removeDom = false;
-            textNode.html      = value
+            textNode.text      = value
         }
 
         this.update()

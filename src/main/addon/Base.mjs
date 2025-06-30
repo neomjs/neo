@@ -180,6 +180,17 @@ class Base extends CoreBase {
     async loadFiles() {}
 
     /**
+     * Handles intercepted remote method calls.
+     * If the addon is not ready, the call is cached using `cacheMethodCall()`.
+     * Otherwise, the original method is executed.
+     * @param {Object} msg The remote message object.
+     * @returns {Promise<any>} A promise that resolves with the method's return value.
+     */
+    onInterceptRemotes(msg) {
+        return this.cacheMethodCall({fn: msg.remoteMethod, data: msg.data})
+    }
+
+    /**
      * Sequentially processes any method calls that were cached while the addon was not ready.
      * This method is asynchronous to allow awaiting the execution of individual cached methods.
      * @returns {Promise<void>} A promise that resolves when all cached methods have been processed.

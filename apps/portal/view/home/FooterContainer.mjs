@@ -37,8 +37,8 @@ class FooterContainer extends Container {
             items: [{
                 module: Component,
                 cls   : ['neo-h2'],
-                html  : 'Content',
-                tag   : 'h2'
+                tag   : 'h2',
+                text  : 'Content'
             }, {
                 iconCls: 'fas fa-people-group',
                 route  : '/about-us',
@@ -64,8 +64,8 @@ class FooterContainer extends Container {
             items: [{
                 module: Component,
                 cls   : ['neo-h2'],
-                html  : 'Community',
-                tag   : 'h2'
+                tag   : 'h2',
+                text  : 'Community'
             }, {
                 iconCls: 'fa-brands fa-github',
                 text   : 'Contribute',
@@ -91,8 +91,8 @@ class FooterContainer extends Container {
             items: [{
                 module: Component,
                 cls   : ['neo-h2'],
-                html  : 'Social Media',
-                tag   : 'h2'
+                tag   : 'h2',
+                text  : 'Social Media'
             }, {
                 iconCls: 'fa-brands fa-linkedin',
                 text   : 'LinkedIn',
@@ -107,7 +107,7 @@ class FooterContainer extends Container {
             }, {
                 module: Component,
                 cls   : ['neo-version'],
-                html  : 'v10.0.0-beta.1'
+                text  : 'v10.0.0-beta.2'
             }]
         }],
         /**

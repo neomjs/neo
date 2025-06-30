@@ -27,9 +27,9 @@ class Legend extends Component {
          */
         iconCls_: 'far fa-check',
         /**
-         * @member {String} text_=''
+         * @member {String} text=''
          */
-        text_: '',
+        text: '',
         /**
          * @member {Boolean} useIcon_=true
          */
@@ -62,7 +62,7 @@ class Legend extends Component {
      * @protected
      */
     afterSetText(value, oldValue) {
-        this.vdom.cn[1].html = value;
+        this.vdom.cn[1].text = value;
         this.update()
     }
 

@@ -788,8 +788,8 @@ class Text extends Field {
             showLabel = me.labelPosition === 'top',
             subLabel  = me.vdom.cn[1];
 
-        subLabel.html      = value;
         subLabel.removeDom = !showLabel;
+        subLabel.text      = value;
 
         me.update()
     }
@@ -1494,9 +1494,9 @@ class Text extends Field {
             errorNode    = errorWrapper.cn[0];
 
             if (value) {
-                errorNode.html = value
+                errorNode.text = value
             } else {
-                delete errorNode.html
+                delete errorNode.text
             }
 
             errorWrapper.removeDom = !value;

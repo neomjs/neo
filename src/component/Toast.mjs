@@ -175,7 +175,7 @@ class Toast extends Component {
     afterSetMsg(value, oldValue) {
         let vdom = this.getTextRootVdom().cn[1];
 
-        vdom.html = value
+        vdom.text = value
     }
 
     /**
@@ -221,8 +221,10 @@ class Toast extends Component {
         let vdom = this.getTextRootVdom().cn[0];
 
         vdom.removeDom = Neo.isEmpty(value);
-        vdom.html      = value;
-        NeoArray[value ? 'add' : 'remove'](vdom.cls, 'neo-toast-has-title')
+        vdom.text      = value;
+        NeoArray.toggle(vdom.cls, 'neo-toast-has-title', value);
+
+        this.update()
     }
 
     /**

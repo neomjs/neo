@@ -182,7 +182,7 @@ class List extends BaseList {
         let me        = this,
             {iconCls} = record,
             id        = record[me.store.keyProperty],
-            vdomCn    = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
+            vdomCn    = [{tag: 'span', cls: ['neo-content'], text: record[me.displayField]}];
 
         if (iconCls && iconCls !== '') {
             vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', iconCls], id: me.getIconId(id)})

@@ -169,12 +169,12 @@ class Process extends Base {
             curItem, content;
 
         items.forEach((newItem) => {
-            curItem = Neo.clone(itemLayout, true),
+            curItem = Neo.clone(itemLayout, true);
             content = curItem.cn[3];
 
             content.cn[0].cls.push(newItem.iconCls);
-            content.cn[1].html = newItem.title;
-            content.cn[2].html = newItem.text;
+            content.cn[1].text = newItem.title;
+            content.cn[2].text = newItem.text;
 
             NeoArray.add(vdomRoot.cn, curItem)
         })

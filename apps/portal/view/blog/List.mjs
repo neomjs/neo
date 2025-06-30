@@ -122,15 +122,15 @@ class List extends BaseList {
                     {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
                     {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                         {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
-                            {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
+                            {flag: 'name', html: record.name.replace(List.nameRegEx, '$1')}
                         ]},
                         {cls: ['neo-top-20'], cn: [
                             {tag: 'img', cls: ['neo-user-image'], src: `${imageBasePath}/blogAuthor/${record.authorImage}`},
                             {cls: ['neo-inner-content'], cn: [
                                 {cls: ['neo-inner-details'], flag: 'author', cn: [
-                                    {tag: 'span', cls: ['neo-bold'], html: record.author}
+                                    {tag: 'span', cls: ['neo-bold'], text: record.author}
                                 ]},
-                                {cls: ['neo-inner-details'], html: record.date}
+                                {cls: ['neo-inner-details'], text: record.date}
                             ]}
                         ]}
                     ]}
@@ -140,16 +140,16 @@ class List extends BaseList {
 
         if (record.publisher.length > 0) {
             VDomUtil.getByFlag(vdomCn[0], 'author').cn.push(
-                {vtype: 'text', html : ' in '},
-                {tag: 'span', cls: ['neo-bold'], html: record.publisher}
+                {vtype: 'text', text : ' in '},
+                {tag: 'span', cls: ['neo-bold'], text: record.publisher}
             )
         }
 
         if (record.selectedInto.length > 0) {
             vdomCn[0].cn[0].cn.splice(1, 0,
                 {cls: ['neo-absolute', 'neo-item-top-position'], cn: [
-                    {html: `Officially selected by ${record.provider} into`},
-                    {cls: ['neo-bold'], html: record.selectedInto.join('</br>')}
+                    {text: `Officially selected by ${record.provider} into`},
+                    {cls: ['neo-bold'], text: record.selectedInto.join('</br>')}
                 ]}
             )
         }

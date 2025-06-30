@@ -1,5 +1,4 @@
-import StringUtil from '../../util/String.mjs';
-import Text       from './Text.mjs';
+import Text from './Text.mjs';
 
 /**
  *
@@ -162,7 +161,7 @@ class TextArea extends Text {
             inputEl = me.getInputEl();
 
         if (inputEl) {
-            inputEl.html = StringUtil.escapeHtml(value)
+            inputEl.text = value
         }
 
         super.afterSetValue(value, oldValue);

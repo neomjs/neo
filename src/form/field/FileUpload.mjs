@@ -1,6 +1,5 @@
-import Field      from './Base.mjs';
-import NeoArray   from '../../util/Array.mjs';
-import StringUtil from '../../util/String.mjs';
+import Field    from './Base.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 const
     sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
@@ -352,7 +351,7 @@ class FileUpload extends Field {
     onConstructed() {
         super.onConstructed(...arguments);
 
-        this.vdom.cn[4].html = this.chooseFile;
+        this.vdom.cn[4].text = this.chooseFile;
     }
 
     /**
@@ -392,12 +391,9 @@ class FileUpload extends Field {
      */
     onInputValueChange({ files }) {
         const
-            me        = this,
-            {
-                types,
-                cls
-            } = me,
-            body      = me.vdom.cn[1];
+            me           = this,
+            {cls, types} = me,
+            body         = me.vdom.cn[1];
 
         if (files.length) {
             NeoArray.remove(cls, 'neo-field-empty');
@@ -406,17 +402,16 @@ class FileUpload extends Field {
             const
                 file     = files.item(0),
                 pointPos = file.name.lastIndexOf('.'),
-                type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '',
-                escapedFileName = StringUtil.escapeHtml(file.name);
+                type     = pointPos > -1 ? file.name.slice(pointPos + 1) : '';
 
             if (me.types && !types[type]) {
-                body.cn[0].html = escapedFileName;
-                body.cn[1].html = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
+                body.cn[0].text = file.name;
+                body.cn[1].text = `${me.invalidFileFormat} (.${type}) ${me.formatSize(file.size)}`;
                 me.error = me.pleaseUseTheseTypes?.replace('{allowedFileTypes}', Object.keys(types).join(' .'))
             }
             else if (file.size > me.maxSize) {
-                body.cn[0].html = escapedFileName;
-                body.cn[1].html = me.formatSize(file.size);
+                body.cn[0].text = file.name;
+                body.cn[1].text = me.formatSize(file.size);
                 me.error = me.fileSizeMoreThan?.replace('{allowedFileSize}', String(me._maxSize).toUpperCase());
             }
             // If it passes the type and maxSize check, upload it
@@ -448,7 +443,7 @@ class FileUpload extends Field {
         await me.timeout(100);
         me.focus(me.vdom.cn[2].id);
 
-        me.vdom.cn[1].cn[0].html = StringUtil.escapeHtml(file.name);
+        me.vdom.cn[1].cn[0].text = file.name;
         me.update();
         me.state = 'uploading';
 
@@ -492,10 +487,10 @@ class FileUpload extends Field {
 
         (vdom.style || (vdom.style = {}))['--upload-progress'] = `${progress}turn`;
 
-        vdom.cn[1].cn[1].html = `${this.uploading}... (${Math.round(progress * 100)}%)`;
+        vdom.cn[1].cn[1].text = `${this.uploading}... (${Math.round(progress * 100)}%)`;
 
         this.uploadSize = loaded;
-        this.update();
+        this.update()
     }
 
     onUploadAbort(e) {
@@ -665,15 +660,15 @@ class FileUpload extends Field {
     afterSetDocument(document) {
         if (document) {
             const
-                me      = this,
-                { cls } = me;
+                me    = this,
+                {cls} = me;
 
             NeoArray.remove(cls, 'neo-field-empty');
             me.cls = cls;
 
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);
-            me.vdom.cn[1].cn[0].html = StringUtil.escapeHtml(document.fileName);
+            me.vdom.cn[1].cn[0].text = document.fileName;
             me.state = me.documentStatusMap[document.status];
         }
     }
@@ -704,15 +699,15 @@ class FileUpload extends Field {
                 isChangeEventNeeded = true;
                 break;
             case 'upload-failed':
-                status.html = `${me.uploadFailed}${isNaN(me.progress) ? '' : `... (${Math.round(me.progress * 100)}%)`}`;
+                status.text = `${me.uploadFailed}${isNaN(me.progress) ? '' : `... (${Math.round(me.progress * 100)}%)`}`;
                 isChangeEventNeeded = true;
                 break;
             case 'processing':
-                status.html = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
+                status.text = `${me.scanning}... (${me.formatSize(me.uploadSize)})`;
                 vdom.inert = true;
                 break;
             case 'scan-failed':
-                status.html = `${me.malwareFoundInFile}. \u2022 ${me.fileSize}`;
+                status.text = `${me.malwareFoundInFile}. \u2022 ${me.fileSize}`;
                 me.error = me.pleaseCheck;
                 isChangeEventNeeded = true;
                 break;
@@ -721,19 +716,19 @@ class FileUpload extends Field {
                 anchor.href = me.createUrl(me.downloadUrl, {
                     [me.documentIdParameter] : me.documentId
                 });
-                status.html = me.fileSize;
+                status.text = me.fileSize;
                 isChangeEventNeeded = true;
                 break;
             case 'not-downloadable':
-                status.html = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
+                status.text = me.document ? me.fileSize : `${me.successfullyUploaded} \u2022 ${me.fileSize}`;
                 isChangeEventNeeded = true;
                 break;
             case 'deleted':
-                status.html = me.fileWasDeleted;
+                status.text = me.fileWasDeleted;
                 isChangeEventNeeded = true;
                 break;
             case 'error':
-                status.html = me.fileIsInAnErrorState;
+                status.text = me.fileIsInAnErrorState;
                 me.error = me.pleaseCheck;
                 isChangeEventNeeded = true;
             }
@@ -812,16 +807,7 @@ class FileUpload extends Field {
     }
 
     afterSetError(text) {
-        if (text) {
-            this.vdom.cn[5].cn = [{
-                vtype : 'text',
-                html  : text
-            }];
-        }
-        else {
-            this.vdom.cn[5].cn = [];
-        }
-
+        this.vdom.cn[5].cn = text ? [{vtype : 'text', text}] : [];
         this.validate();
         this.update();
     }

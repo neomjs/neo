@@ -38,6 +38,18 @@ class AmCharts extends Base {
          */
         fallbackPath: 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/amCharts/',
         /**
+         * List methods which must get cached until the addon reaches its `isReady` state
+         * @member {String[]} interceptRemotes
+         */
+        interceptRemotes: [
+            'callMethod',
+            'create',
+            'destroy',
+            'setProperties',
+            'setProperty',
+            'updateData'
+        ],
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -91,19 +103,15 @@ class AmCharts extends Base {
     callMethod(data) {
         let me = this;
 
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'callMethod', data})
-        } else {
-            if (me.hasChart(data.id)) {
-                let chart      = me.charts[data.id],
-                    pathArray  = data.path.split('.'),
-                    methodName = pathArray.pop(),
-                    scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
+        if (me.hasChart(data.id)) {
+            let chart      = me.charts[data.id],
+                pathArray  = data.path.split('.'),
+                methodName = pathArray.pop(),
+                scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
 
-                scope[methodName].call(scope, ...data.params || [])
-            } else {
-                // todo
-            }
+            scope[methodName].call(scope, ...data.params || [])
+        } else {
+            // todo
         }
     }
 
@@ -137,29 +145,25 @@ class AmCharts extends Base {
     create(data) {
         let me = this;
 
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'create', data})
-        } else {
-            // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
-            am4core.useTheme(am4themes_dark);
+        // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
+        am4core.useTheme(am4themes_dark);
 
-            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
+        me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
 
-            if (data.combineSeriesTooltip) {
-                me.combineSeriesTooltip(me.charts[data.id])
-            }
+        if (data.combineSeriesTooltip) {
+            me.combineSeriesTooltip(me.charts[data.id])
+        }
 
-            // in case data has arrived before the chart got created, apply it now
-            if (data.data) {
-                me.updateData({
-                    data    : data.data,
-                    dataPath: data.dataPath,
-                    id      : data.id
-                })
-            } else if (me.dataMap[data.id]) {
-                me.updateData(me.dataMap[data.id]);
-                delete me.dataMap[data.id]
-            }
+        // in case data has arrived before the chart got created, apply it now
+        if (data.data) {
+            me.updateData({
+                data    : data.data,
+                dataPath: data.dataPath,
+                id      : data.id
+            })
+        } else if (me.dataMap[data.id]) {
+            me.updateData(me.dataMap[data.id]);
+            delete me.dataMap[data.id]
         }
     }
 
@@ -167,15 +171,9 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {String} data.id
      */
-    destroy(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'destroy', data})
-        } else {
-            me.charts[data.id]?.dispose?.();
-            delete me.charts[data.id]
-        }
+    destroy({id}) {
+        this.charts[id]?.dispose?.();
+        delete this.charts[id]
     }
 
     /**
@@ -229,20 +227,10 @@ class AmCharts extends Base {
      * @param {String} data.id
      * @param {Object} data.properties
      */
-    setProperties(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'setProperties', data})
-        } else {
-            Object.entries(data.properties).forEach(([key, value]) => {
-                me.setProperty({
-                    id   : data.id,
-                    path : key,
-                    value
-                })
-            })
-        }
+    setProperties({id, properties}) {
+        Object.entries(properties).forEach(([key, value]) => {
+            this.setProperty({id, path: key, value})
+        })
     }
 
     /**
@@ -252,22 +240,16 @@ class AmCharts extends Base {
      * @param {String} data.path
      * @param {*} data.value
      */
-    setProperty(data) {
-        let me = this;
+    setProperty({id, isColor=false, path, value}) {
+        if (this.hasChart(id)) {
+            let chart        = this.charts[id],
+                pathArray    = path.split('.'),
+                propertyName = pathArray.pop(),
+                scope        = Neo.ns(pathArray.join('.'), false, chart);
 
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'setProperty', data})
+            scope[propertyName] = isColor ? am4core.color(value) : value
         } else {
-            if (this.hasChart(data.id)) {
-                let chart        = this.charts[data.id],
-                    pathArray    = data.path.split('.'),
-                    propertyName = pathArray.pop(),
-                    scope        = Neo.ns(pathArray.join('.'), false, chart);
-
-                scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value
-            } else {
-                // todo
-            }
+            // todo
         }
     }
 
@@ -280,9 +262,7 @@ class AmCharts extends Base {
     updateData(data) {
         let me = this;
 
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'updateData', data})
-        } else if (!me.hasChart(data.id)) {
+        if (!me.hasChart(data.id)) {
             me.dataMap[data.id] = data
         } else {
             let chart = me.charts[data.id];

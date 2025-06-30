@@ -78,7 +78,7 @@ class AccordionContainer extends Base {
                 flag   : 'titleEl',
                 ntype  : 'component',
                 baseCls: ['neo-accordion-header-title'],
-                html   : title
+                text   : title
             }, {
                 ntype  : 'component',
                 baseCls: ['neo-accordion-header-arrow'],
@@ -154,7 +154,7 @@ class AccordionContainer extends Base {
         let titleEl = this.down({flag: 'titleEl'});
 
         if (titleEl) {
-            titleEl.html = newValue
+            titleEl.text = newValue
         }
     }
 

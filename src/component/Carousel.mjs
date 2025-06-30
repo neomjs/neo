@@ -65,10 +65,10 @@ class Carousel extends Component {
          *      record = {foo: ... , bar: ...}
          *      data => [{
          *          cls: 'css-foo-class',
-         *          html: data.foo
+         *          text: data.foo
          *      },
          *      {
-         *          html: data.baa
+         *          text: data.bar
          *      }]"
          */
         itemTpl_: null,

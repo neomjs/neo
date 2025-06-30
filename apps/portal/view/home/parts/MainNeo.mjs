@@ -30,8 +30,8 @@ class MainNeo extends BaseContainer {
                 cls  : ['vector']
             }, {
                 cls : ['neo-h1'],
-                html: 'Neo.mjs',
-                tag : 'h1'
+                tag : 'h1',
+                text: 'Neo.mjs'
             }]
         }, {
             module   : MagicMoveText,
@@ -59,7 +59,7 @@ class MainNeo extends BaseContainer {
             flex: 'none',
             tag : 'h3',
 
-            html: [
+            text: [
                 'Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging ',
                 'a vast component library and harness the power of multi-threading for extreme real-time performance.'
             ].join('')

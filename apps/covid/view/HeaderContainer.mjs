@@ -55,25 +55,25 @@ class HeaderContainer extends Container {
                 items: [{
                     cls : ['covid-numberbox'],
                     vdom: {cn: [
-                        {cls: ['covid-numberbox-title',  'cases'],  html:'Cases'},
+                        {cls: ['covid-numberbox-title',  'cases'],  text:'Cases'},
                         {cls: ['covid-numberbox-number', 'cases']}
                     ]}
                 }, {
                     cls : ['covid-numberbox'],
                     vdom: {cn: [
-                        {cls: ['covid-numberbox-title',  'active'], html:'Active'},
+                        {cls: ['covid-numberbox-title',  'active'], text:'Active'},
                         {cls: ['covid-numberbox-number', 'active']}
                     ]}
                 }, {
                     cls : ['covid-numberbox'],
                     vdom: {cn: [
-                        {cls: ['covid-numberbox-title',  'recovered'], html:'Recovered'},
+                        {cls: ['covid-numberbox-title',  'recovered'], text:'Recovered'},
                         {cls: ['covid-numberbox-number', 'recovered']}
                     ]}
                 }, {
                     cls : ['covid-numberbox'],
                     vdom: {cn: [
-                        {cls: ['covid-numberbox-title',  'deaths'], html:'Deaths'},
+                        {cls: ['covid-numberbox-title',  'deaths'], text:'Deaths'},
                         {cls: ['covid-numberbox-number', 'deaths']}
                     ]}
                 }, {
@@ -89,7 +89,7 @@ class HeaderContainer extends Container {
                             'data-show-count': 'true',
                             'data-size'      : 'large',
                             href             : 'https://github.com/neomjs/neo',
-                            html             : 'Star'
+                            text             : 'Star'
                         }]
                     }
                 }, {
@@ -103,7 +103,7 @@ class HeaderContainer extends Container {
                             'data-icon'      : 'octicon-heart',
                             'data-size'      : 'large',
                             href             : 'https://github.com/sponsors/tobiu',
-                            html             : 'Sponsor'
+                            text             : 'Sponsor'
                         }]
                     }
                 }]

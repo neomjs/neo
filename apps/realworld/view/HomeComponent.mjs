@@ -65,8 +65,8 @@ class HomeComponent extends Component {
         {cn: [
             {cls: ['banner'], cn: [
                 {cls: ['container'], cn: [
-                    {tag: 'h1', cls: ['logo-font'], html: 'conduit'},
-                    {tag: 'p', html: 'A place to share your knowledge.'}
+                    {tag: 'h1', cls: ['logo-font'], text: 'conduit'},
+                    {tag: 'p', text: 'A place to share your knowledge.'}
                 ]}
             ]},
             {cls: ['container', 'page'], cn: [
@@ -211,7 +211,7 @@ class HomeComponent extends Component {
                         cls : ['page-link', 'prevent-click'],
                         id  : me.getNavLinkVdomId(i),
                         href: '',
-                        html: i
+                        text: i
                     }]
                 });
             }
@@ -274,7 +274,7 @@ class HomeComponent extends Component {
                     tag : 'a',
                     cls : cls,
                     href: '',
-                    html: item.name,
+                    text: item.name,
                     id  : me.id + '__nav-item-link_' + index,
                 }]
             });
@@ -376,7 +376,7 @@ class HomeComponent extends Component {
             opts       = {};
 
         if (!el.vdom.cls.includes('disabled')) {
-            switch (el.vdom.html) {
+            switch (el.vdom.text) {
                 case 'Global Feed':
                     me.activeTag = null;
                     break;
@@ -387,7 +387,7 @@ class HomeComponent extends Component {
                     };
                     break;
                 default: // tag
-                    me.activeTag = el.vdom.html.substring(2); // remove the '# '
+                    me.activeTag = el.vdom.text.substring(2); // remove the '# '
                     break;
             }
 

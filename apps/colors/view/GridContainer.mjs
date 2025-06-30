@@ -81,7 +81,7 @@ class GridContainer extends BaseGridContainer {
      * @returns {Object}
      */
     colorRenderer({value}) {
-        return {cls: ['color-' + value], html: ' '}
+        return {cls: ['color-' + value], text: ' '}
     }
 }
 

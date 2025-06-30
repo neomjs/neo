@@ -84,7 +84,7 @@ class Progress extends Base {
             delete label.removeDom
         }
 
-        label.html = value;
+        label.text = value;
         this.update()
     }
 

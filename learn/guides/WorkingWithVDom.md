@@ -15,7 +15,7 @@ While 99% of Neo.mjs development happens at the Component Tree layer, creating c
 Neo.mjs VDom nodes are plain JavaScript objects that represent DOM elements.
 **Important**: VDom only contains structure, styling, content, and attributes - **never event listeners**.
 
-```javascript
+```javascript readonly
 // Basic VDom node structure
 {
     tag      : 'div',                // HTML tag (default: 'div')
@@ -41,7 +41,7 @@ Neo.mjs VDom nodes are plain JavaScript objects that represent DOM elements.
 
 Components define their internal DOM structure via the `vdom` config:
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs';
 
 class CustomButton extends Component {
@@ -81,7 +81,7 @@ For a comprehensive deep dive into all aspects of DOM event handling in Neo.mjs 
 
 Here's a simple example of how an event handler defined via `domListeners` would interact with a component's VDom:
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs';
 import VdomUtil  from './src/util/Vdom.mjs'; // For accessing VDom nodes by flag
 
@@ -144,7 +144,7 @@ class InteractiveComponent extends Component {
 
 The typical way to sync VDom changes to the DOM is through the component's `update()` method:
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 
 class StandardComponent extends Component {
@@ -180,7 +180,7 @@ class StandardComponent extends Component {
 For performance-critical scenarios, you can bypass the VDom worker's diffing engine and send manually crafted deltas
 directly from the App Worker to the Main Thread. This offers precise control but requires careful manual delta construction.
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 
 class AdvancedComponent extends Component {
@@ -240,7 +240,7 @@ class AdvancedComponent extends Component {
 
 Flags provide efficient, direct access to specific VDom nodes within a component's `vdom` structure, avoiding the need for DOM queries.
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs';
 import VdomUtil  from './src/util/Vdom.mjs'; // Required import for VdomUtil
 import NeoArray  from './src/util/Array.mjs'; // Required import for NeoArray
@@ -304,7 +304,7 @@ class IconButton extends Component {
 
 Build VDom structures programmatically, often in response to data changes. This is common for lists or complex, data-driven UI fragments.
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 
 class DataList extends Component {
@@ -380,7 +380,7 @@ class DataList extends Component {
 
 For sophisticated UI patterns like 3D visualizations or complex dynamic layouts, you might imperatively calculate and apply VDom properties or even use `Neo.applyDeltas()` for maximum performance.
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Base component class
 
 class Helix extends Component {
@@ -452,7 +452,7 @@ class Helix extends Component {
 
 ### XSS Prevention
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 // import DOMPurify from 'dompurify'; // Example for external sanitization library
 
@@ -499,7 +499,7 @@ this.update();
 
 ### 1. Batch VDom Updates
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 import Neo from './src/Neo.mjs'; // Required import for Neo.applyDeltas
 
@@ -547,7 +547,7 @@ class PerformantComponent extends Component {
 
 ### 2. Efficient Event Delegation
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 
 class EfficientEventComponent extends Component {
@@ -595,7 +595,7 @@ super.construct(config);
 
 ### 3. Memory Management
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 
 class MemoryEfficientComponent extends Component {
@@ -632,7 +632,7 @@ class MemoryEfficientComponent extends Component {
 
 Dynamically show or hide VDom nodes by setting their `removeDom` property. This is efficient as the VDom node remains in the tree, but its corresponding DOM element is removed/added from the document flow by the framework.
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 import VdomUtil  from './src/util/Vdom.mjs'; // Required import
 
@@ -673,7 +673,7 @@ class ConditionalComponent extends Component {
 
 Programmatically create and update lists of VDom nodes, typically from data. This approach is highly efficient as the VDom diffing engine optimizes the DOM updates.
 
-```javascript
+```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
 
 class ListComponent extends Component {

@@ -36,7 +36,7 @@ class SideNavList extends List {
 
         return record.isHeader ? itemText : [
             {tag: 'i', cls: this.getIconCls(record)},
-            {html: itemText}
+            {text: itemText}
         ];
     }
 

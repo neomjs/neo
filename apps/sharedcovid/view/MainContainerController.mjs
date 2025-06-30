@@ -139,10 +139,10 @@ class MainContainerController extends ComponentController {
 
         me.summaryData = data;
 
-        container.items[0].vdom.cn[1].html = Util.formatNumber({value: data.cases});
-        container.items[1].vdom.cn[1].html = Util.formatNumber({value: data.active});
-        container.items[2].vdom.cn[1].html = Util.formatNumber({value: data.recovered});
-        container.items[3].vdom.cn[1].html = Util.formatNumber({value: data.deaths});
+        container.items[0].vdom.cn[1].text = Util.formatNumber({value: data.cases});
+        container.items[1].vdom.cn[1].text = Util.formatNumber({value: data.active});
+        container.items[2].vdom.cn[1].text = Util.formatNumber({value: data.recovered});
+        container.items[3].vdom.cn[1].text = Util.formatNumber({value: data.deaths});
 
         container.updateDepth = 2;
         container.update();
@@ -150,7 +150,7 @@ class MainContainerController extends ComponentController {
         container = me.getReference('last-update');
         vdom      = container.vdom;
 
-        vdom.html = 'Last Update: ' + new Intl.DateTimeFormat('default', {
+        vdom.text = 'Last Update: ' + new Intl.DateTimeFormat('default', {
             hour  : 'numeric',
             minute: 'numeric',
             second: 'numeric'

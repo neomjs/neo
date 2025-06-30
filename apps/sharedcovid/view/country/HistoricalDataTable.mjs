@@ -38,7 +38,7 @@ class HistoricalDataTable extends Container {
             renderer : function(data) {
                 return {
                     cls : ['neo-date-column', 'neo-table-cell'],
-                    html: new Intl.DateTimeFormat('default', {
+                    text: new Intl.DateTimeFormat('default', {
                         day  : 'numeric',
                         month: 'numeric',
                         year : 'numeric'

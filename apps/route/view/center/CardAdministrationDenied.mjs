@@ -16,7 +16,7 @@ class CardAdministrationDenied extends Container {
 
         vdom: {
             tag : 'h1',
-            html: 'Access Denied.'
+            text: 'Access Denied.'
         }
     }
 }

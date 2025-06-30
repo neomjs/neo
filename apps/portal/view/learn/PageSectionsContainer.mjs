@@ -33,7 +33,7 @@ class PageSectionsContainer extends Container {
         }, {
             vdom:
             {cn: [
-                {tag: 'h3', html: 'On this page'}
+                {tag: 'h3', text: 'On this page'}
             ]}
         }, {
             module   : PageSectionsList,

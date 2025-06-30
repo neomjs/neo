@@ -179,16 +179,16 @@ class TimeAxisComponent extends Component {
      */
     createItems() {
         let {vdom} = this,
-            html, i;
+            text, i;
 
         vdom.cn = [];
 
         for (i=0; i < 25; i++) {
-            html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
+            text = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
 
             vdom.cn.push({
                 cls: ['neo-c-w-timeaxis-item'],
-                cn : [{html}]
+                cn : [{text}]
             })
         }
     }

@@ -1,8 +1,7 @@
 import Neo             from '../Neo.mjs';
 import Base            from './Base.mjs';
-import * as core       from '../core/_export.mjs';
 import Application     from '../controller/Application.mjs';
-import Instance        from '../manager/Instance.mjs';
+import InstanceManager from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
 import HashHistory     from '../util/HashHistory.mjs';
 

@@ -490,7 +490,7 @@ class YearComponent extends Component {
                             {cls: ['neo-animation-wrapper'], cn: [
                                 {cls: ['neo-content-wrapper'], cn: [
                                     {cls: ['neo-year-header'], cn: [
-                                        {html: me.currentDate.getFullYear()},
+                                        {text: me.currentDate.getFullYear()},
                                         {cls: ['neo-nav-button', 'neo-prev-button']},
                                         {cls: ['neo-nav-button', 'neo-next-button']}
                                     ]},
@@ -539,7 +539,7 @@ class YearComponent extends Component {
         for (; i < 7; i++) {
             node = {
                 cls : ['neo-cell', 'neo-weekday-cell'],
-                html: me.intlFormat_day.format(date)
+                text: me.intlFormat_day.format(date)
             };
 
             day = date.getDay();
@@ -591,8 +591,8 @@ class YearComponent extends Component {
 
                 cn: [{
                     cls      : ['neo-cell', 'neo-weeknumber-cell'],
-                    html     : DateUtil.getWeekOfYear(weekDate),
-                    removeDom: !me.showWeekNumbers
+                    removeDom: !me.showWeekNumbers,
+                    text     : DateUtil.getWeekOfYear(weekDate)
                 }]
             };
 
@@ -610,7 +610,7 @@ class YearComponent extends Component {
 
                     cn: [{
                         cls : ['neo-cell-content'],
-                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
+                        text: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 };
 
@@ -679,7 +679,7 @@ class YearComponent extends Component {
 
                 monthVdom =
                 {cls: ['neo-month'], cn: [
-                    {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
+                    {cls: ['neo-month-name'], text: me.intlFormat_month.format(currentDate)},
                     me.createDayNamesRow()
                 ]};
 
@@ -809,7 +809,7 @@ class YearComponent extends Component {
                     day  = date.getDay();
                     node = vdom.cn[0].cn[1].cn[j].cn[1].cn[i];
 
-                    node.html = me.intlFormat_day.format(date);
+                    node.text = me.intlFormat_day.format(date);
 
                     if (!me.showWeekends && (day === 0 || day === 6)) {
                         node.removeDom = true
@@ -829,7 +829,7 @@ class YearComponent extends Component {
      *
      */
     updateHeaderYear() {
-        this.vdom.cn[0].cn[0].cn[0].html = this.currentDate.getFullYear()
+        this.vdom.cn[0].cn[0].cn[0].text = this.currentDate.getFullYear()
     }
 
     /**
@@ -852,7 +852,7 @@ class YearComponent extends Component {
                 currentDate.setMonth(i);
                 currentDate.setDate(1);
 
-                vdom.cn[0].cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate)
+                vdom.cn[0].cn[1].cn[i].cn[0].text = me.intlFormat_month.format(currentDate)
             }
 
             !silent && me.update()

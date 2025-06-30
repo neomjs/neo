@@ -52,10 +52,6 @@ class MagicMoveText extends Component {
          */
         fontFamily_: 'Helvetica Neue',
         /**
-         * @member {String} text_=null
-         */
-        text_: null,
-        /**
          * Time in ms for the fadeIn, fadeOut and move character OPs
          * @member {Number} transitionTime_=500
          */
@@ -258,11 +254,7 @@ class MagicMoveText extends Component {
             value?.split('').forEach(char => {
                 me.chars.push({name: char});
 
-                if (char === ' ') {
-                    char = '&#32;'
-                }
-
-                measureElement.cn.push({tag: 'span', html: char})
+                measureElement.cn.push({tag: 'span', text: char})
             });
 
             if (me.mounted) {
@@ -301,8 +293,8 @@ class MagicMoveText extends Component {
 
                 charsContainer.push({
                     cls  : ['neo-char'],
-                    html : char.name,
-                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top}
+                    style: {color: me.colorFadeIn, left: char.left, opacity: 0, top: char.top},
+                    text : char.name
                 })
             }
         });
@@ -354,7 +346,7 @@ class MagicMoveText extends Component {
             me.chars[index].top  = `${rect.top  - parentRect.top }px`;
         });
 
-        measureWrapper.removeDom = true;
+        //measureWrapper.removeDom = true;
         await me.promiseUpdate()
     }
 
@@ -409,7 +401,7 @@ class MagicMoveText extends Component {
         if (start) {
             me.intervalId = setInterval(me.cycleText.bind(me), me.autoCycleInterval);
 
-            me.timeout(20).then(() => {me.cycleText()});
+            me.timeout(20).then(() => {me.cycleText()})
         } else {
             clearInterval(me.intervalId)
         }
@@ -491,7 +483,7 @@ class MagicMoveText extends Component {
 
         charsContainer.cn.length = 0;
 
-        charsContainer.cn.push({html: me.text});
+        charsContainer.cn.push({text: me.text});
         await me.promiseUpdate();
 
         me.isTransitioning = false

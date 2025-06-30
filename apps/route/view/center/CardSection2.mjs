@@ -16,7 +16,7 @@ class CardSection2 extends Container {
 
         vdom: {
             tag : 'h1',
-            html: 'This is section 2 of the example.'
+            text: 'This is section 2 of the example.'
         }
 
     }

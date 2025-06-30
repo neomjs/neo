@@ -35,7 +35,7 @@ class CreateCommentComponent extends Component {
                 {tag: 'img', cls: ['comment-author-img'], src: 'https://static.productionready.io/images/smiley-cyrus.jpg'},  // https://github.com/gothinkster/realworld/issues/442
                 {vtype: 'text', html: '&nbsp;'},
                 {tag: 'span', cls: ['comment-author']},
-                {tag: 'button', cls: ['btn', 'btn-sm', 'btn-primary'], html: 'Post Comment', type: 'button'}
+                {tag: 'button', cls: ['btn', 'btn-sm', 'btn-primary'], text: 'Post Comment', type: 'button'}
             ]}
         ]}
     }
@@ -86,8 +86,8 @@ class CreateCommentComponent extends Component {
      */
     afterSetUserName(value, oldValue) {
         if (value) {
-            this.vdom.cn[1].cn[2].html = value;
-            this.update();
+            this.vdom.cn[1].cn[2].text = value;
+            this.update()
         }
     }
 

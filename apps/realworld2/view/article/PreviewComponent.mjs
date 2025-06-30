@@ -85,7 +85,7 @@ class PreviewComponent extends Component {
                 cn  : [
                     {tag: 'h1',   flag: 'title'},
                     {tag: 'p',    flag: 'description'},
-                    {tag: 'span', html: 'Read more...'}
+                    {tag: 'span', text: 'Read more...'}
                 ]
             }]
         }
@@ -120,7 +120,7 @@ class PreviewComponent extends Component {
 
         // todo: disabled until the new profile view is ready
         //node.href = href;
-        node.html = value;
+        node.text = value;
 
         //VDomUtil.getByFlag(vdom, 'userImageLink').href = href;
 
@@ -134,7 +134,7 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetCreatedAt(value, oldValue) {
-        VDomUtil.getByFlag(this.vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
+        VDomUtil.getByFlag(this.vdom, 'createdAt').text = new Intl.DateTimeFormat('en-US', {
             day  : 'numeric',
             month: 'long',
             year : 'numeric'
@@ -150,7 +150,7 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetDescription(value, oldValue) {
-        VDomUtil.getByFlag(this.vdom, 'description').html = value;
+        VDomUtil.getByFlag(this.vdom, 'description').text = value;
         this.update();
     }
 
@@ -182,7 +182,7 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetFavoritesCount(value, oldValue) {
-        VDomUtil.getByFlag(this.vdom, 'favoritesCount').html = ' ' + value;
+        VDomUtil.getByFlag(this.vdom, 'favoritesCount').text = ' ' + value;
         this.update();
     }
 
@@ -225,7 +225,7 @@ class PreviewComponent extends Component {
                 tagList.cn.push({
                     tag : 'li',
                     cls : ['tag-default', 'tag-pill', 'tag-outline'],
-                    html: item
+                    text: item
                 })
             });
 
@@ -242,7 +242,7 @@ class PreviewComponent extends Component {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        VDomUtil.getByFlag(this.vdom, 'title').html = value;
+        VDomUtil.getByFlag(this.vdom, 'title').text = value;
         this.update();
     }
 

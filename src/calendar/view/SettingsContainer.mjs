@@ -95,8 +95,8 @@ class SettingsContainer extends Container {
                 ntype : 'component',
                 flag  : 'day',
                 header: {text: 'Day'},
-                html  : 'Day',
-                style : {padding: '20px'}
+                style : {padding: '20px'},
+                test  : 'Day'
             }, {
                 module: () => import('./settings/WeekContainer.mjs'),
                 flag  : 'week',

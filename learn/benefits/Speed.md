@@ -1,15 +1,20 @@
-The Neo.mjs web-worker processes are automatically run in parallel, on separate CPU cores.
+The Neo.mjs architecture leverages web workers to run application logic, data processing,
+and even parts of the rendering pipeline in parallel, on separate CPU cores.
+This offloads heavy computations from the main thread, ensuring the UI remains responsive.
 
-By contrast, other JavaScript frameworks run in a single thread, so all business logic, 
-data handling, and DOM rendering compete for CPU resources.
+By contrast, most other JavaScript frameworks operate predominantly within a single main thread.
+This means all business logic, data handling, and DOM rendering compete for the same CPU resources,
+often leading to a "janky" or unresponsive user interface during intensive operations.
 
-This means Neo.mjs applications run and render faster. This is 
-particularly beneficial for processor- and data-intensive applications, 
-and applications that need to rapidly update what's viewed. In testing, Neo.mjs applications 
-easily apply over 20,000 DOM updates per second. 
+This multi-threaded approach allows Neo.mjs applications to run and render significantly faster.
+This is particularly beneficial for processor- and data-intensive applications, as well as those
+requiring rapid UI updates. In internal testing, Neo.mjs applications have consistently
+demonstrated the ability to easily apply over 20,000 DOM updates per second without
+compromising user experience.
 
-If the default four threads aren't enough, you're free to launch additional web-worker threads 
-to run other specialized logic. 
+Should your application demand even greater parallel processing power, Neo.mjs provides the
+flexibility to launch additional web worker threads to handle specialized logic or
+further distribute computational load. 
 
 
 <details><summary>Example</summary>

@@ -343,6 +343,11 @@ class Component extends Base {
          */
         tag_: null,
         /**
+         * The top level textContent of the component
+         * @member {String|null} text_=null
+         */
+        text_: null,
+        /**
          * Add tooltip config object or a string containing the display text
          * See tooltip/Base.mjs
          *
@@ -996,6 +1001,16 @@ class Component extends Base {
     }
 
     /**
+     * Triggered after the text config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetText(value, oldValue) {
+        this.changeVdomRootKey('text', value)
+    }
+
+    /**
      * Triggered after the tooltip config got changed
      * @param {Object|String} value
      * @param {Object|String} oldValue
@@ -1417,8 +1432,8 @@ class Component extends Base {
                     cls: this.loadingSpinnerCls
                 }, {
                     cls      : ['neo-loading-message'],
-                    html     : loadingMessage,
-                    removeDom: !Neo.isString(loadingMessage)
+                    removeDom: !Neo.isString(loadingMessage),
+                    text     : loadingMessage
                 }]
             }]
         }

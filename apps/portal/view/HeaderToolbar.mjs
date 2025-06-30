@@ -58,7 +58,7 @@ class HeaderToolbar extends Base {
                 iconCls: 'fa-brands fa-github',
                 url    : 'https://github.com/neomjs/neo',
                 tooltip: {
-                    html     : 'GitHub',
+                    text     : 'GitHub',
                     showDelay: 0,
                     hideDelay: 0
                 }
@@ -66,7 +66,7 @@ class HeaderToolbar extends Base {
                 iconCls: 'fa-brands fa-slack',
                 url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
                 tooltip: {
-                    html     : 'Join Slack',
+                    text     : 'Join Slack',
                     showDelay: 0,
                     hideDelay: 0
                 }
@@ -74,7 +74,7 @@ class HeaderToolbar extends Base {
                 iconCls: 'fa-brands fa-discord',
                 url    : 'https://discord.gg/6p8paPq',
                 tooltip: {
-                    html     : 'Join Discord',
+                    text     : 'Join Discord',
                     showDelay: 0,
                     hideDelay: 0
                 }

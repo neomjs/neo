@@ -460,7 +460,7 @@ class GridBody extends Component {
 
         switch (Neo.typeOf(rendererOutput)) {
             case 'Object': {
-                if (rendererOutput.html) {
+                if (rendererOutput.html || rendererOutput.text) {
                     rendererOutput.cls && cellCls.push(...rendererOutput.cls);
                 } else {
                     rendererOutput = [rendererOutput];
@@ -521,7 +521,11 @@ class GridBody extends Component {
         }
 
         if (Neo.typeOf(rendererOutput) === 'Object') {
-            cellConfig.html = rendererOutput.html  || ''
+            if (Object.hasOwn(rendererOutput, 'html')) {
+                cellConfig.html = rendererOutput.html  || ''
+            } else {
+                cellConfig.text = rendererOutput.text  || ''
+            }
         } else {
             cellConfig.cn = rendererOutput
         }

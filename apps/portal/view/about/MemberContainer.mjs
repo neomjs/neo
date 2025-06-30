@@ -80,7 +80,7 @@ class MemberContainer extends Container {
         if (value) {
             let item = this.items[1];
 
-            item.vdom.cn[1].cn[2].cn[1].html = value;
+            item.vdom.cn[1].cn[2].cn[1].text = value;
             item.update?.()
         }
     }
@@ -95,7 +95,7 @@ class MemberContainer extends Container {
         if (value) {
             let item = this.items[1];
 
-            item.vdom.cn[1].cn[0].html = value;
+            item.vdom.cn[1].cn[0].text = value;
             item.update?.()
         }
     }
@@ -145,7 +145,7 @@ class MemberContainer extends Container {
         if (value) {
             let item = this.items[1];
 
-            item.vdom.cn[1].cn[1].html = value;
+            item.vdom.cn[1].cn[1].text = value;
             item.update?.()
         }
     }

@@ -28,8 +28,8 @@ class AfterMath extends BaseContainer {
         }, {
             cls : ['neo-h1'],
             flex: 'none',
-            html: 'Next Steps',
-            tag : 'h1'
+            tag : 'h1',
+            text: 'Next Steps'
         }, {
             cls : ['neo-content'],
             flex: 'none',
@@ -37,7 +37,7 @@ class AfterMath extends BaseContainer {
 
             html: `
                 <li>To learn more about Neo.mjs please dive into the <a href="#/learn">Learning Section</a> or browse the <a href="#/blog">Blog</a></li>
-                <li>To arrange a demo or to talk to an engineer email <a href="mailto:info@neomjs.com">info@neomjs.com</a></li>
+                <li>To arrange a demo or to talk to an engineer, email <a href="mailto:info@neomjs.com">info@neomjs.com</a></li>
                 <li>For help starting a project email <a href="mailto:services@neomjs.com">services@neomjs.com</a></li>
                 <li>For questions about private training email <a href="mailto:training@neomjs.com">training@neomjs.com</a></li>
             `

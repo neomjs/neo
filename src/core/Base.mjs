@@ -81,6 +81,14 @@ class Base {
          */
         id_: null,
         /**
+         * An array of remote method names that should be intercepted.
+         * Names used here must be present inside the `remote_` config.
+         * If a remote call for one of these methods arrives, `onInterceptRemotes()` will be called.
+         * @member {String[]|null} interceptRemotes=null
+         * @protected
+         */
+        interceptRemotes: null,
+        /**
          * Neo.create() will change this flag to true after the onConstructed() chain is done.
          * @member {Boolean} isConstructed=false
          * @protected
@@ -203,7 +211,7 @@ class Base {
             if (hasManager) {
                 Neo.manager.Instance.register(me);
             } else {
-                Neo.idMap = Neo.idMap || {};
+                Neo.idMap ??= {};
                 Neo.idMap[me.id] = me
             }
         }
@@ -503,9 +511,17 @@ class Base {
 
     /**
      * Gets triggered after all constructors are done
-     * @tutorial 02_ClassSystem
      */
     onConstructed() {}
+
+    /**
+     * Placeholder method for intercepting remote calls.
+     * Subclasses can override this method to implement custom interception logic.
+     * @param {Object} msg The remote message object.
+     */
+    onInterceptRemotes(msg) {
+        // No-op in base class
+    }
 
     /**
      * Helper method to replace string based values containing "@config:" with the matching config value

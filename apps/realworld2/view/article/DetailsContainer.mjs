@@ -16,7 +16,7 @@ class DetailsContainer extends Container {
          */
         items: [{
             ntype: 'component',
-            html : 'article.DetailsContainer'
+            text : 'article.DetailsContainer'
         }],
         /**
          * @member {Object} style

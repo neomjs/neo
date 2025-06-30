@@ -130,7 +130,7 @@ class Component extends Base {
                 tag : 'a',
                 cls : ['neo-action', `neo-level-${record.level}`],
                 id  : me.getItemId(record.id),
-                html: record.name
+                text: record.name
             };
 
             if (action && action !== '') {

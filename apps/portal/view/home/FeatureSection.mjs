@@ -148,7 +148,7 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetHeadline(value, oldValue) {
-        this.getItem('headline').html = value
+        this.getItem('headline').text = value
     }
 
     /**
@@ -171,7 +171,7 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetParagraph(value, oldValue) {
-        this.getItem('paragraph').html = value
+        this.getItem('paragraph').text = value
     }
 
     /**
@@ -181,7 +181,7 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetSubHeadline(value, oldValue) {
-        this.getItem('sub-headline').html = value
+        this.getItem('sub-headline').text = value
     }
 
     /**

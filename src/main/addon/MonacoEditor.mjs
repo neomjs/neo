@@ -17,6 +17,20 @@ class MonacoEditor extends Base {
          */
         className: 'Neo.main.addon.MonacoEditor',
         /**
+         * List methods which must get cached until the addon reaches its `isReady` state
+         * @member {String[]} interceptRemotes
+         */
+        interceptRemotes: [
+            'createInstance',
+            'destroyInstance',
+            'getValue',
+            'layoutEditor',
+            'setLanguage',
+            'setTheme',
+            'setValue',
+            'updateOptions'
+        ],
+        /**
          * @member {String} libraryBasePath='../../node_modules/monaco-editor/min/vs'
          */
         libraryBasePath: Neo.config.basePath + 'node_modules/monaco-editor/min/vs',
@@ -53,23 +67,18 @@ class MonacoEditor extends Base {
     createInstance(data) {
         let me   = this,
             {id} = data,
-            editor, node;
+            node = DomAccess.getElement(id),
+            editor;
 
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'createInstance', data})
-        } else {
-            delete data.appName;
-            delete data.id;
+        delete data.appName;
+        delete data.id;
 
-            node = DomAccess.getElement(id);
+        if (node) {
+            editor = me.map[id] = monaco.editor.create(node, data);
 
-            if (node) {
-                editor = me.map[id] = monaco.editor.create(node, data);
-
-                editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
-            } else if (Neo.config.environment === 'development') {
-                console.warn(`addon.MonacoEditor: node ${id} not found`)
-            }
+            editor.getModel().onDidChangeContent(me.onContentChange.bind(me, id))
+        } else if (Neo.config.environment === 'development') {
+            console.warn(`addon.MonacoEditor: node ${id} not found`)
         }
     }
 
@@ -78,14 +87,8 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     destroyInstance(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'destroyInstance', data})
-        } else {
-            // todo: destroy the editor instance if possible
-            delete this.map[data.id]
-        }
+        // todo: destroy the editor instance if possible
+        delete this.map[data.id]
     }
 
     /**
@@ -94,13 +97,7 @@ class MonacoEditor extends Base {
      * @returns {Object}
      */
     getValue(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'getValue', data})
-        } else {
-            return me.map[data.id].getModel().getValue()
-        }
+        return this.map[data.id].getModel().getValue()
     }
 
     /**
@@ -109,7 +106,7 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     layoutEditor(data) {
-        this.isReady && this.map[data.id].layout()
+        this.map[data.id].layout()
     }
 
     /**
@@ -154,13 +151,7 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     setLanguage(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'setLanguage', data})
-        } else {
-            me.map[data.id].getModel().setLanguage(data.value)
-        }
+        this.map[data.id].getModel().setLanguage(data.value)
     }
 
     /**
@@ -169,13 +160,7 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     setTheme(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'setTheme', data})
-        } else {
-            me.map[data.id]._themeService.setTheme(data.value)
-        }
+        this.map[data.id]._themeService.setTheme(data.value)
     }
 
     /**
@@ -184,13 +169,7 @@ class MonacoEditor extends Base {
      * @param {String} data.value
      */
     setValue(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'setValue', data})
-        } else {
-            me.map[data.id].getModel().setValue(data.value)
-        }
+        this.map[data.id].getModel().setValue(data.value)
     }
 
     /**
@@ -199,13 +178,7 @@ class MonacoEditor extends Base {
      * @param {Object} data.options
      */
     updateOptions(data) {
-        let me = this;
-
-        if (!me.isReady) {
-            return me.cacheMethodCall({fn: 'updateOptions', data})
-        } else {
-            me.map[data.id].updateOptions(data.options)
-        }
+        this.map[data.id].updateOptions(data.options)
     }
 }
 

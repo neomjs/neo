@@ -66,7 +66,7 @@ class CreateComponent extends Component {
                                     {tag: 'input', cls: ['form-control', 'field-tags'], flag: 'tags', name: 'tags', placeholder: 'Enter tags', type: 'text'},
                                     {cls: ['tag-list'], flag: 'tag-list'}
                                 ]},
-                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], html: 'Publish Article', type: 'button'}
+                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], text: 'Publish Article', type: 'button'}
                             ]}
                         ]}
                     ]}
@@ -128,7 +128,7 @@ class CreateComponent extends Component {
         Object.entries(value || {}).forEach(([key, value]) => {
             list.cn.push({
                 tag : 'li',
-                html: key + ' ' + value.join(' and ')
+                text: key + ' ' + value.join(' and ')
             });
         });
 
@@ -159,7 +159,7 @@ class CreateComponent extends Component {
                     'data-value': value,
                 }, {
                     vtype: 'text',
-                    html : value
+                    text : value
                 }]
             });
         });

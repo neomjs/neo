@@ -132,13 +132,13 @@
     "sharedWorkers": true,
     "sourceUrl"    : "apps/portal",
     "url"          : "dist/production/apps/portal/index.html"
-},{
+}, {
     "id"       : 3,
     "image"    : "devmode/liquid-glass.png",
     "name"     : "Liquid Glass effect",
     "sourceUrl": "https://github.com/neomjs/liquid-glass-demo/blob/main/apps/myapp/view/GlassComponent.mjs",
     "url"      : "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/production/apps/myapp/index.html"
-}, , {
+}, {
     "hidden"   : true,
     "id"       : 2,
     "image"    : "devmode/realworldApp.png",
