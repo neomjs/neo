@@ -62,6 +62,23 @@ examples from the framework's source code.
 These examples show how building on top of specialized base classes leads to a clean, maintainable, and powerful
 component architecture.
 
+## The Role of `Neo.setupClass()` and the Global `Neo` Namespace
+
+When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the framework does more than just process its configurations and apply mixins. A crucial step performed by `Neo.setupClass()` is to **enhance the global `Neo` namespace** with a reference to your newly defined class.
+
+This means that after `Neo.setupClass(MyClass)` is executed, your class becomes accessible globally via `Neo.[your.class.name]`, where `[your.class.name]` corresponds to the `className` config you defined (e.g., `Neo.button.Base`, `Neo.form.field.Text`).
+
+**Implications for Class Extension and Usage:**
+
+*   **Global Accessibility**: You can refer to any framework class (or your own custom classes after they've been set up) using their full `Neo` namespace path (e.g., `Neo.button.Base`, `Neo.container.Base`) anywhere in your application code, even without an explicit ES module import for that specific class.
+*   **Convenience vs. Best Practice**: While `extends Neo.button.Base` might technically work without an `import Button from '...'`, it is generally **not recommended** for application code. Explicit ES module imports (e.g., `import Button from '../button/Base.mjs';`) are preferred because they:
+    *   **Improve Readability**: Clearly show the dependencies of your module.
+    *   **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
+    *   **Ensure Consistency**: Promote a consistent and predictable coding style.
+*   **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the framework itself for its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
+
+Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for its configuration-driven approach.
+
 ## Overriding Ancestor Configs
 
 The simplest way to create a custom component is to extend an existing one and override some of its default
