@@ -89,41 +89,50 @@ For a complete explanation of the config system, including details on all the li
 
 ## Example: A Custom Button
 
-Let's look at a practical example. Here, we'll create a custom button and then use it within a container.
+Let's look at a practical example. Here, we'll create a custom button that combines the standard `text` config with a new
+`specialText_` config to create a dynamic label.
 
 ```javascript live-preview
 import Button from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
 // 1. Define our custom component by extending a framework class.
-// In practice, this would be a reusable component in your application's view folder.
 class MySpecialButton extends Button {
     static config = {
-        // a. Always define a unique className
         className: 'Example.view.MySpecialButton',
 
-        // b. Override configs from the parent class (Button)
+        // a. Override configs from the parent class
         iconCls: 'far fa-face-grin-wide',
         ui: 'ghost',
 
-        // c. Add a new reactive config (note the trailing underscore)
+        // b. Add a new reactive config (note the trailing underscore)
         specialText_: 'I am special'
     }
 
-    // d. Hook into the component lifecycle
+    // c. Hook into the component lifecycle
     afterSetSpecialText(value, oldValue) {
-        // This method is called automatically when `specialText` is changed.
-        console.log(`specialText changed from "${oldValue}" to "${value}"`);
+        this.updateButtonText();
+    }
+
+    afterSetText(value, oldValue) {
+        this.updateButtonText();
+    }
+
+    // d. A custom method to update the button's text
+    updateButtonText() {
+        const {specialText, text} = this;
+        let fullText = `${text} (${specialText})`;
+
+        // Directly manipulate the VDom text node and update the component
+        this.textNode.text = fullText;
+        this.update();
     }
 }
 
-// 2. Register the class with the framework.
-// This is only needed inside the live-preview environment.
-// In a real app, the build process handles this automatically.
 MySpecialButton = Neo.setupClass(MySpecialButton);
 
 
-// 3. Use the new component in a view.
+// 2. Use the new component in a view.
 class MainView extends Container {
     static config = {
         className: 'Example.view.MainView',
@@ -136,24 +145,29 @@ class MainView extends Container {
         }, {
             // Our new custom button
             module: MySpecialButton,
-            text: 'My special button'
+            text: 'My button',
+            specialText: 'is very special'
         }]
     }
 }
 
-Neo.setupClass(MainView);
+MainView = Neo.setupClass(MainView);
 ```
 
 ### Breakdown of the Example:
 
 1.  **Class Definition**: We define `MySpecialButton` which `extends` the framework's `Button` class.
-2.  **`className`**: We give our new class a unique `className`. This is important for the framework's class system.
-3.  **Overridden Configs**: We change the default `iconCls` and `ui` to style our button differently.
-4.  **New Reactive Config**: We add a `specialText_` config. The trailing underscore makes it reactive.
-5.  **Lifecycle Method**: We use `afterSetSpecialText()` to automatically run logic when the config changes. We also use
-    `onConstructed()` to run logic once when the component is created.
-6.  **Usage**: We use `MySpecialButton` in the `items` array of our `MainView` just like any other component, by
-    referencing its `module`.
+2.  **New Reactive Config**: We add a `specialText_` config. The trailing underscore makes it reactive.
+3.  **Lifecycle Methods**: We implement `afterSetSpecialText()` and override `afterSetText()` to call our custom
+    `updateButtonText()` method. Because `afterSet` hooks are called for initial values upon instantiation, this
+    ensures the button text is correct from the start and stays in sync.
+4.  **Custom Method**: The `updateButtonText()` method combines the `text` and `specialText` configs and updates the
+    `text` property of the button's `textNode` in the VDOM.
+5.  **`this.update()`**: After changing the VDOM, we call `this.update()` to make the framework apply our changes to the
+    real DOM.
+
+This example shows how you can create a component that encapsulates its own logic and provides a richer, more dynamic
+behavior than a standard component.
 
 ## Extending `Component.Base`: Building VDom from Scratch
 
