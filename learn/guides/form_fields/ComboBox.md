@@ -54,13 +54,15 @@ class CountryModel extends Model {
     }
 }
 
-// Create a Store instance
-const countriesStore = Neo.create({
-    module   : Store,
-    model    : CountryModel,
-    autoLoad : true,
-    url      : '/path/to/your/countries.json' // Example: fetch data from a URL
-});
+// Define a Store class
+class CountriesStore extends Store {
+    static config = {
+        className: 'CountriesStore',
+        model    : CountryModel,
+        autoLoad : true,
+        url      : '/path/to/your/countries.json' // Example: fetch data from a URL
+    }
+}
 
 class CountryComboBoxForm extends Neo.form.Container {
     static config = {
@@ -70,11 +72,66 @@ class CountryComboBoxForm extends Neo.form.Container {
             module   : ComboBox,
             labelText: 'Select a Country',
             name     : 'selectedCountry',
-            store    : countriesStore // Reference the external store instance
+            store    : CountriesStore // Pass the Store Class
         }]
     }
 }
 ```
+
+### Passing Models and Stores: Flexibility in Configuration
+
+Neo.mjs offers significant flexibility in how you configure models and stores for your components. For both the `model` config within a `Store` and the `store` config within a data-bound component (like `ComboBox`), you can typically pass one of three types:
+
+1.  **Configuration Object**: A plain JavaScript object containing the properties for the model or store. Neo.mjs will automatically create an instance from this object. This is convenient for inline, simple definitions.
+    ```javascript readonly
+    // Example: Inline Store config for ComboBox
+    store: {
+        model: { // Model config object
+            fields: [{name: 'id'}, {name: 'name'}]
+        },
+        data: [{id: 1, name: 'Item 1'}]
+    }
+    ```
+
+2.  **Class Reference**: A direct reference to the class (e.g., `MyStoreClass`, `MyModelClass`). Neo.mjs will automatically instantiate this class when the component or store is created. This is the most common and recommended approach for reusable definitions.
+    ```javascript readonly
+    // Example: Passing a Store Class to ComboBox
+    import MyStoreClass from './MyStoreClass.mjs';
+
+    // ...
+    items: [{
+        module: ComboBox,
+        store : MyStoreClass // Pass the Store Class
+    }]
+    ```
+    ```javascript readonly
+    // Example: Passing a Model Class to a Store
+    import MyModelClass from './MyModelClass.mjs';
+
+    class MyStoreClass extends Neo.data.Store {
+        static config = {
+            model: MyModelClass // Pass the Model Class
+        }
+    }
+    ```
+
+3.  **Instance**: A pre-created instance of the model or store. This is useful when you need a single, shared instance across multiple components (e.g., a singleton store for application-wide settings or a store that's managed externally).
+    ```javascript readonly
+    // Example: Passing a Store Instance to ComboBox
+    const mySharedStore = Neo.create({
+        module: Neo.data.Store,
+        // ... store configs
+    });
+
+    // ...
+    items: [{
+        module: ComboBox,
+        store : mySharedStore // Pass the Store Instance
+    }]
+    ```
+    While less common for `model` configs (as models are typically instantiated by stores), you could theoretically pass a `Model` instance if a custom scenario required it.
+
+Choosing the appropriate method depends on your application's architecture, reusability needs, and whether you require shared or independent data instances.
 
 ## 3. Key Configuration Options
 
