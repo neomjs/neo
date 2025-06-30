@@ -192,13 +192,13 @@ import TextField from '../../src/form/field/Text.mjs';
 
 // ...
 items: [{
-    module   : TextField,
-    labelText: 'Username',
-    name     : 'username',
-    required : true,
-    minLength: 5,
-    maxLength: 20,
-    inputPattern: /^[a-zA-Z0-9_]+$/ // Alphanumeric and underscore only
+    module      : TextField,
+    inputPattern: /^[a-zA-Z0-9_]+$/, // Alphanumeric and underscore only
+    labelText   : 'Username',
+    name        : 'username',
+    required    : true,
+    minLength   : 5,
+    maxLength   : 20
 }]
 ```
 
@@ -218,14 +218,21 @@ import TextField from '../../src/form/field/Text.mjs';
 // ...
 items: [{
     module   : TextField,
+    labelText: 'Password',
+    name     : 'password',
+    reference: 'passwordField' // Add a reference to the password field
+}, {
+    module   : TextField,
     labelText: 'Confirm Password',
     name     : 'confirmPassword',
     validator: function(field) {
-        const passwordField = field.up().down({name: 'password'}); // Assuming a password field exists
+        // Access the password field using getClosestForm().getReference()
+        const passwordField = field.getClosestForm().getReference('passwordField');
+
         if (field.value !== passwordField.value) {
-            return 'Passwords do not match';
+            return 'Passwords do not match'
         }
-        return true;
+        return true
     }
 }]
 ```
