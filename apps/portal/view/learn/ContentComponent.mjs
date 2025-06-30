@@ -308,7 +308,7 @@ class ContentComponent extends Component {
             replacementPromises.push(
                 Neo.main.addon.HighlightJS.highlightAuto({html: code, windowId})
                     .then(highlightedHtml => ({
-                        after: `<pre data-javascript id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml}</pre>`,
+                        after: `<pre data-javascript id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
                         token: token
                     }))
             );
