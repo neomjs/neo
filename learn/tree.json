@@ -5,6 +5,7 @@
         {"name": "Off the Main Thread",                              "parentId": "Benefits",                           "id": "benefits.OffTheMainThread"},
         {"name": "4 Environments",                                   "parentId": "Benefits",                           "id": "benefits.FourEnvironments"},
         {"name": "Unified Config System",                            "parentId": "Benefits",                           "id": "benefits.ConfigSystem"},
+        {"name": "RPC Layer",                                        "parentId": "Benefits",                           "id": "benefits.RPCLayer"},
         {"name": "Extreme Speed",                                    "parentId": "Benefits",                           "id": "benefits.Speed"},
         {"name": "Multi-Window Applications",                        "parentId": "Benefits",                           "id": "benefits.MultiWindow"},
         {"name": "Quick Application Development",                    "parentId": "Benefits",                           "id": "benefits.Quick"},
