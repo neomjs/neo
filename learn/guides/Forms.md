@@ -61,6 +61,8 @@ in the `src/form/field/` directory.
 
 ## 3. Data Management
 
+A key strength of Neo.mjs forms is their integrated state management. The `Neo.form.Container` automatically manages form data based on field names, eliminating the need for external state management libraries or manual state tree definitions. This significantly simplifies data handling and reduces boilerplate.
+
 The `Neo.form.Container` provides powerful methods for managing form data.
 
 ### Getting Form Values
@@ -352,7 +354,7 @@ class FormPageContainer extends BaseFormContainer {
     static config = {
         className: 'Form.view.FormPageContainer',
         // ... other configs
-        vdom: {cn: []} // Using a div instead of a form tag
+        tag: 'div' // Using a div instead of a form tag
     }
 }
 ```
