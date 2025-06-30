@@ -202,18 +202,21 @@ The `ComboBox` field emits several events that you can listen to for custom logi
 *   **`userChange`**: Inherited from `Neo.form.field.Base`, fired when the field's value changes due to direct user interaction (e.g., typing or selecting from the list).
 *   **`select`**: Specific to `ComboBox`, fired when an item is selected from the dropdown list. The event object contains the `record` that was selected.
 
-```javascript readonly
-import ComboBox from '../../src/form/field/ComboBox.mjs';
+```javascript live-preview
+import ComboBox      from '../../src/form/field/ComboBox.mjs';
+import FormContainer from '../../src/form/Container.mjs';
 
-class ComboBoxWithEvents extends Neo.form.Container {
+class MainView extends FormContainer {
     static config = {
         className: 'ComboBoxWithEvents',
         layout   : {ntype: 'vbox', align: 'start'},
         items    : [{
-            module   : ComboBox,
-            labelText: 'Choose an Option',
-            name     : 'option',
-            store    : {
+            module       : ComboBox,
+            labelPosition: 'top',
+            labelText    : 'Choose an Option',
+            name         : 'option',
+
+            store: {
                 data: [
                     {id: 1, name: 'Option A'},
                     {id: 2, name: 'Option B'}
@@ -221,16 +224,18 @@ class ComboBoxWithEvents extends Neo.form.Container {
             },
             listeners: {
                 select: function(data) {
-                    console.log('Selected record:', data.value); // data.value is the selected record
+                    Neo.Main.log({value: `Selected record: ${data.value.name}`}); // data.value is the selected record
                 },
                 change: function(data) {
-                    console.log('Field value changed (record or null):', data.value);
+                    Neo.Main.log({value: `Field value changed (record or null): ${data.value?.name || data.value}`});
                 },
-                userChange: function(data) {
-                    console.log('User interacted, new value:', data.value);
+                userChange: function(data) { // text input
+                    Neo.Main.log({value: `User interacted, new value: ${data.value}`});
                 }
             }
         }]
     }
 }
+
+MainView = Neo.setupClass(MainView);
 ```
