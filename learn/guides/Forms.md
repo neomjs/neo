@@ -1,5 +1,3 @@
-# Forms
-
 The Neo.mjs Forms Engine provides a powerful and flexible way to build
 user interfaces for data input and validation. This guide will walk you
 through the core concepts and practical usage of forms in Neo.mjs,
@@ -14,7 +12,7 @@ retrieval, validation, and submission.
 To create a simple form, you define a `Neo.form.Container` and add
 `Neo.form.field.Text` or other field modules to its `items` config.
 
-```javascript
+```javascript readonly
 import FormContainer from '../../src/form/Container.mjs';
 import TextField     from '../../src/form/field/Text.mjs';
 
@@ -71,7 +69,7 @@ To retrieve all values from a form, use the asynchronous `getSubmitValues()`
 method. This method returns a plain JavaScript object where keys correspond
 to the `name` attributes of your fields.
 
-```javascript
+```javascript readonly
 // Assuming 'myForm' is an instance of your form container
 const formValues = await myForm.getSubmitValues();
 console.log(formValues);
@@ -83,7 +81,7 @@ console.log(formValues);
 The `name` attribute supports dot notation to create nested data structures.
 This is particularly useful for organizing complex form data.
 
-```javascript
+```javascript readonly
 import FormContainer from '../../src/form/Container.mjs';
 import TextField     from '../../src/form/field/Text.mjs';
 
@@ -132,7 +130,7 @@ You can pre-populate a form or update its values programmatically using
 the `setValues(values, suspendEvents)` method. The `values` object should
 mirror the structure of the data returned by `getSubmitValues()`.
 
-```javascript
+```javascript readonly
 // To set values for the UserForm example above:
 await myUserForm.setValues({
     user: {
@@ -158,7 +156,7 @@ If no `values` object is provided, fields will be reset to `null` or their
 `emptyValue` (if configured). If `values` are provided, fields will be
 reset to those specific values.
 
-```javascript
+```javascript readonly
 // Reset all fields to their default empty state
 await myForm.reset();
 
@@ -187,7 +185,7 @@ Many field types come with built-in validation rules:
 
 You can configure these directly on the field:
 
-```javascript
+```javascript readonly
 import TextField from '../../src/form/field/Text.mjs';
 
 // ...
@@ -212,7 +210,7 @@ any field. This should be a function that receives the field instance as
 its argument and returns `true` if the value is valid, or a string
 (the error message) if it's invalid.
 
-```javascript
+```javascript readonly
 import TextField from '../../src/form/field/Text.mjs';
 
 // ...
@@ -248,7 +246,7 @@ You can check the overall validity of a form using:
     fields in the form (and its nested forms) are valid, `false` otherwise.
     It also triggers validation for all fields.
 
-    ```javascript
+    ```javascript readonly
     const formIsValid = await myForm.isValid();
     if (formIsValid) {
         console.log('Form is valid!');
@@ -264,7 +262,7 @@ You can check the overall validity of a form using:
     *   `'invalid'`: At least one field is invalid.
     *   `'inProgress'`: Some fields are valid, some are clean.
 
-    ```javascript
+    ```javascript readonly
     const state = await myForm.getFormState();
     console.log('Form state:', state);
     ```
@@ -280,7 +278,7 @@ or using `Neo.form.Fieldset`.
 `Neo.form.Fieldset` extends `Neo.form.Container` and is ideal for
 grouping related fields visually. It can also be collapsed.
 
-```javascript
+```javascript readonly
 import Fieldset      from '../../src/form/Fieldset.mjs';
 import FormContainer from '../../src/form/Container.mjs';
 import TextField     from '../../src/form/field/Text.mjs';
@@ -346,7 +344,7 @@ hierarchies. This is demonstrated in `apps/form/view/FormPageContainer.mjs`,
 which extends `Neo.form.Container` but uses a `div` for its `vdom` tag
 to avoid invalid HTML (`<form>` inside `<form>`).
 
-```javascript
+```javascript readonly
 // Example from apps/form/view/FormPageContainer.mjs
 import BaseFormContainer from '../../../src/form/Container.mjs';
 
@@ -371,7 +369,7 @@ include clear buttons, date pickers, or spin buttons for number fields.
 
 Triggers are configured via the `triggers` array on a field.
 
-```javascript
+```javascript readonly
 import DateField    from '../../src/form/field/Date.mjs';
 import ClearTrigger from '../../src/form/field/trigger/Clear.mjs';
 
@@ -405,7 +403,7 @@ custom logic:
 
 You can listen to these events using the `on` method:
 
-```javascript
+```javascript readonly
 manyFormField.on('change', (data) => {
     console.log('Field value changed:', data.value);
 });
