@@ -98,7 +98,7 @@ When a collection is filtered, the original, unfiltered set of items is preserve
 
 ### Reactivity of Filters
 
-Changes to the `filters` array or to properties of individual `Filter` instances within the array will automatically trigger a re-filter of the collection.
+Each `Neo.collection.Filter` is a Neo instance, and its configuration properties are reactive. This means that changes to the `filters` array or to properties of individual `Filter` instances within the array will automatically trigger a re-filter of the collection.
 
 ### Example: Filtering a Collection
 
@@ -161,7 +161,7 @@ The `Neo.collection.Base` class has a `sorters_` config which accepts an array o
 
 ### Reactivity of Sorters
 
-Changes to the `sorters` array or to properties of individual `Sorter` instances within the array will automatically trigger a re-sort of the collection.
+Each `Neo.collection.Sorter` is a Neo instance, and its configuration properties are reactive. This means that changes to the `sorters` array or to properties of individual `Sorter` instances within the array will automatically trigger a re-sort of the collection.
 
 ### Example: Sorting a Collection
 
