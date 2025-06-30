@@ -513,7 +513,7 @@ class Helper extends Base {
             Neo.currentWorker.on({
                 neoConfigChange: me.onNeoConfigChange,
                 scope          : me
-            });
+            })
         }
 
         await me.importUtil()
