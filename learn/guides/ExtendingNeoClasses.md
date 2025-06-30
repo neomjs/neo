@@ -35,7 +35,7 @@ class MyReactiveClass extends Neo.core.Base {
 
     onConstructed() {
         super.onConstructed();
-        console.log(this.myReactiveConfig); // Accesses the getter
+        console.log(this.myReactiveConfig);  // Accesses the getter
         this.myReactiveConfig = 'new value'; // Triggers the setter
     }
 }
