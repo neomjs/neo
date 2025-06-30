@@ -63,6 +63,15 @@
         color: #3E63DD;
     }
 
+    h2.neo-h2,
+    h3.neo-h3 {
+        code {
+            font-family: inherit !important;
+            font-size  : 1em !important;
+            font-weight: inherit !important;
+        }
+    }
+
     .lab {
         box-shadow   : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
         font-size    : 1em;
