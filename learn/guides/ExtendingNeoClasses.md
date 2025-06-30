@@ -16,6 +16,8 @@ class MyBaseClass extends Neo.core.Base {
         myNumber : 123
     }
 }
+
+export default Neo.setupClass(MyBaseClass);
 ```
 
 Common configs you'll encounter include `className` (a unique string identifier for your class) and `ntype` (a shorthand alias for component creation).
@@ -28,15 +30,17 @@ A cornerstone of Neo.mjs's reactivity is the trailing underscore (`_`) conventio
 class MyReactiveClass extends Neo.core.Base {
     static config = {
         className: 'My.Reactive.Class',
-        myReactiveProp_: 'initial value' // This property is reactive
+        myReactiveConfig_: 'initial value' // This config is reactive
     }
 
     onConstructed() {
         super.onConstructed();
-        console.log(this.myReactiveProp); // Accesses the getter
-        this.myReactiveProp = 'new value'; // Triggers the setter
+        console.log(this.myReactiveConfig); // Accesses the getter
+        this.myReactiveConfig = 'new value'; // Triggers the setter
     }
 }
+
+export default Neo.setupClass(MyReactiveClass);
 ```
 
 Assigning a new value to a reactive property (e.g., `this.myReactiveProp = 'new value'`) triggers its setter, which in turn can invoke lifecycle hooks, enabling automatic updates and side effects. Properties without the underscore are static and do not trigger this reactive behavior.
@@ -87,6 +91,8 @@ class MyHookedClass extends Neo.core.Base {
         return value;
     }
 }
+
+export default Neo.setupClass(MyHookedClass);
 ```
 
 ## 4. The Role of `Neo.setupClass()` and the Global `Neo` Namespace
