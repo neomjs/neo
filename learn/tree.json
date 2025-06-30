@@ -28,6 +28,7 @@
         {"name": "Shared Bindable Data (State Providers)",           "parentId": "InDepth",                            "id": "guides.StateProviders"},
         {"name": "Working with VDom",                                "parentId": "InDepth",                            "id": "guides.WorkingWithVDom"},
         {"name": "Config System Deep Dive",                          "parentId": "InDepth",                            "id": "guides.ConfigSystemDeepDive"},
+        {"name": "Extending Neo Classes",                            "parentId": "InDepth",                            "id": "guides.ExtendingNeoClasses"},
         {"name": "Main Thread Addons: Interacting with the Browser", "parentId": "InDepth",                            "id": "guides.MainThreadAddons"},
         {"name": "User Input (Forms)",                               "parentId": "InDepth",                            "id": "guides.Forms"},
         {"name": "Form Fields",                                      "parentId": "InDepth",           "isLeaf": false, "id": "guides.form_fields"},
