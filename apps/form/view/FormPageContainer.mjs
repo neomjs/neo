@@ -26,10 +26,9 @@ class FormPageContainer extends FormContainer {
          */
         style: {overflow: 'auto'},
         /**
-         * @member {Object} _vdom
+         * @member {String} tag='div'
          */
-        vdom:
-        {cn: []} // using a div instead of a form tag
+        tag: 'div' // using a div instead of a form tag
     }
 }
 
