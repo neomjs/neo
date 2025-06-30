@@ -32,7 +32,7 @@
         {"name": "User Input (Forms)",                               "parentId": "InDepth",                            "id": "guides.Forms",  "hidden": true},
         {"name": "Component and Container Basics",                   "parentId": "InDepth",                            "id": "guides.ComponentsAndContainers"},
         {"name": "Layouts",                                          "parentId": "InDepth",           "isLeaf": false, "id": "guides.Layouts", "hidden": true},
-        {"name": "Custom Components",                                "parentId": "InDepth",                            "id": "guides.CustomComponents", "hidden": true},
+        {"name": "Custom Components",                                "parentId": "InDepth",                            "id": "guides.CustomComponents"},
         {"name": "Events",                                           "parentId": "InDepth",           "isLeaf": false, "id": "GuideEvents"},
             {"name": "Custom Events",                                "parentId": "GuideEvents",                        "id": "guides.events.CustomEvents"},
             {"name": "DOM Events",                                   "parentId": "GuideEvents",                        "id": "guides.events.DomEvents"},

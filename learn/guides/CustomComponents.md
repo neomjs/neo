@@ -1,41 +1,89 @@
 ## Introduction
 
-Neo.mjs is class-based, which means you're free to extend any component (or any other Neo.mjs class).
+A major strength of Neo.mjs is its extensive library of components. In most cases, you can build sophisticated
+user interfaces simply by creating configuration objects for these existing components and adding them to a container's
+`items` array. This configuration-driven approach is a significant departure from frameworks like Angular, React, or
+Vue, where creating custom components is a core part of the development workflow.
 
+However, there are times when you need to create something truly unique or encapsulate a specific set of configurations
+and logic for reuse. In these scenarios, creating a custom component by extending a framework class is the perfect
+solution.
 
-## Overriding ancestor configs
+This guide will walk you through the process.
 
-## Introducing new configs
+## Overriding Ancestor Configs
 
-## Lifecycle config properties
+The simplest way to create a custom component is to extend an existing one and override some of its default
+configuration values.
+
+Every class in Neo.mjs has a `static config` block where its properties are defined. When you extend a class, you can
+define your own `static config` block and set new default values for any property inherited from an ancestor class.
+
+In the example below, we create `MySpecialButton` by extending `Neo.button.Base`. We then override the `iconCls` and
+`ui` configs to create a button with a specific look and feel.
+
+## Introducing New Configs
+
+You can also add entirely new configuration properties to your custom components. Simply add them to the `static config`
+block with a default value. Neo.mjs will automatically generate a getter and a setter for your new config, and you can
+use it to control the behavior of your component.
+
+For example, if we wanted our `MySpecialButton` to have a `specialEffect` config, we could add
+`specialEffect: 'glow'` to its config block.
+
+## Example: A Custom Button
+
+Let's look at a practical example. Here, we'll create a custom button and then use it within a container.
 
 ```javascript live-preview
 import Button from '../button/Base.mjs';
-// In practice this would be some handy reusable component
+import Container from '../container/Base.mjs';
+
+// 1. Define our custom component by extending a framework class.
+// In practice, this would be a reusable component in your application's view folder.
 class MySpecialButton extends Button {
     static config = {
+        // a. Always define a unique className
         className: 'Example.view.MySpecialButton',
-        iconCls  : 'far fa-face-grin-wide',
-        ui       : 'ghost'
+
+        // b. Override configs from the parent class (Button)
+        iconCls: 'far fa-face-grin-wide',
+        ui: 'ghost',
+
+        // c. Add a new custom config
+        specialText: 'I am special'
+    }
+
+    // d. Hook into the component lifecycle
+    onConstructed() {
+        // Call the superclass method first
+        super.onConstructed();
+
+        // Access our new config property
+        console.log(this.specialText);
     }
 }
 
+// 2. Register the class with the framework.
+// This is only needed inside the live-preview environment.
+// In a real app, the build process handles this automatically.
 MySpecialButton = Neo.setupClass(MySpecialButton);
 
 
-import Container from '../container/Base.mjs';
-
+// 3. Use the new component in a view.
 class MainView extends Container {
     static config = {
         className: 'Example.view.MainView',
-        layout   : {ntype:'vbox', align:'start'},
-        items    : [{
-            module : Button,
+        layout: {ntype: 'vbox', align: 'start'},
+        items: [{
+            // A standard framework button for comparison
+            module: Button,
             iconCls: 'fa fa-home',
-            text   : 'A framework button'
+            text: 'A framework button'
         }, {
-            module : MySpecialButton,
-            text   : 'My special button'
+            // Our new custom button
+            module: MySpecialButton,
+            text: 'My special button'
         }]
     }
 }
@@ -43,3 +91,14 @@ class MainView extends Container {
 Neo.setupClass(MainView);
 ```
 
+### Breakdown of the Example:
+
+1.  **Class Definition**: We define `MySpecialButton` which `extends` the framework's `Button` class.
+2.  **`className`**: We give our new class a unique `className`. This is important for the framework's class system.
+3.  **Overridden Configs**: We change the default `iconCls` and `ui` to style our button differently.
+4.  **New Config**: We add a `specialText` config. While this example doesn't use it to change the button's
+    appearance, the `onConstructed` method shows how you can access its value.
+5.  **Lifecycle Method**: We use `onConstructed`, which fires after the component is created, to log the value of our
+    new config. We call `super.onConstructed()` to ensure the parent class's logic is executed.
+6.  **Usage**: We use `MySpecialButton` in the `items` array of our `MainView` just like any other component, by
+    referencing its `module`.
