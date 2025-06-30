@@ -49,7 +49,7 @@ Collections provide several methods for manipulating their contents:
 -   **`push(item)`**: Adds one or more items to the end of the collection (alias for `add`).
 -   **`shift()`**: Removes and returns the first item from the collection.
 -   **`unshift(item)`**: Adds one or more items to the beginning of the collection.
--   **`splice(index, removeCountOrToRemoveArray, toAddArray)`**: A powerful method that can simultaneously remove and add items. This is the underlying method used by most other add/remove operations.
+-   **`splice(index, removeCountOrToRemoveArray, toAddArray)`**: This is the **central and most powerful method** for modifying a collection. It can simultaneously remove and add items at a specified index. Many other collection methods, such as `add()`, `remove()`, `insert()`, `pop()`, `push()`, `shift()`, and `unshift()`, internally use `splice()` to perform their operations, making it the core mechanism for all data mutations within a collection.
 -   **`clear()`**: Removes all items from the collection.
 
 ### Example: Adding and Removing
