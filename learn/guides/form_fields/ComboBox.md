@@ -6,18 +6,22 @@ The `Neo.form.field.ComboBox` is a powerful and flexible input component that pr
 
 At its simplest, a `ComboBox` can be configured with a static array of data.
 
-```javascript readonly
-import ComboBox from '../../src/form/field/ComboBox.mjs';
+```javascript live-preview
+import ComboBox      from '../../src/form/field/ComboBox.mjs';
+import FormContainer from '../../src/form/Container.mjs';
 
-class MyComboBoxForm extends Neo.form.Container {
+class MainView extends FormContainer {
     static config = {
         className: 'MyComboBoxForm',
         layout   : {ntype: 'vbox', align: 'start'},
         items    : [{
-            module   : ComboBox,
-            labelText: 'Select a Fruit',
-            name     : 'selectedFruit',
-            store    : { // Inline store configuration
+            module       : ComboBox,
+            labelPosition: 'inline',
+            labelText    : 'Select a Fruit',
+            name         : 'selectedFruit',
+            width        : 200,
+
+            store: { // Inline store configuration
                 data: [
                     {id: 'apple',  name: 'Apple'},
                     {id: 'banana', name: 'Banana'},
@@ -28,6 +32,8 @@ class MyComboBoxForm extends Neo.form.Container {
         }]
     }
 }
+
+MainView = Neo.setupClass(MainView);
 ```
 
 In this example:
@@ -148,25 +154,31 @@ The `ComboBox` offers several configurations to control its behavior and appeara
     *   `'filtered'`: Shows only items that match the current input field's value.
 *   **`listConfig`**: An object that allows you to configure the underlying `Neo.list.Base` component used for the dropdown. For example, you can enable checkboxes for multi-selection (though `ComboBox` itself is typically single-select, `Chip` extends it for multi-select).
 
-```javascript readonly
-import ComboBox from '../../src/form/field/ComboBox.mjs';
+```javascript live-preview
+import ComboBox      from '../../src/form/field/ComboBox.mjs';
+import FormContainer from '../../src/form/Container.mjs';
 
-class AdvancedComboBox extends Neo.form.Container {
+class MainView extends FormContainer {
     static config = {
         className: 'AdvancedComboBox',
         layout   : {ntype: 'vbox', align: 'start'},
         items    : [{
             module        : ComboBox,
-            labelText: 'Search for a City',
-            name          : 'citySearch',
             displayField  : 'cityName',
-            valueField    : 'cityId',
-            forceSelection: false, // Allow custom input
             editable      : true,
             filterDelay   : 200,
-            typeAhead     : true,
+            forceSelection: false, // Allow custom input
+            labelText     : 'Search for a City',
+            name          : 'citySearch',
             triggerAction : 'filtered',
-            store         : {
+            typeAhead     : true,
+            valueField    : 'cityId',
+            width         : 300,
+
+            store: {
+                keyProperty: 'cityId',
+                model      : {fields: [{name: 'cityId', type: 'String'}, {name: 'cityName', type: 'String'}]},
+                
                 data: [
                     {cityId: 'ny',  cityName: 'New York'},
                     {cityId: 'la',  cityName: 'Los Angeles'},
@@ -177,6 +189,8 @@ class AdvancedComboBox extends Neo.form.Container {
         }]
     }
 }
+
+MainView = Neo.setupClass(MainView);
 ```
 
 ## 4. Events
