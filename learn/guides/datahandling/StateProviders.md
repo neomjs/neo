@@ -437,3 +437,115 @@ class MainView extends Container {
 }
 MainView = Neo.setupClass(MainView);
 ```
+
+### Managing Stores with State Providers
+
+Beyond managing simple data properties, `Neo.state.Provider` can also centralize the management of `Neo.data.Store`
+instances. This is particularly useful for sharing data across multiple components or for complex data flows within
+your application.
+
+You define stores within the `stores` config of your `StateProvider` class. Each entry in the `stores` object can either
+be an inline store configuration (a plain JavaScript object) or a class reference to a `Neo.data.Store` subclass.
+
+Components can then bind to these centrally managed stores using the `bind` config,
+referencing the store by its key within the `stores` object (e.g., `stores.myStoreName`).
+
+```javascript live-preview
+import Button        from '../button/Base.mjs';
+import Container     from '../container/Base.mjs';
+import Label         from '../component/Label.mjs';
+import StateProvider from '../state/Provider.mjs';
+import Store         from '../data/Store.mjs';
+import GridContainer from '../grid/Container.mjs';
+
+class MyDataStore extends Store {
+    static config = {
+        className: 'Guides.vm7.MyDataStore',
+        model: {
+            fields: [
+                {name: 'id',   type: 'Number'},
+                {name: 'name', type: 'String'}
+            ]
+        },
+        data: [
+            {id: 1, name: 'Item A'},
+            {id: 2, name: 'Item B'},
+            {id: 3, name: 'Item C'}
+        ]
+    }
+}
+Neo.setupClass(MyDataStore);
+
+class MainViewStateProvider extends StateProvider {
+    static config = {
+        className: 'Guides.vm7.MainViewStateProvider',
+        stores: {
+            // Define a store using a class reference
+            mySharedStore: MyDataStore,
+            // Define another store using an inline configuration
+            anotherStore: {
+                module: Store,
+                model: {
+                    fields: [
+                        {name: 'value', type: 'Number'}
+                    ]
+                },
+                data: [
+                    {value: 10},
+                    {value: 20},
+                    {value: 30}
+                ]
+            }
+        }
+    }
+}
+MainViewStateProvider = Neo.setupClass(MainViewStateProvider);
+
+class MainView extends Container {
+    static config = {
+        className    : 'Guides.vm7.MainView',
+        stateProvider: MainViewStateProvider, // Assign the state provider
+
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items: [{
+            module: Label,
+            style : {margin: '1em'},
+            bind: {
+                // Bind to a property of the 'mySharedStore'
+                text: 'stores.mySharedStore.count' // Display the record count of the store
+            }
+        }, {
+            module: GridContainer,
+            flex: 1,
+            bind: {
+                // Bind the grid's store config to 'mySharedStore'
+                store: 'stores.mySharedStore'
+            },
+            columns: [
+                {text: 'ID', dataField: 'id'},
+                {text: 'Name', dataField: 'name'}
+            ]
+        }, {
+            module: Button,
+            text: 'Add Item to Store',
+            handler: function() {
+                const store = this.getStateProvider().getStore('mySharedStore');
+                store.add({id: store.getCount() + 1, name: 'New Item'});
+            }
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+
+In this example:
+*   `MainViewStateProvider` defines two stores: `mySharedStore` (using a class reference) and
+    `anotherStore` (using an inline config).
+*   A `Label` component binds its `text` to the `count` property of `mySharedStore`,
+    demonstrating how to access store properties.
+*   A `GridContainer` binds its `store` config directly to `mySharedStore`, allowing it to
+    display and interact with the data.
+*   A `Button` demonstrates how to programmatically interact with the store by adding a new record.
+
+This approach provides a clean and efficient way to manage and share data across your
+application, leveraging the power of the state provider system.
