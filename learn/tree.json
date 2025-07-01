@@ -47,7 +47,7 @@
             {"name": "Events",                                           "parentId": "guides.userinteraction",             "isLeaf": false, "id": "guides.userinteraction.events"},
                 {"name": "Custom Events",                                "parentId": "guides.userinteraction.events",                       "id": "guides.userinteraction.events.CustomEvents"},
                 {"name": "DOM Events",                                   "parentId": "guides.userinteraction.events",                       "id": "guides.userinteraction.events.DomEvents"},
-        {"name": "Specific Applications/Features",                       "parentId": "guides",                            "isLeaf": false, "id": "guides.SpecificFeatures", "collapsed": true},
+        {"name": "Specific Applications/Features",                       "parentId": "guides",                             "isLeaf": false, "id": "guides.SpecificFeatures", "collapsed": true},
             {"name": "Multi-Window Applications",                        "parentId": "guides.specificfeatures",                             "id": "guides.specificfeatures.MultiWindow", "hidden":  true},
             {"name": "Mixins",                                           "parentId": "guides.specificfeatures",                             "id": "guides.specificfeatures.Mixins", "hidden": true},
             {"name": "Portal App",                                       "parentId": "guides.specificfeatures",                             "id": "guides.specificfeatures.PortalApp"},
