@@ -521,25 +521,27 @@ class MainView extends Container {
     static config = {
         className    : 'Guides.vm7.MainView',
         stateProvider: MainViewStateProvider, // Assign the state provider
+        width        : 300,
 
         layout: {ntype: 'vbox', align: 'stretch'},
         items: [{
             module: GridContainer,
-            flex: 1,
+            flex  : 1,
             bind: {
                 // Bind the grid's store config to 'mySharedStore'
                 store: 'stores.mySharedStore'
             },
             columns: [
-                {text: 'ID', dataField: 'id'},
-                {text: 'Name', dataField: 'name'}
+                {text: 'ID',   dataField: 'id'},
+                {text: 'Name', dataField: 'name', flex: 1}
             ]
         }, {
             module: Button,
-            text: 'Add Item to Store',
-            handler: function() {
+            flex  : 'none',
+            text  : 'Add Item to Store',
+            handler() {
                 const store = this.getStateProvider().getStore('mySharedStore');
-                store.add({id: store.getCount() + 1, name: 'New Item'});
+                store.add({id: store.getCount() + 1, name: 'New Item'})
             }
         }]
     }
