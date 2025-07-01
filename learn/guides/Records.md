@@ -1,0 +1,205 @@
+# Records
+
+In Neo.mjs, a **Record** is more than just a plain JavaScript object; it's a structured, reactive instance of data defined by a `Neo.data.Model`. Records provide a powerful way to manage application data with built-in features like data validation, type conversion, dirty tracking, and seamless integration with `Neo.data.Store`.
+
+This guide will cover:
+
+-   **What is a Record?**: Understanding the concept and its benefits.
+-   **`Neo.data.Model`**: Defining the structure and behavior of your records.
+-   **`Neo.data.RecordFactory`**: The engine behind reactive record creation.
+-   **Record Fields**: Data types, default values, mapping, and custom logic.
+-   **Reactivity and Dirty Tracking**: How records respond to changes and track their state.
+-   **Interaction with `Neo.data.Store`**: Managing collections of records.
+
+## What is a Record?
+
+A Record in Neo.mjs is an instance of a dynamically generated class that represents a single row or item of data. Unlike simple JavaScript objects, Records are designed to be reactive. This means that when you modify a property of a Record, it automatically triggers events, allowing UI components or other parts of your application to react to these changes.
+
+**Benefits of using Records:**
+
+-   **Structured Data**: Records enforce a predefined structure based on a `Neo.data.Model`, ensuring data consistency.
+-   **Reactivity**: Changes to record fields are observable, simplifying UI updates and data synchronization.
+-   **Data Integrity**: Built-in type conversion and validation (defined in the Model) help maintain data quality.
+-   **Dirty Tracking**: Easily determine if a record or specific fields within it have been modified from their original state.
+-   **Integration with Stores**: Records are designed to work seamlessly with `Neo.data.Store` for managing collections of data.
+
+## `Neo.data.Model`: Defining Your Records
+
+`Neo.data.Model` is the blueprint for your Records. It defines the fields, their types, default values, and any custom logic for data processing or validation. Each `Neo.data.Model` is a class that extends `Neo.core.Base`.
+
+### Key `Neo.data.Model` Configurations:
+
+-   **`fields`**: An array of objects, where each object defines a field of the record. Each field can have properties like:
+    -   `name` (String, required): The name of the field.
+    -   `type` (String): The data type (e.g., `'string'`, `'number'`, `'boolean'`, `'date'`, `'int'`, `'float'`, `'html'`). Neo.mjs provides automatic type conversion.
+    -   `defaultValue` (Any): A default value for the field if not provided.
+    -   `mapping` (String): A dot-separated string to map a field from a nested data structure (e.g., `'address.street'`).
+    -   `calculate` (Function): A function to calculate the field's value based on other fields.
+    -   `convert` (Function): A custom function to convert the field's value.
+    -   `nullable` (Boolean): Whether the field can be `null`.
+    -   `maxLength` (Number): Maximum length for string types.
+    -   `minLength` (Number): Minimum length for string types.
+-   **`keyProperty`**: (String, default: `'id'`) The field name that uniquely identifies each record. This is crucial for `Neo.data.Store`.
+-   **`trackModifiedFields`**: (Boolean, default: `false`) If `true`, the record will track changes to individual fields, allowing you to determine which fields have been modified. **Be aware that enabling this will cause the record to store a copy of its original data, effectively doubling the memory footprint for each record. Only enable this feature if you specifically require granular dirty tracking.**
+
+### Example: Defining a User Model
+
+```javascript
+import Model from '../../src/data/Model.mjs';
+
+class UserModel extends Model {
+    static config = {
+        className: 'UserModel',
+        fields: [
+            {name: 'id', type: 'int'},
+            {name: 'firstName', type: 'string', defaultValue: ''},
+            {name: 'lastName', type: 'string', defaultValue: ''},
+            {name: 'fullName', type: 'string', calculate: data => `${data.firstName} ${data.lastName}`},
+            {name: 'email', type: 'string', nullable: false},
+            {name: 'age', type: 'int', defaultValue: 0},
+            {name: 'isActive', type: 'boolean', defaultValue: true},
+            {name: 'createdAt', type: 'date', defaultValue: new Date()}
+        ],
+        keyProperty: 'id',
+        trackModifiedFields: true
+    }
+}
+
+Neo.setupClass(UserModel);
+```
+
+## `Neo.data.RecordFactory`: The Engine Behind Records
+
+`Neo.data.RecordFactory` is a singleton class responsible for taking your `Neo.data.Model` definitions and dynamically generating JavaScript classes for your Records. It intercepts property access on Record instances to provide reactivity, type conversion, and dirty tracking.
+
+When you create a new Record (typically via a `Neo.data.Store` or directly using `RecordFactory.createRecord()`), the `RecordFactory`:
+
+1.  Checks if a Record class for the given Model already exists. If not, it creates one.
+2.  Defines getters and setters for each field specified in your Model. These getters and setters are what make Records reactive.
+3.  Applies default values and performs initial data parsing/conversion.
+4.  Initializes dirty tracking if `trackModifiedFields` is enabled in the Model.
+
+You generally won't interact directly with `RecordFactory` unless you're creating records outside of a `Store`.
+
+### Example: Creating a Record Directly
+
+```javascript
+import RecordFactory from '../../src/data/RecordFactory.mjs';
+import UserModel     from './UserModel.mjs'; // Assuming UserModel is defined as above
+
+const userModelInstance = Neo.create(UserModel); // Create an instance of your Model
+
+const userRecord = RecordFactory.createRecord(userModelInstance, {
+    id: 101,
+    firstName: 'Jane',
+    lastName: 'Doe',
+    email: 'jane.doe@example.com',
+    age: 28,
+    address: {
+        street: '123 Main St',
+        city: 'Anytown'
+    }
+});
+
+console.log(userRecord.fullName); // Output: Jane Doe (calculated field)
+userRecord.age = '30'; // Automatic type conversion from string to int
+console.log(userRecord.age);      // Output: 30
+
+// Accessing nested fields
+console.log(userRecord.address.street);    // Output: 123 Main St
+console.log(userRecord['address.city']); // Output: Anytown
+
+// Modifying nested fields directly
+userRecord.address.street = '456 Oak Ave';
+console.log(userRecord.address.street); // Output: 456 Oak Ave
+
+// Modifying nested fields using string path
+userRecord['address.city'] = 'Newville';
+console.log(userRecord['address.city']); // Output: Newville
+
+// Modifying nested fields using set() with nested object structure
+userRecord.set({ address: { street: '789 Pine Ln' } });
+console.log(userRecord.address.street); // Output: 789 Pine Ln
+```
+
+## Reactivity and Dirty Tracking
+
+Records are inherently reactive. When you change a field's value, the setter defined by `RecordFactory` intercepts the change, updates the internal data, and can trigger events. If the Model has `trackModifiedFields: true`, the Record also keeps track of its original state.
+
+-   **`isModified`**: A boolean property on the Record instance that is `true` if any field has been changed from its original value.
+-   **`isModifiedField(fieldName)`**: A method to check if a specific field has been modified.
+-   **`set(fields)`**: Bulk-update multiple fields and trigger a single change event. This method can also accept nested object structures to update nested fields.
+-   **`setSilent(fields)`**: Bulk-update multiple fields without triggering a change event.
+-   **`reset(fields)`**: Resets the record's fields to their original values or to new provided values, and updates the original state.
+
+### Example: Reactivity and Dirty Tracking
+
+```javascript
+import RecordFactory from '../../src/data/RecordFactory.mjs';
+import UserModel     from './UserModel.mjs';
+
+const userModelInstance = Neo.create(UserModel);
+const userRecord = RecordFactory.createRecord(userModelInstance, {
+    id: 102,
+    firstName: 'John',
+    lastName: 'Smith',
+    email: 'john.smith@example.com',
+    address: {
+        street: '100 Elm St',
+        city: 'Oldtown'
+    }
+});
+
+console.log(userRecord.isModified); // Output: false
+
+userRecord.firstName = 'Jonathan';
+console.log(userRecord.isModified);      // Output: true
+console.log(userRecord.isModifiedField('firstName')); // Output: true
+console.log(userRecord.isModifiedField('lastName'));  // Output: false
+
+userRecord.set({ address: { city: 'Newtown' } }); // Update nested field using set()
+console.log(userRecord.isModifiedField('address.city')); // Output: true
+
+userRecord.reset({firstName: 'John'}); // Reset firstName to original
+console.log(userRecord.isModified); // Output: true (because address.city is still modified)
+
+userRecord.reset(); // Reset all fields to original state
+console.log(userRecord.isModified); // Output: false
+```
+
+## Interaction with `Neo.data.Store`
+
+`Neo.data.Store` is designed to manage collections of Records. When you add raw data (plain JavaScript objects) to a `Store`, it automatically uses its associated `Neo.data.Model` and `RecordFactory` to convert them into reactive Record instances.
+
+-   **`store.add(data)`**: Converts data into Records and adds them to the store.
+-   **`store.model`**: The `Neo.data.Model` instance associated with the store, defining the structure of its records.
+-   **`recordChange` event**: Stores emit a `recordChange` event when a field of one of its records is modified. This allows UI components (like Grids) to efficiently update only the changed cells.
+
+### Example: Store Managing Records
+
+```javascript
+import Store     from '../../src/data/Store.mjs';
+import UserModel from './UserModel.mjs';
+
+const userStore = Neo.create(Store, {
+    model: UserModel, // Link the store to your UserModel
+    data: [
+        {id: 201, firstName: 'Anna', lastName: 'Brown', email: 'anna.b@example.com'},
+        {id: 202, firstName: 'Peter', lastName: 'Green', email: 'peter.g@example.com'}
+    ]
+});
+
+userStore.on('recordChange', ({record, fields}) => {
+    console.log(`Record ${record.id} changed:`, fields);
+});
+
+const anna = userStore.get(201);
+anna.email = 'anna.brown@example.com';
+// Output: Record 201 changed: [{name: "email", oldValue: "anna.b@example.com", value: "anna.brown@example.com"}]
+
+console.log(userStore.get(201).isModified); // Output: true
+```
+
+## Conclusion
+
+Records, powered by `Neo.data.Model` and `Neo.data.RecordFactory`, are a cornerstone of data management in Neo.mjs. They provide a robust, reactive, and structured approach to handling application data, simplifying complex tasks like UI synchronization, data validation, and state tracking. By leveraging Records, you can build more maintainable, performant, and predictable data-driven applications.
