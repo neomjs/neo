@@ -194,8 +194,11 @@ class RecordFactory extends Base {
                     }
 
                     /**
-                     * Executes instance.setRecordFields(), and can get used via NeoFunction.intercept(),
-                     * or NeoFunction.sequence() to "listen" to field changes
+                     * The single source of truth for record field changes.
+                     * Executes instance.setRecordFields(), and can get used via:
+                     * - Neo.util.Function:createSequence()
+                     * - Neo.util.Function:intercept(),
+                     * to "listen" to field changes
                      * @param {Object}  fields
                      * @param {Boolean} [silent=false]
                      * @returns {Object}
