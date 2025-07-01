@@ -1,12 +1,15 @@
-# Extending Neo Classes
 
-Neo.mjs is built upon a robust and consistent class system. Understanding how to extend framework classes is fundamental to building custom functionality, whether you're creating new UI components, defining data structures, or implementing application logic.
+Neo.mjs is built upon a robust and consistent class system. Understanding how to extend framework classes is fundamental
+to building custom functionality, whether you're creating new UI components, defining data structures, or implementing
+application logic.
 
-This guide covers the universal principles of class extension in Neo.mjs, which apply across all class types, not just UI components.
+This guide covers the universal principles of class extension in Neo.mjs, which apply across all class types, not just
+UI components.
 
 ## 1. The `static config` Block: Defining Properties
 
-Every Neo.mjs class utilizes a `static config` block. This is where you define the properties that instances of your class will possess. These properties can be simple values, objects, or even other Neo.mjs class configurations.
+Every Neo.mjs class utilizes a `static config` block. This is where you define the properties that instances of your
+class will possess. These properties can be simple values, objects, or even other Neo.mjs class configurations.
 
 ```javascript readonly
 class MyBaseClass extends Neo.core.Base {
@@ -20,11 +23,14 @@ class MyBaseClass extends Neo.core.Base {
 export default Neo.setupClass(MyBaseClass);
 ```
 
-Common configs you'll encounter include `className` (a unique string identifier for your class) and `ntype` (a shorthand alias for component creation).
+Common configs you'll encounter include `className` (a unique string identifier for your class) and `ntype` (a shorthand
+alias for component creation).
 
 ## 2. Reactive Configs: The Trailing Underscore (`_`)
 
-A cornerstone of Neo.mjs's reactivity is the trailing underscore (`_`) convention for configs defined in `static config`. When you append an underscore to a config name (e.g., `myConfig_`), the framework automatically generates a reactive getter and setter for it.
+A cornerstone of Neo.mjs's reactivity is the trailing underscore (`_`) convention for configs defined in `static config`.
+When you append an underscore to a config name (e.g., `myConfig_`), the framework automatically generates a reactive
+getter and setter for it.
 
 ```javascript readonly
 class MyReactiveClass extends Neo.core.Base {
@@ -43,136 +49,153 @@ class MyReactiveClass extends Neo.core.Base {
 export default Neo.setupClass(MyReactiveClass);
 ```
 
-Assigning a new value to a reactive property (e.g., `this.myReactiveProp = 'new value'`) triggers its setter, which in turn can invoke lifecycle hooks, enabling automatic updates and side effects. Properties without the underscore are static and do not trigger this reactive behavior.
+Assigning a new value to a reactive property (e.g., `this.myReactiveProp = 'new value'`) triggers its setter, which in
+turn can invoke lifecycle hooks, enabling automatic updates and side effects. Properties without the underscore are
+static and do not trigger this reactive behavior.
 
 ## 3. Configuration Lifecycle Hooks (`beforeSet`, `afterSet`, `beforeGet`)
 
-For every reactive config (`myConfig_`), Neo.mjs provides three optional lifecycle hooks that you can implement in your class. These methods are automatically called by the framework during the config's lifecycle, offering powerful interception points:
+For every reactive config (`myConfig_`), Neo.mjs provides three optional lifecycle hooks that you can implement in your
+class. These methods are automatically called by the framework during the config's lifecycle, offering powerful
+interception points:
 
 *   **`beforeSetMyConfig(value, oldValue)`**:
-    *   **Purpose**: Intercepts the value *before* it is set. Ideal for validation, type coercion, or transforming the incoming value.
-    *   **Return Value**: Return the (potentially modified) `value` that should be set. Returning `undefined` or `null` will prevent the value from being set.
+    * **Purpose**: Intercepts the value *before* it is set. Ideal for validation, type coercion, or transforming the
+      incoming value.
+    * **Return Value**: Return the (potentially modified) `value` that should be set.
+      Returning `undefined` or `null` will prevent the value from being set.
 
 *   **`afterSetMyConfig(value, oldValue)`**:
-    *   **Purpose**: Executed *after* the value has been successfully set. Ideal for triggering side effects, updating the UI (e.g., calling `this.update()` for components), or firing events.
-    *   **Return Value**: None.
+    * **Purpose**: Executed *after* the value has been successfully set. Ideal for triggering side effects, updating
+      the UI (e.g., calling `this.update()` for components), or firing events.
+    * **Return Value**: None.
 
 *   **`beforeGetMyConfig(value)`**:
-    *   **Purpose**: Intercepts the value *before* it is returned by the getter. Useful for lazy initialization, computing values on demand, or returning a transformed version of the stored value.
-    *   **Return Value**: Return the `value` that should be returned by the getter.
+    * **Purpose**: Intercepts the value *before* it is returned by the getter. Useful for lazy initialization,
+      computing values on demand, or returning a transformed version of the stored value.
+    * **Return Value**: Return the `value` that should be returned by the getter.
 
-### Overriding Lifecycle Hooks: `super` vs. Full Override
 
-When extending a Neo.mjs class, you often need to customize the behavior of inherited lifecycle hooks (like `afterSet*`, `onConstructed`, etc.). You have two primary approaches:
 
-#### 1. Extending Parent Behavior (Calling `super`)
+## 4. Flexible Configuration of Instances: The `beforeSetInstance` Pattern
 
-This is the most common and recommended approach. By calling `super.methodName(...)`, you ensure that the parent class's implementation of the hook is executed. You can then add your custom logic either before or after the `super` call.
+Neo.mjs offers significant flexibility in how you configure properties that expect an instance of a Neo.mjs class
+(e.g., `store`, `layout`, `controller`). This flexibility is powered by the `Neo.util.ClassSystem.beforeSetInstance`
+utility, which intelligently converts various input types into the required instance.
 
-This approach is crucial for maintaining the framework's intended behavior and ensuring that inherited features continue to function correctly.
+This pattern is commonly used within `beforeSet` lifecycle hooks to ensure that by the time a config property is set,
+it always holds a valid Neo.mjs instance.
+
+You can typically configure such properties using one of three methods:
+
+1.  **A Configuration Object (Plain JavaScript Object):**
+  Provide a plain JavaScript object with the desired properties. Neo.mjs will automatically create an instance of the
+  expected class (e.g., `Neo.data.Store` for the `store` config) using this object as its configuration. This is ideal
+  for inline, simple definitions.
+
+    ```javascript readonly
+    store: { // Neo.mjs will create a Store instance from this config
+        model: { fields: [{name: 'id'}, {name: 'name'}] },
+        data: [{id: 1, name: 'Item 1'}]
+    }
+    ```
+
+2.  **A Class Reference:**
+  Pass a direct reference to the Neo.mjs class. The framework will automatically instantiate this class when the
+  component is created.
+
+    ```javascript readonly
+    import MyCustomStore from './MyCustomStore.mjs';
+
+    // ...
+    store: MyCustomStore // Neo.mjs will create an instance of MyCustomStore
+    ```
+
+3.  **A Pre-created Instance:**
+    Provide an already instantiated Neo.mjs object (typically created using`Neo.create()`). This is useful when you need
+    to share a single instance across multiple components or manage its lifecycle externally.
+
+    ```javascript readonly
+    const mySharedStore = Neo.create(Neo.data.Store, { /* ... */ });
+
+    // ...
+    store: mySharedStore // Pass an already existing Store instance
+    ```
+
+This flexibility allows you to choose the most convenient and appropriate configuration style for your specific use case,
+from quick inline setups to robust, reusable class-based architectures.
+
+### Real-World Example: `Neo.grid.Container`'s `store` config
+
+A prime example of `beforeSetInstance` in action is the `store` config within `Neo.grid.Container`.
+The `beforeSetStore` hook ensures that the `store` property always holds a valid `Neo.data.Store` instance,
+regardless of how it was initially configured.
 
 ```javascript readonly
-import Button from '../../src/button/Base.mjs';
+import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
+import Store           from '../../src/data/Store.mjs';
 
-class MyExtendedButton extends Button {
+class GridContainer extends Neo.container.Base {
     static config = {
-        className: 'My.Extended.Component',
-        // text_ config is inherited from Button.Base
-        // We can set a default value here if needed, or rely on button.Base's default
-        text: 'New Default Text'
+        className: 'Neo.grid.Container',
+        store_   : null // The reactive store config
     }
 
-    // Example: Adding logic after the parent's afterSetText
-    afterSetText(value, oldValue) {
-        //  Add your custom pre-processing logic here
-        super.afterSetText(value, oldValue);
-        console.log(`Custom logic: Button text changed to "${value}"`);
-        // Add your custom post-processing logic here
-    }
-}
-
-export default Neo.setupClass(MyExtendedButton);
-```
-
-#### 2. Completely Overriding Parent Behavior (No `super` Call)
-
-In rare cases, you might want to completely replace the parent class's implementation of a hook. This is achieved by simply omitting the `super` call within your overridden method.
-
-**Caution**: Use this approach with extreme care. You must fully understand the parent's implementation and ensure that your override does not break essential framework functionality or inherited features. This is generally reserved for advanced scenarios where you need full control over the hook's execution.
-
-```javascript readonly
-import Button from '../../src/button/Base.mjs';
-
-class MyFullyOverriddenButton extends Button {
-    static config = {
-        className: 'My.Fully.Overridden.Component',
-        text     : 'New Default Text'
-    }
-
-    // Example: Completely overriding afterSetText
-    afterSetText(value, oldValue) {
-        // No super.afterSetText(value, oldValue); call
-        console.log(`Fully custom logic: Button text changed to "${value}"`);
-        // The parent's afterSetText will NOT be executed
-        // This means that in this case you need to take care on your own to map the text value to the vdom.
-    }
-}
-
-export default Neo.setupClass(MyFullyOverriddenButton);
-```
-
-
-
-```javascript readonly
-class MyHookedClass extends Neo.core.Base {
-    static config = {
-        className: 'My.Hooked.Class',
-        myValue_ : 0
-    }
-
-    beforeSetMyValue(value, oldValue) {
-        if (typeof value !== 'number' || value < 0) {
-            console.warn('myValue must be a non-negative number!');
-            return 0; // Default to 0 if invalid
+    /**
+     * Triggered before the store config gets changed.
+     * @param {Object|Neo.data.Store|null} value
+     * @param {Neo.data.Store}             oldValue
+     * @protected
+     */
+    beforeSetStore(value, oldValue) {
+        if (value) {
+            // This ensures that 'value' is always a Neo.data.Store instance.
+            // It handles plain objects (creating a new Store), class references,
+            // or pre-existing instances.
+            value = ClassSystemUtil.beforeSetInstance(value, Store);
         }
         return value;
     }
 
-    afterSetMyValue(value, oldValue) {
-        console.log(`myValue changed from ${oldValue} to ${value}`);
-        // In a component, you might call this.update() here
-    }
-
-    beforeGetMyValue(value) {
-        // Example: lazy initialization or computed value
-        if (value === 0 && !this._initialized) {
-            console.log('Initializing myValue on first access');
-            this._initialized = true;
-            return 10; // Return a default initial value
-        }
-        return value;
-    }
+    // ... other methods
 }
 
-export default Neo.setupClass(MyHookedClass);
+Neo.setupClass(GridContainer);
 ```
 
-## 4. The Role of `Neo.setupClass()` and the Global `Neo` Namespace
+In this example, `ClassSystemUtil.beforeSetInstance(value, Store)` intelligently processes the `value`:
+*   If `value` is a plain JavaScript object, it creates a new `Neo.data.Store` instance using that object as its config.
+*   If `value` is a `Neo.data.Store` class reference, it instantiates that class.
+*   If `value` is already a `Neo.data.Store` instance, it returns it as is.
 
-When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the framework performs several crucial operations. One of the most significant is to **enhance the global `Neo` namespace** with a reference to your newly defined class.
+This pattern is crucial for providing a flexible yet robust API for configuring complex properties.
 
-This means that after `Neo.setupClass(MyClass)` is executed, your class becomes accessible globally via `Neo.[your.class.name]`, where `[your.class.name]` corresponds to the `className` config you defined (e.g., `Neo.button.Base`, `Neo.form.field.Text`, or your custom `My.Custom.Class`).
+## 5. The Role of `Neo.setupClass()` and the Global `Neo` Namespace
+
+When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the framework performs several crucial operations.
+One of the most significant is to **enhance the global `Neo` namespace** with a reference to your newly defined class.
+
+This means that after `Neo.setupClass(MyClass)` is executed, your class becomes accessible globally via
+`Neo.[your.class.name]`, where `[your.class.name]` corresponds to the `className` config you defined (e.g.,
+`Neo.button.Base`, `Neo.form.field.Text`, or your custom `My.Custom.Class`).
 
 **Implications for Class Extension and Usage:**
 
-*   **Global Accessibility**: You can refer to any framework class (or your own custom classes after they've been set up) using their full `Neo` namespace path (e.g., `Neo.button.Base`, `Neo.container.Base`) anywhere in your application code, even without an explicit ES module import for that specific class.
-*   **Convenience vs. Best Practice**: While `extends Neo.button.Base` might technically work without an `import Button from '...'`, it is generally **not recommended** for application code. Explicit ES module imports (e.g., `import Button from '../button/Base.mjs';`) are preferred because they:
-    *   **Improve Readability**: Clearly show the dependencies of your module.
-    *   **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
-    *   **Ensure Consistency**: Promote a consistent and predictable coding style.
-*   **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the framework itself for its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
+* **Global Accessibility**: You can refer to any framework class (or your own custom classes after they've been set
+  up) using their full `Neo` namespace path (e.g., `Neo.button.Base`, `Neo.container.Base`) anywhere in your
+  application code, even
+  without an explicit ES module import for that specific class.
+* **Convenience vs. Best Practice**: While `extends Neo.button.Base` might technically work without an
+  `import Button from '...'`, it is generally **not recommended** for application code. Explicit ES module imports
+  (e.g., `import Button from '../button/Base.mjs';`) are preferred because they:
+  * **Improve Readability**: Clearly show the dependencies of your module.
+  * **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
+  * **Ensure Consistency**: Promote a consistent and predictable coding style.
+* **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the framework itself for
+  its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
-Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for its configuration-driven approach.
+Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for
+its configuration-driven approach.
 
 ## 5. Practical Examples: Models, Stores, and Controllers
 
@@ -180,7 +203,10 @@ The principles of class extension apply universally across all Neo.mjs class typ
 
 ### Extending `Neo.data.Model`
 
-Models define the structure and behavior of individual data records. While reactive configs can be used for class-level properties of a Model (e.g., a global setting for all products), properties that vary per record (like `price` or `discount`) should be defined as fields within the `fields` array. Neo.mjs provides `convert` and `calculate` functions directly on field definitions for per-record logic.
+Models define the structure and behavior of individual data records. While reactive configs can be used for class-level
+properties of a Model (e.g., a global setting for all products), properties that vary per record (like `price` or
+`discount`) should be defined as fields within the `fields` array. Neo.mjs provides `convert` and `calculate`
+functions directly on field definitions for per-record logic.
 
 ```javascript readonly
 import Model from '../../src/data/Model.mjs';
@@ -328,4 +354,6 @@ Neo.setupClass(MyCustomController);
 
 ## Conclusion
 
-The class extension mechanism, coupled with the reactive config system and `Neo.setupClass()`, forms the backbone of development in Neo.mjs. By mastering these principles, you can create highly modular, maintainable, and powerful applications that seamlessly integrate with the framework's core.
+The class extension mechanism, coupled with the reactive config system and `Neo.setupClass()`, forms the backbone of
+development in Neo.mjs. By mastering these principles, you can create highly modular, maintainable, and powerful
+applications that seamlessly integrate with the framework's core.
