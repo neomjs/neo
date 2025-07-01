@@ -470,9 +470,10 @@ referencing the store by its key within the `stores` object (e.g., `stores.mySto
 ```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
+import GridContainer from '../grid/Container.mjs';
+import Label         from '../component/Label.mjs';
 import StateProvider from '../state/Provider.mjs';
 import Store         from '../data/Store.mjs';
-import GridContainer from '../grid/Container.mjs';
 
 class MyDataStore extends Store {
     static config = {
@@ -490,14 +491,22 @@ class MyDataStore extends Store {
         ]
     }
 }
-Neo.setupClass(MyDataStore);
+MyDataStore = Neo.setupClass(MyDataStore);
 
 class MainViewStateProvider extends StateProvider {
     static config = {
         className: 'Guides.vm7.MainViewStateProvider',
+        
+        data: {
+            myStoreCount: 0
+        },
+        
         stores: {
             // Define a store using a class reference
-            mySharedStore: MyDataStore,
+            mySharedStore: {
+                module   : MyDataStore,
+                listeners: {countChange: 'onMyStoreCountChange'}
+            },
             // Define another store using an inline configuration
             anotherStore: {
                 module: Store,
@@ -513,6 +522,10 @@ class MainViewStateProvider extends StateProvider {
                 ]
             }
         }
+    }
+
+    onMyStoreCountChange(data) {
+        this.data.myStoreCount = data.value // Reactive
     }
 }
 MainViewStateProvider = Neo.setupClass(MainViewStateProvider);
@@ -532,17 +545,27 @@ class MainView extends Container {
                 store: 'stores.mySharedStore'
             },
             columns: [
-                {text: 'ID',   dataField: 'id'},
+                {text: 'Id',   dataField: 'id'},
                 {text: 'Name', dataField: 'name', flex: 1}
             ]
         }, {
-            module: Button,
+            module: Container,
             flex  : 'none',
-            text  : 'Add Item to Store',
-            handler() {
-                const store = this.getStateProvider().getStore('mySharedStore');
-                store.add({id: store.getCount() + 1, name: 'New Item'})
-            }
+            layout: {ntype: 'hbox', align: 'stretch'},
+            items: [{
+                module: Label,
+                style : {margin: 'auto'},
+                bind: {
+                    text: data => `Count: ${data.myStoreCount}`
+                }
+            }, {
+                module: Button,
+                text  : 'Add Item to Store',
+                handler() {
+                    const store = this.getStateProvider().getStore('mySharedStore');
+                    store.add({id: store.getCount() + 1, name: 'New Item'})
+                }
+            }]
         }]
     }
 }
