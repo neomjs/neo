@@ -17,7 +17,92 @@ The `Neo.collection.Base` class is the foundation for all collections in Neo.mjs
 -   **`map_`**: A `Map` object that stores a key-value pair for each item, allowing for fast lookups by a unique `keyProperty`.
 -   **`keyProperty`**: By default, this is set to `'id'`, meaning each item in the collection should have a unique `id` property. This is crucial for the `map_` to function correctly.
 -   **`autoSort`**: If set to `true`, the collection will automatically sort its items when new ones are added or inserted, based on the configured sorters.
--   **`sourceId_`**: Collections can be linked to a source collection. Changes in the source collection will be reflected in the dependent collection. This is particularly useful for creating filtered or sorted views of a larger dataset without duplicating the data.
+-   **`sourceId_`**: Collections can be linked to a source collection. This is a powerful feature where a collection automatically mirrors the data mutations (additions, removals, reordering) of another collection. This is particularly useful for creating filtered or sorted views of a larger dataset without duplicating the data.
+
+### The `sourceId` Concept and Real-World Use Cases
+
+The `sourceId` configuration allows you to create "derived" or "linked" collections that automatically stay in sync with a "source" collection. This is achieved by the dependent collection listening to the `mutate` event of its source. Any changes to the source collection's items are automatically propagated to the dependent collection.
+
+**Real-World Use Cases:**
+
+1.  **Master-Detail Views:** Display a master list (source collection) and a filtered or sorted subset of that data in a detail view (dependent collection). Changes in the master list automatically update the detail view.
+2.  **Multiple Synchronized Components:** On a dashboard, multiple widgets might display different views (filtered, sorted, or transformed) of the same underlying dataset. A central source collection ensures all widgets remain consistent.
+3.  **Data Transformation Pipelines:** Chain collections together, where the output of one collection (as a source) becomes the input for the next, allowing for complex data processing flows.
+
+This mechanism significantly reduces boilerplate code for data synchronization and ensures data consistency across your application.
+
+**Advanced Use Case: Grid and ComboBox with Shared Data**
+
+Consider a scenario where you have a large dataset (e.g., a list of products) that needs to be displayed in a grid, and a subset of that data needs to be available in a combobox picker list.
+
+If you were to use a single collection for both, typing into the combobox's input field to filter its options would inadvertently filter the data displayed in your grid, which is typically not the desired behavior.
+
+The `sourceId` concept provides an elegant solution:
+
+1.  **Master Store (Collection)**: Create a primary `Neo.collection.Base` instance (acting as your data store) that fetches the complete product list from a backend. This collection is not directly bound to any UI component.
+2.  **Grid Store (Child Collection)**: Create a second `Neo.collection.Base` instance for your grid. Set its `sourceId` to the ID of your master store. This grid store will automatically receive all data and mutations from the master. It can then apply its own sorting or filtering (e.g., to display only "in-stock" items) without affecting the master or other child collections.
+3.  **ComboBox Store (Child Collection)**: Create a third `Neo.collection.Base` instance for your combobox's picker list. Set its `sourceId` to the ID of your master store. This combobox store can then apply its own filters (e.g., based on user input in the combobox field) and sorters, completely independently of the grid store or the master store.
+
+```javascript
+import Collection from '../../src/collection/Base.mjs';
+import Filter     from '../../src/collection/Filter.mjs';
+
+// 1. Master Store: Fetches data from backend (simulated)
+const masterProductsStore = Neo.create(Collection, {
+    id: 'masterProductsStore',
+    items: [
+        {id: 1, name: 'Laptop', category: 'Electronics', price: 1200, inStock: true},
+        {id: 2, name: 'Mouse', category: 'Electronics', price: 25, inStock: true},
+        {id: 3, name: 'Keyboard', category: 'Electronics', price: 75, inStock: false},
+        {id: 4, name: 'Monitor', category: 'Electronics', price: 300, inStock: true},
+        {id: 5, name: 'Desk Chair', category: 'Furniture', price: 150, inStock: true},
+        {id: 6, name: 'Webcam', category: 'Electronics', price: 50, inStock: false}
+    ]
+});
+
+// 2. Grid Store: Displays all in-stock electronics, sorted by price
+const gridStore = Neo.create(Collection, {
+    id: 'gridStore',
+    sourceId: 'masterProductsStore', // Linked to master
+    filters: [
+        {property: 'inStock', value: true},
+        {property: 'category', value: 'Electronics'}
+    ],
+    sorters: [
+        {property: 'price', direction: 'ASC'}
+    ]
+});
+
+// 3. ComboBox Store: Filters based on user input (e.g., 'web')
+const comboBoxStore = Neo.create(Collection, {
+    id: 'comboBoxStore',
+    sourceId: 'masterProductsStore', // Linked to master
+    filters: [
+        // This filter would be dynamically updated by the combobox input
+        {property: 'name', operator: 'like', value: 'web'}
+    ]
+});
+
+console.log('Master Store Count:', masterProductsStore.getCount()); // Output: 6
+console.log('Grid Store Count (in-stock electronics):', gridStore.getCount()); // Output: 3 (Laptop, Mouse, Monitor)
+console.log('ComboBox Store Count (name like "web"):', comboBoxStore.getCount()); // Output: 1 (Webcam)
+
+// Simulate adding a new product to the master store
+masterProductsStore.add({id: 7, name: 'Headphones', category: 'Electronics', price: 100, inStock: true});
+
+console.log('Master Store Count after add:', masterProductsStore.getCount()); // Output: 7
+console.log('Grid Store Count after add (Headphones match filters):', gridStore.getCount()); // Output: 4
+console.log('ComboBox Store Count after add (Headphones do not match "web"):', comboBoxStore.getCount()); // Output: 1
+
+// Simulate changing the combobox filter
+comboBoxStore.filters[0].value = 'key';
+console.log('ComboBox Store Count (name like "key"):', comboBoxStore.getCount()); // Output: 1 (Keyboard)
+console.log('Grid Store Count (still unaffected):', gridStore.getCount()); // Output: 4
+```
+
+This example demonstrates how `sourceId` enables powerful data management patterns, allowing different parts of your application to work with synchronized data while maintaining their own independent views.
+
+
 -   **`observable`**: Collections are observable, meaning they can emit events when their data changes (e.g., `mutate`, `filter`, `sort`).
 
 ### Example: Basic Collection Usage
