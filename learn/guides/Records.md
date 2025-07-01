@@ -98,7 +98,9 @@ console.log(userRecord['address.street']); // Output: 456 Oak Ave
 userRecord['address.city'] = 'Newville';
 console.log(userRecord['address.city']); // Output: Newville
 
-// Accessing the raw internal data (use with caution, direct manipulation bypasses reactivity)
+// Accessing the raw internal data (DO NOT USE FOR REACTIVE UPDATES).
+// Direct modification of the data holder object will NOT trigger `recordChange` events or update dirty tracking.
+// For a safe, disconnected copy of the record's data, prefer `record.toJSON()`.
 const rawAddress = userRecord[Symbol.for('data')].address;
 console.log(rawAddress.street); // Output: 456 Oak Ave
 
@@ -115,7 +117,7 @@ Records are inherently reactive. When you change a field's value, the setter def
 -   **`isModifiedField(fieldName)`**: A method to check if a specific field has been modified.
 -   **`set(fields)`**: Bulk-update multiple fields and trigger a single change event. This method is particularly powerful for nested objects: it performs a **deep merge** of the provided `fields` object with the record's existing data. This means you can update specific properties within a nested object without overwriting the entire nested object. For example, `myRecord.set({ address: { street: 'New Street' } })` will update only the `street` property within `address`, leaving other `address` properties untouched. This contrasts with direct assignment to a nested object, which would replace the entire nested object.
 -   **`setSilent(fields)`**: Bulk-update multiple fields without triggering a change event.
--   **`reset(fields)`**: Resets the record's fields to their original values or to new provided values, and updates the original state.
+-   **`toJSON()`**: A method available on every Record instance that returns a plain JavaScript object representing the record's current data. Crucially, it returns a **structured clone** of the internal data. This ensures that any modifications made to the object returned by `toJSON()` will **not** affect the original record and will **not** trigger `recordChange` events, providing a safe, disconnected snapshot for serialization or external processing.
 
 ### Bad Practice: Overwriting Nested Objects with Direct Assignment
 
@@ -168,7 +170,7 @@ console.log(userRecord.isModified); // Output: false
 
 -   **`store.add(data)`**: Converts data into Records and adds them to the store.
 -   **`store.model`**: The `Neo.data.Model` instance associated with the store, defining the structure of its records.
--   **`recordChange` event**: Stores emit a `recordChange` event when a field of one of its records is modified. This allows UI components (like Grids) to efficiently update only the changed cells.
+-   **`recordChange` event**: Stores emit a `recordChange` event when a field of one of its records is modified. This allows UI components (like Grids) to efficiently update only the changed cells. For a real-world example, see how `Neo.grid.Body`'s `onStoreRecordChange` method consumes this event to perform targeted cell updates.
 
 ### Example: Store Managing Records
 
@@ -194,6 +196,20 @@ anna.email = 'anna.brown@example.com';
 
 console.log(userStore.get(201).isModified); // Output: true
 ```
+
+## The Reactivity Masterpiece: Collections and Records in Harmony
+
+The true power of Neo.mjs's data layer emerges when `Neo.collection.Base` (used by `Neo.data.Store`) and `Neo.data.Model` (Records) work together. This combination creates a highly reactive and efficient system for managing structured, often tabular, application data.
+
+`Neo.data.Store` acts as a specialized `Neo.collection.Base` that manages a collection of `Neo.data.Model` instances (Records). This means you benefit from two layers of reactivity:
+
+1.  **Collection-Level Reactivity**:
+    *   When records are added to, removed from, or reordered within a `Store`, the `Store` (as a `Neo.collection.Base`) fires `mutate` events. This allows UI components to react to structural changes in the dataset (e.g., a new row appearing in a grid, or a row being deleted).
+
+2.  **Record-Level Reactivity**:
+    *   When a field *within an individual Record* changes its value (e.g., `myUserRecord.firstName = 'New Name'`), the Record itself (via the `RecordFactory`'s generated setters) notifies its owning `Store` (if the Model has a `storeId` pointing back to the Store). This triggers the `recordChange` event on the `Store`. This allows UI components to react to granular changes within a data item (e.g., updating a single cell in a grid without re-rendering the entire row or grid).
+
+This dual-layered reactivity is a cornerstone of Neo.mjs's performance. It enables highly optimized UI updates, as components can precisely react to only the changes that affect them, avoiding costly full re-renders.
 
 ## Conclusion
 
