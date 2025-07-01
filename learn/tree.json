@@ -45,6 +45,7 @@
         {"name": "Mixins",                                           "parentId": "InDepth",                            "id": "guides.Mixins", "hidden": true},
         {"name": "Collections",                                      "parentId": "InDepth",                            "id": "guides.Collections"},
         {"name": "Records",                                          "parentId": "InDepth",                            "id": "guides.Records"},
+        {"name": "Grids",                                            "parentId": "InDepth",                            "id": "guides.Grids"},
     {"name": "Tutorials",                                            "parentId": null,                "isLeaf": false, "id": "Tutorials",  "collapsed": true},
         {"name": "Rock Scissors Paper",                              "parentId": "Tutorials",                          "id": "tutorials.RSP", "hidden": true},
         {"name": "Earthquakes",                                      "parentId": "Tutorials",                          "id": "tutorials.Earthquakes"},
