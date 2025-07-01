@@ -202,7 +202,7 @@ When a collection is filtered, the original, unfiltered set of items is preserve
 
 ### Reactivity of Filters
 
-Each `Neo.collection.Filter` is a Neo instance, and its configuration properties are reactive. This means that changes to the `filters` array or to properties of individual `Filter` instances within the array will automatically trigger a re-filter of the collection.
+Each `Neo.collection.Filter` is a Neo instance, and its configuration properties are reactive. This means that changes to the `filters` array or to properties of individual `Filter` instances within the array will automatically trigger a re-filter of the collection. **It's important to note that simply mutating the `filters` array (e.g., using `push()`, `pop()`, `splice()`) will not trigger reactivity. For changes to the array's contents to take effect, you must reassign the `filters` property (e.g., `collection.filters = [...collection.filters];`) or modify properties of existing filter instances.**
 
 ### Example: Filtering a Collection
 
@@ -235,6 +235,8 @@ products.filters.push({
     operator: 'like',
     value: 'o'
 });
+// Reassign the filters array to trigger reactivity
+products.filters = [...products.filters];
 
 console.log(products.getCount()); // Output: 1 (Monitor)
 
@@ -265,7 +267,7 @@ The `Neo.collection.Base` class has a `sorters_` config which accepts an array o
 
 ### Reactivity of Sorters
 
-Each `Neo.collection.Sorter` is a Neo instance, and its configuration properties are reactive. This means that changes to the `sorters` array or to properties of individual `Sorter` instances within the array will automatically trigger a re-sort of the collection.
+Each `Neo.collection.Sorter` is a Neo instance, and its configuration properties are reactive. This means that changes to the `sorters` array or to properties of individual `Sorter` instances within the array will automatically trigger a re-sort of the collection. **It's important to note that simply mutating the `sorters` array (e.g., using `push()`, `pop()`, `splice()`) will not trigger reactivity. For changes to the array's contents to take effect, you must reassign the `sorters` property (e.g., `collection.sorters = [...collection.sorters];`) or modify properties of existing sorter instances.**
 
 ### Example: Sorting a Collection
 
