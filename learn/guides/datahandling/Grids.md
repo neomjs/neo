@@ -69,7 +69,7 @@ grid's configuration. The grid automatically creates a `Neo.data.Store` instance
 store: {
     model: {
         fields: [
-            {name: 'id', type: 'Number'},
+            {name: 'id',   type: 'Number'},
             {name: 'name', type: 'String'}
         ]
     },
@@ -159,8 +159,8 @@ class AppStateProvider extends Provider {
         stores: {
             users: {
                 module: Store,
-                model: { fields: ['id', 'name'] },
-                data: [{id: 1, name: 'Alice'}, {id: 2, name: 'Bob'}]
+                model : { fields: ['id', 'name'] },
+                data  : [{id: 1, name: 'Alice'}, {id: 2, name: 'Bob'}]
             }
         }
     }
@@ -180,8 +180,8 @@ class MainView extends Viewport {
                 store: 'stores.users'
             },
             columns: [
-                {text: 'ID',    dataField: 'id'},
-                {text: 'Name',  dataField: 'name'}
+                {text: 'ID',   dataField: 'id'},
+                {text: 'Name', dataField: 'name'}
             ]
         }]
     }
@@ -443,13 +443,17 @@ store: {
 
 ### Programmatic Sorting
 
-You can also sort the store programmatically using the `sort` method of the store instance.
+You can also sort the store programmatically using one of the following 2 options:
 
 ```javascript readonly
-myGrid.getStore().sort({
-    property : 'age',
-    direction: 'DESC'
-});
+// Option 1: Directly modifying the existing sorter
+myGrid.getSorter('name').direction = 'DESC';
+
+// Option 2: Assigning a new value to the sorters config
+myGrid.sorters = [{
+    property : 'name',
+    direction: 'DESC' 
+}];
 ```
 
 ## Filtering
