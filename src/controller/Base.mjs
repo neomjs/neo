@@ -111,16 +111,14 @@ class Controller extends Base {
     }
 
     /**
-     * Lifecycle method called after the controller has been constructed.
-     * It handles the initial routing based on the current URL hash or `defaultHash`.
+     * @returns {Promise<void>}
      */
-    async onConstructed() {
+    async initAsync() {
+        await super.initAsync();
+
         let me                      = this,
             {defaultHash, windowId} = me,
             currentHash             = HashHistory.first(windowId);
-
-        // get outside the construction chain => a related cmp & vm has to be constructed too
-        await me.timeout(1);
 
         if (currentHash) {
             if (currentHash.windowId === windowId) {
