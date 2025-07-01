@@ -29,7 +29,7 @@ class MainView extends Viewport {
         layout   : {ntype: 'fit'},
         items    : [{
             module: GridContainer,
-            store : Neo.create(Store, {
+            store : { // Inline store configuration
                 model: {
                     fields: [
                         {name: 'firstname', type: 'String'},
@@ -40,7 +40,7 @@ class MainView extends Viewport {
                     {firstname: 'Tobias', lastname: 'Uhlig'},
                     {firstname: 'Rich',   lastname: 'Waters'}
                 ]
-            }),
+            },
             columns: [
                 {text: 'Firstname', dataField: 'firstname'},
                 {text: 'Lastname',  dataField: 'lastname'}
