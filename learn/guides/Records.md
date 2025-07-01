@@ -23,50 +23,30 @@ A Record in Neo.mjs is an instance of a dynamically generated class that represe
 -   **Dirty Tracking**: Easily determine if a record or specific fields within it have been modified from their original state.
 -   **Integration with Stores**: Records are designed to work seamlessly with `Neo.data.Store` for managing collections of data.
 
-## `Neo.data.Model`: Defining Your Records
+## `Neo.data.Model`: The Blueprint for Your Records
 
-`Neo.data.Model` is the blueprint for your Records. It defines the fields, their types, default values, and any custom logic for data processing or validation. Each `Neo.data.Model` is a class that extends `Neo.core.Base`.
+`Neo.data.Model` is the **central blueprint** for your Records. It defines the complete structure, data types, default values, and any custom logic for data processing or validation. Every Record instance is an embodiment of its associated Model. Each `Neo.data.Model` is a class that extends `Neo.core.Base`.
 
 ### Key `Neo.data.Model` Configurations:
 
--   **`fields`**: An array of objects, where each object defines a field of the record. Each field can have properties like:
-    -   `name` (String, required): The name of the field.
-    -   `type` (String): The data type (e.g., `'string'`, `'number'`, `'boolean'`, `'date'`, `'int'`, `'float'`, `'html'`). Neo.mjs provides automatic type conversion.
-    -   `defaultValue` (Any): A default value for the field if not provided.
-    -   `mapping` (String): A dot-separated string to map a field from a nested data structure (e.g., `'address.street'`).
-    -   `calculate` (Function): A function to calculate the field's value based on other fields.
-    -   `convert` (Function): A custom function to convert the field's value.
-    -   `nullable` (Boolean): Whether the field can be `null`.
-    -   `maxLength` (Number): Maximum length for string types.
-    -   `minLength` (Number): Minimum length for string types.
--   **`keyProperty`**: (String, default: `'id'`) The field name that uniquely identifies each record. This is crucial for `Neo.data.Store`.
+-   **`fields`**: An array of objects, where each object defines a field of the record. This is where you specify the data schema. Each field can have properties like:
+    -   `name` (String, required): The unique identifier for the field within the record.
+    -   `type` (String): The data type (e.g., `'string'`, `'number'`, `'boolean'`, `'date'`, `'int'`, `'float'`, `'html'`). Neo.mjs provides automatic type conversion based on this type.
+    -   `defaultValue` (Any): A value that will be assigned to the field if it's not provided when creating a record.
+    -   `mapping` (String): A dot-separated string used to extract the field's value from a nested path within the raw data received (e.g., `'address.street'` would map to `record.address.street`).
+    -   `calculate` (Function): A powerful function that defines a **computed property**. The value of this field is dynamically calculated based on other fields in the record. When the source fields change, the calculated field automatically updates.
+    -   `convert` (Function): A custom function to perform more complex data transformations or validations on the field's value during assignment.
+    -   `nullable` (Boolean): If `false`, the field cannot be `null`.
+    -   `maxLength` (Number): Maximum length for string types. Values exceeding this may trigger a warning.
+    -   `minLength` (Number): Minimum length for string types. Values falling below this may trigger a warning.
+    -   **Nested Fields**: A field can itself contain a `fields` array, allowing you to define complex, hierarchical data structures directly within your model (e.g., an `address` field with nested `street`, `city`, `zip` fields).
+-   **`keyProperty`**: (String, default: `'id'`) The field name that uniquely identifies each record within a `Neo.data.Store`. This is crucial for efficient lookups and operations.
 -   **`trackModifiedFields`**: (Boolean, default: `false`) If `true`, the record will track changes to individual fields, allowing you to determine which fields have been modified. **Be aware that enabling this will cause the record to store a copy of its original data, effectively doubling the memory footprint for each record. Only enable this feature if you specifically require granular dirty tracking.**
 
-### Example: Defining a User Model
+### Dynamic Model Fields
 
-```javascript
-import Model from '../../src/data/Model.mjs';
+While typically defined once, `Neo.data.Model` instances can have their `fields` configuration changed at runtime. If the `fields` config of an already created `Model` instance is modified, `Neo.data.RecordFactory` will dynamically update the associated Record class. This allows for advanced scenarios where your data schema might evolve during the application's lifecycle.
 
-class UserModel extends Model {
-    static config = {
-        className: 'UserModel',
-        fields: [
-            {name: 'id', type: 'int'},
-            {name: 'firstName', type: 'string', defaultValue: ''},
-            {name: 'lastName', type: 'string', defaultValue: ''},
-            {name: 'fullName', type: 'string', calculate: data => `${data.firstName} ${data.lastName}`},
-            {name: 'email', type: 'string', nullable: false},
-            {name: 'age', type: 'int', defaultValue: 0},
-            {name: 'isActive', type: 'boolean', defaultValue: true},
-            {name: 'createdAt', type: 'date', defaultValue: new Date()}
-        ],
-        keyProperty: 'id',
-        trackModifiedFields: true
-    }
-}
-
-Neo.setupClass(UserModel);
-```
 
 ## `Neo.data.RecordFactory`: The Engine Behind Records
 
