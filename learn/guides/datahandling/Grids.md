@@ -112,6 +112,93 @@ store: mySharedStore
 Regardless of the method chosen, the grid's `beforeSetStore` hook (as seen in `Neo.grid.Container.mjs`) ensures that the
 `store` property always resolves to a valid `Neo.data.Store` instance, providing a consistent and robust API.
 
+### 4. Centralized Store Management with `Neo.state.Provider`
+
+For more complex applications, `Neo.state.Provider` offers a powerful way to manage multiple stores centrally and share
+them across various components using the binding system. This approach promotes better organization and reusability of
+your data.
+
+First, define your stores within a `Neo.state.Provider`'s `stores` config:
+
+```javascript readonly
+import Provider from '../state/Provider.mjs';
+import Store    from '../data/Store.mjs';
+
+class AppStateProvider extends Provider {
+    static config = {
+        className: 'AppStateProvider',
+        stores: {
+            users: {
+                module: Store,
+                model : {fields: ['id', 'name']},
+                data  : [{id: 1, name: 'Alice'}, {id: 2, name: 'Bob'}]
+            },
+            products: {
+                module: Store,
+                model : {fields: ['id', 'item', 'price']},
+                data  : [{id: 1, item: 'Laptop', price: 1200}, {id: 2, item: 'Mouse', price: 25}]
+            }
+        }
+    }
+}
+Neo.setupClass(AppStateProvider);
+```
+
+Then, in your `GridContainer` (or any other component), you can bind to these stores using the `bind` config. The
+`Neo.state.Provider` will automatically inject the correct store instance.
+
+```javascript live-preview
+import GridContainer from '../grid/Container.mjs';
+import Provider      from '../state/Provider.mjs';
+import Store         from '../data/Store.mjs';
+import Viewport      from '../container/Viewport.mjs';
+
+class AppStateProvider extends Provider {
+    static config = {
+        className: 'AppStateProvider',
+        stores: {
+            users: {
+                module: Store,
+                model: { fields: ['id', 'name'] },
+                data: [{id: 1, name: 'Alice'}, {id: 2, name: 'Bob'}]
+            }
+        }
+    }
+}
+Neo.setupClass(AppStateProvider);
+
+class MainView extends Viewport {
+    static config = {
+        className: 'MainView',
+        layout   : {ntype: 'fit'},
+        // Attach the state provider to the viewport
+        stateProvider: AppStateProvider,
+        items    : [{
+            module: GridContainer,
+            // Bind the grid's store config to the 'users' store defined in the state provider
+            bind: {
+                store: 'stores.users'
+            },
+            columns: [
+                {text: 'ID',    dataField: 'id'},
+                {text: 'Name',  dataField: 'name'}
+            ]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+
+This pattern is particularly beneficial for:
+* **Centralized State:** All application-level stores are defined in one place, making them easy to locate and manage.
+* **Reusability:** Stores can be easily shared and reused across different parts of your application without manual
+*   instantiation and passing.
+* **Decoupling:** Components become more decoupled from direct store instantiation, relying instead on the state provider
+  to inject the necessary data.
+* **Testability:** Centralized stores can be more easily mocked or swapped for testing purposes.
+
+## Columns
+
 ## Sorting
 
 Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the
@@ -143,10 +230,10 @@ class MainView extends Viewport {
                     ]
                 },
                 data: [
-                    {name: 'Alice', age: 30},
-                    {name: 'Bob',   age: 24},
+                    {name: 'Alice',   age: 30},
+                    {name: 'Bob',     age: 24},
                     {name: 'Charlie', age: 35},
-                    {name: 'David', age: 28}
+                    {name: 'David',   age: 28}
                 ]
             },
             columns: [
@@ -233,7 +320,7 @@ Given a record like:
   "id": 1,
   "user": {
     "firstname": "John",
-    "lastname": "Doe"
+    "lastname" : "Doe"
   }
 }
 ```
@@ -267,19 +354,19 @@ class MainView extends Viewport {
             store            : {
                 model: {
                     fields: [
-                        {name: 'city', type: 'String'},
+                        {name: 'city',       type: 'String'},
                         {name: 'population', type: 'Number'}
                     ]
                 },
                 data: [
-                    {city: 'New York', population: 8419000},
+                    {city: 'New York',    population: 8419000},
                     {city: 'Los Angeles', population: 3980000},
-                    {city: 'Chicago', population: 2716000},
-                    {city: 'Houston', population: 2320000}
+                    {city: 'Chicago',     population: 2716000},
+                    {city: 'Houston',     population: 2320000}
                 ]
             },
             columns: [
-                {text: 'City', dataField: 'city', filterable: true},
+                {text: 'City',       dataField: 'city',       filterable: true},
                 {text: 'Population', dataField: 'population', filterable: true}
             ]
         }]
