@@ -126,10 +126,9 @@ class MainContainerController extends Controller {
      * @param {Object} data
      * @param {String} data.itemId
      */
-    onRouteLearnItem(data) {
+    onRouteLearnItem({itemId}) {
         let stateProvider = this.getStateProvider(),
-            store         = stateProvider.getStore('contentTree'),
-            itemId        = data.itemId;
+            store         = stateProvider.getStore('contentTree');
 
         if (store.getCount() > 0) {
             stateProvider.data.currentPageRecord = store.get(itemId)
