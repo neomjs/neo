@@ -83,6 +83,7 @@ When you create a new Record (typically via a `Neo.data.Store` or directly using
 4.  Initializes dirty tracking if `trackModifiedFields` is enabled in the Model.
 
 You generally won't interact directly with `RecordFactory` unless you're creating records outside of a `Store`.
+In most real-world scenarios, when you add plain JavaScript objects to a `Neo.data.Store` or load JSON data from a backend into a `Store`, the `Store` automatically leverages `RecordFactory` to convert each item into a reactive Record. This means developers will very rarely need to use `RecordFactory` manually.
 
 ### Example: Creating a Record Directly
 
