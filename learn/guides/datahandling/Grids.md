@@ -52,7 +52,138 @@ MainView = Neo.setupClass(MainView);
 ```
 
 In this example, we create a simple grid with two columns. The `dataField` in each column configuration maps to a
-field in the store's model. You can further customize the grid's behavior and appearance by providing `bodyConfig` and `headerToolbarConfig`.
+field in the store's model. You can further customize the grid's behavior and appearance
+by providing `bodyConfig` and `headerToolbarConfig`.
+
+## Integrating with Stores
+
+The `store` config is central to the `Neo.grid.Container`, as it provides the data to be displayed.
+You have several flexible ways to define and provide a store:
+
+### 1. Inline Store Configuration (Plain JavaScript Object)
+
+This is the most common approach for simple grids, where the store's model and data are defined directly within the
+grid's configuration. The grid automatically creates a `Neo.data.Store` instance from this object.
+
+```javascript readonly
+store: {
+    model: {
+        fields: [
+            {name: 'id', type: 'Number'},
+            {name: 'name', type: 'String'}
+        ]
+    },
+    data: [
+        {id: 1, name: 'Item 1'},
+        {id: 2, name: 'Item 2'}
+    ]
+}
+```
+
+### 2. Store Class Reference
+
+For more complex data handling or reusable store logic, you can define a separate `Neo.data.Store` class and provide a
+reference to it. The grid will then instantiate this class.
+
+```javascript readonly
+import MyCustomStore from './MyCustomStore.mjs'; // Assuming MyCustomStore extends Neo.data.Store
+
+// ...
+store: MyCustomStore
+```
+
+### 3. Pre-created Store Instance
+
+If you need to share a single store instance across multiple grids or manage its lifecycle externally, you can create
+the store instance beforehand and pass it directly to the grid.
+
+```javascript readonly
+import Store from '../data/Store.mjs';
+
+const mySharedStore = Neo.create(Store, {
+    model: { /* ... */ },
+    data: [ /* ... */ ]
+});
+
+// ...
+store: mySharedStore
+```
+
+Regardless of the method chosen, the grid's `beforeSetStore` hook (as seen in `Neo.grid.Container.mjs`) ensures that the
+`store` property always resolves to a valid `Neo.data.Store` instance, providing a consistent and robust API.
+
+## Sorting
+
+Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the
+grid's underlying `Neo.data.Store`.
+
+### Enabling Sorting
+
+To enable sorting for a column, ensure the `sortable` config is set to `true` on the `Neo.grid.Container` (which is its
+default value). Then, simply click on a column header to sort the data by that column. Clicking again will reverse the
+sort direction.
+
+```javascript live-preview
+import GridContainer from '../grid/Container.mjs';
+import Store         from '../data/Store.mjs';
+import Viewport      from '../container/Viewport.mjs';
+
+class MainView extends Viewport {
+    static config = {
+        className: 'MainView',
+        layout   : {ntype: 'fit'},
+        items    : [{
+            module: GridContainer,
+            sortable: true, // Default is true, but explicitly shown here
+            store : {
+                model: {
+                    fields: [
+                        {name: 'name', type: 'String'},
+                        {name: 'age',  type: 'Number'}
+                    ]
+                },
+                data: [
+                    {name: 'Alice', age: 30},
+                    {name: 'Bob',   age: 24},
+                    {name: 'Charlie', age: 35},
+                    {name: 'David', age: 28}
+                ]
+            },
+            columns: [
+                {text: 'Name', dataField: 'name'},
+                {text: 'Age',  dataField: 'age'}
+            ]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+
+### Initial Sorting
+
+You can define an initial sort order for your store using the `sorters` config.
+
+```javascript readonly
+store: {
+    model: { /* ... */ },
+    data: [ /* ... */ ],
+    sorters: [{
+        property : 'name',
+        direction: 'ASC' // 'ASC' for ascending, 'DESC' for descending
+    }]
+}
+```
+
+### Programmatic Sorting
+
+You can also sort the store programmatically using the `sort` method of the store instance.
+
+```javascript readonly
+myGrid.getStore().sort({
+    property : 'age',
+    direction: 'DESC'
+});
+```
 
 ## Columns
 
@@ -116,6 +247,206 @@ columns: [
 ```
 The `examples/grid/nestedRecordFields` example provides a live demonstration of this feature.
 
+### Header Filters
+
+Grids can include header filters, allowing users to filter data directly from the column headers. To enable this feature,
+set the `showHeaderFilters` config to `true` on the `Neo.grid.Container`.
+
+```javascript live-preview
+import GridContainer from '../grid/Container.mjs';
+import Store         from '../data/Store.mjs';
+import Viewport      from '../container/Viewport.mjs';
+
+class MainView extends Viewport {
+    static config = {
+        className: 'MainView',
+        layout   : {ntype: 'fit'},
+        items    : [{
+            module           : GridContainer,
+            showHeaderFilters: true, // Enable header filters
+            store            : {
+                model: {
+                    fields: [
+                        {name: 'city', type: 'String'},
+                        {name: 'population', type: 'Number'}
+                    ]
+                },
+                data: [
+                    {city: 'New York', population: 8419000},
+                    {city: 'Los Angeles', population: 3980000},
+                    {city: 'Chicago', population: 2716000},
+                    {city: 'Houston', population: 2320000}
+                ]
+            },
+            columns: [
+                {text: 'City', dataField: 'city', filterable: true},
+                {text: 'Population', dataField: 'population', filterable: true}
+            ]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+
+For a column to be filterable, you must also set its `filterable` config to `true`. The grid automatically provides a
+text input filter for string fields and a number input filter for number fields. More complex filter types can be
+implemented by extending `Neo.grid.header.Filter`.
+
+## Sorting
+
+Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the
+grid's underlying `Neo.data.Store`.
+
+### Enabling Sorting
+
+To enable sorting for a column, ensure the `sortable` config is set to `true` on the `Neo.grid.Container` (which is its
+default value). Then, simply click on a column header to sort the data by that column. Clicking again will reverse the
+sort direction.
+
+```javascript live-preview
+import GridContainer from '../grid/Container.mjs';
+import Store         from '../data/Store.mjs';
+import Viewport      from '../container/Viewport.mjs';
+
+class MainView extends Viewport {
+    static config = {
+        className: 'MainView',
+        layout   : {ntype: 'fit'},
+        items    : [{
+            module: GridContainer,
+            sortable: true, // Default is true, but explicitly shown here
+            store : {
+                model: {
+                    fields: [
+                        {name: 'name', type: 'String'},
+                        {name: 'age',  type: 'Number'}
+                    ]
+                },
+                data: [
+                    {name: 'Alice', age: 30},
+                    {name: 'Bob',   age: 24},
+                    {name: 'Charlie', age: 35},
+                    {name: 'David', age: 28}
+                ]
+            },
+            columns: [
+                {text: 'Name', dataField: 'name'},
+                {text: 'Age',  dataField: 'age'}
+            ]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+
+### Initial Sorting
+
+You can define an initial sort order for your store using the `sorters` config.
+
+```javascript readonly
+store: {
+    model: { /* ... */ },
+    data: [ /* ... */ ],
+    sorters: [{
+        property : 'name',
+        direction: 'ASC' // 'ASC' for ascending, 'DESC' for descending
+    }]
+}
+```
+
+### Programmatic Sorting
+
+You can also sort the store programmatically using the `sort` method of the store instance.
+
+```javascript readonly
+myGrid.getStore().sort({
+    property : 'age',
+    direction: 'DESC'
+});
+```
+
+## Filtering
+
+Beyond header filters, you can programmatically filter the grid's data using the `filters` config on the store.
+This allows for more complex filtering logic and dynamic updates.
+
+### Applying Filters
+
+To apply filters, set the `filters` config on your store. This config accepts an array of filter objects.
+
+```javascript live-preview
+import GridContainer from '../grid/Container.mjs';
+import Store         from '../data/Store.mjs';
+import Viewport      from '../container/Viewport.mjs';
+
+class MainView extends Viewport {
+    static config = {
+        className: 'MainView',
+        layout   : {ntype: 'fit'},
+        items    : [{
+            module: GridContainer,
+            store : {
+                model: {
+                    fields: [
+                        {name: 'product', type: 'String'},
+                        {name: 'price',  type: 'Number'}
+                    ]
+                },
+                data: [
+                    {product: 'Laptop', price: 1200},
+                    {product: 'Mouse',  price: 25},
+                    {product: 'Keyboard', price: 75},
+                    {product: 'Monitor', price: 300}
+                ],
+                filters: [{
+                    property: 'price',
+                    operator: '>=',
+                    value   : 100
+                }] // Initial filter: price >= 100
+            },
+            columns: [
+                {text: 'Product', dataField: 'product'},
+                {text: 'Price',  dataField: 'price'}
+            ]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+
+Each filter object typically has:
+- `property`: The data field to filter on.
+- `operator`: The comparison operator (e.g., `'='`, `'>'`, `'<='`, `'like'`).
+- `value`: The value to compare against.
+
+### Clearing Filters
+
+To clear all filters, simply set the `filters` config to `null` or an empty array.
+
+```javascript readonly
+myGrid.getStore().filters = null;
+// or
+myGrid.getStore().filters = [];
+```
+
+### Adding Filters Programmatically
+
+You can dynamically add or modify filters by getting the current filters, adding new ones, and then setting the `filters`
+config again.
+
+```javascript readonly
+const store = myGrid.getStore();
+const currentFilters = store.filters ? [...store.filters] : [];
+
+currentFilters.push({
+    property: 'product',
+    operator: 'like',
+    value   : 'o' // Filter products containing 'o'
+});
+
+store.filters = currentFilters;
+```
+
 ## Plugins
 
 Neo.mjs grids support various plugins to extend their functionality. Plugins are typically enabled by setting a
@@ -168,11 +499,15 @@ const myGrid = Neo.create(GridContainer, {
 
 ## Performance and Big Data
 
-The grid is designed for exceptional performance, especially when dealing with large datasets. Its virtual rendering engine ensures that only the visible parts of the grid (rows and columns) are rendered in the DOM, significantly reducing memory consumption and improving rendering speed.
+The grid is designed for exceptional performance, especially when dealing with large datasets. Its virtual rendering
+engine ensures that only the visible parts of the grid (rows and columns) are rendered in the DOM, significantly
+reducing memory consumption and improving rendering speed.
 
 You### Optimizing Virtual Rendering
 
-You can fine-tune the virtual rendering behavior with the `bufferRowRange` and `bufferColumnRange` configs in the `bodyConfig`. These settings define how many extra rows and columns to render outside the visible area to provide a smoother scrolling experience.
+You can fine-tune the virtual rendering behavior with the `bufferRowRange` and `bufferColumnRange` configs in the
+`bodyConfig`. These settings define how many extra rows and columns to render outside the visible area to provide a
+smoother scrolling experience.
 
 ```javascript readonly
 const myGrid = Neo.create(GridContainer, {
@@ -186,7 +521,10 @@ const myGrid = Neo.create(GridContainer, {
 
 ### Row Height
 
-The `rowHeight` config on the `Neo.grid.Container` plays a crucial role in the grid's rendering calculations. Ensuring an accurate `rowHeight` is essential for the virtual rendering engine to correctly determine the number of visible rows and the scrollable area. While the default value of `32px` is often suitable, you should adjust it if your grid rows have a different fixed height.
+The `rowHeight` config on the `Neo.grid.Container` plays a crucial role in the grid's rendering calculations. Ensuring
+an accurate `rowHeight` is essential for the virtual rendering engine to correctly determine the number of visible rows
+and the scrollable area. While the default value of `32px` is often suitable, you should adjust it if your grid rows
+have a different fixed height.
 
 The `examples/grid/bigData` example showcases the grid's performance with a large dataset, allowing you to
 dynamically adjust the number of rows and columns.
