@@ -2,11 +2,11 @@ import Base        from '../core/Base.mjs';
 import HashHistory from '../util/HashHistory.mjs';
 
 const
-    amountSlashesRegex       = /\//g,
-    // Regex to match route parameters like {paramName}, {*paramName}, or {...paramName}
-    routeParamRegex          = /{(\*|\.\.\.)?([^}]+)}/g,
+    regexAmountSlashes       = /\//g,
     // Regex to extract the parameter name from a single route segment (e.g., {*itemId} -> itemId)
-    paramNameExtractionRegex = /{(\*|\.\.\.)?([^}]+)}/;
+    regexParamNameExtraction = /{(\*|\.\.\.)?([^}]+)}/,
+    // Regex to match route parameters like {paramName}, {*paramName}, or {...paramName}
+    regexRouteParam          = /{(\*|\.\.\.)?([^}]+)}/g;
 
 /**
  * @class Neo.controller.Base
@@ -66,7 +66,6 @@ class Controller extends Base {
      */
     construct(config) {
         super.construct(config);
-
         HashHistory.on('change', this.onHashChange, this)
     }
 
@@ -92,11 +91,11 @@ class Controller extends Base {
             if (key.toLowerCase() === 'default'){
                 me.defaultRoute = value[key]
             } else {
-                me.handleRoutes[key] = new RegExp(key.replace(routeParamRegex, (match, isWildcard, paramName) => {
+                me.handleRoutes[key] = new RegExp(key.replace(regexRouteParam, (match, isWildcard, paramName) => {
                     if (isWildcard || paramName.startsWith('*')) {
-                        return '(.*)';
+                        return '(.*)'
                     } else {
-                        return '([\\w-.]+)';
+                        return '([\\w-.]+)'
                     }
                 }))
             }
@@ -108,7 +107,6 @@ class Controller extends Base {
      */
     destroy(...args) {
         HashHistory.un('change', this.onHashChange, this);
-
         super.destroy(...args)
     }
 
@@ -162,13 +160,15 @@ class Controller extends Base {
             const result = value.hashString.match(handleRoutes[key]);
 
             if (result) {
-                const arrayParamIds = key.match(routeParamRegex);
-                const arrayParamValues = result.splice(1, result.length - 1);
-                const paramObject = {};
+                const
+                    arrayParamIds    = key.match(regexRouteParam),
+                    arrayParamValues = result.splice(1, result.length - 1),
+                    paramObject      = {};
 
                 if (arrayParamIds) {
                     for (let j = 0; j < arrayParamIds.length; j++) {
-                        const paramMatch = arrayParamIds[j].match(paramNameExtractionRegex);
+                        const paramMatch = arrayParamIds[j].match(regexParamNameExtraction);
+
                         if (paramMatch) {
                             const paramName = paramMatch[2];
                             paramObject[paramName] = arrayParamValues[j];
@@ -180,7 +180,7 @@ class Controller extends Base {
                 // 1. Prioritize routes that match a longer string (more specific match).
                 // 2. If lengths are equal, prioritize routes with more slashes (deeper nesting).
                 if (!bestMatch || (result[0].length > bestMatch[0].length) ||
-                    (result[0].length === bestMatch[0].length && (key.match(amountSlashesRegex) || []).length > (bestMatchKey.match(amountSlashesRegex) || []).length)) {
+                    (result[0].length === bestMatch[0].length && (key.match(regexAmountSlashes) || []).length > (bestMatchKey.match(regexAmountSlashes) || []).length)) {
                     bestMatch = result;
                     bestMatchKey = key;
                     bestMatchParams = paramObject;
@@ -190,29 +190,30 @@ class Controller extends Base {
 
         if (bestMatch) {
             const route = routes[bestMatchKey];
-            let handler = null;
-            let preHandler = null;
+            let handler    = null,
+                preHandler = null;
 
             if (Neo.isString(route)) {
-                handler = route;
+                handler = route
             } else if (Neo.isObject(route)) {
-                handler = route.handler;
-                preHandler = route.preHandler;
+                handler    = route.handler;
+                preHandler = route.preHandler
             }
 
             let responsePreHandler = true;
+
             if (preHandler) {
-                responsePreHandler = await me[preHandler]?.call(me, bestMatchParams, value, oldValue);
+                responsePreHandler = await me[preHandler]?.call(me, bestMatchParams, value, oldValue)
             }
 
             if (responsePreHandler) {
-                await me[handler]?.call(me, bestMatchParams, value, oldValue);
+                await me[handler]?.call(me, bestMatchParams, value, oldValue)
             }
         } else {
             if (me.defaultRoute) {
-                me[me.defaultRoute]?.(value, oldValue);
+                me[me.defaultRoute]?.(value, oldValue)
             } else {
-                me.onNoRouteFound(value, oldValue);
+                me.onNoRouteFound(value, oldValue)
             }
         }
     }
@@ -235,7 +236,7 @@ class Controller extends Base {
      * @returns {Number} A negative value if route1 is more specific, a positive value if route2 is more specific, or 0 if they have equal specificity.
      */
     #sortRoutes(route1, route2) {
-        return (route1.match(amountSlashesRegex) || []).length - (route2.match(amountSlashesRegex)|| []).length
+        return (route1.match(regexAmountSlashes) || []).length - (route2.match(regexAmountSlashes)|| []).length
     }
 }
 
