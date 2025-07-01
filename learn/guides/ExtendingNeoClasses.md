@@ -130,7 +130,7 @@ class MyHookedClass extends Neo.core.Base {
         myValue_ : 0
     }
 
-    beforeSetMyValue(value) {
+    beforeSetMyValue(value, oldValue) {
         if (typeof value !== 'number' || value < 0) {
             console.warn('myValue must be a non-negative number!');
             return 0; // Default to 0 if invalid
