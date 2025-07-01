@@ -199,12 +199,15 @@ class RecordFactory extends Base {
                      * - Neo.util.Function:createSequence()
                      * - Neo.util.Function:intercept(),
                      * to "listen" to field changes
-                     * @param {Object}  fields
-                     * @param {Boolean} [silent=false]
+                     * @param {Object}         data
+                     * @param {Object}         data.fields
+                     * @param {Neo.data.Model} data.model
+                     * @param {Object}         data.record
+                     * @param {Boolean}        silent=false
                      * @returns {Object}
                      */
-                    notifyChange(fields, silent=false) {
-                        const param = {fields, model, record: this, silent}
+                    notifyChange(data, silent=false) {
+                        const param = {...data, silent}
                         instance.setRecordFields(param);
                         return param
                     }
