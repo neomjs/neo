@@ -179,8 +179,8 @@ console.log(myCollection.get(2));    // Output: {id: 2, name: 'Bob', age: 24}
 ## Adding and Removing Items
 
 Collections provide several methods for manipulating their contents. When adding raw data (plain JavaScript objects) to
-a `Neo.data.Store` (which extends `Neo.collection.Base`), these objects are automatically converted into `Neo.data.Model`
-instances (Records) based on the store's model definition.
+a `Neo.data.Store` (which extends `Neo.collection.Base`), these objects are automatically converted into Record
+instances based on the store's model definition.
 
 -   **`add(item)`**: Adds one or more items (or Records) to the end of the collection.
 -   **`insert(index, item)`**: Inserts one or more items at a specific index.
