@@ -121,15 +121,21 @@ console.log(userRecord['address.street']); // Output: 456 Oak Ave
 userRecord['address.city'] = 'Newville';
 console.log(userRecord['address.city']); // Output: Newville
 
-// Accessing the raw internal data (DO NOT USE FOR REACTIVE UPDATES).
+// Wrong way: Accessing the raw internal data (DO NOT USE FOR REACTIVE UPDATES).
 // Direct modification of the data holder object will NOT trigger `recordChange` events or update dirty tracking.
-// For a safe, disconnected copy of the record's data, prefer `record.toJSON()`.
+// This gives you a REFERENCE to the internal data holder object.
 const rawAddress = userRecord[Symbol.for('data')].address;
 console.log(rawAddress.street); // Output: 456 Oak Ave
+
+// Correct way (for a safe, disconnected copy):
+// This gives you a STRUCTURED CLONE (a disconnected copy) of the data holder object.
+const safeRawAddress = userRecord.toJSON().address;
+console.log(safeRawAddress.street); // Output: 456 Oak Ave
 
 // Modifying nested fields using set() with nested object structure
 userRecord.set({ address: { street: '789 Pine Ln' } });
 console.log(userRecord['address.street']); // Output: 789 Pine Ln
+console.log(userRecord['address.city']);   // Output: Newville (sibling untouched)
 ```
 
 ## Reactivity and Dirty Tracking
