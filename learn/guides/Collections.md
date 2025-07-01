@@ -25,7 +25,7 @@ The `sourceId` configuration allows you to create "derived" or "linked" collecti
 
 **Real-World Use Cases:**
 
-1.  **Master-Detail Views:** Display a master list (source collection) and a filtered or sorted subset of that data in a detail view (dependent collection). Changes in the master list automatically update the detail view.
+1.  **Source-Detail Views:** Display a source list (source collection) and a filtered or sorted subset of that data in a detail view (dependent collection). Changes in the source list automatically update the detail view.
 2.  **Multiple Synchronized Components:** On a dashboard, multiple widgets might display different views (filtered, sorted, or transformed) of the same underlying dataset. A central source collection ensures all widgets remain consistent.
 3.  **Data Transformation Pipelines:** Chain collections together, where the output of one collection (as a source) becomes the input for the next, allowing for complex data processing flows.
 
@@ -39,17 +39,17 @@ If you were to use a single collection for both, typing into the combobox's inpu
 
 The `sourceId` concept provides an elegant solution:
 
-1.  **Master Store (Collection)**: Create a primary `Neo.collection.Base` instance (acting as your data store) that fetches the complete product list from a backend. This collection is not directly bound to any UI component.
-2.  **Grid Store (Child Collection)**: Create a second `Neo.collection.Base` instance for your grid. Set its `sourceId` to the ID of your master store. This grid store will automatically receive all data and mutations from the master. It can then apply its own sorting or filtering (e.g., to display only "in-stock" items) without affecting the master or other child collections.
-3.  **ComboBox Store (Child Collection)**: Create a third `Neo.collection.Base` instance for your combobox's picker list. Set its `sourceId` to the ID of your master store. This combobox store can then apply its own filters (e.g., based on user input in the combobox field) and sorters, completely independently of the grid store or the master store.
+1.  **Primary Store (Collection)**: Create a primary `Neo.collection.Base` instance (acting as your data store) that fetches the complete product list from a backend. This collection is not directly bound to any UI component.
+2.  **Grid Store (Child Collection)**: Create a second `Neo.collection.Base` instance for your grid. Set its `sourceId` to the ID of your primary store. This grid store will automatically receive all data and mutations from the primary. It can then apply its own sorting or filtering (e.g., to display only "in-stock" items) without affecting the primary or other child collections.
+3.  **ComboBox Store (Child Collection)**: Create a third `Neo.collection.Base` instance for your combobox's picker list. Set its `sourceId` to the ID of your primary store. This combobox store can then apply its own filters (e.g., based on user input in the combobox field) and sorters, completely independently of the grid store or the primary store.
 
 ```javascript
 import Collection from '../../src/collection/Base.mjs';
 import Filter     from '../../src/collection/Filter.mjs';
 
-// 1. Master Store: Fetches data from backend (simulated)
-const masterProductsStore = Neo.create(Collection, {
-    id: 'masterProductsStore',
+// 1. Primary Store: Fetches data from backend (simulated)
+const primaryProductsStore = Neo.create(Collection, {
+    id: 'primaryProductsStore',
     items: [
         {id: 1, name: 'Laptop', category: 'Electronics', price: 1200, inStock: true},
         {id: 2, name: 'Mouse', category: 'Electronics', price: 25, inStock: true},
@@ -63,7 +63,7 @@ const masterProductsStore = Neo.create(Collection, {
 // 2. Grid Store: Displays all in-stock electronics, sorted by price
 const gridStore = Neo.create(Collection, {
     id: 'gridStore',
-    sourceId: 'masterProductsStore', // Linked to master
+    sourceId: 'primaryProductsStore', // Linked to primary
     filters: [
         {property: 'inStock', value: true},
         {property: 'category', value: 'Electronics'}
@@ -76,23 +76,23 @@ const gridStore = Neo.create(Collection, {
 // 3. ComboBox Store: Filters based on user input (e.g., 'web')
 const comboBoxStore = Neo.create(Collection, {
     id: 'comboBoxStore',
-    sourceId: 'masterProductsStore', // Linked to master
+    sourceId: 'primaryProductsStore', // Linked to primary
     filters: [
         // This filter would be dynamically updated by the combobox input
         {property: 'name', operator: 'like', value: 'web'}
     ]
 });
 
-console.log('Master Store Count:', masterProductsStore.getCount()); // Output: 6
+console.log('Primary Store Count:', primaryProductsStore.getCount()); // Output: 6
 console.log('Grid Store Count (in-stock electronics):', gridStore.getCount()); // Output: 3 (Laptop, Mouse, Monitor)
 console.log('ComboBox Store Count (name like "web"):', comboBoxStore.getCount()); // Output: 1 (Webcam)
 
-// Simulate adding a new product to the master store
-masterProductsStore.add({id: 7, name: 'Headphones', category: 'Electronics', price: 100, inStock: true});
+// Simulate adding a new product to the primary store
+primaryProductsStore.add({id: 7, name: 'Headphones', category: 'Electronics', price: 100, inStock: true});
 
-console.log('Master Store Count after add:', masterProductsStore.getCount()); // Output: 7
+console.log('Primary Store Count after add:', primaryProductsStore.getCount()); // Output: 7
 console.log('Grid Store Count after add (Headphones match filters):', gridStore.getCount()); // Output: 4
-console.log('ComboBox Store Count after add (Headphones do not match "web"):', comboBoxStore.getCount()); // Output: 1
+console.log('ComboBox Store Count after add (Headphones do not match "web")):', comboBoxStore.getCount()); // Output: 1
 
 // Simulate changing the combobox filter
 comboBoxStore.filters[0].value = 'key';
