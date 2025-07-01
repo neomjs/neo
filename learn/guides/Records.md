@@ -86,6 +86,8 @@ userRecord.age = '30'; // Automatic type conversion from string to int
 console.log(userRecord.age);      // Output: 30
 
 // Accessing nested fields
+// IMPORTANT: Direct access like `userRecord.address.street` will result in a JavaScript error
+// because `userRecord.address` is undefined. Always use the full string path for nested fields.
 console.log(userRecord['address.street']); // Output: 123 Main St
 console.log(userRecord['address.city']); // Output: Anytown
 
