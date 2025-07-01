@@ -16,7 +16,7 @@ Neo.mjs is the **first and only JavaScript framework** that achieves:
 ## 🌐 Best Learning Experience
 
 **For the optimal learning experience, visit:**
-**https://neomjs.com/dist/production/apps/portal/index.html#/learn**
+**[neomjs.com#/learn](https://neomjs.com/dist/production/apps/portal/index.html#/learn)**
 
 The web portal provides:
 - ✨ **Enhanced Markdown rendering** with syntax highlighting
@@ -25,25 +25,20 @@ The web portal provides:
 - 📱 **Responsive layout** optimized for learning
 - 🔗 **Interactive navigation** between topics
 
-## 📚 What's Inside
-
-- **[Benefits](./benefits/)** - Why choose Neo.mjs and its revolutionary OMT advantages
-- **[Getting Started](./gettingstarted/)** - Step-by-step introduction to Off-Main-Thread development
-- **[Guides](./guides/)** - In-depth technical documentation on advanced concepts
-- **[Tutorials](./tutorials/)** - Hands-on projects and practical examples
-- **[JavaScript Classes](./javascript/)** - JavaScript fundamentals for Neo.mjs development
-
 ## 🎯 Learning Path
 
-1. Start with [Benefits](./benefits/) to understand Neo.mjs's revolutionary OMT approach
-2. Follow [Getting Started](./gettingstarted/) for Off-Main-Thread development basics
-3. Explore [Guides](./guides/) for comprehensive technical knowledge
-4. Practice with [Tutorials](./tutorials/) for hands-on experience
+For a structured and effective learning experience, we recommend the following progression:
+
+1.  Start with [Benefits](./benefits/) to understand Neo.mjs's revolutionary OMT approach
+2.  Follow [Getting Started](./gettingstarted/) for Off-Main-Thread development basics
+3.  Explore [Guides](./guides/) for comprehensive technical knowledge
+4.  Practice with [Tutorials](./tutorials/) for hands-on experience
+5.  Review [JavaScript Classes](./javascript/) for JavaScript fundamentals relevant to Neo.mjs development
 
 ## 📖 Reading Options
 
 - **🌐 Web Portal** (Recommended): Enhanced experience with live previews
-  → [neomjs.com/learn](https://neomjs.com/dist/production/apps/portal/index.html#/learn)
+  → [neomjs.com#/learn](https://neomjs.com/dist/production/apps/portal/index.html#/learn)
 - **📁 GitHub**: Raw markdown files for quick reference or offline reading
 - **💻 Local**: Clone the repo and browse files directly
 

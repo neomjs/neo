@@ -3,11 +3,12 @@ import LivePreview from '../../../../src/code/LivePreview.mjs';
 import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 
 const
-    labCloseRegex        = /<!--\s*\/lab\s*-->/g,
-    labOpenRegex         = /<!--\s*lab\s*-->/g,
-    regexLivePreview     = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
-    regexNeoComponent    = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexReadonly        = /```(javascript|html|css|json)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
+    regexInlineCode   = /`([^`]+)`/g,
+    regexLabClose     = /<!--\s*\/lab\s*-->/g,
+    regexLabOpen      = /<!--\s*lab\s*-->/g,
+    regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
+    regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
+    regexReadonly     = /```(javascript|html|css|json)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
 
 /**
  * @class Portal.view.learn.ContentComponent
@@ -233,10 +234,10 @@ class ContentComponent extends Component {
      */
     insertLabDivs(inputString) {
         // Replace <!-- lab --> with <div class="lab">
-        inputString = inputString.replace(labOpenRegex, '<div class="lab">');
+        inputString = inputString.replace(regexLabOpen, '<div class="lab">');
 
         // Replace <!-- /lab --> with </div>
-        inputString = inputString.replace(labCloseRegex, '</div>');
+        inputString = inputString.replace(regexLabClose, '</div>');
 
         return inputString
     }
@@ -307,7 +308,7 @@ class ContentComponent extends Component {
             replacementPromises.push(
                 Neo.main.addon.HighlightJS.highlightAuto({html: code, windowId})
                     .then(highlightedHtml => ({
-                        after: `<pre data-javascript id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml}</pre>`,
+                        after: `<pre data-javascript id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
                         token: token
                     }))
             );
@@ -336,7 +337,7 @@ class ContentComponent extends Component {
             contentArray = content.split('\n'),
             i            = 1,
             storeData    = [],
-            tag;
+            headline, sideNavTitle, tag;
 
         contentArray.forEach((line, index) => {
             tag = null;
@@ -352,9 +353,15 @@ class ContentComponent extends Component {
             }
 
             if (tag) {
-                storeData.push({id: i, name: line, sourceId: me.id, tag});
+                // Convert backticks to <code> tags for the article headline tags
+                headline = line.replace(regexInlineCode, '<code>$1</code>');
 
-                contentArray[index] = `<${tag} class="neo-${tag}" data-record-id="${i}">${line}</${tag}>`;
+                // Markdown titles can contain inline code, which we don't want to display inside PageSectionsList.
+                sideNavTitle = line.replaceAll('`', '');
+
+                storeData.push({id: i, name: sideNavTitle, sourceId: me.id, tag});
+
+                contentArray[index] = `<${tag} class="neo-${tag}" data-record-id="${i}">${headline}</${tag}>`;
 
                 i++
             }
