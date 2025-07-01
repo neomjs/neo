@@ -1,5 +1,5 @@
-In Neo.mjs, a **Record** is more than just a plain JavaScript object; it's a structured, reactive instance of data
-defined by a `Neo.data.Model`. Records provide a powerful way to manage application data with built-in features like
+In Neo.mjs, a **Record** is a super lightweight, reactive JavaScript object, dynamically created and structured
+according to a `Neo.data.Model`. Records provide a powerful way to manage application data with built-in features like
 data validation, type conversion, dirty tracking, and seamless integration with `Neo.data.Store`.
 
 This guide will cover:
@@ -13,9 +13,10 @@ This guide will cover:
 
 ## What is a Record?
 
-A Record in Neo.mjs is an instance of a dynamically generated class that represents a single row or item of data.
-Unlike simple JavaScript objects, Records are designed to be reactive. This means that when you modify a property of a
-Record, it automatically triggers events, allowing UI components or other parts of your application to react to these changes.
+A Record in Neo.mjs is a dynamically generated, lightweight JavaScript object that represents a single row or item of data.
+Crucially, Records do **not** extend `Neo.core.Base` or `Neo.data.Model`; they are plain objects with reactive properties.
+This design choice makes them extremely performant and memory-efficient. When you modify a property of a Record, it automatically
+triggers events, allowing UI components or other parts of your application to react to these changes.
 
 **Benefits of using Records:**
 
@@ -29,7 +30,7 @@ Record, it automatically triggers events, allowing UI components or other parts 
 
 `Neo.data.Model` is the **central blueprint** for your Records. It defines the complete structure, data types, default
 values, and any custom logic for data processing or validation. Every Record instance is an embodiment of its associated
-Model. Each `Neo.data.Model` is a class that extends `Neo.core.Base`.
+Model. Each `Neo.data.Model` is a class that extends `Neo.core.Base`. Records, however, are instances of dynamically generated classes, not direct extensions of `Neo.core.Base`.
 
 ### Key `Neo.data.Model` Configurations:
 
@@ -75,7 +76,7 @@ type conversion, and dirty tracking.
 When you create a new Record (typically via a `Neo.data.Store` or directly using `RecordFactory.createRecord()`), the
 `RecordFactory`:
 
-1.  Checks if a Record class for the given Model already exists. If not, it creates one.
+1.  Checks if a Record class for the given Model already exists. If not, it creates one. This dynamically generated class implicitly extends `Object`, making records as lightweight as possible and efficient.
 2.  Defines getters and setters for each field specified in your Model. These getters and setters are what make Records
   reactive.
 3.  Applies default values and performs initial data parsing/conversion.
