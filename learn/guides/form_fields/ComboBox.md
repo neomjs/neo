@@ -46,9 +46,9 @@ In this example:
 For more complex scenarios, especially when dealing with large datasets or remote data, it's best practice to use a separate `Neo.data.Store` instance.
 
 ```javascript readonly
-import ComboBox     from '../../src/form/field/ComboBox.mjs';
-import Store        from '../../src/data/Store.mjs';
-import Model        from '../../src/data/Model.mjs';
+import ComboBox from '../../src/form/field/ComboBox.mjs';
+import Store    from '../../src/data/Store.mjs';
+import Model    from '../../src/data/Model.mjs';
 
 // Define a Model for your data
 class CountryModel extends Model {
