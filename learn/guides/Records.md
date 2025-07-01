@@ -86,20 +86,23 @@ userRecord.age = '30'; // Automatic type conversion from string to int
 console.log(userRecord.age);      // Output: 30
 
 // Accessing nested fields
-console.log(userRecord.address.street);    // Output: 123 Main St
+console.log(userRecord['address.street']); // Output: 123 Main St
 console.log(userRecord['address.city']); // Output: Anytown
 
-// Modifying nested fields directly
-userRecord.address.street = '456 Oak Ave';
-console.log(userRecord.address.street); // Output: 456 Oak Ave
-
 // Modifying nested fields using string path
+userRecord['address.street'] = '456 Oak Ave';
+console.log(userRecord['address.street']); // Output: 456 Oak Ave
+
 userRecord['address.city'] = 'Newville';
 console.log(userRecord['address.city']); // Output: Newville
 
+// Accessing the raw internal data (use with caution, direct manipulation bypasses reactivity)
+const rawAddress = userRecord[Symbol.for('data')].address;
+console.log(rawAddress.street); // Output: 456 Oak Ave
+
 // Modifying nested fields using set() with nested object structure
 userRecord.set({ address: { street: '789 Pine Ln' } });
-console.log(userRecord.address.street); // Output: 789 Pine Ln
+console.log(userRecord['address.street']); // Output: 789 Pine Ln
 ```
 
 ## Reactivity and Dirty Tracking
@@ -108,9 +111,19 @@ Records are inherently reactive. When you change a field's value, the setter def
 
 -   **`isModified`**: A boolean property on the Record instance that is `true` if any field has been changed from its original value.
 -   **`isModifiedField(fieldName)`**: A method to check if a specific field has been modified.
--   **`set(fields)`**: Bulk-update multiple fields and trigger a single change event. This method can also accept nested object structures to update nested fields.
+-   **`set(fields)`**: Bulk-update multiple fields and trigger a single change event. This method is particularly powerful for nested objects: it performs a **deep merge** of the provided `fields` object with the record's existing data. This means you can update specific properties within a nested object without overwriting the entire nested object. For example, `myRecord.set({ address: { street: 'New Street' } })` will update only the `street` property within `address`, leaving other `address` properties untouched. This contrasts with direct assignment to a nested object, which would replace the entire nested object.
 -   **`setSilent(fields)`**: Bulk-update multiple fields without triggering a change event.
 -   **`reset(fields)`**: Resets the record's fields to their original values or to new provided values, and updates the original state.
+
+### Bad Practice: Overwriting Nested Objects with Direct Assignment
+
+While direct assignment to a nested *leaf property* using its full string path (e.g., `myRecord['address.street'] = "New Street";`) is reactive and works, directly assigning to a nested *object property* (a non-leaf node) is generally considered a **bad practice** compared to using `record.set()` for several reasons:
+
+1.  **Complete Overwrite**: If you assign directly to a nested object property (e.g., `myRecord.address = { newProp: 'value' };`), you will **completely overwrite** the existing nested object. Any other properties within that nested object that are not explicitly included in your new assignment will be **lost**. `record.set()` performs a **deep merge**, intelligently updating only the specified nested properties while preserving others.
+2.  **Multiple Change Events (for multiple field updates)**: If you need to update several fields (even leaf properties, nested or not), performing multiple direct assignments will trigger a separate `recordChange` event for each assignment. `record.set()` allows you to batch all these updates into a single operation, triggering only one `recordChange` event, which is significantly more efficient for UI updates and overall application performance.
+3.  **Clarity and Consistency**: Using `record.set()` is the idiomatic and recommended way to modify record data, especially for nested structures. It clearly communicates intent and promotes consistent API usage across your application.
+
+Always prefer `record.set()` for modifying record data, particularly when dealing with nested fields or multiple updates, to leverage its deep merge capabilities and optimize event triggering.
 
 ### Example: Reactivity and Dirty Tracking
 
