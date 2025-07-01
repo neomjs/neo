@@ -20,7 +20,7 @@ Key characteristics include:
 
 -   **`items_` (Array)**: This private array holds the actual data items within the collection. While these can be any
   JavaScript object, in many real-world Neo.mjs applications, especially when working with `Neo.data.Store`, these items
-  are Record instances (super lightweight object extensions). It provides ordered access to items, which is essential for
+  are `Record` instances (super lightweight object extensions). It provides ordered access to items, which is essential for
   operations like iteration and maintaining insertion order (unless sorting is applied).
 -   **`map_` (Map)**: A `Map` object that stores a key-value pair for each collection item. The key is derived from the
   `keyProperty` of each item, and the value is a reference to the item itself. This `Map` is crucial for enabling extremely
