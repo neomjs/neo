@@ -81,7 +81,7 @@ class RecordFactory extends Base {
                         return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        instance.setRecordFields({
+                        this.notifyChange({
                             fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
                             model,
                             record: this
@@ -194,6 +194,19 @@ class RecordFactory extends Base {
                     }
 
                     /**
+                     * Executes instance.setRecordFields(), and can get used via NeoFunction.intercept(),
+                     * or NeoFunction.sequence() to "listen" to field changes
+                     * @param {Object}  fields
+                     * @param {Boolean} [silent=false]
+                     * @returns {Object}
+                     */
+                    notifyChange(fields, silent=false) {
+                        const param = {fields, model, record: this, silent}
+                        instance.setRecordFields(param);
+                        return param
+                    }
+
+                    /**
                      * Bulk-update multiple record fields at once
                      * @param {Object} fields
                      */
@@ -207,7 +220,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     set(fields) {
-                        instance.setRecordFields({fields, model, record: this})
+                        this.notifyChange({fields, model, record: this})
                     }
 
                     /**
@@ -225,7 +238,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     setSilent(fields) {
-                        instance.setRecordFields({fields, model, record: this, silent: true})
+                        this.notifyChange({fields, model, record: this}, true)
                     }
 
                     /**
