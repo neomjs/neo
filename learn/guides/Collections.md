@@ -11,10 +11,29 @@ Neo.mjs provides a powerful and flexible `Neo.collection.Base` class for managin
 
 ## Core Concepts
 
-The `Neo.collection.Base` class is the foundation for all collections in Neo.mjs. It provides a robust way to manage ordered lists of data. Key characteristics include:
+The `Neo.collection.Base` class is the foundation for all collections in Neo.mjs. While a standard JavaScript array can store data, it lacks the advanced features required for complex application development, such as automatic sorting, filtering, efficient key-based lookups, and robust eventing. `Neo.collection.Base` addresses these needs by combining an array with a Map, offering a powerful and performant data management solution.
 
--   **`items_`**: This private array holds the actual data items within the collection.
--   **`map_`**: A `Map` object that stores a key-value pair for each item, allowing for fast lookups by a unique `keyProperty`.
+Key characteristics include:
+
+-   **`items_` (Array)**: This private array holds the actual data items within the collection. It provides ordered access to items, which is essential for operations like iteration and maintaining insertion order (unless sorting is applied).
+-   **`map_` (Map)**: A `Map` object that stores a key-value pair for each collection item. The key is derived from the `keyProperty` of each item, and the value is a reference to the item itself. This `Map` is crucial for enabling extremely fast lookups.
+
+### Why the Array + Map Combination?
+
+This dual-structure approach provides the best of both worlds:
+
+-   **Ordered Access & Iteration (Array)**: The internal `items_` array allows for straightforward iteration over the collection in a defined order (either insertion order or sorted order). Accessing an item by its index is an O(1) (constant time) operation.
+-   **Efficient Key-Based Lookups (Map)**: The `map_` enables direct, constant-time (O(1)) retrieval of items by their unique `keyProperty`. This is a significant performance advantage over searching a plain array, which would require iterating through items until a match is found, resulting in an O(n) (linear time) operation in the worst case.
+
+**Performance Impact (Big O Notation):**
+
+Consider a collection with 100,000 items:
+
+-   **Getting an item by ID (`collection.get(id)`)**: Thanks to the `map_`, this operation takes approximately the same amount of time regardless of whether the collection has 10 items or 100,000 items. This is an O(1) operation.
+-   **Searching a plain array for an item by ID**: In the worst case (item is at the end or not present), you would have to check every single item. For 100,000 items, this could mean 100,000 comparisons. This is an O(n) operation.
+
+This fundamental difference in lookup efficiency is a primary reason for the `Neo.collection.Base` design, ensuring high performance even with very large datasets.
+
 -   **`keyProperty`**: By default, this is set to `'id'`, meaning each item in the collection should have a unique `id` property. This is crucial for the `map_` to function correctly.
 -   **`autoSort`**: If set to `true`, the collection will automatically sort its items when new ones are added or inserted, based on the configured sorters.
 -   **`sourceId_`**: Collections can be linked to a source collection. This is a powerful feature where a collection automatically mirrors the data mutations (additions, removals, reordering) of another collection. This is particularly useful for creating filtered or sorted views of a larger dataset without duplicating the data.
