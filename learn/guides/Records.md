@@ -1,3 +1,4 @@
+
 In Neo.mjs, a **Record** is a super lightweight, reactive JavaScript object, dynamically created and structured
 according to a `Neo.data.Model`. Records provide a powerful way to manage application data with built-in features like
 data validation, type conversion, dirty tracking, and seamless integration with `Neo.data.Store`.
@@ -87,7 +88,7 @@ In most real-world scenarios, when you add plain JavaScript objects to a `Neo.da
 
 ### Example: Creating a Record Directly
 
-```javascript
+```javascript readonly
 import RecordFactory from '../../src/data/RecordFactory.mjs';
 import UserModel     from './UserModel.mjs'; // Assuming UserModel is defined as above
 
@@ -183,7 +184,7 @@ to leverage its deep merge capabilities and optimize event triggering.
 
 ### Example: Reactivity and Dirty Tracking
 
-```javascript
+```javascript readonly
 import RecordFactory from '../../src/data/RecordFactory.mjs';
 import UserModel     from './UserModel.mjs';
 
@@ -231,7 +232,7 @@ instances.
 
 ### Example: Store Managing Records
 
-```javascript
+```javascript readonly
 import Store     from '../../src/data/Store.mjs';
 import UserModel from './UserModel.mjs';
 

@@ -95,7 +95,7 @@ The `sourceId` concept provides an elegant solution:
   Set its `sourceId` to the ID of your primary store. This combobox store can then apply its own filters (e.g., based on
   user input in the combobox field) and sorters, completely independently of the grid store or the primary store.
 
-```javascript
+```javascript readonly
 import Collection from '../../src/collection/Base.mjs';
 import Filter     from '../../src/collection/Filter.mjs';
 
@@ -161,7 +161,7 @@ application to work with synchronized data while maintaining their own independe
 
 ### Example: Basic Collection Usage
 
-```javascript
+```javascript readonly
 import Collection from '../../src/collection/Base.mjs';
 
 const myCollection = Neo.create(Collection, {
@@ -198,7 +198,7 @@ instances based on the store's model definition.
 
 ### Example: Adding and Removing
 
-```javascript
+```javascript readonly
 import Collection from '../../src/collection/Base.mjs';
 
 const users = Neo.create(Collection, {
@@ -253,7 +253,7 @@ instances.**
 
 ### Example: Filtering a Collection
 
-```javascript
+```javascript readonly
 import Collection from '../../src/collection/Base.mjs';
 import Filter     from '../../src/collection/Filter.mjs';
 
@@ -323,7 +323,7 @@ instances.**
 
 ### Example: Sorting a Collection
 
-```javascript
+```javascript readonly
 import Collection from '../../src/collection/Base.mjs';
 import Sorter     from '../../src/collection/Sorter.mjs';
 
@@ -364,7 +364,7 @@ any operation that changes the collection's items.
 
 ### Example: Listening to Collection Events
 
-```javascript
+```javascript readonly
 import Collection from '../../src/collection/Base.mjs';
 
 const tasks = Neo.create(Collection, {

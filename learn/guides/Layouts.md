@@ -17,7 +17,7 @@ Depending on the `ntype`, additional properties can be provided to customize the
 
 Example:
 
-```javascript
+```javascript readonly
 layout: {
     ntype: 'vbox',
     align: 'center'
@@ -66,33 +66,33 @@ sections or forms where elements flow from top to bottom.
 
 ```javascript live-preview
 import Container from '../container/Base.mjs';
-import Button from '../button/Base.mjs';
+import Button    from '../button/Base.mjs';
 
-class VBoxExample extends Container {
+class MainView extends Container {
     static config = {
         className: 'Example.view.VBoxExample',
         layout: {
             ntype: 'vbox',
             align: 'center', // Center items horizontally
-            pack: 'center'   // Center items vertically
+            pack : 'center'  // Center items vertically
         },
         items: [{
             module: Button,
-            text: 'Button 1',
-            width: 100
+            text  : 'Button 1',
+            width : 100
         }, {
             module: Button,
-            text: 'Button 2',
-            width: 150
+            text  : 'Button 2',
+            width : 150
         }, {
             module: Button,
-            text: 'Button 3',
-            flex: 1 // This button will expand to fill remaining vertical space
+            text  : 'Button 3',
+            flex  : 1 // This button will expand to fill remaining vertical space
         }]
     }
 }
 
-Neo.setupClass(VBoxExample);
+MainView = Neo.setupClass(MainView);
 ```
 
 #### 2. HBox Layout (`ntype: 'hbox'`)
@@ -121,34 +121,34 @@ navigation menus, or any scenario where elements need to be displayed side-by-si
 **Example:**
 
 ```javascript live-preview
+import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
-import Button from '../button/Base.mjs';
 
-class HBoxExample extends Container {
+class MainView extends Container {
     static config = {
         className: 'Example.view.HBoxExample',
         layout: {
             ntype: 'hbox',
             align: 'center', // Center items vertically
-            pack: 'start'    // Pack items to the left
+            pack : 'start'   // Pack items to the left
         },
         items: [{
             module: Button,
-            text: 'Button A',
+            text  : 'Button A',
             height: 50
         }, {
             module: Button,
-            text: 'Button B',
+            text  : 'Button B',
             height: 70
         }, {
             module: Button,
-            text: 'Button C',
-            flex: 1 // This button will expand to fill remaining horizontal space
+            text  : 'Button C',
+            flex  : 1 // This button will expand to fill remaining horizontal space
         }]
     }
 }
 
-Neo.setupClass(HBoxExample);
+MainView = Neo.setupClass(MainView);
 ```
 
 #### 3. Card Layout (`ntype: 'card'`)
@@ -174,51 +174,53 @@ hidden.
 **Example:**
 
 ```javascript live-preview
+import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
-import Button from '../button/Base.mjs';
 
-class CardExample extends Container {
+class MainView extends Container {
     static config = {
         className: 'Example.view.CardExample',
+        ntype    : 'card-example-container',
         layout: {
             ntype: 'card',
             activeIndex: 0 // Start with the first card active
         },
-        items: [{
+        itemDefaults: {
             module: Container,
-            cls: 'card-panel',
+            cls   : 'card-panel',
+            layout: 'base'
+        },
+        items: [{
             items: [{
                 module: Button,
-                text: 'Go to Card 2',
-                handler: function() {
-                    this.up('container').layout.activeIndex = 1;
+                text  : 'Go to Card 2',
+                handler() {
+                    this.up('card-example-container').layout.activeIndex = 1
                 }
             }],
             style: {
                 backgroundColor: '#e0f7fa',
-                padding: '20px',
-                textAlign: 'center'
+                padding        : '20px',
+                textAlign      : 'center'
             }
         }, {
-            module: Container,
-            cls: 'card-panel',
             items: [{
                 module: Button,
-                text: 'Go to Card 1',
-                handler: function() {
-                    this.up('container').layout.activeIndex = 0;
+                text  : 'Go to Card 1',
+                handler() {
+                    this.up('card-example-container').layout.activeIndex = 0
                 }
             }],
             style: {
                 backgroundColor: '#fff3e0',
-                padding: '20px',
-                textAlign: 'center'
+                padding        : '20px',
+                textAlign      : 'center'
             }
         }]
     }
 }
 
-Neo.setupClass(CardExample);
+MainView = Neo.setupClass(MainView);
 ```
 
 #### Lazy Loading with Card Layouts
@@ -230,7 +232,7 @@ This is achieved by defining the `module` property of an item within the `items`
 dynamic `import()` statement. For example, in the Portal app's `Viewport.mjs`,
 modules are lazy-loaded like this:
 
-```javascript
+```javascript readonly
 items: [
     {module: () => import('./home/MainContainer.mjs')},
     {module: () => import('./learn/MainContainer.mjs')},

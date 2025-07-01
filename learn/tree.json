@@ -34,7 +34,7 @@
         {"name": "Form Fields",                                      "parentId": "InDepth",           "isLeaf": false, "id": "guides.form_fields"},
             {"name": "ComboBox",                                     "parentId": "guides.form_fields",                 "id": "guides.form_fields.ComboBox"},
         {"name": "Component and Container Basics",                   "parentId": "InDepth",                            "id": "guides.ComponentsAndContainers"},
-        {"name": "Layouts",                                          "parentId": "InDepth",           "isLeaf": false, "id": "guides.Layouts"},
+        {"name": "Layouts",                                          "parentId": "InDepth",                            "id": "guides.Layouts"},
         {"name": "Custom Components",                                "parentId": "InDepth",                            "id": "guides.CustomComponents"},
         {"name": "Events",                                           "parentId": "InDepth",           "isLeaf": false, "id": "GuideEvents"},
             {"name": "Custom Events",                                "parentId": "GuideEvents",                        "id": "guides.events.CustomEvents"},
