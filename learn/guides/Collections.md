@@ -23,7 +23,7 @@ Key characteristics include:
 This dual-structure approach provides the best of both worlds:
 
 -   **Ordered Access & Iteration (Array)**: The internal `items_` array allows for straightforward iteration over the collection in a defined order (either insertion order or sorted order). Accessing an item by its index is an O(1) (constant time) operation.
--   **Efficient Key-Based Lookups (Map)**: The `map_` enables direct, constant-time (O(1)) retrieval of items by their unique `keyProperty`. This is a significant performance advantage over searching a plain array, which would require iterating through items until a match is found, resulting in an O(n) (linear time) operation in the worst case.
+-   **Efficient Key-Based Lookups (Map)**: The `map_` enables direct, constant-time (O(1)) retrieval of items by their unique `keyProperty`. This is a significant performance advantage over searching a plain array, which would require iterating through items until a match is found, resulting in an an O(n) (linear time) operation in the worst case.
 
 **Performance Impact (Big O Notation):**
 
@@ -345,3 +345,7 @@ tasks.remove(1);
 ## Cloning Collections
 
 When you clone a collection using `collection.clone()`, a new collection instance is created with a shallow copy of the *current items*. However, the filters and sorters of the cloned collection are based on the *original configuration* of the source collection, not its currently active filters or sorters. This means if the original collection had filters or sorters applied after its initial creation, the cloned collection will not inherit those dynamic changes unless explicitly reapplied.
+
+## Conclusion
+
+Neo.mjs Collections provide a robust, high-performance, and flexible solution for managing data within your applications. By combining the ordered access of arrays with the efficient key-based lookups of Maps, and offering powerful features like reactive filtering, sorting, and `sourceId` linking, they significantly simplify complex data management tasks. Understanding these core concepts and leveraging the provided methods will enable you to build highly responsive and data-driven Neo.mjs applications with ease.
