@@ -195,7 +195,8 @@ nested Container which contains the `world` data prop.
 As a result, the bindings for all 3 Labels contain a combination of data props which live inside different stateProviders.
 As long as these VMs are inside the parent hierarchy this works fine.
 
-The same goes for the Button handlers: `setData()` will find the closest matching data prop inside the stateProvider parent chain.
+The same goes for the Button handlers: `setData()` will find the closest matching data prop inside the stateProvider
+parent chain.
 
 We can even change data props which live inside different stateProviders at once. As easy as this:</br>
 `setData({hello: 'foo', world: 'bar'})`
@@ -444,8 +445,24 @@ Beyond managing simple data properties, `Neo.state.Provider` can also centralize
 instances. This is particularly useful for sharing data across multiple components or for complex data flows within
 your application.
 
-You define stores within the `stores` config of your `StateProvider` class. Each entry in the `stores` object can either
-be an inline store configuration (a plain JavaScript object) or a class reference to a `Neo.data.Store` subclass.
+You define stores within the `stores` config of your `StateProvider` class. Each entry
+in the `stores` object can either be an inline store configuration (a plain JavaScript
+object) or a class reference to a `Neo.data.Store` subclass.
+
+It is also a common practice to import a `Neo.data.Model` extension and use it within
+an inline store configuration, like so:
+
+```javascript readonly
+import MyCustomModel from './MyCustomModel.mjs'; // Assuming MyCustomModel extends Neo.data.Model
+
+// ...
+stores: {
+    myStore: {
+        model: MyCustomModel,
+        // other inline configs like autoLoad, data, url
+    }
+}
+```
 
 Components can then bind to these centrally managed stores using the `bind` config,
 referencing the store by its key within the `stores` object (e.g., `stores.myStoreName`).
@@ -453,7 +470,6 @@ referencing the store by its key within the `stores` object (e.g., `stores.mySto
 ```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
-import Label         from '../component/Label.mjs';
 import StateProvider from '../state/Provider.mjs';
 import Store         from '../data/Store.mjs';
 import GridContainer from '../grid/Container.mjs';
@@ -508,13 +524,6 @@ class MainView extends Container {
 
         layout: {ntype: 'vbox', align: 'stretch'},
         items: [{
-            module: Label,
-            style : {margin: '1em'},
-            bind: {
-                // Bind to a property of the 'mySharedStore'
-                text: 'stores.mySharedStore.count' // Display the record count of the store
-            }
-        }, {
             module: GridContainer,
             flex: 1,
             bind: {
@@ -541,8 +550,6 @@ MainView = Neo.setupClass(MainView);
 In this example:
 *   `MainViewStateProvider` defines two stores: `mySharedStore` (using a class reference) and
     `anotherStore` (using an inline config).
-*   A `Label` component binds its `text` to the `count` property of `mySharedStore`,
-    demonstrating how to access store properties.
 *   A `GridContainer` binds its `store` config directly to `mySharedStore`, allowing it to
     display and interact with the data.
 *   A `Button` demonstrates how to programmatically interact with the store by adding a new record.
