@@ -1,4 +1,5 @@
 import DefaultConfig from './DefaultConfig.mjs';
+import {isDescriptor}  from './core/ConfigSymbols.mjs';
 
 const
     camelRegex   = /-./g,
@@ -689,77 +690,38 @@ function autoGenerateGetSet(proto, key) {
     if (!Neo[getSetCache][key]) {
         Neo[getSetCache][key] = {
             get() {
-                let me        = this,
-                    beforeGet = `beforeGet${key[0].toUpperCase() + key.slice(1)}`,
-                    hasNewKey = Object.hasOwn(me[configSymbol], key),
-                    newKey    = me[configSymbol][key],
-                    value     = hasNewKey ? newKey : me['_' + key];
-
-                if (Array.isArray(value)) {
-                    if (key !== 'items') {
-                        value = [...value]
-                    }
-                } else if (value instanceof Date) {
-                    value = new Date(value.valueOf())
-                }
-
-                if (hasNewKey) {
-                    me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
-                    value = me['_' + key]; // return the value parsed by the setter
-                    delete me[configSymbol][key]
-                }
-
-                if (typeof me[beforeGet] === 'function') {
-                    value = me[beforeGet](value)
-                }
-
-                return value
+                // The getter now retrieves the value from the Config controller.
+                return this.getConfig(key)?.get()
             },
-
             set(value) {
-                if (value === undefined) {
-                    return
+                const config = this.getConfig(key);
+                if (!config) return;
+
+                const oldValue = config.get();
+
+                // 1. Run internal `beforeSet` hook for validation/modification.
+                const uKey = key[0].toUpperCase() + key.slice(1);
+                const beforeSetMethod = `beforeSet${uKey}`;
+                const afterSetMethod = `afterSet${uKey}`;
+
+                if (typeof this[beforeSetMethod] === 'function') {
+                    value = this[beforeSetMethod](value, oldValue);
+                    if (value === undefined) return; // Abort change
                 }
 
-                let me        = this,
-                    _key      = '_' + key,
-                    uKey      = key[0].toUpperCase() + key.slice(1),
-                    beforeSet = 'beforeSet' + uKey,
-                    afterSet  = 'afterSet'  + uKey,
-                    oldValue  = me[_key];
+                // 2. Update the Config controller's value.
+                //    This triggers all external subscribers.
+                config.set(value);
 
-                // every set call has to delete the matching symbol
-                delete me[configSymbol][key];
-
-                if (key !== 'items' && key !== 'vnode') {
-                    value = Neo.clone(value, true, true)
-                }
-
-                // we do want to store the value before the beforeSet modification as well,
-                // since it could get pulled by other beforeSet methods of different configs
-                me[_key] = value;
-
-                if (typeof me[beforeSet] === 'function') {
-                    value = me[beforeSet](value, oldValue);
-
-                    // If they don't return a value, that means no change
-                    if (value === undefined) {
-                        me[_key] = oldValue;
-                        return
-                    }
-
-                    me[_key] = value;
-                }
-
-                if (
-                    (key === 'vnode' && value !== oldValue) || // vnode trees can be huge, avoid a deep comparison
-                    !Neo.isEqual(value, oldValue)
-                ) {
-                    me[afterSet]?.(value, oldValue);
-                    me.afterSetConfig?.(key, value, oldValue)
+                // 3. Run internal `afterSet` hooks for internal side-effects.
+                //    The equality check is now handled by the config controller itself.
+                const newValue = config.get(); // Get potentially modified value
+                if (config.isEqual(newValue, oldValue) === false) {
+                    this[afterSetMethod]?.(newValue, oldValue);
+                    this.afterSetConfig?.(key, newValue, oldValue);
                 }
             }
-        }
+        };
     }
 
     Object.defineProperty(proto, key, Neo[getSetCache][key])

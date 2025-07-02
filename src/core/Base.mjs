@@ -1,4 +1,6 @@
 import {buffer, debounce, intercept, resolveCallback, throttle} from '../util/Function.mjs';
+import Config                                                   from './Config.mjs';
+import {isDescriptor}                                           from './ConfigSymbols.mjs';
 import IdGenerator                                              from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
@@ -131,6 +133,12 @@ class Base {
      * @private
      */
     #timeoutIds = []
+    /**
+     * A private field to store the Config controller instances.
+     * @member {Object} #configs={}
+     * @private
+     */
+    #configs = {};
 
     /**
      * Applies the observable mixin if needed, grants remote access if needed.
@@ -163,6 +171,12 @@ class Base {
 
         // assign class field values prior to configs
         config = me.setFields(config);
+
+        // 2. During initialization, create and store a Config instance for each property.
+        const mergedConfigs = me.mergeConfig(config);
+        for (const key in mergedConfigs) {
+            me.#configs[key] = new Config(mergedConfigs[key]);
+        }
 
         me.initConfig(config);
 
@@ -393,6 +407,16 @@ class Base {
      */
     getIdKey() {
         return this.ntype
+    }
+
+    /**
+     * A public method to access the underlying Config controller.
+     * This enables advanced interactions like subscriptions.
+     * @param {String} key The name of the config property (e.g., 'items').
+     * @returns {Config|undefined} The Config instance, or undefined if not found.
+     */
+    getConfig(key) {
+        return this.#configs[key];
     }
 
     /**
