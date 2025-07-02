@@ -418,9 +418,7 @@ class Container extends Component {
             items[index] = item = me.createItem(item, index);
 
             if (item instanceof Neo.core.Base) {
-                if (!(item instanceof Neo.container.Base)) {
-                    layout?.applyChildAttributes(item, index);
-                }
+                layout?.applyChildAttributes(item, index);
                 vdom = item.createVdomReference()
             } else {
                 vdom = item.vdom
@@ -451,7 +449,7 @@ class Container extends Component {
             } else {
                 value = me.parseLayoutClass(value);
                 Object.assign(value, {appName, containerId: id, windowId});
-                value = Neo.ntype(value);
+                value = Neo.ntype(value)
             }
         }
 
@@ -614,20 +612,6 @@ class Container extends Component {
     }
 
     /**
-     *
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args);
-
-        // The new Config system will handle itemDefaults and items via their setters.
-        // We no longer need to directly assign to _itemDefaults or _items here,
-        // nor delete them from the config object.
-
-        return config
-    }
-
-    /**
      * Moves an existing item to a new index
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -648,9 +632,9 @@ class Container extends Component {
     onConstructed() {
         let me = this;
 
-        // The layout config is now handled by the new Config system, so we don't need to set it here.
-        // me._layout = me.createLayout(me.layout);
-        // me._layout?.applyRenderAttributes();
+        // in case the Container does not have a layout config, the setter won't trigger
+        me._layout = me.createLayout(me.layout);
+        me._layout?.applyRenderAttributes();
 
         super.onConstructed();
 

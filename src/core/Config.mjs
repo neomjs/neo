@@ -1,12 +1,12 @@
 import {isDescriptor} from './ConfigSymbols.mjs';
 
 class Config {
-    #value;
     #subscribers = new Set();
+    #value;
 
     // Meta-properties with framework defaults
-    mergeStrategy = 'deep';
     isEqual = Neo.isEqual;
+    mergeStrategy = 'deep';
 
     constructor(configObject) {
         // The symbol check makes the logic clean and unambiguous
@@ -14,9 +14,11 @@ class Config {
             this.initDescriptor(configObject);
         } else {
             // It's a simple value, not a descriptor
-            this.#value = configObject;
+           // this.#value = configObject;
         }
     }
+
+    get() { return this.#value; }
 
     initDescriptor(descriptor) {
         this.#value = descriptor.value;
@@ -24,9 +26,11 @@ class Config {
         this.isEqual = descriptor.isEqual || this.isEqual;
     }
 
-    get() { return this.#value; }
-
-    
+    notify(newValue, oldValue) {
+        for (const callback of this.#subscribers) {
+            callback(newValue, oldValue);
+        }
+    }
 
     set(newValue) {
         const oldValue = this.#value;
@@ -44,12 +48,6 @@ class Config {
     subscribe(callback) {
         this.#subscribers.add(callback);
         return () => this.#subscribers.delete(callback);
-    }
-
-    notify(newValue, oldValue) {
-        for (const callback of this.#subscribers) {
-            callback(newValue, oldValue);
-        }
     }
 }
 

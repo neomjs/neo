@@ -162,14 +162,12 @@ class Base {
             }
         });
 
-        // Ensure the id config is set via the new Config system
-        if (!config.id) {
-            config.id = IdGenerator.getId(me.getIdKey());
-        }
+        me.#configs['id'] = new Config();
+        me.createId(config.id || me.id);
+        delete config.id;
 
         if (me.constructor.config) {
-            // The id config is now handled by the new Config system, so we don't need to delete it here.
-            // delete me.constructor.config.id
+            delete me.constructor.config.id
         }
 
         me.getStaticConfig('observable') && me.initObservable(config);
