@@ -418,7 +418,9 @@ class Container extends Component {
             items[index] = item = me.createItem(item, index);
 
             if (item instanceof Neo.core.Base) {
-                layout?.applyChildAttributes(item, index);
+                if (!(item instanceof Neo.container.Base)) {
+                    layout?.applyChildAttributes(item, index);
+                }
                 vdom = item.createVdomReference()
             } else {
                 vdom = item.vdom
@@ -449,7 +451,9 @@ class Container extends Component {
             } else {
                 value = me.parseLayoutClass(value);
                 Object.assign(value, {appName, containerId: id, windowId});
-                value = Neo.ntype(value)
+                console.log('createLayout: before Neo.ntype', value);
+                value = Neo.ntype(value);
+                console.log('createLayout: after Neo.ntype', value);
             }
         }
 

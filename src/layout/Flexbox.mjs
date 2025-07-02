@@ -141,7 +141,6 @@ class Flexbox extends Base {
      * @param {Number} index
      */
     applyChildAttributes(item, index) {
-        console.log(item, item.wrapperStyle);
         let style = item.wrapperStyle,
             flex  = style.flex || item.configuredFlex || (this.align === 'stretch' ? 1 : '0 1 auto');
 
