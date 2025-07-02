@@ -679,6 +679,8 @@ function applyMixins(cls, mixins) {
  * @tutorial 02_ClassSystem
  */
 function autoGenerateGetSet(proto, key) {
+    const privateKey = '_' + key;
+
     if (Neo.hasPropertySetter(proto, key)) {
         throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead')
     }
@@ -688,10 +690,10 @@ function autoGenerateGetSet(proto, key) {
     }
 
     if (!Neo[getSetCache][key]) {
-        Neo[getSetCache][key] = {
+        const descriptor = {
             get() {
                 // The getter now retrieves the value from the Config controller.
-                return this.getConfig(key)?.get()
+                return this.getConfig(key)?.get();
             },
             set(value) {
                 const config = this.getConfig(key);
@@ -722,9 +724,12 @@ function autoGenerateGetSet(proto, key) {
                 }
             }
         };
+        Neo[getSetCache][key] = descriptor;
+        Neo[getSetCache][privateKey] = descriptor; // Assign the same descriptor to the private key
     }
 
-    Object.defineProperty(proto, key, Neo[getSetCache][key])
+    Object.defineProperty(proto, key, Neo[getSetCache][key]);
+    Object.defineProperty(proto, privateKey, Neo[getSetCache][privateKey]);
 }
 
 /**
