@@ -14,7 +14,7 @@ class Config {
             this.initDescriptor(configObject);
         } else {
             // It's a simple value, not a descriptor
-           // this.#value = configObject;
+           this.#value = configObject;
         }
     }
 
@@ -33,6 +33,8 @@ class Config {
     }
 
     set(newValue) {
+        if (newValue === undefined) return;
+
         const oldValue = this.#value;
         // The setter automatically uses the configured equality check
         if (!this.isEqual(newValue, oldValue)) {

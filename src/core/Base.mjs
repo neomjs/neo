@@ -162,13 +162,7 @@ class Base {
             }
         });
 
-        me.#configs['id'] = new Config();
-        me.createId(config.id || me.id);
-        delete config.id;
-
-        if (me.constructor.config) {
-            delete me.constructor.config.id
-        }
+        config.id ??= IdGenerator.getId(this.getIdKey());
 
         me.getStaticConfig('observable') && me.initObservable(config);
 
@@ -179,7 +173,8 @@ class Base {
         const mergedConfigs = me.mergeConfig(config);
 
         for (const key in mergedConfigs) {
-            me.#configs[key] = new Config(mergedConfigs[key]);
+            // Only create a new Config instance if one doesn't already exist for this key
+            me.#configs[key] ??= new Config()
         }
 
         me.initConfig(config);
@@ -358,16 +353,6 @@ class Base {
             methodName = stack.match(Base.methodNameRegex)[1];
 
         this.__proto__.constructor.overwrittenMethods[methodName].call(this, ...args)
-    }
-
-    /**
-     * Uses the IdGenerator to create an id if a static one is not explicitly set.
-     * Registers the instance to manager.Instance if this one is already created,
-     * otherwise stores it inside a tmp map.
-     * @param {String} id
-     */
-    createId(id) {
-        this.id = id || IdGenerator.getId(this.getIdKey())
     }
 
     /**

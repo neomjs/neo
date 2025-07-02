@@ -694,6 +694,7 @@ class Collection extends Base {
 
                 me.allItems = Neo.create(Collection, {
                     ...Neo.clone(config, true, true),
+                    id          : me.id + '-all',
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
                 })
