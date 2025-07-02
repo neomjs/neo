@@ -265,7 +265,8 @@ class ComboBox extends Picker {
             return null
         }
 
-        oldValue?.destroy();
+        console.log(value, oldValue);
+        oldValue?.destroy?.();
 
         // Promote an array of items to be a Store
         if (Array.isArray(value)) {

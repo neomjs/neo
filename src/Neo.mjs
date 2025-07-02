@@ -515,8 +515,8 @@ Neo = globalThis.Neo = Object.assign({
                     autoGenerateGetSet(element, key)
                 }
 
-                    // only apply properties which have no setters inside the prototype chain
-                // those will get applied on create (Neo.core.Base -> initConfig)
+                // Only apply properties which have no setters inside the prototype chain.
+                // Those will get applied on create (Neo.core.Base -> initConfig)
                 else if (!Neo.hasPropertySetter(element, key)) {
                     Object.defineProperty(element, key, {
                         enumerable: true,
@@ -679,11 +679,16 @@ function applyMixins(cls, mixins) {
  * @tutorial 02_ClassSystem
  */
 function autoGenerateGetSet(proto, key) {
-    const privateKey = '_' + key;
-
     if (Neo.hasPropertySetter(proto, key)) {
         throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead')
     }
+
+    const
+        _key      = '_' + key,
+        uKey      = key[0].toUpperCase() + key.slice(1),
+        beforeGet = 'beforeGet' + uKey,
+        beforeSet = 'beforeSet' + uKey,
+        afterSet  = 'afterSet'  + uKey;
 
     if (!Neo[getSetCache]) {
         Neo[getSetCache] = {}
@@ -693,62 +698,71 @@ function autoGenerateGetSet(proto, key) {
         const publicDescriptor = {
             get() {
                 let me        = this,
-                    config    = me.getConfig(key),
-                    beforeGet = `beforeGet${key[0].toUpperCase() + key.slice(1)}`,
                     hasNewKey = Object.hasOwn(me[configSymbol], key),
-                    value;
+                    newKey    = me[configSymbol][key],
+                    value     = hasNewKey ? newKey : me[_key];
 
-                if (hasNewKey) {
-                    value = me[configSymbol][key];
-                    delete me[configSymbol][key];
-                } else {
-                    value = config?.get();
+                if (Array.isArray(value)) {
+                    if (key !== 'items') {
+                        value = [...value]
+                    }
+                } else if (value instanceof Date) {
+                    value = new Date(value.valueOf())
                 }
 
-                if (key === 'layout') {
-                    console.log(`Neo.mjs: Getter for layout. Value before beforeGet:`, value);
+                if (hasNewKey) {
+                    me[key] = value;  // We do want to trigger the setter => beforeSet, afterSet
+                    value = me[_key]; // Return the value parsed by the setter
+                    delete me[configSymbol][key]
                 }
 
                 if (typeof me[beforeGet] === 'function') {
-                    value = me[beforeGet](value);
+                    value = me[beforeGet](value)
                 }
 
-                if (key === 'layout') {
-                    console.log(`Neo.mjs: Getter for layout. Value after beforeGet:`, value);
-                }
-
-                if (hasNewKey) {
-                    me[key] = value;
-                    return config?.get();
-                }
-
-                return value;
+                return value
             },
             set(value) {
+                if (value === undefined) return;
+
                 const config = this.getConfig(key);
                 if (!config) return;
 
-                // Capture the current value of the property (which might be a Neo instance)
-                const currentPropertyValue = this[key];
+                let me        = this,
+                    oldValue  = me[_key];
 
-                const uKey = key[0].toUpperCase() + key.slice(1);
-                const beforeSetMethod = `beforeSet${uKey}`;
-                const afterSetMethod = `afterSet${uKey}`;
+                // every set call has to delete the matching symbol
+                delete me[configSymbol][key];
 
-                if (typeof this[beforeSetMethod] === 'function') {
-                    // Pass the current property value as oldValue to beforeSet
-                    value = this[beforeSetMethod](value, currentPropertyValue);
-                    if (value === undefined) return; // Abort change
+                if (key !== 'items' && key !== 'vnode') {
+                    value = Neo.clone(value, true, true)
+                }
+
+                // we do want to store the value before the beforeSet modification as well,
+                // since it could get pulled by other beforeSet methods of different configs
+                me[_key] = value;
+
+                if (typeof me[beforeSet] === 'function') {
+                    value = me[beforeSet](value, oldValue);
+
+                    // If they don't return a value, that means no change
+                    if (value === undefined) {
+                        me[_key] = oldValue;
+                        return
+                    }
+
+                    me[_key] = value
                 }
 
                 // Set the new value into the Config instance
                 config.set(value);
 
-                const newValue = config.get();
-                // Compare with the value that was actually set by the Config instance
-                if (config.isEqual(newValue, currentPropertyValue) === false) {
-                    this[afterSetMethod]?.(newValue, currentPropertyValue);
-                    this.afterSetConfig?.(key, newValue, currentPropertyValue);
+                if (
+                    (key === 'vnode' && value !== oldValue) || // vnode trees can be huge, avoid a deep comparison
+                    !config.isEqual(value, oldValue)
+                ) {
+                    me[afterSet]?.(value, oldValue);
+                    me.afterSetConfig?.(key, value, oldValue)
                 }
             }
         };
@@ -762,12 +776,12 @@ function autoGenerateGetSet(proto, key) {
             }
         };
 
-        Neo[getSetCache][key] = publicDescriptor;
-        Neo[getSetCache][privateKey] = privateDescriptor;
+        Neo[getSetCache][key]  = publicDescriptor;
+        Neo[getSetCache][_key] = privateDescriptor;
     }
 
-    Object.defineProperty(proto, key, Neo[getSetCache][key]);
-    Object.defineProperty(proto, privateKey, Neo[getSetCache][privateKey]);
+    Object.defineProperty(proto, key,  Neo[getSetCache][key]);
+    Object.defineProperty(proto, _key, Neo[getSetCache][_key])
 }
 
 /**
