@@ -130,17 +130,17 @@ class Base {
     }
 
     /**
-     * Internal cache for all timeout ids when using this.timeout()
-     * @member {Number[]} timeoutIds=[]
-     * @private
-     */
-    #timeoutIds = []
-    /**
      * A private field to store the Config controller instances.
      * @member {Object} #configs={}
      * @private
      */
     #configs = {};
+    /**
+     * Internal cache for all timeout ids when using this.timeout()
+     * @member {Number[]} timeoutIds=[]
+     * @private
+     */
+    #timeoutIds = []
 
     /**
      * Applies the observable mixin if needed, grants remote access if needed.
@@ -179,6 +179,7 @@ class Base {
 
         // 2. During initialization, create and store a Config instance for each property.
         const mergedConfigs = me.mergeConfig(config);
+
         for (const key in mergedConfigs) {
             me.#configs[key] = new Config(mergedConfigs[key]);
         }
@@ -406,15 +407,6 @@ class Base {
     }
 
     /**
-     * Used inside createId() as the default value passed to the IdGenerator.
-     * Override this method as needed.
-     * @returns {String}
-     */
-    getIdKey() {
-        return this.ntype
-    }
-
-    /**
      * A public method to access the underlying Config controller.
      * This enables advanced interactions like subscriptions.
      * @param {String} key The name of the config property (e.g., 'items').
@@ -422,6 +414,15 @@ class Base {
      */
     getConfig(key) {
         return this.#configs[key];
+    }
+
+    /**
+     * Used inside createId() as the default value passed to the IdGenerator.
+     * Override this method as needed.
+     * @returns {String}
+     */
+    getIdKey() {
+        return this.ntype
     }
 
     /**
