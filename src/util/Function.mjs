@@ -198,30 +198,30 @@ export function throttle(callback, scope, delay=300) {
             }, delay - (Date.now() - lastRanDate))
         }
     }
+}
 
-    /**
-     * @param {Neo.core.Base} target
-     * @param {String} methodName
-     * @param {Function} fn
-     * @param {Object} scope
-     */
-    export function unSequence(target, methodName, fn, scope) {
-        let currentMethod = target[methodName];
+/**
+ * @param {Neo.core.Base} target
+ * @param {String} methodName
+ * @param {Function} fn
+ * @param {Object} scope
+ */
+export function unSequence(target, methodName, fn, scope) {
+    let currentMethod = target[methodName];
 
-        if (!currentMethod || !currentMethod[sequencedFnsSymbol]) {
-            return // Not a sequenced method
-        }
+    if (!currentMethod || !currentMethod[sequencedFnsSymbol]) {
+        return // Not a sequenced method
+    }
 
-        const sequencedFunctions = currentMethod[sequencedFnsSymbol];
+    const sequencedFunctions = currentMethod[sequencedFnsSymbol];
 
-        // Filter out the function to unsequence
-        currentMethod[sequencedFnsSymbol] = sequencedFunctions.filter(seqFn =>
-            !(seqFn.fn === fn && seqFn.scope === scope)
-        );
+    // Filter out the function to unsequence
+    currentMethod[sequencedFnsSymbol] = sequencedFunctions.filter(seqFn =>
+        !(seqFn.fn === fn && seqFn.scope === scope)
+    );
 
-        if (currentMethod[sequencedFnsSymbol].length === 0) {
-            // If no functions left, restore the original method
-            target[methodName] = currentMethod[originalMethodSymbol]
-        }
+    if (currentMethod[sequencedFnsSymbol].length === 0) {
+        // If no functions left, restore the original method
+        target[methodName] = currentMethod[originalMethodSymbol]
     }
 }
