@@ -1317,7 +1317,9 @@ class Component extends Base {
      * @protected
      */
     beforeSetKeys(value, oldValue) {
-        oldValue?.destroy();
+        if (oldValue instanceof KeyNavigation) {
+            oldValue.destroy();
+        }
 
         if (value) {
             value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {

@@ -705,8 +705,16 @@ function autoGenerateGetSet(proto, key) {
                     value = config?.get();
                 }
 
+                if (key === 'layout') {
+                    console.log(`Neo.mjs: Getter for layout. Value before beforeGet:`, value);
+                }
+
                 if (typeof me[beforeGet] === 'function') {
                     value = me[beforeGet](value);
+                }
+
+                if (key === 'layout') {
+                    console.log(`Neo.mjs: Getter for layout. Value after beforeGet:`, value);
                 }
 
                 if (hasNewKey) {
@@ -720,23 +728,27 @@ function autoGenerateGetSet(proto, key) {
                 const config = this.getConfig(key);
                 if (!config) return;
 
-                const oldValue = config.get();
+                // Capture the current value of the property (which might be a Neo instance)
+                const currentPropertyValue = this[key];
 
                 const uKey = key[0].toUpperCase() + key.slice(1);
                 const beforeSetMethod = `beforeSet${uKey}`;
                 const afterSetMethod = `afterSet${uKey}`;
 
                 if (typeof this[beforeSetMethod] === 'function') {
-                    value = this[beforeSetMethod](value, oldValue);
+                    // Pass the current property value as oldValue to beforeSet
+                    value = this[beforeSetMethod](value, currentPropertyValue);
                     if (value === undefined) return; // Abort change
                 }
 
+                // Set the new value into the Config instance
                 config.set(value);
 
                 const newValue = config.get();
-                if (config.isEqual(newValue, oldValue) === false) {
-                    this[afterSetMethod]?.(newValue, oldValue);
-                    this.afterSetConfig?.(key, newValue, oldValue);
+                // Compare with the value that was actually set by the Config instance
+                if (config.isEqual(newValue, currentPropertyValue) === false) {
+                    this[afterSetMethod]?.(newValue, currentPropertyValue);
+                    this.afterSetConfig?.(key, newValue, currentPropertyValue);
                 }
             }
         };
