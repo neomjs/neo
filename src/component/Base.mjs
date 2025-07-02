@@ -142,6 +142,10 @@ class Component extends Base {
          */
         domListeners_: null,
         /**
+         * @member {Number|String|null} flex_=null
+         */
+        flex_: null,
+        /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
          */

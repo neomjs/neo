@@ -690,10 +690,31 @@ function autoGenerateGetSet(proto, key) {
     }
 
     if (!Neo[getSetCache][key]) {
-        const descriptor = {
+        const publicDescriptor = {
             get() {
-                // The getter now retrieves the value from the Config controller.
-                return this.getConfig(key)?.get();
+                let me        = this,
+                    config    = me.getConfig(key),
+                    beforeGet = `beforeGet${key[0].toUpperCase() + key.slice(1)}`,
+                    hasNewKey = Object.hasOwn(me[configSymbol], key),
+                    value;
+
+                if (hasNewKey) {
+                    value = me[configSymbol][key];
+                    delete me[configSymbol][key];
+                } else {
+                    value = config?.get();
+                }
+
+                if (typeof me[beforeGet] === 'function') {
+                    value = me[beforeGet](value);
+                }
+
+                if (hasNewKey) {
+                    me[key] = value;
+                    return config?.get();
+                }
+
+                return value;
             },
             set(value) {
                 const config = this.getConfig(key);
@@ -701,7 +722,6 @@ function autoGenerateGetSet(proto, key) {
 
                 const oldValue = config.get();
 
-                // 1. Run internal `beforeSet` hook for validation/modification.
                 const uKey = key[0].toUpperCase() + key.slice(1);
                 const beforeSetMethod = `beforeSet${uKey}`;
                 const afterSetMethod = `afterSet${uKey}`;
@@ -711,21 +731,27 @@ function autoGenerateGetSet(proto, key) {
                     if (value === undefined) return; // Abort change
                 }
 
-                // 2. Update the Config controller's value.
-                //    This triggers all external subscribers.
                 config.set(value);
 
-                // 3. Run internal `afterSet` hooks for internal side-effects.
-                //    The equality check is now handled by the config controller itself.
-                const newValue = config.get(); // Get potentially modified value
+                const newValue = config.get();
                 if (config.isEqual(newValue, oldValue) === false) {
                     this[afterSetMethod]?.(newValue, oldValue);
                     this.afterSetConfig?.(key, newValue, oldValue);
                 }
             }
         };
-        Neo[getSetCache][key] = descriptor;
-        Neo[getSetCache][privateKey] = descriptor; // Assign the same descriptor to the private key
+
+        const privateDescriptor = {
+            get() {
+                return this.getConfig(key)?.get();
+            },
+            set(value) {
+                this.getConfig(key)?.setRaw(value);
+            }
+        };
+
+        Neo[getSetCache][key] = publicDescriptor;
+        Neo[getSetCache][privateKey] = privateDescriptor;
     }
 
     Object.defineProperty(proto, key, Neo[getSetCache][key]);
