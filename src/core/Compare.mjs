@@ -1,18 +1,7 @@
-import Base from '../core/Base.mjs';
-
 /**
  * @class Neo.core.Compare
- * @extends Neo.core.Base
  */
-class Compare extends Base {
-    static config = {
-        /**
-         * @member {String} className='Neo.core.Compare'
-         * @protected
-         */
-        className: 'Neo.core.Compare'
-    }
-
+class Compare {
     /**
      * Storing the comparison method names by data type
      * @member {Object} map
@@ -174,7 +163,8 @@ class Compare extends Base {
     }
 }
 
-Compare = Neo.setupClass(Compare);
+const ns = Neo.ns('Neo.core', true);
+ns.Compare = Compare;
 
 // alias
 Neo.isEqual = Compare.isEqual;
