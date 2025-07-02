@@ -1,4 +1,6 @@
 import {buffer, debounce, intercept, resolveCallback, throttle} from '../util/Function.mjs';
+import Compare                                                  from '../core/Compare.mjs';
+import Util                                                     from '../core/Util.mjs';
 import Config                                                   from './Config.mjs';
 import {isDescriptor}                                           from './ConfigSymbols.mjs';
 import IdGenerator                                              from './IdGenerator.mjs'
