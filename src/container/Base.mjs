@@ -451,9 +451,7 @@ class Container extends Component {
             } else {
                 value = me.parseLayoutClass(value);
                 Object.assign(value, {appName, containerId: id, windowId});
-                console.log('createLayout: before Neo.ntype', value);
                 value = Neo.ntype(value);
-                console.log('createLayout: after Neo.ntype', value);
             }
         }
 
