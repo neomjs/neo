@@ -145,10 +145,6 @@ class Container extends Component {
     afterSetLayout(value, oldValue) {
         let me = this;
 
-        if (value) {
-            value.containerId = me.id;
-        }
-
         if (me.rendered) {
             oldValue?.removeRenderAttributes();
             value?.applyRenderAttributes();
