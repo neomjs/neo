@@ -145,6 +145,10 @@ class Container extends Component {
     afterSetLayout(value, oldValue) {
         let me = this;
 
+        if (value) {
+            value.containerId = me.id;
+        }
+
         if (me.rendered) {
             oldValue?.removeRenderAttributes();
             value?.applyRenderAttributes();
@@ -614,32 +618,11 @@ class Container extends Component {
      */
     mergeConfig(...args) {
         let me     = this,
-            config = super.mergeConfig(...args),
-            ctorItems;
+            config = super.mergeConfig(...args);
 
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-
-        if (config.itemDefaults) {
-            me._itemDefaults = Neo.clone(config.itemDefaults, true, true);
-            delete config.itemDefaults
-        }
-
-        if (config.items) {
-            ctorItems = me.constructor.config.items;
-
-            // If we are passed an object, merge the class's own items object into it
-            if (Neo.typeOf(config.items) === 'Object') {
-                if (Neo.isArray(ctorItems)) {
-                    me.items = Neo.clone(config.items, true, true)
-                } else {
-                    me.items = Neo.merge(Neo.clone(ctorItems), config.items)
-                }
-            } else {
-                me._items = Neo.clone(config.items, true, true)
-            }
-            delete config.items
-        }
+        // The new Config system will handle itemDefaults and items via their setters.
+        // We no longer need to directly assign to _itemDefaults or _items here,
+        // nor delete them from the config object.
 
         return config
     }
@@ -665,9 +648,9 @@ class Container extends Component {
     onConstructed() {
         let me = this;
 
-        // in case the Container does not have a layout config, the setter won't trigger
-        me._layout = me.createLayout(me.layout);
-        me._layout?.applyRenderAttributes();
+        // The layout config is now handled by the new Config system, so we don't need to set it here.
+        // me._layout = me.createLayout(me.layout);
+        // me._layout?.applyRenderAttributes();
 
         super.onConstructed();
 

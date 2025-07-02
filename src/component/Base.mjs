@@ -101,7 +101,7 @@ class Component extends Base {
          * You can override baseCls to remove default selectors.
          * @member {String[]} cls_=null
          */
-        cls_: null,
+        cls_: [],
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
@@ -328,7 +328,7 @@ class Component extends Base {
          * Style attributes added to this vdom root. see: getVdomRoot()
          * @member {Object} style_=null
          */
-        style_: null,
+        style_: {},
         /**
          * You can pass a used theme directly to any component,
          * to style specific component trees differently from your main view.
@@ -392,12 +392,12 @@ class Component extends Base {
         /**
          * @member {String[]|null} wrapperCls_=null
          */
-        wrapperCls_: null,
+        wrapperCls_: [],
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          * @member {Object|null} wrapperStyle_=null
          */
-        wrapperStyle_: null,
+        wrapperStyle_: {},
         /**
          * The vdom markup for this component.
          * @member {Object} _vdom={}
