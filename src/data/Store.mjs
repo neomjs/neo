@@ -287,8 +287,7 @@ class Store extends Base {
      * @returns {Neo.data.Model}
      */
     beforeSetModel(value, oldValue) {
-        console.log(value, oldValue);
-        oldValue?.destroy?.();
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Model)
     }
