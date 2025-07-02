@@ -142,7 +142,7 @@ class Flexbox extends Base {
      */
     applyChildAttributes(item, index) {
         let style = item.wrapperStyle,
-            flex  = style.flex || item.configuredFlex || (this.align === 'stretch' ? 1 : '0 1 auto');
+            flex  = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
 
         if (flex === 1) {
             flex = '1 1 auto'
