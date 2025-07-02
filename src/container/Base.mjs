@@ -379,10 +379,8 @@ class Container extends Component {
                     }
                 }
 
-                Object.assign(item, config);
-
                 if (!lazyLoadItem) {
-                    item = Neo[item.className ? 'create' : 'ntype'](item)
+                    item = Neo[item.className ? 'create' : 'ntype']({ ...item, ...config })
                 } else {
                     item.vdom = Object.assign(item.vdom || {}, {removeDom: true})
                 }

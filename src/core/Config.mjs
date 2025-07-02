@@ -26,6 +26,8 @@ class Config {
 
     get() { return this.#value; }
 
+    
+
     set(newValue) {
         const oldValue = this.#value;
         // The setter automatically uses the configured equality check
@@ -33,6 +35,10 @@ class Config {
             this.#value = newValue;
             this.notify(newValue, oldValue);
         }
+    }
+
+    setRaw(newValue) {
+        this.#value = newValue;
     }
 
     subscribe(callback) {
