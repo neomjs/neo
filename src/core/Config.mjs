@@ -1,7 +1,7 @@
 import {isDescriptor} from './ConfigSymbols.mjs';
 
 /**
- * @class Neo.core.Config
+ * @src/util/ClassSystem.mjs Neo.core.Config
  * @private
  * @internal
  *
@@ -16,28 +16,28 @@ class Config {
     /**
      * The internal value of the config property.
      * @private
-     * @member {any} #value
+     * @apps/portal/view/about/MemberContainer.mjs {any} #value
      */
     #value;
 
     /**
      * A Set to store callback functions that subscribe to changes in this config's value.
      * @private
-     * @member {Set<Function>} #subscribers
+     * @apps/portal/view/about/MemberContainer.mjs {Set<Function>} #subscribers
      */
     #subscribers = new Set();
 
     /**
      * The strategy to use when merging new values into this config.
      * Defaults to 'deep'. Can be overridden via a descriptor.
-     * @member {string} mergeStrategy
+     * @apps/portal/view/about/MemberContainer.mjs {string} mergeStrategy
      */
     mergeStrategy = 'deep';
 
     /**
      * The function used to compare new and old values for equality.
      * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
-     * @member {Function} isEqual
+     * @apps/portal/view/about/MemberContainer.mjs {Function} isEqual
      */
     isEqual = Neo.isEqual;
 
@@ -94,9 +94,10 @@ class Config {
      * This method performs an equality check using `this.isEqual` before updating the value.
      * If the value has changed, it updates `#value` and notifies all subscribers.
      * @param {any} newValue - The new value to set.
+     * @returns {Boolean} True if the value changed, false otherwise.
      */
     set(newValue) {
-        if (newValue === undefined) return;
+        if (newValue === undefined) return false; // Preserve original behavior for undefined
 
         const
             me       = this,
@@ -106,7 +107,10 @@ class Config {
         if (!me.isEqual(newValue, oldValue)) {
             me.#value = newValue;
             me.notify(newValue, oldValue);
+            return true
         }
+
+        return false
     }
 
     /**
