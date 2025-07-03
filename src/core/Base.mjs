@@ -156,10 +156,12 @@ class Base {
      *     at the very beginning. This is crucial so that subsequent config hooks (like `afterSet*`)
      *     can access their latest values.
      *
-     * 2.  **Reactive Configs:** Properties defined with a trailing underscore (e.g., `myValue_`)
-     *     in `static config`. These are wrapped in a `Neo.core.Config` instance to enable
-     *     subscription-based reactivity. Their values are applied via generated setters,
-     *     triggering `beforeSet*` and `afterSet*` hooks.
+     * 2.  **Reactive Configs:** A property is considered reactive if it is defined with a trailing
+     *     underscore (e.g., `myValue_`) in the `static config` of **any class in the inheritance
+     *     chain**. Subclasses can provide new default values for these configs without the
+     *     underscore, and they will still be reactive. Their values are applied via generated
+     *     setters, triggering `beforeSet*` and `afterSet*` hooks, and they are wrapped in a
+     *     `Neo.core.Config` instance to enable subscription-based reactivity.
      *
      * 3.  **Non-Reactive Configs:** Properties defined in `static config` without a trailing
      *     underscore. These are applied directly to the instance without triggering hooks,
