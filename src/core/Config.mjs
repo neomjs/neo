@@ -47,8 +47,7 @@ class Config {
      */
     constructor(configObject) {
         if (Neo.isObject(configObject) && configObject[isDescriptor] === true) {
-            this.initDescriptor(configObject);
-            this.#value = configObject.value
+            this.initDescriptor(configObject)
         } else {
             this.#value = configObject
         }
@@ -71,10 +70,12 @@ class Config {
      * @param {string} [descriptor.merge='deep'] - The merge strategy.
      * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
      */
-    initDescriptor(descriptor) {
-        // Do NOT set #value here. The internal `#value` will be set later via the `Config` instance's `set()` method.
-        this.mergeStrategy = descriptor.merge || this.mergeStrategy;
-        this.isEqual = descriptor.isEqual || this.isEqual;
+    initDescriptor({isEqual, merge, value}) {
+        let me = this;
+
+        me.#value        = value
+        me.mergeStrategy = merge   || me.mergeStrategy;
+        me.isEqual       = isEqual || me.isEqual;
     }
 
     /**
@@ -97,11 +98,14 @@ class Config {
     set(newValue) {
         if (newValue === undefined) return;
 
-        const oldValue = this.#value;
+        const
+            me       = this,
+            oldValue = me.#value;
+
         // The setter automatically uses the configured equality check
-        if (!this.isEqual(newValue, oldValue)) {
-            this.#value = newValue;
-            this.notify(newValue, oldValue);
+        if (!me.isEqual(newValue, oldValue)) {
+            me.#value = newValue;
+            me.notify(newValue, oldValue);
         }
     }
 
@@ -113,7 +117,7 @@ class Config {
      * @param {any} newValue - The new value to set directly.
      */
     setRaw(newValue) {
-        this.#value = newValue;
+        this.#value = newValue
     }
 
     /**
@@ -124,7 +128,7 @@ class Config {
      */
     subscribe(callback) {
         this.#subscribers.add(callback);
-        return () => this.#subscribers.delete(callback);
+        return () => this.#subscribers.delete(callback)
     }
 }
 
