@@ -748,11 +748,8 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 // Set the new value into the Config instance
-                config.set(value);
-
-                // The equality check is now handled by the config controller itself.
-                // We only trigger afterSet if the value actually changed within the Config instance.
-                if (!config.isEqual(value, oldValue)) {
+                // The config.set() method will return true if the value actually changed.
+                if (config.set(value)) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue)
                 }
