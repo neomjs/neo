@@ -193,7 +193,8 @@ class Base {
             }
         });
 
-        config.id ??= IdGenerator.getId(this.getIdKey());
+        me.id = config.id || IdGenerator.getId(this.getIdKey());
+        delete config.id;
 
         me.getStaticConfig('observable') && me.initObservable(config);
 
@@ -485,6 +486,7 @@ class Base {
 
         me.isConfiguring = true;
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
+        delete me[configSymbol].id;
         me.processConfigs();
         me.isConfiguring = false;
     }
@@ -522,7 +524,10 @@ class Base {
      * @returns {Boolean}
      */
     isConfig(key) {
-        return Object.hasOwn(this.constructor.config, key) && Neo.hasPropertySetter(this, key)
+        // A config is considered "reactive" if it has a generated property setter
+        // AND it is present as a defined config in the merged static config hierarchy.
+        // Neo.setupClass() removes the underscore from the static config keys.
+        return Neo.hasPropertySetter(this, key) && (key in this.constructor.config);
     }
 
     /**
