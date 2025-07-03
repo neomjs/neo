@@ -174,7 +174,7 @@ class Base {
 
         for (const key in mergedConfigs) {
             // The config object param can contain class field values or custom values too
-            if (me.isConfig(key)) {
+            if (me.isConfig(key)) {console.log(key);
                 // Only create a new Config instance if one doesn't already exist for this key
                 me.#configs[key] ??= new Config(mergedConfigs[key])
             }
@@ -492,12 +492,11 @@ class Base {
     }
 
     /**
-     *
-     * @param {String} name
+     * @param {String} key
      * @returns {Boolean}
      */
-    isConfig(name) {
-        return Object.hasOwn(this.constructor.config, name)
+    isConfig(key) {
+        return Object.hasOwn(this.constructor.config, key) && Neo.hasPropertySetter(this, key)
     }
 
     /**
