@@ -610,6 +610,41 @@ class Container extends Component {
     }
 
     /**
+     *
+     */
+    mergeConfig(...args) {
+        let me     = this,
+            config = super.mergeConfig(...args),
+            ctorItems;
+
+        // avoid any interference on prototype level
+        // does not clone existing Neo instances
+
+        if (config.itemDefaults) {
+            me._itemDefaults = Neo.clone(config.itemDefaults, true, true);
+            delete config.itemDefaults
+        }
+
+        if (config.items) {
+            ctorItems = me.constructor.config.items;
+
+            // If we are passed an object, merge the class's own items object into it
+            if (Neo.typeOf(config.items) === 'Object') {
+                if (Neo.isArray(ctorItems)) {
+                    me.items = Neo.clone(config.items, true, true)
+                } else {
+                    me.items = Neo.merge(Neo.clone(ctorItems), config.items)
+                }
+            } else {
+                me._items = Neo.clone(config.items, true, true)
+            }
+            delete config.items
+        }
+
+        return config
+    }
+
+    /**
      * Moves an existing item to a new index
      * @param {Number} fromIndex
      * @param {Number} toIndex
