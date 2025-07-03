@@ -422,7 +422,7 @@ class Base {
         let me = this;
 
         if (!me.#configs[key] && me.isConfig(key)) {
-            me.#configs[key] = new Config(undefined)
+            me.#configs[key] = new Config()
         }
 
         return me.#configs[key]
