@@ -48,9 +48,9 @@ class Config {
     constructor(configObject) {
         if (Neo.isObject(configObject) && configObject[isDescriptor] === true) {
             this.initDescriptor(configObject);
-            this.#value = configObject.value;
+            this.#value = configObject.value
         } else {
-            this.#value = configObject;
+            this.#value = configObject
         }
     }
 
