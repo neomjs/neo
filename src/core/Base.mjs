@@ -143,8 +143,32 @@ class Base {
     #timeoutIds = []
 
     /**
-     * Applies the observable mixin if needed, grants remote access if needed.
-     * @param {Object} config={}
+     * The constructor for all Neo.mjs classes, invoked inside the `Neo.create()` method.
+     * This method orchestrates the entire instance initialization process, including
+     * the setup of the powerful and flexible config system.
+     *
+     * The `config` parameter is a single object that can contain different types of properties,
+     * which are processed in a specific order to ensure consistency and predictability:
+     *
+     * 1.  **Public Class Fields & Other Properties:** Any key in the `config` object that is NOT
+     *     defined in the class's `static config` hierarchy is considered a public field or a
+     *     dynamic property. These are assigned directly to the instance (`this.myField = value`)
+     *     at the very beginning. This is crucial so that subsequent config hooks (like `afterSet*`)
+     *     can access their latest values.
+     *
+     * 2.  **Reactive Configs:** Properties defined with a trailing underscore (e.g., `myValue_`)
+     *     in `static config`. These are wrapped in a `Neo.core.Config` instance to enable
+     *     subscription-based reactivity. Their values are applied via generated setters,
+     *     triggering `beforeSet*` and `afterSet*` hooks.
+     *
+     * 3.  **Non-Reactive Configs:** Properties defined in `static config` without a trailing
+     *     underscore. These are applied directly to the instance without triggering hooks,
+     *     serving as simple, inheritable configuration values.
+     *
+     * This method also initializes the observable mixin (if applicable), sets up remote method
+     * access, and schedules asynchronous `initAsync()` logic.
+     *
+     * @param {Object} config={} The initial configuration object for the instance.
      */
     construct(config={}) {
         let me = this;
