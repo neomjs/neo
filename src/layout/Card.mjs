@@ -204,8 +204,6 @@ class Card extends Base {
         delete item.isLoading;
         delete item.vdom;
 
-        item.parentId = container.id;
-
         items[index] = item = Neo.create(item);
 
         me.applyChildAttributes(item, index);
