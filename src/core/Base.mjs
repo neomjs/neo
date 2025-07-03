@@ -169,12 +169,15 @@ class Base {
         // assign class field values prior to configs
         config = me.setFields(config);
 
-        // 2. During initialization, create and store a Config instance for each property.
+        // Create and store a Config instance for each property.
         const mergedConfigs = me.mergeConfig(config);
 
         for (const key in mergedConfigs) {
-            // Only create a new Config instance if one doesn't already exist for this key
-            me.#configs[key] ??= new Config(mergedConfigs[key]);
+            // The config object param can contain class field values or custom values too
+            if (me.isConfig(key)) {
+                // Only create a new Config instance if one doesn't already exist for this key
+                me.#configs[key] ??= new Config(mergedConfigs[key])
+            }
         }
 
         me.initConfig(config);
@@ -486,6 +489,15 @@ class Base {
      */
     isDestroyedCheck() {
         return !this.isDestroyed
+    }
+
+    /**
+     *
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    isConfig(name) {
+        return Object.hasOwn(this.constructor.config, name)
     }
 
     /**
