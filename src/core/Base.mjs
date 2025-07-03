@@ -174,7 +174,7 @@ class Base {
 
         for (const key in mergedConfigs) {
             // The config object param can contain class field values or custom values too
-            if (me.isConfig(key)) {console.log(key);
+            if (me.isConfig(key)) {
                 // Only create a new Config instance if one doesn't already exist for this key
                 me.#configs[key] ??= new Config(mergedConfigs[key])
             }
