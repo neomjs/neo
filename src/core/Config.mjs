@@ -43,24 +43,15 @@ class Config {
 
     /**
      * Creates an instance of Config.
-     * If `configObject` is a descriptor (marked with `isDescriptor` symbol),
-     * it initializes the `Config` instance with the descriptor's metadata.
-     * Otherwise, it prepares the `Config` instance to receive a simple value.
-     *
-     * The internal `#value` is NOT set by the constructor. It is always set
-     * via the `set()` method to ensure consistent `isEqual` checks and `afterSet`
-     * hook triggering.
-     *
-     * @param {any|Object} configObject - The initial value or a descriptor object for the config.
+     * @param {any|Object} configObject - The initial value for the config.
      */
     constructor(configObject) {
-        // The symbol check makes the logic clean and unambiguous
         if (Neo.isObject(configObject) && configObject[isDescriptor] === true) {
             this.initDescriptor(configObject);
+            this.#value = configObject.value;
+        } else {
+            this.#value = configObject;
         }
-        // Do NOT set #value here. The internal `#value` will be set later via the `Config` instance's `set()` method,
-        // which is invoked by the component's public config setter. This ensures `isEqual` and `afterSet` hooks
-        // are consistently applied from the first assignment.
     }
 
     /**

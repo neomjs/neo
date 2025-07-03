@@ -200,17 +200,6 @@ class Base {
         // assign class field values prior to configs
         config = me.setFields(config);
 
-        const mergedConfigs = {...me.constructor.config, ...config};
-
-        // Create and store a Config instance for each property.
-        for (const key in mergedConfigs) {
-            // The config object param can contain class field values or custom values too
-            if (me.isConfig(key)) {
-                // Only create a new Config instance if one doesn't already exist for this key
-                me.#configs[key] ??= new Config(mergedConfigs[key])
-            }
-        }
-
         me.initConfig(config);
 
         Object.defineProperty(me, 'configsApplied', {
@@ -430,7 +419,13 @@ class Base {
      * @returns {Config|undefined} The Config instance, or undefined if not found.
      */
     getConfig(key) {
-        return this.#configs[key];
+        let me = this;
+
+        if (!me.#configs[key] && me.isConfig(key)) {
+            me.#configs[key] = new Config(undefined)
+        }
+
+        return me.#configs[key]
     }
 
     /**
