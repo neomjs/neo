@@ -652,21 +652,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggered after the flex config got changed
-     * @param {Number|String|null} value
-     * @param {Number|String|null} oldValue
-     * @protected
-     */
-    afterSetFlex(value, oldValue) {
-        if (!isNaN(value)) {
-            value = `${value} ${value} 0%`
-        }
-
-        this.configuredFlex = value;
-        this.changeVdomRootKey('flex', value)
-    }
-
-    /**
      * Triggered after the hasUnmountedVdomChanges config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
