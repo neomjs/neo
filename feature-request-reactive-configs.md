@@ -295,23 +295,34 @@ class Base {
     #configs = {};
 
     construct(config={}) {
-        // ...
-        // 2. During initialization, create and store a Config instance for each property.
-        const mergedConfigs = this.mergeConfig(config);
-        for (const key in mergedConfigs) {
-            this.#configs[key] = new Config(mergedConfigs[key]);
-        }
-        // ...
+        // ... (other initialization logic)
+        // Config instances are now created lazily within getConfig() for reactive configs.
     }
 
     /**
-     * 3. A public method to access the underlying Config controller.
+     * 2. A public method to access the underlying Config controller.
      * This enables advanced interactions like subscriptions.
      * @param {String} key The name of the config property (e.g., 'items').
      * @returns {Config|undefined} The Config instance, or undefined if not found.
      */
     getConfig(key) {
-        return this.#configs[key];
+        let me = this;
+
+        // Create a Config instance only if it doesn't exist and the key is a reactive config.
+        if (!me.#configs[key] && me.isConfig(key)) {
+            me.#configs[key] = new Config();
+        }
+
+        return me.#configs[key];
+    }
+
+
+    /**
+     * @param {String} key
+     * @returns {Boolean}
+     */
+    isConfig(key) {
+        return Object.hasOwn(this.constructor.config, key) && Neo.hasPropertySetter(this, key)
     }
 }
 ```
