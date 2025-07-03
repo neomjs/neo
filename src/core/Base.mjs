@@ -143,7 +143,9 @@ class Base {
     #timeoutIds = []
 
     /**
-     * The constructor for all Neo.mjs classes, invoked inside the `Neo.create()` method.
+     * The main initializer for all Neo.mjs classes, invoked by `Neo.create()`.
+     * NOTE: This is not the native `constructor()`, which is called without arguments by `Neo.create()` first.
+     *
      * This method orchestrates the entire instance initialization process, including
      * the setup of the powerful and flexible config system.
      *
@@ -164,11 +166,14 @@ class Base {
      *     `Neo.core.Config` instance to enable subscription-based reactivity.
      *
      * 3.  **Non-Reactive Configs:** Properties defined in `static config` without a trailing
-     *     underscore. These are applied directly to the instance without triggering hooks,
-     *     serving as simple, inheritable configuration values.
+     *     underscore in their entire inheritance chain. Their default values are applied directly
+     *     to the class **prototype**, making them shared across all instances and allowing for
+     *     run-time modifications (prototypal inheritance). When a new value is passed to this
+     *     method, it creates an instance-specific property that shadows the prototype value.
      *
-     * This method also initializes the observable mixin (if applicable), sets up remote method
-     * access, and schedules asynchronous `initAsync()` logic.
+     * This method also initializes the observable mixin (if applicable) and schedules asynchronous
+     * logic like `initAsync()` (which handles remote method access) to run after the synchronous
+     * construction chain is complete.
      *
      * @param {Object} config={} The initial configuration object for the instance.
      */
