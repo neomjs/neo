@@ -368,6 +368,9 @@ Based on a review of the `reactive-config` feature branch, the following key imp
     *   **Non-Reactive Configs:** Their default values are applied to the class **prototype**. This makes them highly flexible, as the defaults are shared and can be modified at runtime before an instance is created. When a value is passed to an instance, it creates an instance-level property that shadows the prototype's value.
     *   **Public Class Fields:** These are assigned directly to the instance inside its constructor, so their default values cannot be easily modified at runtime for all subsequent instances.
 
+4.  **The `id` and `parentId` Assignment Issue:**
+    The `dev` branch correctly assigns component `id`s early in the `construct()` lifecycle. In contrast, the `reactive-config` branch processes `id` and `parentId` as reactive configs, meaning their values are fully resolved later, within the `initConfig()` and `processConfigs()` flow. This change in timing leads to a critical issue where child components, when their `StateProvider` attempts to access `this.component.parentId` (e.g., in `StateProvider.getParent()`), still report `'document.body'` instead of their actual parent's ID. This is because the `afterSetParentId` hook, which would update `parentId`, has not yet executed. While simple examples like `examples/button/Base` render without errors, larger applications like `apps/portal` exhibit `"No state.Provider found with the specified data property"` errors, which are a direct consequence of `StateProvider`s attempting to resolve bindings using an incorrect component hierarchy due to the delayed `id` and `parentId` assignment.
+
 ## Proposed Target
 
 This is a significant but cohesive architectural enhancement. Thanks to the symbol-based opt-in mechanism, it can be implemented in a **single phase** and targeted for the next major version, **v11.0.0**.
