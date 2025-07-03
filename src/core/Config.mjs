@@ -1,37 +1,108 @@
 import {isDescriptor} from './ConfigSymbols.mjs';
 
+/**
+ * @class Neo.core.Config
+ * @private
+ * @internal
+ *
+ * Represents an observable container for a config property.
+ * This class manages the value of a config, its subscribers, and custom behaviors
+ * like merge strategies and equality checks defined via a descriptor object.
+ *
+ * The primary purpose of this class is to enable fine-grained reactivity and
+ * decoupled cross-instance state sharing within the Neo.mjs framework.
+ */
 class Config {
-    #subscribers = new Set();
+    /**
+     * The internal value of the config property.
+     * @private
+     * @member {any} #value
+     */
     #value;
 
-    // Meta-properties with framework defaults
-    isEqual = Neo.isEqual;
+    /**
+     * A Set to store callback functions that subscribe to changes in this config's value.
+     * @private
+     * @member {Set<Function>} #subscribers
+     */
+    #subscribers = new Set();
+
+    /**
+     * The strategy to use when merging new values into this config.
+     * Defaults to 'deep'. Can be overridden via a descriptor.
+     * @member {string} mergeStrategy
+     */
     mergeStrategy = 'deep';
 
+    /**
+     * The function used to compare new and old values for equality.
+     * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
+     * @member {Function} isEqual
+     */
+    isEqual = Neo.isEqual;
+
+    /**
+     * Creates an instance of Config.
+     * If `configObject` is a descriptor (marked with `isDescriptor` symbol),
+     * it initializes the `Config` instance with the descriptor's metadata.
+     * Otherwise, it prepares the `Config` instance to receive a simple value.
+     *
+     * The internal `#value` is NOT set by the constructor. It is always set
+     * via the `set()` method to ensure consistent `isEqual` checks and `afterSet`
+     * hook triggering.
+     *
+     * @param {any|Object} configObject - The initial value or a descriptor object for the config.
+     */
     constructor(configObject) {
         // The symbol check makes the logic clean and unambiguous
         if (Neo.isObject(configObject) && configObject[isDescriptor] === true) {
             this.initDescriptor(configObject);
-        } else {
-            // It's a simple value, not a descriptor
-           this.#value = configObject;
         }
+        // Do NOT set #value here. The internal `#value` will be set later via the `Config` instance's `set()` method,
+        // which is invoked by the component's public config setter. This ensures `isEqual` and `afterSet` hooks
+        // are consistently applied from the first assignment.
     }
 
-    get() { return this.#value; }
+    /**
+     * Gets the current value of the config property.
+     * @returns {any} The current value.
+     */
+    get() {
+        return this.#value;
+    }
 
+    /**
+     * Initializes the `Config` instance using a descriptor object.
+     * Extracts `mergeStrategy` and `isEqual` from the descriptor.
+     * The internal `#value` is NOT set by this method.
+     * @param {Object} descriptor - The descriptor object for the config.
+     * @param {any} descriptor.value - The default value for the config (not set by this method).
+     * @param {string} [descriptor.merge='deep'] - The merge strategy.
+     * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
+     */
     initDescriptor(descriptor) {
-        this.#value = descriptor.value;
+        // Do NOT set #value here. The internal `#value` will be set later via the `Config` instance's `set()` method.
         this.mergeStrategy = descriptor.merge || this.mergeStrategy;
         this.isEqual = descriptor.isEqual || this.isEqual;
     }
 
+    /**
+     * Notifies all subscribed callbacks about a change in the config's value.
+     * @param {any} newValue - The new value of the config.
+     * @param {any} oldValue - The old value of the config.
+     */
     notify(newValue, oldValue) {
         for (const callback of this.#subscribers) {
             callback(newValue, oldValue);
         }
     }
 
+    /**
+     * Sets a new value for the config property.
+     * This method performs an equality check using `this.isEqual` before updating the value.
+     * If the value has changed, it updates `#value` and notifies all subscribers.
+     * @param {any} newValue - The new value to set.
+     */
     set(newValue) {
         if (newValue === undefined) return;
 
@@ -43,10 +114,23 @@ class Config {
         }
     }
 
+    /**
+     * Sets the internal value of the config property directly, without performing
+     * an equality check or notifying subscribers.
+     * This method is intended for internal framework use where direct assignment
+     * is necessary (e.g., during initial setup or specific internal optimizations).
+     * @param {any} newValue - The new value to set directly.
+     */
     setRaw(newValue) {
         this.#value = newValue;
     }
 
+    /**
+     * Subscribes a callback function to changes in this config's value.
+     * The callback will be invoked with `(newValue, oldValue)` whenever the config changes.
+     * @param {Function} callback - The function to call when the config value changes.
+     * @returns {Function} A cleanup function to unsubscribe the callback.
+     */
     subscribe(callback) {
         this.#subscribers.add(callback);
         return () => this.#subscribers.delete(callback);
