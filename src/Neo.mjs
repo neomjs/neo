@@ -729,7 +729,7 @@ function autoGenerateGetSet(proto, key) {
                 if (!config) return;
 
                 let me        = this,
-                    oldValue  = me[_key];
+                    oldValue  = config.get(); // Get the old value from the Config instance
 
                 // every set call has to delete the matching symbol
                 delete me[configSymbol][key];
@@ -738,16 +738,11 @@ function autoGenerateGetSet(proto, key) {
                     value = Neo.clone(value, true, true)
                 }
 
-                // we do want to store the value before the beforeSet modification as well,
-                // since it could get pulled by other beforeSet methods of different configs
-                me[_key] = value;
-
                 if (typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
                     if (value === undefined) {
-                        me[_key] = oldValue;
                         return
                     }
                 }
@@ -755,10 +750,9 @@ function autoGenerateGetSet(proto, key) {
                 // Set the new value into the Config instance
                 config.set(value);
 
-                if (
-                    (key === 'vnode' && value !== oldValue) || // vnode trees can be huge, avoid a deep comparison
-                    !config.isEqual(value, oldValue)
-                ) {
+                // The equality check is now handled by the config controller itself.
+                // We only trigger afterSet if the value actually changed within the Config instance.
+                if (!config.isEqual(value, oldValue)) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue)
                 }
