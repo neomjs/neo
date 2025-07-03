@@ -174,7 +174,7 @@ class Base {
 
         for (const key in mergedConfigs) {
             // Only create a new Config instance if one doesn't already exist for this key
-            me.#configs[key] ??= new Config()
+            me.#configs[key] ??= new Config(mergedConfigs[key]);
         }
 
         me.initConfig(config);
