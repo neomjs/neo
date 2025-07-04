@@ -1,5 +1,5 @@
-import DefaultConfig from './DefaultConfig.mjs';
-import {isDescriptor}  from './core/ConfigSymbols.mjs';
+import DefaultConfig  from './DefaultConfig.mjs';
+import {isDescriptor} from './core/ConfigSymbols.mjs';
 
 const
     camelRegex   = /-./g,
