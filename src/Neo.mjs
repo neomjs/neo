@@ -339,6 +339,26 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
+     * Merges a new value into an existing config value based on a specified strategy.
+     * This method is used during instance creation to apply merge strategies defined in config descriptors.
+     * @param {any} defaultValue - The default value of the config (from static config).
+     * @param {any} instanceValue - The value provided during instance creation.
+     * @param {string|Function} strategy - The merge strategy: 'shallow', 'deep', 'replace', or a custom function.
+     * @returns {any} The merged value.
+     */
+    mergeConfig(defaultValue, instanceValue, strategy) {
+        if (strategy === 'shallow') {
+            return {...defaultValue, ...instanceValue}
+        } else if (strategy === 'deep') {
+            return Neo.merge(Neo.clone(defaultValue, true), instanceValue);
+        } else if (typeof strategy === 'function') {
+            return strategy(defaultValue, instanceValue)
+        } else { // Default to 'replace' or if strategy is not recognized
+            return instanceValue
+        }
+    },
+
+    /**
      * Maps a className string into a given or global namespace
      * @example
      * Neo.ns('Neo.button.Base', true);
