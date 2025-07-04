@@ -54,11 +54,15 @@ class Component extends Base {
         /**
          * The default alignment specification to position this Component relative to some other
          * Component, or Element or Rectangle. Only applies in case floating = true.
-         * @member {Object|String} align_={edgeAlign:'t-b',constrainTo:'document.body'}
+         * @member {Object|String} align_={[isDescriptor]: true, merge: 'deep', value: {edgeAlign: 't-b',constrainTo: 'document.body'}}
          */
         align_: {
-            edgeAlign  : 't-b',
-            constrainTo: 'document.body'
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value: {
+                edgeAlign  : 't-b',
+                constrainTo: 'document.body'
+            }
         },
         /**
          * The name of the App this component belongs to
@@ -327,9 +331,13 @@ class Component extends Base {
         stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
-         * @member {Object} style_=null
+         * @member {Object} style={[isDescriptor]: true, merge: 'deep', value: null}
          */
-        style_: null,
+        style_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * You can pass a used theme directly to any component,
          * to style specific component trees differently from your main view.
@@ -376,13 +384,13 @@ class Component extends Base {
         updateDepth_: 1,
         /**
          * The component vnode tree. Available after the component got rendered.
-         * @member {Object} vnode_=null
+         * @member {Object} vnode_=={[isDescriptor]: true, value: null, isEqual: (a, b) => a === b,}
          * @protected
          */
         vnode_: {
             [isDescriptor]: true,
+            isEqual       : (a, b) => a === b, // vnode trees can be huge, and will get compared by the vdom worker.
             value         : null,
-            isEqual       : (a, b) => a === b // vnode trees can be huge, and will get compared by the vdom worker.
         },
         /**
          * Shortcut for style.width, defaults to px
@@ -400,9 +408,13 @@ class Component extends Base {
         wrapperCls_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
-         * @member {Object|null} wrapperStyle_=null
+         * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'deep', value: null}
          */
-        wrapperStyle_: null,
+        wrapperStyle_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * The vdom markup for this component.
          * @member {Object} _vdom={}
