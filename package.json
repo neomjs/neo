@@ -86,7 +86,7 @@
         "fs-extra"                     : "^11.3.0",
         "highlightjs-line-numbers.js"  : "^2.9.0",
         "html-minifier-terser"         : "^7.2.0",
-        "inquirer"                     : "^12.6.3",
+        "inquirer"                     : "^12.7.0",
         "marked"                       : "^16.0.0",
         "monaco-editor"                : "0.50.0",
         "neo-jsdoc"                    : "1.0.1",
