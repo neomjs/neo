@@ -23,7 +23,6 @@ const
  * @module Neo
  * @singleton
  * @borrows Neo.core.Util.bindMethods       as bindMethods
- * @borrows Neo.core.Util.capitalize        as capitalize
  * @borrows Neo.core.Util.createStyleObject as createStyleObject
  * @borrows Neo.core.Util.createStyles      as createStyles
  * @borrows Neo.core.Util.decamel           as decamel
