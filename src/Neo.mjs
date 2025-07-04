@@ -325,6 +325,16 @@ Neo = globalThis.Neo = Object.assign({
             return Neo.merge(Neo.merge(target, defaults), source)
         }
 
+        // If target is null or undefined, and source is an object, initialize target to an empty object.
+        // Otherwise, if target is null or undefined, just return source (replacement).
+        if (target == null) {
+            if (Neo.typeOf(source) === 'Object') {
+                target = {};
+            } else {
+                return source;
+            }
+        }
+
         for (const key in source) {
             const value = source[key];
 
