@@ -1,4 +1,5 @@
 import DefaultConfig from './DefaultConfig.mjs';
+import {isDescriptor}  from './core/ConfigSymbols.mjs';
 
 const
     camelRegex   = /-./g,
@@ -514,8 +515,8 @@ Neo = globalThis.Neo = Object.assign({
                     autoGenerateGetSet(element, key)
                 }
 
-                    // only apply properties which have no setters inside the prototype chain
-                // those will get applied on create (Neo.core.Base -> initConfig)
+                // Only apply properties which have no setters inside the prototype chain.
+                // Those will get applied on create (Neo.core.Base -> initConfig)
                 else if (!Neo.hasPropertySetter(element, key)) {
                     Object.defineProperty(element, key, {
                         enumerable: true,
@@ -682,18 +683,24 @@ function autoGenerateGetSet(proto, key) {
         throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead')
     }
 
+    const
+        _key      = '_' + key,
+        uKey      = key[0].toUpperCase() + key.slice(1),
+        beforeGet = 'beforeGet' + uKey,
+        beforeSet = 'beforeSet' + uKey,
+        afterSet  = 'afterSet'  + uKey;
+
     if (!Neo[getSetCache]) {
         Neo[getSetCache] = {}
     }
 
     if (!Neo[getSetCache][key]) {
-        Neo[getSetCache][key] = {
+        const publicDescriptor = {
             get() {
                 let me        = this,
-                    beforeGet = `beforeGet${key[0].toUpperCase() + key.slice(1)}`,
                     hasNewKey = Object.hasOwn(me[configSymbol], key),
                     newKey    = me[configSymbol][key],
-                    value     = hasNewKey ? newKey : me['_' + key];
+                    value     = hasNewKey ? newKey : me[_key];
 
                 if (Array.isArray(value)) {
                     if (key !== 'items') {
@@ -704,8 +711,8 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (hasNewKey) {
-                    me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
-                    value = me['_' + key]; // return the value parsed by the setter
+                    me[key] = value;  // We do want to trigger the setter => beforeSet, afterSet
+                    value = me[_key]; // Return the value parsed by the setter
                     delete me[configSymbol][key]
                 }
 
@@ -715,18 +722,14 @@ function autoGenerateGetSet(proto, key) {
 
                 return value
             },
-
             set(value) {
-                if (value === undefined) {
-                    return
-                }
+                if (value === undefined) return;
+
+                const config = this.getConfig(key);
+                if (!config) return;
 
                 let me        = this,
-                    _key      = '_' + key,
-                    uKey      = key[0].toUpperCase() + key.slice(1),
-                    beforeSet = 'beforeSet' + uKey,
-                    afterSet  = 'afterSet'  + uKey,
-                    oldValue  = me[_key];
+                    oldValue  = config.get(); // Get the old value from the Config instance
 
                 // every set call has to delete the matching symbol
                 delete me[configSymbol][key];
@@ -735,34 +738,39 @@ function autoGenerateGetSet(proto, key) {
                     value = Neo.clone(value, true, true)
                 }
 
-                // we do want to store the value before the beforeSet modification as well,
-                // since it could get pulled by other beforeSet methods of different configs
-                me[_key] = value;
-
                 if (typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
                     if (value === undefined) {
-                        me[_key] = oldValue;
                         return
                     }
-
-                    me[_key] = value;
                 }
 
-                if (
-                    (key === 'vnode' && value !== oldValue) || // vnode trees can be huge, avoid a deep comparison
-                    !Neo.isEqual(value, oldValue)
-                ) {
+                // Set the new value into the Config instance
+                // The config.set() method will return true if the value actually changed.
+                if (config.set(value)) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue)
                 }
             }
-        }
+        };
+
+        const privateDescriptor = {
+            get() {
+                return this.getConfig(key)?.get();
+            },
+            set(value) {
+                this.getConfig(key)?.setRaw(value);
+            }
+        };
+
+        Neo[getSetCache][key]  = publicDescriptor;
+        Neo[getSetCache][_key] = privateDescriptor;
     }
 
-    Object.defineProperty(proto, key, Neo[getSetCache][key])
+    Object.defineProperty(proto, key,  Neo[getSetCache][key]);
+    Object.defineProperty(proto, _key, Neo[getSetCache][_key])
 }
 
 /**

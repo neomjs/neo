@@ -49,6 +49,11 @@ class Collection extends Base {
          */
         autoSort: true,
         /**
+         * Stores the items.length of the items array in use
+         * @member {Number} count_=0
+         */
+        count_: 0,
+        /**
          * Use 'primitive' for default filters, use 'advanced' for filters using a filterBy method
          * which need to iterate over other collection items
          * @member {String} filterMode='primitive'
@@ -140,6 +145,17 @@ class Collection extends Base {
     }
 
     /**
+     * Triggered after the badgePosition config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetCount(value, oldValue) {
+        this.fire('countChange', {oldValue, value})
+    }
+
+    /**
+     * Triggered after the filters config got changed
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -158,6 +174,7 @@ class Collection extends Base {
     }
 
     /**
+     * Triggered after the items config got changed
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -174,10 +191,13 @@ class Collection extends Base {
                 item = value[i];
                 me.map.set(item[keyProperty], item)
             }
+
+            me.count = len
         }
     }
 
     /**
+     * Triggered after the sorters config got changed
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -198,6 +218,7 @@ class Collection extends Base {
     }
 
     /**
+     * Triggered after the sourceId config got changed
      * @param {Number|String} value
      * @param {Number|String} oldValue
      * @protected
@@ -673,6 +694,7 @@ class Collection extends Base {
 
                 me.allItems = Neo.create(Collection, {
                     ...Neo.clone(config, true, true),
+                    id          : me.id + '-all',
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
                 })
@@ -726,6 +748,8 @@ class Collection extends Base {
         if (needsSorting) {
             me.doSort(me.items, true)
         }
+
+        me.count = me.items.length;
 
         me.fire('filter', {
             isFiltered: me[isFiltered],
@@ -845,11 +869,12 @@ class Collection extends Base {
     }
 
     /**
-     * Returns the length of the internal items array
+     * Returns the config value of this.count
      * @returns {Number}
+     * @deprecated Use `this.count` directly instead.
      */
     getCount() {
-        return this._items.length
+        return this._count || 0 // skipping beforeGetCount() on purpose
     }
 
     /**
@@ -1238,6 +1263,8 @@ class Collection extends Base {
         }
 
         if (me[updatingIndex] === 0) {
+            me.count = me._items.length;
+
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,

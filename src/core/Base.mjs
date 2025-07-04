@@ -1,4 +1,8 @@
 import {buffer, debounce, intercept, resolveCallback, throttle} from '../util/Function.mjs';
+import Compare                                                  from '../core/Compare.mjs';
+import Util                                                     from '../core/Util.mjs';
+import Config                                                   from './Config.mjs';
+import {isDescriptor}                                           from './ConfigSymbols.mjs';
 import IdGenerator                                              from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
@@ -126,6 +130,12 @@ class Base {
     }
 
     /**
+     * A private field to store the Config controller instances.
+     * @member {Object} #configs={}
+     * @private
+     */
+    #configs = {};
+    /**
      * Internal cache for all timeout ids when using this.timeout()
      * @member {Number[]} timeoutIds=[]
      * @private
@@ -133,8 +143,39 @@ class Base {
     #timeoutIds = []
 
     /**
-     * Applies the observable mixin if needed, grants remote access if needed.
-     * @param {Object} config={}
+     * The main initializer for all Neo.mjs classes, invoked by `Neo.create()`.
+     * NOTE: This is not the native `constructor()`, which is called without arguments by `Neo.create()` first.
+     *
+     * This method orchestrates the entire instance initialization process, including
+     * the setup of the powerful and flexible config system.
+     *
+     * The `config` parameter is a single object that can contain different types of properties,
+     * which are processed in a specific order to ensure consistency and predictability:
+     *
+     * 1.  **Public Class Fields & Other Properties:** Any key in the `config` object that is NOT
+     *     defined in the class's `static config` hierarchy is considered a public field or a
+     *     dynamic property. These are assigned directly to the instance (`this.myField = value`)
+     *     at the very beginning. This is crucial so that subsequent config hooks (like `afterSet*`)
+     *     can access their latest values.
+     *
+     * 2.  **Reactive Configs:** A property is considered reactive if it is defined with a trailing
+     *     underscore (e.g., `myValue_`) in the `static config` of **any class in the inheritance
+     *     chain**. Subclasses can provide new default values for these configs without the
+     *     underscore, and they will still be reactive. Their values are applied via generated
+     *     setters, triggering `beforeSet*` and `afterSet*` hooks, and they are wrapped in a
+     *     `Neo.core.Config` instance to enable subscription-based reactivity.
+     *
+     * 3.  **Non-Reactive Configs:** Properties defined in `static config` without a trailing
+     *     underscore in their entire inheritance chain. Their default values are applied directly
+     *     to the class **prototype**, making them shared across all instances and allowing for
+     *     run-time modifications (prototypal inheritance). When a new value is passed to this
+     *     method, it creates an instance-specific property that shadows the prototype value.
+     *
+     * This method also initializes the observable mixin (if applicable) and schedules asynchronous
+     * logic like `initAsync()` (which handles remote method access) to run after the synchronous
+     * construction chain is complete.
+     *
+     * @param {Object} config={} The initial configuration object for the instance.
      */
     construct(config={}) {
         let me = this;
@@ -152,12 +193,8 @@ class Base {
             }
         });
 
-        me.createId(config.id || me.id);
+        me.id = config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
-
-        if (me.constructor.config) {
-            delete me.constructor.config.id
-        }
 
         me.getStaticConfig('observable') && me.initObservable(config);
 
@@ -343,16 +380,6 @@ class Base {
     }
 
     /**
-     * Uses the IdGenerator to create an id if a static one is not explicitly set.
-     * Registers the instance to manager.Instance if this one is already created,
-     * otherwise stores it inside a tmp map.
-     * @param {String} id
-     */
-    createId(id) {
-        this.id = id || IdGenerator.getId(this.getIdKey())
-    }
-
-    /**
      * Unregisters this instance from Neo.manager.Instance
      * and removes all object entries from this instance
      */
@@ -384,6 +411,22 @@ class Base {
         }
 
         me.isDestroyed = true
+    }
+
+    /**
+     * A public method to access the underlying Config controller.
+     * This enables advanced interactions like subscriptions.
+     * @param {String} key The name of the config property (e.g., 'items').
+     * @returns {Config|undefined} The Config instance, or undefined if not found.
+     */
+    getConfig(key) {
+        let me = this;
+
+        if (!me.#configs[key] && me.isConfig(key)) {
+            me.#configs[key] = new Config()
+        }
+
+        return me.#configs[key]
     }
 
     /**
@@ -443,6 +486,7 @@ class Base {
 
         me.isConfiguring = true;
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
+        delete me[configSymbol].id;
         me.processConfigs();
         me.isConfiguring = false;
     }
@@ -473,6 +517,17 @@ class Base {
      */
     isDestroyedCheck() {
         return !this.isDestroyed
+    }
+
+    /**
+     * @param {String} key
+     * @returns {Boolean}
+     */
+    isConfig(key) {
+        // A config is considered "reactive" if it has a generated property setter
+        // AND it is present as a defined config in the merged static config hierarchy.
+        // Neo.setupClass() removes the underscore from the static config keys.
+        return Neo.hasPropertySetter(this, key) && (key in this.constructor.config);
     }
 
     /**

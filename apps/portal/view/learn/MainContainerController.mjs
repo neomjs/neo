@@ -17,8 +17,8 @@ class MainContainerController extends Controller {
          * @member {Object} routes
          */
         routes: {
-            '/learn'         : 'onRouteDefault',
-            '/learn/{itemId}': 'onRouteLearnItem'
+            '/learn'          : 'onRouteDefault',
+            '/learn/{*itemId}': 'onRouteLearnItem'
         }
     }
 
@@ -118,7 +118,7 @@ class MainContainerController extends Controller {
      */
     onRouteDefault(data) {
         if (!this.getStateProvider().data.currentPageRecord) {
-            this.onRouteLearnItem({itemId: 'benefits.Introduction'})
+            this.onRouteLearnItem({itemId: 'benefits/Introduction'})
         }
     }
 
@@ -126,15 +126,15 @@ class MainContainerController extends Controller {
      * @param {Object} data
      * @param {String} data.itemId
      */
-    onRouteLearnItem(data) {
+    onRouteLearnItem({itemId}) {
         let stateProvider = this.getStateProvider(),
             store         = stateProvider.getStore('contentTree');
 
         if (store.getCount() > 0) {
-            stateProvider.data.currentPageRecord = store.get(data.itemId)
+            stateProvider.data.currentPageRecord = store.get(itemId)
         } else {
             store.on({
-                load : () => {stateProvider.data.currentPageRecord = store.get(data.itemId)},
+                load : () => {stateProvider.data.currentPageRecord = store.get(itemId)},
                 delay: 10,
                 once : true
             })

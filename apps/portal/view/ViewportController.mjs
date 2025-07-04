@@ -50,7 +50,7 @@ class ViewportController extends Controller {
             '/examples/{itemId}': 'onExamplesRoute',
             '/home'             : 'onHomeRoute',
             '/learn'            : 'onLearnRoute',
-            '/learn/{itemId}'   : 'onLearnRoute',
+            '/learn/{*itemId}'  : 'onLearnRoute',
             '/services'         : 'onServicesRoute'
         },
         /**

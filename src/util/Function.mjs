@@ -1,3 +1,6 @@
+const originalMethodSymbol = Symbol('originalMethod');
+const sequencedFnsSymbol   = Symbol('sequencedFns');
+
 /**
  * Append args instead of prepending them
  * @param {Function} fn
@@ -67,12 +70,30 @@ export function createInterceptor(target, targetMethodName, interceptFunction, s
  * @returns {Function}
  */
 export function createSequence(target, methodName, fn, scope) {
-    let method = target[methodName] || Neo.emptyFn;
+    let currentMethod = target[methodName],
+        wrapper;
 
-    return (target[methodName] = function() {
-        method.apply(this, arguments);
-        return fn.apply(scope || this, arguments)
-    })
+    if (currentMethod && currentMethod[sequencedFnsSymbol]) {
+        // Already a sequenced method, add to its list
+        wrapper = currentMethod;
+        wrapper[sequencedFnsSymbol].push({fn, scope})
+    } else {
+        // First time sequencing this method
+        let originalMethod = currentMethod || Neo.emptyFn;
+
+        wrapper = function() {
+            originalMethod.apply(this, arguments); // Call the original method
+
+            // Call all sequenced functions
+            wrapper[sequencedFnsSymbol].forEach(seqFn => {
+                seqFn.fn.apply(seqFn.scope || this, arguments);
+            });
+        };
+        wrapper[sequencedFnsSymbol] = [{fn, scope}];
+        wrapper[originalMethodSymbol] = originalMethod; // Store original method
+    }
+
+    return (target[methodName] = wrapper);
 }
 
 /**
@@ -176,5 +197,31 @@ export function throttle(callback, scope, delay=300) {
                 }
             }, delay - (Date.now() - lastRanDate))
         }
+    }
+}
+
+/**
+ * @param {Neo.core.Base} target
+ * @param {String} methodName
+ * @param {Function} fn
+ * @param {Object} scope
+ */
+export function unSequence(target, methodName, fn, scope) {
+    let currentMethod = target[methodName];
+
+    if (!currentMethod || !currentMethod[sequencedFnsSymbol]) {
+        return // Not a sequenced method
+    }
+
+    const sequencedFunctions = currentMethod[sequencedFnsSymbol];
+
+    // Filter out the function to unsequence
+    currentMethod[sequencedFnsSymbol] = sequencedFunctions.filter(seqFn =>
+        !(seqFn.fn === fn && seqFn.scope === scope)
+    );
+
+    if (currentMethod[sequencedFnsSymbol].length === 0) {
+        // If no functions left, restore the original method
+        target[methodName] = currentMethod[originalMethodSymbol]
     }
 }

@@ -1,10 +1,7 @@
-import Base from './Base.mjs';
-
 /**
  * @class Neo.core.Util
- * @extends Neo.core.Base
  */
-class Util extends Base {
+class Util {
     /**
      * A regex to remove camel case syntax
      * @member {RegExp} decamelRegEx=/([a-z])([A-Z])/g
@@ -12,19 +9,6 @@ class Util extends Base {
      * @static
      */
     static decamelRegEx = /([a-z])([A-Z])/g
-
-    static config = {
-        /**
-         * @member {String} className='Neo.core.Util'
-         * @protected
-         */
-        className: 'Neo.core.Util',
-        /**
-         * @member {String} ntype='core-util'
-         * @protected
-         */
-        ntype: 'core-util'
-    }
 
     /**
      * @param {Object} scope
@@ -229,7 +213,8 @@ class Util extends Base {
     }
 }
 
-Util = Neo.setupClass(Util);
+const ns = Neo.ns('Neo.core', true);
+ns.Util = Util;
 
 // aliases
 Neo.applyFromNs(Neo, Util, {

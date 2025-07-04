@@ -81,7 +81,7 @@ class RecordFactory extends Base {
                         return this[dataSymbol][fieldName]
                     },
                     set(value) {
-                        instance.setRecordFields({
+                        this.notifyChange({
                             fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
                             model,
                             record: this
@@ -194,6 +194,25 @@ class RecordFactory extends Base {
                     }
 
                     /**
+                     * The single source of truth for record field changes.
+                     * Executes instance.setRecordFields(), and can get used via:
+                     * - Neo.util.Function:createSequence()
+                     * - Neo.util.Function:intercept(),
+                     * to "listen" to field changes
+                     * @param {Object}         data
+                     * @param {Object}         data.fields
+                     * @param {Neo.data.Model} data.model
+                     * @param {Object}         data.record
+                     * @param {Boolean}        silent=false
+                     * @returns {Object}
+                     */
+                    notifyChange(data, silent=false) {
+                        const param = {...data, silent}
+                        instance.setRecordFields(param);
+                        return param
+                    }
+
+                    /**
                      * Bulk-update multiple record fields at once
                      * @param {Object} fields
                      */
@@ -207,7 +226,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     set(fields) {
-                        instance.setRecordFields({fields, model, record: this})
+                        this.notifyChange({fields, model, record: this})
                     }
 
                     /**
@@ -225,7 +244,7 @@ class RecordFactory extends Base {
                      * @param {Object} fields
                      */
                     setSilent(fields) {
-                        instance.setRecordFields({fields, model, record: this, silent: true})
+                        this.notifyChange({fields, model, record: this}, true)
                     }
 
                     /**

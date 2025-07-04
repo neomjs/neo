@@ -10,6 +10,7 @@ import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
+import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 const
     addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
@@ -378,7 +379,11 @@ class Component extends Base {
          * @member {Object} vnode_=null
          * @protected
          */
-        vnode_: null,
+        vnode_: {
+            [isDescriptor]: true,
+            value         : null,
+            isEqual       : (a, b) => a === b // vnode trees can be huge, and will get compared by the vdom worker.
+        },
         /**
          * Shortcut for style.width, defaults to px
          * @member {Number|String|null} width_=null
@@ -644,21 +649,6 @@ class Component extends Base {
                 })
             })
         }
-    }
-
-    /**
-     * Triggered after the flex config got changed
-     * @param {Number|String|null} value
-     * @param {Number|String|null} oldValue
-     * @protected
-     */
-    afterSetFlex(value, oldValue) {
-        if (!isNaN(value)) {
-            value = `${value} ${value} 0%`
-        }
-
-        this.configuredFlex = value;
-        this.changeVdomRootKey('flex', value)
     }
 
     /**
