@@ -23,21 +23,18 @@ class Config {
     /**
      * A Set to store callback functions that subscribe to changes in this config's value.
      * @private
-     * @apps/portal/view/about/MemberContainer.mjs {Set<Function>} #subscribers
      */
     #subscribers = new Set();
 
     /**
      * The strategy to use when merging new values into this config.
-     * Defaults to 'deep'. Can be overridden via a descriptor.
-     * @apps/portal/view/about/MemberContainer.mjs {string} mergeStrategy
+     * Defaults to 'replace'. Can be overridden via a descriptor.
      */
-    mergeStrategy = 'deep';
+    mergeStrategy = 'replace';
 
     /**
      * The function used to compare new and old values for equality.
      * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
-     * @apps/portal/view/about/MemberContainer.mjs {Function} isEqual
      */
     isEqual = Neo.isEqual;
 
@@ -73,9 +70,9 @@ class Config {
     initDescriptor({isEqual, merge, value}) {
         let me = this;
 
-        me.#value        = value
-        me.mergeStrategy ??= merge;
+        me.#value        = value;
         me.isEqual       ??= isEqual
+        me.mergeStrategy ??= merge
     }
 
     /**
@@ -85,7 +82,7 @@ class Config {
      */
     notify(newValue, oldValue) {
         for (const callback of this.#subscribers) {
-            callback(newValue, oldValue);
+            callback(newValue, oldValue)
         }
     }
 
