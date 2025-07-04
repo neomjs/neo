@@ -353,10 +353,8 @@ Neo = globalThis.Neo = Object.assign({
             return Neo.merge(Neo.clone(defaultValue, true), instanceValue);
         } else if (typeof strategy === 'function') {
             return strategy(defaultValue, instanceValue)
-        } else if (strategy === 'replace') { // Explicitly handle 'replace'
-            return instanceValue;
-        } else { // Default to 'deep' if strategy is not recognized or undefined
-            return Neo.merge(Neo.clone(defaultValue, true), instanceValue);
+        } else { // Default to 'replace' or if strategy is not recognized
+            return instanceValue
         }
     },
 
