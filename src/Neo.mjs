@@ -360,7 +360,7 @@ Neo = globalThis.Neo = Object.assign({
         if (strategy === 'shallow') {
             return {...defaultValue, ...instanceValue}
         } else if (strategy === 'deep') {
-            return Neo.merge(Neo.clone(defaultValue, true), instanceValue);
+            return Neo.merge(Neo.clone(defaultValue, true), instanceValue)
         } else if (typeof strategy === 'function') {
             return strategy(defaultValue, instanceValue)
         } else { // Default to 'replace' or if strategy is not recognized

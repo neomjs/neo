@@ -2036,28 +2036,15 @@ class Component extends Base {
      * @returns {Object} config
      */
     mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args),
+        let config = super.mergeConfig(...args),
+            vdom   = config.vdom || config._vdom || {};
 
-            // it should be possible to set custom configs for the vdom on instance level,
-            // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
-            vdom = {...me._vdom || {}, ...config.vdom || {}};
+        // It should be possible to modify the vdom on instance level.
+        // Note that vdom is not a real config, but implemented via get() & set().
+        this._vdom = Neo.merge(Neo.clone(this._vdom, true) || {}, Neo.clone(vdom, true));
 
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-        me._vdom = Neo.clone(vdom, true, true);
-
-        if (config.style) {
-            // If we are passed an object, merge it with the class's own style
-            me.style = Neo.typeOf(config.style) === 'Object' ? {...config.style, ...me.constructor.config.style} : config.style
-        }
-
-        me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
-
-        delete config.style;
         delete config._vdom;
         delete config.vdom;
-        delete config.wrapperStyle;
 
         return config
     }
