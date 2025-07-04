@@ -539,7 +539,8 @@ class Base {
      */
     mergeConfig(config, preventOriginalConfig) {
         let me   = this,
-            ctor = me.constructor;
+            ctor = me.constructor,
+            configDescriptors, staticConfig;
 
         if (!ctor.config) {
             throw new Error('Neo.applyClassConfig has not been run on ' + me.className)
@@ -549,7 +550,20 @@ class Base {
             me.originalConfig = Neo.clone(config, true, true)
         }
 
-        return {...ctor.config, ...config}
+        configDescriptors = ctor.configDescriptors;
+        staticConfig      = ctor.config;
+
+        if (configDescriptors) {
+            Object.entries(config).forEach(([key, instanceValue]) => {
+                const descriptor = configDescriptors[key];
+
+                if (descriptor?.merge) {
+                    config[key] = Neo.mergeConfig(staticConfig[key], instanceValue, descriptor.merge)
+                }
+            })
+        }
+
+        return {...staticConfig, ...config}
     }
 
     /**
