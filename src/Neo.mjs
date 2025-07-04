@@ -521,9 +521,12 @@ Neo = globalThis.Neo = Object.assign({
             return ns
         }
 
+        // Traverse the prototype chain to collect inherited configs and descriptors
         while (proto.__proto__) {
             ctor = proto.constructor;
 
+            // If a class in the prototype chain has already had its config applied,
+            // we can use its pre-processed config and descriptors as a base.
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
                 baseConfig            = Neo.clone(ctor.config, true);
                 baseConfigDescriptors = Neo.clone(ctor.configDescriptors, true);
@@ -535,9 +538,11 @@ Neo = globalThis.Neo = Object.assign({
             proto = proto.__proto__
         }
 
+        // Initialize accumulated config and descriptors
         config            = baseConfig            || {};
         configDescriptors = baseConfigDescriptors || {};
 
+        // Process each class in the prototype chain (from top to bottom)
         protos.forEach(element => {
             let mixins;
 
@@ -549,25 +554,28 @@ Neo = globalThis.Neo = Object.assign({
                 ctor.applyOverwrites?.(cfg)
             }
 
+            // Process each config property defined in the current class's static config
             Object.entries(cfg).forEach(([key, value]) => {
                 const
                     isReactive = key.slice(-1) === '_',
                     baseKey    = isReactive ? key.slice(0, -1) : key;
 
-                // 1. Handle descriptors first, as this can modify the 'value'
+                // 1. Handle descriptors: If the value is a descriptor object, store it.
+                //    The 'value' property of the descriptor is then used as the actual config value.
                 if (Neo.isObject(value) && value[isDescriptor] === true) {
                     ctor.configDescriptors ??= {};
-                    ctor.configDescriptors[baseKey] = Neo.clone(value, true);
-                    value = value.value; // The new value to be used from here on
+                    ctor.configDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
+                    value = value.value // Use the descriptor's value as the config value
                 }
 
-                // 2. Handle reactive vs. non-reactive configs
+                // 2. Handle reactive vs. non-reactive configs: Generate getters/setters for reactive configs.
                 if (isReactive) {
                     delete cfg[key];      // Remove original key with underscore
                     cfg[baseKey] = value; // Use the potentially modified value
                     autoGenerateGetSet(element, baseKey)
                 }
                 // This part handles non-reactive configs (including those that were descriptors)
+                // If no property setter exists, define it directly on the prototype.
                 else if (!Neo.hasPropertySetter(element, key)) {
                     Object.defineProperty(element, key, {
                         enumerable: true,
@@ -577,10 +585,17 @@ Neo = globalThis.Neo = Object.assign({
                 }
             });
 
+            // Merge configDescriptors: Apply "first-defined wins" strategy.
+            // If a descriptor for a key already exists (from a parent class), it is not overwritten.
             if (ctor.configDescriptors) {
-                Object.assign(configDescriptors, ctor.configDescriptors)
+                for (const key in ctor.configDescriptors) {
+                    if (!Object.hasOwn(configDescriptors, key)) {
+                        configDescriptors[key] = Neo.clone(ctor.configDescriptors[key], true) // Deep clone for immutability
+                    }
+                }
             }
 
+            // Process ntype and ntypeChain
             if (Object.hasOwn(cfg, 'ntype')) {
                 ntype = cfg.ntype;
 
@@ -595,6 +610,7 @@ Neo = globalThis.Neo = Object.assign({
                 ntypeMap[ntype] = cfg.className
             }
 
+            // Process mixins
             mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
 
             if (ctor.observable) {
@@ -616,30 +632,45 @@ Neo = globalThis.Neo = Object.assign({
             delete cfg.mixins;
             delete config.mixins;
 
-            Object.assign(config, cfg);
+            // Hierarchical merging of static config values based on descriptors.
+            // This ensures that values are merged (e.g., shallow/deep) instead of simply overwritten.
+            Object.entries(cfg).forEach(([key, value]) => {
+                const descriptor = configDescriptors[key];
 
+                if (descriptor?.merge) {
+                    config[key] = Neo.mergeConfig(config[key], value, descriptor.merge)
+                } else {
+                    config[key] = value
+                }
+            });
+
+            // Assign final processed config and descriptors to the class constructor
             Object.assign(ctor, {
                 classConfigApplied: true,
-                config            : Neo.clone(config, true),
-                configDescriptors : Neo.clone(configDescriptors, true),
+                config            : Neo.clone(config, true), // Deep clone final config for immutability
+                configDescriptors : Neo.clone(configDescriptors, true), // Deep clone final descriptors for immutability
                 isClass           : true,
                 ntypeChain
             });
 
+            // Apply to global namespace if not a singleton
             !config.singleton && this.applyToGlobalNs(cls)
         });
 
         proto = cls.prototype || cls;
 
+        // Add is<Ntype> flags to the prototype
         ntypeChain.forEach(ntype => {
             proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
         });
 
+        // If it's a singleton, create and apply the instance to the global namespace
         if (proto.singleton) {
             cls = Neo.create(cls);
             Neo.applyToGlobalNs(cls)
         }
 
+        // Add class hierarchy information to the manager or a temporary map
         hierarchyInfo = {
             className      : proto.className,
             module         : cls,
