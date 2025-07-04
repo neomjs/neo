@@ -357,15 +357,24 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {any} The merged value.
      */
     mergeConfig(defaultValue, instanceValue, strategy) {
+        const
+            defaultValueType  = Neo.typeOf(defaultValue),
+            instanceValueType = Neo.typeOf(instanceValue);
+
         if (strategy === 'shallow') {
-            return {...defaultValue, ...instanceValue}
+            if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return {...defaultValue, ...instanceValue}
+            }
         } else if (strategy === 'deep') {
-            return Neo.merge(Neo.clone(defaultValue, true), instanceValue)
+            if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return Neo.merge(Neo.clone(defaultValue, true), instanceValue)
+            }
         } else if (typeof strategy === 'function') {
             return strategy(defaultValue, instanceValue)
-        } else { // Default to 'replace' or if strategy is not recognized
-            return instanceValue
         }
+
+        // Default to 'replace' or if strategy is not recognized
+        return instanceValue
     },
 
     /**
