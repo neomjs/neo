@@ -814,10 +814,10 @@ function autoGenerateGetSet(proto, key) {
                 const config = this.getConfig(key);
                 if (!config) return;
 
-                let me        = this,
-                    oldValue  = config.get(); // Get the old value from the Config instance
+                let me       = this,
+                    oldValue = config.get(); // Get the old value from the Config instance
 
-                // every set call has to delete the matching symbol
+                // Every set call has to delete the matching symbol
                 delete me[configSymbol][key];
 
                 if (key !== 'items' && key !== 'vnode') {
@@ -873,9 +873,7 @@ function createArrayNs(create, current, prev) {
         arrRoot = prev[arrDetails[0]]
     }
 
-    if (!arrRoot) {
-        return
-    }
+    if (!arrRoot) return;
 
     for (; i < len; i++) {
         arrItem = parseInt(arrDetails[i]);
