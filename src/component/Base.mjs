@@ -331,11 +331,11 @@ class Component extends Base {
         stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
-         * @member {Object} style={[isDescriptor]: true, merge: 'deep', value: null}
+         * @member {Object} style={[isDescriptor]: true, merge: 'shallow', value: null}
          */
         style_: {
             [isDescriptor]: true,
-            merge         : 'deep',
+            merge         : 'shallow',
             value         : null
         },
         /**
@@ -408,11 +408,11 @@ class Component extends Base {
         wrapperCls_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
-         * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'deep', value: null}
+         * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'shallow', value: null}
          */
         wrapperStyle_: {
             [isDescriptor]: true,
-            merge         : 'deep',
+            merge         : 'shallow',
             value         : null
         },
         /**
