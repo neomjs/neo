@@ -74,8 +74,8 @@ class Config {
         let me = this;
 
         me.#value        = value
-        me.mergeStrategy = merge   || me.mergeStrategy;
-        me.isEqual       = isEqual || me.isEqual;
+        me.mergeStrategy ??= merge;
+        me.isEqual       ??= isEqual
     }
 
     /**
