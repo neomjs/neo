@@ -1232,8 +1232,7 @@ class Component extends Base {
             }
         }
 
-        // merge the incoming alignment specification into the configured default
-        return Neo.merge({}, value, me.constructor.config.align)
+        return value
     }
 
     /**
