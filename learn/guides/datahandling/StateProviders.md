@@ -321,6 +321,7 @@ class MainContainerController extends Controller {
                 animateTargetId: me.getReference('edit-user-button').id,
                 appName        : me.component.appName,
                 closeAction    : 'hide',
+                modal          : true,
 
                 stateProvider: {
                     parent: me.getStateProvider()
