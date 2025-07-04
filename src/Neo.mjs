@@ -647,7 +647,7 @@ Neo = globalThis.Neo = Object.assign({
             // Assign final processed config and descriptors to the class constructor
             Object.assign(ctor, {
                 classConfigApplied: true,
-                config            : Neo.clone(config, true), // Deep clone final config for immutability
+                config            : Neo.clone(config,            true), // Deep clone final config for immutability
                 configDescriptors : Neo.clone(configDescriptors, true), // Deep clone final descriptors for immutability
                 isClass           : true,
                 ntypeChain
@@ -747,7 +747,7 @@ function applyMixins(cls, mixins) {
             }
 
             mixinCls   = Neo.ns(mixin);
-            mixinProto = mixinCls.prototype;
+            mixinProto = mixinCls.prototype
         }
 
         mixinProto.className.split('.').reduce(mixReduce(mixinCls), mixinClasses);
@@ -782,7 +782,8 @@ function autoGenerateGetSet(proto, key) {
     }
 
     if (!Neo[getSetCache][key]) {
-        const publicDescriptor = {
+        // Public Descriptor
+        Neo[getSetCache][key] = {
             get() {
                 let me        = this,
                     hasNewKey = Object.hasOwn(me[configSymbol], key),
@@ -843,17 +844,15 @@ function autoGenerateGetSet(proto, key) {
             }
         };
 
-        const privateDescriptor = {
+        // Private Descriptor
+        Neo[getSetCache][_key] = {
             get() {
-                return this.getConfig(key)?.get();
+                return this.getConfig(key)?.get()
             },
             set(value) {
-                this.getConfig(key)?.setRaw(value);
+                this.getConfig(key)?.setRaw(value)
             }
-        };
-
-        Neo[getSetCache][key]  = publicDescriptor;
-        Neo[getSetCache][_key] = privateDescriptor;
+        }
     }
 
     Object.defineProperty(proto, key,  Neo[getSetCache][key]);
