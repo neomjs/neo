@@ -67,10 +67,9 @@ class Config {
      * @param {string} [descriptor.merge='deep'] - The merge strategy.
      * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
      */
-    initDescriptor({isEqual, merge, value}) {
+    initDescriptor({isEqual, merge}) {
         let me = this;
 
-        me.#value        = value;
         me.isEqual       ??= isEqual
         me.mergeStrategy ??= merge
     }

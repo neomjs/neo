@@ -423,7 +423,7 @@ class Base {
         let me = this;
 
         if (!me.#configs[key] && me.isConfig(key)) {
-            me.#configs[key] = new Config()
+            me.#configs[key] = new Config(me.constructor.configDescriptors?.[key])
         }
 
         return me.#configs[key]
