@@ -263,7 +263,7 @@ Neo = globalThis.Neo = Object.assign({
                     return null
                 }
 
-                className = config.className || config.module.prototype.className;
+                className = config.className || config.module.prototype.className
             }
 
             if (!exists(className)) {
@@ -328,9 +328,9 @@ Neo = globalThis.Neo = Object.assign({
         // Otherwise, if target is null or undefined, just return source (replacement).
         if (target == null) {
             if (Neo.typeOf(source) === 'Object') {
-                target = {};
+                target = {}
             } else {
-                return source;
+                return source
             }
         }
 
@@ -546,8 +546,7 @@ Neo = globalThis.Neo = Object.assign({
             let mixins;
 
             ctor = element.constructor;
-
-            cfg = ctor.config || {};
+            cfg  = ctor.config || {};
 
             if (Neo.overwrites) {
                 ctor.applyOverwrites?.(cfg)
@@ -829,9 +828,7 @@ function autoGenerateGetSet(proto, key) {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
-                    if (value === undefined) {
-                        return
-                    }
+                    if (value === undefined) return;
                 }
 
                 // Set the new value into the Config instance
@@ -964,7 +961,7 @@ function parseArrayFromString(str) {
     )
 }
 
-Neo.config = Neo.config || {};
+Neo.config ??= {};
 
 Neo.assignDefaults(Neo.config, DefaultConfig);
 
