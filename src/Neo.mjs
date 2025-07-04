@@ -461,13 +461,14 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {T}
      */
     setupClass(cls) {
-        let baseCfg    = null,
-            ntypeChain = [],
-            {ntypeMap} = Neo,
-            proto      = cls.prototype || cls,
-            ns         = Neo.ns(proto.constructor.config.className, false),
-            protos     = [],
-            cfg, config, ctor, hierarchyInfo, ntype;
+        let baseConfig            = null,
+            baseConfigDescriptors = null,
+            ntypeChain            = [],
+            {ntypeMap}            = Neo,
+            proto                 = cls.prototype || cls,
+            ns                    = Neo.ns(proto.constructor.config.className, false),
+            protos                = [],
+            cfg, config, configDescriptors, ctor, hierarchyInfo, ntype;
 
         /*
          * If the namespace already exists, directly return it.
@@ -485,8 +486,9 @@ Neo = globalThis.Neo = Object.assign({
             ctor = proto.constructor;
 
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
-                baseCfg    = Neo.clone(ctor.config, true);
-                ntypeChain = [...ctor.ntypeChain];
+                baseConfig            = Neo.clone(ctor.config, true);
+                baseConfigDescriptors = Neo.clone(ctor.configDescriptors, true);
+                ntypeChain            = [...ctor.ntypeChain];
                 break
             }
 
@@ -494,7 +496,8 @@ Neo = globalThis.Neo = Object.assign({
             proto = proto.__proto__
         }
 
-        config = baseCfg || {};
+        config            = baseConfig            || {};
+        configDescriptors = baseConfigDescriptors || {};
 
         protos.forEach(element => {
             let mixins;
@@ -508,15 +511,24 @@ Neo = globalThis.Neo = Object.assign({
             }
 
             Object.entries(cfg).forEach(([key, value]) => {
-                if (key.slice(-1) === '_') {
-                    delete cfg[key];
-                    key = key.slice(0, -1);
-                    cfg[key] = value;
-                    autoGenerateGetSet(element, key)
+                const
+                    isReactive = key.slice(-1) === '_',
+                    baseKey    = isReactive ? key.slice(0, -1) : key;
+
+                // 1. Handle descriptors first, as this can modify the 'value'
+                if (Neo.isObject(value) && value[isDescriptor] === true) {
+                    ctor.configDescriptors ??= {};
+                    ctor.configDescriptors[baseKey] = Neo.clone(value, true);
+                    value = value.value; // The new value to be used from here on
                 }
 
-                // Only apply properties which have no setters inside the prototype chain.
-                // Those will get applied on create (Neo.core.Base -> initConfig)
+                // 2. Handle reactive vs. non-reactive configs
+                if (isReactive) {
+                    delete cfg[key];      // Remove original key with underscore
+                    cfg[baseKey] = value; // Use the potentially modified value
+                    autoGenerateGetSet(element, baseKey)
+                }
+                // This part handles non-reactive configs (including those that were descriptors)
                 else if (!Neo.hasPropertySetter(element, key)) {
                     Object.defineProperty(element, key, {
                         enumerable: true,
@@ -525,6 +537,10 @@ Neo = globalThis.Neo = Object.assign({
                     })
                 }
             });
+
+            if (ctor.configDescriptors) {
+                Object.assign(configDescriptors, ctor.configDescriptors)
+            }
 
             if (Object.hasOwn(cfg, 'ntype')) {
                 ntype = cfg.ntype;
@@ -566,6 +582,7 @@ Neo = globalThis.Neo = Object.assign({
             Object.assign(ctor, {
                 classConfigApplied: true,
                 config            : Neo.clone(config, true),
+                configDescriptors : Neo.clone(configDescriptors, true),
                 isClass           : true,
                 ntypeChain
             });
