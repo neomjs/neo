@@ -23,7 +23,8 @@ project.plan(
         group: 'config',
         items: [
             'tests/config/Basic.mjs',
-            'tests/config/Hierarchy.mjs'
+            'tests/config/Hierarchy.mjs',
+            'tests/config/MultiLevelHierarchy.mjs'
         ]
     },
     'tests/CollectionBase.mjs',
