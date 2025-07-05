@@ -1,6 +1,6 @@
-import Neo            from '../../../src/Neo.mjs';
-import * as core      from '../../../src/core/_export.mjs';
-import {isDescriptor} from '../../../src/core/ConfigSymbols.mjs';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import {isDescriptor} from '../../../../src/core/ConfigSymbols.mjs';
 
 class MyComponent extends core.Base {
     static config = {
