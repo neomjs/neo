@@ -28,20 +28,20 @@ StartTest(t => {
             ]
         });
 
-        t.isStrict(collection.getCount(), 6, 'Collection has 6 items');
+        t.isStrict(collection.count, 6, 'Collection has 6 items');
         t.isStrict(collection.map.size, 6, 'map has 6 items');
     });
 
     t.it('Modify collection items', t => {
         collection.add({country: 'Germany', firstname: 'Bastian', githubId: 'bhaustein', lastname: 'Haustein'});
 
-        t.isStrict(collection.getCount(), 7, 'Collection has 7 items');
+        t.isStrict(collection.count, 7, 'Collection has 7 items');
         t.isStrict(collection.map.size, 7, 'map has 7 items');
 
 
         collection.remove('bhaustein');
 
-        t.isStrict(collection.getCount(), 6, 'Collection has 6 items');
+        t.isStrict(collection.count, 6, 'Collection has 6 items');
         t.isStrict(collection.map.size, 6, 'map has 6 items');
 
         collection.insert(1, [
@@ -49,12 +49,12 @@ StartTest(t => {
             {country: 'Argentina', firstname: 'Max',     githubId: 'elmasse',   lastname: 'Fierro'}
         ]);
 
-        t.isStrict(collection.getCount(), 8, 'Collection has 8 items');
+        t.isStrict(collection.count, 8, 'Collection has 8 items');
         t.isStrict(collection.map.size, 8, 'map has 8 items');
 
         collection.insert(1, {country: 'Croatia', firstname: 'Grgur', githubId: 'grgur', lastname: 'Grisogono'});
 
-        t.isStrict(collection.getCount(), 9, 'Collection has 9 items');
+        t.isStrict(collection.count, 9, 'Collection has 9 items');
         t.isStrict(collection.map.size, 9, 'map has 9 items');
 
         t.isDeeplyStrict(collection.getRange(1, 4), [
@@ -227,7 +227,7 @@ StartTest(t => {
         collection3.remove('mrsunshine');
         collection3.remove('elmasse');
 
-        t.isStrict(collection3.getCount(), 7, 'collection3 count is 7');
+        t.isStrict(collection3.count, 7, 'collection3 count is 7');
 
         t.diag("filter by firstname, like, 'a'");
 
@@ -238,8 +238,8 @@ StartTest(t => {
             value             : 'a'
         }];
 
-        t.isStrict(collection3.getCount(), 4, 'collection3 count is 4');
-        t.isStrict(collection3.allItems.getCount(), 7, 'collection3 allItems count is 7');
+        t.isStrict(collection3.count, 4, 'collection3 count is 4');
+        t.isStrict(collection3.allItems.count, 7, 'collection3 allItems count is 7');
 
         t.diag("Add Max & Nils back");
 
@@ -248,8 +248,8 @@ StartTest(t => {
             {country: 'Germany',   firstname: 'Nils',    githubId: 'mrsunshine',    lastname: 'Dehl'}
         ]);
 
-        t.isStrict(collection3.getCount(), 5, 'collection3 count is 5');
-        t.isStrict(collection3.allItems.getCount(), 9, 'collection3 allItems count is 9');
+        t.isStrict(collection3.count, 5, 'collection3 count is 5');
+        t.isStrict(collection3.allItems.count, 9, 'collection3 allItems count is 9');
     });
 
     t.it('Add & remove at same time', t => {

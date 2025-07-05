@@ -460,7 +460,8 @@ class Collection extends Base {
         delete config.sorters;
 
         if (me._items.length > 0) {
-            config.items = [...me._items]
+            config.items  = [...me._items];
+            config.count = config.items.length;
         }
 
         config.filters = [];
@@ -694,7 +695,8 @@ class Collection extends Base {
 
                 me.allItems = Neo.create(Collection, {
                     ...Neo.clone(config, true, true),
-                    id          : me.id + '-all',
+                    id         : me.id + '-all',
+                    items      : [...me._items], // Initialize with a shallow copy of current items
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
                 })
