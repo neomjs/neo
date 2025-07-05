@@ -24,7 +24,8 @@ project.plan(
         items: [
             'tests/config/Basic.mjs',
             'tests/config/Hierarchy.mjs',
-            'tests/config/MultiLevelHierarchy.mjs'
+            'tests/config/MultiLevelHierarchy.mjs',
+            'tests/config/CustomFunctions.mjs'
         ]
     },
     'tests/CollectionBase.mjs',
