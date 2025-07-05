@@ -19,6 +19,7 @@ project.configure({
 project.plan(
     'tests/ClassConfigsAndFields.mjs',
     'tests/ClassSystem.mjs',
+    'tests/ReactiveConfigs.mjs',
     'tests/CollectionBase.mjs',
     'tests/ManagerInstance.mjs',
     'tests/Rectangle.mjs',

@@ -1,20 +1,20 @@
-import Neo       from '../../../src/Neo.mjs';
-import * as core from '../../../src/core/_export.mjs';
+import Neo            from '../../../src/Neo.mjs';
+import * as core      from '../../../src/core/_export.mjs';
 import {isDescriptor} from '../../../src/core/ConfigSymbols.mjs';
 
 class MyComponent extends core.Base {
     static config = {
-        className: 'Neo.TestComponent',
-        myConfig_ : 'initialValue',
-        arrayConfig_: {
+        className    : 'Neo.TestComponent',
+        myConfig_    : 'initialValue',
+        arrayConfig_ : {
             [isDescriptor]: true,
-            value: [],
-            merge: 'replace'
+            value         : [],
+            merge         : 'replace'
         },
         objectConfig_: {
             [isDescriptor]: true,
-            value: {},
-            merge: 'deep'
+            value         : {},
+            merge         : 'deep'
         }
     }
 
@@ -27,7 +27,7 @@ MyComponent = Neo.setupClass(MyComponent);
 
 StartTest(t => {
     t.it('Basic reactivity with subscribe', t => {
-        const instance = Neo.create(MyComponent);
+        const instance         = Neo.create(MyComponent);
         const configController = instance.getConfig('myConfig');
 
         let subscriberCalled = false;
@@ -53,7 +53,7 @@ StartTest(t => {
     });
 
     t.it('Descriptor: arrayConfig_ with merge: replace', t => {
-        const instance = Neo.create(MyComponent);
+        const instance         = Neo.create(MyComponent);
         const configController = instance.getConfig('arrayConfig');
 
         let subscriberCalled = 0;
@@ -63,12 +63,12 @@ StartTest(t => {
 
         const arr1 = [1, 2, 3];
         instance.arrayConfig = arr1;
-        t.is(instance.arrayConfig, arr1, 'Array should be replaced');
+        t.isDeeplyStrict(instance.arrayConfig, arr1, 'Array should be replaced');
         t.is(subscriberCalled, 1, 'Subscriber called once for array replacement');
 
         const arr2 = [4, 5, 6];
         instance.arrayConfig = arr2;
-        t.is(instance.arrayConfig, arr2, 'Array should be replaced again');
+        t.isDeeplyStrict(instance.arrayConfig, arr2, 'Array should be replaced again');
         t.is(subscriberCalled, 2, 'Subscriber called twice for array replacement');
 
         // Setting the same array should not trigger a change by default isEqual
@@ -87,7 +87,7 @@ StartTest(t => {
 
         const obj1 = {a: 1, b: {c: 2}};
         instance.objectConfig = obj1;
-        t.is(instance.objectConfig, obj1, 'Object should be set');
+        t.isDeeplyStrict(instance.objectConfig, obj1, 'Object should be set');
         t.is(subscriberCalled, 1, 'Subscriber called once for object set');
 
         // Deep merge should happen, but default isEqual will still compare references
@@ -103,7 +103,8 @@ StartTest(t => {
 
         // Modifying a nested property should trigger a change if isEqual is deep
         // NOTE: The current Config.mjs uses Neo.isEqual which is a deep comparison.
-        // If the object reference changes, it will trigger. If the object reference stays the same, but content changes, it will not trigger unless isEqual is customized.
+        // If the object reference changes, it will trigger. If the object reference stays the same,
+        // but content changes, it will not trigger unless isEqual is customized.
         // For now, this test relies on the fact that setting a new object reference triggers the change.
         const obj3 = {a: 1, b: {c: 2}};
         instance.objectConfig = obj3;
