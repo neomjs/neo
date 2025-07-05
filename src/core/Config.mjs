@@ -70,8 +70,8 @@ class Config {
     initDescriptor({isEqual, merge}) {
         let me = this;
 
-        me.isEqual       ??= isEqual
-        me.mergeStrategy ??= merge
+        me.isEqual       = isEqual || me.isEqual;
+        me.mergeStrategy = merge   || me.mergeStrategy
     }
 
     /**
