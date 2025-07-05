@@ -189,7 +189,9 @@ Neo = globalThis.Neo = Object.assign({
             Object: () => {
                 out = {};
 
-                Object.entries(obj).forEach(([key, value]) => {
+                // Use Reflect.ownKeys() to include symbol properties (e.g., for config descriptors)
+                Reflect.ownKeys(obj).forEach(key => {
+                    const value = obj[key];
                     out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
                 });
 
