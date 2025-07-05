@@ -5,6 +5,34 @@ const
     camelRegex   = /-./g,
     configSymbol = Symbol.for('configSymbol'),
     getSetCache  = Symbol('getSetCache'),
+    cloneMap = {
+        Array(obj, deep, ignoreNeoInstances) {
+            return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))]
+        },
+        Date(obj) {
+            return new Date(obj.valueOf())
+        },
+        Map(obj) {
+            return new Map(obj) // shallow copy
+        },
+        NeoInstance(obj, ignoreNeoInstances) {
+            return ignoreNeoInstances ? obj : Neo.cloneNeoInstance(obj)
+        },
+        Set(obj) {
+            return new Set(obj)
+        },
+        Object(obj, deep, ignoreNeoInstances) {
+            const out = {};
+
+            // Use Reflect.ownKeys() to include symbol properties (e.g., for config descriptors)
+            Reflect.ownKeys(obj).forEach(key => {
+                const value = obj[key];
+                out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
+            });
+
+            return out
+        }
+    },
     typeDetector = {
         function: item => {
             if (item.prototype?.constructor.isClass) {
@@ -177,27 +205,7 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {Object|Array|*} the cloned input
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
-        let out;
-
-        return {
-            Array      : () => !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))],
-            Date       : () => new Date(obj.valueOf()),
-            Map        : () => new Map(obj), // shallow copy
-            NeoInstance: () => ignoreNeoInstances ? obj : this.cloneNeoInstance(obj),
-            Set        : () => new Set(obj),
-
-            Object: () => {
-                out = {};
-
-                // Use Reflect.ownKeys() to include symbol properties (e.g., for config descriptors)
-                Reflect.ownKeys(obj).forEach(key => {
-                    const value = obj[key];
-                    out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
-                });
-
-                return out
-            }
-        }[Neo.typeOf(obj)]?.() || obj
+        return cloneMap[Neo.typeOf(obj)]?.(obj, deep, ignoreNeoInstances) || obj
     },
 
     /**
