@@ -128,28 +128,33 @@ class Config {
     /**
      * Subscribes a callback function to changes in this config's value.
      * The callback will be invoked with `(newValue, oldValue)` whenever the config changes.
-     * @param {Object} options - An object containing the subscription details.
-     * @param {String} options.id - A unique ID for the subscription, useful for debugging.
+     * @param {Object} options      - An object containing the subscription details.
+     * @param {String} options.id   - The ID of the subscription owner (e.g., a Neo.core.Base instance's id).
      * @param {Function} options.fn - The callback function.
      * @returns {Function} A cleanup function to unsubscribe the callback.
      */
     subscribe({id, fn}) {
         if (typeof id !== 'string' || id.length === 0 || typeof fn !== 'function') {
-            throw new Error('Config.subscribe: options must be an object with a non-empty string `id` and a function `fn`.');
+            throw new Error([
+                'Config.subscribe: options must be an object with a non-empty string `id` ',
+                '(the subscription owner\'s id), and a callback function `fn`.'
+            ].join(''))
         }
 
-        if (!this.#subscribers[id]) {
-            this.#subscribers[id] = new Set();
+        const me = this;
+
+        if (!me.#subscribers[id]) {
+            me.#subscribers[id] = new Set()
         }
 
-        this.#subscribers[id].add(fn);
+        me.#subscribers[id].add(fn);
 
         return () => {
-            const subscriberSet = this.#subscribers[id];
+            const subscriberSet = me.#subscribers[id];
             if (subscriberSet) {
                 subscriberSet.delete(fn);
                 if (subscriberSet.size === 0) {
-                    delete this.#subscribers[id];
+                    delete me.#subscribers[id]
                 }
             }
         };
