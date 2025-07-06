@@ -498,7 +498,7 @@ class Base {
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
         delete me[configSymbol].id;
         me.processConfigs();
-        me.isConfiguring = false;
+        me.isConfiguring = false
     }
 
     /**
@@ -534,10 +534,12 @@ class Base {
      * @returns {Boolean}
      */
     isConfig(key) {
-        // A config is considered "reactive" if it has a generated property setter
+        let me = this;
+        // If a `core.Config` controller is already created, return true (fastest possible check).
+        // If not, a config is considered "reactive" if it has a generated property setter
         // AND it is present as a defined config in the merged static config hierarchy.
         // Neo.setupClass() removes the underscore from the static config keys.
-        return Neo.hasPropertySetter(this, key) && (key in this.constructor.config);
+        return me.#configs[key] || (Neo.hasPropertySetter(me, key) && (key in me.constructor.config))
     }
 
     /**
@@ -744,23 +746,51 @@ class Base {
     }
 
     /**
-     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * set() accepts the following input as keys:
+     * 1. Non-reactive configs
+     * 2. Reactive configs
+     * 3. Class fields defined via value
+     * 4. Class fields defined via get() & set()
+     * 5. "Anything else" will get directly get assigned to the instance
+     *
+     * The logic resolves circular dependencies as good as possible and ensures that config related hooks:
+     * - beforeGet<Config>
+     * - beforeSet<Config>
+     * - afterSet<Config>
+     * can access all new values from the batch operation.
      * @param {Object} values={}
      */
     set(values={}) {
-        let me = this;
+        let me                = this,
+            classFieldsViaSet = {};
 
         values = me.setFields(values);
 
         // If the initial config processing is still running,
         // finish this one first before dropping new values into the configSymbol.
-        // see: https://github.com/neomjs/neo/issues/2201
+        // See: https://github.com/neomjs/neo/issues/2201
         if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
             me.processConfigs()
         }
 
+        // Store class fields which are defined via get() & set() and ensure they won't get added to the config symbol.
+        Object.entries(values).forEach(([key, value]) => {
+            if (!me.isConfig(key)) {
+                classFieldsViaSet[key] = value;
+                delete values[key]
+            }
+        })
+
+        // Add reactive configs to the configSymbol
         Object.assign(me[configSymbol], values);
 
+        // Process class fields which are defined via get() & set() => now they can access the latest values
+        // for reactive and non-reactive configs, as well as class fields defined with values.
+        Object.entries(classFieldsViaSet).forEach(([key, value]) => {
+            me[key] = value
+        })
+
+        // Process reactive configs
         me.processConfigs(true)
     }
 
@@ -772,15 +802,14 @@ class Base {
      * @protected
      */
     setFields(config) {
-        let me          = this,
-            configNames = me.constructor.config;
+        let me = this;
 
         Object.entries(config).forEach(([key, value]) => {
-            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(me, key)) {
+            if (!me.isConfig(key) && !Neo.hasPropertySetter(me, key)) {
                 me[key] = value;
                 delete config[key]
             }
-        })
+        });
 
         return config
     }
