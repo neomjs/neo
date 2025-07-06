@@ -1,11 +1,11 @@
-import Base            from '../core/Base.mjs';
-import ClassSystemUtil from '../util/ClassSystem.mjs';
-import NeoArray        from '../util/Array.mjs';
-import Observable      from '../core/Observable.mjs';
+import Base                          from '../core/Base.mjs';
+import ClassSystemUtil               from '../util/ClassSystem.mjs';
+import Config                        from '../core/Config.mjs';
+import Effect                        from '../core/Effect.mjs';
+import Observable                    from '../core/Observable.mjs';
+import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 
-const dataVariableRegex   = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
-      twoWayBindingSymbol = Symbol.for('twoWayBinding'),
-      variableNameRegex   = /^\w*/;
+const twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
 /**
  * An optional component state provider for adding bindings to configs
@@ -31,11 +31,6 @@ class Provider extends Base {
          * @protected
          */
         ntype: 'state-provider',
-        /**
-         * @member {Object|null} bindings_=null
-         * @protected
-         */
-        bindings_: null,
         /**
          * @member {Neo.component.Base|null} component=null
          * @protected
@@ -77,44 +72,34 @@ class Provider extends Base {
     }
 
     /**
+     * @member {Map} #bindings=new Map()
+     * @private
+     */
+    #bindings = new Map()
+    /**
+     * @member {Object} #dataConfigs={}
+     * @private
+     */
+    #dataConfigs = {}
+
+    /**
      * @param {Object} config
      */
     construct(config) {
         Neo.currentWorker.isUsingStateProviders = true;
-        super.construct(config);
-        this.bindings = {}
+        super.construct(config)
     }
 
     /**
-     * Adds a given key/value combination on this stateProvider level.
-     * The method is used by setData() & setDataAtSameLevel()
-     * in case the  data property does not exist yet.
-     * @param {String} key
-     * @param {*} value
-     * @private
-     */
-    addDataProperty(key, value) {
-        let me = this,
-            data, scope;
-
-        Neo.ns(key, true, me.data);
-
-        data = me.getDataScope(key);
-        scope = data.scope;
-
-        scope[data.key] = value;
-
-        me.createDataProperties(me.data, 'data')
-    }
-
-    /**
-     * Triggered after the data config got changed
+     * Triggered after the data config got changed.
+     * This method initializes the internal #dataConfigs map, converting each
+     * plain data property into a reactive Neo.core.Config instance.
      * @param {Object|null} value
      * @param {Object|null} oldValue
      * @protected
      */
     afterSetData(value, oldValue) {
-        value && this.createDataProperties(value, 'data')
+        value && this.processDataObject(value)
     }
 
     /**
@@ -172,63 +157,41 @@ class Provider extends Base {
 
     /**
      * @param {Function} formatter
-     * @param {Object} data=null optionally pass this.getHierarchyData() for performance reasons
      * @returns {String}
      */
-    callFormatter(formatter, data=null) {
-        if (!data) {
-            data = this.getHierarchyData()
-        }
-
-        return formatter.call(this, data)
+    callFormatter(formatter) {
+        return formatter.call(this, this.getHierarchyData())
     }
 
     /**
-     * Registers a new binding in case a matching data property does exist.
-     * Otherwise, it will use the closest stateProvider with a match.
+     * Creates a new binding for a component's config to a data property.
+     * This now uses the Effect-based reactivity system.
      * @param {String} componentId
-     * @param {String} key
-     * @param {String} value
-     * @param {String} formatter
+     * @param {String} configKey The component config to bind (e.g., 'text').
+     * @param {String|Function} formatter The function that computes the value.
      */
-    createBinding(componentId, key, value, formatter) {
-        let me      = this,
-            data    = me.getDataScope(key),
-            scope   = data.scope,
-            keyLeaf = data.key,
-            bindingScope, parentStateProvider;
+    createBinding(componentId, configKey, formatter) {
+        let me = this;
 
-        if (scope?.hasOwnProperty(keyLeaf)) {
-            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
-            bindingScope[value] = formatter
-        } else {
-            parentStateProvider = me.getParent();
+        if (!me.#bindings.has(componentId)) {
+            me.#bindings.set(componentId, [])
+        }
 
-            if (parentStateProvider) {
-                parentStateProvider.createBinding(componentId, key, value, formatter)
-            } else {
-                console.error('No state.Provider found with the specified data property', componentId, keyLeaf, value)
+        const effect = new Effect({
+            fn: () => {
+                const component = Neo.get(componentId);
+
+                if (component && !component.isDestroyed) {
+                    const
+                        hierarchicalData = me.getHierarchyData(),
+                        newValue         = formatter.call(me, hierarchicalData);
+
+                    component.set(configKey, newValue)
+                }
             }
-        }
-    }
-
-    /**
-     * Registers a new binding in case a matching data property does exist.
-     * Otherwise, it will use the closest stateProvider with a match.
-     * @param {String} componentId
-     * @param {String} formatter
-     * @param {String} value
-     * @returns {String[]}
-     */
-    createBindingByFormatter(componentId, formatter, value) {
-        let me            = this,
-            formatterVars = me.getFormatterVariables(formatter);
-
-        formatterVars.forEach(key => {
-            me.createBinding(componentId, key, value, formatter)
         });
 
-        return formatterVars
+        me.#bindings.get(componentId).push(effect)
     }
 
     /**
@@ -236,8 +199,7 @@ class Provider extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            let twoWayBinding = false,
-                formatterVars;
+            let twoWayBinding = false;
 
             if (Neo.isObject(value)) {
                 twoWayBinding = true;
@@ -245,82 +207,13 @@ class Provider extends Base {
             }
 
             if (!this.isStoreValue(value)) {
-                formatterVars = this.createBindingByFormatter(component.id, value, key);
+                this.createBinding(component.id, key, value);
 
                 if (twoWayBinding) {
-                    component.bind[key].key = formatterVars[0];
-                    component[twoWayBindingSymbol] = true;
-                }
-            }
-        })
-    }
-
-    /**
-     * @param {Object} config
-     * @param {String} path
-     */
-    createDataProperties(config, path) {
-        let me   = this,
-            root = Neo.ns(path, false, me),
-            descriptor, keyValue, newPath;
-
-        Object.entries(config).forEach(([key, value]) => {
-            if (!key.startsWith('_')) {
-                descriptor = Object.getOwnPropertyDescriptor(root, key);
-                newPath    = `${path}.${key}`
-
-                if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
-                    keyValue = config[key];
-                    me.createDataProperty(key, newPath, root);
-                    root[key] = keyValue
-                }
-
-                if (Neo.isObject(value)) {
-                    me.createDataProperties(config[key], newPath)
-                }
-            }
-        })
-    }
-
-    /**
-     * @param {String} key
-     * @param {String} path
-     * @param {Object} root=this.data
-     */
-    createDataProperty(key, path, root=this.data) {
-        let me = this;
-
-        if (path?.startsWith('data.')) {
-            path = path.substring(5)
-        }
-
-        Object.defineProperty(root, key, {
-            get() {
-                let value = root['_' + key];
-
-                if (Neo.typeOf(value) === 'Date') {
-                    value = new Date(value.valueOf())
-                }
-
-                return value
-            },
-
-            set(value) {
-                let _key     = `_${key}`,
-                    oldValue = root[_key];
-
-                if (!root[_key]) {
-                    Object.defineProperty(root, _key, {
-                        enumerable: false,
-                        value,
-                        writable  : true
-                    })
-                } else {
-                    root[_key] = value
-                }
-
-                if (!Neo.isEqual(value, oldValue)) {
-                    me.onDataPropertyChange(path ? path : key, value, oldValue)
+                    // This part needs re-evaluation. How to get the dependency?
+                    // For now, two-way binding might be broken by this refactoring.
+                    // We can add a mechanism to the effect to report its dependencies.
+                    component[twoWayBindingSymbol] = true
                 }
             }
         })
@@ -338,133 +231,52 @@ class Provider extends Base {
     /**
      * Access the closest data property inside the parent chain.
      * @param {String} key
-     * @param {Neo.state.Provider} originStateProvider=this for internal usage only
      * @returns {*} value
      */
-    getData(key, originStateProvider=this) {
-        let me      = this,
-            data    = me.getDataScope(key),
-            {scope} = data,
-            keyLeaf = data.key,
-            parentStateProvider;
+    getData(key) {
+        const ownerDetails = this.getOwnerOfDataProperty(key);
 
-        if (scope?.hasOwnProperty(keyLeaf)) {
-            return scope[keyLeaf]
+        if (ownerDetails) {
+            return ownerDetails.owner.getDataConfig(ownerDetails.propertyName).value;
         }
 
-        parentStateProvider = me.getParent();
-
-        if (!parentStateProvider) {
-            console.error(`data property '${key}' does not exist.`, originStateProvider)
-        }
-
-        return parentStateProvider.getData(key, originStateProvider)
+        console.error(`data property '${key}' does not exist.`, this)
     }
 
     /**
-     * Helper method to get the scope for a nested data property via Neo.ns() if needed.
-     *
-     * Example: passing the value 'foo.bar.baz' will return the bar object as the scope
-     * and 'baz' as the key.
-     * @param key
-     * @returns {Object}
+     * Retrieves the underlying core.Config instance for a given data property path.
+     * @param {String} path The full path of the data property (e.g., 'user.firstname').
+     * @returns {Neo.core.Config|null}
      */
-    getDataScope(key) {
-        let me      = this,
-            keyLeaf = key,
-            {data}  = me;
-
-        if (key.includes('.')) {
-            key     = key.split('.');
-            keyLeaf = key.pop();
-            data    = Neo.ns(key.join('.'), false, data)
-        }
-
-        return {
-            key  : keyLeaf,
-            scope: data
-        }
+    getDataConfig(path) {
+        return this.#dataConfigs[path] || null
     }
 
     /**
-     * Extracts data variables from a given formatter string
-     * @param {String} value
+     * Returns the merged, hierarchical data object as a reactive Proxy.
+     * @returns {Proxy}
      */
-    getFormatterVariables(value) {
-        let {environment} = Neo.config;
-
-        if (Neo.isFunction(value)) {
-            value = value.toString()
-        }
-
-        if (environment === 'dist/esm' || environment === 'dist/production') {
-            // See: https://github.com/neomjs/neo/issues/2371
-            // Inside dist/esm & dist/prod the formatter:
-            // data => DateUtil.convertToyyyymmdd(data.currentDate)
-            // will get minified to:
-            // e=>s.Z.convertToyyyymmdd(e.currentDate)
-            // The new strategy: find the first variable name => "e"
-            // Replace it with "data":
-            // data=>s.Z.convertToyyyymmdd(data.currentDate)
-            // From there we can use the dev mode regex again.
-
-            let dataName       = value.match(variableNameRegex)[0],
-                variableRegExp = new RegExp(`(^|[^\\w.])(${dataName})(?!\\w)`, 'g');
-
-            value = value.replace(variableRegExp, '$1data')
-        }
-
-        let dataVars = value.match(dataVariableRegex) || [],
-            result   = [];
-
-        dataVars.forEach(variable => {
-            // remove the "data." at the start
-            variable = variable.substr(5);
-            NeoArray.add(result, variable)
-        });
-
-        result.sort();
-
-        return result
+    getHierarchyData() {
+        return createHierarchicalDataProxy(this)
     }
 
     /**
-     * Returns the merged data
-     * @param {Object} data=this.getPlainData()
-     * @returns {Object} data
+     * Finds the state.Provider instance that owns a specific data property.
+     * @param {String} path The full path of the data property.
+     * @returns {{owner: Neo.state.Provider, propertyName: String}|null}
      */
-    getHierarchyData(data=this.getPlainData()) {
-        let me     = this,
-            parent = me.getParent();
+    getOwnerOfDataProperty(path) {
+        if (this.#dataConfigs[path]) {
+            return {owner: this, propertyName: path}
+        }
 
+        // Check for parent ownership
+        const parent = this.getParent();
         if (parent) {
-            return {
-                ...parent.getHierarchyData(data),
-                ...me.getPlainData()
-            }
+            return parent.getOwnerOfDataProperty(path)
         }
 
-        return me.getPlainData()
-    }
-
-    /**
-     * Returns a plain version of this.data.
-     * This excludes the property getters & setters.
-     * @param {Object} data=this.data
-     * @returns {Object}
-     */
-    getPlainData(data=this.data) {
-        let plainData = {};
-
-        Object.entries(data).forEach(([key, value]) => {
-            if (Neo.typeOf(value) === 'Object') {
-                plainData[key] = this.getPlainData(value)
-            } else {
-                plainData[key] = value
-            }
-        });
-
-        return plainData
+        return null
     }
 
     /**
@@ -506,6 +318,22 @@ class Provider extends Base {
     }
 
     /**
+     * Checks if any data property in the hierarchy starts with the given path.
+     * This is used by the HierarchicalDataProxy to determine if it should return a nested proxy.
+     * @param {String} path The path to check (e.g., 'user').
+     * @returns {Boolean}
+     */
+    hasNestedDataStartingWith(path) {
+        const pathWithDot = `${path}.`;
+
+        if (Object.keys(this.#dataConfigs).some(key => key.startsWith(pathWithDot))) {
+            return true
+        }
+
+        return this.getParent()?.hasNestedDataStartingWith(path) || false
+    }
+
+    /**
      * Internal method to avoid code redundancy.
      * Use setData() or setDataAtSameLevel() instead.
      *
@@ -518,37 +346,23 @@ class Provider extends Base {
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
-        let me = this,
-            data, keyLeaf, parentStateProvider, scope;
-
-        if (Neo.isObject(value) && !value.isRecord) {
-            Object.entries(value).forEach(([dataKey, dataValue]) => {
-                me.internalSetData(`${key}.${dataKey}`, dataValue, originStateProvider)
-            })
-        } else if (Neo.isObject(key)) {
+        if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
-                me.internalSetData(dataKey, dataValue, originStateProvider)
-            })
+                this.internalSetData(dataKey, dataValue, originStateProvider);
+            });
+
+            return
+        }
+
+        const
+            targetProvider = originStateProvider ? (this.getOwnerOfDataProperty(key)?.owner || originStateProvider) : this,
+            config         = targetProvider.getDataConfig(key);
+
+        if (config) {
+            config.value = value
         } else {
-            data    = me.getDataScope(key);
-            keyLeaf = data.key;
-            scope   = data.scope;
-
-            if (scope?.hasOwnProperty(keyLeaf)) {
-                scope[keyLeaf] = value
-            } else {
-                if (originStateProvider) {
-                    parentStateProvider = me.getParent();
-
-                    if (parentStateProvider) {
-                        parentStateProvider.internalSetData(key, value, originStateProvider)
-                    } else {
-                        originStateProvider.addDataProperty(key, value)
-                    }
-                } else {
-                    me.addDataProperty(key, value)
-                }
-            }
+            // Create the config if it doesn't exist on the target provider
+            targetProvider.processDataObject({[key]: value})
         }
     }
 
@@ -576,43 +390,6 @@ class Provider extends Base {
     }
 
     /**
-     * @param {String} key
-     * @param {*} value
-     * @param {*} oldValue
-     */
-    onDataPropertyChange(key, value, oldValue) {
-        let me      = this,
-            binding = me.bindings && Neo.ns(key, false, me.bindings),
-            component, config, hierarchyData, stateProvider;
-
-        if (binding) {
-            hierarchyData = {};
-
-            Object.entries(binding).forEach(([componentId, configObject]) => {
-                component     = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
-                config        = {};
-                stateProvider = component.getStateProvider() || me;
-
-                if (!hierarchyData[stateProvider.id]) {
-                    hierarchyData[stateProvider.id] = stateProvider.getHierarchyData()
-                }
-
-                Object.entries(configObject).forEach(([configField, formatter]) => {
-                    // we can not call me.callFormatter(), since a data property inside a parent stateProvider
-                    // could have changed which is relying on data properties inside a closer stateProvider
-                    config[configField] = stateProvider.callFormatter(formatter, hierarchyData[stateProvider.id])
-                });
-
-                component?.set(config)
-            })
-        }
-
-        me.formulas && me.resolveFormulas({key, id: me.id, oldValue, value});
-
-        me.fire('dataPropertyChange', {key, id: me.id, oldValue, value})
-    }
-
-    /**
      * This method will assign binding values at the earliest possible point inside the component lifecycle.
      * It can not store bindings though, since child component ids most likely do not exist yet.
      * @param {Neo.component.Base} component=this.component
@@ -626,7 +403,6 @@ class Provider extends Base {
 
             Object.entries(component.bind).forEach(([key, value]) => {
                 if (Neo.isObject(value)) {
-                    value.key = me.getFormatterVariables(value.value)[0];
                     value = value.value
                 }
 
@@ -642,17 +418,39 @@ class Provider extends Base {
     }
 
     /**
+     * Recursively processes a data object, creating or updating Neo.core.Config instances
+     * for each property and storing them in the #dataConfigs map.
+     * @param {Object} obj The data object to process.
+     * @param {String} [path=''] The current path prefix for nested objects.
+     * @protected
+     */
+    processDataObject(obj, path = '') {
+        Object.entries(obj).forEach(([key, value]) => {
+            const fullPath = path ? `${path}.${key}` : key;
+
+            if (this.#dataConfigs[fullPath]) {
+                this.#dataConfigs[fullPath].value = value;
+            } else {
+                this.#dataConfigs[fullPath] = new Config({value});
+            }
+
+            if (Neo.isObject(value) && !Neo.isObject(value.ntype)) { // a component config
+                this.processDataObject(value, fullPath);
+            }
+        });
+    }
+
+    /**
      * Removes all bindings for a given component id inside this stateProvider as well as inside all parent stateProviders.
      * @param {String} componentId
      */
     removeBindings(componentId) {
-        let me = this;
+        if (this.#bindings.has(componentId)) {
+            this.#bindings.get(componentId).forEach(effect => effect.destroy());
+            this.#bindings.delete(componentId);
+        }
 
-        Object.entries(me.bindings).forEach(([dataProperty, binding]) => {
-            delete binding[componentId]
-        });
-
-        me.getParent()?.removeBindings(componentId)
+        this.getParent()?.removeBindings(componentId)
     }
 
     /**
