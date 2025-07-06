@@ -27,7 +27,8 @@ project.plan(
             'tests/config/MultiLevelHierarchy.mjs',
             'tests/config/CustomFunctions.mjs',
             'tests/config/AfterSetConfig.mjs',
-            'tests/config/MemoryLeak.mjs'
+            'tests/config/MemoryLeak.mjs',
+            'tests/config/CircularDependencies.mjs'
         ]
     },
     'tests/CollectionBase.mjs',
