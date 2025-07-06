@@ -827,12 +827,19 @@ function autoGenerateGetSet(proto, key) {
                 let me       = this,
                     oldValue = config.get(); // Get the old value from the Config instance
 
-                // Every set call has to delete the matching symbol
+                // 1. Prevent infinite loops:
+                // Immediately remove the pending value from the configSymbol to prevent a getter from
+                // recursively re-triggering this setter.
                 delete me[configSymbol][key];
 
                 if (key !== 'items' && key !== 'vnode') {
                     value = Neo.clone(value, true, true)
                 }
+
+                // 2. Create a temporary state for beforeSet hooks:
+                // Set the new value directly on the private backing property. This allows any beforeSet
+                // hook to access the new value of this and other configs within the same `set()` call.
+                me[_key] = value;
 
                 if (typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
@@ -841,8 +848,14 @@ function autoGenerateGetSet(proto, key) {
                     if (value === undefined) return;
                 }
 
-                // Set the new value into the Config instance
-                // The config.set() method will return true if the value actually changed.
+                // 3. Restore state for change detection:
+                // Revert the private backing property to its original value. This is crucial for the
+                // `config.set()` method to correctly detect if the value has actually changed.
+                me[_key] = oldValue;
+
+                // 4. Finalize the change:
+                // The config.set() method performs the final check and, if the value changed,
+                // triggers afterSet hooks and notifies subscribers.
                 if (config.set(value)) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue)
