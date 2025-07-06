@@ -24,7 +24,7 @@ class Config {
      * A Set to store callback functions that subscribe to changes in this config's value.
      * @private
      */
-    #subscribers = new Set();
+    #subscribers = {};
 
     /**
      * The strategy to use when merging new values into this config.
@@ -80,8 +80,13 @@ class Config {
      * @param {any} oldValue - The old value of the config.
      */
     notify(newValue, oldValue) {
-        for (const callback of this.#subscribers) {
-            callback(newValue, oldValue)
+        for (const id in this.#subscribers) {
+            if (this.#subscribers.hasOwnProperty(id)) {
+                const subscriberSet = this.#subscribers[id];
+                for (const callback of subscriberSet) {
+                    callback(newValue, oldValue);
+                }
+            }
         }
     }
 
@@ -123,12 +128,31 @@ class Config {
     /**
      * Subscribes a callback function to changes in this config's value.
      * The callback will be invoked with `(newValue, oldValue)` whenever the config changes.
-     * @param {Function} callback - The function to call when the config value changes.
+     * @param {Object} options - An object containing the subscription details.
+     * @param {String} options.id - A unique ID for the subscription, useful for debugging.
+     * @param {Function} options.fn - The callback function.
      * @returns {Function} A cleanup function to unsubscribe the callback.
      */
-    subscribe(callback) {
-        this.#subscribers.add(callback);
-        return () => this.#subscribers.delete(callback)
+    subscribe({id, fn}) {
+        if (typeof id !== 'string' || id.length === 0 || typeof fn !== 'function') {
+            throw new Error('Config.subscribe: options must be an object with a non-empty string `id` and a function `fn`.');
+        }
+
+        if (!this.#subscribers[id]) {
+            this.#subscribers[id] = new Set();
+        }
+
+        this.#subscribers[id].add(fn);
+
+        return () => {
+            const subscriberSet = this.#subscribers[id];
+            if (subscriberSet) {
+                subscriberSet.delete(fn);
+                if (subscriberSet.size === 0) {
+                    delete this.#subscribers[id];
+                }
+            }
+        };
     }
 }
 
