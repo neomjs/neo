@@ -1,42 +1,41 @@
+import EffectManager  from './EffectManager.mjs';
 import {isDescriptor} from './ConfigSymbols.mjs';
 
 /**
- * @src/util/ClassSystem.mjs Neo.core.Config
- * @private
- * @internal
- *
  * Represents an observable container for a config property.
  * This class manages the value of a config, its subscribers, and custom behaviors
  * like merge strategies and equality checks defined via a descriptor object.
  *
  * The primary purpose of this class is to enable fine-grained reactivity and
  * decoupled cross-instance state sharing within the Neo.mjs framework.
+ * @class Neo.core.Config
+ * @private
+ * @internal
  */
 class Config {
-    /**
-     * The internal value of the config property.
-     * @private
-     * @apps/portal/view/about/MemberContainer.mjs {any} #value
-     */
-    #value;
-
     /**
      * A Set to store callback functions that subscribe to changes in this config's value.
      * @private
      */
-    #subscribers = {};
-
+    #subscribers = {}
     /**
-     * The strategy to use when merging new values into this config.
-     * Defaults to 'replace'. Can be overridden via a descriptor.
+     * The internal value of the config property.
+     * @member #value
+     * @private
      */
-    mergeStrategy = 'replace';
-
+    #value
     /**
      * The function used to compare new and old values for equality.
      * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
+     * @member {Function} isEqual=Neo.isEqual
      */
-    isEqual = Neo.isEqual;
+    isEqual = Neo.isEqual
+    /**
+     * The strategy to use when merging new values into this config.
+     * Defaults to 'replace'. Can be overridden via a descriptor merge property.
+     * @member {Function|String} mergeStrategy='replace'
+     */
+    mergeStrategy = 'replace'
 
     /**
      * Creates an instance of Config.
@@ -55,16 +54,19 @@ class Config {
      * @returns {any} The current value.
      */
     get() {
-        return this.#value;
+        // Registers this Config instance as a dependency with the currently active Effect,
+        // enabling automatic re-execution when this Config's value changes.
+        EffectManager.getActiveEffect()?.addDependency(this);
+        return this.#value
     }
 
     /**
      * Initializes the `Config` instance using a descriptor object.
      * Extracts `mergeStrategy` and `isEqual` from the descriptor.
      * The internal `#value` is NOT set by this method.
-     * @param {Object} descriptor - The descriptor object for the config.
-     * @param {any} descriptor.value - The default value for the config (not set by this method).
-     * @param {string} [descriptor.merge='deep'] - The merge strategy.
+     * @param {Object}   descriptor                       - The descriptor object for the config.
+     * @param {any}      descriptor.value                 - The default value for the config (not set by this method).
+     * @param {string}   [descriptor.merge='deep']        - The merge strategy.
      * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
      */
     initDescriptor({isEqual, merge}) {
@@ -84,7 +86,7 @@ class Config {
             if (this.#subscribers.hasOwnProperty(id)) {
                 const subscriberSet = this.#subscribers[id];
                 for (const callback of subscriberSet) {
-                    callback(newValue, oldValue);
+                    callback(newValue, oldValue)
                 }
             }
         }
@@ -157,8 +159,11 @@ class Config {
                     delete me.#subscribers[id]
                 }
             }
-        };
+        }
     }
 }
+
+const ns = Neo.ns('Neo.core', true);
+ns.Config = Config;
 
 export default Config;
