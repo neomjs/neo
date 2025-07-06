@@ -136,6 +136,12 @@ class Base {
      */
     #configs = {};
     /**
+     * Internal cache for all config subscription cleanup functions.
+     * @member {Function[]} #configSubscriptionCleanups=[]
+     * @private
+     */
+    #configSubscriptionCleanups = []
+    /**
      * Internal cache for all timeout ids when using this.timeout()
      * @member {Number[]} timeoutIds=[]
      * @private
@@ -390,6 +396,10 @@ class Base {
             clearTimeout(id)
         });
 
+        me.#configSubscriptionCleanups.forEach(cleanup => {
+            cleanup()
+        });
+
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me)
         } else if (Neo.idMap) {
@@ -564,6 +574,56 @@ class Base {
         }
 
         return {...staticConfig, ...config}
+    }
+
+    /**
+     * Subscribes *this* instance (the subscriber) to changes of a specific config property on another instance (the publisher).
+     * Ensures automatic cleanup when *this* instance (the subscriber) is destroyed.
+     *
+     * @param {String|Neo.core.Base} publisher  - The ID of the publisher instance or the instance reference itself.
+     * @param {String}               configName - The name of the config property on the publisher to subscribe to (e.g., 'myConfig').
+     * @param {Function}             fn         - The callback function to execute when the config changes.
+     * @returns {Function} A cleanup function to manually unsubscribe if needed before this instance's destruction.
+     *
+     * @example
+     * // Subscribing to a config on another instance
+     * this.observeConfig(someOtherInstance, 'myConfig', (newValue, oldValue) => {
+     *     console.log('myConfig changed:', newValue);
+     * });
+     *
+     * // Discouraged: Self-observation. Use afterSet<ConfigName>() hooks instead.
+     * this.observeConfig(this, 'myOwnConfig', (newValue, oldValue) => {
+     *     console.log('myOwnConfig changed:', newValue);
+     * });
+     */
+    observeConfig(publisher, configName, fn) {
+        let publisherInstance = publisher;
+
+        if (Neo.isString(publisher)) {
+            publisherInstance = Neo.get(publisher);
+            if (!publisherInstance) {
+                console.warn(`Publisher instance with ID '${publisher}' not found. Cannot subscribe.`);
+                return Neo.emptyFn
+            }
+        }
+
+        if (!(publisherInstance instanceof Neo.core.Base)) {
+            console.warn(`Invalid publisher provided. Must be a Neo.core.Base instance or its ID.`);
+            return Neo.emptyFn
+        }
+
+        const configController = publisherInstance.getConfig(configName);
+
+        if (!configController) {
+            console.warn(`Config '${configName}' not found on publisher instance ${publisherInstance.id}. Cannot subscribe.`);
+            return Neo.emptyFn
+        }
+
+        const cleanup = configController.subscribe({id: this.id, fn});
+
+        this.#configSubscriptionCleanups.push(cleanup);
+
+        return cleanup
     }
 
     /**
