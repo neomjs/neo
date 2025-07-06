@@ -454,6 +454,9 @@ class Collection extends Base {
             filters = me._filters || [],
             sorters = me._sorters || [];
 
+        // Ensure the keyProperty does not get lost.
+        config.keyProperty = me.keyProperty;
+
         delete config.id;
         delete config.filters;
         delete config.items;
