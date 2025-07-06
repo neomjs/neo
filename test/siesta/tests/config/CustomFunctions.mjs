@@ -44,10 +44,9 @@ StartTest(t => {
 
     t.it('Custom "isEqual" function for object comparison by id', t => {
         const instance = Neo.create(TestComponent);
-        const configController = instance.getConfig('objectConfig');
 
         let subscriberCalled = 0;
-        configController.subscribe(() => {
+        instance.observeConfig(instance, 'objectConfig', () => {
             subscriberCalled++;
         });
 

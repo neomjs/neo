@@ -54,10 +54,10 @@ StartTest(t => {
 
         // objectConfig is defined in Base, merged in Mid, and merged again in Top
         const expectedObject = {
-            a: 1,           // from Base
+            a: 1,             // from Base
             b: {c: 3, d: 99}, // c from Mid, d from Top
-            e: 5,           // from Mid
-            f: 6            // from Top
+            e: 5,             // from Mid
+            f: 6              // from Top
         };
         t.isDeeplyStrict(instance.objectConfig, expectedObject, 'objectConfig should be a deep merge of all three levels');
     });
@@ -73,11 +73,11 @@ StartTest(t => {
         t.isDeeplyStrict(instance.arrayConfig, [10, 11], 'arrayConfig should be replaced by the instance config value');
 
         const expectedObject = {
-            a: 100,         // from instance
+            a: 100,             // from instance
             b: {c: 101, d: 99}, // c from instance, d from Top
-            e: 5,           // from Mid
-            f: 6,           // from Top
-            g: 102          // from instance
+            e: 5,               // from Mid
+            f: 6,               // from Top
+            g: 102              // from instance
         };
 
         t.isDeeplyStrict(instance.objectConfig, expectedObject, 'objectConfig from instance should be deep-merged into the class hierarchy defaults');

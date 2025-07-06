@@ -28,12 +28,11 @@ MyComponent = Neo.setupClass(MyComponent);
 StartTest(t => {
     t.it('Basic reactivity with subscribe', t => {
         const instance         = Neo.create(MyComponent);
-        const configController = instance.getConfig('myConfig');
 
         let subscriberCalled = false;
         let receivedNewValue, receivedOldValue;
 
-        const cleanup = configController.subscribe((newValue, oldValue) => {
+        const cleanup = instance.observeConfig(instance, 'myConfig', (newValue, oldValue) => {
             subscriberCalled = true;
             receivedNewValue = newValue;
             receivedOldValue = oldValue;
@@ -53,11 +52,10 @@ StartTest(t => {
     });
 
     t.it('Descriptor: arrayConfig_ with merge: replace', t => {
-        const instance         = Neo.create(MyComponent);
-        const configController = instance.getConfig('arrayConfig');
+        const instance = Neo.create(MyComponent);
 
         let subscriberCalled = 0;
-        configController.subscribe((newValue, oldValue) => {
+        instance.observeConfig(instance, 'arrayConfig', (newValue, oldValue) => {
             subscriberCalled++;
         });
 
@@ -78,10 +76,9 @@ StartTest(t => {
 
     t.it('Descriptor: objectConfig_ with merge: deep', t => {
         const instance = Neo.create(MyComponent);
-        const configController = instance.getConfig('objectConfig');
 
         let subscriberCalled = 0;
-        configController.subscribe((newValue, oldValue) => {
+        instance.observeConfig(instance, 'objectConfig', (newValue, oldValue) => {
             subscriberCalled++;
         });
 

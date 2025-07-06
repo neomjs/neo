@@ -1,5 +1,5 @@
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
+import Neo       from '../../../../src/Neo.mjs';
+import * as core from '../../../../src/core/_export.mjs';
 
 class PublisherComponent extends core.Base {
     static config = {
@@ -18,9 +18,7 @@ class LeakySubscriberComponent extends core.Base {
 
     // A method to subscribe to a publisher's config
     subscribeToPublisher(publisherInstance, sharedStateRef) {
-        const configController = publisherInstance.getConfig('myConfig');
-        // Store the cleanup function, but we won't call it in the leak scenario
-        this.cleanupFn = configController.subscribe((newValue, oldValue) => {
+        this.cleanupFn = this.observeConfig(publisherInstance, 'myConfig', (newValue, oldValue) => {
             sharedStateRef.subscriberCalled = true;
         });
     }
@@ -45,20 +43,10 @@ StartTest(t => {
         // This should trigger the subscriber's callback if the leak exists
         publisher.myConfig = 'newValueAfterSubscriberDestroyed';
 
-        // Assert that the subscriber's callback was still called
-        // This indicates the memory leak (the callback is still active)
-        t.ok(sharedState.subscriberCalled, 'Leaked subscriber callback should be called');
+        // Assert that the subscriber's callback was NOT called due to automatic cleanup
+        t.notOk(sharedState.subscriberCalled, 'Leaked subscriber callback should NOT be called due to automatic cleanup');
 
-        // To prevent actual memory leaks in the test runner,
-        // we manually remove the subscription here for test integrity.
-        // In a real application, this step would be missing, causing the leak.
-        const publisherConfigController = publisher.getConfig('myConfig');
-        // This is a hack for testing private members, normally not accessible
-        // We assume the cleanupFn is the only subscriber left for this specific test.
-        // In a real scenario, we'd need a way to identify and remove the specific leaked callback.
-        // For the purpose of demonstrating the leak, the above assertion is sufficient.
-        // If we wanted to truly clean up, we'd need to iterate and find the callback or expose a way to remove it.
-        // For now, we'll just destroy the publisher to clean up its config controller.
+        // The observeConfig method now handles automatic cleanup, so no manual cleanup is needed here.
         publisher.destroy();
     });
 
@@ -70,7 +58,6 @@ StartTest(t => {
         subscriberClean.subscribeToPublisher(publisherClean, sharedStateClean);
 
         // Explicitly call cleanup before destroying
-        subscriberClean.cleanupFn();
         subscriberClean.destroy();
         subscriberClean = null;
 
@@ -78,5 +65,28 @@ StartTest(t => {
 
         t.notOk(sharedStateClean.subscriberCalled, 'Subscriber callback should NOT be called after cleanup');
         publisherClean.destroy(); // Clean up publisher
+    });
+
+    t.it('Manual unsubscribe before destruction', t => {
+        const sharedStateManual = { subscriberCalled: false };
+        const publisherManual = Neo.create(PublisherComponent);
+        let subscriberManual = Neo.create(LeakySubscriberComponent);
+
+        const cleanupManual = subscriberManual.observeConfig(publisherManual, 'myConfig', (newValue, oldValue) => {
+            sharedStateManual.subscriberCalled = true;
+        });
+
+        // Manually unsubscribe
+        cleanupManual();
+
+        // Change the publisher's config value
+        publisherManual.myConfig = 'valueAfterManualUnsubscribe';
+
+        // Assert that the subscriber's callback was NOT called
+        t.notOk(sharedStateManual.subscriberCalled, 'Subscriber callback should NOT be called after manual unsubscribe');
+
+        // Destroy instances to ensure full cleanup
+        subscriberManual.destroy();
+        publisherManual.destroy();
     });
 });

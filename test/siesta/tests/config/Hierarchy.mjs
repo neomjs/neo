@@ -53,12 +53,11 @@ StartTest(t => {
 
     t.it('Reactivity on DerivedComponent instance', t => {
         const instance = Neo.create(DerivedComponent);
-        const configController = instance.getConfig('myConfig');
 
         let subscriberCalled = false;
         let receivedNewValue, receivedOldValue;
 
-        const cleanup = configController.subscribe((newValue, oldValue) => {
+        const cleanup = instance.observeConfig(instance, 'myConfig', (newValue, oldValue) => { // Discouraged: Self-observation
             subscriberCalled = true;
             receivedNewValue = newValue;
             receivedOldValue = oldValue;
