@@ -107,4 +107,43 @@ StartTest(t => {
         instance.objectConfig = obj3;
         t.is(subscriberCalled, 3, 'Subscriber called for new object reference');
     });
+
+    t.it('Multiple subscriptions from same owner ID', t => {
+        const instance = Neo.create(MyComponent);
+        const publisher = instance; // Observing itself for simplicity
+        const configName = 'myConfig';
+
+        let callback1Called = false;
+        let callback2Called = false;
+
+        const cleanup1 = instance.observeConfig(publisher, configName, (newValue, oldValue) => {
+            callback1Called = true;
+        });
+
+        const cleanup2 = instance.observeConfig(publisher, configName, (newValue, oldValue) => {
+            callback2Called = true;
+        });
+
+        // Reset flags
+        callback1Called = false;
+        callback2Called = false;
+
+        // Change the config value
+        instance.myConfig = 'changedValue';
+
+        t.ok(callback1Called, 'First callback should be called');
+        t.ok(callback2Called, 'Second callback should be called');
+
+        // Test cleanup
+        cleanup1();
+        cleanup2();
+
+        callback1Called = false;
+        callback2Called = false;
+
+        instance.myConfig = 'anotherChange';
+
+        t.notOk(callback1Called, 'First callback should NOT be called after cleanup');
+        t.notOk(callback2Called, 'Second callback should NOT be called after cleanup');
+    });
 });
