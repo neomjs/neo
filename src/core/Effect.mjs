@@ -4,25 +4,26 @@ import IdGenerator   from './IdGenerator.mjs';
 /**
  * Creates a reactive effect that automatically tracks its dependencies and re-runs when any of them change.
  * This is a lightweight, plain JavaScript class for performance.
+ * It serves as a core reactive primitive, enabling automatic and dynamic dependency tracking.
  * @class Neo.core.Effect
  */
 class Effect {
     /**
-     * A Set containing the cleanup functions for all current subscriptions.
-     * @member {Set|null}
+     * A Map containing Config instances as keys and their cleanup functions as values.
+     * @member {Map} dependencies=new Map()
      * @protected
      */
-    dependencies = null
+    dependencies = new Map()
     /**
      * The function to execute.
-     * @member {Function|null}
+     * @member {Function|null} _fn=null
      */
-    fn = null
+    _fn = null
     /**
      * The unique identifier for this effect instance.
      * @member {String|null}
      */
-    id = null
+    id = IdGenerator.getId('neo-effect')
     /**
      * @member {Boolean}
      * @protected
@@ -30,17 +31,25 @@ class Effect {
     isDestroyed = false
 
     /**
+     * @member fn
+     */
+    get fn() {
+        return this._fn
+    }
+    set fn(value) {
+        this._fn = value;
+        // Assigning a new function to `fn` automatically triggers a re-run.
+        // This ensures that the effect immediately re-evaluates its dependencies
+        // based on the new function's logic, clearing old dependencies and establishing new ones.
+        this.run()
+    }
+
+    /**
      * @param {Object} config
      * @param {Function} config.fn The function to execute for the effect.
      */
     constructor({fn}) {
-        Object.assign(this, {
-            dependencies: new Set(),
-            fn,
-            id          : IdGenerator.getId('neo-effect')
-        });
-
-        this.run()
+        this.fn = fn
     }
 
     /**
@@ -57,6 +66,8 @@ class Effect {
     /**
      * Executes the effect function, tracking its dependencies.
      * This is called automatically on creation and whenever a dependency changes.
+     * The dynamic re-tracking ensures the effect always reflects its current dependencies,
+     * even if the logic within `fn` changes conditionally.
      * @protected
      */
     run() {
@@ -83,14 +94,17 @@ class Effect {
      * @protected
      */
     addDependency(config) {
-        const
-            me      = this,
-            cleanup = config.subscribe({
-            id: me.id,
-            fn: me.run.bind(me)
-        });
+        const me = this;
 
-        me.dependencies.add(cleanup);
+        // Only add if not already a dependency. Map uses strict equality (===) for object keys.
+        if (!me.dependencies.has(config)) {
+            const cleanup = config.subscribe({
+                id: me.id,
+                fn: me.run.bind(me)
+            });
+
+            me.dependencies.set(config, cleanup)
+        }
     }
 }
 

@@ -20,6 +20,12 @@ project.plan(
     'tests/ClassConfigsAndFields.mjs',
     'tests/ClassSystem.mjs',
     {
+        group: 'core',
+        items: [
+            'tests/core/Effect.mjs'
+        ]
+    },
+    {
         group: 'config',
         items: [
             'tests/config/Basic.mjs',
@@ -29,6 +35,13 @@ project.plan(
             'tests/config/AfterSetConfig.mjs',
             'tests/config/MemoryLeak.mjs',
             'tests/config/CircularDependencies.mjs'
+        ]
+    },
+    {
+        group: 'state',
+        items: [
+            'tests/state/createHierarchicalDataProxy.mjs',
+            'tests/state/Provider.mjs'
         ]
     },
     'tests/CollectionBase.mjs',
