@@ -126,7 +126,7 @@ class Provider extends Base {
                     fn: () => {
                         const
                             hierarchicalData = me.getHierarchyData(),
-                            bindObject       = Neo.clone(formulaDef.bind),
+                            bindObject       = Neo.clone(formulaDef.bind || {}),
                             fn               = formulaDef.get;
 
                         // Populate bindObject with actual data values
@@ -155,7 +155,7 @@ class Provider extends Base {
      * @protected
      */
     beforeGetData(value) {
-        return value || {}
+        return this.getHierarchyData()
     }
 
     /**
@@ -209,7 +209,7 @@ class Provider extends Base {
                 if (component && !component.isDestroyed) {
                     const
                         hierarchicalData = me.getHierarchyData(),
-                        newValue         = isTwoWay ? hierarchicalData[key] : key.call(me, hierarchicalData);
+                        newValue         = Neo.isFunction(key) ? key.call(me, hierarchicalData) : hierarchicalData[key];
 
                     component._skipTwoWayPush = configKey;
                     component[configKey] = newValue;
@@ -247,8 +247,9 @@ class Provider extends Base {
                 }
                 key = value.key;
             }
-
-            if (!this.isStoreValue(key)) {
+            if (this.isStoreValue(key)) {
+                this.resolveStore(component, configKey, key.substring(7)) // remove the "stores." prefix
+            } else {
                 this.createBinding(component.id, configKey, key, value.twoWay)
             }
         });
@@ -291,7 +292,7 @@ class Provider extends Base {
         const ownerDetails = this.getOwnerOfDataProperty(key);
 
         if (ownerDetails) {
-            return ownerDetails.owner.getDataConfig(ownerDetails.propertyName).value;
+            return ownerDetails.owner.getDataConfig(ownerDetails.propertyName).get();
         }
     }
 
@@ -301,7 +302,8 @@ class Provider extends Base {
      * @returns {Neo.core.Config|null}
      */
     getDataConfig(path) {
-        return this.#dataConfigs[path] || null
+        const config = this.#dataConfigs[path] || null;
+        return config
     }
 
     /**
@@ -409,6 +411,26 @@ class Provider extends Base {
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
+        if (Neo.isObject(value) && value.isRecord) {
+            const
+                ownerDetails = this.getOwnerOfDataProperty(key),
+                targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || this);
+
+            let currentConfig = targetProvider.getDataConfig(key);
+            let oldValue = null;
+
+            if (currentConfig) {
+                oldValue = currentConfig.get();
+                currentConfig.set(value);
+            } else {
+                currentConfig = new Config(value);
+                targetProvider.#dataConfigs[key] = currentConfig;
+                targetProvider.#bindingEffects.forEach(effect => effect.run());
+            }
+            targetProvider.onDataPropertyChange(key, value, oldValue);
+            return
+        }
+
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 this.internalSetData(dataKey, dataValue, originStateProvider)
@@ -431,7 +453,9 @@ class Provider extends Base {
             currentConfig = currentProvider.getDataConfig(currentPath);
 
             if (i === pathParts.length - 1) { // Last part of the path
+                let oldValue = null;
                 if (currentConfig) {
+                    oldValue = currentConfig.get();
                     currentConfig.set(value);
                 } else {
                     currentConfig = new Config(value);
@@ -439,6 +463,8 @@ class Provider extends Base {
                     // Trigger all binding effects to re-evaluate their dependencies
                     currentProvider.#bindingEffects.forEach(effect => effect.run());
                 }
+                // Call onDataPropertyChange after the value has been set
+                currentProvider.onDataPropertyChange(currentPath, value, oldValue);
             } else { // Intermediate part of the path
                 if (!currentConfig) {
                     currentConfig = new Config({}); // Create an empty object config
@@ -474,7 +500,14 @@ class Provider extends Base {
         return super.mergeConfig(config, preventOriginalConfig)
     }
 
-
+    /**
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        // Can be overridden by subclasses
+    }
 
     /**
      * Recursively processes a data object, creating or updating Neo.core.Config instances
