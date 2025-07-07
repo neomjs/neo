@@ -46,6 +46,10 @@ class EffectButton extends Component {
          */
         baseCls: ['neo-button'],
         /**
+         * @member {String[]} cls=[]
+         */
+        cls: [],
+        /**
          * false calls Neo.Main.setRoute()
          * @member {Boolean} editRoute=true
          */
@@ -100,6 +104,10 @@ class EffectButton extends Component {
          */
         route_: null,
         /**
+         * @member {String} tag='button'
+         */
+        tag: 'button',
+        /**
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} url_=null
          */
@@ -117,18 +125,6 @@ class EffectButton extends Component {
     }
 
     /**
-     * @member {Object} rippleWrapper
-     */
-    get badgeNode() {
-        return this.getVdomRoot().cn[2]
-    }
-    /**
-     * @member {Object} rippleWrapper
-     */
-    get iconNode() {
-        return this.getVdomRoot().cn[0]
-    }
-    /**
      * Time in ms for the ripple effect when clicking on the button.
      * Only active if useRippleEffect is set to true.
      * @member {Number} rippleEffectDuration=400
@@ -140,18 +136,6 @@ class EffectButton extends Component {
      * @private
      */
     #rippleTimeoutId = null
-    /**
-     * @member {Object} rippleWrapper
-     */
-    get rippleWrapper() {
-        return this.getVdomRoot().cn[3]
-    }
-    /**
-     * @member {Object} textNode
-     */
-    get textNode() {
-        return this.getVdomRoot().cn[1]
-    }
 
     /**
      * @param {Object} config
@@ -173,29 +157,75 @@ class EffectButton extends Component {
      * @returns {Neo.core.Effect}
      */
     createVdomEffect() {
-        return new Effect({
-            fn: () => {console.log('vdom effect');
-                let me          = this,
-                    cls         = me.cls,
-                    hasText     = !!me.text,
-                    textNodeCls = ['neo-button-text'];
+        return new Effect({fn: () => {
+            let me = this;
 
-                NeoArray.toggle(cls,         'pressed', me.pressed);
-                NeoArray.toggle(textNodeCls, 'no-text', !hasText);
+            // Logic from updateTag()
+            let {editRoute, route, url} = me;
+            let link = !editRoute && route || url;
+            let tag  = 'button';
+            let href = null;
 
-                me._vdom =
-                {tag: me.tag, type: 'button', cn: [
-                    {tag: 'span', cls: ['neo-button-glyph', me.iconCls, `icon-${me.iconPosition}`], removeDom: !me.iconCls, style: {color: me.iconColor}},
-                    {tag: 'span', cls: textNodeCls, id: `${me.id}__text`, removeDom: !me.text, text: me.text + 'hi'},
-                    {cls: ['neo-button-badge', me.badgePosition], removeDom: !me.badgeText, text: me.badgeText},
-                    {cls: ['neo-button-ripple-wrapper'], removeDom: me.useRippleEffect, cn: [
-                        {cls: ['neo-button-ripple']}
-                    ]}
-                ]};
-
-                me.update()
+            if (!editRoute && route?.startsWith('#') === false) {
+                link = '#' + link;
             }
-        })
+
+            if (link) {
+                href = link;
+                tag  = 'a';
+            }
+
+            // Logic from afterSetText & afterSetPressed & afterSetIconPosition
+            let vdomCls = [];
+
+            vdomCls.push(...me.baseCls, ...me.cls);
+
+            NeoArray.toggle(vdomCls, 'no-text', !me.text);
+            NeoArray.toggle(vdomCls, 'pressed', me.pressed);
+            vdomCls.push('icon-' + me.iconPosition);
+
+            // Main vdom object
+            me._vdom = {
+                tag,
+                cls: vdomCls,
+                href,
+                target   : me.url ? me.urlTarget : null,
+                type     : tag === 'button' ? 'button' : null,
+                cn: [
+                    // iconNode from afterSetIconCls & afterSetIconColor
+                    {
+                        tag      : 'span',
+                        cls      : ['neo-button-glyph', ...me._iconCls || []],
+                        removeDom: !me.iconCls,
+                        style    : {color: me.iconColor || null}
+                    },
+                    // textNode from afterSetText & afterSetId
+                    {
+                        tag      : 'span',
+                        cls      : ['neo-button-text'],
+                        id       : `${me.id}__text`,
+                        removeDom: !me.text,
+                        text     : me.text
+                    },
+                    // badgeNode from afterSetBadgeText & afterSetBadgePosition
+                    {
+                        cls      : ['neo-button-badge', 'neo-' + me.badgePosition],
+                        removeDom: !me.badgeText,
+                        text     : me.badgeText
+                    },
+                    // rippleWrapper from afterSetUseRippleEffect
+                    {
+                        cls      : ['neo-button-ripple-wrapper'],
+                        removeDom: !me.useRippleEffect,
+                        cn       : [
+                            {cls: ['neo-button-ripple']}
+                        ]
+                    }
+                ]
+            };
+
+            me.update()
+        }})
     }
 
     /**
@@ -204,7 +234,7 @@ class EffectButton extends Component {
      * @param {Object|Object[]|null} oldValue
      * @protected
      */
-    afterSetMenu(value, oldValue) {return;
+    afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
                 let me            = this,
@@ -240,22 +270,12 @@ class EffectButton extends Component {
     }
 
     /**
-     * Triggered after the route config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetRoute(value, oldValue) {return;
-        !this.editRoute && this.updateTag()
-    }
-
-    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetTheme(value, oldValue) {return;
+    afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
         let {menuList} = this;
@@ -263,35 +283,6 @@ class EffectButton extends Component {
         if (menuList) {
             menuList.theme = value
         }
-    }
-
-    /**
-     * Triggered after the url config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetUrl(value, oldValue) {return;
-        this.updateTag()
-    }
-
-    /**
-     * Triggered after the urlTarget config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetUrlTarget(value, oldValue) {return;
-        let me       = this,
-            vdomRoot = me.getVdomRoot();
-
-        if (me.url) {
-            vdomRoot.target = value
-        } else {
-            delete vdomRoot.target
-        }
-
-        me.update()
     }
 
     /**
@@ -399,7 +390,7 @@ class EffectButton extends Component {
             diameter             = Math.max(buttonRect.height, buttonRect.width),
             radius               = diameter / 2,
             rippleEffectDuration = me.rippleEffectDuration,
-            {rippleWrapper}      = me,
+            rippleWrapper        = me.getVdomRoot().cn[3],
             rippleEl             = rippleWrapper.cn[0],
             rippleTimeoutId;
 
