@@ -39,7 +39,12 @@ function createNestedProxy(rootProvider, path) {
                     if (activeEffect) {
                         activeEffect.addDependency(config);
                     }
-                    return config.get();
+                    const value = config.get();
+                    // If the value is an object, return a new proxy for it to ensure nested accesses are also proxied.
+                    if (Neo.typeOf(value) === 'Object') {
+                        return createNestedProxy(rootProvider, fullPath)
+                    }
+                    return value;
                 }
             }
 
