@@ -30,6 +30,11 @@ class Effect {
      * @protected
      */
     isDestroyed = false
+    /**
+     * @member {Boolean}
+     * @protected
+     */
+    isRunning = false
 
     /**
      * @member fn
@@ -74,12 +79,14 @@ class Effect {
     run() {
         const me = this;
 
-        if (me.isDestroyed) return;
+        if (me.isDestroyed || me.isRunning) return;
 
         if (EffectBatchManager.isBatchActive()) {
             EffectBatchManager.queueEffect(me);
             return
         }
+
+        me.isRunning = true;
 
         me.dependencies.forEach(cleanup => cleanup());
         me.dependencies.clear();
@@ -89,7 +96,8 @@ class Effect {
         try {
             me.fn()
         } finally {
-            EffectManager.pop()
+            EffectManager.pop();
+            me.isRunning = false;
         }
     }
 
