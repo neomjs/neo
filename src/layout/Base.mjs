@@ -117,19 +117,6 @@ class Layout extends Base {
     }
 
     /**
-     * Applies all class configs to this instance
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     */
-    initConfig(config, preventOriginalConfig) {
-        super.initConfig(config, preventOriginalConfig);
-
-        let me = this;
-
-        me.bind && me.container.getStateProvider()?.parseConfig(me)
-    }
-
-    /**
      * Placeholder method
      * @param {Neo.component.Base} item
      * @param {Number} index
