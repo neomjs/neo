@@ -349,10 +349,6 @@ class Container extends Component {
                 }
 
                 item.set(config);
-
-                // In case an item got created outside a stateProvider based hierarchy, there might be bindings or string
-                // based listeners which still need to get resolved.
-                item.getStateProvider()?.parseConfig(item);
                 break
             }
 
