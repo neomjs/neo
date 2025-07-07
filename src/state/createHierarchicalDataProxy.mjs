@@ -24,10 +24,10 @@ function createNestedProxy(rootProvider, path) {
                 return null
             }
 
-            const
-                fullPath = path ? `${path}.${property}` : property,
-                // 1. Check if the full path corresponds to an actual data property.
-                ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
+            const fullPath = path ? `${path}.${property}` : property;
+
+            // 1. Check if the full path corresponds to an actual data property.
+            const ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
 
             if (ownerDetails) {
                 const
@@ -36,10 +36,10 @@ function createNestedProxy(rootProvider, path) {
 
                 if (config) {
                     const activeEffect = EffectManager.getActiveEffect();
-
-                    activeEffect?.addDependency(config);
-
-                    return config.value
+                    if (activeEffect) {
+                        activeEffect.addDependency(config);
+                    }
+                    return config.get();
                 }
             }
 
