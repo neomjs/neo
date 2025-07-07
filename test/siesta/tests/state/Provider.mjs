@@ -179,4 +179,69 @@ StartTest(t => {
 
         component.destroy();
     });
+
+    t.it('Formulas should calculate correctly and react to dependencies', t => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {
+                    price   : 10,
+                    quantity: 2
+                },
+                formulas: {
+                    total: {
+                        deps: ['price', 'quantity'],
+                        get  : (price, quantity) => price * quantity
+                    },
+                    discountedTotal: {
+                        deps: ['total'],
+                        get  : (total) => total * 0.9 // 10% discount
+                    }
+                }
+            }
+        });
+        const provider = component.getStateProvider();
+
+        t.is(provider.getDataConfig('total').get(), 20, 'Initial total formula calculation is correct');
+        t.is(provider.getDataConfig('discountedTotal').get(), 18, 'Initial discountedTotal formula calculation is correct');
+
+        component.setState('price', 15);
+        t.is(provider.getDataConfig('total').get(), 30, 'Total formula updates when price changes');
+        t.is(provider.getDataConfig('discountedTotal').get(), 27, 'DiscountedTotal formula updates when total changes');
+
+        component.setState('quantity', 5);
+        t.is(provider.getDataConfig('total').get(), 75, 'Total formula updates when quantity changes');
+        t.is(provider.getDataConfig('discountedTotal').get(), 67.5, 'DiscountedTotal formula updates when total changes again');
+
+        component.destroy();
+    });
+
+    t.it('Store management should correctly bind components to stores and react to store changes', t => {
+        const store = Neo.create(Neo.data.Store, {
+            data: [{id: 1, name: 'Item 1'}, {id: 2, name: 'Item 2'}]
+        });
+
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                stores: {
+                    myStore: store
+                }
+            },
+            bind: {
+                testConfig: 'stores.myStore'
+            }
+        });
+        const provider = component.getStateProvider();
+
+        t.is(component.testConfig, store, 'Component config should be bound to the store instance');
+        t.is(component.testConfig.getCount(), 2, 'Bound store should have correct initial count');
+
+        store.add({id: 3, name: 'Item 3'});
+        t.is(component.testConfig.getCount(), 3, 'Bound store should reflect changes after adding a record');
+
+        store.remove(store.getById(1));
+        t.is(component.testConfig.getCount(), 2, 'Bound store should reflect changes after removing a record');
+
+        component.destroy();
+        store.destroy();
+    });
 });
