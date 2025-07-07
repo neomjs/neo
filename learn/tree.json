@@ -26,6 +26,7 @@
             {"name": "Application Bootstrap",                            "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ApplicationBootstrap"},
             {"name": "Instance Lifecycle",                               "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/InstanceLifecycle"},
             {"name": "Declarative Component Trees VS Imperative Vdom",   "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom"},
+            {"name": "Declarative VDOM with Effects",                    "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeVDOMWithEffects"},
             {"name": "Config System Deep Dive",                          "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ConfigSystemDeepDive"},
             {"name": "Extending Neo Classes",                            "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ExtendingNeoClasses"},
             {"name": "Main Thread Addons: Interacting with the Browser", "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/MainThreadAddons"},
