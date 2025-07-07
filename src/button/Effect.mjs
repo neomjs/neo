@@ -216,6 +216,8 @@ class EffectButton extends Component {
             tag,
             cls    : this.getVdomCls(),
             href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
+            id     : me.id,
+            style  : me.style,
             target : me.url ? me.urlTarget : null,
             type   : tag === 'button' ? 'button' : null,
             cn     : this.getVdomChildren()
