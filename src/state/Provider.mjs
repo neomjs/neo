@@ -72,21 +72,31 @@ class Provider extends Base {
     }
 
     /**
-     * @member {Map} #bindings=new Map()
-     * @private
-     */
-    #bindings = new Map()
-    /**
      * @member {Object} #dataConfigs={}
      * @private
      */
     #dataConfigs = {}
+    /**
+     * @member {Map} #formulaEffects=new Map()
+     * @private
+     */
+    #formulaEffects = new Map()
+    /**
+     * @member {Map} #bindingEffects=new Map()
+     * @private
+     */
+    #bindingEffects = new Map()
+    /**
+     * @member {Neo.state.Provider|null} #cachedParentProvider=null
+     * @private
+     */
+    #cachedParentProvider = null
 
     /**
      * @param {Object} config
      */
     construct(config) {
-        Neo.currentWorker.isUsingStateProviders = true;
+        Neo.isUsingStateProviders = true;
         super.construct(config)
     }
 
@@ -109,7 +119,39 @@ class Provider extends Base {
      * @protected
      */
     afterSetFormulas(value, oldValue) {
-        value && this.resolveFormulas(null)
+        const me = this;
+
+        // Destroy old formula effects
+        me.#formulaEffects.forEach(effect => effect.destroy());
+        me.#formulaEffects.clear();
+
+        if (value) {
+            Object.entries(value).forEach(([formulaKey, formulaDef]) => {
+                const effect = new Effect({
+                    fn: () => {
+                        const
+                            hierarchicalData = me.getHierarchyData(),
+                            bindObject       = Neo.clone(formulaDef.bind),
+                            fn               = formulaDef.get;
+
+                        // Populate bindObject with actual data values
+                        Object.keys(bindObject).forEach(key => {
+                            bindObject[key] = hierarchicalData[bindObject[key]];
+                        });
+
+                        const result = fn(bindObject);
+
+                        // Assign the result back to the state provider's data
+                        if (isNaN(result)) {
+                            me.setData(formulaKey, null);
+                        } else {
+                            me.setData(formulaKey, result);
+                        }
+                    }
+                });
+                me.#formulaEffects.set(formulaKey, effect);
+            });
+        }
     }
 
     /**
@@ -128,7 +170,7 @@ class Provider extends Base {
      * @protected
      */
     beforeSetParent(value, oldValue) {
-        return value ? value : this.getParent()
+        return value
     }
 
     /**
@@ -156,14 +198,6 @@ class Provider extends Base {
     }
 
     /**
-     * @param {Function} formatter
-     * @returns {String}
-     */
-    callFormatter(formatter) {
-        return formatter.call(this, this.getHierarchyData())
-    }
-
-    /**
      * Creates a new binding for a component's config to a data property.
      * This now uses the Effect-based reactivity system.
      * @param {String} componentId
@@ -171,11 +205,7 @@ class Provider extends Base {
      * @param {String|Function} formatter The function that computes the value.
      */
     createBinding(componentId, configKey, formatter) {
-        let me = this;
-
-        if (!me.#bindings.has(componentId)) {
-            me.#bindings.set(componentId, [])
-        }
+        const me = this;
 
         const effect = new Effect({
             fn: () => {
@@ -186,12 +216,23 @@ class Provider extends Base {
                         hierarchicalData = me.getHierarchyData(),
                         newValue         = formatter.call(me, hierarchicalData);
 
-                    component.set(configKey, newValue)
+                    component.set({[configKey]: newValue})
                 }
             }
         });
 
-        me.#bindings.get(componentId).push(effect)
+        me.#bindingEffects.set(componentId, effect);
+
+        // The effect observes the component's destruction to clean itself up.
+        this.observeConfig(componentId, 'isDestroying', (value) => {
+            if (value) {
+                effect.destroy();
+                me.#bindingEffects.delete(componentId);
+            }
+        });
+
+        // The effect is returned to be managed by the component.
+        return effect;
     }
 
     /**
@@ -199,24 +240,15 @@ class Provider extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            let twoWayBinding = false;
-
+            // Two-way binding needs re-evaluation. For now, we only support one-way.
             if (Neo.isObject(value)) {
-                twoWayBinding = true;
-                value         = value.value
+                value = value.value;
             }
 
             if (!this.isStoreValue(value)) {
                 this.createBinding(component.id, key, value);
-
-                if (twoWayBinding) {
-                    // This part needs re-evaluation. How to get the dependency?
-                    // For now, two-way binding might be broken by this refactoring.
-                    // We can add a mechanism to the effect to report its dependencies.
-                    component[twoWayBindingSymbol] = true
-                }
             }
-        })
+        });
     }
 
     /**
@@ -284,13 +316,19 @@ class Provider extends Base {
      * @returns {Neo.state.Provider|null}
      */
     getParent() {
-        let {parent} = this;
-
-        if (parent) {
-            return parent
+        // Access the internal value of the parent_ config directly.
+        // This avoids recursive calls to the getter.
+        if (this._parent) {
+            return this._parent;
         }
 
-        return this.component.parent?.getStateProvider() || null
+        // If no explicit parent is set, try to find it dynamically via the component.
+        // Ensure this.component exists before trying to access its parent.
+        if (this.component) {
+            return this.component.parent?.getStateProvider() || null;
+        }
+
+        return null; // No explicit parent and no component to derive it from.
     }
 
     /**
@@ -350,19 +388,41 @@ class Provider extends Base {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 this.internalSetData(dataKey, dataValue, originStateProvider);
             });
-
-            return
+            return;
         }
 
         const
-            targetProvider = originStateProvider ? (this.getOwnerOfDataProperty(key)?.owner || originStateProvider) : this,
-            config         = targetProvider.getDataConfig(key);
+            ownerDetails = this.getOwnerOfDataProperty(key),
+            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || this);
 
-        if (config) {
-            config.value = value
-        } else {
-            // Create the config if it doesn't exist on the target provider
-            targetProvider.processDataObject({[key]: value})
+        const pathParts = key.split('.');
+        let currentPath = '';
+        let currentConfig = null;
+        let currentProvider = targetProvider;
+
+        for (let i = 0; i < pathParts.length; i++) {
+            const part = pathParts[i];
+            currentPath = currentPath ? `${currentPath}.${part}` : part;
+            currentConfig = currentProvider.getDataConfig(currentPath);
+
+            if (i === pathParts.length - 1) { // Last part of the path
+                if (currentConfig) {
+                    currentConfig.set(value);
+                } else {
+                    currentConfig = new Config(value);
+                    currentProvider.#dataConfigs[currentPath] = currentConfig;
+                    // Trigger all binding effects to re-evaluate their dependencies
+                    currentProvider.#bindingEffects.forEach(effect => effect.run());
+                }
+            } else { // Intermediate part of the path
+                if (!currentConfig) {
+                    currentConfig = new Config({}); // Create an empty object config
+                    currentProvider.#dataConfigs[currentPath] = currentConfig;
+                } else if (!Neo.isObject(currentConfig.get())) {
+                    // If an intermediate path exists but is not an object, overwrite it
+                    currentConfig.set({});
+                }
+            }
         }
     }
 
@@ -389,33 +449,7 @@ class Provider extends Base {
         return super.mergeConfig(config, preventOriginalConfig)
     }
 
-    /**
-     * This method will assign binding values at the earliest possible point inside the component lifecycle.
-     * It can not store bindings though, since child component ids most likely do not exist yet.
-     * @param {Neo.component.Base} component=this.component
-     */
-    parseConfig(component=this.component) {
-        let me     = this,
-            config = {};
 
-        if (component.bind) {
-            me.createBindings(component);
-
-            Object.entries(component.bind).forEach(([key, value]) => {
-                if (Neo.isObject(value)) {
-                    value = value.value
-                }
-
-                if (me.isStoreValue(value)) {
-                    me.resolveStore(component, key, value.substring(7)) // remove the "stores." at the start
-                } else {
-                    config[key] = me.callFormatter(value)
-                }
-            });
-
-            component.set(config)
-        }
-    }
 
     /**
      * Recursively processes a data object, creating or updating Neo.core.Config instances
@@ -428,76 +462,21 @@ class Provider extends Base {
         Object.entries(obj).forEach(([key, value]) => {
             const fullPath = path ? `${path}.${key}` : key;
 
-            if (this.#dataConfigs[fullPath]) {
-                this.#dataConfigs[fullPath].value = value;
-            } else {
-                this.#dataConfigs[fullPath] = new Config(value);
-            }
-
             if (Neo.isObject(value) && !Neo.isObject(value.ntype)) { // a component config
                 this.processDataObject(value, fullPath);
+            } else {
+                if (this.#dataConfigs[fullPath]) {
+                    this.#dataConfigs[fullPath].set(value);
+                } else {
+                    this.#dataConfigs[fullPath] = new Config(value);
+                }
             }
         });
     }
 
-    /**
-     * Removes all bindings for a given component id inside this stateProvider as well as inside all parent stateProviders.
-     * @param {String} componentId
-     */
-    removeBindings(componentId) {
-        if (this.#bindings.has(componentId)) {
-            this.#bindings.get(componentId).forEach(effect => effect.destroy());
-            this.#bindings.delete(componentId);
-        }
 
-        this.getParent()?.removeBindings(componentId)
-    }
 
-    /**
-     * Resolve the formulas initially and update, when data change
-     * @param {Object} data data from event or null on initial call
-     */
-    resolveFormulas(data) {
-        let me         = this,
-            {formulas} = me,
-            initialRun = !data,
-            affectFormula, bindObject, fn, key, result, value;
 
-        if (formulas) {
-            if (!initialRun && (!data.key || !data.value)) {
-                console.warn('[StateProvider:formulas] missing key or value', data.key, data.value)
-            }
-
-            for ([key, value] of Object.entries(formulas)) {
-                affectFormula = true;
-
-                // Check if the change affects a formula
-                if (!initialRun) {
-                    affectFormula = Object.values(value.bind).includes(data.key)
-                }
-
-                if (affectFormula) {
-                    // Create Bind-Object and fill with new values
-                    bindObject = Neo.clone(value.bind);
-                    fn         = value.get;
-
-                    Object.keys(bindObject).forEach((key, index) => {
-                        bindObject[key] = me.getData(bindObject[key])
-                    });
-
-                    // Calc the formula
-                    result = fn(bindObject);
-
-                    // Assign if no error or null
-                    if (isNaN(result)) {
-                        me.setData(key, null)
-                    } else {
-                        me.setData(key, result)
-                    }
-                }
-            }
-        }
-    }
 
     /**
      * @param {Neo.component.Base} component
@@ -530,6 +509,22 @@ class Provider extends Base {
      */
     setDataAtSameLevel(key, value) {
         this.internalSetData(key, value)
+    }
+
+    /**
+     * Destroys the state provider and cleans up all associated effects.
+     * @param {Boolean} [silent=false]
+     */
+    destroy(silent=false) {
+        const me = this;
+
+        me.#formulaEffects.forEach(effect => effect.destroy());
+        me.#formulaEffects.clear();
+
+        me.#bindingEffects.forEach(effect => effect.destroy());
+        me.#bindingEffects.clear();
+
+        super.destroy(silent);
     }
 }
 

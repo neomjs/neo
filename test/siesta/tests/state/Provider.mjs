@@ -1,30 +1,39 @@
-import Provider from '../../../src/state/Provider.mjs';
-import Component from '../../../src/component/Base.mjs';
-import Neo       from '../../../src/Neo.mjs';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
+import Component       from '../../../../src/component/Base.mjs';
+import StateProvider   from '../../../../src/state/Provider.mjs';
+
 
 // Mock Component for testing purposes
 class MockComponent extends Component {
     static config = {
         className: 'Mock.Component',
-        testConfig_: null
+        testConfig_: null,
+        appName: 'test-app'
     }
 }
 Neo.setupClass(MockComponent);
 
 StartTest(t => {
     t.it('Provider should initialize with data and create configs', t => {
-        const provider = new Provider({data: {name: 'Test', value: 123, user: {firstName: 'John'}}});
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {name: 'Test', value: 123, user: {firstName: 'John'}}
+            }
+        });
+        const provider = component.getStateProvider();
 
-        t.is(provider.getDataConfig('name').value, 'Test', 'Name config should be created and have correct value');
-        t.is(provider.getDataConfig('value').value, 123, 'Value config should be created and have correct value');
-        t.is(provider.getDataConfig('user.firstName').value, 'John', 'Nested user.firstName config should be created');
+        t.is(provider.getDataConfig('name').get(), 'Test', 'Name config should be created and have correct value');
+        t.is(provider.getDataConfig('value').get(), 123, 'Value config should be created and have correct value');
+        t.is(provider.getDataConfig('user.firstName').get(), 'John', 'Nested user.firstName config should be created');
 
-        provider.destroy();
+        component.destroy();
     });
 
     t.it('Provider should update data and trigger config changes', t => {
-        const provider = new Provider({data: {counter: 0}});
-        const component = new MockComponent();
+        const component = Neo.create(MockComponent, {stateProvider: {data: {counter: 0}}});
+        const provider = component.getStateProvider();
 
         let effectRunCount = 0;
         provider.createBinding(component.id, 'testConfig', data => {
@@ -35,100 +44,97 @@ StartTest(t => {
         t.is(effectRunCount, 1, 'Binding effect should run once initially');
         t.is(component.testConfig, 0, 'Component config should be initialized with data value');
 
-        provider.setData('counter', 1);
+        component.setState('counter', 1);
         t.is(effectRunCount, 2, 'Binding effect should re-run after setData');
         t.is(component.testConfig, 1, 'Component config should be updated after setData');
 
-        provider.setData({counter: 2});
+        component.setState({counter: 2});
         t.is(effectRunCount, 3, 'Binding effect should re-run after setData with object');
         t.is(component.testConfig, 2, 'Component config should be updated after setData with object');
 
-        provider.destroy();
         component.destroy();
     });
 
     t.it('Provider should handle hierarchical data access', t => {
-        const parentProvider = new Provider({data: {appTitle: 'My App', user: {firstName: 'Parent'}}});
-        const childProvider = new Provider({data: {user: {lastName: 'Child'}}});
-        childProvider.parent = parentProvider; // Manually set parent
-
-        const component = new MockComponent();
+        const parentComponent = Neo.create(MockComponent, {
+            stateProvider: {data: {appTitle: 'My App', user: {firstName: 'Parent'}}}
+        });
+        const childComponent = Neo.create(MockComponent, {
+            stateProvider: {data: {user: {lastName: 'Child'}}},
+            parentComponent: parentComponent
+        });
 
         let effectRunCount = 0;
-        provider.createBinding(component.id, 'testConfig', data => {
+        childComponent.getStateProvider().createBinding(childComponent.id, 'testConfig', data => {
             effectRunCount++;
             return `${data.appTitle} - ${data.user.firstName} ${data.user.lastName}`;
         });
 
         t.is(effectRunCount, 1, 'Binding effect should run once initially');
-        t.is(component.testConfig, 'My App - Parent Child', 'Component config should reflect hierarchical data');
+        t.is(childComponent.testConfig, 'My App - Parent Child', 'Component config should reflect hierarchical data');
 
-        parentProvider.setData('appTitle', 'New App Title');
+        parentComponent.setState('appTitle', 'New App Title');
         t.is(effectRunCount, 2, 'Binding effect should re-run after parent data change');
-        t.is(component.testConfig, 'New App Title - Parent Child', 'Component config should update from parent data');
+        t.is(childComponent.testConfig, 'New App Title - Parent Child', 'Component config should update from parent data');
 
-        childProvider.setData('user.lastName', 'New Child');
+        childComponent.setState('user.lastName', 'New Child');
         t.is(effectRunCount, 3, 'Binding effect should re-run after child data change');
-        t.is(component.testConfig, 'New App Title - Parent New Child', 'Component config should update from child data');
+        t.is(childComponent.testConfig, 'New App Title - Parent New Child', 'Component config should update from child data');
 
-        parentProvider.setData('user.firstName', 'New Parent');
+        parentComponent.setState('user.firstName', 'New Parent');
         t.is(effectRunCount, 4, 'Binding effect should re-run after parent nested data change');
-        t.is(component.testConfig, 'New App Title - New Parent New Child', 'Component config should update from parent nested data');
+        t.is(childComponent.testConfig, 'New App Title - New Parent New Child', 'Component config should update from parent nested data');
 
-        provider.destroy();
-        component.destroy();
-        parentProvider.destroy();
-        childProvider.destroy();
+        parentComponent.destroy();
+        childComponent.destroy();
     });
 
     t.it('Provider should remove bindings on component destroy', t => {
-        const provider = new Provider({data: {test: 1}});
-        const component = new MockComponent();
+        const component = Neo.create(MockComponent, {stateProvider: {data: {test: 1}}});
+        const provider = component.getStateProvider();
 
         let effectRunCount = 0;
-        provider.createBinding(component.id, 'testConfig', data => {
+        const bindingEffect = provider.createBinding(component.id, 'testConfig', data => {
             effectRunCount++;
             return data.test;
         });
 
         t.is(effectRunCount, 1, 'Effect ran initially');
-        t.is(provider.#bindings.get(component.id).length, 1, 'Binding should be registered');
+        t.is(bindingEffect.isDestroyed, false, 'Binding effect should not be destroyed initially');
 
         component.destroy();
-        t.is(provider.#bindings.has(component.id), false, 'Binding should be removed from provider');
+        t.is(bindingEffect.isDestroyed, true, 'Binding effect should be destroyed after component destroy');
 
         provider.setData('test', 2);
         t.is(effectRunCount, 1, 'Effect should not re-run after component destroyed');
-
-        provider.destroy();
     });
 
     t.it('Provider should remove bindings on provider destroy', t => {
-        const provider = new Provider({data: {test: 1}});
-        const component = new MockComponent();
+        const component = Neo.create(MockComponent, {stateProvider: {data: {test: 1}}});
+        const provider = component.getStateProvider();
 
         let effectRunCount = 0;
-        provider.createBinding(component.id, 'testConfig', data => {
+        const bindingEffect = provider.createBinding(component.id, 'testConfig', data => {
             effectRunCount++;
             return data.test;
         });
 
         t.is(effectRunCount, 1, 'Effect ran initially');
-        t.is(provider.#bindings.get(component.id).length, 1, 'Binding should be registered');
+        t.is(bindingEffect.isDestroyed, false, 'Binding effect should not be destroyed initially');
 
         provider.destroy();
-        t.is(provider.#bindings.has(component.id), false, 'Binding should be removed from provider');
+        t.is(bindingEffect.isDestroyed, true, 'Binding effect should be destroyed after provider destroy');
 
         // Attempt to change data after provider destroyed
-        provider.setData('test', 2);
+        component.setState('test', 2);
         t.is(effectRunCount, 1, 'Effect should not re-run after provider destroyed');
 
         component.destroy();
     });
 
     t.it('setData should create new data properties if they do not exist', t => {
-        const provider = new Provider({data: {}});
-        const component = new MockComponent();
+        const component = Neo.create(MockComponent, {stateProvider: {data: {}}});
+        const provider = component.getStateProvider();
 
         let effectRunCount = 0;
         provider.createBinding(component.id, 'testConfig', data => {
@@ -139,16 +145,15 @@ StartTest(t => {
         t.is(effectRunCount, 1, 'Effect ran initially');
         t.is(component.testConfig, undefined, 'Component config should be undefined initially');
 
-        provider.setData('newProp', 'hello');
+        component.setState('newProp', 'hello');
         t.is(effectRunCount, 2, 'Effect re-ran after newProp was set');
         t.is(component.testConfig, 'hello', 'Component config should update with newProp');
-        t.is(provider.getDataConfig('newProp').value, 'hello', 'newProp config should exist');
+        t.is(provider.getDataConfig('newProp').get(), 'hello', 'newProp config should exist');
 
-        provider.setData('nested.newProp', 'world');
+        component.setState('nested.newProp', 'world');
         t.is(effectRunCount, 3, 'Effect re-ran after nested.newProp was set');
-        t.is(provider.getDataConfig('nested.newProp').value, 'world', 'nested.newProp config should exist');
+        t.is(provider.getDataConfig('nested.newProp').get(), 'world', 'nested.newProp config should exist');
 
-        provider.destroy();
         component.destroy();
     });
 });
