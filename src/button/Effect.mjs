@@ -154,78 +154,72 @@ class EffectButton extends Component {
     }
 
     /**
+     * Final. Should not be overridden.
+     * This is the core reactive effect.
      * @returns {Neo.core.Effect}
+     * @protected
      */
     createVdomEffect() {
         return new Effect({fn: () => {
-            let me = this;
+            // The effect's only job is to get the config and trigger an update.
+            this._vdom = this.getVdomConfig();
+            this.update();
+        }});
+    }
 
-            // Logic from updateTag()
-            let {editRoute, route, url} = me;
-            let link = !editRoute && route || url;
-            let tag  = 'button';
-            let href = null;
+    /**
+     * Builds the array of child nodes (the 'cn' property).
+     * Subclasses can override this to add or remove children.
+     * @returns {Object[]}
+     * @protected
+     */
+    getVdomChildren() {
+        return [
+            // iconNode
+            {tag: 'span', cls: ['neo-button-glyph', ...this._iconCls || []], removeDom: !this.iconCls, style: {color: this.iconColor || null}},
+            // textNode
+            {tag: 'span', cls: ['neo-button-text'], id: `${this.id}__text`, removeDom: !this.text, text: this.text},
+            // badgeNode
+            {cls: ['neo-button-badge', 'neo-' + this.badgePosition], removeDom: !this.badgeText, text: this.badgeText},
+            // rippleWrapper
+            {cls: ['neo-button-ripple-wrapper'], removeDom: !this.useRippleEffect, cn: [{cls: ['neo-button-ripple']}]}
+        ];
+    }
 
-            if (!editRoute && route?.startsWith('#') === false) {
-                link = '#' + link;
-            }
+    /**
+     * Builds the array of CSS classes for the root element.
+     * @returns {String[]}
+     * @protected
+     */
+    getVdomCls() {
+        let vdomCls = [...this.baseCls, ...this.cls];
 
-            if (link) {
-                href = link;
-                tag  = 'a';
-            }
+        NeoArray.toggle(vdomCls, 'no-text', !this.text);
+        NeoArray.toggle(vdomCls, 'pressed', this.pressed);
+        vdomCls.push('icon-' + this.iconPosition);
 
-            // Logic from afterSetText & afterSetPressed & afterSetIconPosition
-            let vdomCls = [];
+        return vdomCls;
+    }
 
-            vdomCls.push(...me.baseCls, ...me.cls);
+    /**
+     * Builds the top-level VDOM object.
+     * Subclasses can override this to add or modify root properties.
+     * @returns {Object}
+     * @protected
+     */
+    getVdomConfig() {
+        let me   = this,
+            link = !me.editRoute && me.route || me.url,
+            tag  = link ? 'a' : 'button';
 
-            NeoArray.toggle(vdomCls, 'no-text', !me.text);
-            NeoArray.toggle(vdomCls, 'pressed', me.pressed);
-            vdomCls.push('icon-' + me.iconPosition);
-
-            // Main vdom object
-            me._vdom = {
-                tag,
-                cls: vdomCls,
-                href,
-                target   : me.url ? me.urlTarget : null,
-                type     : tag === 'button' ? 'button' : null,
-                cn: [
-                    // iconNode from afterSetIconCls & afterSetIconColor
-                    {
-                        tag      : 'span',
-                        cls      : ['neo-button-glyph', ...me._iconCls || []],
-                        removeDom: !me.iconCls,
-                        style    : {color: me.iconColor || null}
-                    },
-                    // textNode from afterSetText & afterSetId
-                    {
-                        tag      : 'span',
-                        cls      : ['neo-button-text'],
-                        id       : `${me.id}__text`,
-                        removeDom: !me.text,
-                        text     : me.text
-                    },
-                    // badgeNode from afterSetBadgeText & afterSetBadgePosition
-                    {
-                        cls      : ['neo-button-badge', 'neo-' + me.badgePosition],
-                        removeDom: !me.badgeText,
-                        text     : me.badgeText
-                    },
-                    // rippleWrapper from afterSetUseRippleEffect
-                    {
-                        cls      : ['neo-button-ripple-wrapper'],
-                        removeDom: !me.useRippleEffect,
-                        cn       : [
-                            {cls: ['neo-button-ripple']}
-                        ]
-                    }
-                ]
-            };
-
-            me.update()
-        }})
+        return {
+            tag,
+            cls    : this.getVdomCls(),
+            href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
+            target : me.url ? me.urlTarget : null,
+            type   : tag === 'button' ? 'button' : null,
+            cn     : this.getVdomChildren()
+        };
     }
 
     /**
