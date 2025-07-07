@@ -121,20 +121,12 @@ class Provider extends Base {
         me.#formulaEffects.clear();
 
         if (value) {
-            Object.entries(value).forEach(([formulaKey, formulaDef]) => {
+            Object.entries(value).forEach(([formulaKey, formulaFn]) => {
                 const effect = new Effect({
                     fn: () => {
                         const
                             hierarchicalData = me.getHierarchyData(),
-                            bindObject       = Neo.clone(formulaDef.bind || {}),
-                            fn               = formulaDef.get;
-
-                        // Populate bindObject with actual data values
-                        Object.keys(bindObject).forEach(key => {
-                            bindObject[key] = hierarchicalData[bindObject[key]];
-                        });
-
-                        const result = fn(bindObject);
+                            result           = formulaFn(hierarchicalData);
 
                         // Assign the result back to the state provider's data
                         if (isNaN(result)) {

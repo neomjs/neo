@@ -3,6 +3,7 @@ import * as core       from '../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import Component       from '../../../../src/component/Base.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
+import Store           from '../../../../src/data/Store.mjs';
 
 
 // Mock Component for testing purposes
@@ -188,14 +189,8 @@ StartTest(t => {
                     quantity: 2
                 },
                 formulas: {
-                    total: {
-                        deps: ['price', 'quantity'],
-                        get  : (price, quantity) => price * quantity
-                    },
-                    discountedTotal: {
-                        deps: ['total'],
-                        get  : (total) => total * 0.9 // 10% discount
-                    }
+                    total(data) {return data.price * data.quantity},
+                    discountedTotal: (data) => data.total * 0.9 // 10% discount
                 }
             }
         });
@@ -217,7 +212,8 @@ StartTest(t => {
 
     t.it('Store management should correctly bind components to stores and react to store changes', t => {
         const store = Neo.create(Neo.data.Store, {
-            data: [{id: 1, name: 'Item 1'}, {id: 2, name: 'Item 2'}]
+            data : [{id: 1, name: 'Item 1'}, {id: 2, name: 'Item 2'}],
+            model: {fields: [{name: 'id', type: 'Int'}, {name: 'name', type: 'String'}]}
         });
 
         const component = Neo.create(MockComponent, {
@@ -230,16 +226,46 @@ StartTest(t => {
                 testConfig: 'stores.myStore'
             }
         });
-        const provider = component.getStateProvider();
 
         t.is(component.testConfig, store, 'Component config should be bound to the store instance');
-        t.is(component.testConfig.getCount(), 2, 'Bound store should have correct initial count');
+        t.is(component.testConfig.count, 2, 'Bound store should have correct initial count');
 
         store.add({id: 3, name: 'Item 3'});
-        t.is(component.testConfig.getCount(), 3, 'Bound store should reflect changes after adding a record');
+        t.is(component.testConfig.count, 3, 'Bound store should reflect changes after adding a record');
 
-        store.remove(store.getById(1));
-        t.is(component.testConfig.getCount(), 2, 'Bound store should reflect changes after removing a record');
+        store.remove(store.get(1));
+        t.is(component.testConfig.count, 2, 'Bound store should reflect changes after removing a record');
+
+        component.destroy();
+        store.destroy();
+    });
+
+    t.it('Store management  with an inline store', t => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                stores: {
+                    myStore: {
+                        module: Store,
+                        data  : [{id: 1, name: 'Item 1'}, {id: 2, name: 'Item 2'}],
+                        model : {fields: [{name: 'id'}, {name: 'name'}]}
+                    }
+                }
+            },
+            bind: {
+                testConfig: 'stores.myStore'
+            }
+        });
+
+        const store = component.getStateProvider().getStore('myStore');
+
+        t.is(component.testConfig, store, 'Component config should be bound to the store instance');
+        t.is(component.testConfig.count, 2, 'Bound store should have correct initial count');
+
+        store.add({id: 3, name: 'Item 3'});
+        t.is(component.testConfig.count, 3, 'Bound store should reflect changes after adding a record');
+
+        store.remove(store.get(1));
+        t.is(component.testConfig.count, 2, 'Bound store should reflect changes after removing a record');
 
         component.destroy();
         store.destroy();
