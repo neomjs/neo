@@ -72,6 +72,11 @@ class Provider extends Base {
     }
 
     /**
+     * @member {Map} #bindingEffects=new Map()
+     * @private
+     */
+    #bindingEffects = new Map()
+    /**
      * @member {Object} #dataConfigs={}
      * @private
      */
@@ -81,16 +86,6 @@ class Provider extends Base {
      * @private
      */
     #formulaEffects = new Map()
-    /**
-     * @member {Map} #bindingEffects=new Map()
-     * @private
-     */
-    #bindingEffects = new Map()
-    /**
-     * @member {Neo.state.Provider|null} #cachedParentProvider=null
-     * @private
-     */
-    #cachedParentProvider = null
 
     /**
      * @param {Object} config
@@ -204,19 +199,21 @@ class Provider extends Base {
      * @param {String} configKey The component config to bind (e.g., 'text').
      * @param {String|Function} formatter The function that computes the value.
      */
-    createBinding(componentId, configKey, formatter) {
-        const me = this;
-
-        const effect = new Effect({
+    createBinding(componentId, configKey, key, isTwoWay) {
+        const
+            me     = this,
+            effect = new Effect({
             fn: () => {
                 const component = Neo.get(componentId);
 
                 if (component && !component.isDestroyed) {
                     const
                         hierarchicalData = me.getHierarchyData(),
-                        newValue         = formatter.call(me, hierarchicalData);
+                        newValue         = isTwoWay ? hierarchicalData[key] : key.call(me, hierarchicalData);
 
-                    component.set({[configKey]: newValue})
+                    component._skipTwoWayPush = configKey;
+                    component[configKey] = newValue;
+                    delete component._skipTwoWayPush
                 }
             }
         });
@@ -224,31 +221,56 @@ class Provider extends Base {
         me.#bindingEffects.set(componentId, effect);
 
         // The effect observes the component's destruction to clean itself up.
-        this.observeConfig(componentId, 'isDestroying', (value) => {
+        me.observeConfig(componentId, 'isDestroying', (value) => {
             if (value) {
                 effect.destroy();
-                me.#bindingEffects.delete(componentId);
+                me.#bindingEffects.delete(componentId)
             }
         });
 
         // The effect is returned to be managed by the component.
-        return effect;
+        return effect
     }
 
     /**
      * @param {Neo.component.Base} component
      */
     createBindings(component) {
-        Object.entries(component.bind).forEach(([key, value]) => {
-            // Two-way binding needs re-evaluation. For now, we only support one-way.
+        let hasTwoWayBinding = false;
+
+        Object.entries(component.bind || {}).forEach(([configKey, value]) => {
+            let key = value;
+
             if (Neo.isObject(value)) {
-                value = value.value;
+                if (value.twoWay) {
+                    hasTwoWayBinding = true;
+                }
+                key = value.key;
             }
 
-            if (!this.isStoreValue(value)) {
-                this.createBinding(component.id, key, value);
+            if (!this.isStoreValue(key)) {
+                this.createBinding(component.id, configKey, key, value.twoWay)
             }
         });
+
+        if (hasTwoWayBinding) {
+            component[twoWayBindingSymbol] = true
+        }
+    }
+
+    /**
+     * Destroys the state provider and cleans up all associated effects.
+     */
+    destroy() {
+        const me = this;
+
+        me.#formulaEffects.forEach(effect => effect.destroy());
+        me.#formulaEffects.clear();
+
+        me.#bindingEffects.forEach(effect => effect.destroy());
+        me.#bindingEffects.clear();
+
+        super.destroy()
     }
 
     /**
@@ -271,8 +293,6 @@ class Provider extends Base {
         if (ownerDetails) {
             return ownerDetails.owner.getDataConfig(ownerDetails.propertyName).value;
         }
-
-        console.error(`data property '${key}' does not exist.`, this)
     }
 
     /**
@@ -298,12 +318,14 @@ class Provider extends Base {
      * @returns {{owner: Neo.state.Provider, propertyName: String}|null}
      */
     getOwnerOfDataProperty(path) {
-        if (this.#dataConfigs[path]) {
-            return {owner: this, propertyName: path}
+        let me = this;
+
+        if (me.#dataConfigs[path]) {
+            return {owner: me, propertyName: path}
         }
 
         // Check for parent ownership
-        const parent = this.getParent();
+        const parent = me.getParent();
         if (parent) {
             return parent.getOwnerOfDataProperty(path)
         }
@@ -316,19 +338,22 @@ class Provider extends Base {
      * @returns {Neo.state.Provider|null}
      */
     getParent() {
+        let me = this;
+
         // Access the internal value of the parent_ config directly.
         // This avoids recursive calls to the getter.
-        if (this._parent) {
-            return this._parent;
+        if (me._parent) {
+            return me._parent;
         }
 
         // If no explicit parent is set, try to find it dynamically via the component.
         // Ensure this.component exists before trying to access its parent.
-        if (this.component) {
-            return this.component.parent?.getStateProvider() || null;
+        if (me.component) {
+            return me.component.parent?.getStateProvider() || null;
         }
 
-        return null; // No explicit parent and no component to derive it from.
+        // No explicit parent and no component to derive it from.
+        return null
     }
 
     /**
@@ -386,9 +411,9 @@ class Provider extends Base {
     internalSetData(key, value, originStateProvider) {
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
-                this.internalSetData(dataKey, dataValue, originStateProvider);
+                this.internalSetData(dataKey, dataValue, originStateProvider)
             });
-            return;
+            return
         }
 
         const
@@ -459,24 +484,22 @@ class Provider extends Base {
      * @protected
      */
     processDataObject(obj, path = '') {
+        let me = this;
+
         Object.entries(obj).forEach(([key, value]) => {
             const fullPath = path ? `${path}.${key}` : key;
 
             if (Neo.isObject(value) && !Neo.isObject(value.ntype)) { // a component config
-                this.processDataObject(value, fullPath);
+                me.processDataObject(value, fullPath);
             } else {
-                if (this.#dataConfigs[fullPath]) {
-                    this.#dataConfigs[fullPath].set(value);
+                if (me.#dataConfigs[fullPath]) {
+                    me.#dataConfigs[fullPath].set(value);
                 } else {
-                    this.#dataConfigs[fullPath] = new Config(value);
+                    me.#dataConfigs[fullPath] = new Config(value)
                 }
             }
-        });
+        })
     }
-
-
-
-
 
     /**
      * @param {Neo.component.Base} component
@@ -509,22 +532,6 @@ class Provider extends Base {
      */
     setDataAtSameLevel(key, value) {
         this.internalSetData(key, value)
-    }
-
-    /**
-     * Destroys the state provider and cleans up all associated effects.
-     * @param {Boolean} [silent=false]
-     */
-    destroy(silent=false) {
-        const me = this;
-
-        me.#formulaEffects.forEach(effect => effect.destroy());
-        me.#formulaEffects.clear();
-
-        me.#bindingEffects.forEach(effect => effect.destroy());
-        me.#bindingEffects.clear();
-
-        super.destroy(silent);
     }
 }
 
