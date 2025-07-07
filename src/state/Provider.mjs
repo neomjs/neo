@@ -37,27 +37,41 @@ class Provider extends Base {
          */
         component: null,
         /**
+         /**
+         * The core data object managed by this StateProvider.
+         * This object holds the reactive state that can be accessed and modified
+         * by components and formulas within the provider's hierarchy.
+         * Changes to properties within this data object will trigger reactivity.
          * @member {Object|null} data_=null
+         * @example
+         *     data: {
+         *         user: {
+         *             firstName: 'John',
+         *             lastName : 'Doe'
+         *         },
+         *         settings: {
+         *             theme: 'dark'
+         *         }
+         *     }
          */
         data_: null,
         /**
+         * Defines computed properties based on other data properties within the StateProvider hierarchy.
+         * Each formula is a function that receives a `data` argument, which is a hierarchical proxy
+         * allowing access to data from the current provider and all its parent providers.
+         * Changes to dependencies (accessed via `data.propertyName`) will automatically re-run the formula.
          * @member {Object|null} formulas_=null
-         *
          * @example
          *     data: {
-         *         a: 1,
-         *         b: 2
+         *         a    : 1,
+         *         b    : 2,
+         *         total: 50
          *     }
          *     formulas: {
-         *         aPlusB: {
-         *             bind: {
-         *                 foo: 'a',
-         *                 bar: 'b'
-         *             },
-         *             get(data) {
-         *                 return data.foo + data.bar
-         *             }
-         *         }
+         *         aPlusB : (data) => data.a + data.b,
+         *         aTimesB: (data) => data.a * data.b,
+         *         // Accessing parent data (assuming a parent provider has a 'taxRate' property)
+         *         totalWithTax: (data) => data.total * (1 + data.taxRate)
          *     }
          */
         formulas_: null,
@@ -66,7 +80,24 @@ class Provider extends Base {
          */
         parent_: null,
         /**
+         /**
+         * A collection of Neo.data.Store instances managed by this StateProvider.
+         * Stores are defined as config objects with a `module` property pointing
+         * to the store class, which will then be instantiated by the framework.
          * @member {Object|null} stores_=null
+         * @example
+         *     stores: {
+         *         myUsers: {
+         *             module: Neo.data.Store,
+         *             model : 'MyApp.model.User',
+         *             data  : [{id: 1, name: 'John'}, {id: 2, name: 'Doe'}]
+         *         },
+         *         myCustomStore1: MyCustomStoreClass,
+         *         myCustomStore2: {
+         *             module  : MyCustomStoreClass,
+         *             autoLoad: true
+         *         }
+         *     }
          */
         stores_: null
     }
