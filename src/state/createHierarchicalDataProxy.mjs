@@ -57,6 +57,22 @@ function createNestedProxy(rootProvider, path) {
 
             // 3. If it's neither a data property nor a path to one, it doesn't exist in the state.
             return null
+        },
+
+        set(currentTarget, property, value) {
+            const fullPath = path ? `${path}.${property}` : property;
+            const ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
+
+            let targetProvider;
+            if (ownerDetails) {
+                targetProvider = ownerDetails.owner;
+            } else {
+                // If no owner is found, set it on the rootProvider (the one that created this proxy)
+                targetProvider = rootProvider;
+            }
+
+            targetProvider.setData(fullPath, value);
+            return true; // Indicate that the assignment was successful
         }
     })
 }
