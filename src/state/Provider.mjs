@@ -108,36 +108,41 @@ class Provider extends Base {
     }
 
     /**
-     * Triggered after the formulas config got changed
-     * @param {Object|null} value
-     * @param {Object|null} oldValue
+     * Triggered after the formulas config got changed.
+     * This method sets up reactive effects for each defined formula.
+     * Each formula function receives the hierarchical data proxy, allowing implicit dependency tracking.
+     * @param {Object|null} value The new formulas configuration.
+     * @param {Object|null} oldValue The old formulas configuration.
      * @protected
      */
     afterSetFormulas(value, oldValue) {
         const me = this;
 
-        // Destroy old formula effects
+        // Destroy old formula effects to prevent memory leaks and stale calculations.
         me.#formulaEffects.forEach(effect => effect.destroy());
         me.#formulaEffects.clear();
 
         if (value) {
             Object.entries(value).forEach(([formulaKey, formulaFn]) => {
+                // Create a new Effect for each formula. The Effect's fn will re-run whenever its dependencies change.
                 const effect = new Effect({
                     fn: () => {
                         const
-                            hierarchicalData = me.getHierarchyData(),
-                            result           = formulaFn(hierarchicalData);
+                            hierarchicalData = me.getHierarchyData(), // Get the reactive data proxy
+                            result           = formulaFn(hierarchicalData); // Execute the formula with the data
 
-                        // Assign the result back to the state provider's data
+                        // Assign the result back to the state provider's data.
+                        // This makes the formula's output available as a data property.
                         if (isNaN(result)) {
-                            me.setData(formulaKey, null);
+                            me.setData(formulaKey, null)
                         } else {
-                            me.setData(formulaKey, result);
+                            me.setData(formulaKey, result)
                         }
                     }
                 });
-                me.#formulaEffects.set(formulaKey, effect);
-            });
+
+                me.#formulaEffects.set(formulaKey, effect)
+            })
         }
     }
 
@@ -148,16 +153,6 @@ class Provider extends Base {
      */
     beforeGetData(value) {
         return this.getHierarchyData()
-    }
-
-    /**
-     * Triggered before the parent config gets changed
-     * @param {Neo.state.Provider|null} value
-     * @param {Neo.state.Provider|null} oldValue
-     * @protected
-     */
-    beforeSetParent(value, oldValue) {
-        return value
     }
 
     /**
@@ -225,7 +220,9 @@ class Provider extends Base {
     }
 
     /**
-     * @param {Neo.component.Base} component
+     * Processes a component's `bind` configuration to create reactive bindings.
+     * It differentiates between store bindings and data bindings, and sets up two-way binding if specified.
+     * @param {Neo.component.Base} component The component instance whose bindings are to be created.
      */
     createBindings(component) {
         let hasTwoWayBinding = false;
@@ -233,19 +230,25 @@ class Provider extends Base {
         Object.entries(component.bind || {}).forEach(([configKey, value]) => {
             let key = value;
 
+            // If the binding value is an object, it might contain `twoWay` or a specific `key`.
             if (Neo.isObject(value)) {
                 if (value.twoWay) {
-                    hasTwoWayBinding = true;
+                    hasTwoWayBinding = true
                 }
-                key = value.key;
+                key = value.key
             }
+
+            // Determine if it's a store binding or a data binding.
             if (this.isStoreValue(key)) {
+                // For store bindings, resolve the store and assign it to the component config.
                 this.resolveStore(component, configKey, key.substring(7)) // remove the "stores." prefix
             } else {
+                // For data bindings, create an Effect to keep the component config in sync with the data.
                 this.createBinding(component.id, configKey, key, value.twoWay)
             }
         });
 
+        // Mark the component if it has any two-way bindings, for internal tracking.
         if (hasTwoWayBinding) {
             component[twoWayBindingSymbol] = true
         }
@@ -284,7 +287,7 @@ class Provider extends Base {
         const ownerDetails = this.getOwnerOfDataProperty(key);
 
         if (ownerDetails) {
-            return ownerDetails.owner.getDataConfig(ownerDetails.propertyName).get();
+            return ownerDetails.owner.getDataConfig(ownerDetails.propertyName).get()
         }
     }
 
@@ -294,8 +297,7 @@ class Provider extends Base {
      * @returns {Neo.core.Config|null}
      */
     getDataConfig(path) {
-        const config = this.#dataConfigs[path] || null;
-        return config
+        return this.#dataConfigs[path] || null
     }
 
     /**
@@ -337,13 +339,13 @@ class Provider extends Base {
         // Access the internal value of the parent_ config directly.
         // This avoids recursive calls to the getter.
         if (me._parent) {
-            return me._parent;
+            return me._parent
         }
 
         // If no explicit parent is set, try to find it dynamically via the component.
         // Ensure this.component exists before trying to access its parent.
         if (me.component) {
-            return me.component.parent?.getStateProvider() || null;
+            return me.component.parent?.getStateProvider() || null
         }
 
         // No explicit parent and no component to derive it from.
@@ -394,6 +396,9 @@ class Provider extends Base {
      * Internal method to avoid code redundancy.
      * Use setData() or setDataAtSameLevel() instead.
      *
+     * This method handles setting data properties, including nested paths and Neo.data.Record instances.
+     * It determines the owning StateProvider in the hierarchy and delegates to #setConfigValue.
+     *
      * Passing an originStateProvider param will try to set each key on the closest property match
      * inside the parent stateProvider chain => setData()
      * Not passing it will set all values on the stateProvider where the method gets called => setDataAtSameLevel()
@@ -403,41 +408,37 @@ class Provider extends Base {
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
+        const me = this;
+
+        // If the value is a Neo.data.Record, treat it as an atomic value
+        // and set it directly without further recursive processing of its properties.
         if (Neo.isObject(value) && value.isRecord) {
             const
-                ownerDetails = this.getOwnerOfDataProperty(key),
-                targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || this);
+                ownerDetails   = me.getOwnerOfDataProperty(key),
+                targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
 
-            let currentConfig = targetProvider.getDataConfig(key);
-            let oldValue = null;
-
-            if (currentConfig) {
-                oldValue = currentConfig.get();
-                currentConfig.set(value);
-            } else {
-                currentConfig = new Config(value);
-                targetProvider.#dataConfigs[key] = currentConfig;
-                targetProvider.#bindingEffects.forEach(effect => effect.run());
-            }
-            targetProvider.onDataPropertyChange(key, value, oldValue);
+            me.#setConfigValue(targetProvider, key, value, null);
             return
         }
 
+        // If the key is an object, iterate over its entries and recursively call internalSetData.
+        // This handles setting multiple properties at once (e.g., setData({prop1: val1, prop2: val2})).
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
-                this.internalSetData(dataKey, dataValue, originStateProvider)
+                me.internalSetData(dataKey, dataValue, originStateProvider)
             });
             return
         }
 
+        // Handle single key/value pairs, including nested paths (e.g., 'user.firstName').
         const
-            ownerDetails = this.getOwnerOfDataProperty(key),
-            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || this);
+            ownerDetails   = me.getOwnerOfDataProperty(key),
+            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me),
+            pathParts      = key.split('.');
 
-        const pathParts = key.split('.');
-        let currentPath = '';
-        let currentConfig = null;
-        let currentProvider = targetProvider;
+        let currentPath     = '',
+            currentConfig   = null,
+            currentProvider = targetProvider;
 
         for (let i = 0; i < pathParts.length; i++) {
             const part = pathParts[i];
@@ -445,25 +446,16 @@ class Provider extends Base {
             currentConfig = currentProvider.getDataConfig(currentPath);
 
             if (i === pathParts.length - 1) { // Last part of the path
-                let oldValue = null;
-                if (currentConfig) {
-                    oldValue = currentConfig.get();
-                    currentConfig.set(value);
-                } else {
-                    currentConfig = new Config(value);
-                    currentProvider.#dataConfigs[currentPath] = currentConfig;
-                    // Trigger all binding effects to re-evaluate their dependencies
-                    currentProvider.#bindingEffects.forEach(effect => effect.run());
-                }
-                // Call onDataPropertyChange after the value has been set
-                currentProvider.onDataPropertyChange(currentPath, value, oldValue);
+                // Set the value for the final property in the path.
+                me.#setConfigValue(currentProvider, currentPath, value, null)
             } else { // Intermediate part of the path
+                // Ensure intermediate paths exist as objects. If not, create them.
+                // If an intermediate path exists but is not an object, overwrite it with an empty object.
                 if (!currentConfig) {
                     currentConfig = new Config({}); // Create an empty object config
-                    currentProvider.#dataConfigs[currentPath] = currentConfig;
+                    currentProvider.#dataConfigs[currentPath] = currentConfig
                 } else if (!Neo.isObject(currentConfig.get())) {
-                    // If an intermediate path exists but is not an object, overwrite it
-                    currentConfig.set({});
+                    currentConfig.set({})
                 }
             }
         }
@@ -537,6 +529,34 @@ class Provider extends Base {
         if (component[configName] !== store) {
             component[configName] = store
         }
+    }
+
+    /**
+     * Helper function to set a config value and trigger reactivity.
+     * This method creates a new Config instance if one doesn't exist for the given path,
+     * or updates an existing one. It also triggers binding effects and calls onDataPropertyChange.
+     * @param {Neo.state.Provider} provider The StateProvider instance owning the config.
+     * @param {String} path The full path of the data property (e.g., 'user.firstname').
+     * @param {*} newValue The new value to set.
+     * @param {*} oldVal The old value (optional, used for initial setup).
+     * @private
+     */
+    #setConfigValue(provider, path, newValue, oldVal) {
+        let currentConfig = provider.getDataConfig(path),
+            oldValue      = oldVal;
+
+        if (currentConfig) {
+            oldValue = currentConfig.get();
+            currentConfig.set(newValue);
+        } else {
+            currentConfig = new Config(newValue);
+            provider.#dataConfigs[path] = currentConfig;
+            // Trigger all binding effects to re-evaluate their dependencies
+            provider.#bindingEffects.forEach(effect => effect.run())
+        }
+
+        // Notify subscribers of the data property change.
+        provider.onDataPropertyChange(path, newValue, oldValue)
     }
 
     /**
