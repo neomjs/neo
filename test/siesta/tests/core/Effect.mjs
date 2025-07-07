@@ -47,33 +47,33 @@ StartTest(t => {
             }
         });
 
-        t.is(runCount, 1, 'Effect function ran once on creation');
-        t.is(effect.dependencies.size, 2, 'Effect tracked 2 dependencies');
-        t.is(sum, 11, 'Effect function ran with correct sum: 1 + 10 = 11');
+        t.is(runCount,                  1, 'Effect function ran once on creation');
+        t.is(effect.dependencies.size,  2, 'Effect tracked 2 dependencies');
+        t.is(sum,                      11, 'Effect function ran with correct sum: 1 + 10 = 11');
 
         // Change a dependency, effect should re-run
         configA.set(2);
-        t.is(runCount, 2, 'Effect function ran again after configA change');
-        t.is(sum, 12, 'Effect function ran with correct sum: 2 + 10 = 12');
+        t.is(runCount,  2, 'Effect function ran again after configA change');
+        t.is(sum,      12, 'Effect function ran with correct sum: 2 + 10 = 12');
 
         // Change another dependency, effect should re-run
         configB.set(20);
-        t.is(runCount, 3, 'Effect function ran again after configB change');
-        t.is(sum, 22, 'Effect function ran with correct sum: 2 + 20 = 22');
+        t.is(runCount,  3, 'Effect function ran again after configB change');
+        t.is(sum,      22, 'Effect function ran with correct sum: 2 + 20 = 22');
 
         // Change a dependency to the same value, effect should not re-run (Config handles this)
         configA.set(2);
-        t.is(runCount, 3, 'Effect function did not run after no-change configA update');
-        t.is(sum, 22, 'Effect function ran with correct sum: 2 + 20 = 22');
+        t.is(runCount,  3, 'Effect function did not run after no-change configA update');
+        t.is(sum,      22, 'Effect function ran with correct sum: 2 + 20 = 22');
 
         effect.destroy();
-        t.is(effect.isDestroyed, true, 'Effect is destroyed');
-        t.is(effect.dependencies.size, 0, 'Effect dependencies cleared after destroy');
+        t.is(effect.isDestroyed,       true, 'Effect is destroyed');
+        t.is(effect.dependencies.size, 0,    'Effect dependencies cleared after destroy');
 
         // Changing config after effect is destroyed should not re-run effect
         configA.set(3);
-        t.is(runCount, 3, 'Effect function did not run after configA change when destroyed');
-        t.is(sum, 22, 'Effect function ran with correct sum: 2 + 20 = 22');
+        t.is(runCount,  3, 'Effect function did not run after configA change when destroyed');
+        t.is(sum,      22, 'Effect function ran with correct sum: 2 + 20 = 22');
     });
 
     t.it('Effect should clean up old dependencies on re-run', t => {
@@ -89,7 +89,7 @@ StartTest(t => {
             }
         });
 
-        t.is(runCount, 1, 'Effect ran once initially');
+        t.is(runCount,                 1, 'Effect ran once initially');
         t.is(effect.dependencies.size, 1, 'Effect has 1 dependency (configX)');
 
         // --- Transition to configY dependency ---
@@ -115,7 +115,7 @@ StartTest(t => {
         // Changing the config value will trigger a re-run.
         configY.set('Y_new');
 
-        t.is(runCount, 3, 'Effect ran a second time after fn reassignment');
+        t.is(runCount,                 3, 'Effect ran a second time after fn reassignment');
         t.is(effect.dependencies.size, 1, 'Effect now has 1 dependency (configY)');
 
         // Change configX: should NOT trigger the effect (old dependency cleaned up)

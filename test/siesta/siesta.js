@@ -34,7 +34,8 @@ project.plan(
             'tests/config/CustomFunctions.mjs',
             'tests/config/AfterSetConfig.mjs',
             'tests/config/MemoryLeak.mjs',
-            'tests/config/CircularDependencies.mjs'
+            'tests/config/CircularDependencies.mjs',
+            'tests/core/EffectBatching.mjs'
         ]
     },
     {
