@@ -431,7 +431,7 @@ class Provider extends Base {
             if (this.#dataConfigs[fullPath]) {
                 this.#dataConfigs[fullPath].value = value;
             } else {
-                this.#dataConfigs[fullPath] = new Config({value});
+                this.#dataConfigs[fullPath] = new Config(value);
             }
 
             if (Neo.isObject(value) && !Neo.isObject(value.ntype)) { // a component config
