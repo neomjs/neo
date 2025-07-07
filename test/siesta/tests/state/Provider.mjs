@@ -270,4 +270,50 @@ StartTest(t => {
         component.destroy();
         store.destroy();
     });
+
+    t.it('Formulas in nested providers should combine own and parent data', t => {
+        const parentComponent = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {
+                    basePrice: 100,
+                    taxRate  : 0.05
+                }
+            }
+        });
+
+        const childComponent = Neo.create(MockComponent, {
+            parentComponent,
+
+            stateProvider: {
+                data: {
+                    itemQuantity: 2
+                },
+                formulas: {
+                    // Formula combines parent's basePrice and taxRate with child's itemQuantity
+                    totalCost: (data) => (data.basePrice * data.itemQuantity) * (1 + data.taxRate)
+                }
+            }
+        });
+
+        const parentProvider = parentComponent.getStateProvider();
+        const childProvider  = childComponent.getStateProvider();
+
+        // Initial calculation
+        t.is(childProvider.getData('totalCost'), (100 * 2) * (1 + 0.05), 'Initial totalCost calculation is correct');
+
+        // Change parent data
+        parentProvider.setData('basePrice', 120);
+        t.is(childProvider.getData('totalCost'), (120 * 2) * (1 + 0.05), 'totalCost updates when parent basePrice changes');
+
+        // Change child data
+        childProvider.setData('itemQuantity', 3);
+        t.is(childProvider.getData('totalCost'), (120 * 3) * (1 + 0.05), 'totalCost updates when child itemQuantity changes');
+
+        // Change parent data again
+        parentProvider.setData('taxRate', 0.10);
+        t.is(childProvider.getData('totalCost'), (120 * 3) * (1 + 0.10), 'totalCost updates when parent taxRate changes');
+
+        parentComponent.destroy();
+        childComponent.destroy();
+    });
 });
