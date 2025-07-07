@@ -100,11 +100,18 @@ class Base {
          */
         isConstructed: false,
         /**
+         * This config will be set to `true` as the very first action within the `destroy()` method.
+         * Effects can observe this config to clean themselves up.
+         * @member {Boolean} isDestroying_=false
+         * @protected
+         */
+        isDestroying_: false,
+        /**
          * The config will get set to `true` once the Promise of `async initAsync()` is resolved.
          * You can use `afterSetIsReady()` to get notified once the ready state is reached.
          * Since not all classes use the Observable mixin, Neo will not fire an event.
          * method body.
-         * @member {Boolean} isReady=false
+         * @member {Boolean} isReady_=false
          */
         isReady_: false,
         /**
@@ -392,6 +399,8 @@ class Base {
      */
     destroy() {
         let me = this;
+
+        me.isDestroying = true;
 
         me.#timeoutIds.forEach(id => {
             clearTimeout(id)
