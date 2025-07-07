@@ -605,7 +605,7 @@ class Component extends Base {
     afterSetConfig(key, value, oldValue) {
         let me = this;
 
-        if (currentWorker.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
+        if (Neo.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
@@ -1804,7 +1804,7 @@ class Component extends Base {
      * @returns {Neo.state.Provider|null}
      */
     getStateProvider(ntype) {
-        if (!currentWorker.isUsingStateProviders) {
+        if (!Neo.isUsingStateProviders) {
             return null
         }
 
@@ -1938,19 +1938,6 @@ class Component extends Base {
      */
     init() {
         this.autoRender && this.render()
-    }
-
-    /**
-     * We are using this method as a ctor hook here to add the initial state.Provider & controller.Component parsing
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     */
-    initConfig(config, preventOriginalConfig) {
-        super.initConfig(config, preventOriginalConfig);
-
-        let me = this;
-
-        me.getStateProvider()?.parseConfig(me)
     }
 
     /**
@@ -2303,10 +2290,12 @@ class Component extends Base {
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
     async render(mount) {
-        let me              = this,
-            autoMount       = mount || me.autoMount,
-            {app}           = me,
-            {useVdomWorker} = Neo.config;
+        let me                            = this,
+            autoMount                     = mount || me.autoMount,
+            {app}                         = me,
+            {unitTestMode, useVdomWorker} = Neo.config;
+
+        if (unitTestMode) return;
 
         // Verify that the critical rendering path => CSS files for the new tree is in place
         if (autoMount && currentWorker.countLoadingThemeFiles !== 0) {
@@ -2620,6 +2609,11 @@ class Component extends Base {
      * @protected
      */
     updateVdom(resolve, reject) {
+        if (Neo.config.unitTestMode) {
+            reject?.();
+            return
+        }
+
         let me                              = this,
             {app, mounted, parentId, vnode} = me;
 
