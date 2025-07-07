@@ -8,9 +8,9 @@ import StateProvider   from '../../../../src/state/Provider.mjs';
 // Mock Component for testing purposes
 class MockComponent extends Component {
     static config = {
-        className: 'Mock.Component',
-        testConfig_: null,
-        appName: 'test-app'
+        className  : 'Mock.Component',
+        appName    : 'test-app',
+        testConfig_: null
     }
 }
 Neo.setupClass(MockComponent);
@@ -153,6 +153,29 @@ StartTest(t => {
         component.setState('nested.newProp', 'world');
         t.is(effectRunCount, 3, 'Effect re-ran after nested.newProp was set');
         t.is(provider.getDataConfig('nested.newProp').get(), 'world', 'nested.newProp config should exist');
+
+        component.destroy();
+    });
+
+    t.it('Two-way binding should update state provider from component config changes', t => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {inputValue: 'initial'}
+            },
+            bind: {
+                testConfig: {key: 'inputValue', twoWay: true}
+            }
+        });
+        const provider = component.getStateProvider();
+
+        t.is(component.testConfig, 'initial', 'Component config should be initialized from state provider');
+        t.is(provider.getDataConfig('inputValue').get(), 'initial', 'State provider data should be initialized from component');
+
+        component.testConfig = 'updated from component';
+        t.is(provider.getDataConfig('inputValue').get(), 'updated from component', 'State provider data should update from component config change');
+
+        provider.setData('inputValue', 'updated from provider');
+        t.is(component.testConfig, 'updated from provider', 'Component config should update from state provider data change');
 
         component.destroy();
     });

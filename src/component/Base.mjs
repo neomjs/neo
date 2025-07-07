@@ -605,7 +605,12 @@ class Component extends Base {
     afterSetConfig(key, value, oldValue) {
         let me = this;
 
-        if (Neo.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
+        if (Neo.isUsingStateProviders && me[twoWayBindingSymbol]) {
+            // When a component config is updated by its state provider, this flag is set to the config's key.
+            // This prevents circular updates in two-way data bindings by skipping the push back to the state provider.
+            if (me._skipTwoWayPush === key) {
+                return;
+            }
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
@@ -949,6 +954,16 @@ class Component extends Base {
                 me.removeCls('neo-scrollable')
             }
         }
+    }
+
+    /**
+     * Triggered after the stateProvider config got changed
+     * @param {Neo.state.Provider} value
+     * @param {Object|Neo.state.Provider|null} oldValue
+     * @protected
+     */
+    afterSetStateProvider(value, oldValue) {
+        value?.createBindings(this)
     }
 
     /**
