@@ -2131,8 +2131,12 @@ class Component extends Base {
      *
      */
     onConstructed() {
-        super.onConstructed();
-        this.keys?.register(this)
+        super.onConstructed()
+
+        let me = this;
+
+        me.keys?.register(me);
+        me.getStateProvider()?.createBindings(me)
     }
 
     /**
