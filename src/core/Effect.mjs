@@ -24,7 +24,7 @@ class Effect {
      * The unique identifier for this effect instance.
      * @member {String|null}
      */
-    id = IdGenerator.getId('neo-effect')
+    id = IdGenerator.getId('effect')
     /**
      * @member {Boolean}
      * @protected
