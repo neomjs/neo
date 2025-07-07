@@ -3,7 +3,8 @@ import Compare                                                  from '../core/Co
 import Util                                                     from '../core/Util.mjs';
 import Config                                                   from './Config.mjs';
 import {isDescriptor}                                           from './ConfigSymbols.mjs';
-import IdGenerator                                              from './IdGenerator.mjs'
+import IdGenerator                                              from './IdGenerator.mjs';
+import EffectBatchManager                                       from './EffectBatchManager.mjs';
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -764,6 +765,9 @@ class Base {
         let me                = this,
             classFieldsViaSet = {};
 
+        // Start batching for effects
+        EffectBatchManager.startBatch();
+
         values = me.setFields(values);
 
         // If the initial config processing is still running,
@@ -791,7 +795,10 @@ class Base {
         })
 
         // Process reactive configs
-        me.processConfigs(true)
+        me.processConfigs(true);
+
+        // End batching for effects
+        EffectBatchManager.endBatch();
     }
 
     /**

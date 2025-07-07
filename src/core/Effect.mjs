@@ -1,5 +1,6 @@
-import EffectManager from './EffectManager.mjs';
-import IdGenerator   from './IdGenerator.mjs';
+import EffectManager     from './EffectManager.mjs';
+import EffectBatchManager from './EffectBatchManager.mjs';
+import IdGenerator        from './IdGenerator.mjs';
 
 /**
  * Creates a reactive effect that automatically tracks its dependencies and re-runs when any of them change.
@@ -75,7 +76,11 @@ class Effect {
 
         if (me.isDestroyed) return;
 
-        // Clean up old dependencies before re-running to avoid stale subscriptions.
+        if (EffectBatchManager.isBatchActive()) {
+            EffectBatchManager.queueEffect(me);
+            return
+        }
+
         me.dependencies.forEach(cleanup => cleanup());
         me.dependencies.clear();
 

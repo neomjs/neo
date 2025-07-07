@@ -824,8 +824,13 @@ function autoGenerateGetSet(proto, key) {
                 const config = this.getConfig(key);
                 if (!config) return;
 
-                let me       = this,
-                    oldValue = config.get(); // Get the old value from the Config instance
+                let me                   = this,
+                    oldValue             = config.get(), // Get the old value from the Config instance
+                    {EffectBatchManager} = Neo.core,
+                    isNewBatch           = !EffectBatchManager?.isBatchActive();
+
+                // If a config change is not triggered via `core.Base#set()`, honor changes inside hooks.
+                isNewBatch && EffectBatchManager?.startBatch();
 
                 // 1. Prevent infinite loops:
                 // Immediately remove the pending value from the configSymbol to prevent a getter from
@@ -845,7 +850,12 @@ function autoGenerateGetSet(proto, key) {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
-                    if (value === undefined) return;
+                    if (value === undefined) {
+                        // Restore the original value if the update is canceled.
+                        me[_key] = oldValue;
+                        isNewBatch && EffectBatchManager?.endBatch();
+                        return
+                    }
                 }
 
                 // 3. Restore state for change detection:
@@ -860,6 +870,8 @@ function autoGenerateGetSet(proto, key) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue)
                 }
+
+                isNewBatch && EffectBatchManager?.endBatch()
             }
         };
 
