@@ -15,15 +15,17 @@ StartTest(t => {
 
         class TestClass extends core.Base {
             static config = {
-                className: 'Neo.test.mixin.TestClass',
-                mixins   : [TestMixin]
+                className           : 'Neo.test.mixin.TestClass',
+                classConfig         : 'classValue',
+                mixins              : [TestMixin],
+                reactiveClassConfig_: 'reactiveValue'
             }
         }
 
         Neo.setupClass(TestClass);
 
-        //  const instance = Neo.create(TestClass);
-        //  t.is(instance.mixinConfig, 'mixinValue', 'mixinConfig should be merged from the mixin');
-        //  t.is(instance.reactiveMixinConfig, 'reactiveValue', 'reactiveMixinConfig should be merged from the mixin and the underscore removed');
+        const instance = Neo.create(TestClass);
+        t.is(instance.mixinConfig, 'mixinValue', 'mixinConfig should be merged from the mixin');
+        t.is(instance.reactiveMixinConfig, 'reactiveValue', 'reactiveMixinConfig should be merged from the mixin and the underscore removed');
     });
 });

@@ -630,7 +630,7 @@ Neo = globalThis.Neo = Object.assign({
             }
 
             if (mixins.length > 0) {
-                applyMixins(ctor, mixins);
+                applyMixins(ctor, mixins, cfg);
 
                 if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
                     ctor.observable = true
@@ -719,6 +719,7 @@ const ignoreMixin = [
     'classConfigApplied',
     'className',
     'constructor',
+    'id',
     'isClass',
     'mixin',
     'ntype',
@@ -731,9 +732,10 @@ const ignoreMixin = [
 /**
  * @param {Neo.core.Base} cls
  * @param {Array}         mixins
+ * @param {Object}        classConfig
  * @private
  */
-function applyMixins(cls, mixins) {
+function applyMixins(cls, mixins, classConfig) {
     if (!Array.isArray(mixins)) {
         mixins = [mixins];
     }
@@ -760,7 +762,7 @@ function applyMixins(cls, mixins) {
 
         mixinProto.className.split('.').reduce(mixReduce(mixinCls), mixinClasses);
 
-        Object.getOwnPropertyNames(mixinProto).forEach(mixinProperty(cls.prototype, mixinProto))
+        Object.entries(Object.getOwnPropertyDescriptors(mixinProto)).forEach(mixinProperty(cls.prototype, mixinProto, classConfig))
     }
 
     cls.prototype.mixins = mixinClasses // todo: we should do a deep merge
@@ -942,12 +944,29 @@ function exists(className) {
 /**
  * @param {Neo.core.Base} proto
  * @param {Neo.core.Base} mixinProto
+ * @param {Object}        classConfig
  * @returns {Function}
  * @private
  */
-function mixinProperty(proto, mixinProto) {
-    return function(key) {
-        if (~ignoreMixin.indexOf(key)) {
+function mixinProperty(proto, mixinProto, classConfig) {
+    return function([key, descriptor]) {
+        if (ignoreMixin.includes(key)) return;
+
+        const classDescriptor = Object.getOwnPropertyDescriptor(proto, key);
+
+        // Mixins must not override existing class properties
+        if (classDescriptor) return;
+
+        // Reactive neo configs, or public class fields defined via get() AND set()
+        if (descriptor.get && descriptor.set) {
+            autoGenerateGetSet(proto, key);
+
+            const mixinClassConfig = mixinProto.constructor.config;
+
+            if (Object.hasOwn(mixinClassConfig, key)) {
+                classConfig[key] = mixinClassConfig[key];
+            }
+
             return
         }
 

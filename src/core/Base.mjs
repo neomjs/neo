@@ -867,7 +867,7 @@ class Base {
      * @returns {String}
      */
     get [Symbol.toStringTag]() {
-        return `${this.className} (id: ${this.id})`
+        return this.className
     }
 
     /**
