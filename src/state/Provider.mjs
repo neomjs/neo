@@ -4,6 +4,7 @@ import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
 import Observable                    from '../core/Observable.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
+import {isDescriptor}                from '../core/ConfigSymbols.mjs';
 
 const twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
@@ -42,6 +43,7 @@ class Provider extends Base {
          * This object holds the reactive state that can be accessed and modified
          * by components and formulas within the provider's hierarchy.
          * Changes to properties within this data object will trigger reactivity.
+         * When new data is assigned, it will be deeply merged with existing data.
          * @member {Object|null} data_=null
          * @example
          *     data: {
@@ -54,7 +56,11 @@ class Provider extends Base {
          *         }
          *     }
          */
-        data_: null,
+        data_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {}
+        },
         /**
          * Defines computed properties based on other data properties within the StateProvider hierarchy.
          * Each formula is a function that receives a `data` argument, which is a hierarchical proxy
@@ -424,6 +430,27 @@ class Provider extends Base {
     }
 
     /**
+     * Returns the top-level data keys for a given path within this provider's data.
+     * @param {String} path The path to get keys for (e.g., 'user.address').
+     * @returns {String[]}
+     */
+    getTopLevelDataKeys(path) {
+        const keys = new Set();
+        const pathPrefix = path ? `${path}.` : '';
+
+        for (const fullPath in this.#dataConfigs) {
+            if (fullPath.startsWith(pathPrefix)) {
+                const relativePath = fullPath.substring(pathPrefix.length);
+                const topLevelKey = relativePath.split('.')[0];
+                if (topLevelKey) {
+                    keys.add(topLevelKey);
+                }
+            }
+        }
+        return Array.from(keys);
+    }
+
+    /**
      * Internal method to avoid code redundancy.
      * Use setData() or setDataAtSameLevel() instead.
      *
@@ -502,20 +529,6 @@ class Provider extends Base {
     }
 
     /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(config, preventOriginalConfig) {
-        if (config.data) {
-            config.data = Neo.merge(Neo.clone(this.constructor.config.data, true) || {}, config.data)
-        }
-
-        return super.mergeConfig(config, preventOriginalConfig)
-    }
-
-    /**
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue
@@ -537,16 +550,18 @@ class Provider extends Base {
         Object.entries(obj).forEach(([key, value]) => {
             const fullPath = path ? `${path}.${key}` : key;
 
-            if (Neo.isObject(value) && !Neo.isObject(value.ntype)) { // a component config
-                me.processDataObject(value, fullPath);
+            // Ensure a Config instance exists for the current fullPath
+            if (me.#dataConfigs[fullPath]) {
+                me.#dataConfigs[fullPath].set(value);
             } else {
-                if (me.#dataConfigs[fullPath]) {
-                    me.#dataConfigs[fullPath].set(value);
-                } else {
-                    me.#dataConfigs[fullPath] = new Config(value)
-                }
+                me.#dataConfigs[fullPath] = new Config(value);
             }
-        })
+
+            // If the value is a plain object, recursively process its properties
+            if (Neo.typeOf(value) === 'Object') {
+                me.processDataObject(value, fullPath);
+            }
+        });
     }
 
     /**

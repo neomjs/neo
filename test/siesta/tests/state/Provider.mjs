@@ -17,6 +17,11 @@ class MockComponent extends Component {
 Neo.setupClass(MockComponent);
 
 StartTest(t => {
+    // Helper function to convert a proxy to a plain object for deep comparison
+    function proxyToObject(proxy) {
+        return JSON.parse(JSON.stringify(proxy))
+    }
+
     t.it('Provider should initialize with data and create configs', t => {
         const component = Neo.create(MockComponent, {
             stateProvider: {
@@ -269,6 +274,219 @@ StartTest(t => {
 
         component.destroy();
         store.destroy();
+    });
+
+    t.it('Provider data_ config should deep merge class and instance level data', t => {
+        class ClassLevelProvider extends StateProvider {
+            static config = {
+                className: 'ClassLevelProvider',
+                data:  {
+                    a: 1,
+                    b: {
+                        c: 2,
+                        d: 3
+                    },
+                    arr: [1, 2]
+                }
+            }
+        }
+        Neo.setupClass(ClassLevelProvider);
+
+        // Test 1: Instance with no data, should reflect class-level data
+        const provider1 = Neo.create(ClassLevelProvider);
+
+        t.isDeeply(proxyToObject(provider1.data), {
+            a: 1,
+            b: {
+                c: 2,
+                d: 3
+            },
+            arr: [1, 2]
+        }, 'Provider1 data should reflect class-level data when no instance data is provided');
+        provider1.destroy();
+
+        // Test 2: Instance with new top-level data
+        const provider2 = Neo.create(ClassLevelProvider, {
+            data: {
+                x: 10,
+                y: 20
+            }
+        });
+        t.isDeeplyStrict(proxyToObject(provider2.data), {
+            a: 1,
+            b: {
+                c: 2,
+                d: 3
+            },
+            arr: [1, 2],
+            x: 10,
+            y: 20
+        }, 'Provider2 data should deep merge new top-level instance data');
+        provider2.destroy();
+
+        // Test 3: Instance with overlapping data (deep merge)
+        const provider3 = Neo.create(ClassLevelProvider, {
+            data: {
+                b: {
+                    e: 4
+                },
+                arr: [3, 4], // Array replacement, not merge
+                newProp: 'test'
+            }
+        });
+        t.isDeeplyStrict(proxyToObject(provider3.data), {
+            a: 1,
+            b: {
+                c: 2,
+                d: 3,
+                e: 4
+            },
+            arr: [3, 4], // Arrays are replaced by default merge strategy
+            newProp: 'test'
+        }, 'Provider3 data should deep merge overlapping instance data and replace arrays');
+        provider3.destroy();
+
+        // Test 4: Instance with overlapping data (deep merge) and modifying existing nested property
+        const provider4 = Neo.create(ClassLevelProvider, {
+            data: {
+                b: {
+                    c: 99
+                }
+            }
+        });
+        t.isDeeplyStrict(proxyToObject(provider4.data), {
+            a: 1,
+            b: {
+                c: 99,
+                d: 3
+            },
+            arr: [1, 2]
+        }, 'Provider4 data should deep merge and modify existing nested property');
+        provider4.destroy();
+    });
+
+    t.it('Provider data_ config should deep merge across multi-level class inheritance', t => {
+        class GrandparentProvider extends StateProvider {
+            static config = {
+                className: 'GrandparentProvider',
+                data: {
+                    app: {
+                        name: 'My App',
+                        version: '1.0.0'
+                    },
+                    user: {
+                        role: 'guest',
+                        settings: {
+                            theme: 'dark'
+                        }
+                    }
+                }
+            }
+        }
+        Neo.setupClass(GrandparentProvider);
+
+        class ParentProvider extends GrandparentProvider {
+            static config = {
+                className: 'ParentProvider',
+                data: {
+                    app: {
+                        version: '1.1.0', // Overrides grandparent version
+                        author: 'Neo'
+                    },
+                    user: {
+                        id: 123,
+                        settings: {
+                            notifications: true // Adds to grandparent settings
+                        }
+                    },
+                    newParentProp: 'parentValue'
+                }
+            }
+        }
+        Neo.setupClass(ParentProvider);
+
+        class ChildProvider extends ParentProvider {
+            static config = {
+                className: 'ChildProvider',
+                data: {
+                    user: {
+                        role: 'admin', // Overrides parent role
+                        preferences: {
+                            language: 'en'
+                        }
+                    },
+                    newChildProp: 'childValue'
+                }
+            }
+        }
+        Neo.setupClass(ChildProvider);
+
+        // Test 1: Instance with no data, should reflect merged data from all levels
+        const provider1 = Neo.create(ChildProvider);
+        t.isDeeplyStrict(proxyToObject(provider1.data), {
+            app: {
+                name: 'My App',
+                version: '1.1.0',
+                author: 'Neo'
+            },
+            user: {
+                role: 'admin',
+                id: 123,
+                settings: {
+                    theme: 'dark',
+                    notifications: true
+                },
+                preferences: {
+                    language: 'en'
+                }
+            },
+            newParentProp: 'parentValue',
+            newChildProp: 'childValue'
+        }, 'Provider1 data should reflect deep merge from all class inheritance levels');
+        provider1.destroy();
+
+        // Test 2: Instance with data overriding properties from different levels
+        const provider2 = Neo.create(ChildProvider, {
+            data: {
+                app: {
+                    version: '2.0.0', // Overrides ParentProvider's version
+                    status: 'beta'
+                },
+                user: {
+                    id: 456, // Overrides ParentProvider's id
+                    settings: {
+                        theme: 'light', // Overrides GrandparentProvider's theme
+                        notifications: false // Overrides ParentProvider's notifications
+                    }
+                },
+                newChildProp: 'overriddenChildValue',
+                instanceOnlyProp: 'instanceValue'
+            }
+        });
+
+        t.isDeeplyStrict(proxyToObject(provider2.data), {
+            app: {
+                name: 'My App',
+                version: '2.0.0',
+                author: 'Neo',
+                status: 'beta'
+            },
+            user: {
+                role: 'admin',
+                id: 456,
+                settings: {
+                    theme: 'light',
+                    notifications: false
+                },
+                preferences: {
+                    language: 'en'
+                }
+            },
+            newParentProp: 'parentValue',
+            newChildProp: 'overriddenChildValue',
+            instanceOnlyProp: 'instanceValue'
+        }, 'Provider2 data should reflect deep merge with instance overrides across inheritance');
+        provider2.destroy();
     });
 
     t.it('Formulas in nested providers should combine own and parent data', t => {
