@@ -26,8 +26,17 @@ const
 
             // Use Reflect.ownKeys() to include symbol properties (e.g., for config descriptors)
             Reflect.ownKeys(obj).forEach(key => {
-                const value = obj[key];
-                out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
+                const descriptor = Object.getOwnPropertyDescriptor(obj, key);
+                if (descriptor) {
+                    if ('value' in descriptor) { // It's a data property
+                        out[key] = !deep ? descriptor.value : Neo.clone(descriptor.value, deep, ignoreNeoInstances);
+                    } else if (descriptor.get && !descriptor.set) { // It's a getter without a setter (pure getter)
+                        // Skip, as we don't want to invoke it prematurely
+                    } else { // It's a getter/setter or setter-only
+                        // For now, we'll copy the descriptor directly, but this might need further refinement
+                        Object.defineProperty(out, key, descriptor);
+                    }
+                }
             });
 
             return out
@@ -537,7 +546,21 @@ Neo = globalThis.Neo = Object.assign({
             // If a class in the prototype chain has already had its config applied,
             // we can use its pre-processed config and descriptors as a base.
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
-                baseConfig            = Neo.clone(ctor.config, true);
+                baseConfig = {};
+                // Iterate over own property names to avoid triggering getters
+                Object.getOwnPropertyNames(ctor.config).forEach(key => {
+                    const descriptor = Object.getOwnPropertyDescriptor(ctor.config, key);
+                    if (descriptor && 'value' in descriptor) {
+                        baseConfig[key] = Neo.clone(descriptor.value, true);
+                    } else if (descriptor && descriptor.get) {
+                        // If it's a getter, we explicitly do NOT want to invoke it here.
+                        // We only care about the resolved value, which will be handled later.
+                        // For now, we just ensure the key exists in baseConfig if it's a config.
+                        // This is a placeholder to ensure the key is considered for merging.
+                        // The actual value will come from the raw static config of the current class.
+                        baseConfig[key] = undefined; // Or some other neutral placeholder
+                    }
+                });
                 baseConfigDescriptors = Neo.clone(ctor.configDescriptors, true);
                 ntypeChain            = [...ctor.ntypeChain];
                 break
@@ -556,66 +579,48 @@ Neo = globalThis.Neo = Object.assign({
             let mixins;
 
             ctor = element.constructor;
-            cfg  = ctor.config || {};
+            const { processedCfg, processedConfigDescriptors } = processStaticConfigs(element, ctor.config);
 
-            if (Neo.overwrites) {
-                ctor.applyOverwrites?.(cfg)
+            // Merge processedConfigDescriptors into the accumulated configDescriptors
+            for (const key in processedConfigDescriptors) {
+                if (!Object.hasOwn(configDescriptors, key)) {
+                    configDescriptors[key] = processedConfigDescriptors[key];
+                }
             }
 
-            // Process each config property defined in the current class's static config
-            Object.entries(cfg).forEach(([key, value]) => {
-                const
-                    isReactive = key.slice(-1) === '_',
-                    baseKey    = isReactive ? key.slice(0, -1) : key;
+            // Hierarchical merging of static config values based on descriptors.
+            // This ensures that values are merged (e.g., shallow/deep) instead of simply overwritten.
+            Object.entries(processedCfg).forEach(([key, value]) => {
+                const descriptor = configDescriptors[key];
 
-                // 1. Handle descriptors: If the value is a descriptor object, store it.
-                //    The 'value' property of the descriptor is then used as the actual config value.
-                if (Neo.isObject(value) && value[isDescriptor] === true) {
-                    ctor.configDescriptors ??= {};
-                    ctor.configDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
-                    value = value.value // Use the descriptor's value as the config value
+                let finalValue;
+                if (descriptor?.merge) {
+                    finalValue = Neo.mergeConfig(config[key], value, descriptor.merge);
+                } else {
+                    finalValue = value;
                 }
 
-                // 2. Handle reactive vs. non-reactive configs: Generate getters/setters for reactive configs.
-                if (isReactive) {
-                    delete cfg[key];      // Remove original key with underscore
-                    cfg[baseKey] = value; // Use the potentially modified value
-                    autoGenerateGetSet(element, baseKey)
-                }
-                // This part handles non-reactive configs (including those that were descriptors)
-                // If no property setter exists, define it directly on the prototype.
-                else if (!Neo.hasPropertySetter(element, key)) {
-                    Object.defineProperty(element, key, {
-                        enumerable: true,
-                        value,
-                        writable  : true
-                    })
-                }
+                Object.defineProperty(config, key, {
+                    value: finalValue,
+                    configurable: true,
+                    enumerable: true,
+                    writable: true
+                });
             });
 
-            // Merge configDescriptors: Apply "first-defined wins" strategy.
-            // If a descriptor for a key already exists (from a parent class), it is not overwritten.
-            if (ctor.configDescriptors) {
-                for (const key in ctor.configDescriptors) {
-                    if (!Object.hasOwn(configDescriptors, key)) {
-                        configDescriptors[key] = Neo.clone(ctor.configDescriptors[key], true) // Deep clone for immutability
-                    }
-                }
-            }
-
             // Process ntype and ntypeChain
-            if (Object.hasOwn(cfg, 'ntype')) {
-                ntype = cfg.ntype;
+            if (Object.hasOwn(processedCfg, 'ntype')) {
+                ntype = processedCfg.ntype;
 
                 ntypeChain.unshift(ntype);
 
                 // Running the docs app inside a workspace can pull in the same classes from different roots,
                 // so we want to check for different class names as well
-                if (Object.hasOwn(ntypeMap, ntype) && cfg.className !== ntypeMap[ntype]) {
-                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${cfg.className}`)
+                if (Object.hasOwn(ntypeMap, ntype) && processedCfg.className !== ntypeMap[ntype]) {
+                    throw new Error(`ntype conflict for '${ntype}' inside the classes:\n${ntypeMap[ntype]}\n${processedCfg.className}`)
                 }
 
-                ntypeMap[ntype] = cfg.className
+                ntypeMap[ntype] = processedCfg.className
             }
 
             // Process mixins
@@ -625,32 +630,20 @@ Neo = globalThis.Neo = Object.assign({
                 mixins.push('Neo.core.Observable')
             }
 
-            if (Object.hasOwn(cfg, 'mixins') && Array.isArray(cfg.mixins) && cfg.mixins.length > 0) {
-                mixins.push(...cfg.mixins)
+            if (Object.hasOwn(processedCfg, 'mixins') && Array.isArray(processedCfg.mixins) && processedCfg.mixins.length > 0) {
+                mixins.push(...processedCfg.mixins)
             }
 
             if (mixins.length > 0) {
-                applyMixins(ctor, mixins);
+                applyMixins(ctor, mixins, config, configDescriptors);
 
                 if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
                     ctor.observable = true
                 }
             }
 
-            delete cfg.mixins;
+            delete processedCfg.mixins;
             delete config.mixins;
-
-            // Hierarchical merging of static config values based on descriptors.
-            // This ensures that values are merged (e.g., shallow/deep) instead of simply overwritten.
-            Object.entries(cfg).forEach(([key, value]) => {
-                const descriptor = configDescriptors[key];
-
-                if (descriptor?.merge) {
-                    config[key] = Neo.mergeConfig(config[key], value, descriptor.merge)
-                } else {
-                    config[key] = value
-                }
-            });
 
             // Assign final processed config and descriptors to the class constructor
             Object.assign(ctor, {
@@ -731,19 +724,20 @@ const ignoreMixin = [
 /**
  * @param {Neo.core.Base} cls
  * @param {Array}         mixins
+ * @param {Object}        config
+ * @param {Object}        configDescriptors
  * @private
  */
-function applyMixins(cls, mixins) {
+function applyMixins(cls, mixins, config, configDescriptors) {
     if (!Array.isArray(mixins)) {
         mixins = [mixins];
     }
 
     let i            = 0,
-        len          = mixins.length,
         mixinClasses = {},
         mixin, mixinCls, mixinProto;
 
-    for (;i < len;i++) {
+    for (;i < mixins.length;i++) {
         mixin = mixins[i];
 
         if (mixin.isClass) {
@@ -758,9 +752,45 @@ function applyMixins(cls, mixins) {
             mixinProto = mixinCls.prototype
         }
 
+        // Pass the prototype of the class being set up (cls.prototype) to processStaticConfigs
+        // so that reactive configs are defined on the correct prototype.
+        const { processedCfg, processedConfigDescriptors } = processStaticConfigs(cls.prototype, mixinCls.config);
+
+        // handle nested mixins
+        if (processedCfg.mixins) {
+            mixins.push(...processedCfg.mixins);
+            delete processedCfg.mixins;
+        }
+
+        // Merge processedConfigDescriptors from the mixin into the accumulated configDescriptors of the consuming class
+        for (const key in processedConfigDescriptors) {
+            if (!Object.hasOwn(configDescriptors, key)) {
+                configDescriptors[key] = processedConfigDescriptors[key];
+            }
+        }
+
+        // Hierarchical merging of static config values from the mixin into the accumulated config of the consuming class
+        Object.entries(processedCfg).forEach(([key, value]) => {
+            const descriptor = configDescriptors[key];
+
+            let finalValue;
+            if (descriptor?.merge) {
+                finalValue = Neo.mergeConfig(config[key], value, descriptor.merge);
+            } else {
+                finalValue = value;
+            }
+
+            Object.defineProperty(config, key, {
+                value: finalValue,
+                configurable: true,
+                enumerable: true,
+                writable: true
+            });
+        });
+
         mixinProto.className.split('.').reduce(mixReduce(mixinCls), mixinClasses);
 
-        Object.getOwnPropertyNames(mixinProto).forEach(mixinProperty(cls.prototype, mixinProto))
+        Object.getOwnPropertyNames(mixinProto).forEach(mixinProperty(cls.prototype, mixinProto, mixinCls))
     }
 
     cls.prototype.mixins = mixinClasses // todo: we should do a deep merge
@@ -878,9 +908,20 @@ function autoGenerateGetSet(proto, key) {
         // Private Descriptor
         Neo[getSetCache][_key] = {
             get() {
+                // During class setup, `this` can be a plain config object, not an instance.
+                // In that case, we cannot access the instance-specific Config controller.
+                if (!this.configsApplied) {
+                    return this[configSymbol]?.[key];
+                }
                 return this.getConfig(key)?.get()
             },
             set(value) {
+                // See getter comment.
+                if (!this.configsApplied) {
+                    this[configSymbol] ??= {};
+                    this[configSymbol][key] = value;
+                    return;
+                }
                 this.getConfig(key)?.setRaw(value)
             }
         }
@@ -942,24 +983,31 @@ function exists(className) {
 /**
  * @param {Neo.core.Base} proto
  * @param {Neo.core.Base} mixinProto
+ * @param {Neo.core.Base} mixinCls
  * @returns {Function}
  * @private
  */
-function mixinProperty(proto, mixinProto) {
+function mixinProperty(proto, mixinProto, mixinCls) {
+    const configKeys = Object.keys(mixinCls.config || {});
+
     return function(key) {
-        if (~ignoreMixin.indexOf(key)) {
-            return
+        const baseKey = key.endsWith('_') ? key.slice(0, -1) : key;
+
+        // Do not copy any properties that are defined as configs,
+        // since they are handled by the config merging logic in applyMixins.
+        if (~ignoreMixin.indexOf(key) || configKeys.includes(baseKey)) {
+            return;
         }
 
         if (proto[key]?._from) {
             if (mixinProto.className === proto[key]._from) {
                 console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
-                return
+                return;
             }
 
             throw new Error(
                 `${proto.className}: Multiple mixins defining same property (${mixinProto.className}, ${proto[key]._from}) => ${key}`
-            )
+            );
         }
 
         proto[key] = mixinProto[key];
@@ -967,7 +1015,7 @@ function mixinProperty(proto, mixinProto) {
         Object.getOwnPropertyDescriptor(proto, key)._from = mixinProto.className;
 
         if (typeof proto[key] === 'function') {
-            proto[key]._name = key
+            proto[key]._name = key;
         }
     }
 }
@@ -992,6 +1040,92 @@ function parseArrayFromString(str) {
     return (extractArraysRegex.exec(str) || [null]).slice(1).reduce(
         (fun, args) => [fun].concat(args.match(charsRegex))
     )
+}
+
+/**
+ * @param {Neo.core.Base} proto
+ * @param {Object} rawStaticConfig - The raw static config object of the class/mixin.
+ * @returns {{processedCfg: Object, processedConfigDescriptors: Object}}
+ * @private
+ */
+function processStaticConfigs(proto, rawStaticConfig) {
+    let ctor = proto.constructor,
+        cfg  = {}, // This will hold the default values for configs
+        processedConfigDescriptors = {}; // This will hold the descriptors
+
+    // Instead of cloning rawStaticConfig directly, iterate over its property descriptors
+    // to avoid triggering getters if rawStaticConfig is already a processed config object.
+    if (rawStaticConfig) {
+        Object.getOwnPropertyNames(rawStaticConfig).forEach(key => {
+            const descriptor = Object.getOwnPropertyDescriptor(rawStaticConfig, key);
+            if (descriptor && 'value' in descriptor) {
+                cfg[key] = Neo.clone(descriptor.value, true);
+            } else if (descriptor && descriptor.get) {
+                // If it's a getter, we explicitly do NOT want to invoke it here.
+                // We'll rely on autoGenerateGetSet to define the getter on the proto.
+                // For now, just ensure the key exists in cfg.
+                cfg[key] = undefined; // Or some other neutral placeholder
+            }
+        });
+    }
+
+    if (Neo.overwrites) {
+        ctor.applyOverwrites?.(cfg)
+    }
+
+    const processedCfg = {};
+
+    Object.entries(cfg).forEach(([key, value]) => { // cfg here is the cloned rawStaticConfig
+        const
+            isReactive = key.slice(-1) === '_',
+            baseKey    = isReactive ? key.slice(0, -1) : key;
+
+        let descriptor = null;
+
+        if (Neo.isObject(value) && value[isDescriptor] === true) {
+            // Explicit descriptor
+            descriptor = Neo.clone(value, true);
+        } else if (isReactive) {
+            // Implicit descriptor for reactive configs
+            descriptor = {
+                value: value, // The initial value from static config
+                merge: 'replace' // Default merge strategy
+            };
+        }
+
+        if (descriptor) {
+            processedConfigDescriptors[baseKey] = descriptor;
+            // For reactive configs, the value in cfg should be the descriptor's value
+            processedCfg[baseKey] = descriptor.value;
+        } else {
+            // For non-reactive configs, the value in cfg is just the value
+            processedCfg[baseKey] = value;
+        }
+
+        // Define reactive getters/setters on the prototype
+        if (isReactive) {
+            if (!Neo.hasPropertySetter(proto, baseKey)) {
+                autoGenerateGetSet(proto, baseKey);
+            }
+        } else if (!Neo.hasPropertySetter(proto, key)) {
+            Object.defineProperty(proto, key, {
+                enumerable: true,
+                value: processedCfg[baseKey], // Use the value from processedCfg
+                writable  : true
+            });
+        }
+    });
+
+    // Merge ctor.configDescriptors into processedConfigDescriptors
+    if (ctor.configDescriptors) {
+        for (const key in ctor.configDescriptors) {
+            if (!Object.hasOwn(processedConfigDescriptors, key)) {
+                processedConfigDescriptors[key] = Neo.clone(ctor.configDescriptors[key], true);
+            }
+        }
+    }
+
+    return { processedCfg, processedConfigDescriptors };
 }
 
 Neo.config ??= {};

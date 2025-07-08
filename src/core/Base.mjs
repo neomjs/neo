@@ -194,6 +194,8 @@ class Base {
     construct(config={}) {
         let me = this;
 
+        me.#configs = {};
+
         Object.defineProperties(me, {
             [configSymbol]: {
                 configurable: true,
@@ -253,7 +255,7 @@ class Base {
         if (oldValue) {
             if (hasManager) {
                 Neo.manager.Instance.unregister(oldValue)
-            } else {
+            } else if (Neo.idMap) {
                 delete Neo.idMap[oldValue]
             }
         }
@@ -263,7 +265,7 @@ class Base {
                 Neo.manager.Instance.register(me);
             } else {
                 Neo.idMap ??= {};
-                Neo.idMap[me.id] = me
+                Neo.idMap[value] = me
             }
         }
     }
