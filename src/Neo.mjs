@@ -595,7 +595,8 @@ Neo = globalThis.Neo = Object.assign({
 
                 let finalValue;
                 if (descriptor?.merge) {
-                    finalValue = Neo.mergeConfig(config[key], value, descriptor.merge);
+                    const defaultValue = getSafeConfigValue(config, key, configDescriptors);
+                    finalValue = Neo.mergeConfig(defaultValue, value, descriptor.merge);
                 } else {
                     finalValue = value;
                 }
@@ -722,6 +723,44 @@ const ignoreMixin = [
     extractArraysRegex = /^(\w+)\s*((?:\[\s*\d+\s*\]\s*)*)$/;
 
 /**
+ * Safely retrieves a configuration value from a config object that might contain getters.
+ * If the property has a getter, its default value is retrieved from the canonical
+ * configDescriptors map instead of invoking the getter.
+ * @param {Object} config The config object to read from.
+ * @param {String} key The key of the config to read.
+ * @param {Object} configDescriptors The map of config descriptors for the class.
+ * @returns {*} The default value of the configuration.
+ * @private
+ */
+/*function getSafeConfigValue(config, key, configDescriptors) {
+    const propDescriptor = Object.getOwnPropertyDescriptor(config, key);
+
+    if (propDescriptor) {
+
+        if (propDescriptor.get) {
+            // It's a getter. Get the value from the canonical source.
+            return configDescriptors[key]?.value;
+        }
+        // It's a plain value.
+        return propDescriptor.value;
+    }
+
+    // Property does not exist on the config object.
+    return undefined;
+}*/
+
+function getSafeConfigValue(config, key, configDescriptors) {
+    if (Object.hasOwn(configDescriptors, key)) {
+        return configDescriptors[key]?.value;
+    }
+
+    console.log(key, config, configDescriptors);
+
+    // Property does not exist on the config object.
+    return undefined;
+}
+
+/**
  * @param {Neo.core.Base} cls
  * @param {Array}         mixins
  * @param {Object}        config
@@ -762,6 +801,8 @@ function applyMixins(cls, mixins, config, configDescriptors) {
             delete processedCfg.mixins;
         }
 
+        console.log({processedCfg, processedConfigDescriptors});
+
         // Merge processedConfigDescriptors from the mixin into the accumulated configDescriptors of the consuming class
         for (const key in processedConfigDescriptors) {
             if (!Object.hasOwn(configDescriptors, key)) {
@@ -773,19 +814,23 @@ function applyMixins(cls, mixins, config, configDescriptors) {
         Object.entries(processedCfg).forEach(([key, value]) => {
             const descriptor = configDescriptors[key];
 
+            console.log({key, value, descriptor});
+
             let finalValue;
             if (descriptor?.merge) {
-                finalValue = Neo.mergeConfig(config[key], value, descriptor.merge);
+                const defaultValue = getSafeConfigValue(config, key, configDescriptors);
+                finalValue = Neo.mergeConfig(defaultValue, value, descriptor.merge);
             } else {
+                console.log({key, value});
                 finalValue = value;
             }
 
             Object.defineProperty(config, key, {
-                value: finalValue,
+                value       : finalValue,
                 configurable: true,
-                enumerable: true,
-                writable: true
-            });
+                enumerable  : true,
+                writable    : true
+            })
         });
 
         mixinProto.className.split('.').reduce(mixReduce(mixinCls), mixinClasses);
@@ -822,7 +867,7 @@ function autoGenerateGetSet(proto, key) {
     if (!Neo[getSetCache][key]) {
         // Public Descriptor
         Neo[getSetCache][key] = {
-            get() {
+            get() {console.log('get', key);
                 let me        = this,
                     hasNewKey = Object.hasOwn(me[configSymbol], key),
                     newKey    = me[configSymbol][key],
@@ -848,7 +893,7 @@ function autoGenerateGetSet(proto, key) {
 
                 return value
             },
-            set(value) {
+            set(value) {console.log('set', key);
                 if (value === undefined) return;
 
                 const config = this.getConfig(key);
@@ -907,21 +952,11 @@ function autoGenerateGetSet(proto, key) {
 
         // Private Descriptor
         Neo[getSetCache][_key] = {
-            get() {
-                // During class setup, `this` can be a plain config object, not an instance.
-                // In that case, we cannot access the instance-specific Config controller.
-                if (!this.configsApplied) {
-                    return this[configSymbol]?.[key];
-                }
+            get() {console.log('_get', _key, this.configsApplied);
                 return this.getConfig(key)?.get()
             },
             set(value) {
-                // See getter comment.
-                if (!this.configsApplied) {
-                    this[configSymbol] ??= {};
-                    this[configSymbol][key] = value;
-                    return;
-                }
+                console.log('_set', _key);
                 this.getConfig(key)?.setRaw(value)
             }
         }
