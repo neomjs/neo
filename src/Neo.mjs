@@ -35,12 +35,12 @@ const
     },
     typeDetector = {
         function: item => {
-            if (item.prototype?.constructor.isClass) {
+            if (item.prototype?.constructor?.isClass) {
                 return 'NeoClass'
             }
         },
         object: item => {
-            if (item.constructor.isClass && item instanceof Neo.core.Base) {
+            if (item.constructor?.isClass && item instanceof Neo.core.Base) {
                 return 'NeoInstance'
             }
         }
@@ -705,7 +705,7 @@ Neo = globalThis.Neo = Object.assign({
             return null
         }
 
-        return typeDetector[typeof item]?.(item) || item.constructor.name
+        return typeDetector[typeof item]?.(item) || item.constructor?.name
     }
 }, Neo);
 

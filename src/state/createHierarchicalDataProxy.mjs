@@ -19,9 +19,15 @@ function createNestedProxy(rootProvider, path) {
          * @returns {*} The value of the property or a new proxy for nested access.
          */
         get(currentTarget, property) {
-            // Pass through special properties for introspection and debugging.
-            if (typeof property === 'symbol' || property === 'inspect' || property === 'then') {
-                return null
+            // Handle internal properties that might be set directly on the proxy's target
+            // or are expected by the environment (like Siesta's __REFADR__).
+            if (typeof property === 'symbol' || property === '__REFADR__' || property === 'inspect' || property === 'then') {
+                return Reflect.get(currentTarget, property);
+            }
+
+            // Only allow string or number properties to proceed as data paths.
+            if (typeof property !== 'string' && typeof property !== 'number') {
+                return undefined; // For other non-string/non-number properties, return undefined.
             }
 
             const fullPath = path ? `${path}.${property}` : property;
@@ -39,6 +45,7 @@ function createNestedProxy(rootProvider, path) {
                     if (activeEffect) {
                         activeEffect.addDependency(config);
                     }
+
                     const value = config.get();
                     // If the value is an object, return a new proxy for it to ensure nested accesses are also proxied.
                     if (Neo.typeOf(value) === 'Object') {
@@ -60,6 +67,11 @@ function createNestedProxy(rootProvider, path) {
         },
 
         set(currentTarget, property, value) {
+            // Allow internal properties (like Symbols or specific strings) to be set directly on the target.
+            if (typeof property === 'symbol' || property === '__REFADR__') {
+                return Reflect.set(currentTarget, property, value);
+            }
+
             const fullPath = path ? `${path}.${property}` : property;
             const ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
 
@@ -73,6 +85,29 @@ function createNestedProxy(rootProvider, path) {
 
             targetProvider.setData(fullPath, value);
             return true; // Indicate that the assignment was successful
+        },
+
+        ownKeys(currentTarget) {
+            return rootProvider.getTopLevelDataKeys(path);
+        },
+
+        getOwnPropertyDescriptor(currentTarget, property) {
+            const fullPath = path ? `${path}.${property}` : property;
+            const ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
+
+            if (ownerDetails) {
+                const config = ownerDetails.owner.getDataConfig(ownerDetails.propertyName);
+                if (config) {
+                    const value = config.get();
+                    return {
+                        value: Neo.isObject(value) ? createNestedProxy(rootProvider, fullPath) : value,
+                        writable: true,
+                        enumerable: true,
+                        configurable: true,
+                    };
+                }
+            }
+            return undefined; // Property not found
         }
     })
 }
