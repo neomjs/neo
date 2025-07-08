@@ -5,6 +5,10 @@ import Style      from '../../../src/util/Style.mjs';
 import VdomHelper from '../../../src/vdom/Helper.mjs';
 import VDomUtil   from '../../../src/util/VDom.mjs';
 
+// tests are designed for this rendering mode
+Neo.config.useDomApiRenderer = false;
+VdomHelper.onNeoConfigChange({useDomApiRenderer: false})
+
 let deltas, output, tmp, vdom, vnode;
 
 StartTest(t => {
@@ -18,16 +22,14 @@ StartTest(t => {
         vdom = {tag: 'div'};
         t.diag("VdomHelper.create({tag: div});");
 
-        vnode = VdomHelper.create(vdom);
+        output = VdomHelper.create({vdom}); vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
             childNodes: [],
             className : [],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
-            outerHTML : '<div id="neo-vnode-1"></div>', // will only get created using VdomHelper.create()
             style     : {},
             vtype     : 'vnode'
         }, 'vnode got created successfully');
@@ -48,7 +50,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-component'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode'
@@ -68,7 +69,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-panel', 'neo-container', 'neo-component'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode'
@@ -88,7 +88,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode'
@@ -110,7 +109,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {backgroundColor: 'red'},
             vtype     : 'vnode'
@@ -133,7 +131,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {backgroundColor: 'red', color: 'green', height: '100px'},
             vtype     : 'vnode'
@@ -157,7 +154,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode'
@@ -183,7 +179,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode'
@@ -206,7 +201,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode'
@@ -229,7 +223,6 @@ StartTest(t => {
             childNodes: [],
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode'
@@ -254,15 +247,14 @@ StartTest(t => {
             attributes: {},
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode',
 
             childNodes: [
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'}
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  nodeName: 'div', style: {}, vtype: 'vnode'}
             ]
         }, 'vnode got updated successfully');
 
@@ -281,15 +273,14 @@ StartTest(t => {
             attributes: {},
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode',
 
             childNodes: [
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'}
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  nodeName: 'div', style: {}, vtype: 'vnode'}
             ]
         }, 'vnode got updated successfully');
 
@@ -307,15 +298,14 @@ StartTest(t => {
             attributes: {},
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode',
 
             childNodes: [
-                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'}
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  nodeName: 'div', style: {}, vtype: 'vnode'}
             ]
         }, 'vnode got updated successfully');
 
@@ -333,15 +323,14 @@ StartTest(t => {
             attributes: {},
             className : ['neo-container'],
             id        : 'neo-vnode-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode',
 
             childNodes: [
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
-                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'}
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-3',  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  nodeName: 'div', style: {}, vtype: 'vnode'}
             ]
         }, 'vnode got updated successfully');
 
@@ -370,15 +359,13 @@ StartTest(t => {
             ]
         };
 
-        vnode = VdomHelper.create(vdom);
+        output = VdomHelper.create({vdom}); vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
             className : ['neo-list-container', 'neo-list'],
             id        : 'neo-list-1',
-            innerHTML : undefined,
             nodeName  : 'ul',
-            outerHTML : '<ul style="width:100px;" class="neo-list-container neo-list" id="neo-list-1"><li class="neo-list-item" id="neo-list-1__bhaustein" tabIndex="-1">Bastian</li><li class="neo-list-item" id="neo-list-1__camtnbikerrwc" tabIndex="-1">Gerard</li><li class="neo-list-item" id="neo-list-1__jsakalos" tabIndex="-1">Jozef</li><li class="neo-list-item" id="neo-list-1__mrsunshine" tabIndex="-1">Nils</li><li class="neo-list-item" id="neo-list-1__rwaters" tabIndex="-1">Rich</li><li class="neo-list-item" id="neo-list-1__tobiu" tabIndex="-1">Tobias</li></ul>',
             style     : {width: '100px'},
             vtype     : 'vnode',
 
@@ -406,7 +393,6 @@ StartTest(t => {
             attributes: {},
             className : ['neo-list-container', 'neo-list'],
             id        : 'neo-list-1',
-            innerHTML : undefined,
             nodeName  : 'ul',
             style     : {width: '100px'},
             vtype     : 'vnode',
@@ -443,7 +429,6 @@ StartTest(t => {
             attributes: {},
             className : ['neo-list-container', 'neo-list'],
             id        : 'neo-list-1',
-            innerHTML : undefined,
             nodeName  : 'ul',
             style     : {width: '100px'},
             vtype     : 'vnode',
@@ -481,7 +466,6 @@ StartTest(t => {
             attributes: {},
             className : ['neo-list-container', 'neo-list'],
             id        : 'neo-list-1',
-            innerHTML : undefined,
             nodeName  : 'ul',
             style     : {width: '100px'},
             vtype     : 'vnode',
@@ -558,15 +542,13 @@ StartTest(t => {
             {id: '9', html: 'w'}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        output = VdomHelper.create({vdom}); vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
             className : [],
             id        : 'root',
-            innerHTML : undefined,
             nodeName  : 'div',
-            outerHTML : t.any(String),
             style     : {},
             vtype     : 'vnode',
 
@@ -603,7 +585,6 @@ StartTest(t => {
             attributes: {},
             className : [],
             id        : 'root',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode',
@@ -635,15 +616,13 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        output = VdomHelper.create({vdom}); vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
             className : [],
             id        : 'level-1',
-            innerHTML : undefined,
             nodeName  : 'div',
-            outerHTML : t.any(String),
             style     : {},
             vtype     : 'vnode',
 
@@ -651,7 +630,6 @@ StartTest(t => {
                 id        : 'level-2',
                 attributes: {},
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode',
@@ -661,7 +639,6 @@ StartTest(t => {
                     attributes: {},
                     childNodes: [],
                     className : [],
-                    innerHTML : undefined,
                     nodeName  : 'div',
                     style     : {},
                     vtype     : 'vnode'
@@ -678,7 +655,6 @@ StartTest(t => {
             attributes: {},
             className : [],
             id        : 'level-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode',
@@ -688,7 +664,6 @@ StartTest(t => {
                 attributes: {},
                 childNodes: [],
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode'
@@ -714,15 +689,13 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        output = VdomHelper.create({vdom}); vnode = output.vnode;
 
         t.isDeeplyStrict(vnode, {
             attributes: {},
             className : [],
             id        : 'level-1',
-            innerHTML : undefined,
             nodeName  : 'div',
-            outerHTML : t.any(String),
             style     : {},
             vtype     : 'vnode',
 
@@ -730,7 +703,6 @@ StartTest(t => {
                 id        : 'level-2',
                 attributes: {},
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode',
@@ -740,7 +712,6 @@ StartTest(t => {
                     attributes: {},
                     childNodes: [],
                     className : [],
-                    innerHTML : undefined,
                     nodeName  : 'div',
                     style     : {},
                     vtype     : 'vnode'
@@ -749,7 +720,6 @@ StartTest(t => {
                     attributes: {},
                     childNodes: [],
                     className : [],
-                    innerHTML : undefined,
                     nodeName  : 'div',
                     style     : {},
                     vtype     : 'vnode'
@@ -766,7 +736,6 @@ StartTest(t => {
             attributes: {},
             className : [],
             id        : 'level-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode',
@@ -776,7 +745,6 @@ StartTest(t => {
                 attributes: {},
                 childNodes: [],
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode'
@@ -785,7 +753,6 @@ StartTest(t => {
                 attributes: {},
                 childNodes: [],
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode'
@@ -810,7 +777,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        output = VdomHelper.create({vdom}); vnode = output.vnode;
 
         vdom =
         {id: 'level-1', cn: [
@@ -825,7 +792,6 @@ StartTest(t => {
             attributes: {},
             className : [],
             id        : 'level-1',
-            innerHTML : undefined,
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode',
@@ -835,7 +801,6 @@ StartTest(t => {
                 attributes: {},
                 childNodes: [],
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode'
@@ -844,7 +809,6 @@ StartTest(t => {
                 attributes: {},
                 childNodes: [],
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode'
@@ -853,7 +817,6 @@ StartTest(t => {
                 attributes: {},
                 childNodes: [],
                 className : [],
-                innerHTML : undefined,
                 nodeName  : 'div',
                 style     : {},
                 vtype     : 'vnode'
