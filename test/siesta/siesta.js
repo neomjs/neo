@@ -17,6 +17,12 @@ project.configure({
 });
 
 project.plan(
+    {
+        group: 'neo',
+        items: [
+            'tests/neo/MixinStaticConfig.mjs'
+        ]
+    },
     'tests/ClassConfigsAndFields.mjs',
     'tests/ClassSystem.mjs',
     {
