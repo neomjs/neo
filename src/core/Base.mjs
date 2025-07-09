@@ -3,7 +3,8 @@ import Compare                                                  from '../core/Co
 import Util                                                     from '../core/Util.mjs';
 import Config                                                   from './Config.mjs';
 import {isDescriptor}                                           from './ConfigSymbols.mjs';
-import IdGenerator                                              from './IdGenerator.mjs'
+import IdGenerator                                              from './IdGenerator.mjs';
+import EffectBatchManager                                       from './EffectBatchManager.mjs';
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -99,11 +100,18 @@ class Base {
          */
         isConstructed: false,
         /**
+         * This config will be set to `true` as the very first action within the `destroy()` method.
+         * Effects can observe this config to clean themselves up.
+         * @member {Boolean} isDestroying_=false
+         * @protected
+         */
+        isDestroying_: false,
+        /**
          * The config will get set to `true` once the Promise of `async initAsync()` is resolved.
          * You can use `afterSetIsReady()` to get notified once the ready state is reached.
          * Since not all classes use the Observable mixin, Neo will not fire an event.
          * method body.
-         * @member {Boolean} isReady=false
+         * @member {Boolean} isReady_=false
          */
         isReady_: false,
         /**
@@ -135,6 +143,12 @@ class Base {
      * @private
      */
     #configs = {};
+    /**
+     * Internal cache for all config subscription cleanup functions.
+     * @member {Function[]} #configSubscriptionCleanups=[]
+     * @private
+     */
+    #configSubscriptionCleanups = []
     /**
      * Internal cache for all timeout ids when using this.timeout()
      * @member {Number[]} timeoutIds=[]
@@ -239,7 +253,7 @@ class Base {
         if (oldValue) {
             if (hasManager) {
                 Neo.manager.Instance.unregister(oldValue)
-            } else {
+            } else if (Neo.idMap) {
                 delete Neo.idMap[oldValue]
             }
         }
@@ -249,7 +263,7 @@ class Base {
                 Neo.manager.Instance.register(me);
             } else {
                 Neo.idMap ??= {};
-                Neo.idMap[me.id] = me
+                Neo.idMap[value] = me
             }
         }
     }
@@ -386,8 +400,14 @@ class Base {
     destroy() {
         let me = this;
 
+        me.isDestroying = true;
+
         me.#timeoutIds.forEach(id => {
             clearTimeout(id)
+        });
+
+        me.#configSubscriptionCleanups.forEach(cleanup => {
+            cleanup()
         });
 
         if (Base.instanceManagerAvailable === true) {
@@ -423,7 +443,7 @@ class Base {
         let me = this;
 
         if (!me.#configs[key] && me.isConfig(key)) {
-            me.#configs[key] = new Config()
+            me.#configs[key] = new Config(me.constructor.configDescriptors?.[key])
         }
 
         return me.#configs[key]
@@ -488,7 +508,7 @@ class Base {
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
         delete me[configSymbol].id;
         me.processConfigs();
-        me.isConfiguring = false;
+        me.isConfiguring = false
     }
 
     /**
@@ -524,10 +544,12 @@ class Base {
      * @returns {Boolean}
      */
     isConfig(key) {
-        // A config is considered "reactive" if it has a generated property setter
+        let me = this;
+        // If a `core.Config` controller is already created, return true (fastest possible check).
+        // If not, a config is considered "reactive" if it has a generated property setter
         // AND it is present as a defined config in the merged static config hierarchy.
         // Neo.setupClass() removes the underscore from the static config keys.
-        return Neo.hasPropertySetter(this, key) && (key in this.constructor.config);
+        return me.#configs[key] || (Neo.hasPropertySetter(me, key) && (key in me.constructor.config))
     }
 
     /**
@@ -539,7 +561,8 @@ class Base {
      */
     mergeConfig(config, preventOriginalConfig) {
         let me   = this,
-            ctor = me.constructor;
+            ctor = me.constructor,
+            configDescriptors, staticConfig;
 
         if (!ctor.config) {
             throw new Error('Neo.applyClassConfig has not been run on ' + me.className)
@@ -549,7 +572,70 @@ class Base {
             me.originalConfig = Neo.clone(config, true, true)
         }
 
-        return {...ctor.config, ...config}
+        configDescriptors = ctor.configDescriptors;
+        staticConfig      = ctor.config;
+
+        if (configDescriptors) {
+            Object.entries(config).forEach(([key, instanceValue]) => {
+                const descriptor = configDescriptors[key];
+
+                if (descriptor?.merge) {
+                    config[key] = Neo.mergeConfig(staticConfig[key], instanceValue, descriptor.merge)
+                }
+            })
+        }
+
+        return {...staticConfig, ...config}
+    }
+
+    /**
+     * Subscribes *this* instance (the subscriber) to changes of a specific config property on another instance (the publisher).
+     * Ensures automatic cleanup when *this* instance (the subscriber) is destroyed.
+     *
+     * @param {String|Neo.core.Base} publisher  - The ID of the publisher instance or the instance reference itself.
+     * @param {String}               configName - The name of the config property on the publisher to subscribe to (e.g., 'myConfig').
+     * @param {Function}             fn         - The callback function to execute when the config changes.
+     * @returns {Function} A cleanup function to manually unsubscribe if needed before this instance's destruction.
+     *
+     * @example
+     * // Subscribing to a config on another instance
+     * this.observeConfig(someOtherInstance, 'myConfig', (newValue, oldValue) => {
+     *     console.log('myConfig changed:', newValue);
+     * });
+     *
+     * // Discouraged: Self-observation. Use afterSet<ConfigName>() hooks instead.
+     * this.observeConfig(this, 'myOwnConfig', (newValue, oldValue) => {
+     *     console.log('myOwnConfig changed:', newValue);
+     * });
+     */
+    observeConfig(publisher, configName, fn) {
+        let publisherInstance = publisher;
+
+        if (Neo.isString(publisher)) {
+            publisherInstance = Neo.get(publisher);
+            if (!publisherInstance) {
+                console.warn(`Publisher instance with ID '${publisher}' not found. Cannot subscribe.`);
+                return Neo.emptyFn
+            }
+        }
+
+        if (!(publisherInstance instanceof Neo.core.Base)) {
+            console.warn(`Invalid publisher provided. Must be a Neo.core.Base instance or its ID.`);
+            return Neo.emptyFn
+        }
+
+        const configController = publisherInstance.getConfig(configName);
+
+        if (!configController) {
+            console.warn(`Config '${configName}' not found on publisher instance ${publisherInstance.id}. Cannot subscribe.`);
+            return Neo.emptyFn
+        }
+
+        const cleanup = configController.subscribe({id: this.id, fn});
+
+        this.#configSubscriptionCleanups.push(cleanup);
+
+        return cleanup
     }
 
     /**
@@ -670,24 +756,58 @@ class Base {
     }
 
     /**
-     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * set() accepts the following input as keys:
+     * 1. Non-reactive configs
+     * 2. Reactive configs
+     * 3. Class fields defined via value
+     * 4. Class fields defined via get() & set()
+     * 5. "Anything else" will get directly get assigned to the instance
+     *
+     * The logic resolves circular dependencies as good as possible and ensures that config related hooks:
+     * - beforeGet<Config>
+     * - beforeSet<Config>
+     * - afterSet<Config>
+     * can access all new values from the batch operation.
      * @param {Object} values={}
      */
     set(values={}) {
-        let me = this;
+        let me                = this,
+            classFieldsViaSet = {};
+
+        // Start batching for effects
+        EffectBatchManager.startBatch();
 
         values = me.setFields(values);
 
         // If the initial config processing is still running,
         // finish this one first before dropping new values into the configSymbol.
-        // see: https://github.com/neomjs/neo/issues/2201
+        // See: https://github.com/neomjs/neo/issues/2201
         if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
             me.processConfigs()
         }
 
+        // Store class fields which are defined via get() & set() and ensure they won't get added to the config symbol.
+        Object.entries(values).forEach(([key, value]) => {
+            if (!me.isConfig(key)) {
+                classFieldsViaSet[key] = value;
+                delete values[key]
+            }
+        })
+
+        // Add reactive configs to the configSymbol
         Object.assign(me[configSymbol], values);
 
-        me.processConfigs(true)
+        // Process class fields which are defined via get() & set() => now they can access the latest values
+        // for reactive and non-reactive configs, as well as class fields defined with values.
+        Object.entries(classFieldsViaSet).forEach(([key, value]) => {
+            me[key] = value
+        })
+
+        // Process reactive configs
+        me.processConfigs(true);
+
+        // End batching for effects
+        EffectBatchManager.endBatch();
     }
 
     /**
@@ -698,15 +818,14 @@ class Base {
      * @protected
      */
     setFields(config) {
-        let me          = this,
-            configNames = me.constructor.config;
+        let me = this;
 
         Object.entries(config).forEach(([key, value]) => {
-            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(me, key)) {
+            if (!me.isConfig(key) && !Neo.hasPropertySetter(me, key)) {
                 me[key] = value;
                 delete config[key]
             }
-        })
+        });
 
         return config
     }
@@ -748,7 +867,7 @@ class Base {
      * @returns {String}
      */
     get [Symbol.toStringTag]() {
-        return `${this.className} (id: ${this.id})`
+        return this.className
     }
 
     /**

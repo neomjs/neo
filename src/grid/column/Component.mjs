@@ -118,7 +118,7 @@ class Component extends Column {
         }
 
         if (me.useBindings) {
-            body.getStateProvider()?.parseConfig(component)
+            body.getStateProvider()?.createBindings(component)
         }
 
         body.updateDepth = -1;

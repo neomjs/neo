@@ -54,11 +54,15 @@ class Component extends Base {
         /**
          * The default alignment specification to position this Component relative to some other
          * Component, or Element or Rectangle. Only applies in case floating = true.
-         * @member {Object|String} align_={edgeAlign:'t-b',constrainTo:'document.body'}
+         * @member {Object|String} align_={[isDescriptor]: true, merge: 'deep', value: {edgeAlign: 't-b',constrainTo: 'document.body'}}
          */
         align_: {
-            edgeAlign  : 't-b',
-            constrainTo: 'document.body'
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value: {
+                edgeAlign  : 't-b',
+                constrainTo: 'document.body'
+            }
         },
         /**
          * The name of the App this component belongs to
@@ -327,9 +331,13 @@ class Component extends Base {
         stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
-         * @member {Object} style_=null
+         * @member {Object} style={[isDescriptor]: true, merge: 'shallow', value: null}
          */
-        style_: null,
+        style_: {
+            [isDescriptor]: true,
+            merge         : 'shallow',
+            value         : null
+        },
         /**
          * You can pass a used theme directly to any component,
          * to style specific component trees differently from your main view.
@@ -376,13 +384,15 @@ class Component extends Base {
         updateDepth_: 1,
         /**
          * The component vnode tree. Available after the component got rendered.
-         * @member {Object} vnode_=null
+         * @member {Object} vnode_=={[isDescriptor]: true, value: null, isEqual: (a, b) => a === b,}
          * @protected
          */
         vnode_: {
             [isDescriptor]: true,
+            clone         : 'none',
+            cloneOnGet    : 'none',
+            isEqual       : (a, b) => a === b, // vnode trees can be huge, and will get compared by the vdom worker.
             value         : null,
-            isEqual       : (a, b) => a === b // vnode trees can be huge, and will get compared by the vdom worker.
         },
         /**
          * Shortcut for style.width, defaults to px
@@ -400,9 +410,13 @@ class Component extends Base {
         wrapperCls_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
-         * @member {Object|null} wrapperStyle_=null
+         * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'shallow', value: null}
          */
-        wrapperStyle_: null,
+        wrapperStyle_: {
+            [isDescriptor]: true,
+            merge         : 'shallow',
+            value         : null
+        },
         /**
          * The vdom markup for this component.
          * @member {Object} _vdom={}
@@ -593,7 +607,12 @@ class Component extends Base {
     afterSetConfig(key, value, oldValue) {
         let me = this;
 
-        if (currentWorker.isUsingStateProviders && me[twoWayBindingSymbol] && oldValue !== undefined) {
+        if (Neo.isUsingStateProviders && me[twoWayBindingSymbol]) {
+            // When a component config is updated by its state provider, this flag is set to the config's key.
+            // This prevents circular updates in two-way data bindings by skipping the push back to the state provider.
+            if (me._skipTwoWayPush === key) {
+                return;
+            }
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
@@ -940,6 +959,16 @@ class Component extends Base {
     }
 
     /**
+     * Triggered after the stateProvider config got changed
+     * @param {Neo.state.Provider} value
+     * @param {Object|Neo.state.Provider|null} oldValue
+     * @protected
+     */
+    afterSetStateProvider(value, oldValue) {
+        value?.createBindings(this)
+    }
+
+    /**
      * Triggered after the style config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -1232,8 +1261,7 @@ class Component extends Base {
             }
         }
 
-        // merge the incoming alignment specification into the configured default
-        return Neo.merge({}, value, me.constructor.config.align)
+        return value
     }
 
     /**
@@ -1793,7 +1821,7 @@ class Component extends Base {
      * @returns {Neo.state.Provider|null}
      */
     getStateProvider(ntype) {
-        if (!currentWorker.isUsingStateProviders) {
+        if (!Neo.isUsingStateProviders) {
             return null
         }
 
@@ -1930,16 +1958,11 @@ class Component extends Base {
     }
 
     /**
-     * We are using this method as a ctor hook here to add the initial state.Provider & controller.Component parsing
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @param args
      */
-    initConfig(config, preventOriginalConfig) {
-        super.initConfig(config, preventOriginalConfig);
-
-        let me = this;
-
-        me.getStateProvider()?.parseConfig(me)
+    initConfig(...args) {
+        super.initConfig(...args);
+        this.getStateProvider()?.createBindings(this)
     }
 
     /**
@@ -2025,28 +2048,15 @@ class Component extends Base {
      * @returns {Object} config
      */
     mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args),
+        let config = super.mergeConfig(...args),
+            vdom   = config.vdom || config._vdom || {};
 
-            // it should be possible to set custom configs for the vdom on instance level,
-            // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
-            vdom = {...me._vdom || {}, ...config.vdom || {}};
+        // It should be possible to modify root level vdom attributes on instance level.
+        // Note that vdom is not a real config, but implemented via get() & set().
+        this._vdom = Neo.clone({...vdom, ...this._vdom || {}}, true);
 
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-        me._vdom = Neo.clone(vdom, true, true);
-
-        if (config.style) {
-            // If we are passed an object, merge it with the class's own style
-            me.style = Neo.typeOf(config.style) === 'Object' ? {...config.style, ...me.constructor.config.style} : config.style
-        }
-
-        me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
-
-        delete config.style;
         delete config._vdom;
         delete config.vdom;
-        delete config.wrapperStyle;
 
         return config
     }
@@ -2131,8 +2141,12 @@ class Component extends Base {
      *
      */
     onConstructed() {
-        super.onConstructed();
-        this.keys?.register(this)
+        super.onConstructed()
+
+        let me = this;
+
+        me.keys?.register(me);
+        me.getStateProvider()?.createBindings(me)
     }
 
     /**
@@ -2305,10 +2319,12 @@ class Component extends Base {
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
     async render(mount) {
-        let me              = this,
-            autoMount       = mount || me.autoMount,
-            {app}           = me,
-            {useVdomWorker} = Neo.config;
+        let me                            = this,
+            autoMount                     = mount || me.autoMount,
+            {app}                         = me,
+            {unitTestMode, useVdomWorker} = Neo.config;
+
+        if (unitTestMode) return;
 
         // Verify that the critical rendering path => CSS files for the new tree is in place
         if (autoMount && currentWorker.countLoadingThemeFiles !== 0) {
@@ -2622,6 +2638,11 @@ class Component extends Base {
      * @protected
      */
     updateVdom(resolve, reject) {
+        if (Neo.config.unitTestMode) {
+            reject?.();
+            return
+        }
+
         let me                              = this,
             {app, mounted, parentId, vnode} = me;
 

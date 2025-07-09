@@ -255,10 +255,13 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     async afterSetColumns(value, oldValue) {
-        if (oldValue?.getCount?.() > 0) {
-            let me = this;
+        let me              = this,
+            {headerToolbar} = me;
 
-            me.headerToolbar?.createItems()
+        // - If columns changed at run-time OR
+        // - In case the `header.Toolbar#createItems()` method has run before columns where available
+        if (oldValue?.getCount?.() > 0 || (value?.count && headerToolbar?.isConstructed)) {
+            headerToolbar?.createItems()
 
             await me.timeout(50);
 
@@ -611,7 +614,8 @@ class GridContainer extends BaseContainer {
      */
     removeSortingCss(dataField) {
         this.headerToolbar?.items.forEach(column => {
-            if (column.dataField !== dataField) {
+            if (column.dataField !== dataField) {return;
+                console.log(column, dataField)
                 column.removeSortingCss()
             }
         })

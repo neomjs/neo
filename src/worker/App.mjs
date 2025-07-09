@@ -46,11 +46,6 @@ class App extends Base {
     }
 
     /**
-     * @member {Boolean} isUsingStateProviders=false
-     * @protected
-     */
-    isUsingStateProviders = false
-    /**
      * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
      * before the json theme structure got loaded.
      * @member {Array[]} themeFilesCache=[]

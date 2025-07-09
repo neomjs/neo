@@ -1,12 +1,13 @@
-import Component  from '../component/Base.mjs';
-import LayoutBase from '../layout/Base.mjs';
-import LayoutCard from '../layout/Card.mjs';
-import LayoutFit  from '../layout/Fit.mjs';
-import LayoutGrid from '../layout/Grid.mjs';
-import LayoutHbox from '../layout/HBox.mjs';
-import LayoutVBox from '../layout/VBox.mjs';
-import Logger     from '../util/Logger.mjs';
-import NeoArray   from '../util/Array.mjs';
+import Component      from '../component/Base.mjs';
+import LayoutBase     from '../layout/Base.mjs';
+import LayoutCard     from '../layout/Card.mjs';
+import LayoutFit      from '../layout/Fit.mjs';
+import LayoutGrid     from '../layout/Grid.mjs';
+import LayoutHbox     from '../layout/HBox.mjs';
+import LayoutVBox     from '../layout/VBox.mjs';
+import Logger         from '../util/Logger.mjs';
+import NeoArray       from '../util/Array.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 const byWeight = ({ weight : lhs = 0 }, { weight : rhs = 0 }) => lhs - rhs;
 
@@ -31,9 +32,15 @@ class Container extends Component {
          */
         baseCls: ['neo-container'],
         /**
-         * @member {Object} itemDefaults_=null
+         * Default configuration for child items within this container.
+         * This config uses a descriptor to enable deep merging with instance based itemDefaults.
+         * @member {Object} itemDefaults_={[isDescriptor]: true, merge: 'deep', value: null}
          */
-        itemDefaults_: null,
+        itemDefaults_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * An array or an object of config objects|instances|modules for each child component
          * @member {Object[]} items_=[]
@@ -85,7 +92,13 @@ class Container extends Component {
          *     ]
          * });
          */
-        items_: [],
+        items_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            isEqual       : () => false,
+            value         : []
+        },
         /**
          * It is crucial to define a layout before the container does get rendered.
          * Meaning: onConstructed() is the latest life-cycle point.
@@ -342,10 +355,7 @@ class Container extends Component {
                 }
 
                 item.set(config);
-
-                // In case an item got created outside a stateProvider based hierarchy, there might be bindings or string
-                // based listeners which still need to get resolved.
-                item.getStateProvider()?.parseConfig(item);
+                item.getStateProvider()?.createBindings(item);
                 break
             }
 
@@ -617,14 +627,8 @@ class Container extends Component {
             config = super.mergeConfig(...args),
             ctorItems;
 
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-
-        if (config.itemDefaults) {
-            me._itemDefaults = Neo.clone(config.itemDefaults, true, true);
-            delete config.itemDefaults
-        }
-
+        // Avoid any interference on prototype level
+        // Does not clone existing Neo instances
         if (config.items) {
             ctorItems = me.constructor.config.items;
 

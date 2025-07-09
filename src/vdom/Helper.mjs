@@ -529,16 +529,15 @@ class Helper extends Base {
      * @protected
      */
     insertNode({deltas, index, oldVnodeMap, vnode, vnodeMap}) {
-        let details                = vnodeMap.get(vnode.id),
-            {parentNode}           = details,
-            parentId               = parentNode.id,
-            me                     = this,
-            movedNodes             = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
-            delta                  = {action: 'insertNode', parentId},
-            hasLeadingTextChildren = false,
-            physicalIndex          = me.getPhysicalIndex(parentNode, index); // Processes the children of the *NEW* parent's VNode in the *current* state
+        let details      = vnodeMap.get(vnode.id),
+            {parentNode} = details,
+            parentId     = parentNode.id,
+            me           = this,
+            movedNodes   = me.findMovedNodes({oldVnodeMap, vnode, vnodeMap}),
+            delta        = {action: 'insertNode', parentId};
 
-        Object.assign(delta, {hasLeadingTextChildren, index: physicalIndex});
+        // Processes the children of the *NEW* parent's VNode in the *current* state
+        delta.index = me.getPhysicalIndex(parentNode, index);
 
         if (NeoConfig.useDomApiRenderer) {
             // For direct DOM API mounting, pass the pruned VNode tree

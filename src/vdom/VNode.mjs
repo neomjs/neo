@@ -78,7 +78,7 @@ class VNode {
                 attributes: config.attributes || {},
                 className : normalizeClassName(config.className),
                 nodeName  : config.nodeName   || 'div',
-                style     : config.style
+                style     : config.style      || {}
             });
 
             // Use vdom.html on your own risk, it is not fully XSS secure.

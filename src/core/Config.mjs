@@ -1,45 +1,52 @@
+import EffectManager  from './EffectManager.mjs';
 import {isDescriptor} from './ConfigSymbols.mjs';
 
 /**
- * @src/util/ClassSystem.mjs Neo.core.Config
- * @private
- * @internal
- *
  * Represents an observable container for a config property.
  * This class manages the value of a config, its subscribers, and custom behaviors
  * like merge strategies and equality checks defined via a descriptor object.
  *
  * The primary purpose of this class is to enable fine-grained reactivity and
  * decoupled cross-instance state sharing within the Neo.mjs framework.
+ * @class Neo.core.Config
+ * @private
+ * @internal
  */
 class Config {
     /**
-     * The internal value of the config property.
-     * @private
-     * @apps/portal/view/about/MemberContainer.mjs {any} #value
-     */
-    #value;
-
-    /**
      * A Set to store callback functions that subscribe to changes in this config's value.
      * @private
-     * @apps/portal/view/about/MemberContainer.mjs {Set<Function>} #subscribers
      */
-    #subscribers = new Set();
+    #subscribers = {}
+    /**
+     * The internal value of the config property.
+     * @member #value
+     * @private
+     */
+    #value
+    /**
+     * The cloning strategy to use when setting a new value.
+     * Supported values: 'deep', 'shallow', 'none'.
+     * @member {String} clone='deep'
+     */
 
     /**
-     * The strategy to use when merging new values into this config.
-     * Defaults to 'deep'. Can be overridden via a descriptor.
-     * @apps/portal/view/about/MemberContainer.mjs {string} mergeStrategy
+     * The cloning strategy to use when getting a value.
+     * Supported values: 'deep', 'shallow', 'none'.
+     * @member {String} cloneOnGet=null
      */
-    mergeStrategy = 'deep';
 
     /**
      * The function used to compare new and old values for equality.
      * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
-     * @apps/portal/view/about/MemberContainer.mjs {Function} isEqual
+     * @member {Function} isEqual=Neo.isEqual
      */
-    isEqual = Neo.isEqual;
+
+    /**
+     * The strategy to use when merging new values into this config.
+     * Defaults to 'replace'. Can be overridden via a descriptor merge property.
+     * @member {Function|String} mergeStrategy='replace'
+     */
 
     /**
      * Creates an instance of Config.
@@ -58,24 +65,49 @@ class Config {
      * @returns {any} The current value.
      */
     get() {
-        return this.#value;
+        // Registers this Config instance as a dependency with the currently active Effect,
+        // enabling automatic re-execution when this Config's value changes.
+        EffectManager.getActiveEffect()?.addDependency(this);
+        return this.#value
     }
 
     /**
      * Initializes the `Config` instance using a descriptor object.
-     * Extracts `mergeStrategy` and `isEqual` from the descriptor.
+     * Extracts `clone`, `mergeStrategy` and `isEqual` from the descriptor.
      * The internal `#value` is NOT set by this method.
-     * @param {Object} descriptor - The descriptor object for the config.
-     * @param {any} descriptor.value - The default value for the config (not set by this method).
-     * @param {string} [descriptor.merge='deep'] - The merge strategy.
+     * @param {Object}   descriptor                       - The descriptor object for the config.
+     * @param {any}      descriptor.value                 - The default value for the config (not set by this method).
+     * @param {string}   [descriptor.clone='deep']        - The clone strategy for set.
+     * @param {string}   [descriptor.cloneOnGet]          - The clone strategy for get. Defaults to 'shallow' if clone is 'deep' or 'shallow', and 'none' if clone is 'none'.
+     * @param {string}   [descriptor.merge='deep']        - The merge strategy.
      * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
      */
-    initDescriptor({isEqual, merge, value}) {
+    initDescriptor({clone, cloneOnGet, isEqual, merge}) {
         let me = this;
 
-        me.#value        = value
-        me.mergeStrategy = merge   || me.mergeStrategy;
-        me.isEqual       = isEqual || me.isEqual;
+        if (clone && clone !== me.clone) {
+            Object.defineProperty(me, 'clone', {
+                value: clone, writable: true, configurable: true, enumerable: true
+            })
+        }
+
+        if (cloneOnGet && cloneOnGet !== me.cloneOnGet) {
+            Object.defineProperty(me, 'cloneOnGet', {
+                value: cloneOnGet, writable: true, configurable: true, enumerable: true
+            })
+        }
+
+        if (isEqual && isEqual !== me.isEqual) {
+            Object.defineProperty(me, 'isEqual', {
+                value: isEqual, writable: true, configurable: true, enumerable: true
+            })
+        }
+
+        if (merge && merge !== me.mergeStrategy) {
+            Object.defineProperty(me, 'mergeStrategy', {
+                value: merge, writable: true, configurable: true, enumerable: true
+            })
+        }
     }
 
     /**
@@ -84,8 +116,13 @@ class Config {
      * @param {any} oldValue - The old value of the config.
      */
     notify(newValue, oldValue) {
-        for (const callback of this.#subscribers) {
-            callback(newValue, oldValue);
+        for (const id in this.#subscribers) {
+            if (this.#subscribers.hasOwnProperty(id)) {
+                const subscriberSet = this.#subscribers[id];
+                for (const callback of subscriberSet) {
+                    callback(newValue, oldValue)
+                }
+            }
         }
     }
 
@@ -127,13 +164,67 @@ class Config {
     /**
      * Subscribes a callback function to changes in this config's value.
      * The callback will be invoked with `(newValue, oldValue)` whenever the config changes.
-     * @param {Function} callback - The function to call when the config value changes.
+     * @param {Object} options      - An object containing the subscription details.
+     * @param {String} options.id   - The ID of the subscription owner (e.g., a Neo.core.Base instance's id).
+     * @param {Function} options.fn - The callback function.
      * @returns {Function} A cleanup function to unsubscribe the callback.
      */
-    subscribe(callback) {
-        this.#subscribers.add(callback);
-        return () => this.#subscribers.delete(callback)
+    subscribe({id, fn}) {
+        if (typeof id !== 'string' || id.length === 0 || typeof fn !== 'function') {
+            throw new Error([
+                'Config.subscribe: options must be an object with a non-empty string `id` ',
+                '(the subscription owner\'s id), and a callback function `fn`.'
+            ].join(''))
+        }
+
+        const me = this;
+
+        if (!me.#subscribers[id]) {
+            me.#subscribers[id] = new Set()
+        }
+
+        me.#subscribers[id].add(fn);
+
+        return () => {
+            const subscriberSet = me.#subscribers[id];
+            if (subscriberSet) {
+                subscriberSet.delete(fn);
+                if (subscriberSet.size === 0) {
+                    delete me.#subscribers[id]
+                }
+            }
+        }
     }
 }
+
+Object.defineProperties(Config.prototype, {
+    clone: {
+        value: 'deep',
+        writable: false,
+        configurable: true,
+        enumerable: false
+    },
+    cloneOnGet: {
+        value: null,
+        writable: false,
+        configurable: true,
+        enumerable: false
+    },
+    isEqual: {
+        value: Neo.isEqual,
+        writable: false,
+        configurable: true,
+        enumerable: false
+    },
+    mergeStrategy: {
+        value: 'replace',
+        writable: false,
+        configurable: true,
+        enumerable: false
+    }
+});
+
+const ns = Neo.ns('Neo.core', true);
+ns.Config = Config;
 
 export default Config;

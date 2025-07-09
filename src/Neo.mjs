@@ -1,18 +1,46 @@
-import DefaultConfig from './DefaultConfig.mjs';
-import {isDescriptor}  from './core/ConfigSymbols.mjs';
+import DefaultConfig  from './DefaultConfig.mjs';
+import {isDescriptor} from './core/ConfigSymbols.mjs';
 
 const
     camelRegex   = /-./g,
     configSymbol = Symbol.for('configSymbol'),
     getSetCache  = Symbol('getSetCache'),
+    cloneMap = {
+        Array(obj, deep, ignoreNeoInstances) {
+            return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))]
+        },
+        Date(obj) {
+            return new Date(obj.valueOf())
+        },
+        Map(obj) {
+            return new Map(obj) // shallow copy
+        },
+        NeoInstance(obj, ignoreNeoInstances) {
+            return ignoreNeoInstances ? obj : Neo.cloneNeoInstance(obj)
+        },
+        Set(obj) {
+            return new Set(obj)
+        },
+        Object(obj, deep, ignoreNeoInstances) {
+            const out = {};
+
+            // Use Reflect.ownKeys() to include symbol properties (e.g., for config descriptors)
+            Reflect.ownKeys(obj).forEach(key => {
+                const value = obj[key];
+                out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
+            });
+
+            return out
+        }
+    },
     typeDetector = {
         function: item => {
-            if (item.prototype?.constructor.isClass) {
+            if (item.prototype?.constructor?.isClass) {
                 return 'NeoClass'
             }
         },
         object: item => {
-            if (item.constructor.isClass && item instanceof Neo.core.Base) {
+            if (item.constructor?.isClass && item instanceof Neo.core.Base) {
                 return 'NeoInstance'
             }
         }
@@ -23,7 +51,6 @@ const
  * @module Neo
  * @singleton
  * @borrows Neo.core.Util.bindMethods       as bindMethods
- * @borrows Neo.core.Util.capitalize        as capitalize
  * @borrows Neo.core.Util.createStyleObject as createStyleObject
  * @borrows Neo.core.Util.createStyles      as createStyles
  * @borrows Neo.core.Util.decamel           as decamel
@@ -178,25 +205,7 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {Object|Array|*} the cloned input
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
-        let out;
-
-        return {
-            Array      : () => !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))],
-            Date       : () => new Date(obj.valueOf()),
-            Map        : () => new Map(obj), // shallow copy
-            NeoInstance: () => ignoreNeoInstances ? obj : this.cloneNeoInstance(obj),
-            Set        : () => new Set(obj),
-
-            Object: () => {
-                out = {};
-
-                Object.entries(obj).forEach(([key, value]) => {
-                    out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
-                });
-
-                return out
-            }
-        }[Neo.typeOf(obj)]?.() || obj
+        return cloneMap[Neo.typeOf(obj)]?.(obj, deep, ignoreNeoInstances) || obj
     },
 
     /**
@@ -264,7 +273,7 @@ Neo = globalThis.Neo = Object.assign({
                     return null
                 }
 
-                className = config.className || config.module.prototype.className;
+                className = config.className || config.module.prototype.className
             }
 
             if (!exists(className)) {
@@ -325,6 +334,10 @@ Neo = globalThis.Neo = Object.assign({
             return Neo.merge(Neo.merge(target, defaults), source)
         }
 
+        if (!target) {
+            return source
+        }
+
         for (const key in source) {
             const value = source[key];
 
@@ -336,6 +349,35 @@ Neo = globalThis.Neo = Object.assign({
         }
 
         return target
+    },
+
+    /**
+     * Merges a new value into an existing config value based on a specified strategy.
+     * This method is used during instance creation to apply merge strategies defined in config descriptors.
+     * @param {any} defaultValue - The default value of the config (from static config).
+     * @param {any} instanceValue - The value provided during instance creation.
+     * @param {string|Function} strategy - The merge strategy: 'shallow', 'deep', 'replace', or a custom function.
+     * @returns {any} The merged value.
+     */
+    mergeConfig(defaultValue, instanceValue, strategy) {
+        const
+            defaultValueType  = Neo.typeOf(defaultValue),
+            instanceValueType = Neo.typeOf(instanceValue);
+
+        if (strategy === 'shallow') {
+            if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return {...defaultValue, ...instanceValue}
+            }
+        } else if (strategy === 'deep') {
+            if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return Neo.merge(Neo.clone(defaultValue, true), instanceValue)
+            }
+        } else if (typeof strategy === 'function') {
+            return strategy(defaultValue, instanceValue)
+        }
+
+        // Default to 'replace' or if strategy is not recognized
+        return instanceValue
     },
 
     /**
@@ -461,13 +503,14 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {T}
      */
     setupClass(cls) {
-        let baseCfg    = null,
-            ntypeChain = [],
-            {ntypeMap} = Neo,
-            proto      = cls.prototype || cls,
-            ns         = Neo.ns(proto.constructor.config.className, false),
-            protos     = [],
-            cfg, config, ctor, hierarchyInfo, ntype;
+        let baseConfig            = null,
+            baseConfigDescriptors = null,
+            ntypeChain            = [],
+            {ntypeMap}            = Neo,
+            proto                 = cls.prototype || cls,
+            ns                    = Neo.ns(proto.constructor.config.className, false),
+            protos                = [],
+            cfg, config, configDescriptors, ctor, hierarchyInfo, ntype;
 
         /*
          * If the namespace already exists, directly return it.
@@ -481,12 +524,16 @@ Neo = globalThis.Neo = Object.assign({
             return ns
         }
 
+        // Traverse the prototype chain to collect inherited configs and descriptors
         while (proto.__proto__) {
             ctor = proto.constructor;
 
+            // If a class in the prototype chain has already had its config applied,
+            // we can use its pre-processed config and descriptors as a base.
             if (Object.hasOwn(ctor, 'classConfigApplied')) {
-                baseCfg    = Neo.clone(ctor.config, true);
-                ntypeChain = [...ctor.ntypeChain];
+                baseConfig            = Neo.clone(ctor.config, true);
+                baseConfigDescriptors = Neo.clone(ctor.configDescriptors, true);
+                ntypeChain            = [...ctor.ntypeChain];
                 break
             }
 
@@ -494,29 +541,43 @@ Neo = globalThis.Neo = Object.assign({
             proto = proto.__proto__
         }
 
-        config = baseCfg || {};
+        // Initialize accumulated config and descriptors
+        config            = baseConfig            || {};
+        configDescriptors = baseConfigDescriptors || {};
 
+        // Process each class in the prototype chain (from top to bottom)
         protos.forEach(element => {
             let mixins;
 
             ctor = element.constructor;
-
-            cfg = ctor.config || {};
+            cfg  = ctor.config || {};
 
             if (Neo.overwrites) {
                 ctor.applyOverwrites?.(cfg)
             }
 
+            // Process each config property defined in the current class's static config
             Object.entries(cfg).forEach(([key, value]) => {
-                if (key.slice(-1) === '_') {
-                    delete cfg[key];
-                    key = key.slice(0, -1);
-                    cfg[key] = value;
-                    autoGenerateGetSet(element, key)
+                const
+                    isReactive = key.slice(-1) === '_',
+                    baseKey    = isReactive ? key.slice(0, -1) : key;
+
+                // 1. Handle descriptors: If the value is a descriptor object, store it.
+                //    The 'value' property of the descriptor is then used as the actual config value.
+                if (Neo.isObject(value) && value[isDescriptor] === true) {
+                    ctor.configDescriptors ??= {};
+                    ctor.configDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
+                    value = value.value // Use the descriptor's value as the config value
                 }
 
-                // Only apply properties which have no setters inside the prototype chain.
-                // Those will get applied on create (Neo.core.Base -> initConfig)
+                // 2. Handle reactive vs. non-reactive configs: Generate getters/setters for reactive configs.
+                if (isReactive) {
+                    delete cfg[key];      // Remove original key with underscore
+                    cfg[baseKey] = value; // Use the potentially modified value
+                    autoGenerateGetSet(element, baseKey)
+                }
+                // This part handles non-reactive configs (including those that were descriptors)
+                // If no property setter exists, define it directly on the prototype.
                 else if (!Neo.hasPropertySetter(element, key)) {
                     Object.defineProperty(element, key, {
                         enumerable: true,
@@ -526,6 +587,17 @@ Neo = globalThis.Neo = Object.assign({
                 }
             });
 
+            // Merge configDescriptors: Apply "first-defined wins" strategy.
+            // If a descriptor for a key already exists (from a parent class), it is not overwritten.
+            if (ctor.configDescriptors) {
+                for (const key in ctor.configDescriptors) {
+                    if (!Object.hasOwn(configDescriptors, key)) {
+                        configDescriptors[key] = Neo.clone(ctor.configDescriptors[key], true) // Deep clone for immutability
+                    }
+                }
+            }
+
+            // Process ntype and ntypeChain
             if (Object.hasOwn(cfg, 'ntype')) {
                 ntype = cfg.ntype;
 
@@ -540,6 +612,7 @@ Neo = globalThis.Neo = Object.assign({
                 ntypeMap[ntype] = cfg.className
             }
 
+            // Process mixins
             mixins = Object.hasOwn(config, 'mixins') && config.mixins || [];
 
             if (ctor.observable) {
@@ -551,7 +624,7 @@ Neo = globalThis.Neo = Object.assign({
             }
 
             if (mixins.length > 0) {
-                applyMixins(ctor, mixins);
+                applyMixins(ctor, mixins, cfg);
 
                 if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
                     ctor.observable = true
@@ -561,29 +634,45 @@ Neo = globalThis.Neo = Object.assign({
             delete cfg.mixins;
             delete config.mixins;
 
-            Object.assign(config, cfg);
+            // Hierarchical merging of static config values based on descriptors.
+            // This ensures that values are merged (e.g., shallow/deep) instead of simply overwritten.
+            Object.entries(cfg).forEach(([key, value]) => {
+                const descriptor = configDescriptors[key];
 
+                if (descriptor?.merge) {
+                    config[key] = Neo.mergeConfig(config[key], value, descriptor.merge)
+                } else {
+                    config[key] = value
+                }
+            });
+
+            // Assign final processed config and descriptors to the class constructor
             Object.assign(ctor, {
                 classConfigApplied: true,
-                config            : Neo.clone(config, true),
+                config            : Neo.clone(config,            true), // Deep clone final config for immutability
+                configDescriptors : Neo.clone(configDescriptors, true), // Deep clone final descriptors for immutability
                 isClass           : true,
                 ntypeChain
             });
 
+            // Apply to global namespace if not a singleton
             !config.singleton && this.applyToGlobalNs(cls)
         });
 
         proto = cls.prototype || cls;
 
+        // Add is<Ntype> flags to the prototype
         ntypeChain.forEach(ntype => {
             proto[`is${Neo.capitalize(Neo.camel(ntype))}`] = true
         });
 
+        // If it's a singleton, create and apply the instance to the global namespace
         if (proto.singleton) {
             cls = Neo.create(cls);
             Neo.applyToGlobalNs(cls)
         }
 
+        // Add class hierarchy information to the manager or a temporary map
         hierarchyInfo = {
             className      : proto.className,
             module         : cls,
@@ -610,7 +699,7 @@ Neo = globalThis.Neo = Object.assign({
             return null
         }
 
-        return typeDetector[typeof item]?.(item) || item.constructor.name
+        return typeDetector[typeof item]?.(item) || item.constructor?.name
     }
 }, Neo);
 
@@ -624,6 +713,7 @@ const ignoreMixin = [
     'classConfigApplied',
     'className',
     'constructor',
+    'id',
     'isClass',
     'mixin',
     'ntype',
@@ -636,9 +726,10 @@ const ignoreMixin = [
 /**
  * @param {Neo.core.Base} cls
  * @param {Array}         mixins
+ * @param {Object}        classConfig
  * @private
  */
-function applyMixins(cls, mixins) {
+function applyMixins(cls, mixins, classConfig) {
     if (!Array.isArray(mixins)) {
         mixins = [mixins];
     }
@@ -660,12 +751,12 @@ function applyMixins(cls, mixins) {
             }
 
             mixinCls   = Neo.ns(mixin);
-            mixinProto = mixinCls.prototype;
+            mixinProto = mixinCls.prototype
         }
 
         mixinProto.className.split('.').reduce(mixReduce(mixinCls), mixinClasses);
 
-        Object.getOwnPropertyNames(mixinProto).forEach(mixinProperty(cls.prototype, mixinProto))
+        Object.entries(Object.getOwnPropertyDescriptors(mixinProto)).forEach(mixinProperty(cls.prototype, mixinProto, classConfig))
     }
 
     cls.prototype.mixins = mixinClasses // todo: we should do a deep merge
@@ -695,19 +786,37 @@ function autoGenerateGetSet(proto, key) {
     }
 
     if (!Neo[getSetCache][key]) {
-        const publicDescriptor = {
+        // Public Descriptor
+        Neo[getSetCache][key] = {
             get() {
                 let me        = this,
+                    config    = me.getConfig(key),
                     hasNewKey = Object.hasOwn(me[configSymbol], key),
                     newKey    = me[configSymbol][key],
                     value     = hasNewKey ? newKey : me[_key];
 
-                if (Array.isArray(value)) {
-                    if (key !== 'items') {
-                        value = [...value]
+                if (value instanceof Date) {
+                    value = new Date(value.valueOf());
+                }
+                // new, explicit opt-in path
+                else if (config.cloneOnGet) {
+                    const {cloneOnGet} = config;
+
+                    if (cloneOnGet === 'deep') {
+                        value = Neo.clone(value, true, true);
+                    } else if (cloneOnGet === 'shallow') {
+                        const type = Neo.typeOf(value);
+
+                        if (type === 'Array') {
+                            value = [...value];
+                        } else if (type === 'Object') {
+                            value = {...value};
+                        }
                     }
-                } else if (value instanceof Date) {
-                    value = new Date(value.valueOf())
+                }
+                // legacy behavior
+                else if (Array.isArray(value)) {
+                    value = [...value];
                 }
 
                 if (hasNewKey) {
@@ -728,45 +837,71 @@ function autoGenerateGetSet(proto, key) {
                 const config = this.getConfig(key);
                 if (!config) return;
 
-                let me        = this,
-                    oldValue  = config.get(); // Get the old value from the Config instance
+                let me                   = this,
+                    oldValue             = config.get(), // Get the old value from the Config instance
+                    {EffectBatchManager} = Neo.core,
+                    isNewBatch           = !EffectBatchManager?.isBatchActive();
 
-                // every set call has to delete the matching symbol
+                // If a config change is not triggered via `core.Base#set()`, honor changes inside hooks.
+                isNewBatch && EffectBatchManager?.startBatch();
+
+                // 1. Prevent infinite loops:
+                // Immediately remove the pending value from the configSymbol to prevent a getter from
+                // recursively re-triggering this setter.
                 delete me[configSymbol][key];
 
-                if (key !== 'items' && key !== 'vnode') {
-                    value = Neo.clone(value, true, true)
+                switch (config.clone) {
+                    case 'deep':
+                        value = Neo.clone(value, true, true);
+                        break;
+                    case 'shallow':
+                        value = Neo.clone(value, false, true);
+                        break;
                 }
+
+                // 2. Create a temporary state for beforeSet hooks:
+                // Set the new value directly on the private backing property. This allows any beforeSet
+                // hook to access the new value of this and other configs within the same `set()` call.
+                me[_key] = value;
 
                 if (typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
                     if (value === undefined) {
+                        // Restore the original value if the update is canceled.
+                        me[_key] = oldValue;
+                        isNewBatch && EffectBatchManager?.endBatch();
                         return
                     }
                 }
 
-                // Set the new value into the Config instance
-                // The config.set() method will return true if the value actually changed.
+                // 3. Restore state for change detection:
+                // Revert the private backing property to its original value. This is crucial for the
+                // `config.set()` method to correctly detect if the value has actually changed.
+                me[_key] = oldValue;
+
+                // 4. Finalize the change:
+                // The config.set() method performs the final check and, if the value changed,
+                // triggers afterSet hooks and notifies subscribers.
                 if (config.set(value)) {
                     me[afterSet]?.(value, oldValue);
                     me.afterSetConfig?.(key, value, oldValue)
                 }
+
+                isNewBatch && EffectBatchManager?.endBatch()
             }
         };
 
-        const privateDescriptor = {
+        // Private Descriptor
+        Neo[getSetCache][_key] = {
             get() {
-                return this.getConfig(key)?.get();
+                return this.getConfig(key)?.get()
             },
             set(value) {
-                this.getConfig(key)?.setRaw(value);
+                this.getConfig(key)?.setRaw(value)
             }
-        };
-
-        Neo[getSetCache][key]  = publicDescriptor;
-        Neo[getSetCache][_key] = privateDescriptor;
+        }
     }
 
     Object.defineProperty(proto, key,  Neo[getSetCache][key]);
@@ -791,9 +926,7 @@ function createArrayNs(create, current, prev) {
         arrRoot = prev[arrDetails[0]]
     }
 
-    if (!arrRoot) {
-        return
-    }
+    if (!arrRoot) return;
 
     for (; i < len; i++) {
         arrItem = parseInt(arrDetails[i]);
@@ -827,12 +960,27 @@ function exists(className) {
 /**
  * @param {Neo.core.Base} proto
  * @param {Neo.core.Base} mixinProto
+ * @param {Object}        classConfig
  * @returns {Function}
  * @private
  */
-function mixinProperty(proto, mixinProto) {
-    return function(key) {
-        if (~ignoreMixin.indexOf(key)) {
+function mixinProperty(proto, mixinProto, classConfig) {
+    return function([key, descriptor]) {
+        if (ignoreMixin.includes(key)) return;
+
+        // Mixins must not override existing class properties with a setter
+        if (Neo.hasPropertySetter(proto, key)) return;
+
+        // Reactive neo configs, or public class fields defined via get() AND set()
+        if (descriptor.get && descriptor.set) {
+            autoGenerateGetSet(proto, key);
+
+            const mixinClassConfig = mixinProto.constructor.config;
+
+            if (Object.hasOwn(mixinClassConfig, key)) {
+                classConfig[key] = mixinClassConfig[key];
+            }
+
             return
         }
 
@@ -879,7 +1027,7 @@ function parseArrayFromString(str) {
     )
 }
 
-Neo.config = Neo.config || {};
+Neo.config ??= {};
 
 Neo.assignDefaults(Neo.config, DefaultConfig);
 

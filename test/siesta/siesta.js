@@ -17,8 +17,40 @@ project.configure({
 });
 
 project.plan(
+    {
+        group: 'neo',
+        items: [
+            'tests/neo/MixinStaticConfig.mjs'
+        ]
+    },
     'tests/ClassConfigsAndFields.mjs',
     'tests/ClassSystem.mjs',
+    {
+        group: 'core',
+        items: [
+            'tests/core/Effect.mjs'
+        ]
+    },
+    {
+        group: 'config',
+        items: [
+            'tests/config/Basic.mjs',
+            'tests/config/Hierarchy.mjs',
+            'tests/config/MultiLevelHierarchy.mjs',
+            'tests/config/CustomFunctions.mjs',
+            'tests/config/AfterSetConfig.mjs',
+            'tests/config/MemoryLeak.mjs',
+            'tests/config/CircularDependencies.mjs',
+            'tests/core/EffectBatching.mjs'
+        ]
+    },
+    {
+        group: 'state',
+        items: [
+            'tests/state/createHierarchicalDataProxy.mjs',
+            'tests/state/Provider.mjs'
+        ]
+    },
     'tests/CollectionBase.mjs',
     'tests/ManagerInstance.mjs',
     'tests/Rectangle.mjs',
