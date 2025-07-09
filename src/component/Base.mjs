@@ -2041,9 +2041,9 @@ class Component extends Base {
         let config = super.mergeConfig(...args),
             vdom   = config.vdom || config._vdom || {};
 
-        // It should be possible to modify the vdom on instance level.
+        // It should be possible to modify root level vdom attributes on instance level.
         // Note that vdom is not a real config, but implemented via get() & set().
-        this._vdom = Neo.merge(Neo.clone(this._vdom, true) || {}, Neo.clone(vdom, true));
+        this._vdom = Neo.clone({...vdom, ...this._vdom || {}}, true);
 
         delete config._vdom;
         delete config.vdom;
