@@ -1956,6 +1956,14 @@ class Component extends Base {
     }
 
     /**
+     * @param args
+     */
+    initConfig(...args) {
+        super.initConfig(...args);
+        this.getStateProvider()?.createBindings(this)
+    }
+
+    /**
      * Check if this component or any of its parents is floating
      * @returns {Boolean}
      */
