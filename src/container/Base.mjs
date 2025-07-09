@@ -92,7 +92,11 @@ class Container extends Component {
          *     ]
          * });
          */
-        items_: [],
+        items_: {
+            [isDescriptor]: true,
+            isEqual       : () => false,
+            value         : []
+        },
         /**
          * It is crucial to define a layout before the container does get rendered.
          * Meaning: onConstructed() is the latest life-cycle point.
