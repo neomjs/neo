@@ -15,12 +15,13 @@ import {isDescriptor} from './ConfigSymbols.mjs';
 class Config {
     /**
      * A Set to store callback functions that subscribe to changes in this config's value.
+     * @member {Object} #subscribers={}
      * @private
      */
     #subscribers = {}
     /**
      * The internal value of the config property.
-     * @member #value
+     * @member {*} #value
      * @private
      */
     #value
