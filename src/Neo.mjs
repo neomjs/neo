@@ -946,10 +946,8 @@ function mixinProperty(proto, mixinProto, classConfig) {
     return function([key, descriptor]) {
         if (ignoreMixin.includes(key)) return;
 
-        const classDescriptor = Object.getOwnPropertyDescriptor(proto, key);
-
-        // Mixins must not override existing class properties
-        if (classDescriptor) return;
+        // Mixins must not override existing class properties with a setter
+        if (Neo.hasPropertySetter(proto, key)) return;
 
         // Reactive neo configs, or public class fields defined via get() AND set()
         if (descriptor.get && descriptor.set) {
