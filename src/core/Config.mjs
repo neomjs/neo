@@ -29,25 +29,24 @@ class Config {
      * Supported values: 'deep', 'shallow', 'none'.
      * @member {String} clone='deep'
      */
-    clone = 'deep'
+
     /**
      * The cloning strategy to use when getting a value.
      * Supported values: 'deep', 'shallow', 'none'.
      * @member {String} cloneOnGet=null
      */
-    cloneOnGet = null
+
     /**
      * The function used to compare new and old values for equality.
      * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
      * @member {Function} isEqual=Neo.isEqual
      */
-    isEqual = Neo.isEqual
+
     /**
      * The strategy to use when merging new values into this config.
      * Defaults to 'replace'. Can be overridden via a descriptor merge property.
      * @member {Function|String} mergeStrategy='replace'
      */
-    mergeStrategy = 'replace'
 
     /**
      * Creates an instance of Config.
@@ -86,18 +85,29 @@ class Config {
     initDescriptor({clone, cloneOnGet, isEqual, merge}) {
         let me = this;
 
-        if (clone) {
-            me.clone = clone;
+        if (clone && clone !== me.clone) {
+            Object.defineProperty(me, 'clone', {
+                value: clone, writable: true, configurable: true, enumerable: true
+            })
         }
 
-        me.cloneOnGet = cloneOnGet;
-
-        if (me.cloneOnGet === undefined) {
-            me.cloneOnGet = me.clone === 'none' ? 'none' : 'shallow';
+        if (cloneOnGet && cloneOnGet !== me.cloneOnGet) {
+            Object.defineProperty(me, 'cloneOnGet', {
+                value: cloneOnGet, writable: true, configurable: true, enumerable: true
+            })
         }
 
-        me.isEqual       = isEqual || me.isEqual;
-        me.mergeStrategy = merge   || me.mergeStrategy
+        if (isEqual && isEqual !== me.isEqual) {
+            Object.defineProperty(me, 'isEqual', {
+                value: isEqual, writable: true, configurable: true, enumerable: true
+            })
+        }
+
+        if (merge && merge !== me.mergeStrategy) {
+            Object.defineProperty(me, 'mergeStrategy', {
+                value: merge, writable: true, configurable: true, enumerable: true
+            })
+        }
     }
 
     /**
@@ -186,6 +196,33 @@ class Config {
         }
     }
 }
+
+Object.defineProperties(Config.prototype, {
+    clone: {
+        value: 'deep',
+        writable: false,
+        configurable: true,
+        enumerable: false
+    },
+    cloneOnGet: {
+        value: null,
+        writable: false,
+        configurable: true,
+        enumerable: false
+    },
+    isEqual: {
+        value: Neo.isEqual,
+        writable: false,
+        configurable: true,
+        enumerable: false
+    },
+    mergeStrategy: {
+        value: 'replace',
+        writable: false,
+        configurable: true,
+        enumerable: false
+    }
+});
 
 const ns = Neo.ns('Neo.core', true);
 ns.Config = Config;
