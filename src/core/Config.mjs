@@ -198,30 +198,10 @@ class Config {
 }
 
 Object.defineProperties(Config.prototype, {
-    clone        : {
-        configurable: true,
-        enumerable  : false,
-        value       : 'deep',
-        writable    : false
-    },
-    cloneOnGet   : {
-        configurable: true,
-        enumerable  : false,
-        value       : null,
-        writable    : false
-    },
-    isEqual      : {
-        configurable: true,
-        enumerable  : false,
-        value       : Neo.isEqual,
-        writable    : false
-    },
-    mergeStrategy: {
-        configurable: true,
-        enumerable  : false,
-        value       : 'replace',
-        writable    : false
-    }
+    clone        : {configurable: true, enumerable: false, value: 'deep',      writable: false},
+    cloneOnGet   : {configurable: true, enumerable: false, value: null,        writable: false},
+    isEqual      : {configurable: true, enumerable: false, value: Neo.isEqual, writable: false},
+    mergeStrategy: {configurable: true, enumerable: false, value: 'replace',   writable: false}
 });
 
 const ns = Neo.ns('Neo.core', true);
