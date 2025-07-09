@@ -94,6 +94,8 @@ class Container extends Component {
          */
         items_: {
             [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
             isEqual       : () => false,
             value         : []
         },

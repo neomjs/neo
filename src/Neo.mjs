@@ -790,16 +790,33 @@ function autoGenerateGetSet(proto, key) {
         Neo[getSetCache][key] = {
             get() {
                 let me        = this,
+                    config    = me.getConfig(key),
                     hasNewKey = Object.hasOwn(me[configSymbol], key),
                     newKey    = me[configSymbol][key],
                     value     = hasNewKey ? newKey : me[_key];
 
-                if (Array.isArray(value)) {
-                    if (key !== 'items') {
-                        value = [...value]
+                if (value instanceof Date) {
+                    value = new Date(value.valueOf());
+                }
+                // new, explicit opt-in path
+                else if (config.cloneOnGet) {
+                    const {cloneOnGet} = config;
+
+                    if (cloneOnGet === 'deep') {
+                        value = Neo.clone(value, true, true);
+                    } else if (cloneOnGet === 'shallow') {
+                        const type = Neo.typeOf(value);
+
+                        if (type === 'Array') {
+                            value = [...value];
+                        } else if (type === 'Object') {
+                            value = {...value};
+                        }
                     }
-                } else if (value instanceof Date) {
-                    value = new Date(value.valueOf())
+                }
+                // legacy behavior
+                else if (Array.isArray(value)) {
+                    value = [...value];
                 }
 
                 if (hasNewKey) {
@@ -833,8 +850,13 @@ function autoGenerateGetSet(proto, key) {
                 // recursively re-triggering this setter.
                 delete me[configSymbol][key];
 
-                if (key !== 'items' && key !== 'vnode') {
-                    value = Neo.clone(value, true, true)
+                switch (config.clone) {
+                    case 'deep':
+                        value = Neo.clone(value, true, true);
+                        break;
+                    case 'shallow':
+                        value = Neo.clone(value, false, true);
+                        break;
                 }
 
                 // 2. Create a temporary state for beforeSet hooks:

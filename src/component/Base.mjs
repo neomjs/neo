@@ -389,6 +389,8 @@ class Component extends Base {
          */
         vnode_: {
             [isDescriptor]: true,
+            clone         : 'none',
+            cloneOnGet    : 'none',
             isEqual       : (a, b) => a === b, // vnode trees can be huge, and will get compared by the vdom worker.
             value         : null,
         },

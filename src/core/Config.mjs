@@ -25,6 +25,18 @@ class Config {
      */
     #value
     /**
+     * The cloning strategy to use when setting a new value.
+     * Supported values: 'deep', 'shallow', 'none'.
+     * @member {String} clone='deep'
+     */
+    clone = 'deep'
+    /**
+     * The cloning strategy to use when getting a value.
+     * Supported values: 'deep', 'shallow', 'none'.
+     * @member {String} cloneOnGet=null
+     */
+    cloneOnGet = null
+    /**
      * The function used to compare new and old values for equality.
      * Defaults to `Neo.isEqual`. Can be overridden via a descriptor.
      * @member {Function} isEqual=Neo.isEqual
@@ -62,15 +74,27 @@ class Config {
 
     /**
      * Initializes the `Config` instance using a descriptor object.
-     * Extracts `mergeStrategy` and `isEqual` from the descriptor.
+     * Extracts `clone`, `mergeStrategy` and `isEqual` from the descriptor.
      * The internal `#value` is NOT set by this method.
      * @param {Object}   descriptor                       - The descriptor object for the config.
      * @param {any}      descriptor.value                 - The default value for the config (not set by this method).
+     * @param {string}   [descriptor.clone='deep']        - The clone strategy for set.
+     * @param {string}   [descriptor.cloneOnGet]          - The clone strategy for get. Defaults to 'shallow' if clone is 'deep' or 'shallow', and 'none' if clone is 'none'.
      * @param {string}   [descriptor.merge='deep']        - The merge strategy.
      * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
      */
-    initDescriptor({isEqual, merge}) {
+    initDescriptor({clone, cloneOnGet, isEqual, merge}) {
         let me = this;
+
+        if (clone) {
+            me.clone = clone;
+        }
+
+        me.cloneOnGet = cloneOnGet;
+
+        if (me.cloneOnGet === undefined) {
+            me.cloneOnGet = me.clone === 'none' ? 'none' : 'shallow';
+        }
 
         me.isEqual       = isEqual || me.isEqual;
         me.mergeStrategy = merge   || me.mergeStrategy
