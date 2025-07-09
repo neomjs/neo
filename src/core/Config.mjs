@@ -164,8 +164,8 @@ class Config {
     /**
      * Subscribes a callback function to changes in this config's value.
      * The callback will be invoked with `(newValue, oldValue)` whenever the config changes.
-     * @param {Object} options      - An object containing the subscription details.
-     * @param {String} options.id   - The ID of the subscription owner (e.g., a Neo.core.Base instance's id).
+     * @param {Object}   options    - An object containing the subscription details.
+     * @param {String}   options.id - The ID of the subscription owner (e.g., a Neo.core.Base instance's id).
      * @param {Function} options.fn - The callback function.
      * @returns {Function} A cleanup function to unsubscribe the callback.
      */
