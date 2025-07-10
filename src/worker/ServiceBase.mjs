@@ -175,6 +175,8 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     async onActivate(event) {
+        await globalThis.clients.claim();
+
         console.log('onActivate', event);
 
         let me   = this,
@@ -229,7 +231,8 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
-        console.log('onInstall', event)
+        console.log('onInstall', event);
+        globalThis.skipWaiting();
     }
 
     /**
