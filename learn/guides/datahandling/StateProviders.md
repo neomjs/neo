@@ -52,8 +52,7 @@ all its parents).
     Whenever `data.hello` changes, the `Effect` re-runs, re-evaluates the
     formatter, and updates the component's `text` config.
 
-*   **Formulas (`formulas` config):** Similarly, for `formulas` defined in a
-    State Provider, each formula function is wrapped in an `Effect`. When the
+*   **Formulas (`formulas` config):** These are effect-based computed properties. Each formula function is wrapped in an `Effect`. When the
     formula accesses data (e.g., `data.a + data.b`), the `Effect` tracks `data.a`
     and `data.b` as dependencies. If either changes, the `Effect` re-runs the
     formula, and its computed result is automatically updated in the State Provider's
@@ -317,7 +316,64 @@ Or we can directly pass the object containing the change(s):</br>
 
 Hint: This will not override left out nested data props (lastname in this case).
 
+### Formulas in Action
+
+```javascript live-preview
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Guides.vmFormula.MainView',
+        stateProvider: {
+            data: {
+                price   : 10,
+                quantity: 2
+            },
+            formulas: {
+                total          : (data) => data.price * data.quantity,
+                discountedTotal: (data) => data.total * 0.9 // 10% discount
+            }
+        },
+        itemDefaults: {
+            module: Label,
+            style : {margin: '.5em 1em'}
+        },
+        items: [{
+            bind: {text: data => `Price: ${data.price}`}
+        }, {
+            bind: {text: data => `Quantity: ${data.quantity}`}
+        }, {
+            bind: {text: data => `Total: ${data.total}`}
+        }, {
+            bind: {text: data => `Discounted Total (10% off): ${data.discountedTotal.toFixed(2)}`}
+        }, {
+            module : Button,
+            handler: data => data.component.setState({price: data.component.getStateProvider().data.price + 1}),
+            text   : 'Increase Price'
+        }, {
+            module : Button,
+            handler: data => data.component.setState({quantity: data.component.getStateProvider().data.quantity + 1}),
+            text   : 'Increase Quantity'
+        }],
+        layout: {ntype: 'vbox', align: 'start'}
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+This example demonstrates how formulas automatically react to changes in their dependencies.
+
+* We define `price` and `quantity` in the `data` config.
+  The `total` formula computes `data.price * data.quantity`.
+  The `discountedTotal` formula then computes `data.total * 0.9`.
+
+* When you click the "Increase Price" or "Increase Quantity" buttons, you'll observe that
+  `Total` and `Discounted Total` labels update automatically, showcasing the
+  effect-based reactivity of formulas.
+
 ### Dialog connecting to a Container
+
 ```javascript live-preview
 import Controller from '../controller/Component.mjs';
 import Dialog     from '../dialog/Base.mjs';
@@ -438,9 +494,11 @@ MainView = Neo.setupClass(MainView);
 ```
 
 ## Class based State Providers
+
 When your stateProviders contain many data props or need custom logic, you can easily move them into their own classes.
 
 ### Direct Bindings
+
 ```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
@@ -572,9 +630,7 @@ class MainViewStateProvider extends StateProvider {
                     {value: 30}
                 ]
             }
-        },
-
-        
+        }
     }
 }
 MainViewStateProvider = Neo.setupClass(MainViewStateProvider);
