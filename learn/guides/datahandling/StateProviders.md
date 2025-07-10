@@ -312,9 +312,16 @@ We can update a nested data prop with passing its path:</br>
 `data => data.component.setState({'user.lastname': 'Rahder'})`
 
 Or we can directly pass the object containing the change(s):</br>
-`data => data.component.setState({user: {firstname: 'Max'}})`
+`data => data.component.setState({user: {firstname: 'Max'}})`</br>
+**Hint:** This will not override left out nested data props (lastname in this case).</br>
+**Hint:** This is the recommended way for bulk state changes.
 
-Hint: This will not override left out nested data props (lastname in this case).
+***You can also directly change state data***
+
+`data => data.component.setStateProvider().data.user.firstname = 'Max'`
+
+Shorthand syntax:</br>
+`data => data.component.data.user.firstname = 'Max'`
 
 ### Formulas in Action
 
