@@ -357,12 +357,12 @@ class MainView extends Container {
             bind: {text: data => `Discounted Total (10% off): ${data.discountedTotal.toFixed(2)}`}
         }, {
             module : Button,
-            handler: data => data.component.getStateProvider().data.price++,
+            handler: event => event.component.getStateProvider().data.price++,
             text   : 'Increase Price'
         }, {
             module : Button,
             // Shorthand syntax. Less descriptive, but works fine too.
-            handler: data => data.component.data.quantity++,
+            handler: event => event.component.data.quantity++,
             text   : 'Increase Quantity'
         }],
         layout: {ntype: 'vbox', align: 'start'}
