@@ -30,6 +30,20 @@ function createNestedProxy(rootProvider, path) {
                 return undefined; // For other non-string/non-number properties, return undefined.
             }
 
+            // Special handling for the 'stores' property at the root level
+            if (path === '' && property === 'stores') {
+                return new Proxy({}, {
+                    get(target, storeName) {
+                        if (typeof storeName === 'symbol' || storeName === '__REFADR__') {
+                            return Reflect.get(target, storeName);
+                        }
+                        // Delegate to the StateProvider's getStore method for hierarchical resolution
+                        // Accessing store.count later will register the dependency via the Config system
+                        return rootProvider.getStore(storeName);
+                    }
+                });
+            }
+
             const fullPath = path ? `${path}.${property}` : property;
 
             // 1. Check if the full path corresponds to an actual data property.
