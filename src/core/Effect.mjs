@@ -123,4 +123,9 @@ class Effect {
 const ns = Neo.ns('Neo.core', true);
 ns.Effect = Effect;
 
+// Register a shortcut to the Neo namespace
+Neo.effect = function(fn) {
+    return new Effect(fn)
+}
+
 export default Effect;
