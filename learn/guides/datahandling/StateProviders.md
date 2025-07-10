@@ -332,8 +332,8 @@ class MainView extends Container {
                 quantity: 2
             },
             formulas: {
-                total          : (data) => data.price * data.quantity,
-                discountedTotal: (data) => data.total * 0.9 // 10% discount
+                total          : data => data.price * data.quantity,
+                discountedTotal: data => data.total * 0.9 // 10% discount
             }
         },
         itemDefaults: {
@@ -350,11 +350,12 @@ class MainView extends Container {
             bind: {text: data => `Discounted Total (10% off): ${data.discountedTotal.toFixed(2)}`}
         }, {
             module : Button,
-            handler: data => data.component.setState({price: data.component.getStateProvider().data.price + 1}),
+            handler: data => data.component.getStateProvider().data.price++,
             text   : 'Increase Price'
         }, {
             module : Button,
-            handler: data => data.component.setState({quantity: data.component.getStateProvider().data.quantity + 1}),
+            // Shorthand syntax. Less descriptive, but works fine too.
+            handler: data => data.component.data.quantity++,
             text   : 'Increase Quantity'
         }],
         layout: {ntype: 'vbox', align: 'start'}
