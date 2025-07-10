@@ -162,19 +162,17 @@ class Provider extends Base {
         if (value) {
             Object.entries(value).forEach(([formulaKey, formulaFn]) => {
                 // Create a new Effect for each formula. The Effect's fn will re-run whenever its dependencies change.
-                const effect = new Effect({
-                    fn: () => {
-                        const
-                            hierarchicalData = me.getHierarchyData(), // Get the reactive data proxy
-                            result           = formulaFn(hierarchicalData); // Execute the formula with the data
+                const effect = new Effect(() => {
+                    const
+                        hierarchicalData = me.getHierarchyData(), // Get the reactive data proxy
+                        result           = formulaFn(hierarchicalData); // Execute the formula with the data
 
-                        // Assign the result back to the state provider's data.
-                        // This makes the formula's output available as a data property.
-                        if (isNaN(result)) {
-                            me.setData(formulaKey, null)
-                        } else {
-                            me.setData(formulaKey, result)
-                        }
+                    // Assign the result back to the state provider's data.
+                    // This makes the formula's output available as a data property.
+                    if (isNaN(result)) {
+                        me.setData(formulaKey, null)
+                    } else {
+                        me.setData(formulaKey, result)
                     }
                 });
 
@@ -223,23 +221,21 @@ class Provider extends Base {
      * @param {String} configKey The component config to bind (e.g., 'text').
      * @param {String|Function} formatter The function that computes the value.
      */
-    createBinding(componentId, configKey, key, isTwoWay) {
+    createBinding(componentId, configKey, formatter) {
         const
             me     = this,
-            effect = new Effect({
-            fn: () => {
+            effect = new Effect(() => {
                 const component = Neo.get(componentId);
 
                 if (component && !component.isDestroyed) {
                     const
                         hierarchicalData = me.getHierarchyData(),
-                        newValue         = Neo.isFunction(key) ? key.call(me, hierarchicalData) : hierarchicalData[key];
+                        newValue         = Neo.isFunction(formatter) ? formatter.call(me, hierarchicalData) : hierarchicalData[formatter];
 
                     component._skipTwoWayPush = configKey;
                     component[configKey] = newValue;
                     delete component._skipTwoWayPush
                 }
-            }
         });
 
         me.#bindingEffects.set(componentId, effect);

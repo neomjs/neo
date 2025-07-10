@@ -71,11 +71,11 @@ Instead of fragmented hooks, the entire VDOM is generated within a `Neo.core.Eff
 ```javascript readonly
 // button.Effect - The "Template Method"
 createVdomEffect() {
-    return new Effect({fn: () => {
+    return new Effect(() => {
         // The effect's only job is to get the config and trigger an update.
         this._vdom = this.getVdomConfig();
         this.update();
-    }});
+    });
 }
 
 // The main VDOM builder

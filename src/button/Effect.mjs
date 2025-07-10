@@ -160,11 +160,11 @@ class EffectButton extends Component {
      * @protected
      */
     createVdomEffect() {
-        return new Effect({fn: () => {
+        return new Effect(() => {
             // The effect's only job is to get the config and trigger an update.
             this._vdom = this.getVdomConfig();
             this.update();
-        }});
+        })
     }
 
     /**

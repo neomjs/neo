@@ -51,10 +51,9 @@ class Effect {
     }
 
     /**
-     * @param {Object} config
-     * @param {Function} config.fn The function to execute for the effect.
+     * @param {Function} fn The function to execute for the effect.
      */
-    constructor({fn}) {
+    constructor(fn) {
         this.fn = fn
     }
 

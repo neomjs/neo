@@ -6,8 +6,8 @@ import Config        from '../../../../src/core/Config.mjs';
 
 StartTest(t => {
     t.it('EffectManager should manage active effects', t => {
-        const effect1 = new Effect({fn: () => {}});
-        const effect2 = new Effect({fn: () => {}});
+        const effect1 = new Effect(() => {});
+        const effect2 = new Effect(() => {});
 
         t.is(EffectManager.getActiveEffect(), null, 'No active effect initially');
 
@@ -38,13 +38,11 @@ StartTest(t => {
         t.is(configB,    configB, 'configB is strictly equal to itself');
         t.isNot(configA, configB, 'configA is not strictly equal to configB');
 
-        const effect = new Effect({
-            fn: () => {
-                runCount++;
-                // Access configs to register them as dependencies
-                sum = configA.get() + configB.get();
-                t.pass(`Effect ran. Sum: ${sum}`);
-            }
+        const effect = new Effect(() => {
+            runCount++;
+            // Access configs to register them as dependencies
+            sum = configA.get() + configB.get();
+            t.pass(`Effect ran. Sum: ${sum}`);
         });
 
         t.is(runCount,                  1, 'Effect function ran once on creation');
@@ -82,11 +80,9 @@ StartTest(t => {
         const configY = new Config('Y');
 
         // Initial effect: depends on configX
-        const effect = new Effect({
-            fn: () => {
-                runCount++;
-                t.is(configX.get(), 'X', 'Effect ran (1st): configX value');
-            }
+        const effect = new Effect(() => {
+            runCount++;
+            t.is(configX.get(), 'X', 'Effect ran (1st): configX value');
         });
 
         t.is(runCount,                 1, 'Effect ran once initially');
