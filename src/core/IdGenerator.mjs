@@ -1,44 +1,17 @@
 /**
- * This class gets used by core.Base, so it can not extend it.
- * It could get simplified to just being an object (needs to manually get put into the Neo namespace in this case).
- * @class Neo.core.IdGenerator
- * @singleton
+ * Provides a singleton utility for generating unique IDs.
+ * @namespace Neo.core.IdGenerator
  */
-class IdGenerator {
-    static config = {
-        /**
-         * @member {String} className='Neo.core.IdGenerator'
-         * @protected
-         */
-        className: 'Neo.core.IdGenerator',
-        /**
-         * @member {String} ntype='id-generator'
-         * @protected
-         */
-        ntype: 'id-generator',
-        /**
-         * The default prefix for neo instance ids
-         * @member {String} base='neo-'
-         */
-        base: 'neo-',
-        /**
-         * @member {Boolean} singleton='true
-         * @protected
-         */
-        singleton: true
-    }
-
+const IdGenerator = {
     /**
-     * @param config
+     * The default prefix for neo instance ids
+     * @member {String} base='neo-'
      */
-    construct(config) {
-        let me = this;
-
-        me.idCounter = {};
-
-        // alias
-        Neo.getId = me.getId.bind(me);
-    }
+    base: 'neo-',
+    /**
+     * @member {Object} idCounter={}
+     */
+    idCounter: {},
 
     /**
      * @param name
@@ -55,12 +28,11 @@ class IdGenerator {
 
         return me.base + (name === 'neo' ? '' : name + '-') + count;
     }
-
-    init() {}
-
-    onAfterConstructed() {}
-
-    onConstructed() {}
 }
 
-export default Neo.setupClass(IdGenerator);
+const ns = Neo.ns('Neo.core', true);
+ns.IdGenerator = IdGenerator;
+
+Neo.getId = IdGenerator.getId.bind(IdGenerator);
+
+export default IdGenerator;
