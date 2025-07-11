@@ -1,17 +1,18 @@
+#!/usr/bin/env node
+
 /**
  * @file checkReactiveTags.mjs
  * @description This script identifies and reports reactive configuration properties
  *              that are missing the `@reactive` JSDoc tag.
  *              It builds a class inheritance graph and determines reactivity based
  *              on direct definition (trailing underscore) or inheritance from a parent class.
- *              
+ *
  *              This is a **diagnostic tool** used to verify documentation completeness.
- * 
+ *
  * @usage `npm run check-reactive-tags`
  * @requires `docs/output/all.json` to be up-to-date (run `npm run generate-docs-json` first).
  * @author Gemini
  */
-#!/usr/bin/env node
 
 import fs from 'fs-extra';
 import path from 'path';

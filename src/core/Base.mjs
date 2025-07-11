@@ -102,6 +102,7 @@ class Base {
         /**
          * The unique component id
          * @member {String|null} id_=null
+         * @reactive
          */
         id_: null,
         /**
@@ -123,6 +124,7 @@ class Base {
          * Effects can observe this config to clean themselves up.
          * @member {Boolean} isDestroying_=false
          * @protected
+         * @reactive
          */
         isDestroying_: false,
         /**
@@ -131,6 +133,7 @@ class Base {
          * Since not all classes use the Observable mixin, Neo will not fire an event.
          * method body.
          * @member {Boolean} isReady_=false
+         * @reactive
          */
         isReady_: false,
         /**
@@ -152,6 +155,7 @@ class Base {
          *
          * @member {Object|null} remote_=null
          * @protected
+         * @reactive
          */
         remote_: null
     }

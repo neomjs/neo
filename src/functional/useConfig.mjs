@@ -9,7 +9,7 @@ const
  * A hook for managing reactive state within a functional component's `createVdom` method.
  * It mirrors the behavior of React's `useState` but is powered by `Neo.core.Config` for reactivity.
  * @param {*} initialValue The initial value for the state.
- * @returns {[*, Function]} A tuple containing the current value and a setter function.
+ * @returns {Array<any>} A tuple containing the current value and a setter function.
  */
 export function useConfig(initialValue) {
     const

@@ -1,19 +1,20 @@
+#!/usr/bin/env node
+
 /**
  * @file addReactiveTags.mjs
  * @description This script automates the process of adding the `@reactive` JSDoc tag
  *              to reactive configuration properties in source files.
  *              It identifies reactive configs (considering inheritance) that are missing
  *              the tag and inserts it into their JSDoc comment blocks.
- *              
+ *
  *              This is an **automation tool** used to fix documentation.
- * 
+ *
  * @usage `npm run add-reactive-tags`
  * @requires `docs/output/all.json` to be up-to-date (run `npm run generate-docs-json` first).
  * @warning After running this script, you **must** re-run your documentation build script
  *          (`npm run generate-docs-json`) to update `docs/output/all.json`.
  * @author Gemini
  */
-#!/usr/bin/env node
 
 import fs from 'fs-extra';
 import path from 'path';
