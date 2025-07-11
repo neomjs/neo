@@ -79,7 +79,7 @@ class FunctionalBase extends Base {
             // allowing the public vdom setter (via afterSetVdom) to manage the update cycle.
             me._vdom = me.createVdom(me, me.data);
             me.update()
-        }, me.id);
+        }, me.id)
     }
 
     /**
