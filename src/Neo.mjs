@@ -496,11 +496,33 @@ Neo = globalThis.Neo = Object.assign({
      */
 
     /**
-     * Internally used at the end of each class / module definition
+     * This is the final and most critical step in the Neo.mjs class creation process.
+     * It is called at the end of every class module definition.
+     *
+     * `setupClass` performs several key operations:
+     * 1.  **Configuration Merging:** It traverses the prototype chain to merge `static config`
+     *     objects from parent classes into the current class, creating a unified `config`.
+     * 2.  **Applying Overwrites:** It calls the static `applyOverwrites()` method on the class,
+     *     allowing the global `Neo.overwrites` object to modify the class's default prototype
+     *     configs. This is a key mechanism for external theming and configuration.
+     * 3.  **Reactive Getter/Setter Generation:** For any config ending with an underscore (e.g., `myConfig_`),
+     *     it automatically generates the corresponding public getter and setter. This enables optional
+     *     lifecycle hooks that are called automatically if implemented on the class:
+     *     - `beforeGetMyConfig(value)`
+     *     - `beforeSetMyConfig(newValue, oldValue)`
+     *     - `afterSetMyConfig(newValue, oldValue)`
+     * 4.  **Prototype-based Configs:** Non-reactive configs (without an underscore) are set
+     *     directly on the prototype for memory efficiency.
+     * 5.  **Mixin Application:** It processes the `mixins` config to blend in functionality from
+     *     other classes.
+     * 6.  **Namespace Registration:** It registers the class in the global `Neo` namespace.
+     * 7.  **Singleton Instantiation:** If the class is configured as a singleton, it creates the
+     *     single instance.
+     *
      * @memberOf module:Neo
      * @template T
-     * @param {T} cls
-     * @returns {T}
+     * @param {T} cls The class constructor to process.
+     * @returns {T} The processed and finalized class constructor or singleton instance.
      */
     setupClass(cls) {
         let baseConfig            = null,

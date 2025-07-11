@@ -13,9 +13,10 @@ import FunctionalBase from './component/Base.mjs';
  * import { useConfig }       from 'neo/functional/useConfig.mjs';
  *
  * const MyComponent = defineComponent({
- *     // 1. Static properties are defined first for a clear mental model.
- *     // This object is directly used as the class's `static config`.
- *     static: {
+ *     // 1. The `config` object directly defines the class's `static config`.
+ *     // This is where you set the className, ntype, and all default values
+ *     // for your component's reactive (e.g., `text_`) and non-reactive (e.g., `className`) configs.
+ *     config: {
  *         className: 'MyApp.MyFunctionalComponent',
  *         ntype    : 'my-functional-component',
  *
@@ -24,7 +25,7 @@ import FunctionalBase from './component/Base.mjs';
  *         text_: 'Hello World'
  *     },
  *
- *     // 2. Methods (instance logic) follow the static definition.
+ *     // 2. Methods (instance logic) follow the config definition.
  *     createVdom(config) {
  *         const [count, setCount] = useConfig(0);
  *
@@ -59,16 +60,16 @@ import FunctionalBase from './component/Base.mjs';
  * // });
  */
 export function defineComponent(spec) {
-    const staticSpec = spec.static;
-    delete spec.static;
+    const configSpec = spec.config;
+    delete spec.config;
 
-    if (!staticSpec?.className) {
-        throw new Error('defineComponent requires a static config with a className.');
+    if (!configSpec?.className) {
+        throw new Error('defineComponent requires a config object with a className.');
     }
 
     class FunctionalComponent extends FunctionalBase {
         static config = {
-            ...staticSpec
+            ...configSpec
             // We can add our own configurations here
         }
     }
