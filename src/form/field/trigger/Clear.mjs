@@ -24,6 +24,7 @@ class Clear extends Base {
         baseCls: ['neo-field-trigger', 'neo-trigger-clear'],
         /**
          * @member {String|null} iconCls='fa fa-times'
+         * @reactive
          */
         iconCls: 'fa fa-times',
         /**
@@ -34,6 +35,7 @@ class Clear extends Base {
         type: 'clear',
         /**
          * @member {Number} weight_=20
+         * @reactive
          */
         weight: 20
     }

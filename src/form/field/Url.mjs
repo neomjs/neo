@@ -24,15 +24,18 @@ class Url extends Text {
         errorTextInputPattern: data => 'Not a valid URL',
         /**
          * @member {RegExp|null} inputPattern=/^(https?:\/\/)?(([a-zA-Z0-9_-]+\.)*([a-zA-Z0-9_-]+\.[a-zA-Z]{2,}))(\/([a-zA-Z0-9._-]+)\/?)*$/
+         * @reactive
          */
         inputPattern: /^(https?:\/\/)?(([a-zA-Z0-9_-]+\.)*([a-zA-Z0-9_-]+\.[a-zA-Z]{2,}))(\/([a-zA-Z0-9._-]+)\/?)*$/,
         /**
          * @member {Boolean} inputPatternDOM=false
+         * @reactive
          */
         inputPatternDOM: false,
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='url'
+         * @reactive
          */
         inputType: 'url'
     }

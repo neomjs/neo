@@ -21,11 +21,13 @@ class AmChart extends Component {
         /**
          * See: https://www.amcharts.com/docs/v4/
          * @member {Object} chartConfig_=null
+         * @reactive
          */
         chartConfig_: null,
         /**
          * Stores the chart data
          * @member {Array|null} chartData_=null
+         * @reactive
          */
         chartData_: null,
         /**

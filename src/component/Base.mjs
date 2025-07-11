@@ -50,6 +50,7 @@ class Component extends Base {
          * The default alignment specification to position this Component relative to some other
          * Component, or Element or Rectangle. Only applies in case floating = true.
          * @member {Object|String} align_={[isDescriptor]: true, merge: 'deep', value: {edgeAlign: 't-b',constrainTo: 'document.body'}}
+         * @reactive
          */
         align_: {
             [isDescriptor]: true,
@@ -62,6 +63,7 @@ class Component extends Base {
         /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
+         * @reactive
          */
         appName_: null,
         /**
@@ -85,17 +87,20 @@ class Component extends Base {
          * Custom CSS selectors to apply to the root level node of this component
          * You can override baseCls to remove default selectors.
          * @member {String[]} cls_=null
+         * @reactive
          */
         cls_: null,
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
+         * @reactive
          */
         containsFocus_: false,
         /**
          * Assign a component controller to this component (pass an imported module or the string based class name)
          * @member {Neo.controller.Component|String} controller_=null
+         * @reactive
          */
         controller_: null,
         /**
@@ -103,11 +108,13 @@ class Component extends Base {
          * Read only.
          * @member {Object} data_=null
          * @protected
+         * @reactive
          */
         data_: null,
         /**
          * Disabled components will get the neo-disabled cls applied and won't receive DOM events
          * @member {Boolean} disabled_=false
+         * @reactive
          */
         disabled_: false,
         /**
@@ -124,11 +131,13 @@ class Component extends Base {
          *         )
          *    }
          *}
+         * @reactive
          */
         domListeners_: null,
         /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
+         * @reactive
          */
         droppable_: false,
         /**
@@ -159,23 +168,27 @@ class Component extends Base {
         /**
          * Shortcut for style.height, defaults to px
          * @member {Number|String|null} height_=null
+         * @reactive
          */
         height_: null,
         /**
          * Initial setting to hide or show the component and
          * you can use either hide()/show() or change this config directly to change the hidden state
          * @member {Boolean} hidden_=false
+         * @reactive
          */
         hidden_: false,
         /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
          * @member {String} hideMode_='removeDom'
+         * @reactive
          */
         hideMode_: 'removeDom',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
+         * @reactive
          */
         html_: null,
         /**
@@ -188,31 +201,37 @@ class Component extends Base {
          * Using the keys config will create an instance of Neo.util.KeyNavigation.
          * @see {@link Neo.util.KeyNavigation KeyNavigation}
          * @member {Object} keys_=null
+         * @reactive
          */
         keys_: null,
         /**
          * Gets used inside afterSetIsLoading() to define the CSS for the loading spinner icon
          * @member {String[]} loadingSpinnerCls_=['fa','fa-spinner','fa-spin']
+         * @reactive
          */
         loadingSpinnerCls_: ['fa', 'fa-spinner', 'fa-spin'],
         /**
          * Shortcut for style.maxHeight, defaults to px
          * @member {Number|String|null} maxHeight_=null
+         * @reactive
          */
         maxHeight_: null,
         /**
          * Shortcut for style.maxWidth, defaults to px
          * @member {Number|String|null} maxWidth_=null
+         * @reactive
          */
         maxWidth_: null,
         /**
          * Shortcut for style.minHeight, defaults to px
          * @member {Number|String|null} minHeight_=null
+         * @reactive
          */
         minHeight_: null,
         /**
          * Shortcut for style.minWidth, defaults to px
          * @member {Number|String|null} minWidth_=null
+         * @reactive
          */
         minWidth_: null,
         /**
@@ -231,17 +250,20 @@ class Component extends Base {
          * Use case: manually dropping components into a vdom structure
          * @member {Neo.component.Base|null} parentComponent_=null
          * @protected
+         * @reactive
          */
         parentComponent_: null,
         /**
          * The parent component id or document.body
          * @member {String} parentId_='document.body'
+         * @reactive
          */
         parentId_: 'document.body',
         /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
          * @protected
+         * @reactive
          */
         plugins_: null,
         /**
@@ -249,6 +271,7 @@ class Component extends Base {
          * References will also get mapped into the vdom root (data-ref: value).
          * @member {String|null} reference_=null
          * @protected
+         * @reactive
          */
         reference_: null,
         /**
@@ -262,6 +285,7 @@ class Component extends Base {
          * Specify a role tag attribute for the vdom root.
          * See: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
          * @member {String|null} role_=null
+         * @reactive
          */
         role_: null,
         /**
@@ -269,11 +293,13 @@ class Component extends Base {
          * Set this to 'x' or 'y' to add style 'overflow-x' or 'overflow-y' to 'auto'
          * Other than false this will add cls 'neo-scrollable'.
          * @member {Boolean|"x"|"y"} scrollable_=false
+         * @reactive
          */
         scrollable_: false,
         /**
          * Optionally add a state.Provider to share state data with child components
          * @member {Object|null} stateProvider_=null
+         * @reactive
          */
         stateProvider_: null,
         /**
@@ -289,6 +315,7 @@ class Component extends Base {
          * You can pass a used theme directly to any component,
          * to style specific component trees differently from your main view.
          * @member {String|null} theme_=null
+         * @reactive
          */
         theme_: null,
         /**
@@ -296,11 +323,13 @@ class Component extends Base {
          * this shortcut enables us to change the vdom root tag on instance level.
          * Use cases: switch a Toolbar to a "nav" tag, switch a SideNav to an "aside" tag.
          * @member {String|null} tag_=null
+         * @reactive
          */
         tag_: null,
         /**
          * The top level textContent of the component
          * @member {String|null} text_=null
+         * @reactive
          */
         text_: null,
         /**
@@ -313,30 +342,36 @@ class Component extends Base {
          * If a widget needs its own instance for any reason, inslude the property `ownInstance : true`
          * in the tooltip config object.
          * @member {Object|String} tooltip_=null
+         * @reactive
          */
         tooltip_: null,
         /**
          * Add 'primary' and other attributes to make it an outstanding design
          * @member {String|null} ui_=null
+         * @reactive
          */
         ui_: null,
         /**
          * Shortcut for style.width, defaults to px
          * @member {Number|String|null} width_=null
+         * @reactive
          */
         width_: null,
         /**
          * The custom windowIs (timestamp) this component belongs to
          * @member {Number|null} windowId_=null
+         * @reactive
          */
         windowId_: null,
         /**
          * @member {String[]|null} wrapperCls_=null
+         * @reactive
          */
         wrapperCls_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'shallow', value: null}
+         * @reactive
          */
         wrapperStyle_: {
             [isDescriptor]: true,

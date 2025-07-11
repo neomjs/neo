@@ -17,10 +17,12 @@ class CreateCommentComponent extends Component {
         baseCls: ['card', 'comment-form'],
         /**
          * @member {String|null} userImage_=null
+         * @reactive
          */
         userImage_: null,
         /**
          * @member {String|null} userName_=null
+         * @reactive
          */
         userName_: null,
         /**

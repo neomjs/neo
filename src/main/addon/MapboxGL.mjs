@@ -71,6 +71,7 @@ class MapboxGL extends Base {
         /**
          * @member {Boolean} scriptsLoaded_=true
          * @protected
+         * @reactive
          */
         scriptsLoaded_: false,
         /**

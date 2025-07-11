@@ -20,6 +20,7 @@ class Split extends Button {
         ntype: 'split-button',
         /**
          * @member {Boolean} hideTriggerButton_=false
+         * @reactive
          */
         hideTriggerButton_: false,
         /**
@@ -38,6 +39,7 @@ class Split extends Button {
         /**
          * The CSS class to use for the SplitButton icon, e.g. 'fa fa-home'
          * @member {String} triggerButtonCls_='fa fa-caret-down'
+         * @reactive
          */
         triggerButtonIconCls_: 'fa fa-caret-down',
         /**

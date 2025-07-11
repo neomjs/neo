@@ -41,6 +41,7 @@ class List extends BaseList {
         /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
+         * @reactive
          */
         items_: null,
         /**
@@ -48,6 +49,7 @@ class List extends BaseList {
          * Sub-menus will bubble focus changes to the top level.
          * @member {Boolean} menuFocus_=false
          * @protected
+         * @reactive
          */
         menuFocus_: false,
         /**
@@ -72,11 +74,13 @@ class List extends BaseList {
         /**
          * Value for the list.Base selectionModel_ config
          * @member {Neo.selection.menu.ListModel} selectionModel=ListModel
+         * @reactive
          */
         selectionModel: ListModel,
         /**
          * Value for the list.Base store_ config
          * @member {Neo.menu.Store} store=Store
+         * @reactive
          */
         store: Store,
         /**
@@ -94,6 +98,7 @@ class List extends BaseList {
         /**
          * We are applying a z-index style which is 1 number higher to each sub-menu
          * @member {Number} zIndex_=100
+         * @reactive
          */
         zIndex_: 100,
         /**
@@ -106,6 +111,7 @@ class List extends BaseList {
     /**
      * If the menu is floating, it will anchor itself to the parentRect
      * @member {Neo.component.Base|null} parentComponent=null
+     * @reactive
      */
     parentComponent = null
 

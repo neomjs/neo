@@ -24,14 +24,17 @@ class Legend extends Component {
         baseCls: ['neo-legend'],
         /**
          * @member {String} iconCls_='far fa-check'
+         * @reactive
          */
         iconCls_: 'far fa-check',
         /**
          * @member {String} text=''
+         * @reactive
          */
         text: '',
         /**
          * @member {Boolean} useIcon_=true
+         * @reactive
          */
         useIcon_: true,
         /**

@@ -43,15 +43,18 @@ class Circle extends Component {
         collapsed: true,
         /**
          * @member {Boolean} draggable_=true
+         * @reactive
          */
         draggable_: true,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys={}
+         * @reactive
          */
         keys: {},
         /**
          * @member {Number} innerRadius_=100
+         * @reactive
          */
         innerRadius_: 100,
         /**
@@ -65,48 +68,59 @@ class Circle extends Component {
         itemImagePath: null,
         /**
          * @member {Number} itemSize_=60
+         * @reactive
          */
         itemSize_: 60,
         /**
          * @member {Number} maxItems_=12
+         * @reactive
          */
         maxItems_: 12,
         /**
          * The amount in px which the outerRadius is bigger than the innerRadius
          * @member {Number} outerRadiusDelta_=10
+         * @reactive
          */
         outerRadiusDelta_: 10,
         /**
          * @member {Number} rotateX_=0
+         * @reactive
          */
         rotateX_: 0,
         /**
          * @member {Number} rotateY_=0
+         * @reactive
          */
         rotateY_: 0,
         /**
          * @member {Number} rotateZ_=0
+         * @reactive
          */
         rotateZ_: 0,
         /**
          * @member {Number} rotationIndex_=0
+         * @reactive
          */
         rotationIndex_: 0,
         /**
          * @member {Neo.selection.Model|null} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
          * @member {Neo.collection.Base|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
          * @member {String} title_='Circle 1'
+         * @reactive
          */
         title_: 'Circle 1',
         /**
          * The url for the store to load the data
          * @member {String} url_='../resources/examples/data/circles/group1.json'
+         * @reactive
          */
         url_: '../../resources/examples/data/circles/group1.json',
         /**

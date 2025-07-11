@@ -24,6 +24,7 @@ class Canvas extends Component {
          * Only applicable if offscreen === true.
          * true once the ownership of the canvas node got transferred to worker.Canvas.
          * @member {Boolean} offscreenRegistered_=false
+         * @reactive
          */
         offscreenRegistered_: false,
         /**

@@ -19,6 +19,7 @@ class HBox extends Flexbox {
         /**
          * @member {String} direction='row'
          * @protected
+         * @reactive
          */
         direction: 'row'
     }

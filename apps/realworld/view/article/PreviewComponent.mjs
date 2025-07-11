@@ -15,6 +15,7 @@ class PreviewComponent extends Component {
         className: 'RealWorld.view.article.PreviewComponent',
         /**
          * @member {String|null} author_=null
+         * @reactive
          */
         author_: null,
         /**
@@ -24,34 +25,42 @@ class PreviewComponent extends Component {
         /**
          * ISO 8601 timestamp
          * @member {String|null} createdAt_=null
+         * @reactive
          */
         createdAt_: null,
         /**
          * @member {String|null} description_=null
+         * @reactive
          */
         description_: null,
         /**
          * @member {Boolean} favorited_=false
+         * @reactive
          */
         favorited_: false,
         /**
          * @member {Number|null} favoritesCount_=null
+         * @reactive
          */
         favoritesCount_: null,
         /**
          * @member {String|null} slug_=null
+         * @reactive
          */
         slug_: null,
         /**
          * @member {Array|null} tagList_=null
+         * @reactive
          */
         tagList_: null,
         /**
          * @member {String|null} title_=null
+         * @reactive
          */
         title_: null,
         /**
          * @member {String|null} userImage_=null
+         * @reactive
          */
         userImage_: null,
         /**

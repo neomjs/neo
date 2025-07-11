@@ -19,6 +19,7 @@ class MainContainerController extends ComponentController {
         /**
          * Valid values: bottom, left, right, top
          * @member {String} dockedWindowSide_='right'
+         * @reactive
          */
         dockedWindowSide_: 'right',
     }

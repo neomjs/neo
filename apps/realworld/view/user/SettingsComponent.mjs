@@ -18,22 +18,27 @@ class SettingsComponent extends Component {
         baseCls: ['settings-page'],
         /**
          * @member {String} bio_=null
+         * @reactive
          */
         bio_: null,
         /**
          * @member {String} email_=null
+         * @reactive
          */
         email_: null,
         /**
          * @member {Object[]} errors_=[]
+         * @reactive
          */
         errors_: [],
         /**
          * @member {String} image_=null
+         * @reactive
          */
         image_: null,
         /**
          * @member {String} userName_=null
+         * @reactive
          */
         userName_: null,
         /**

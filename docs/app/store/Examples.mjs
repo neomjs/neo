@@ -18,6 +18,7 @@ class Examples extends Store {
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=Example
+         * @reactive
          */
         model: Example,
         /**

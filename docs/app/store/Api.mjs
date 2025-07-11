@@ -18,6 +18,7 @@ class Api extends Store {
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=ApiModel
+         * @reactive
          */
         model: ApiModel,
         /**

@@ -33,6 +33,7 @@ class Sorter extends Base {
         /**
          * The sort direction when using a property.
          * @member {String} direction_='ASC'
+         * @reactive
          */
         direction_: 'ASC',
         /**
@@ -44,6 +45,7 @@ class Sorter extends Base {
         /**
          * The property to sort by.
          * @member {String} property_='id'
+         * @reactive
          */
         property_: 'id',
         /**

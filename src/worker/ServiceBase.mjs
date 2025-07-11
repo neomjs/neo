@@ -16,6 +16,7 @@ class ServiceBase extends Base {
         className: 'Neo.worker.ServiceBase',
         /**
          * @member {String} cacheName_='neo-runtime'
+         * @reactive
          */
         cacheName_: 'neo-runtime',
         /**
@@ -26,6 +27,7 @@ class ServiceBase extends Base {
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
          * @protected
+         * @reactive
          */
         remote: {
             app: [

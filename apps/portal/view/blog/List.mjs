@@ -38,10 +38,12 @@ class List extends BaseList {
         preloadImages: 5,
         /**
          * @member {Neo.data.Store} store=BlogPosts
+         * @reactive
          */
         store: BlogPosts,
         /**
          * @member {Boolean} useWrapperNode=true
+         * @reactive
          */
         useWrapperNode: true,
         /**

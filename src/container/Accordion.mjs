@@ -29,10 +29,12 @@ class Accordion extends Panel {
         initialOpen_: [],
         /**
          * @member {Object} itemDefaults={ntype:'accordionitem'}
+         * @reactive
          */
         itemDefaults: {ntype: 'accordionitem'},
         /**
          * @member {Object[]} items=[]
+         * @reactive
          */
         items: [],
         /**

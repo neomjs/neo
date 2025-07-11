@@ -31,6 +31,7 @@ class MainContainerController extends ComponentController {
         articleComponent: null,
         /**
          * @member {Number} articlesOffset_=0
+         * @reactive
          */
         articlesOffset_: 0,
         /**
@@ -42,6 +43,7 @@ class MainContainerController extends ComponentController {
          * Stores the current user data after logging in
          * @member {Object|null} currentUser_=null
          * @protected
+         * @reactive
          */
         currentUser_: null,
         /**

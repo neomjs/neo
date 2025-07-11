@@ -23,11 +23,13 @@ class Search extends Text {
         /**
          * Value for the hideLabel_ textfield config
          * @member {Boolean} hideLabel=true
+         * @reactive
          */
         hideLabel: true,
         /**
          * Value for the placeholderText_ textfield config
          * @member {String} placeholderText='Search'
+         * @reactive
          */
         placeholderText: 'Search'
     }

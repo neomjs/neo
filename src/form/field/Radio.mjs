@@ -27,6 +27,7 @@ class Radio extends CheckBox {
         iconCls: ['far', 'fa-circle'],
         /**
          * @member {String} inputType='radio'
+         * @reactive
          */
         inputType: 'radio'
     }

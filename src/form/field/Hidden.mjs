@@ -18,6 +18,7 @@ class Hidden extends Field {
         ntype: 'hiddenfield',
         /**
          * @member {Boolean} hidden=true
+         * @reactive
          */
         hidden: true
     }

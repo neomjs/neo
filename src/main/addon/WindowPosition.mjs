@@ -25,6 +25,7 @@ class WindowPosition extends Base {
         intervalTime: 20,
         /**
          * @member {Boolean} observeResize_=false
+         * @reactive
          */
         observeResize_: false,
         /**

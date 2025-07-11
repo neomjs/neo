@@ -19,10 +19,12 @@ class ToggleOperatorsButton extends Button {
         ntype: 'filter-toggleoperatorsbutton',
         /**
          * @member {String[]} operators_=['===', '>', '<']
+         * @reactive
          */
         operators_: ['===', '>', '<'],
         /**
          * @member {String|null} value_=null
+         * @reactive
          */
         value_: null
     }

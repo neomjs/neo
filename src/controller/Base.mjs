@@ -55,6 +55,7 @@ class Controller extends Base {
          *     'default'                       : 'handleOtherRoutes'
          * }
          * @member {Object} routes_={}
+         * @reactive
          */
         routes_: {}
     }

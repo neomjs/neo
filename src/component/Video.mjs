@@ -40,6 +40,7 @@ class Video extends BaseComponent {
         /**
          * Current state of the video
          * @member {Boolean} playing_=false
+         * @reactive
          */
         playing_: false,
         /**

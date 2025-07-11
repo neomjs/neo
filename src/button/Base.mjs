@@ -111,11 +111,13 @@ class Button extends Component {
         /**
          * If url is set, applies the target attribute on the top level vdom node [optional]
          * @member {String} urlTarget_='_blank'
+         * @reactive
          */
         urlTarget_: '_blank',
         /**
          * True adds an expanding circle on click
          * @member {Boolean} useRippleEffect_=true
+         * @reactive
          */
         useRippleEffect_: true,
         /**

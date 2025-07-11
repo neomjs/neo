@@ -18,14 +18,17 @@ class ContentBox extends Base {
         baseCls: ['portal-content-box'],
         /**
          * @member {String[]|null} content_=null
+         * @reactive
          */
         content_: null,
         /**
          * @member {String|null} header_=null
+         * @reactive
          */
         header_: null,
         /**
          * @member {String|null} route_=null
+         * @reactive
          */
         route_: null,
         /**

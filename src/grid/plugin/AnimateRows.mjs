@@ -28,12 +28,14 @@ class AnimateRows extends Base {
         /**
          * Time in ms for the background-color, opacity & transform transitions
          * @member {Number} transitionDuration_=500
+         * @reactive
          */
         transitionDuration_: 500,
         /**
          * The easing used for fadeIn, fadeOut and position changes.
          * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
          * @member {String} transitionEasing_='ease-out'
+         * @reactive
          */
         transitionEasing_: 'ease-out'
     }

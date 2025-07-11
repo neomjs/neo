@@ -32,23 +32,28 @@ class MainContainer extends Viewport {
         baseCls: ['neo-docs-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Neo.collection.Base|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
          * Important for the Portal App, until the new theme fully supports it
          * @member {String} theme='neo-theme-light'
+         * @reactive
          */
         theme: 'neo-theme-light',
         /**
          * @member {Array} items=[//...]
+         * @reactive
          */
         items: [HeaderContainer, {
             ntype : 'container',

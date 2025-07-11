@@ -13,6 +13,7 @@ class MainContainer extends Viewport {
         className: 'SharedCovidChart.MainContainer',
         /**
          * @member {Object} layout={ntype:'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'}
     }

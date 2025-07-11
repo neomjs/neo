@@ -27,6 +27,7 @@ class Tree extends Base {
         baseCls: ['neo-tree-list'],
         /**
          * @member {Boolean} disableSelection=false
+         * @reactive
          */
         disableSelection: false,
         /**
@@ -43,6 +44,7 @@ class Tree extends Base {
         showCollapseExpandAllIcons: true,
         /**
          * @member {Boolean} sortable_=false
+         * @reactive
          */
         sortable_: false,
         /**
@@ -55,6 +57,7 @@ class Tree extends Base {
         sortZoneConfig: null,
         /**
          * @member {String[]} wrapperCls=[]
+         * @reactive
          */
         wrapperCls: [],
         /**

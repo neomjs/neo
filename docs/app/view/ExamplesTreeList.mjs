@@ -19,11 +19,13 @@ class ExamplesTreeList extends TreeList {
         ntype: 'examples-treelist',
         /**
          * @member {String[]} cls=['docs-examples-treelist']
+         * @reactive
          */
         cls: ['docs-examples-treelist'],
         /**
          * @member {Neo.data.Store|null} store=ExamplesStore
          * @protected
+         * @reactive
          */
         store: ExamplesStore
     }

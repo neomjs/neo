@@ -24,14 +24,17 @@ class HeaderContainer extends Container {
         baseCls: ['neo-docs-header-container'],
         /**
          * @member {Number} height=55
+         * @reactive
          */
         height: 55,
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Array} items=[//...]
+         * @reactive
          */
         items: [{
             module         : SearchField,

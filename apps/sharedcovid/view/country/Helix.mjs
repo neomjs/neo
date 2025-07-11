@@ -25,15 +25,18 @@ class CountryHelix extends Helix {
         },
         /**
          * @member {String|null} country_=null
+         * @reactive
          */
         country_: null,
         /**
          * The vertical delta between each helix item (increasing this value will create a spiral)
          * @member {Number} deltaY=1.2
+         * @reactive
          */
         deltaY: 1.2,
         /**
          * @member {Object} itemTpl_
+         * @reactive
          */
         itemTpl:
         {cls: ['surface', 'neo-helix-item'], style: {}, tabIndex: '-1', cn: [
@@ -77,11 +80,13 @@ class CountryHelix extends Helix {
         /**
          * The radius of the Helix in px
          * @member {Number} radius=2500
+         * @reactive
          */
         radius: 2500,
         /**
          * The rotationAngle of the Helix in degrees
          * @member {Number} rotationAngle=720
+         * @reactive
          */
         rotationAngle: 720,
         /**
@@ -91,16 +96,19 @@ class CountryHelix extends Helix {
         showCloneInfo: false,
         /**
          * @member {Neo.data.Store} store=CountryStore
+         * @reactive
          */
         store: CountryStore,
         /**
          * The translateX value gets included into each helix item
          * @member {Number} translateY=500
+         * @reactive
          */
         translateY: 500,
         /**
          * The translateX value gets included into each helix item
          * @member {Number} translateZ_=-2300
+         * @reactive
          */
         translateZ: -2300
     }

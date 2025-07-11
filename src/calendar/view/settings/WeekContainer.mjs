@@ -24,6 +24,7 @@ class WeekContainer extends Container {
         },
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

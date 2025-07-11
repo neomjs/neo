@@ -36,6 +36,7 @@ class Panel extends Container {
         headers: null,
         /**
          * @member {Object} items={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         _layout: {
             ntype: 'vbox',

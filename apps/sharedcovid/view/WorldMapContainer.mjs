@@ -17,10 +17,12 @@ class WorldMapContainer extends Container {
         className: 'SharedCovid.view.WorldMapContainer',
         /**
          * @member {Neo.controller.Component} controller=WorldMapContainerController
+         * @reactive
          */
         controller: WorldMapContainerController,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**

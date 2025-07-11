@@ -36,6 +36,7 @@ class EditContainer extends FormContainer {
         owner: null,
         /**
          * @member {Neo.calendar.model.Calendar|null} record_=null
+         * @reactive
          */
         record_: null,
         /**

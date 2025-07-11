@@ -27,6 +27,7 @@ class DragZone extends BaseDragZone {
         /**
          * Limit drag&drop to leaf nodes => excluding folders
          * @member {Boolean} leafNodesOnly_=true
+         * @reactive
          */
         leafNodesOnly_: false
     }

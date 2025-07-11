@@ -32,15 +32,18 @@ class CheckBox extends Field {
         baseCls: ['neo-checkboxfield'],
         /**
          * @member {Boolean} checked_=false
+         * @reactive
          */
         checked_: false,
         /**
          * @member {String|null} error_=null
+         * @reactive
          */
         error_: null,
         /**
          * Useful for fields inside a css grid where errors should live outside the layout
          * @member {Boolean} errorPositionAbsolute_=false
+         * @reactive
          */
         errorPositionAbsolute_: false,
         /**
@@ -53,10 +56,12 @@ class CheckBox extends Field {
         errorTextRequired: 'Required',
         /**
          * @member {Boolean} groupRequired_=false
+         * @reactive
          */
         groupRequired_: false,
         /**
          * @member {Boolean} hideLabel_=false
+         * @reactive
          */
         hideLabel_: false,
         /**
@@ -69,6 +74,7 @@ class CheckBox extends Field {
         iconClsChecked: ['fas', 'fa-check'],
         /**
          * @member {String} inputType_='checkbox'
+         * @reactive
          */
         inputType_: 'checkbox',
         /**
@@ -77,45 +83,54 @@ class CheckBox extends Field {
         labelBaseCls: ['neo-checkbox-label'],
         /**
          * @member {String[]} labelCls_=[]
+         * @reactive
          */
         labelCls_: [],
         /**
          * Edge-case config in case we want to render leading content with their own selectors like:
          * <span class="my-label-id-cls">E10</span> · Firstname
          * @member {String|null} labelId_=null
+         * @reactive
          */
         labelId_: null,
         /**
          * CSS rules for labelId
          * @member {String[]} labelIdCls_=[]
+         * @reactive
          */
         labelIdCls_: [],
         /**
          * Separator between labelId & labelText
          * @member {String} labelIdSeparator_=' · '
+         * @reactive
          */
         labelIdSeparator_: ' · ',
         /**
          * Valid values: 'left', 'top'
          * @member {String} labelPosition_='left'
+         * @reactive
          */
         labelPosition_: 'left',
         /**
          * @member {String} labelText_='LabelText'
+         * @reactive
          */
         labelText_: 'LabelText',
         /**
          * defaults to px
          * @member {Number|String} labelWidth_=150
+         * @reactive
          */
         labelWidth_: 150,
         /**
          * @member {Boolean} required_=false
+         * @reactive
          */
         required_: false,
         /**
          * Use case: Set this config to false for all but one item with the same name.
          * @member {Boolean} showErrorTexts_=true
+         * @reactive
          */
         showErrorTexts_: true,
         /**
@@ -129,14 +144,17 @@ class CheckBox extends Field {
          * Intended to get combined with form.Container: getFormState().
          * See apps/form as an example.
          * @member {Boolean} useAlertState_=false
+         * @reactive
          */
         useAlertState_: false,
         /**
          * @member {Boolean|Number|String|null} value=true
+         * @reactive
          */
         value: true,
         /**
          * @member {String|null} valueLabelText_=null
+         * @reactive
          */
         valueLabelText_: null,
         /**

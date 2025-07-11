@@ -30,11 +30,13 @@ class Circle extends ComponentList {
         /**
          * Defaults to px
          * @member {Number|null} itemHeight=300
+         * @reactive
          */
         itemHeight: 300,
         /**
          * Defaults to px
          * @member {Number|null} itemWidth=300
+         * @reactive
          */
         itemWidth: 300,
         /**

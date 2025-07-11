@@ -19,6 +19,7 @@ class Country extends ComboBox {
         /**
          * You can either pass a field instance or a field reference
          * @member {Neo.form.field.Base|String|null} zipCodeField_=null
+         * @reactive
          */
         zipCodeField_: null
     }

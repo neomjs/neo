@@ -24,21 +24,25 @@ class Chip extends Component {
         /**
          * True shows a close button on the right side
          * @member {Boolean} closable_=true
+         * @reactive
          */
         closable_: true,
         /**
          * Convenience shortcut for style.display
          * @member {String} display_='inline-flex'
+         * @reactive
          */
         display_: 'inline-flex',
         /**
          * The CSS class to use for an icon, e.g. 'fa fa-home'
          * @member {String|null} [iconCls_=null]
+         * @reactive
          */
         iconCls_: null,
         /**
          * The text displayed on the button [optional]
          * @member {String|null} text=null
+         * @reactive
          */
         text: null,
         /**

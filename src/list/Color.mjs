@@ -23,6 +23,7 @@ class Color extends List {
         /**
          * The data.Model field which contains the color value
          * @member {String} colorField_='name'
+         * @reactive
          */
         colorField_: 'name',
         /**

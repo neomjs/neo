@@ -58,6 +58,7 @@ class Picker extends Text {
         /**
          * @member {Boolean} pickerIsMounted_=false
          * @protected
+         * @reactive
          */
         pickerIsMounted_: false,
         /**
@@ -79,6 +80,7 @@ class Picker extends Text {
         /**
          * @member {Object|Object[]} triggers=[]
          * @protected
+         * @reactive
          */
         triggers: [{
             module: PickerTrigger

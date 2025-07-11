@@ -13,6 +13,7 @@ class How extends FeatureSection {
         className: 'Portal.view.home.parts.How',
         /**
          * @member {String[]} cls=['portal-home-parts-how']
+         * @reactive
          */
         cls: ['portal-home-parts-how'],
         /**
@@ -30,10 +31,12 @@ class How extends FeatureSection {
         }],
         /**
          * @member {String} headline='How?'
+         * @reactive
          */
         headline: 'How?',
         /**
          * @member {String} learnMoreRoute='#/learn/benefits.OffTheMainThread'
+         * @reactive
          */
         learnMoreRoute: '#/learn/benefits.OffTheMainThread',
         /**
@@ -47,6 +50,7 @@ class How extends FeatureSection {
         ].join(''),
         /**
          * @member {String} subHeadline='How does Neo.mjs do it?'
+         * @reactive
          */
         subHeadline: 'How does Neo.mjs do it?'
     }

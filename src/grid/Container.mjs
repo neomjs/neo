@@ -60,11 +60,13 @@ class GridContainer extends BaseContainer {
         /**
          * @member {String|null} bodyId_=null
          * @protected
+         * @reactive
          */
         bodyId_: null,
         /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
+         * @reactive
          */
         cellEditing_: false,
         /**
@@ -74,6 +76,7 @@ class GridContainer extends BaseContainer {
         columnDefaults: null,
         /**
          * @member {Object[]} columns_=[]
+         * @reactive
          */
         columns_: [],
         /**
@@ -83,19 +86,23 @@ class GridContainer extends BaseContainer {
         headerToolbarConfig: null,
         /**
          * @member {String|null} headerToolbarId_=null
+         * @reactive
          */
         headerToolbarId_: null,
         /**
          * @member {String} layout='base'
+         * @reactive
          */
         layout: 'base',
         /**
          * @member {String} role='grid'
+         * @reactive
          */
         role: 'grid',
         /**
          * Number in px
          * @member {Number} rowHeight_=32
+         * @reactive
          */
         rowHeight_: 32,
         /**
@@ -105,19 +112,23 @@ class GridContainer extends BaseContainer {
         scrollbar: null,
         /**
          * @member {Boolean} showHeaderFilters_=false
+         * @reactive
          */
         showHeaderFilters_: false,
         /**
          * @member {Boolean} sortable_=true
+         * @reactive
          */
         sortable_: true,
         /**
          * @member {Neo.data.Store} store_=null
+         * @reactive
          */
         store_: null,
         /**
          * @member {Array|null} items=null
          * @protected
+         * @reactive
          */
         items: null,
         /**

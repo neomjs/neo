@@ -17,6 +17,7 @@ class Component extends BaseComponent {
         accessToken: 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA',
         /**
          * @member {Object} center={lat: 40, lng: 20}
+         * @reactive
          */
         center: {lat: 40, lng: 20},
         /**

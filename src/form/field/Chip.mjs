@@ -18,6 +18,7 @@ class Chip extends ComboBox {
         ntype: 'chipfield',
         /**
          * @member {Object|null} listConfig={useCheckBoxes: true}
+         * @reactive
          */
         listConfig: {
             useCheckBoxes: true

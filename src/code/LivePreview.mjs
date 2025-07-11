@@ -35,6 +35,7 @@ class LivePreview extends Container {
         /**
          * Valid values are 'preview' and 'source'
          * @member {String} activeView_='source'
+         * @reactive
          */
         activeView_: 'source',
         /**
@@ -51,6 +52,7 @@ class LivePreview extends Container {
         enableFullscreen: true,
         /**
          * @member {Object|String} layout='fit'
+         * @reactive
          */
         layout: 'fit',
         /**
@@ -78,6 +80,7 @@ class LivePreview extends Container {
         /**
          * The code to display inside the Monaco editor
          * @member {String|null} value_=null
+         * @reactive
          */
         value_: null,
     }

@@ -29,6 +29,7 @@ class ViewportController extends Controller {
         ntype: 'viewport-controller',
         /**
          * @member {Number|null} activeIndex_=null
+         * @reactive
          */
         activeIndex_: null,
         /**
@@ -37,6 +38,7 @@ class ViewportController extends Controller {
         defaultHash: '/home',
         /**
          * @member {String} mainContentLayout_='card'
+         * @reactive
          */
         mainContentLayout_: 'card',
         /**
@@ -56,6 +58,7 @@ class ViewportController extends Controller {
         /**
          * Values are: large, medium, small, xSmall
          * @member {String|null} size_=null
+         * @reactive
          */
         size_: null
     }

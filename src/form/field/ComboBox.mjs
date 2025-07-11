@@ -53,6 +53,7 @@ class ComboBox extends Picker {
         filterDelay : 50,
         /**
          * @member {String} filterOperator_='like'
+         * @reactive
          */
         filterOperator_: 'like',
         /**
@@ -81,6 +82,7 @@ class ComboBox extends Picker {
         list: null,
         /**
          * @member {Object|null} listConfig_=null
+         * @reactive
          */
         listConfig_: null,
         /**
@@ -90,10 +92,12 @@ class ComboBox extends Picker {
         pickerHeight: null,
         /**
          * @member {String|null} role='combobox'
+         * @reactive
          */
         role: 'combobox',
         /**
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
@@ -101,16 +105,19 @@ class ComboBox extends Picker {
          * match the filter string inside the input field.
          * Valid values: all, filtered
          * @member {String} triggerAction_='all'
+         * @reactive
          */
         triggerAction_: 'all',
         /**
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
+         * @reactive
          */
         typeAhead_: true,
         /**
          * Set this config to false, in case typing into the input field should not filter list items
          * @member {Boolean} useFilter_=true
+         * @reactive
          */
         useFilter_: true,
         /**
@@ -122,6 +129,7 @@ class ComboBox extends Picker {
         /**
          * Default width to prevent rendering issues.
          * @member {Number} width=150
+         * @reactive
          */
         width: 150
     }

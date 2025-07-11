@@ -24,22 +24,27 @@ class Paging extends Toolbar {
         baseCls: ['neo-paging-toolbar', 'neo-toolbar'],
         /**
          * @member {Number} currentPage_=1
+         * @reactive
          */
         currentPage_: 1,
         /**
          * @member {Number} pageSize_=30
+         * @reactive
          */
         pageSize_: 30,
         /**
          * @member {Function} pagesText_=me=>`Page: ${me.page} / ${me.getMaxPages()}`
+         * @reactive
          */
         pagesText_: me => `Page ${me.currentPage} / ${me.getMaxPages()}`,
         /**
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
          * @member {Function} totalText_=count=>`Total: ${count} records`
+         * @reactive
          */
         totalText_: count => `Total: ${count} rows`,
         /**

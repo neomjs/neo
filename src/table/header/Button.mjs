@@ -34,6 +34,7 @@ class Button extends BaseButton {
         /**
          * Alignment of the matching table cells. Valid values are left, center, right
          * @member {String} cellAlign_='left'
+         * @reactive
          */
         cellAlign_: 'left',
         /**
@@ -47,6 +48,7 @@ class Button extends BaseButton {
         defaultSortDirection: 'ASC',
         /**
          * @member {Boolean} draggable_=true
+         * @reactive
          */
         draggable_: true,
         /**
@@ -64,20 +66,24 @@ class Button extends BaseButton {
         filterField: null,
         /**
          * @member {String} iconCls='fa fa-arrow-circle-up'
+         * @reactive
          */
         iconCls: 'fa fa-arrow-circle-up',
         /**
          * @member {String} iconPosition='right'
+         * @reactive
          */
         iconPosition: 'right',
         /**
          * 'ASC', 'DESC' or null
          * @member {String|null} isSorted_=null
          * @protected
+         * @reactive
          */
         isSorted_: null,
         /**
          * @member {Function|String|null} renderer_='cellRenderer'
+         * @reactive
          */
         renderer_: 'cellRenderer',
         /**
@@ -88,10 +94,12 @@ class Button extends BaseButton {
         rendererScope: null,
         /**
          * @member {Boolean} showHeaderFilter_=false
+         * @reactive
          */
         showHeaderFilter_: false,
         /**
          * @member {Boolean} sortable_=true
+         * @reactive
          */
         sortable_: true,
         /**

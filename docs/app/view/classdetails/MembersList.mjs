@@ -24,22 +24,27 @@ class MembersList extends Base {
         /**
          * @member {String} filterMembersQuery_=''
          * @protected
+         * @reactive
          */
         filterMembersQuery_: '',
         /**
          * @member {Boolean} showPrivateMembers_=true
+         * @reactive
          */
         showPrivateMembers_: true,
         /**
          * @member {Boolean} showProtectedMembers_=true
+         * @reactive
          */
         showProtectedMembers_: true,
         /**
          * @member {Boolean} showStaticMembers_=true
+         * @reactive
          */
         showStaticMembers_: true,
         /**
          * @member {Neo.collection.Base} store=null
+         * @reactive
          */
         store: null,
         /**

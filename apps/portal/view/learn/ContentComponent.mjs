@@ -34,10 +34,12 @@ class ContentComponent extends Component {
         },
         /**
          * @member {Object} record_=null
+         * @reactive
          */
         record_: null,
         /**
          * @member {String} tag='article'
+         * @reactive
          */
         tag: 'article'
     }

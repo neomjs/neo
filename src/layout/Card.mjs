@@ -52,6 +52,7 @@ class Card extends Base {
         /**
          * @member {String|null} containerCls='neo-layout-card'
          * @protected
+         * @reactive
          */
         containerCls: 'neo-layout-card',
         /*

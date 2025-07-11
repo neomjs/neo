@@ -30,6 +30,7 @@ class Application extends Base {
         appThemeFolder: null,
         /**
          * @member {Neo.component.Base} mainView_=null
+         * @reactive
          */
         mainView_: null,
         /**

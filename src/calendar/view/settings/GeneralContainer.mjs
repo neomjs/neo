@@ -18,6 +18,7 @@ class GeneralContainer extends Container {
         className: 'Neo.calendar.view.settings.GeneralContainer',
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

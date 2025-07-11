@@ -80,6 +80,7 @@ class HistoricalDataTable extends Container {
         }],
         /**
          * @member {Neo.data.Store} store=HistoricalData
+         * @reactive
          */
         store: HistoricalData
     }

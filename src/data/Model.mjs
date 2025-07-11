@@ -19,10 +19,12 @@ class Model extends Base {
         ntype: 'model',
         /**
          * @member {Object[]|null} fields_=null
+         * @reactive
          */
         fields_: null,
         /**
          * @member {String} keyProperty_='id'
+         * @reactive
          */
         keyProperty_: 'id',
         /**

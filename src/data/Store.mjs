@@ -42,6 +42,7 @@ class Store extends Base {
          * @example
          * api: 'MyApp.backend.UserService'
          * @member {Object|String|null} api_=null
+         * @reactive
          */
         api_: null,
         /**
@@ -50,14 +51,17 @@ class Store extends Base {
         autoLoad: false,
         /**
          * @member {Number} currentPage_=1
+         * @reactive
          */
         currentPage_: 1,
         /**
          * @member {Array|null} data_=null
+         * @reactive
          */
         data_: null,
         /**
          * @member {Array|null} initialData_=null
+         * @reactive
          */
         initialData_: null,
         /**
@@ -74,11 +78,13 @@ class Store extends Base {
         isLoading: false,
         /**
          * @member {Neo.data.Model} model_=null
+         * @reactive
          */
         model_: null,
         /**
          * Use a value of 0 to not limit the pageSize
          * @member {Number} pageSize_=0
+         * @reactive
          */
         pageSize_: 0,
         /**

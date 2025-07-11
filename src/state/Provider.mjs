@@ -55,6 +55,7 @@ class Provider extends Base {
          *             theme: 'dark'
          *         }
          *     }
+         * @reactive
          */
         data_: {
             [isDescriptor]: true,
@@ -79,10 +80,12 @@ class Provider extends Base {
          *         // Accessing parent data (assuming a parent provider has a 'taxRate' property)
          *         totalWithTax: (data) => data.total * (1 + data.taxRate)
          *     }
+         * @reactive
          */
         formulas_: null,
         /**
          * @member {Neo.state.Provider|null} parent_=null
+         * @reactive
          */
         parent_: null,
         /**
@@ -104,6 +107,7 @@ class Provider extends Base {
          *             autoLoad: true
          *         }
          *     }
+         * @reactive
          */
         stores_: null
     }

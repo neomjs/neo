@@ -21,12 +21,14 @@ class GoogleMaps extends Base {
         /**
          * Specify lat & lng for the current focus position
          * @member {Object} center_={lat: -34.397, lng: 150.644}
+         * @reactive
          */
         center_: {lat: -34.397, lng: 150.644},
         /**
          * Prefer to use markerStoreConfig instead.
          * @member {Neo.data.Store|Object} markerStore_
          * @protected
+         * @reactive
          */
         markerStore_: {
             model: {
@@ -52,6 +54,7 @@ class GoogleMaps extends Base {
         },
         /**
          * @member {Number} zoom_=8
+         * @reactive
          */
         zoom_: 8
     }

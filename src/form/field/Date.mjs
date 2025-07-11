@@ -48,14 +48,17 @@ class DateField extends Picker {
         hidePickerOnSelect: false,
         /**
          * @member {String} inputType='date'
+         * @reactive
          */
         inputType: 'date',
         /**
          * @member {String|null} maxValue_=null
+         * @reactive
          */
         maxValue_: null,
         /**
          * @member {String|null} minValue_=null
+         * @reactive
          */
         minValue_: null,
         /**
@@ -73,6 +76,7 @@ class DateField extends Picker {
         /**
          * @member {Object|Object[]} triggers=[{module: DateTrigger}]
          * @protected
+         * @reactive
          */
         triggers: [{
             module: DateTrigger

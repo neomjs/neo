@@ -23,6 +23,7 @@ class CloneNode extends Base {
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
          * @protected
+         * @reactive
          */
         remote: {
             app: [

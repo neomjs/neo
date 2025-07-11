@@ -30,36 +30,44 @@ class FeatureSection extends Container {
          * If you want to use the LivePreview, use the config livePreviewCode.
          * For custom content, use this config instead.
          * @member {Object[]|null} contentItems_=null
+         * @reactive
          */
         contentItems_: null,
         /**
          * @member {String|null} headline_=null
+         * @reactive
          */
         headline_: null,
         /**
          * Can either contain a route or a URL
          * @member {String|null} learnMoreRoute_=null
+         * @reactive
          */
         learnMoreRoute_: null,
         /**
          * @member {String|null} livePreviewCode_=null
+         * @reactive
          */
         livePreviewCode_: null,
         /**
          * @member {String|null} paragraph_=null
+         * @reactive
          */
         paragraph_: null,
         /**
          * @member {String|null} subHeadline_=null
+         * @reactive
          */
         subHeadline_: null,
         /**
          * Valid values: 'start' or 'end'
          * @member {String} textContainerPosition_='start'
+         * @reactive
          */
         textContainerPosition_: 'start',
         /**
          * @member {String} layout='base'
+         * @reactive
          */
         layout: 'base',
         /**

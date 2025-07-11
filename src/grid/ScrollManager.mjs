@@ -14,11 +14,13 @@ class ScrollManager extends Base {
         /**
          * @member {Number} scrollLeft_=0
          * @protected
+         * @reactive
          */
         scrollLeft_: 0,
         /**
          * @member {Number} scrollTop_=0
          * @protected
+         * @reactive
          */
         scrollTop_: 0
     }

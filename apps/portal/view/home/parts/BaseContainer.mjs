@@ -15,6 +15,7 @@ class BaseContainer extends Container {
         className: 'Portal.view.home.parts.BaseContainer',
         /**
          * @member {String[]} cls=['portal-home-content-view','neo-container']
+         * @reactive
          */
         baseCls: ['portal-home-content-view', 'neo-container']
     }

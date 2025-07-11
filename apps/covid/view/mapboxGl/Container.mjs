@@ -22,6 +22,7 @@ class Container extends BaseContainer {
         ntype: 'covid-mapboxgl-container',
         /**
          * @member {Neo.controller.Component} controller=ContainerController
+         * @reactive
          */
         controller: ContainerController,
         /**
@@ -88,6 +89,7 @@ class Container extends BaseContainer {
         }],
         /**
          * @member {Object} layout={ntype: 'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'},
 

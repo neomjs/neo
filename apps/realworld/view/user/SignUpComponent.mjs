@@ -18,10 +18,12 @@ class SignUpComponent extends Component {
         baseCls: ['auth-page'],
         /**
          * @member {Object[]} errors_=[]
+         * @reactive
          */
         errors_: [],
         /**
          * @member {Object[]} fieldsets_
+         * @reactive
          */
         fieldsets_: [
             {name: 'username', placeholder: 'Your Name', type: 'text'},
@@ -37,6 +39,7 @@ class SignUpComponent extends Component {
         /**
          * @member {String} mode_='signup'
          * @protected
+         * @reactive
          */
         mode_: 'signup',
         /**

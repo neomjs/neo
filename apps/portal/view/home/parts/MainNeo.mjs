@@ -15,6 +15,7 @@ class MainNeo extends BaseContainer {
         className: 'Portal.view.home.parts.MainNeo',
         /**
          * @member {String[]} cls=['portal-home-main-neo']
+         * @reactive
          */
         cls: ['portal-home-main-neo'],
 

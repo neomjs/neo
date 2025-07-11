@@ -35,6 +35,7 @@ class Container extends Component {
          * Default configuration for child items within this container.
          * This config uses a descriptor to enable deep merging with instance based itemDefaults.
          * @member {Object} itemDefaults_={[isDescriptor]: true, merge: 'deep', value: null}
+         * @reactive
          */
         itemDefaults_: {
             [isDescriptor]: true,
@@ -91,6 +92,7 @@ class Container extends Component {
          *         MyRedButton            // you can drop imported modules directly into the items array
          *     ]
          * });
+         * @reactive
          */
         items_: {
             [isDescriptor]: true,
@@ -104,6 +106,7 @@ class Container extends Component {
          * Meaning: onConstructed() is the latest life-cycle point.
          * You can use layout: 'base', in case you do not need a layout at all.
          * @member {Object|String|null} layout_={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout_: {
             ntype: 'vbox',

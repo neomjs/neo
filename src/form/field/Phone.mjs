@@ -24,15 +24,18 @@ class Phone extends Text {
         errorTextInputPattern: data => `Not a valid phone number`,
         /**
          * @member {RegExp|null} inputPattern=/^\+?\(?[0-9]+\)?([\-\s\.]?[/0-9]+)*$/
+         * @reactive
          */
         inputPattern: /^\+?\(?[0-9]+\)?([\-\s\.]?[/0-9]+)*$/,
         /**
          * @member {Boolean} inputPatternDOM=false
+         * @reactive
          */
         inputPatternDOM: false,
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='tel'
+         * @reactive
          */
         inputType: 'tel'
     }

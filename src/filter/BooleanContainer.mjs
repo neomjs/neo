@@ -23,6 +23,7 @@ class BooleanContainer extends Container {
         baseCls: ['neo-filter-booleancontainer'],
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'center'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'center'},
         /**
@@ -32,6 +33,7 @@ class BooleanContainer extends Container {
         radioConfig: null,
         /**
          * @member {Boolean|null} value_=null
+         * @reactive
          */
         value_: null
     }

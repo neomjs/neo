@@ -15,6 +15,7 @@ class Container extends BaseContainer {
         className: 'Portal.view.blog.Container',
         /**
          * @member {String[]} cls=['portal-blog-container']
+         * @reactive
          */
         cls: ['portal-blog-container'],
         /**
@@ -40,6 +41,7 @@ class Container extends BaseContainer {
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

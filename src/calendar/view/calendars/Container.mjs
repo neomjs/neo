@@ -24,6 +24,7 @@ class Container extends BaseContainer {
         },
         /**
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         * @reactive
          */
         calendarStore: null,
         /**
@@ -44,6 +45,7 @@ class Container extends BaseContainer {
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**

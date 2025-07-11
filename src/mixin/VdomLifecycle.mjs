@@ -38,36 +38,42 @@ class VdomLifecycle extends Base {
          * (delta updates can no longer get applied & a new render call is required before re-mounting)
          * @member {Boolean} hasUnmountedVdomChanges_=false
          * @protected
+         * @reactive
          */
         hasUnmountedVdomChanges_: false,
         /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating_=false
          * @protected
+         * @reactive
          */
         isVdomUpdating_: false,
         /**
          * True in case the component is mounted to the DOM
          * @member {Boolean} mounted_=false
          * @protected
+         * @reactive
          */
         mounted_: false,
         /**
          * Internal flag which will get set to true in case an update call arrives while another update is running
          * @member {Boolean} needsVdomUpdate_=false
          * @protected
+         * @reactive
          */
         needsVdomUpdate_: false,
         /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected
+         * @reactive
          */
         rendering_: false,
         /**
          * Set this to true for bulk updates. Ensure to set it back to false afterwards.
          * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
          * @member {Boolean} silentVdomUpdate_=false
+         * @reactive
          */
         silentVdomUpdate_: false,
         /**
@@ -77,12 +83,14 @@ class VdomLifecycle extends Base {
          * - The value of 3 will include the vdom of grandchildren
          * - The value of -1 will include the full tree of any depth
          * @member {Number} updateDepth_=1
+         * @reactive
          */
         updateDepth_: 1,
         /**
          * The component vnode tree. Available after the component got rendered.
          * @member {Object} vnode_=={[isDescriptor]: true, value: null, isEqual: (a, b) => a === b,}
          * @protected
+         * @reactive
          */
         vnode_: {
             [isDescriptor]: true,

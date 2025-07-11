@@ -24,6 +24,7 @@ class CopyToClipboard extends Base {
         baseCls: ['neo-field-trigger', 'neo-trigger-clipboard'],
         /**
          * @member {String|null} iconCls='fa fa-clipboard'
+         * @reactive
          */
         iconCls: 'fa fa-clipboard',
         /**
@@ -38,6 +39,7 @@ class CopyToClipboard extends Base {
         type: 'copyToClipboard',
         /**
          * @member {Number} weight_=21
+         * @reactive
          */
         weight: 21
     }

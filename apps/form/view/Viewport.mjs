@@ -17,6 +17,7 @@ class Viewport extends BaseViewport {
         className: 'Form.view.Viewport',
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
@@ -46,10 +47,12 @@ class Viewport extends BaseViewport {
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
          */
         stateProvider: ViewportStateProvider
     }

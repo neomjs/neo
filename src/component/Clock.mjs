@@ -25,21 +25,25 @@ class Clock extends Component {
         /**
          * Value in px
          * @member {Number} fontSize_=20
+         * @reactive
          */
         fontSize_: 20,
         /**
          * Show a small disc on the center of the clock (above the pointers)
          * @member {Boolean} showDisc_=true
+         * @reactive
          */
         showDisc_: true,
         /**
          * Value in px
          * @member {Number|null} size_=500
+         * @reactive
          */
         size_: 500,
         /**
          * Format: hh:mm
          * @member {String} time_='10:20'
+         * @reactive
          */
         time_: '00:00',
         /**

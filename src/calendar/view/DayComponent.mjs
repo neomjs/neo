@@ -18,11 +18,13 @@ class DayComponent extends WeekComponent {
         /**
          * Amount of hidden columns on both sides each inside this view.
          * @member {Number} columnsBuffer=1
+         * @reactive
          */
         columnsBuffer: 1,
         /**
          * Amount of visible columns inside this view.
          * @member {Number} columnsVisible=1
+         * @reactive
          */
         columnsVisible: 1
     }

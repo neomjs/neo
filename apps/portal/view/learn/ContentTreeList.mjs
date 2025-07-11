@@ -21,10 +21,12 @@ class ContentTreeList extends TreeList {
         },
         /**
          * @member {String[]} cls=['topics-tree']
+         * @reactive
          */
         cls: ['topics-tree'],
         /**
          * @member {String|null} contentPath_=null
+         * @reactive
          */
         contentPath_: null,
         /**

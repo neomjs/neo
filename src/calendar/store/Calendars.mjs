@@ -18,6 +18,7 @@ class Calendars extends Store {
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=Calendar
+         * @reactive
          */
         model: Calendar,
         /**

@@ -22,6 +22,7 @@ class MainContainer extends Viewport {
         baseCls: ['covid-viewport', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
@@ -87,10 +88,12 @@ class MainContainer extends Viewport {
         }, FooterContainer],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
+         * @reactive
          */
         stateProvider: MainContainerStateProvider
     }

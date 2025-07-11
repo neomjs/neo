@@ -46,35 +46,42 @@ class YearComponent extends Component {
         /**
          * Bound to the state provider.
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         * @reactive
          */
         calendarStore_: null,
         /**
          * Will get passed from the MainContainer
          * @member {Date|null} currentDate_=null
          * @protected
+         * @reactive
          */
         currentDate_: null,
         /**
          * The format of the column headers.
          * Valid values are: narrow, short & long
          * @member {String} dayNameFormat_='narrow'
+         * @reactive
          */
         dayNameFormat_: 'narrow',
         /**
          * @member {Number} eventIndicatorHigh_=3
+         * @reactive
          */
         eventIndicatorHigh_: 3,
         /**
          * @member {Number} eventIndicatorLow_=1
+         * @reactive
          */
         eventIndicatorLow_: 1,
         /**
          * @member {Number} eventIndicatorMedium_=2
+         * @reactive
          */
         eventIndicatorMedium_: 2,
         /**
          * Bound to the state provider.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
+         * @reactive
          */
         eventStore_: null,
         /**
@@ -91,17 +98,20 @@ class YearComponent extends Component {
          * Internal flag to prevent changing the date while change animations are still running
          * @member {Boolean} isUpdating_=false
          * @protected
+         * @reactive
          */
         isUpdating_: false,
         /**
          * Bound to the state provider.
          * @member {String} locale_=Neo.config.locale
+         * @reactive
          */
         locale_: Neo.config.locale,
         /**
          * The format of the month header names.
          * Valid values are: narrow, short & long
          * @member {String} monthNameFormat_='long'
+         * @reactive
          */
         monthNameFormat_: 'long',
         /**
@@ -123,26 +133,31 @@ class YearComponent extends Component {
         /**
          * True to show borders for the calendar month cells
          * @member {Boolean} showCellBorders_=false
+         * @reactive
          */
         showCellBorders_: false,
         /**
          * True to show the days of the previous or next month (not selectable)
          * @member {Boolean} showDisabledDays_=true
+         * @reactive
          */
         showDisabledDays_: true,
         /**
          * Bound to the state provider.
          * @member {Boolean} showWeekends_=true
+         * @reactive
          */
         showWeekends_: true,
         /**
          * True to show the week number as the first column of each month
          * @member {Boolean} showWeekNumbers_=true
+         * @reactive
          */
         showWeekNumbers_: true,
         /**
          * True to show 6 weeks for each month, so that all months have the same height
          * @member {Boolean} sixWeeksPerMonth_=false
+         * @reactive
          */
         sixWeeksPerMonth_: false,
         /**
@@ -168,6 +183,7 @@ class YearComponent extends Component {
          * 0-6 => Sun-Sat
          * Bound to the state provider.
          * @member {Number} weekStartDay_=0
+         * @reactive
          */
         weekStartDay_: 0
     }

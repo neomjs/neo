@@ -34,22 +34,26 @@ class TimeAxisComponent extends Component {
          * Only full hours are valid for now
          * format: 'hh:mm'
          * @member {String} endTime_='24:00'
+         * @reactive
          */
         endTime_: '24:00',
         /**
          * The time interval in minutes to display as rows.
          * Valid values: 15, 30, 60
          * @member {Number} interval_=30
+         * @reactive
          */
         interval_: 30,
         /**
          * @member {Number} rowHeight_=20
+         * @reactive
          */
         rowHeight_: 20,
         /**
          * Only full hours are valid for now
          * format: 'hh:mm'
          * @member {String} startTime_='00:00'
+         * @reactive
          */
         startTime_: '00:00',
         /**

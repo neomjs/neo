@@ -24,6 +24,7 @@ class CellEditing extends Plugin {
         cellCls: 'neo-table-cell',
         /**
          * @member {Boolean} disabled_=false
+         * @reactive
          */
         disabled_: false,
         /**

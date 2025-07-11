@@ -34,6 +34,7 @@ class Model extends Base {
         /**
          * @member {Array} items_=null
          * @protected
+         * @reactive
          */
         items_: null,
         /**
@@ -48,6 +49,7 @@ class Model extends Base {
          * Internally saves the view id, but the getter will return the matching instance
          * @member {Object} view_=null
          * @protected
+         * @reactive
          */
         view_: null
     }

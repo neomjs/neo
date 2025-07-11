@@ -13,6 +13,7 @@ class Model extends BaseModel {
         className: 'Neo.menu.Model',
         /**
          * @member {String} keyProperty='id'
+         * @reactive
          */
         keyProperty: 'id',
         /**

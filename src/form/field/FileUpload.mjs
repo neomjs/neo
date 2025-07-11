@@ -102,6 +102,7 @@ class FileUpload extends Field {
         baseCls: ['neo-file-upload-field'],
         /**
          * @member {String[]} cls=['neo-field-empty']
+         * @reactive
          */
         cls: ['neo-field-empty'],
         /**
@@ -148,6 +149,7 @@ class FileUpload extends Field {
 
         /**
          * @member {String|null} document_=null
+         * @reactive
          */
         document_: null,
 
@@ -211,6 +213,7 @@ class FileUpload extends Field {
          * by the {@link #member-documentIdParameter}. It defaults to `'documentId'`.
          *
          * @member {String|null} downloadUrl_=null
+         * @reactive
          */
         downloadUrl_: null,
 
@@ -240,6 +243,7 @@ class FileUpload extends Field {
          * ```
          *
          * @member {String|null} documentStatusUrl_=null
+         * @reactive
          */
         documentStatusUrl_: null,
 
@@ -273,6 +277,7 @@ class FileUpload extends Field {
          * If this service yields an HTTP 200 status, the deletion is taken to have been successful.
          *
          * @member {String|null} documentDeleteUrl_=null
+         * @reactive
          */
         documentDeleteUrl_: null,
 
@@ -286,6 +291,7 @@ class FileUpload extends Field {
 
         /**
          * @member {String} state_=ready
+         * @reactive
          */
         state_: 'ready',
 
@@ -302,6 +308,7 @@ class FileUpload extends Field {
         /**
          * The error text to show below the widget
          * @member {String|null} error_=null
+         * @reactive
          */
         error_ : null,
 

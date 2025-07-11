@@ -21,38 +21,47 @@ class TextField extends Component {
         /**
          * Displays a helper text below the field
          * @member {String} helper_=''
+         * @reactive
          */
         helper_: '',
         /**
          * @member {String} icon_=''
+         * @reactive
          */
         icon_: '',
         /**
          * @member {String} iconTrailing_=''
+         * @reactive
          */
         iconTrailing_: '',
         /**
          * @member {String} label_=''
+         * @reactive
          */
         label_: '',
         /**
          * @member {String} name_=''
+         * @reactive
          */
         name_: '',
         /**
          * @member {Boolean} outlined_=false
+         * @reactive
          */
         outlined_: false,
         /**
          * @member {String} placeholder_=''
+         * @reactive
          */
         placeholder_: '',
         /**
          * @member {Boolean} required_=false
+         * @reactive
          */
         required_: false,
         /**
          * @member {String} value_=''
+         * @reactive
          */
         value_: '',
         /**

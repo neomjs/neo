@@ -34,6 +34,7 @@ class Component extends Base {
          * Valid values: removeDom, visibility
          * Defines if the component items should use css visibility:'hidden' or vdom:removeDom
          * @member {String} hideMode_='removeDom'
+         * @reactive
          */
         itemHideMode_: 'removeDom',
         /*

@@ -20,14 +20,17 @@ class CreateComponent extends Component {
         baseCls: ['editor-page'],
         /**
          * @member {String} body_=''
+         * @reactive
          */
         body_: '',
         /**
          * @member {Object[]} errors_=[]
+         * @reactive
          */
         errors_: [],
         /**
          * @member {String} description_=''
+         * @reactive
          */
         description_: '',
         /**
@@ -36,10 +39,12 @@ class CreateComponent extends Component {
         slug: null,
         /**
          * @member {String[]} tagList_=[]
+         * @reactive
          */
         tagList_: [],
         /**
          * @member {String} title_=''
+         * @reactive
          */
         title_: '',
         /**

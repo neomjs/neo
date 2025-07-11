@@ -25,6 +25,7 @@ class CountryGallery extends Gallery {
         },
         /**
          * @member {String|null} country_=null
+         * @reactive
          */
         country_: null,
         /**
@@ -34,6 +35,7 @@ class CountryGallery extends Gallery {
         itemHeight: 280,
         /**
          * @member {Object} itemTpl_
+         * @reactive
          */
         itemTpl:
         {cls: ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'], tabIndex: '-1', cn: [
@@ -86,6 +88,7 @@ class CountryGallery extends Gallery {
         selectOnMount: false,
         /**
          * @member {Neo.data.Store} store=CountryStore
+         * @reactive
          */
         store: CountryStore
     }

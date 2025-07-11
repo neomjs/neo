@@ -19,6 +19,7 @@ class PageSectionsList extends List {
         },
         /**
          * @member {String[]} cls=['portal-page-sections-list','topics-tree']
+         * @reactive
          */
         cls: ['portal-page-sections-list', 'topics-tree']
     }

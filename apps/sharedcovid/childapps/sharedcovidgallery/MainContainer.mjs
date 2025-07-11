@@ -13,6 +13,7 @@ class MainContainer extends Viewport {
         className: 'SharedCovidGallery.MainContainer',
         /**
          * @member {Object} layout={ntype:'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'}
     }

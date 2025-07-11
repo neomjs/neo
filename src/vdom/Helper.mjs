@@ -23,6 +23,7 @@ class Helper extends Base {
          * Remote method access for other workers
          * @member {Object} remote={app:['create','update']}
          * @protected
+         * @reactive
          */
         remote: {
             app: [

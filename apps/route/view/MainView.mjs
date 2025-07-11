@@ -20,6 +20,7 @@ class MainContainer extends Panel {
         baseCls: ['route'],
         /**
          * @member {Neo.controller.Component} controller=MainViewController
+         * @reactive
          */
         controller: MainViewController,
         /**

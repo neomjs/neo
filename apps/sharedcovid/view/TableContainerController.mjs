@@ -45,6 +45,7 @@ class TableContainerController extends ComponentController {
         /**
          * @member {Neo.table.Container|null} table_=null
          * @protected
+         * @reactive
          */
         table_: null
     }

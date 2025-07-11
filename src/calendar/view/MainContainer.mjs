@@ -36,6 +36,7 @@ class MainContainer extends Container {
          * The currently active view. Must be a value included inside the views config.
          * valid values: 'day', 'week', 'month', 'year'
          * @member {String} activeView_='week'
+         * @reactive
          */
         activeView_: 'week',
         /**
@@ -45,6 +46,7 @@ class MainContainer extends Container {
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
+         * @reactive
          */
         baseFontSize_: null,
         /**
@@ -53,10 +55,12 @@ class MainContainer extends Container {
         calendarsContainer: null,
         /**
          * @member {Object|null} calendarStoreConfig_=null
+         * @reactive
          */
         calendarStoreConfig_: null,
         /**
          * @member {Object|null} colorStoreConfig_=null
+         * @reactive
          */
         colorStoreConfig_: null,
         /**
@@ -78,6 +82,7 @@ class MainContainer extends Container {
         /**
          * Read only
          * @member {Neo.calendar.view.calendars.EditContainer|null} editCalendarContainer_=null
+         * @reactive
          */
         editCalendarContainer_: null,
         /**
@@ -87,6 +92,7 @@ class MainContainer extends Container {
         /**
          * Read only
          * @member {Neo.calendar.view.EditEventContainer|null} editEventContainer_=null
+         * @reactive
          */
         editEventContainer_: null,
         /**
@@ -95,11 +101,13 @@ class MainContainer extends Container {
         editEventContainerConfig: null,
         /**
          * @member {Object|null} eventStoreConfig_=null
+         * @reactive
          */
         eventStoreConfig_: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
@@ -125,10 +133,12 @@ class MainContainer extends Container {
         settingsContainerWidth: 310,
         /**
          * @member {Boolean} settingsExpanded_=false
+         * @reactive
          */
         settingsExpanded_: false,
         /**
          * @member {Boolean} sideBarExpanded_=true
+         * @reactive
          */
         sideBarExpanded_: true,
         /**
@@ -137,15 +147,18 @@ class MainContainer extends Container {
         sideBarWidth: 220,
         /**
          * @member {Neo.calendar.view.MainContainerStateProvider} stateProvider=MainContainerStateProvider
+         * @reactive
          */
         stateProvider: MainContainerStateProvider,
         /**
          * @member {Boolean} useSettingsContainer_=true
+         * @reactive
          */
         useSettingsContainer_: true,
         /**
          * Any combination and order of 'day', 'week', 'month', 'year'
          * @member {String[]} views_=['day','week','month','year']
+         * @reactive
          */
         views_: ['day', 'week', 'month', 'year'],
         /**

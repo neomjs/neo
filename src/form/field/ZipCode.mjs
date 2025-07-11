@@ -31,11 +31,13 @@ class ZipCode extends Text {
         ntype: 'zipcodefield',
         /**
          * @member {String} countryCode_=null
+         * @reactive
          */
         countryCode_: null,
         /**
          * You can either pass a field instance or a field reference
          * @member {Neo.form.field.Base|String|null} countryField_=null
+         * @reactive
          */
         countryField_: null,
         /**

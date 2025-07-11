@@ -14,6 +14,7 @@ class Store extends BaseStore {
         className: 'Neo.menu.Store',
         /**
          * @member {Neo.menu.Model} model=Model
+         * @reactive
          */
         model: Model
     }

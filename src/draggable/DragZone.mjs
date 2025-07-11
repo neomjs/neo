@@ -42,6 +42,7 @@ class DragZone extends Base {
         /**
          * The name of the App this instance belongs to
          * @member {String|null} appName_=null
+         * @reactive
          */
         appName_: null,
         /**
@@ -85,6 +86,7 @@ class DragZone extends Base {
         dragProxy: null,
         /**
          * @member {Object|null} dragProxyConfig_=null
+         * @reactive
          */
         dragProxyConfig_: null,
         /**
@@ -135,6 +137,7 @@ class DragZone extends Base {
         owner: null,
         /**
          * @member {String} proxyParentId_='document.body'
+         * @reactive
          */
         proxyParentId_: 'document.body',
         /**
@@ -156,6 +159,7 @@ class DragZone extends Base {
         useProxyWrapper: true,
         /**
          * @member {Number|null} windowId_=null
+         * @reactive
          */
         windowId_: null
     }

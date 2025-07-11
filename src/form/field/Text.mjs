@@ -46,6 +46,7 @@ class Text extends Field {
         autoCapitalize_: 'off',
         /**
          * @member {Boolean} autoComplete_=false
+         * @reactive
          */
         autoComplete_: false,
         /**
@@ -62,18 +63,21 @@ class Text extends Field {
         /**
          * True shows a clear trigger in case the field has a non-empty value.
          * @member {Boolean} clearable_=true
+         * @reactive
          */
         clearable_: true,
         /**
          * True will reset the field to its initial value config.
          * Recommended for fields with required: true
          * @member {Boolean} clearToOriginalValue_=false
+         * @reactive
          */
         clearToOriginalValue_: false,
         /**
          * Prevent users from typing specific characters.
          * E.g. disabling +-e for NumberFields
          * @member {String[]|null} disabledChars_=null
+         * @reactive
          */
         disabledChars_: null,
         /**
@@ -83,6 +87,7 @@ class Text extends Field {
          * For example picker fields such as `Date` and `Select` may still have their
          * values changed by selecting from the picker using keyboard or pointer.
          * @member {Boolean} editable_=true
+         * @reactive
          */
         editable_: true,
         /**
@@ -92,11 +97,13 @@ class Text extends Field {
         emptyValue: null,
         /**
          * @member {String|null} error_=null
+         * @reactive
          */
         error_: null,
         /**
          * Useful for fields inside a css grid where errors should live outside the layout
          * @member {Boolean} errorPositionAbsolute_=false
+         * @reactive
          */
         errorPositionAbsolute_: false,
         /**
@@ -120,10 +127,12 @@ class Text extends Field {
         errorTextRequired: 'Required',
         /**
          * @member {Boolean} hideLabel_=false
+         * @reactive
          */
         hideLabel_: false,
         /**
          * @member {RegExp|null} inputPattern_=null
+         * @reactive
          */
         inputPattern_: null,
         /**
@@ -131,14 +140,17 @@ class Text extends Field {
          * The regex support for input based patterns is not fully there yet, so feel free to disable this feature
          * if needed (E.g. form.field.Phone).
          * @member {Boolean} inputPatternDOM_=true
+         * @reactive
          */
         inputPatternDOM_: true,
         /**
          * @member {String} inputType_='text'
+         * @reactive
          */
         inputType_: 'text',
         /**
          * @member {String|null} inputValue_=null
+         * @reactive
          */
         inputValue_: null,
         /**
@@ -147,54 +159,65 @@ class Text extends Field {
         labelBaseCls: ['neo-textfield-label'],
         /**
          * @member {String[]} labelCls_=[]
+         * @reactive
          */
         labelCls_: [],
         /**
          * Edge-case config in case we want to render leading content with their own selectors like:
          * <span class="my-label-id-cls">E10</span> • Firstname
          * @member {String|null} labelId_=null
+         * @reactive
          */
         labelId_: null,
         /**
          * CSS rules for labelId
          * @member {String[]} labelIdCls_=[]
+         * @reactive
          */
         labelIdCls_: [],
         /**
          * Separator between labelId & labelText
          * @member {String} labelIdSeparator_=' · '
+         * @reactive
          */
         labelIdSeparator_: ' · ',
         /**
          * @member {String} labelOptionalText_=' (Optional)'
+         * @reactive
          */
         labelOptionalText_: ' (Optional)',
         /**
          * Valid values: 'bottom', 'inline', 'left', 'right', 'top'
          * @member {String} labelPosition_='left'
+         * @reactive
          */
         labelPosition_: 'left',
         /**
          * @member {String} labelText_='LabelText'
+         * @reactive
          */
         labelText_: 'LabelText',
         /**
          * defaults to px
          * @member {Number|String} labelWidth_=150
+         * @reactive
          */
         labelWidth_: 150,
         /**
          * The maximum amount of chars which you can enter into this field
          * @member {Number|null} maxLength_=null
+         * @reactive
          */
         maxLength_: null,
         /**
          * The minimum amount of chars which you can enter into this field
          * @member {Number|null} minLength_=null
+         * @reactive
          */
         minLength_: null,
         /**
          * @member {String|null} placeholderText_=null
+         * @reactive
          */
         placeholderText_: null,
         /**
@@ -203,19 +226,23 @@ class Text extends Field {
          * The input field will be read-only and other ways of changing the field's value
          * (such as by operating pickers) will be disabled.
          * @member {Boolean} readOnly_=false
+         * @reactive
          */
         readOnly_: false,
         /**
          * @member {Boolean} required_=false
+         * @reactive
          */
         required_: false,
         /**
          * @member {Boolean} showOptionalText_=false
+         * @reactive
          */
         showOptionalText_: false,
         /**
          * null => Follow the element's default behavior for spell checking
          * @member {Boolean|null} spellCheck_=false
+         * @reactive
          */
         spellCheck_: false,
         /**
@@ -224,14 +251,17 @@ class Text extends Field {
         subLabelBaseCls: ['neo-textfield-sublabel'],
         /**
          * @member {String[]} subLabelCls_=[]
+         * @reactive
          */
         subLabelCls_: [],
         /**
          * @member {String} subLabelText_=null
+         * @reactive
          */
         subLabelText_: null,
         /**
          * @member {Object|Object[]|null} triggers_=null
+         * @reactive
          */
         triggers_: null,
         /**
@@ -239,6 +269,7 @@ class Text extends Field {
          * Intended to get combined with form.Container: getFormState().
          * See apps/form as an example.
          * @member {Boolean} useAlertState_=false
+         * @reactive
          */
         useAlertState_: false,
         /**
@@ -249,6 +280,7 @@ class Text extends Field {
         /**
          * get value can be xssProtected and values are escaped
          * @member {Boolean} xssProtected_=false
+         * @reactive
          */
         xssProtected_: false,
         /**

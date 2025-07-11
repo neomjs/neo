@@ -19,6 +19,7 @@ class PreviewList extends List {
         displayField: 'title',
         /**
          * @member {Neo.data.Store} store=ArticlePreviews
+         * @reactive
          */
         store: ArticlePreviews
     }

@@ -18,14 +18,17 @@ class HeaderToolbar extends Toolbar {
         baseCls: ['rw2-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Neo.controller.Component} controller=HeaderToolbarController
+         * @reactive
          */
         controller: HeaderToolbarController,
         /**
          * @member {Number} height=56
+         * @reactive
          */
         height: 56,
         /**
          * @member {Number} minHeight=56
+         * @reactive
          */
         minHeight: 56,
         /**

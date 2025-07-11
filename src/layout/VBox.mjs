@@ -19,6 +19,7 @@ class VBox extends Flexbox {
         /**
          * @member {String} direction='column'
          * @protected
+         * @reactive
          */
         direction: 'column'
     }

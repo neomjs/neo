@@ -24,6 +24,7 @@ class Component extends Base {
         component: null,
         /**
          * @member {Neo.controller.Component|null} parent_=null
+         * @reactive
          */
         parent_: null,
         /**

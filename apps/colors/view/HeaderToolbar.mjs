@@ -16,10 +16,12 @@ class HeaderToolbar extends Toolbar {
         className: 'Colors.view.HeaderToolbar',
         /**
          * @member {String[]} cls=['colors-header-toolbar']
+         * @reactive
          */
         cls: ['colors-header-toolbar'],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch',wrap:'wrap'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'center', pack: 'start', wrap: 'wrap'},
         /**

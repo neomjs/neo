@@ -22,6 +22,7 @@ class Toolbar extends BaseToolbar {
         baseCls: ['neo-tab-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Boolean} useActiveTabIndicator_=true
+         * @reactive
          */
         useActiveTabIndicator_: true
     }

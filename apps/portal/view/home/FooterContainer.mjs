@@ -15,6 +15,7 @@ class FooterContainer extends Container {
         className: 'Portal.view.home.FooterContainer',
         /**
          * @member {String[]} cls=['portal-home-footer-container']
+         * @reactive
          */
         cls: ['portal-home-footer-container'],
         /**
@@ -112,10 +113,12 @@ class FooterContainer extends Container {
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {String} tag='footer'
+         * @reactive
          */
         tag: 'footer'
     }

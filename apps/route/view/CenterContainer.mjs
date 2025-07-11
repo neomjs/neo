@@ -27,6 +27,7 @@ class CenterContainer extends Base {
 
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'card', align: 'stretch', activeIndex: 4},
     }

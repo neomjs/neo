@@ -19,6 +19,7 @@ class Events extends Store {
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=Event
+         * @reactive
          */
         model: Event,
         /**

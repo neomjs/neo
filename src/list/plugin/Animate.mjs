@@ -47,12 +47,14 @@ class Animate extends Base {
         /**
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
+         * @reactive
          */
         transitionDuration_: 500,
         /**
          * The easing used for fadeIn, fadeOut and position changes.
          * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
          * @member {String} transitionEasing_='ease-in-out'
+         * @reactive
          */
         transitionEasing_: 'ease-in-out',
         /**

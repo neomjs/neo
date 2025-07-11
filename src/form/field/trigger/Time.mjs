@@ -33,6 +33,7 @@ class Time extends Picker {
         clockConfig: null,
         /**
          * @member {String|null} iconCls=null
+         * @reactive
          */
         iconCls: null,
         /**
@@ -43,6 +44,7 @@ class Time extends Picker {
         /**
          * Format: hh:mm
          * @member {String|null} value_=null
+         * @reactive
          */
         value_: null
     }

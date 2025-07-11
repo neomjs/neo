@@ -14,6 +14,7 @@ class HeaderComponent extends Component {
         className: 'RealWorld.view.HeaderComponent',
         /**
          * @member {String} activeItem_='home'
+         * @reactive
          */
         activeItem_: 'home',
         /**
@@ -22,14 +23,17 @@ class HeaderComponent extends Component {
         baseCls: ['navbar', 'navbar-light'],
         /**
          * @member {Boolean} loggedIn_=false
+         * @reactive
          */
         loggedIn_: false,
         /**
          * @member {String|null} userImage_=null
+         * @reactive
          */
         userImage_:null,
         /**
          * @member {String|null} userName_=null
+         * @reactive
          */
         userName_: null,
         /**

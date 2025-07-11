@@ -22,6 +22,7 @@ class FormContainer extends BaseFormContainer {
         baseCls: ['form-form-container', 'neo-container'],
         /**
          * @member {Neo.controller.Component} controller=FormContainerController
+         * @reactive
          */
         controller: FormContainerController,
         /**

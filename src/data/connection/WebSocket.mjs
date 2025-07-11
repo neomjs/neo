@@ -28,6 +28,7 @@ class Socket extends Base {
         /**
          * @member {WebSocket|null} socket_=null
          * @protected
+         * @reactive
          */
         socket_: null
     }

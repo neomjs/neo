@@ -39,6 +39,7 @@ class TextArea extends Text {
         /**
          * True shows a clear trigger in case the field has a non-empty value.
          * @member {Boolean} clearable=false
+         * @reactive
          */
         clearable: false,
         /**
@@ -46,10 +47,12 @@ class TextArea extends Text {
          * If it is specified, it must be a positive integer.
          * If it is not specified, the default value is 20.
          * @member {Number|null} cols_=null
+         * @reactive
          */
         cols_: null,
         /**
          * @member {String} inputTag_='textarea'
+         * @reactive
          */
         inputTag_: 'textarea',
         /**
@@ -57,16 +60,19 @@ class TextArea extends Text {
          * See: inputTag_
          * @member {String|null} inputType=null
          * @protected
+         * @reactive
          */
         inputType: null,
         /**
          * Use false to disable the browsers default resizing feature
          * @member {Boolean} resizable_=false
+         * @reactive
          */
         resizable_: false,
         /**
          * An integer > 0 or null
          * @member {Number|null} rows_=3
+         * @reactive
          */
         rows_: 3,
         /**
@@ -74,6 +80,7 @@ class TextArea extends Text {
          * If this attribute is not specified, soft is its default value.
          * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea
          * @member {String|null} wrap_=null
+         * @reactive
          */
         wrap_: null
     }

@@ -13,14 +13,17 @@ class Helix extends FeatureSection {
         className: 'Portal.view.home.parts.Helix',
         /**
          * @member {String[]} cls=['portal-home-parts-helix']
+         * @reactive
          */
         cls: ['portal-home-parts-helix'],
         /**
          * @member {String} headline='Extreme Speed'
+         * @reactive
          */
         headline: 'Extreme Speed',
         /**
          * @member {String} learnMoreRoute='#/learn/WhyNeo-Speed'
+         * @reactive
          */
         learnMoreRoute: '#/learn/WhyNeo-Speed',
         /**
@@ -50,10 +53,12 @@ class Helix extends FeatureSection {
         ].join(''),
         /**
          * @member {String} subHeadline='40,000 Updates /s'
+         * @reactive
          */
         subHeadline: '40,000 Updates /s',
         /**
          * @member {String} textContainerPosition='end'
+         * @reactive
          */
         textContainerPosition: 'end'
     }

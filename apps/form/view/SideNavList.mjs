@@ -22,6 +22,7 @@ class SideNavList extends List {
         itemsFocusable: true,
         /**
          * @member {Boolean} useHeaders=true
+         * @reactive
          */
         useHeaders: true
     }

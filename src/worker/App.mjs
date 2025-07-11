@@ -21,6 +21,7 @@ class App extends Base {
         className: 'Neo.worker.App',
         /**
          * @member {Number} countLoadingThemeFiles_=0
+         * @reactive
          */
         countLoadingThemeFiles_: 0,
         /**

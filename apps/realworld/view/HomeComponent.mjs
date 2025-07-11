@@ -21,6 +21,7 @@ class HomeComponent extends Component {
         activeTag: null,
         /**
          * @member {Object[]|null} articlePreviews_=null
+         * @reactive
          */
         articlePreviews_: null,
         /**
@@ -29,14 +30,17 @@ class HomeComponent extends Component {
         baseCls: ['home-page'],
         /**
          * @member {Number} countArticles_=10
+         * @reactive
          */
         countArticles_: 10,
         /**
          * @member {Number} countArticles_=10
+         * @reactive
          */
         currentPage_: 1,
         /**
          * @member {Object[]} feeds_
+         * @reactive
          */
         feeds_: [
             {name: 'Your Feed',   disabled: true},
@@ -44,10 +48,12 @@ class HomeComponent extends Component {
         ],
         /**
          * @member {Boolean} loggedIn_=false
+         * @reactive
          */
         loggedIn_: false,
         /**
          * @member {Number} pageSize_=10
+         * @reactive
          */
         pageSize_: 10,
         /**
@@ -56,6 +62,7 @@ class HomeComponent extends Component {
         previewComponents: [],
         /**
          * @member {RealWorld.view.article.TagListComponent|null} tagList_=null
+         * @reactive
          */
         tagList_: null,
         /**

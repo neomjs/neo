@@ -19,6 +19,7 @@ class MainContainer extends Container {
         className: 'Portal.view.home.MainContainer',
         /**
          * @member {String[]} cls=['portal-home-maincontainer']
+         * @reactive
          */
         cls: ['portal-home-maincontainer'],
         /**
@@ -59,6 +60,7 @@ class MainContainer extends Container {
         ],
         /**
          * @member {Boolean} scrollable=true
+         * @reactive
          */
         scrollable: true
     }

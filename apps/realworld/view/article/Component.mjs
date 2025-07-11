@@ -16,6 +16,7 @@ class Component extends BaseComponent {
         className: 'RealWorld.view.article.Component',
         /**
          * @member {Object|null} author_=null
+         * @reactive
          */
         author_: null,
         /**
@@ -24,6 +25,7 @@ class Component extends BaseComponent {
         baseCls: ['article-page'],
         /**
          * @member {String|null} body_=null
+         * @reactive
          */
         body_: null,
         /**
@@ -38,6 +40,7 @@ class Component extends BaseComponent {
         commentComponents: [],
         /**
          * @member {Object[]|null} comments_=null
+         * @reactive
          */
         comments_: null,
         /**
@@ -46,22 +49,27 @@ class Component extends BaseComponent {
         createCommentComponent: null,
         /**
          * @member {String|null} createdAt_=null
+         * @reactive
          */
         createdAt_: null,
         /**
          * @member {Boolean} favorited_=false
+         * @reactive
          */
         favorited_: false,
         /**
          * @member {Number|null} favoritesCount_=null
+         * @reactive
          */
         favoritesCount_: null,
         /**
          * @member {Array|null} tagList_=null
+         * @reactive
          */
         tagList_: null,
         /**
          * @member {String|null} title_=null
+         * @reactive
          */
         title_: null,
         /**

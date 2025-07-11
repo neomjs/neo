@@ -23,14 +23,17 @@ class Progress extends Base {
         baseCls: ['neo-progress'],
         /**
          * @member {String|null} labelText_=null
+         * @reactive
          */
         labelText_: null,
         /**
          * @member {Number} max_=100
+         * @reactive
          */
         max_: 100,
         /**
          * @member {Number|null} value_=null
+         * @reactive
          */
         value_: null,
         /**

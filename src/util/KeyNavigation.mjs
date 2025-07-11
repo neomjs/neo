@@ -20,6 +20,7 @@ class KeyNavigation extends Base {
         /**
          * Internally stores the component id inside _component
          * @member {Neo.component.Base|null} component_=null
+         * @reactive
          */
         component_: null,
         /**
@@ -29,6 +30,7 @@ class KeyNavigation extends Base {
         keyDownEventBubble: false,
         /**
          * @member {Array|null} keys_=null
+         * @reactive
          */
         keys_: null
     }

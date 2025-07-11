@@ -20,6 +20,7 @@ class ApiTreeList extends TreeList {
         /**
          * @member {Neo.data.Store|null} store=ApiStore
          * @protected
+         * @reactive
          */
         store: ApiStore
     }

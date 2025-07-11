@@ -28,11 +28,13 @@ class ColorsList extends List {
         selectOnFocus: true,
         /**
          * @member {Boolean} useWrapperNode=false
+         * @reactive
          */
         useWrapperNode: false,
         /**
          * The list gets used as a form field, so we are adjusting the selection based on this config
          * @member {String} value_=null
+         * @reactive
          */
         value_: null,
         /**

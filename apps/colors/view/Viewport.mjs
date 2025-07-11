@@ -19,10 +19,12 @@ class Viewport extends BaseViewport {
         className: 'Colors.view.Viewport',
         /**
          * @member {String[]} cls=['colors-viewport']
+         * @reactive
          */
         cls: ['colors-viewport'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
@@ -49,6 +51,7 @@ class Viewport extends BaseViewport {
         }],
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
          */
         stateProvider: ViewportStateProvider
     }

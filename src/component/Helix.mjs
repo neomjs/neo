@@ -27,11 +27,13 @@ class Helix extends Component {
         /**
          * The background color of the helix container
          * @member {String} backgroundColor_='#000000'
+         * @reactive
          */
         backgroundColor_: '#000000',
         /**
          * The background image of the helix container
          * @member {String} backgroundImage_=''
+         * @reactive
          */
         backgroundImage_: '',
         /**
@@ -47,21 +49,25 @@ class Helix extends Component {
         /**
          * The vertical delta between each helix item (increasing this value will create a spiral)
          * @member {Number} deltaY_=1.5
+         * @reactive
          */
         deltaY_: 1.5,
         /**
          * Multiselections will reduce the opacity and set this flag to true
          * @member {Boolean} dimmed_=false
+         * @reactive
          */
         dimmed_: false,
         /**
          * Multiselections will reduce the opacity and set this flag to true
          * @member {Number} dimmedMaxOpacity_=0.3
+         * @reactive
          */
         dimmedMaxOpacity_: 0.3,
         /**
          * Multiselections will reduce the opacity and set this flag to true
          * @member {Number} dimmedMinOpacity_=0.2
+         * @reactive
          */
         dimmedMinOpacity_: 0.2,
         /**
@@ -72,11 +78,13 @@ class Helix extends Component {
         /**
          * Flip images by 180° for a not mirrored inner view
          * @member {Boolean} flipped_=false
+         * @reactive
          */
         flipped_: false,
         /**
          * True to rotate the helix when using keynav, so that the selected items stays in front
          * @member {Boolean} followSelection_=false
+         * @reactive
          */
         followSelection_: false,
         /**
@@ -89,15 +97,18 @@ class Helix extends Component {
          * The path to the images folder
          * Will get set inside afterSetWindowId() to avoid issues inside the webpack builds
          * @member {String|null} imageSource_=Neo.config.resourcesPath + 'examples/'
+         * @reactive
          */
         imageSource_: null,
         /**
          * Amount of items per row (circle) -> 360° / 10 = 36
          * @member {Number} itemAngle_=8
+         * @reactive
          */
         itemAngle_: 8,
         /**
          * @member {Object} itemTpl_
+         * @reactive
          */
         itemTpl_:
         {cls: ['surface', 'neo-helix-item'], style: {}, tabIndex: '-1', cn: [
@@ -125,16 +136,19 @@ class Helix extends Component {
         /**
          * The max amount of store items to show
          * @member {Number} maxItems_=300
+         * @reactive
          */
         maxItems_: 300,
         /**
          * The max opacity for items inside the foreground
          * @member {Number} maxOpacity_=0.8
+         * @reactive
          */
         maxOpacity_: 0.8,
         /**
          * The max opacity for items inside the background
          * @member {Number} minOpacity_=0.3
+         * @reactive
          */
         minOpacity_: 0.3,
         /**
@@ -150,6 +164,7 @@ class Helix extends Component {
         /**
          * Specifies whether the mouse wheel should change the translateZ value for zooming
          * @member {Boolean} mouseWheelEnabled_=true
+         * @reactive
          */
         mouseWheelEnabled_: true,
         /**
@@ -169,16 +184,19 @@ class Helix extends Component {
         /**
          * The perspective of the Helix view in px
          * @member {Number} perspective_=800
+         * @reactive
          */
         perspective_: 800,
         /**
          * The radius of the Helix in px
          * @member {Number} radius_=1500
+         * @reactive
          */
         radius_: 1500,
         /**
          * The rotationAngle of the Helix in degrees
          * @member {Number} rotationAngle_=780
+         * @reactive
          */
         rotationAngle_: 780,
         /**
@@ -200,11 +218,13 @@ class Helix extends Component {
         /**
          * uses the selection.HelixModel by default
          * @member {Neo.selection.HelixModel|null} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null, // todo: use a store once collections are integrated
         /**
@@ -216,21 +236,25 @@ class Helix extends Component {
         /**
          * The translateX gets included into each helix item
          * @member {Number} translateX_=400
+         * @reactive
          */
         translateX_: 400,
         /**
          * The translateX value gets included into each helix item
          * @member {Number} translateY_=-350
+         * @reactive
          */
         translateY_: -350,
         /**
          * The translateX value gets included into each helix item
          * @member {Number} translateZ_=-5000
+         * @reactive
          */
         translateZ_: -5000,
         /**
          * The url for the store to load the data
          * @member {String} url_='../resources/examples/data/ai_contacts.json'
+         * @reactive
          */
         url_: '../../resources/examples/data/ai_contacts.json',
         /**
