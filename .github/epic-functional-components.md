@@ -10,6 +10,32 @@ Functional Components are an addition to, and not a replacement for declarative 
 
 ---
 
+## Two Modes of Functional Component Definition
+
+Neo.mjs will offer two distinct ways to define functional components, catering to different developer preferences and needs. Both modes leverage the underlying `Neo.functional.component.Base` class and the `Neo.core.Effect` system for reactive rendering, but they provide different levels of abstraction and access to the framework's full power.
+
+### 1. Beginner Mode: Pure Function with Hooks (e.g., `Neo.functional.defineComponent`)
+
+This mode is designed for developers seeking a highly concise and familiar syntax, especially those coming from frameworks like React. Components are defined as plain JavaScript functions that return VDOM. State management is handled via dedicated hooks (e.g., `useConfig`).
+
+**Characteristics:**
+-   **Concise Syntax:** Focus on the VDOM rendering logic.
+-   **Hook-based State:** State and side effects are managed through `use` hooks.
+-   **Simplified API:** Abstracts away class boilerplate.
+-   **Tier 1 Reactivity:** Primarily leverages `Neo.core.Config` for reactive values and `Neo.core.Effect` for re-rendering.
+-   **No Lifecycle Hooks:** Does not expose `beforeGet`, `beforeSet`, or `afterSet` lifecycle hooks directly on the component definition, as these are tied to the class-based `static config` system.
+
+### 2. Medium Mode: Class-based Functional Component (Extending `Neo.functional.component.Base`)
+
+This mode provides direct access to the underlying `Neo.functional.component.Base` class, allowing developers to define components using `static config` properties. This offers a more explicit and powerful way to define reactive components within the Neo.mjs class system.
+
+**Characteristics:**
+-   **Explicit Configs:** State is defined via `static config` properties.
+-   **Full Two-Tier Reactivity:** Access to both `Neo.core.Config` (Tier 1) and the `autoGenerateGetSet` mechanism (Tier 2), including `afterSet` lifecycle hooks for imperative side effects.
+-   **Class-based Structure:** Familiar to developers comfortable with class-based component patterns.
+
+---
+
 ## Sub-Ticket: Create `Neo.component.mixin.VdomLifecycle`
 
 **Status:** Done
@@ -45,7 +71,7 @@ Extracting the VDOM logic from `component.Base` into `Neo.component.mixin.VdomLi
 
 ## Sub-Ticket: Create `Neo.functional.component.Base`
 
-**Status:** To Do
+**Status:** Done
 
 ### 1. Summary
 
@@ -304,3 +330,99 @@ Functional components, driven by `Neo.core.Effect`, re-generate their VDOM whene
 -   A memoization mechanism for `Neo.core.Effect` is implemented.
 -   Functional components can leverage memoization to improve rendering performance.
 -   Performance benchmarks demonstrate measurable gains.
+
+## Sub-Ticket: Proof of Concept: Beginner Mode Functional Component
+
+**Status:** To Do
+
+### 1. Summary
+
+Create a simple, working example of a "Beginner Mode" functional component using `Neo.functional.defineComponent` and `Neo.functional.useConfig`.
+
+### 2. Rationale
+
+This PoC is crucial to validate the end-to-end developer experience for the simplified functional component definition. It will demonstrate that a developer can define a reactive component as a plain function, leveraging hooks for state, and that it renders correctly and updates reactively.
+
+### 3. Scope & Implementation Plan
+
+1.  **Create a Simple Component:** Define a basic functional component (e.g., a counter or a text display) using the `defineComponent` factory and `useConfig` hook.
+2.  **Render the Component:** Instantiate and render this component within a test environment or a minimal application.
+3.  **Verify Reactivity:** Ensure that changes to the state managed by `useConfig` correctly trigger re-renders of the component.
+
+### 4. Example Usage
+
+```javascript
+// In a component file (e.g., MyCounter.mjs)
+import { defineComponent } from 'neo/functional/defineComponent.mjs';
+import { useConfig }       from 'neo/functional/useConfig.mjs';
+
+export default defineComponent(function MyCounter(config) { // The functional component is now the function itself
+    const [count, setCount] = useConfig(0);
+
+    return {
+        tag: 'button',
+        text: `Count: ${count}`,
+        // No listeners property directly in VDOM for beginner mode
+    };
+});
+
+// In your app's MainView or a test file
+// Neo.create(MyCounter, { id: 'my-counter-instance' });
+```
+
+### 5. Definition of Done
+
+-   A functional component defined as a plain function using `defineComponent` and `useConfig` is successfully rendered.
+-   The component's state updates reactively, and these updates are reflected in the DOM.
+
+---
+
+## Sub-Ticket: DOM Event Handling for Beginner Mode Functional Components
+
+**Status:** To Do
+
+### 1. Summary
+
+Explore and define the idiomatic way for developers to handle DOM events within "Beginner Mode" functional components, ensuring integration with Neo.mjs's powerful, separate DOM event engine.
+
+### 2. Rationale
+
+Unlike some other frameworks, Neo.mjs has a dedicated and highly optimized DOM event management system that operates separately from the VDOM. Directly embedding `listeners` within the VDOM (as is common in React) is not the Neo.mjs way and can lead to confusion and suboptimal performance. This ticket aims to define a clear, intuitive, and performant pattern for event handling in the simplified functional component mode.
+
+### 3. Scope & Implementation Plan
+
+1.  **Research Existing Patterns:** Analyze how Neo.mjs's DOM event engine (`Neo.manager.DomEvent`) is currently used and how it can be exposed in a functional, hook-like manner.
+2.  **Propose API:** Brainstorm and propose a `useEvent` hook or similar API that allows developers to attach event listeners to VDOM nodes declaratively within their `createVdom` function, without directly embedding `listeners` in the VDOM object.
+3.  **Integration:** Ensure the proposed API seamlessly integrates with the underlying `Neo.functional.component.Base` instance and the `Neo.manager.DomEvent`.
+4.  **Documentation:** Provide clear examples and guidelines for using the new event handling mechanism.
+
+### 4. Example Usage (Conceptual)
+
+```javascript
+import { defineComponent } from 'neo/functional/defineComponent.mjs';
+import { useConfig }       from 'neo/functional/useConfig.mjs';
+import { useEvent }        from 'neo/functional/useEvent.mjs'; // New hook
+
+export default defineComponent(function MyClickableDiv(config) {
+    const [count, setCount] = useConfig(0);
+
+    // Attach a click listener using the new hook
+    useEvent('click', (event) => {
+        setCount(count + 1);
+        console.log('Div clicked!', event);
+    });
+
+    return {
+        tag: 'div',
+        html: `Clicked ${count} times`,
+        // No listeners property directly in VDOM
+    };
+});
+```
+
+### 5. Definition of Done
+
+-   A clear and idiomatic pattern for DOM event handling in "Beginner Mode" functional components is defined.
+-   Necessary hooks/utilities (e.g., `useEvent`) are designed.
+-   Documentation and examples are provided.
+
