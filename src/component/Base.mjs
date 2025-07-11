@@ -8,7 +8,7 @@ import NeoArray         from '../util/Array.mjs';
 import Observable       from '../core/Observable.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
-import VdomLifecycle    from './mixin/VdomLifecycle.mjs';
+import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';

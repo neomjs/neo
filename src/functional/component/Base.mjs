@@ -2,7 +2,7 @@ import Base             from '../../core/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
 import Effect           from '../../core/Effect.mjs';
 import Observable       from '../../core/Observable.mjs';
-import VdomLifecycle    from '../../component/mixin/VdomLifecycle.mjs';
+import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
 
 const
     hookIndexSymbol = Symbol.for('hookIndex'),
