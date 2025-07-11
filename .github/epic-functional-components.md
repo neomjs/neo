@@ -125,7 +125,7 @@ class MyFunctionalButton extends FunctionalBase {
 
 ## Sub-Ticket: Create `Neo.functional.useConfig` Hook
 
-**Status:** To Do
+**Status:** In Progress
 
 ### 1. Summary
 
@@ -173,7 +173,7 @@ const MyCounter = defineComponent({
 
 ## Sub-Ticket: Create `Neo.functional.defineComponent` Factory
 
-**Status:** To Do
+**Status:** Done
 
 ### 1. Summary
 
@@ -220,6 +220,76 @@ const MyGreeting = defineComponent({
 -   Generated components correctly utilize `useConfig` for state management.
 
 ---
+
+# Sub-Ticket: Enhance `Neo.functional.component.Base` for Hook Support
+
+**Status:** Done
+
+## 1. Summary
+
+This ticket covers the foundational work on `Neo.functional.component.Base` to enable the hook system (`useConfig`, `useEvent`, etc.) for beginner-mode functional components. The key challenge was to allow external hook functions to manage state on a component instance without exposing that state through the public API.
+
+## 2. Rationale
+
+The initial implementation of `functional.component.Base` was a minimal class with a `createVdom` method driven by an `Effect`. To support hooks like React's `useState`, we needed a mechanism to:
+1.  Associate state (like `Config` instances) with a specific component instance.
+2.  Track the order of hook calls within a single `createVdom` execution.
+3.  Provide a way for external hook functions to access this internal state securely.
+
+Using protected properties (e.g., `_hooks`) was considered but deemed insufficient for true encapsulation. The chosen solution provides a robust, framework-private way to manage hook state.
+
+## 3. Scope & Implementation Plan
+
+1.  **Introduce Symbols for State:**
+    *   Create two `Symbol.for()` symbols: `hookIndexSymbol` and `hooksSymbol`.
+    *   These symbols act as unique keys for properties on the component instance, making them accessible to any module that knows the symbol, but keeping them off the public API.
+
+2.  **Initialize State in `FunctionalBase`:**
+    *   In the `construct()` method of `functional.component.Base`, use `Object.defineProperties` to add the symbol-keyed properties (`[hookIndexSymbol]` and `[hooksSymbol]`) to the component instance.
+    *   These properties are configured to be non-enumerable (`enumerable: false`) to further hide them from standard object iteration.
+    *   The `hookIndex` is reset to `0` at the beginning of every `vdomEffect` execution, ensuring a clean slate for each render.
+
+3.  **Component Registration:**
+    *   Implement the `afterSetId()` and `destroy()` methods to correctly register and unregister the functional component instance with `Neo.manager.Component`. This makes functional components discoverable via `Neo.getComponent()`, integrating them fully into the framework's component model.
+
+4.  **Link Effect to Component:**
+    *   Modify the `vdomEffect` creation to pass the component's ID (`this.id`) to the `Effect` constructor. This allows the `useConfig` hook to retrieve the currently rendering component instance by getting the active effect from `EffectManager` and looking up the component by its ID.
+
+## 4. Definition of Done
+
+-   `functional.component.Base` is updated to use `Symbol.for()` to manage internal hook state.
+-   The component correctly registers and unregisters itself with `ComponentManager`.
+-   The `vdomEffect` is correctly associated with the component's ID.
+-   The implementation provides the necessary foundation for the `useConfig` hook to function correctly.
+
+# Sub-Ticket: Enhance `Neo.core.Effect` Constructor
+
+**Status:** Done
+
+## 1. Summary
+
+This ticket covers a minor but important enhancement to the `Neo.core.Effect` class to support the functional component hook system.
+
+## 2. Rationale
+
+To allow hooks like `useConfig` to identify which component is currently rendering, we needed a way to link an active `Effect` back to its owner component. The cleanest, most decoupled way to achieve this was to add an optional `componentId` to the `Effect`'s constructor.
+
+Since `core.Effect` is a new class introduced in the v10 beta series, adding an optional parameter is a safe, non-breaking change.
+
+## 3. Scope & Implementation Plan
+
+1.  **Update `Effect` Constructor:**
+    *   Modify the `constructor` of `Neo.core.Effect` to accept an optional second parameter, `componentId`.
+    *   If `componentId` is provided, store it on a public `this.componentId` property on the effect instance.
+
+2.  **Update `FunctionalBase`:**
+    *   In `Neo.functional.component.Base`, update the creation of the `vdomEffect` to pass `this.id` as the second argument to the `Effect` constructor.
+
+## 4. Definition of Done
+
+-   The `Neo.core.Effect` constructor is updated to accept an optional `componentId`.
+-   `functional.component.Base` correctly passes its ID when creating its `vdomEffect`.
+-   This change enables the `useConfig` hook to reliably get the current component instance.
 
 ## Sub-Ticket: Create Interoperability Layer
 
