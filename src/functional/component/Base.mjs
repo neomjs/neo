@@ -119,6 +119,4 @@ class FunctionalBase extends Base {
     }
 }
 
-Neo.setupClass(FunctionalBase);
-
-export default FunctionalBase;
+export default Neo.setupClass(FunctionalBase);
