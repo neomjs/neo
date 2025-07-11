@@ -1,7 +1,12 @@
-import Base          from '../../core/Base.mjs';
-import Effect        from '../../core/Effect.mjs';
-import Observable    from '../../core/Observable.mjs';
-import VdomLifecycle from '../../component/mixin/VdomLifecycle.mjs';
+import Base             from '../../core/Base.mjs';
+import ComponentManager from '../../manager/Component.mjs';
+import Effect           from '../../core/Effect.mjs';
+import Observable       from '../../core/Observable.mjs';
+import VdomLifecycle    from '../../component/mixin/VdomLifecycle.mjs';
+
+const
+    hookIndexSymbol = Symbol.for('hookIndex'),
+    hooksSymbol     = Symbol.for('hooks');
 
 /**
  * @class Neo.functional.component.Base
@@ -24,7 +29,12 @@ class FunctionalBase extends Base {
         /**
          * @member {Neo.core.Base[]} mixins=[Observable, VdomLifecycle]
          */
-        mixins: [Observable, VdomLifecycle]
+        mixins: [Observable, VdomLifecycle],
+        /**
+         * The vdom markup for this component.
+         * @member {Object} _vdom={}
+         */
+        _vdom: {}
     }
 
     /**
@@ -46,13 +56,43 @@ class FunctionalBase extends Base {
 
         let me = this;
 
+        Object.defineProperties(me, {
+            [hookIndexSymbol]: {
+                configurable: true,
+                enumerable  : false,
+                value       : 0,
+                writable    : true
+            },
+            [hooksSymbol]: {
+                configurable: true,
+                enumerable: false,
+                value     : [],
+                writable  : true
+            }
+        });
+
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
         me.vdomEffect = new Effect(() => {
+            me._hookIndex = 0;
+
             // Assign to the private backing property to prevent immediate VDOM worker updates,
             // allowing the public vdom setter (via afterSetVdom) to manage the update cycle.
-            me._vdom = this.createVdom(me, me.data);
+            me._vdom = me.createVdom(me, me.data);
             me.update()
-        })
+        }, me.id);
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        super.afterSetId(value, oldValue);
+
+        oldValue && ComponentManager.unregister(oldValue);
+        value    && ComponentManager.register(this)
     }
 
     /**
@@ -72,6 +112,9 @@ class FunctionalBase extends Base {
      */
     destroy() {
         this.vdomEffect?.destroy();
+
+        ComponentManager.unregister(this);
+
         super.destroy()
     }
 }
