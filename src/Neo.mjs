@@ -500,6 +500,12 @@ Neo = globalThis.Neo = Object.assign({
      * It is called at the end of every class module definition.
      *
      * `setupClass` performs several key operations:
+     * 1.  **Mixed-Environment Gatekeeper:** It first checks if the class's namespace already exists.
+     *     If it does, it immediately returns the existing class. This is the crucial "first comes wins"
+     *     strategy that enables Neo.mjs to safely combine environments. For example, a bundled
+     *     `dist/production` app can dynamically load an unbundled module from `dist/esm` at runtime.
+     *     If that module imports a class already present in the main bundle, this check ensures the
+     *     original, bundled class is used, preventing conflicts and maintaining application integrity.
      * 1.  **Configuration Merging:** It traverses the prototype chain to merge `static config`
      *     objects from parent classes into the current class, creating a unified `config`.
      * 2.  **Applying Overwrites:** It calls the static `applyOverwrites()` method on the class,
