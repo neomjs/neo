@@ -195,7 +195,7 @@ This factory further simplifies the developer experience for "beginner mode" fun
 
 ```javascript
 import { defineComponent } from 'neo/functional/defineComponent.mjs';
-import { useConfig } from 'neo/functional/useConfig.mjs';
+import { useConfig }       from 'neo/functional/useConfig.mjs';
 
 const MyGreeting = defineComponent({
     className: 'MyApp.MyGreeting',
@@ -204,7 +204,7 @@ const MyGreeting = defineComponent({
 
         return {
             tag: 'div',
-            html: `Hello, ${name}!`,
+            text: `Hello, ${name}!`,
             listeners: {
                 click: () => setName(name === 'World' ? 'Neo.mjs' : 'World')
             }
