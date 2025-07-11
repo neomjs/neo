@@ -10,6 +10,11 @@ import IdGenerator        from './IdGenerator.mjs';
  */
 class Effect {
     /**
+     * The optional component id this effect belongs to.
+     * @member {String|null} componentId=null
+     */
+    componentId = null
+    /**
      * A Map containing Config instances as keys and their cleanup functions as values.
      * @member {Map} dependencies=new Map()
      * @protected
@@ -17,9 +22,9 @@ class Effect {
     dependencies = new Map()
     /**
      * The function to execute.
-     * @member {Function|null} _fn=null
+     * @member {Function|null} fn=null
      */
-    _fn = null
+    fn = null
     /**
      * The unique identifier for this effect instance.
      * @member {String|null}
@@ -52,9 +57,14 @@ class Effect {
 
     /**
      * @param {Function} fn The function to execute for the effect.
+     * @param {String} [componentId] The component id this effect belongs to.
      */
-    constructor(fn) {
-        this.fn = fn
+    constructor(fn, componentId) {
+        this.fn = fn;
+
+        if (componentId) {
+            this.componentId = componentId
+        }
     }
 
     /**
@@ -96,7 +106,7 @@ class Effect {
             me.fn()
         } finally {
             EffectManager.pop();
-            me.isRunning = false;
+            me.isRunning = false
         }
     }
 
@@ -124,8 +134,8 @@ const ns = Neo.ns('Neo.core', true);
 ns.Effect = Effect;
 
 // Register a shortcut to the Neo namespace
-Neo.effect = function(fn) {
-    return new Effect(fn)
+Neo.effect = function(fn, id) {
+    return new Effect(fn, id)
 }
 
 export default Effect;
