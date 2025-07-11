@@ -19,6 +19,7 @@ class MainContainer extends Viewport {
         /**
          * We are not using a container layout here
          * @member {String} layout='base'
+         * @reactive
          */
         layout: 'base',
         /**

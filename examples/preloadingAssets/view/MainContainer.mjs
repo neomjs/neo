@@ -16,10 +16,12 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.preloadingAssets.view.MainContainer',
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
          * @member {Object} layout={ntype:'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'},
         /**

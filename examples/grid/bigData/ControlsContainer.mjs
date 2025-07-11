@@ -17,6 +17,7 @@ class ControlsContainer extends Container {
         className: 'Neo.examples.grid.bigData.ControlsContainer',
         /**
          * @member {String[]} cls=['neo-examples-bigdata-controls-container']
+         * @reactive
          */
         cls: ['neo-examples-bigdata-controls-container'],
         /**
@@ -170,10 +171,12 @@ class ControlsContainer extends Container {
         }],
         /**
          * @member {Object} layout={ntype:'vbox'}
+         * @reactive
          */
         layout: {ntype: 'fit'},
         /**
          * @member {String} tag='aside'
+         * @reactive
          */
         tag: 'aside'
     }

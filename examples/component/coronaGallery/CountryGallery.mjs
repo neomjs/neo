@@ -22,6 +22,7 @@ class CountryGallery extends Gallery {
         className: 'Neo.examples.component.coronaGallery.CountryGallery',
         /**
          * @member {String[]} cls=['neo-country-gallery']
+         * @reactive
          */
         cls: ['neo-country-gallery'],
         /**
@@ -46,6 +47,7 @@ class CountryGallery extends Gallery {
         selectOnMount: false,
         /**
          * @member {Neo.data.Store} store=CountryStore
+         * @reactive
          */
         store: CountryStore
     }

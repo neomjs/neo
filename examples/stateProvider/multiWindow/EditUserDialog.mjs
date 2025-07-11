@@ -23,10 +23,12 @@ class EditUserDialog extends Dialog {
         },
         /**
          * @member {Neo.controller.Component} controller=EditUserDialogController
+         * @reactive
          */
         controller: EditUserDialogController,
         /**
          * @member {String} title='Edit User'
+         * @reactive
          */
         title: 'Edit User',
         /**
@@ -49,6 +51,7 @@ class EditUserDialog extends Dialog {
         }],
         /**
          * @member {Object} wrapperStyle={height: '300px',width : '400px'}
+         * @reactive
          */
         wrapperStyle: {
             height: '300px',

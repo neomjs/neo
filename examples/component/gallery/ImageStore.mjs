@@ -18,6 +18,7 @@ class ImageStore extends Store {
         autoLoad: true,
         /**
          * @member {Neo.data.Model} model=ImageModel
+         * @reactive
          */
         model: ImageModel,
         /**

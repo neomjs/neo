@@ -21,6 +21,7 @@ class Viewport extends BaseViewport {
         baseCls: ['neo-gallery-viewport', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
@@ -33,10 +34,12 @@ class Viewport extends BaseViewport {
         galleryConfig: null,
         /**
          * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Boolean} showGitHubStarButton_=true
+         * @reactive
          */
         showGitHubStarButton_: true,
         /**

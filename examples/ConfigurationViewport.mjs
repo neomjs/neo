@@ -63,6 +63,7 @@ class ConfigurationViewport extends Viewport {
         exampleComponentFlex: 2,
         /**
          * @member {Object} layout={ntype:'hbox', align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'}
     }

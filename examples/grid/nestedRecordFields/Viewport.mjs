@@ -17,10 +17,12 @@ class Viewport extends BaseViewport {
         className: 'Neo.examples.grid.nestedRecordFields.Viewport',
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
          */
         stateProvider: ViewportStateProvider,
         /**

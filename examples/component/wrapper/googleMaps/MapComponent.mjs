@@ -15,6 +15,7 @@ class MapComponent extends GoogleMapsComponent {
         /**
          * Center the map initially to Island
          * @member {Object} center={lat: 64.963051,lng: -19.020835}
+         * @reactive
          */
         center: {
             lat: 64.963051,
@@ -53,6 +54,7 @@ class MapComponent extends GoogleMapsComponent {
         /**
          * Ensure only Island is visible
          * @member {Number} zoom=6
+         * @reactive
          */
         zoom: 6
     }

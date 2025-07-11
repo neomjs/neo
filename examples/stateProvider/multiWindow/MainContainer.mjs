@@ -27,6 +27,7 @@ class MainContainer extends Panel {
         },
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**

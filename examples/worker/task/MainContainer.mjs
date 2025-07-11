@@ -14,6 +14,7 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.worker.task.MainContainer',
         /**
          * @member {Object} layout={ntype:'vbox'}
+         * @reactive
          */
         layout: {ntype: 'vbox'},
         /**

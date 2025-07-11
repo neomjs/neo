@@ -14,6 +14,7 @@ class Viewport extends BaseViewport {
         className: 'Neo.examples.stateProvider.multiWindow.Viewport',
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**

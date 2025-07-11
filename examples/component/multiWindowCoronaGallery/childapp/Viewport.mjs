@@ -13,6 +13,7 @@ class Viewport extends BaseViewport {
         className: 'Neo.examples.component.multiWindowCoronaGallery.childapp.Viewport',
         /**
          * @member {Object} layout={ntype:'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'}
     }

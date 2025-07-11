@@ -117,7 +117,7 @@ class MainContainer extends ConfigurationViewport {
 
                 store: store,
 
-                /**
+                /*
                  * We are using data-binding.
                  * Here is an example for listener and controller
                  */
@@ -180,7 +180,7 @@ class MainContainer extends ConfigurationViewport {
 
     /**
      *
-     * @param data
+     * @param {Object} data
      */
     onRemoveDomButtonClick(data) {
         let accordion = this.exampleComponent.items[0];
