@@ -22,9 +22,9 @@ class Effect {
     dependencies = new Map()
     /**
      * The function to execute.
-     * @member {Function|null} fn=null
+     * @member {Function|null} _fn=null
      */
-    fn = null
+    _fn = null
     /**
      * The unique identifier for this effect instance.
      * @member {String|null}
