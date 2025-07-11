@@ -12,11 +12,13 @@
     },
     "scripts"        : {
         "add-config"            : "node ./buildScripts/addConfig.mjs",
+        "add-reactive-tags"     : "node ./buildScripts/addReactiveTags.mjs",
         "build-all"             : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"   : "node ./buildScripts/buildAll.mjs -f",
         "build-es-modules"      : "node ./buildScripts/buildESModules.mjs",
         "build-themes"          : "node ./buildScripts/buildThemes.mjs -f",
         "build-threads"         : "node ./buildScripts/webpack/buildThreads.mjs -f",
+        "check-reactive-tags"   : "node ./buildScripts/checkReactiveTags.mjs",
         "convert-design-tokens" : "node ./buildScripts/convertDesignTokens.mjs",
         "create-app"            : "node ./buildScripts/createApp.mjs",
         "create-app-minimal"    : "node ./buildScripts/createAppMinimal.mjs",
