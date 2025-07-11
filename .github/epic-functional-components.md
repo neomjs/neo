@@ -49,15 +49,15 @@ Extracting the VDOM logic from `component.Base` into `Neo.component.mixin.VdomLi
 
 ### 1. Summary
 
-Create a new base class, `Neo.functional.component.Base`, which will serve as the foundation for the new declarative component paradigm. This class will provide a minimal, modern API for creating components, directly appealing to developers familiar with frameworks like React and Vue.
+Create a new base class, `Neo.functional.component.Base`, which will serve as the foundational class for all functional components. This class provides the core reactive rendering mechanism and acts as the underlying base for both class-based functional components and the simpler, function-based "beginner mode" components.
 
 ### 2. Rationale
 
-The primary goal of the Functional Components epic is to provide a simpler entry point into the Neo.mjs ecosystem. This requires a base class that is free from the conceptual overhead of the classic component hierarchy (e.g., the `items` array and `layout` system). `FunctionalBase` will be this class, offering a pure, state-driven rendering experience.
+The primary goal of the Functional Components epic is to provide a simpler entry point into the Neo.mjs ecosystem while also offering the full power of its reactivity. This base class achieves this by providing a minimal, modern API for creating components, directly appealing to developers familiar with frameworks like React and Vue, and serving as the common foundation for different component definition styles.
 
 ### 3. Scope & Implementation Plan
 
-1.  **Create File:** Create a new file at `src/component/FunctionalBase.mjs`.
+1.  **Create File:** Create a new file at `src/functional/component/Base.mjs`.
 2.  **Class Definition:**
     *   The class will extend `Neo.core.Base`.
     *   It will use the `Neo.component.mixin.VdomLifecycle` (created in the prerequisite ticket).
@@ -66,10 +66,10 @@ The primary goal of the Functional Components epic is to provide a simpler entry
     *   It will introduce a new method for developers to implement: `createVdom()`. This method is responsible for returning the component's VDOM structure based on its current configs (state).
     *   In its `construct()` method, it will create a `Neo.core.Effect`. This effect will wrap a call to `this.createVdom()` and assign the result to `this.vdom`. This ensures that any time a config used within `createVdom()` is changed, the component automatically re-renders.
 
-### 4. Example Usage
+### 4. Example Usage (Class-based Functional Component)
 
 ```javascript
-import FunctionalBase from 'neo/component/FunctionalBase.mjs';
+import FunctionalBase from 'neo/functional/component/Base.mjs';
 
 class MyFunctionalButton extends FunctionalBase {
     static config = {
@@ -91,9 +91,107 @@ class MyFunctionalButton extends FunctionalBase {
 
 ### 5. Definition of Done
 
--   `src/component/FunctionalBase.mjs` is created.
+-   `src/functional/component/Base.mjs` is created.
 -   The class works as described, using `VdomLifecycle` and a central `Effect`.
 -   A basic test case is created to verify that a simple `FunctionalBase` component can be rendered and updates when its configs change.
+
+---
+
+## Sub-Ticket: Create `Neo.functional.useConfig` Hook
+
+**Status:** To Do
+
+### 1. Summary
+
+Implement a `useConfig` hook for functional components, allowing developers to manage reactive state within their "render" functions in a React-like fashion.
+
+### 2. Rationale
+
+This hook provides a simplified entry point for developers familiar with `useState` from other frameworks. It leverages Neo.mjs's Tier 1 reactivity (`Neo.core.Config`) for state management without requiring class-based config definitions, making it ideal for the "beginner mode" functional component experience.
+
+### 3. Scope & Implementation Plan
+
+1.  **Create File:** Create `src/functional/useConfig.mjs`.
+2.  **Implement `useConfig`:** The hook will return a `[value, setter]` tuple. The `setter` will update an internal `Neo.core.Config` instance.
+3.  **Lifecycle Management:** Ensure the `Neo.core.Config` instance is properly managed (created, updated, destroyed) in relation to the functional component's lifecycle. This will likely involve associating the `core.Config` instance with the `Neo.functional.component.Base` instance that is executing the "render" function.
+
+### 4. Example Usage
+
+```javascript
+import { useConfig } from 'neo/functional/useConfig.mjs';
+import { defineComponent } from 'neo/functional/defineComponent.mjs'; // Assuming this exists
+
+const MyCounter = defineComponent({
+    className: 'MyApp.MyCounter',
+    createVdom: () => {
+        const [count, setCount] = useConfig(0);
+
+        return {
+            tag: 'button',
+            text: `Count: ${count}`,
+            listeners: {
+                click: () => setCount(count + 1)
+            }
+        };
+    }
+});
+```
+
+### 5. Definition of Done
+
+-   `Neo.functional.useConfig` hook is implemented and tested.
+-   It correctly creates and manages reactive state via `Neo.core.Config`.
+-   Changes to the state trigger re-execution of the component's render function (via `Effect`).
+
+---
+
+## Sub-Ticket: Create `Neo.functional.defineComponent` Factory
+
+**Status:** To Do
+
+### 1. Summary
+
+Implement a factory function that allows developers to define functional components using a plain JavaScript function, abstracting away the underlying class creation.
+
+### 2. Rationale
+
+This factory further simplifies the developer experience for "beginner mode" functional components, making the syntax more concise and familiar to developers accustomed to functional component patterns in other frameworks. It acts as the bridge between a pure function definition and the underlying `Neo.functional.component.Base` class.
+
+### 3. Scope & Implementation Plan
+
+1.  **Create File:** Create `src/functional/defineComponent.mjs`.
+2.  **Implement `defineComponent`:** The factory will accept a configuration object (including `className`, optional `ntype`, and the `createVdom` function).
+3.  **Internal Class Generation:** Internally, `defineComponent` will create a new class that extends `Neo.functional.component.Base`. It will apply the provided `className` and `ntype` to this new class.
+4.  **`createVdom` Method Assignment:** The developer's `createVdom` function will be assigned as the `createVdom` method of the generated class's prototype.
+5.  **Integration with `useConfig`:** Ensure that the context (`this`) within the developer's `createVdom` function (when executed by the generated component instance) allows `useConfig` to correctly associate state with that instance.
+
+### 4. Example Usage
+
+```javascript
+import { defineComponent } from 'neo/functional/defineComponent.mjs';
+import { useConfig } from 'neo/functional/useConfig.mjs';
+
+const MyGreeting = defineComponent({
+    className: 'MyApp.MyGreeting',
+    createVdom: (config) => {
+        const [name, setName] = useConfig('World');
+
+        return {
+            tag: 'div',
+            html: `Hello, ${name}!`,
+            listeners: {
+                click: () => setName(name === 'World' ? 'Neo.mjs' : 'World')
+            }
+        };
+    }
+});
+```
+
+### 5. Definition of Done
+
+-   `Neo.functional.defineComponent` factory is implemented and tested.
+-   It successfully generates functional component classes from plain functions.
+-   Generated components correctly utilize `useConfig` for state management.
 
 ---
 
