@@ -1,4 +1,5 @@
-import EffectManager     from './EffectManager.mjs';
+import Config             from './Config.mjs';
+import EffectManager      from './EffectManager.mjs';
 import EffectBatchManager from './EffectBatchManager.mjs';
 import IdGenerator        from './IdGenerator.mjs';
 
@@ -36,10 +37,10 @@ class Effect {
      */
     isDestroyed = false
     /**
-     * @member {Boolean}
+     * @member {Neo.core.Config}
      * @protected
      */
-    isRunning = false
+    isRunning = null
 
     /**
      * @member fn
@@ -60,7 +61,8 @@ class Effect {
      * @param {String} [componentId] The component id this effect belongs to.
      */
     constructor(fn, componentId) {
-        this.fn = fn;
+        this.isRunning = new Config(false);
+        this.fn        = fn;
 
         if (componentId) {
             this.componentId = componentId
@@ -88,14 +90,14 @@ class Effect {
     run() {
         const me = this;
 
-        if (me.isDestroyed || me.isRunning) return;
+        if (me.isDestroyed || me.isRunning.get()) return;
 
         if (EffectBatchManager.isBatchActive()) {
             EffectBatchManager.queueEffect(me);
             return
         }
 
-        me.isRunning = true;
+        me.isRunning.set(true);
 
         me.dependencies.forEach(cleanup => cleanup());
         me.dependencies.clear();
@@ -106,7 +108,7 @@ class Effect {
             me.fn()
         } finally {
             EffectManager.pop();
-            me.isRunning = false
+            me.isRunning.set(false);
         }
     }
 
