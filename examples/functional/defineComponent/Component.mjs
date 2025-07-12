@@ -1,5 +1,4 @@
-import defineComponent from '../../../src/functional/defineComponent.mjs';
-import useConfig       from '../../../src/functional/useConfig.mjs';
+import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
 
 export default defineComponent({
     config: {
