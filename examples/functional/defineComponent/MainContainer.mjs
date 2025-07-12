@@ -1,7 +1,6 @@
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import defineComponent       from '../../../src/functional/defineComponent.mjs';
+import MyFunctionalComponent from './Component.mjs';
 import TextField             from '../../../src/form/field/Text.mjs';
-import useConfig             from '../../../src/functional/useConfig.mjs';
 
 /**
  * @class Neo.examples.functional.defineComponent.MainContainer
@@ -32,20 +31,10 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.functional.Component}
      */
     createExampleComponent() {
-        return defineComponent({
-            config: {
-                className: 'Neo.examples.functional.defineComponent.Component',
-                greeting_: 'Hello'
-            },
-            createVdom: (config) => {
-                const [name, setName] = useConfig('World');
-
-                return {
-                    tag : 'div',
-                    text: `${config.greeting}, ${name}!`
-                }
-            }
-        })
+        return {
+            module  : MyFunctionalComponent,
+            greeting: 'Hi'
+        }
     }
 }
 
