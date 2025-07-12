@@ -31,22 +31,26 @@ class FunctionalBase extends Base {
          */
         mixins: [Observable, VdomLifecycle],
         /**
-         * The vdom markup for this component.
-         * @member {Object} _vdom={}
+         * @member {String|null} parentId_=null
+         * @protected
+         * @reactive
          */
-        _vdom: {}
+        parentId_: null,
+        /**
+         * The vdom markup for this component.
+         * @member {Object} vdom={}
+         */
+        vdom: {}
     }
 
     /**
-     * The setter will handle vdom updates automatically
-     * @member {Object} vdom=this._vdom
+     * Convenience method to access the parent component
+     * @returns {Neo.component.Base|null}
      */
-    get vdom() {
-        return this._vdom
-    }
-    set vdom(value) {
-        this._vdom = value;
-        this.afterSetVdom(value, value)
+    get parent() {
+        let me = this;
+
+        return me.parentComponent || (me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId))
     }
 
     /**
@@ -56,6 +60,8 @@ class FunctionalBase extends Base {
         super.construct(config);
 
         let me = this;
+
+        me.vdomEffectIsRunning = false;
 
         Object.defineProperties(me, {
             [hookIndexSymbol]: {
@@ -74,13 +80,42 @@ class FunctionalBase extends Base {
 
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
         me.vdomEffect = new Effect(() => {
+            if (me.vdomEffectIsRunning) {
+                return;
+            }
+
+            me.vdomEffectIsRunning = true;
+
             me[hookIndexSymbol] = 0;
 
-            // By assigning to the public `vdom` property, we trigger the setter,
-            // which in turn calls `afterSetVdom` from the VdomLifecycle mixin.
-            // This ensures the standard component update process is followed.
-            me.vdom = me.createVdom(me, me.data)
-        }, me.id)
+            // This runs inside the effect's tracking scope.
+            const newVdom = me.createVdom(me, me.data);
+
+            // Clear the old vdom properties
+            for (const key in me.vdom) {
+                if (Object.prototype.hasOwnProperty.call(me.vdom, key)) {
+                    delete me.vdom[key];
+                }
+            }
+
+            // Assign the new properties
+            Object.assign(me.vdom, newVdom);
+
+            const root = me.getVdomRoot();
+
+            if (me.id) {
+                root.id = me.id;
+            }
+
+        }, me.id);
+
+        // We subscribe to the effect's isRunning state.
+        // The handler runs *outside* the effect's tracking scope.
+        me.vdomEffect.isRunning.subscribe({
+            id   : me.id,
+            fn   : me.onEffectRunStateChange,
+            scope: me
+        });
     }
 
     /**
@@ -117,6 +152,27 @@ class FunctionalBase extends Base {
         ComponentManager.unregister(this);
 
         super.destroy()
+    }
+
+    /**
+     * This handler runs when the effect's `isRunning` state changes.
+     * It runs outside the effect's tracking scope, preventing feedback loops.
+     * @param {Boolean} newValue
+     * @param {Boolean} oldValue
+     */
+    onEffectRunStateChange(newValue, oldValue) {
+        // When the effect has just finished running...
+        if (newValue === false) {
+            this.vdomEffectIsRunning = false;
+
+            // We schedule the update in a microtask to ensure the current reactive
+            // notification chain is fully completed before we start a new update cycle.
+            // This prevents a recursive loop where updateVdom() triggers a reactive
+            // setter, which could cause this same effect to run again immediately.
+            Promise.resolve().then(() => {
+                this.updateVdom();
+            });
+        }
     }
 }
 
