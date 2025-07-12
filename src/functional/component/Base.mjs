@@ -45,6 +45,7 @@ class FunctionalBase extends Base {
         return this._vdom
     }
     set vdom(value) {
+        this._vdom = value;
         this.afterSetVdom(value, value)
     }
 
@@ -73,12 +74,12 @@ class FunctionalBase extends Base {
 
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
         me.vdomEffect = new Effect(() => {
-            me._hookIndex = 0;
+            me[hookIndexSymbol] = 0;
 
-            // Assign to the private backing property to prevent immediate VDOM worker updates,
-            // allowing the public vdom setter (via afterSetVdom) to manage the update cycle.
-            me._vdom = me.createVdom(me, me.data);
-            me.update()
+            // By assigning to the public `vdom` property, we trigger the setter,
+            // which in turn calls `afterSetVdom` from the VdomLifecycle mixin.
+            // This ensures the standard component update process is followed.
+            me.vdom = me.createVdom(me, me.data)
         }, me.id)
     }
 
