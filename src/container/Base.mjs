@@ -358,7 +358,7 @@ class Container extends Component {
                 }
 
                 item.set(config);
-                item.getStateProvider()?.createBindings(item);
+                item.getStateProvider?.()?.createBindings(item);
                 break
             }
 
