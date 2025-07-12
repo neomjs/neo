@@ -20,26 +20,21 @@ const EffectBatchManager = {
     pendingEffects: new Set(),
 
     /**
-     * Increments the batch counter. When `batchCount` is greater than 0,
-     * effects will be queued instead of running immediately.
-     */
-    startBatch() {
-        this.batchCount++
-    },
-
-    /**
      * Decrements the batch counter. If `batchCount` reaches 0, all queued effects
      * are executed and the `pendingEffects` Set is cleared.
      */
     endBatch() {
-        this.batchCount--;
+        const me = this;
 
-        if (this.batchCount === 0) {
-            this.pendingEffects.forEach(effect => {
-                effect.run();
-            });
+        me.batchCount--;
 
-            this.pendingEffects.clear()
+        if (me.batchCount === 0) {
+            const effectsToRun = [...me.pendingEffects]; // Create a snapshot
+            me.pendingEffects.clear();
+
+            effectsToRun.forEach(effect => {
+                effect.run()
+            })
         }
     },
 
@@ -58,6 +53,14 @@ const EffectBatchManager = {
      */
     queueEffect(effect) {
         this.pendingEffects.add(effect)
+    },
+
+    /**
+     * Increments the batch counter. When `batchCount` is greater than 0,
+     * effects will be queued instead of running immediately.
+     */
+    startBatch() {
+        this.batchCount++
     }
 };
 
