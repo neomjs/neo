@@ -8,7 +8,7 @@ This article provides a focused comparison between Neo.mjs and React, specifical
 
 Both Neo.mjs and React share common ground in building modern user interfaces:
 
-*   **Component-Based Architecture:** Both frameworks promote building UIs as a composition of reusable components.
+*   **Component-Based Architecture (with a distinction):** Both frameworks promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the framework's powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
 *   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the framework handles *how* to update the DOM.
 *   **Reactive Paradigm:** Both leverage reactive programming principles where UI updates are driven by changes in state.
 *   **Functional Components & Hooks:** Both support defining components as functions and provide hooks for managing state and side effects.
