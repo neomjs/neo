@@ -80,7 +80,7 @@ class Config {
     get() {
         // Registers this Config instance as a dependency with the currently active Effect,
         // enabling automatic re-execution when this Config's value changes.
-        EffectManager.getActiveEffect()?.addDependency(this);
+        EffectManager.addDependency(this);
         return this.#value
     }
 

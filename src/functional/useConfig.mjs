@@ -12,6 +12,8 @@ const
  * @returns {Array<any>} A tuple containing the current value and a setter function.
  */
 export function useConfig(initialValue) {
+    EffectManager.pause();
+
     const
         effect    = EffectManager.getActiveEffect(),
         component = effect && Neo.getComponent(effect.componentId);
@@ -30,14 +32,12 @@ export function useConfig(initialValue) {
     if (!component[hooksSymbol][currentIndex]) {
         const config = new Config(initialValue);
 
-        const setter = (newValue) => {
-            config.set(newValue)
-        };
-
-        component[hooksSymbol][currentIndex] = [config, setter]
+        component[hooksSymbol][currentIndex] = [config, config.set]
     }
 
     const [config, setter] = component[hooksSymbol][currentIndex];
+
+    EffectManager.resume();
 
     // Call config.get() to ensure this component's effect tracks this config as a dependency.
     return [config.get(), setter]

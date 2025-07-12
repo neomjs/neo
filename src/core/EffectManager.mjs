@@ -6,6 +6,20 @@
  */
 const EffectManager = {
     effectStack: [],
+    isPaused   : false,
+
+    /**
+     * Adds a `Neo.core.Config` instance as a dependency for the currently active effect.
+     * This method checks if the EffectManager is paused before adding the dependency.
+     * @param {Neo.core.Config} config The config instance to add as a dependency.
+     */
+    addDependency(config) {
+        const activeEffect = this.getActiveEffect();
+
+        if (!this.isPaused && activeEffect) {
+            activeEffect.addDependency(config)
+        }
+    },
 
     /**
      * Returns the effect currently at the top of the stack (i.e., the one currently running).
@@ -13,6 +27,13 @@ const EffectManager = {
      */
     getActiveEffect() {
         return this.effectStack[this.effectStack.length - 1]
+    },
+
+    /**
+     * Pauses dependency tracking for effects. While paused, calls to `addDependency` will be ignored.
+     */
+    pause() {
+        this.isPaused = true;
     },
 
     /**
@@ -29,6 +50,13 @@ const EffectManager = {
      */
     push(effect) {
         this.effectStack.push(effect)
+    },
+
+    /**
+     * Resumes dependency tracking for effects.
+     */
+    resume() {
+        this.isPaused = false;
     }
 };
 
