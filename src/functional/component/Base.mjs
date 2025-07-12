@@ -62,8 +62,6 @@ class FunctionalBase extends Base {
 
         let me = this;
 
-        me.vdomEffectIsRunning = false;
-
         Object.defineProperties(me, {
             [hookIndexSymbol]: {
                 configurable: true,
@@ -87,9 +85,7 @@ class FunctionalBase extends Base {
 
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
         me.vdomEffect = new Effect(() => {
-            me[hookIndexSymbol] = 0;
-
-            // This runs inside the effect's tracking scope.
+            me[hookIndexSymbol]   = 0;
             me[vdomToApplySymbol] = me.createVdom(me, me.data)
         }, me.id);
 
@@ -99,7 +95,7 @@ class FunctionalBase extends Base {
             id   : me.id,
             fn   : me.onEffectRunStateChange,
             scope: me
-        });
+        })
     }
 
     /**
@@ -141,39 +137,33 @@ class FunctionalBase extends Base {
     /**
      * This handler runs when the effect's `isRunning` state changes.
      * It runs outside the effect's tracking scope, preventing feedback loops.
-     * @param {Boolean} newValue
+     * @param {Boolean} value
      * @param {Boolean} oldValue
      */
-    onEffectRunStateChange(newValue, oldValue) {
+    onEffectRunStateChange(value, oldValue) {
         // When the effect has just finished running...
-        if (newValue === false) {
+        if (value === false) {
             const me      = this,
                   newVdom = me[vdomToApplySymbol];
 
             if (newVdom) {
                 // Clear the old vdom properties
                 for (const key in me.vdom) {
-                    if (Object.prototype.hasOwnProperty.call(me.vdom, key)) {
-                        delete me.vdom[key];
-                    }
+                    delete me.vdom[key]
                 }
 
                 // Assign the new properties
                 Object.assign(me.vdom, newVdom);
 
+                me[vdomToApplySymbol] = null;
+
                 const root = me.getVdomRoot();
 
                 if (me.id) {
-                    root.id = me.id;
+                    root.id = me.id
                 }
 
-                // We schedule the update in a microtask to ensure the current reactive
-                // notification chain is fully completed before we start a new update cycle.
-                // This prevents a recursive loop where updateVdom() triggers a reactive
-                // setter, which could cause this same effect to run again immediately.
-                Promise.resolve().then(() => {
-                    me.updateVdom()
-                })
+                me.updateVdom()
             }
         }
     }
