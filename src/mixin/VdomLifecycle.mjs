@@ -4,8 +4,7 @@ import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
-const
-    {currentWorker} = Neo;
+const {currentWorker} = Neo;
 
 /**
  * @class Neo.mixin.VdomLifecycle
@@ -152,6 +151,22 @@ class VdomLifecycle extends Base {
      */
     afterSetVnode(value, oldValue) {
         oldValue !== undefined && this.syncVnodeTree()
+    }
+
+    /**
+     * Convenience shortcut to create a component reference
+     * @returns {Object}
+     */
+    createVdomReference() {
+        let me        = this,
+            reference = {componentId: me.id},
+            vdomId    = me.vdom.id;
+
+        if (vdomId && me.id !== vdomId) {
+            reference.id = vdomId
+        }
+
+        return reference
     }
 
     /**
