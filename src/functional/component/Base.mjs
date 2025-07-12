@@ -5,8 +5,9 @@ import Observable       from '../../core/Observable.mjs';
 import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
 
 const
-    hookIndexSymbol = Symbol.for('hookIndex'),
-    hooksSymbol     = Symbol.for('hooks');
+    hookIndexSymbol   = Symbol.for('hookIndex'),
+    hooksSymbol       = Symbol.for('hooks'),
+    vdomToApplySymbol = Symbol('vdomToApply');
 
 /**
  * @class Neo.functional.component.Base
@@ -75,38 +76,21 @@ class FunctionalBase extends Base {
                 enumerable: false,
                 value     : [],
                 writable  : true
+            },
+            [vdomToApplySymbol]: {
+                configurable: true,
+                enumerable  : false,
+                value       : null,
+                writable    : true
             }
         });
 
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
         me.vdomEffect = new Effect(() => {
-            if (me.vdomEffectIsRunning) {
-                return;
-            }
-
-            me.vdomEffectIsRunning = true;
-
             me[hookIndexSymbol] = 0;
 
             // This runs inside the effect's tracking scope.
-            const newVdom = me.createVdom(me, me.data);
-
-            // Clear the old vdom properties
-            for (const key in me.vdom) {
-                if (Object.prototype.hasOwnProperty.call(me.vdom, key)) {
-                    delete me.vdom[key];
-                }
-            }
-
-            // Assign the new properties
-            Object.assign(me.vdom, newVdom);
-
-            const root = me.getVdomRoot();
-
-            if (me.id) {
-                root.id = me.id;
-            }
-
+            me[vdomToApplySymbol] = me.createVdom(me, me.data)
         }, me.id);
 
         // We subscribe to the effect's isRunning state.
@@ -163,15 +147,34 @@ class FunctionalBase extends Base {
     onEffectRunStateChange(newValue, oldValue) {
         // When the effect has just finished running...
         if (newValue === false) {
-            this.vdomEffectIsRunning = false;
+            const me      = this,
+                  newVdom = me[vdomToApplySymbol];
 
-            // We schedule the update in a microtask to ensure the current reactive
-            // notification chain is fully completed before we start a new update cycle.
-            // This prevents a recursive loop where updateVdom() triggers a reactive
-            // setter, which could cause this same effect to run again immediately.
-            Promise.resolve().then(() => {
-                this.updateVdom();
-            });
+            if (newVdom) {
+                // Clear the old vdom properties
+                for (const key in me.vdom) {
+                    if (Object.prototype.hasOwnProperty.call(me.vdom, key)) {
+                        delete me.vdom[key];
+                    }
+                }
+
+                // Assign the new properties
+                Object.assign(me.vdom, newVdom);
+
+                const root = me.getVdomRoot();
+
+                if (me.id) {
+                    root.id = me.id;
+                }
+
+                // We schedule the update in a microtask to ensure the current reactive
+                // notification chain is fully completed before we start a new update cycle.
+                // This prevents a recursive loop where updateVdom() triggers a reactive
+                // setter, which could cause this same effect to run again immediately.
+                Promise.resolve().then(() => {
+                    me.updateVdom()
+                })
+            }
         }
     }
 }
