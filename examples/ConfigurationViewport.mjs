@@ -119,7 +119,7 @@ class ConfigurationViewport extends Viewport {
 
         me.configurationComponents = me.createConfigurationComponents() || [];
 
-        theme = me.exampleComponent.getTheme();
+        theme = me.exampleComponent.getTheme?.() || 'neo-theme-light';
 
         me.items = [{
             module: Container,
