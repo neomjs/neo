@@ -105,7 +105,7 @@ class ConfigurationViewport extends Viewport {
     onConstructed() {
         let me    = this,
             style = me.exampleContainerConfig?.style,
-            theme;
+            exampleComponentType, theme;
 
         if (style) {
             delete me.exampleContainerConfig.style
@@ -113,7 +113,9 @@ class ConfigurationViewport extends Viewport {
 
         me.exampleComponent = me.createExampleComponent();
 
-        if (Neo.isObject(me.exampleComponent)) {
+        exampleComponentType = Neo.typeOf(me.exampleComponent);
+
+        if (exampleComponentType === 'NeoClass' || exampleComponentType === 'Object') {
             me.exampleComponent = Neo.create(me.exampleComponent)
         }
 
