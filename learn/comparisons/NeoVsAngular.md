@@ -1,8 +1,6 @@
-# Neo.mjs vs. Angular: A Technical Comparison
+Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike frameworks like Angular that require a complex, mandatory build process even for development, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
-Neo.mjs is a comprehensive JavaScript framework and ecosystem for building highly performant and responsive web applications. Beyond its core rendering and reactivity, it offers a vast component library, integrated state management (state providers), view controllers, and both functional and advanced class-based component models.
-
-This article provides a focused comparison between Neo.mjs and Angular, specifically exploring their approaches to **rendering, reactivity, and DOM updates** within the context of their respective component models. While both are used to build modern user interfaces, they employ fundamentally different architectural and rendering strategies to achieve their goals.
+This article provides a focused comparison between the Neo.mjs ecosystem and Angular. While both are used to build modern user interfaces, they employ fundamentally different architectural and rendering strategies to achieve their goals. We will explore their approaches to **rendering, reactivity, and DOM updates**, highlighting the trade-offs between Angular's Main-Thread-bound, build-centric model and Neo.mjs's holistic, worker-based paradigm.
 
 ## Core Similarities: Building Modern UIs
 
@@ -38,11 +36,11 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   **DOM Pollution:** Angular often adds numerous internal `data-set` attributes to the real DOM for its own tracking and debugging purposes. While functional, this can lead to a less clean and more verbose DOM structure.
     *   **Immutability Considerations:** While Angular doesn't enforce immutability, performance optimizations like `OnPush` change detection often benefit significantly from immutable data patterns. This can introduce a cognitive burden for developers to manage data immutably for optimal performance.
 
-*   **Neo.mjs: Off-Thread VDOM & Surgical Effect-Based Updates**
-    *   Neo.mjs uses a Virtual DOM defined by plain JavaScript objects (no JSX/build step needed).
-    *   **Mutability by Design, Immutability in Process:** Neo.mjs allows for convenient, direct mutation of state and VDOM in the App Worker. When an update is triggered, it sends an immutable JSON snapshot of the VDOM to a dedicated VDom Worker for diffing. This provides developer convenience without sacrificing performance.
-    *   **Surgical Updates:** The VDom Worker sends minimal "delta" instructions to the Main Thread, which applies them with efficient, direct DOM APIs.
-    *   **Fine-Grained Reactivity vs. Zone.js:** Instead of Angular's Zone.js, which broadly detects changes by monkey-patching browser APIs, Neo.mjs uses a precise, `Effect`-based system. When a piece of state (`config`) changes, only the `createVdom` functions that *directly depend* on that state are re-executed. This avoids the overhead of Angular's change detection cycles and eliminates the need for manual optimizations like `OnPush` change detection strategy. The result is optimal performance by default.
+*   **Neo.mjs: Off-Thread, Scoped VDOM & Atomic Insertion**
+    *   Neo.mjs uses a Virtual DOM defined by plain JavaScript objects. The diffing process happens in a VDom Worker, keeping the Main Thread free.
+    *   **Scoped VDOM (Encapsulation & Performance):** Neo.mjs's VDOM is **scoped by default**. When a parent component renders, its children are represented by simple `{componentId: '...'}` placeholders. This provides two key advantages: 1) **Performance:** A parent's update never processes the complex VDOM of its children, keeping update payloads extremely small. 2) **Encapsulation:** It is architecturally impossible for a parent to accidentally manipulate a child's internal VDOM structure, enforcing clear ownership.
+    *   **Atomic Insertion:** For insertions, the Main Thread receives a VNode structure and uses `DomApiRenderer` to **build the entire new DOM subtree in memory**, completely detached from the live document. This fully constructed fragment is then inserted into the live DOM in a **single, atomic operation**.
+    *   **Fine-Grained Reactivity vs. Zone.js:** Instead of Angular's Zone.js, which broadly detects changes, Neo.mjs uses a precise, `Effect`-based system. When a piece of state (`config`) changes, only the `createVdom` functions that *directly depend* on that state are re-executed, ensuring optimal performance by default.
 
 ### 3. Component Model & State Management
 
