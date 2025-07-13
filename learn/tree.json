@@ -16,6 +16,7 @@
         {"name": "Overview",                                             "parentId": "comparisons",                                         "id": "comparisons/Overview"},
         {"name": "Neo.mjs vs React.js",                                  "parentId": "comparisons",                                         "id": "comparisons/NeoVsReact"},
         {"name": "Neo.mjs vs Angular",                                   "parentId": "comparisons",                                         "id": "comparisons/NeoVsAngular"},
+        {"name": "Neo.mjs vs Vue.js",                                    "parentId": "comparisons",                                         "id": "comparisons/NeoVsVue"},
         {"name": "Neo.mjs vs Solid.js",                                  "parentId": "comparisons",                                         "id": "comparisons/NeoVsSolid"},
         {"name": "Neo.mjs vs Ext.js",                                    "parentId": "comparisons",                                         "id": "comparisons/NeoVsExtJs"},
     {"name": "Getting Started",                                          "parentId": null,                                 "isLeaf": false, "id": "GettingStarted", "collapsed": true},
