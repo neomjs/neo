@@ -8,10 +8,10 @@ export default defineComponent({
     createVdom(config) {
         const [name, setName] = useConfig('World');
 
-        useEvent('click', () => setName(prevName => prevName === 'Neo' ? 'World' : 'Neo'));
+        useEvent('click', () => setName(prev => prev === 'Neo' ? 'World' : 'Neo'));
 
         return {
-            tag : 'div',
+        //  tag : 'div', // div is the default value
             text: `${config.greeting}, ${name}!`
         }
     }
