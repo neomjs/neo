@@ -1,7 +1,7 @@
 import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import DomEventManager  from '../manager/DomEvent.mjs';
+import DomEvents        from '../mixin/DomEvents.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
@@ -25,6 +25,9 @@ const
  * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
  * @extends Neo.core.Base
+ * @mixes Neo.component.mixin.DomEvents
+ * @mixes Neo.core.Observable
+ * @mixes Neo.component.mixin.VdomLifecycle
  */
 class Component extends Base {
     /**
@@ -117,23 +120,6 @@ class Component extends Base {
          * @reactive
          */
         disabled_: false,
-        /**
-         * An array of domListener configs
-         * @member {Object[]|null} domListeners_=null
-         * @example
-         * afterSetStayOnHover(value, oldValue) {
-         *     if (value) {
-         *         let me = this;
-         *
-         *         me.addDomListeners(
-         *             {mouseenter: me.onMouseEnter, scope: me},
-         *             {mouseleave: me.onMouseLeave, scope: me}
-         *         )
-         *    }
-         *}
-         * @reactive
-         */
-        domListeners_: null,
         /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
@@ -235,9 +221,9 @@ class Component extends Base {
          */
         minWidth_: null,
         /**
-         * @member {Neo.core.Base[]} mixins=[Observable, VdomLifecycle]
+         * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
          */
-        mixins: [Observable, VdomLifecycle],
+        mixins: [DomEvents, Observable, VdomLifecycle],
         /**
          * Override specific stateProvider data properties.
          * This will merge the content.
@@ -478,21 +464,7 @@ class Component extends Base {
         this.cls = cls
     }
 
-    /**
-     * Convenience shortcut to add additional dom listeners
-     * @param {Object|Object[]} value
-     */
-    addDomListeners(value) {
-        if (!Array.isArray(value)) {
-            value = [value]
-        }
 
-        let domListeners = this.domListeners;
-
-        domListeners.push(...value);
-
-        this.domListeners = domListeners
-    }
 
     /**
      * Either a string like 'color: red; background-color: blue;'
@@ -595,19 +567,7 @@ class Component extends Base {
         this.cls = cls
     }
 
-    /**
-     * Registers the domListeners inside the Neo.manager.DomEvent
-     * @param {Object[]} value
-     * @param {Object[]} oldValue
-     * @protected
-     */
-    afterSetDomListeners(value, oldValue) {
-        let me = this;
 
-        if (value?.[0] || oldValue?.[0]) {
-            DomEventManager.updateDomListeners(me, value, oldValue)
-        }
-    }
 
     /**
      * Triggered after the droppable config got changed
@@ -782,12 +742,7 @@ class Component extends Base {
             if (value) {
                 me.hasBeenMounted = true;
 
-                if (me.domListeners?.length > 0) {
-                    // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
-                    me.timeout(150).then(() => {
-                        DomEventManager.mountDomListeners(me)
-                    })
-                }
+                me.initDomEvents();
 
                 me.doResolveUpdateCache();
 
@@ -1408,7 +1363,7 @@ class Component extends Base {
 
         me.revertFocus();
 
-        me.domListeners = [];
+        me.removeDomEvents();
 
         me.controller = null; // triggers destroy()
 
@@ -1884,32 +1839,7 @@ class Component extends Base {
         this.cls = cls
     }
 
-    /**
-     * @param {Array|Object} value
-     */
-    removeDomListeners(value) {
-        if (!Array.isArray(value)) {
-            value = [value];
-        }
 
-        let me             = this,
-            {domListeners} = me,
-            i, len;
-
-        value.forEach(item => {
-            i = 0;
-            len = domListeners.length;
-
-            for (; i < len; i++) {
-                if (Neo.isEqual(item, domListeners[i])) {
-                    domListeners.splice(i, 1);
-                    break
-                }
-            }
-        });
-
-        me.domListeners = domListeners
-    }
 
     /**
      * Either a string like 'color' or an array containing style attributes to remove

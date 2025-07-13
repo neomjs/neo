@@ -1,5 +1,6 @@
 import Base             from '../../core/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
+import DomEvents        from '../../mixin/DomEvents.mjs';
 import Effect           from '../../core/Effect.mjs';
 import Observable       from '../../core/Observable.mjs';
 import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
@@ -12,6 +13,7 @@ const
 /**
  * @class Neo.functional.component.Base
  * @extends Neo.core.Base
+ * @mixes Neo.component.mixin.DomEvents
  * @mixes Neo.core.Observable
  * @mixes Neo.component.mixin.VdomLifecycle
  */
@@ -30,7 +32,14 @@ class FunctionalBase extends Base {
         /**
          * @member {Neo.core.Base[]} mixins=[Observable, VdomLifecycle]
          */
-        mixins: [Observable, VdomLifecycle],
+        mixins: [DomEvents, Observable, VdomLifecycle],
+        /**
+         * True after the component render() method was called. Also fires the rendered event.
+         * @member {Boolean} mounted_=false
+         * @protected
+         * @reactive
+         */
+        mounted_: false,
         /**
          * @member {String|null} parentId_=null
          * @protected
@@ -112,6 +121,20 @@ class FunctionalBase extends Base {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (oldValue !== undefined) {
+            if (value) {
+                this.initDomEvents();
+            }
+        }
+    }
+
+    /**
      * Override this method in your functional component to return its VDOM structure.
      * This method will be automatically re-executed when any of the component's configs change.
      * @param {Neo.functional.component.Base} config - Mental model: while it contains the instance, it makes it clear to access configs
@@ -127,9 +150,13 @@ class FunctionalBase extends Base {
      *
      */
     destroy() {
-        this.vdomEffect?.destroy();
+        const me = this;
 
-        ComponentManager.unregister(this);
+        me.vdomEffect?.destroy();
+
+        me.removeDomEvents();
+
+        ComponentManager.unregister(me);
 
         super.destroy()
     }
