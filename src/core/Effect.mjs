@@ -90,7 +90,11 @@ class Effect {
     run() {
         const me = this;
 
-        if (me.isDestroyed || me.isRunning.get()) return;
+        EffectManager.pause(); // Pause dependency tracking for isRunning.get()
+        if (me.isDestroyed || me.isRunning.get()) {
+            EffectManager.resume(); // Resume if we return early
+            return
+        }
 
         if (EffectBatchManager.isBatchActive()) {
             EffectBatchManager.queueEffect(me);
@@ -103,12 +107,15 @@ class Effect {
         me.dependencies.clear();
 
         EffectManager.push(me);
+        EffectManager.resume();
 
         try {
             me.fn()
         } finally {
             EffectManager.pop();
+            EffectManager.pause(); // Pause dependency tracking for isRunning.set(false)
             me.isRunning.set(false);
+            EffectManager.resume(); // Resume after isRunning.set(false)
         }
     }
 
