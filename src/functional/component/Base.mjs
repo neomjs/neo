@@ -6,9 +6,11 @@ import Observable       from '../../core/Observable.mjs';
 import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
 
 const
-    hookIndexSymbol   = Symbol.for('hookIndex'),
-    hooksSymbol       = Symbol.for('hooks'),
-    vdomToApplySymbol = Symbol('vdomToApply');
+    activeDomListenersSymbol = Symbol.for('activeDomListeners'),
+    hookIndexSymbol        = Symbol.for('hookIndex'),
+    hooksSymbol            = Symbol.for('hooks'),
+    pendingDomEventsSymbol = Symbol.for('pendingDomEvents'),
+    vdomToApplySymbol      = Symbol('vdomToApply');
 
 /**
  * @class Neo.functional.component.Base
@@ -30,7 +32,7 @@ class FunctionalBase extends Base {
          */
         ntype: 'functional-component',
         /**
-         * @member {Neo.core.Base[]} mixins=[Observable, VdomLifecycle]
+         * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
          */
         mixins: [DomEvents, Observable, VdomLifecycle],
         /**
@@ -69,33 +71,22 @@ class FunctionalBase extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me   = this,
+            opts = {configurable: true, enumerable: false, writable: true};
 
         Object.defineProperties(me, {
-            [hookIndexSymbol]: {
-                configurable: true,
-                enumerable  : false,
-                value       : 0,
-                writable    : true
-            },
-            [hooksSymbol]: {
-                configurable: true,
-                enumerable: false,
-                value     : [],
-                writable  : true
-            },
-            [vdomToApplySymbol]: {
-                configurable: true,
-                enumerable  : false,
-                value       : null,
-                writable    : true
-            }
+            [activeDomListenersSymbol]: {...opts, value: []},
+            [hookIndexSymbol]         : {...opts, value: 0},
+            [hooksSymbol]             : {...opts, value: []},
+            [pendingDomEventsSymbol]  : {...opts, value: []},
+            [vdomToApplySymbol]       : {...opts, value: null}
         });
 
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
         me.vdomEffect = new Effect(() => {
-            me[hookIndexSymbol]   = 0;
-            me[vdomToApplySymbol] = me.createVdom(me, me.data)
+            me[hookIndexSymbol]        = 0;
+            me[pendingDomEventsSymbol] = []; // Clear pending events for new render
+            me[vdomToApplySymbol]      = me.createVdom(me, me.data)
         }, me.id);
 
         // We subscribe to the effect's isRunning state.
@@ -129,7 +120,33 @@ class FunctionalBase extends Base {
     afterSetMounted(value, oldValue) {
         if (oldValue !== undefined) {
             if (value) {
-                this.initDomEvents();
+                const me = this
+
+                me.initDomEvents();
+
+                // Initial registration of DOM event listeners when component mounts
+                me.applyPendingDomListeners()
+            }
+        }
+    }
+
+    /**
+     * Applies the pending DOM event listeners and updates the active list.
+     * @private
+     */
+    applyPendingDomListeners() {
+        const
+            me            = this,
+            activeEvents  = me[activeDomListenersSymbol],
+            pendingEvents = me[pendingDomEventsSymbol];
+
+        if (pendingEvents.length > 0) {
+            if (!Neo.isEqual(activeEvents, pendingEvents)) {
+                console.log('Applying pending DOM listeners', pendingEvents);
+                me.addDomListeners([...pendingEvents]);
+
+                me[activeDomListenersSymbol] = [...pendingEvents];
+                me[pendingDomEventsSymbol]   = [] // Clear pending events for next render
             }
         }
     }
@@ -155,6 +172,9 @@ class FunctionalBase extends Base {
         me.vdomEffect?.destroy();
 
         me.removeDomEvents();
+
+        // Remove any pending DOM event listeners that might not have been mounted
+        me[pendingDomEventsSymbol] = [];
 
         ComponentManager.unregister(me);
 
@@ -190,7 +210,17 @@ class FunctionalBase extends Base {
                     root.id = me.id
                 }
 
-                me.updateVdom()
+                me.updateVdom();
+
+                // Update DOM event listeners based on the new render
+                if (me.mounted) {
+                    if (!Neo.isEqual(me[pendingDomEventsSymbol], me[activeDomListenersSymbol])) {
+                        me.removeDomListeners(me[activeDomListenersSymbol]); // Remove old dynamic listeners
+                        me._applyPendingDomListeners(); // Add new dynamic listeners and update active list
+                    } else {
+                        me[pendingDomEventsSymbol] = []; // Clear pending events even if no change
+                    }
+                }
             }
         }
     }

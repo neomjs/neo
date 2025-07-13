@@ -32,7 +32,7 @@ export function useConfig(initialValue) {
     if (!component[hooksSymbol][currentIndex]) {
         const config = new Config(initialValue);
 
-        component[hooksSymbol][currentIndex] = [config, config.set]
+        component[hooksSymbol][currentIndex] = [config, config.set.bind(config)]
     }
 
     const [config, setter] = component[hooksSymbol][currentIndex];

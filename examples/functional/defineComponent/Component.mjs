@@ -1,4 +1,4 @@
-import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
+import {defineComponent, useConfig, useEvent} from '../../../src/functional/_export.mjs';
 
 export default defineComponent({
     config: {
@@ -7,6 +7,8 @@ export default defineComponent({
     },
     createVdom(config) {
         const [name, setName] = useConfig('World');
+
+        useEvent('click', () => setName(name === 'Neo' ? 'World' : 'Neo'));
 
         return {
             tag : 'div',
