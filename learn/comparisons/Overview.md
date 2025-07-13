@@ -21,3 +21,13 @@ Each comparison article will focus on:
 *   [Neo.mjs vs. Vue.js](/learn/comparisons/NeoVsVue.md)
 
 More comparisons will be added over time.
+
+## A Note on Objectivity
+
+While we are passionate about Neo.mjs, we strive to present these comparisons fairly and accurately. Our goal is to provide you with the information you need to make an informed decision about which framework best suits your project's requirements.
+
+## A Note on Content Generation
+
+The initial versions of these comparison documents were generated with the assistance of a large language model. They are currently undergoing review and refinement by the Neo.mjs team to ensure technical accuracy and clarity. We believe in transparency and want to acknowledge the role of AI in accelerating the creation of this content, while emphasizing that human oversight is crucial for its final quality.
+
+If you have feedback on any of our comparisons or would like to see a new one, please feel free to open an issue on our [GitHub repository](https://github.com/neomjs/neo/issues).

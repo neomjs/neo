@@ -24,24 +24,23 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   **Benefit:** This "no VDOM" approach often leads to industry-leading performance benchmarks for UI updates, as it eliminates the overhead of VDOM reconciliation.
     *   **Immutability:** Solid's signals represent immutable values. When a signal is updated, a new value is set, and the reactive graph propagates this new value to dependent computations and DOM updates.
 
-*   **Neo.mjs: Virtual DOM (with Optimized Direct DOM API Updates)**
-    *   Neo.mjs utilizes a Virtual DOM. Your `createVdom()` method (within functional components) returns a plain JavaScript object representing the desired UI structure. **This VDOM is defined using simple nested JavaScript objects and arrays, akin to a JSON-like description of the DOM. Crucially, Neo.mjs's VDOM objects are mutable.**
-    *   **Mutable VDOM & State (By Design):** Unlike Solid.js's immutable signals, Neo.mjs embraces mutability for both its VDOM and its reactive state (configs and state provider data). Developers can directly modify properties of VDOM objects or state data. This is a deliberate design choice enabled by Neo.mjs's worker architecture. The App Worker sends a *snapshot* (a serialized copy) of the VDOM (or relevant parts of state) to the VDom Worker or Main Thread for diffing or rendering. This allows developers the convenience of direct mutation without sacrificing performance, as the framework handles the efficient snapshotting and communication across workers.
-    *   **Off-Main-Thread Diffing:** The VDOM diffing process (calculating the minimal changes between the old and new VDOM) occurs in a dedicated **VDom Worker**, offloading this computational work from the Main Thread.
-    *   **Surgical Direct DOM API Updates (`Neo.main.DeltaUpdates` & `DomApiRenderer`):** The VDom Worker sends "deltas" (minimal change instructions) to the Main Thread. `Neo.main.DeltaUpdates` then applies these changes using direct DOM APIs. For inserting new subtrees, `DomApiRenderer` builds detached `DocumentFragments` and inserts them in a single, atomic operation. For updates to existing nodes, `DeltaUpdates` directly manipulates attributes, classes, styles, and content using native DOM methods.
-    *   **Benefit:** While it still has VDOM diffing overhead (unlike Solid), this overhead is offloaded. The Main Thread receives highly optimized, surgical instructions for direct DOM manipulation, minimizing costly browser reflows/repaints and enhancing security (e.g., against XSS).
+*   **Neo.mjs: Off-Thread VDOM & Surgical Delta Updates**
+    *   Neo.mjs uses a Virtual DOM defined by plain JavaScript objects.
+    *   **Mutability by Design, Immutability in Process:** It allows for convenient, direct mutation of state and VDOM in the App Worker. When an update is triggered, it sends an immutable JSON snapshot of the VDOM to a dedicated VDom Worker for diffing.
+    *   **Off-Main-Thread Diffing:** The VDOM diffing process is offloaded from the Main Thread, which is a key architectural difference from Solid.
+    *   **Surgical Updates:** The VDom Worker sends minimal "delta" instructions to the Main Thread, which applies them with efficient, direct DOM APIs.
+    *   **Benefit:** While it has VDOM diffing overhead that Solid avoids, this work is done in a separate thread, protecting the Main Thread from being blocked. This architecture is designed for guaranteed UI responsiveness in complex, data-intensive applications.
 
 ### 2. Component Execution Model
 
 *   **Solid.js: Components Run Once**
-    *   Solid's functional components execute only *once* during their initial render. Their primary role is to set up the reactive graph (signals, effects, memos).
-    *   They do not re-run when state or props change. Instead, updates are handled by the fine-grained reactivity system directly updating the DOM based on signal changes.
-    *   **Benefit:** Extremely efficient, as component functions are not re-executed unnecessarily, leading to minimal CPU cycles spent on component logic.
+    *   Solid's functional components execute only *once* during their initial render. Their primary role is to set up the reactive graph (signals, effects, memos) and create the real DOM nodes. They do not re-run when state changes. Updates are handled by the fine-grained reactivity system directly updating the DOM.
+    *   **Benefit:** Extremely efficient, as component functions are not re-executed.
 
-*   **Neo.mjs: `createVdom()` Re-runs on Dependency Changes**
-    *   Neo.mjs's `createVdom()` method (within functional components) is explicitly wrapped in a `Neo.core.Effect`. This effect automatically tracks dependencies.
-    *   When any of its observed dependencies (component configs, `useConfig` state) change, the `vdomEffect` re-executes `createVdom()`, which produces a new VDOM description.
-    *   **Benefit:** This model is more familiar to developers coming from React, as the component function re-executes to describe the new UI state. The `Effect` system ensures that this re-execution only happens when necessary due to dependency changes.
+*   **Neo.mjs: `createVdom` Re-runs Inside an Effect**
+    *   In Neo.mjs, the `createVdom` method of a functional component is wrapped in a `Neo.core.Effect`. This effect automatically tracks which `config` values it reads.
+    *   When a dependency changes, the `Effect` re-executes the `createVdom()` function to get a new VDOM description. This is fundamentally different from a React re-render, as it's a targeted re-execution of only the VDOM generation logic, not the entire component setup, and it doesn't cascade to children whose configs haven't changed.
+    *   **Benefit:** This model is highly intuitive (the VDOM function re-runs when its inputs change) and provides automatic, surgical updates without the developer needing to worry about manual dependency tracking or memoization.
 
 ### 3. Overall Architecture
 

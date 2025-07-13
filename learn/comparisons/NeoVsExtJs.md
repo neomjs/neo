@@ -112,12 +112,9 @@ limitations of Ext.js.
     *   **Change Detection:** Updates are often triggered manually or through specific framework mechanisms, which can
         sometimes lead to developers needing to explicitly refresh components or views.
 
-*   **Neo.mjs: Fine-Grained Reactivity (Config & Effect System)**
-    *   Neo.mjs uses a modern, fine-grained reactivity system based on `Neo.core.Config` and `Neo.core.Effect`. When a
-        reactive config or state changes, only the specific parts of the UI that depend on it are re-rendered.
-    *   **Benefit:** This leads to highly efficient and precise updates, reducing unnecessary work. It conceptually aligns
-        with the "signals" pattern for granular updates. Developers can directly modify state, and the framework
-        automatically handles the updates.
+*   **Neo.mjs: True, Fine-Grained Reactivity**
+    *   Neo.mjs is built on a modern, fine-grained reactivity system powered by `Neo.core.Config` and `Neo.core.Effect`. When a reactive config or state changes, only the specific parts of the UI that depend on it are automatically updated.
+    *   Developers can simply change a value (`this.myConfig = 'new value'`), and the UI updates automatically and efficiently. There is no need for manual event listeners or explicit setter calls to trigger UI changes. This dramatically simplifies development, reduces boilerplate, and eliminates a common source of bugs.
 
 ### 4. Development Workflow & Modern JavaScript
 
@@ -152,20 +149,10 @@ limitations of Ext.js.
     *   **Class-Based Only:** Ext.js is exclusively class-based. It does not natively support the modern functional
         component paradigm, making it challenging to adopt contemporary UI development patterns.
 
-*   **Neo.mjs: Comprehensive & Technically Superior Component Library & Modern Extensibility (including Functional Components)**
-    *   Neo.mjs also offers a vast component library, providing a breadth of essential UI components (grids, forms,
-        `OffscreenCanvas`, etc.) that achieve **feature parity** with many of Ext.js's offerings. Built on its
-        `Neo.core.Base` class, its comprehensiveness stems from providing a broad set of essential UI components that
-        are designed for **modularity, composability, and high customizability**. Beyond feature parity, Neo.mjs
-        components often offer **technically superior implementations**, such as its highly optimized buffered grid and
-        buffered columns, which provide unparalleled performance for large datasets. It supports both traditional
-        class-based components and modern functional components with hooks (`defineComponent`, `useConfig`), allowing
-        developers to choose the most appropriate paradigm.
-    *   **Superior Extensibility:** Neo.mjs offers a more modern, flexible, and performant level of extensibility.
-        Leveraging native ES Modules and ES6+ classes, its clean class hierarchy, **mixins, plugins**, and reactive config
-        system simplify extending core functionalities. The worker-based architecture enables extensions that run off the
-        Main Thread, opening new possibilities for highly performant features without impacting UI responsiveness.
-        Dynamic module loading further enhances its pluggability.
+*   **Neo.mjs: A Modern, Dual Component Model**
+    *   Neo.mjs offers a flexible, dual component model. Developers can use a powerful, full-featured class-based system (`Neo.component.Base`) that will feel familiar yet superior to Ext.js developers, or they can adopt a modern, lightweight functional component paradigm using the `defineComponent()` API with hooks.
+    *   This provides a clear upgrade path and allows teams to choose the best tool for the job, from complex enterprise grids to simple, declarative UI functions. Its component library achieves feature parity with many of Ext.js's offerings, but with technically superior, modular, and more performant implementations.
+    *   **Superior Extensibility:** Leveraging native ES Modules, a clean class hierarchy, mixins, and plugins, Neo.mjs offers a more modern and performant level of extensibility. The worker-based architecture enables extensions that run off the Main Thread, opening new possibilities for high-performance features without impacting UI responsiveness.
 
 ## Conclusion: Why Neo.mjs is a Modern Successor to Ext.js
 

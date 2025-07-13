@@ -38,12 +38,11 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   **DOM Pollution:** Angular often adds numerous internal `data-set` attributes to the real DOM for its own tracking and debugging purposes. While functional, this can lead to a less clean and more verbose DOM structure.
     *   **Immutability Considerations:** While Angular doesn't enforce immutability, performance optimizations like `OnPush` change detection often benefit significantly from immutable data patterns. This can introduce a cognitive burden for developers to manage data immutably for optimal performance.
 
-*   **Neo.mjs: Virtual DOM (Off-Main-Thread Diffing & Fine-Grained Reactivity)**
-    *   Neo.mjs uses a Virtual DOM. Your `createVdom()` method (within functional components) returns a plain JavaScript object representing the desired UI structure. **This VDOM is defined using simple nested JavaScript objects and arrays, akin to a JSON-like description of the DOM. Crucially, Neo.mjs's VDOM objects are mutable.**
-    *   **Mutable VDOM & State (By Design):** Unlike Angular, Neo.mjs embraces mutability for both its VDOM and its reactive state (configs and state provider data). Developers can directly modify properties of VDOM objects or state data. This is a deliberate design choice enabled by Neo.mjs's worker architecture. The App Worker sends a *snapshot* (a serialized copy) of the VDOM (or relevant parts of state) to the VDom Worker or Main Thread for diffing or rendering. This allows developers the convenience of direct mutation without sacrificing performance, as the framework handles the efficient snapshotting and communication across workers.
-    *   **Off-Main-Thread Diffing:** The VDOM diffing process occurs in a dedicated **VDom Worker**, offloading this computational work from the Main Thread.
-    *   **Surgical Direct DOM API Updates (`Neo.main.DeltaUpdates` & `DomApiRenderer`):** The VDom Worker sends "deltas" (minimal change instructions) to the Main Thread. `Neo.main.DeltaUpdates` then applies these changes using direct DOM APIs.
-    *   **Fine-Grained Reactivity & Decoupled DOM:** Neo.mjs's `Neo.core.Effect` system precisely tracks dependencies. When a reactive config or state changes, only the specific `createVdom()` effect that depends on it re-executes, leading to highly targeted VDOM updates. Crucially, Neo.mjs components are **completely decoupled from the real DOM**; they reside in the App Worker and never directly read from or write to the DOM. This fundamental architectural choice eliminates the performance bottleneck associated with frequent DOM access, ensuring Main Thread responsiveness and predictable performance. Neo.mjs also strives to keep the real DOM as clean as possible, avoiding the addition of numerous internal framework-specific attributes.
+*   **Neo.mjs: Off-Thread VDOM & Surgical Effect-Based Updates**
+    *   Neo.mjs uses a Virtual DOM defined by plain JavaScript objects (no JSX/build step needed).
+    *   **Mutability by Design, Immutability in Process:** Neo.mjs allows for convenient, direct mutation of state and VDOM in the App Worker. When an update is triggered, it sends an immutable JSON snapshot of the VDOM to a dedicated VDom Worker for diffing. This provides developer convenience without sacrificing performance.
+    *   **Surgical Updates:** The VDom Worker sends minimal "delta" instructions to the Main Thread, which applies them with efficient, direct DOM APIs.
+    *   **Fine-Grained Reactivity vs. Zone.js:** Instead of Angular's Zone.js, which broadly detects changes by monkey-patching browser APIs, Neo.mjs uses a precise, `Effect`-based system. When a piece of state (`config`) changes, only the `createVdom` functions that *directly depend* on that state are re-executed. This avoids the overhead of Angular's change detection cycles and eliminates the need for manual optimizations like `OnPush` change detection strategy. The result is optimal performance by default.
 
 ### 3. Component Model & State Management
 
@@ -52,7 +51,8 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   **State Management:** Often relies on services for shared state, or third-party libraries like NgRx (RxJS-based state management).
 
 *   **Neo.mjs: Class-Based & Functional Components, State Providers**
-    *   Neo.mjs offers both a robust class-based component system (`Neo.component.Base`) and modern functional components with hooks.
+    *   Neo.mjs offers a dual component model. Developers can use a robust class-based system (`Neo.component.Base`) for complex, stateful components, or leverage modern, lightweight functional components via the `defineComponent()` API.
+    *   This functional approach uses hooks like `useConfig()` for state, providing a clean, declarative way to build UI while benefiting from Neo.mjs's underlying fine-grained reactivity.
     *   **State Management:** Features integrated state providers and a unified config system for managing and sharing bindable data across the component tree, often simplifying cross-component communication compared to traditional DI or prop passing.
 
 ### 4. Build Process & Development Workflow
