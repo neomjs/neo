@@ -1,3 +1,4 @@
+
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike frameworks like Angular that require a complex, mandatory build process even for development, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
 This article provides a focused comparison between the Neo.mjs ecosystem and Angular. While both are used to build modern user interfaces, they employ fundamentally different architectural and rendering strategies to achieve their goals. We will explore their approaches to **rendering, reactivity, and DOM updates**, highlighting the trade-offs between Angular's Main-Thread-bound, build-centric model and Neo.mjs's holistic, worker-based paradigm.

@@ -1,4 +1,5 @@
-# Framework Comparisons
+
+## Framework Comparisons
 
 This section provides detailed comparisons between Neo.mjs and other popular JavaScript frameworks. Our goal is to help
 you understand the key similarities, differences, and unique advantages of Neo.mjs in relation to technologies you might
@@ -15,7 +16,7 @@ Each comparison article will focus on:
 *   **Side-by-Side Analysis:** Feature-by-feature comparisons.
 *   **Trade-offs and Use Cases:** When Neo.mjs might be the optimal choice.
 
-## Architectural Snapshot
+### Architectural Snapshot
 
 The table below offers a high-level architectural comparison of the frameworks discussed in this section. It is designed
 to provide a quick snapshot of their core differences. For a deeper understanding, please refer to the detailed comparison
@@ -31,7 +32,7 @@ articles.
 | **Dev Environment**     | Zero-Builds (Instant)                  | Build-Based (Vite, etc.)                | Build-Based (Vite)                   | Build-Based (Vite)                      | Build-Based (Angular CLI)               |
 | **Multi-Window Support**| Native (Shared Data/Components)        | Limited/Requires Custom Logic           | Limited/Requires Custom Logic        | Limited/Requires Custom Logic           | Limited/Requires Custom Logic           |
 
-## Available Comparisons
+### Available Comparisons
 
 *   [Neo.mjs vs. React](/learn/comparisons/NeoVsReact.md)
 *   [Neo.mjs vs. Angular](/learn/comparisons/NeoVsAngular.md)
@@ -39,8 +40,6 @@ articles.
 *   [Neo.mjs vs. Solid.js](/learn/comparisons/NeoVsSolid.md)
 *   [Neo.mjs vs. Next.js](/learn/comparisons/NeoVsNextJs.md)
 *   [Neo.mjs vs. Ext.js](/learn/comparisons/NeoVsExtJs.md)
-
-More comparisons will be added over time.
 
 If you have feedback on any of our comparisons or would like to see a new one, please feel free to open an issue on our
 [GitHub repository](https://github.com/neomjs/neo/issues).

@@ -1,3 +1,4 @@
+
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as React that form only one part of a complex, manually assembled toolchain, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
 This article provides a focused comparison between the Neo.mjs ecosystem and React. React, now over a decade old, has become an industry standard, but its foundational architecture is rooted in the single-threaded limitations of its time. We will explore their fundamentally different approaches to **architecture, rendering, and reactivity**, highlighting the trade-offs between React's library-focused, Main-Thread-bound model and Neo.mjs's holistic, worker-based paradigm.
