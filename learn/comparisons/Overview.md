@@ -29,6 +29,7 @@ articles.
 | **Manual Optimizations**| Not Required                           | Required (`memo`, `useCallback`, `useMemo`) | Not Required                         | Not Required                            | Not Required                            |
 | **State Mutability**    | Directly Mutable                       | Immutable (Enforced)                    | Mutable (Proxied)                    | Mutable (Proxied)                       | Mutable (Observable-based)              |
 | **Dev Environment**     | Zero-Builds (Instant)                  | Build-Based (Vite, etc.)                | Build-Based (Vite)                   | Build-Based (Vite)                      | Build-Based (Angular CLI)               |
+| **Multi-Window Support**| Native (Shared Data/Components)        | Limited/Requires Custom Logic           | Limited/Requires Custom Logic        | Limited/Requires Custom Logic           | Limited/Requires Custom Logic           |
 
 ## Available Comparisons
 
