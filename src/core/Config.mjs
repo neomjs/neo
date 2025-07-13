@@ -156,7 +156,7 @@ class Config {
         const
             me       = this,
             oldValue = me.#value;
-console.log('set', newValue, oldValue);
+
         // The setter automatically uses the configured equality check
         if (!me.isEqual(newValue, oldValue)) {
             me.#value = newValue;

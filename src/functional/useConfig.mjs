@@ -27,12 +27,18 @@ export function useConfig(initialValue) {
     // Increment the index for the next hook call within the same component render cycle.
     component[hookIndexSymbol]++;
 
-    // If this is the first time this hook is being called for this component,
-    // initialize its state.
+    // If this is the first time this hook is being called for this component, initialize its state.
     if (!component[hooksSymbol][currentIndex]) {
         const config = new Config(initialValue);
 
-        component[hooksSymbol][currentIndex] = [config, config.set.bind(config)]
+        const customSetter = (newValue) => {
+            if (typeof newValue === 'function') {
+                newValue = newValue(config.get())
+            }
+            config.set(newValue)
+        };
+
+        component[hooksSymbol][currentIndex] = [config, customSetter]
     }
 
     const [config, setter] = component[hooksSymbol][currentIndex];

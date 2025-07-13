@@ -8,7 +8,7 @@ export default defineComponent({
     createVdom(config) {
         const [name, setName] = useConfig('World');
 
-        useEvent('click', () => setName(name === 'Neo' ? 'World' : 'Neo'));
+        useEvent('click', () => setName(prevName => prevName === 'Neo' ? 'World' : 'Neo'));
 
         return {
             tag : 'div',
