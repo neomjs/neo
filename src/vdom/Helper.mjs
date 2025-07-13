@@ -372,6 +372,7 @@ class Helper extends Base {
                     case 'componentId':
                     case 'id':
                     case 'static':
+                    case 'vtype':
                         node[key] = value;
                         break
                     case 'style':
