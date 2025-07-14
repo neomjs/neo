@@ -184,8 +184,8 @@ class FunctionalBase extends Base {
             Neo.currentWorker.insertThemeFiles(value, me.__proto__)
         }
 
-        me.childComponents?.forEach(component => {
-            component.windowId = value
+        me.childComponents?.forEach(childData => {
+            childData.instance.windowId = value
         })
 
         // If a component gets moved into a different window, an update cycle might still be running.
@@ -243,10 +243,10 @@ class FunctionalBase extends Base {
         me.vdomEffect?.destroy();
 
         // Destroy all classic components instantiated by this functional component
-        me.childComponents.forEach(component => {
-            component.destroy();
+        me.childComponents?.forEach(childData => {
+            childData.instance.destroy()
         });
-        me.childComponents.clear();
+        me.childComponents?.clear();
 
         me.removeDomEvents();
 
@@ -279,9 +279,9 @@ class FunctionalBase extends Base {
                 const processedVdom = me.processVdomForComponents(newVdom, me.id);
 
                 // Destroy components that are no longer present in the new VDOM
-                me.childComponents?.forEach((component, key) => {
+                me.childComponents?.forEach((childData, key) => {
                     if (!me.#newChildComponents.has(key)) {
-                        component.destroy()
+                        childData.instance.destroy()
                     }
                 });
 
@@ -353,35 +353,50 @@ class FunctionalBase extends Base {
                 )
             }
 
-            // If the component already exists (e.g., from a previous render cycle), reuse it
-            let component = me.childComponents?.get(componentKey);
+            let childData   = me.childComponents?.get(componentKey),
+                newConfig   = {...vdomTree}, // Shallow copy
+                deltaConfig = {},
+                instance;
 
-            if (!component) {
+            delete newConfig.className;
+            delete newConfig.id;
+            delete newConfig.module;
+            delete newConfig.ntype;
+
+            if (!childData) {
                 me.childComponents ??= new Map();
 
                 // Instantiate the component
-                component = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
+                instance = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
                     ...vdomTree,
                     parentId,
                     parentIndex,
                     windowId: me.windowId
                 })
             } else {
-                const newConfig = {...vdomTree}; // Shallow copy
+                instance = childData.instance;
 
-                delete newConfig.className;
-                delete newConfig.id;
-                delete newConfig.module;
-                delete newConfig.ntype;
+                // Diff the new config with the last applied config
+                for (const key in newConfig) {
+                    if (!Neo.isEqual(newConfig[key], childData.lastConfig[key])) {
+                        deltaConfig[key] = newConfig[key]
+                    }
+                }
 
-                component.set(newConfig)
+                // Only call set() if there are actual changes
+                if (Object.keys(deltaConfig).length > 0) {
+                    instance.set(deltaConfig)
+                }
             }
 
             // Add to the new map for tracking in this render cycle
-            me.#newChildComponents.set(componentKey, component);
+            me.#newChildComponents.set(componentKey, {
+                instance,
+                lastConfig: newConfig
+            });
 
             // Replace the definition with a reference using the component's own method
-            return component.createVdomReference();
+            return instance.createVdomReference();
         }
 
         // Recursively process children
