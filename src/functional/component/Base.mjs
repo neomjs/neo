@@ -2,6 +2,7 @@ import Base             from '../../core/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
 import DomEvents        from '../../mixin/DomEvents.mjs';
 import Effect           from '../../core/Effect.mjs';
+import NeoArray         from '../../util/Array.mjs';
 import Observable       from '../../core/Observable.mjs';
 import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
 
@@ -32,6 +33,12 @@ class FunctionalBase extends Base {
          */
         ntype: 'functional-component',
         /**
+         * Custom CSS selectors to apply to the root level node of this component
+         * @member {String[]} cls=null
+         * @reactive
+         */
+        cls: null,
+        /**
          * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
          */
         mixins: [DomEvents, Observable, VdomLifecycle],
@@ -52,7 +59,13 @@ class FunctionalBase extends Base {
          * The vdom markup for this component.
          * @member {Object} vdom={}
          */
-        vdom: {}
+        vdom: {},
+        /**
+         * The custom windowIs (timestamp) this component belongs to
+         * @member {Number|null} windowId_=null
+         * @reactive
+         */
+        windowId_: null
     }
 
     /**
@@ -61,11 +74,27 @@ class FunctionalBase extends Base {
      */
     childComponents = null
     /**
+     * If an update() gets called while a parent is updating, we store the id & distance of the
+     * requesting component inside the childUpdateCache of the parent, to get resolved once the update is done.
+     * e.g. childUpdateCache = {'neo-grid-view-1': {distance: 1, resolve: fn}}
+     * @member {Object} childUpdateCache={}
+     */
+    childUpdateCache = {}
+    /**
+     * Stores the updateDepth while an update is running to enable checks for parent update collisions
+     * @member {Number|null} currentUpdateDepth=null
+     */
+    currentUpdateDepth = null
+    /**
      * Internal Map to store new instances after the createVdom() Effect has run.
      * @member {Map|null} newChildComponents=null
      * @private
      */
     #newChildComponents = null
+    /**
+     * @member {Function[]} resolveUpdateCache=[]
+     */
+    resolveUpdateCache = []
 
     /**
      * Convenience method to access the parent component
@@ -139,6 +168,24 @@ class FunctionalBase extends Base {
                 // Initial registration of DOM event listeners when component mounts
                 me.applyPendingDomListeners()
             }
+        }
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        if (value) {
+            Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+        }
+
+        // If a component gets moved into a different window, an update cycle might still be running.
+        // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
+        if (oldValue) {
+            this.isVdomUpdating = false
         }
     }
 
@@ -246,6 +293,10 @@ class FunctionalBase extends Base {
                 me[vdomToApplySymbol] = null;
 
                 const root = me.getVdomRoot();
+
+                if (me.cls) {
+                    root.cls = NeoArray.union(me.cls, root.cls)
+                }
 
                 if (me.id) {
                     root.id = me.id
