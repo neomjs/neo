@@ -171,6 +171,12 @@ class FunctionalBase extends Base {
 
         me.vdomEffect?.destroy();
 
+        // Destroy all classic components instantiated by this functional component
+        me._instantiatedComponents.forEach(component => {
+            component.destroy();
+        });
+        me._instantiatedComponents.clear();
+
         me.removeDomEvents();
 
         // Remove any pending DOM event listeners that might not have been mounted
@@ -179,6 +185,66 @@ class FunctionalBase extends Base {
         ComponentManager.unregister(me);
 
         super.destroy()
+    }
+
+    /**
+     * Recursively processes a VDOM node to instantiate components defined within it.
+     * @param {Object} vdomNode The VDOM node to process.
+     * @param {String} parentId The ID of the parent component (the functional component hosting it).
+     * @param {Number} [parentIndex] The index of the vdomNode within its parent's children.
+     * @returns {Object} The processed VDOM node, potentially replaced with a component reference.
+     * @private
+     */
+    processVdomForComponents(vdomNode, parentId, parentIndex) {
+        if (!vdomNode) {
+            return vdomNode;
+        }
+
+        // If it's already a component reference, no need to process further
+        if (vdomNode.componentId) {
+            return vdomNode;
+        }
+
+        // Check if it's a component definition (functional or classic)
+        if (vdomNode.module || vdomNode.ntype) {
+            // Components are reconciled based on their `id` property in the VDOM definition.
+            // If no `id` is provided, a new instance will be created on every render.
+            const componentKey = vdomNode.id;
+
+            if (!componentKey) {
+                console.warn('Component definition in functional component VDOM is missing an "id". For stable reconciliation, especially in dynamic lists, provide a unique "id" property.', vdomNode);
+            }
+
+            // If the component already exists (e.g., from a previous render cycle), reuse it
+            let newComponent = this._instantiatedComponents?.get(componentKey);
+
+            if (!newComponent) {
+                this._instantiatedComponents ??= new Map();
+
+
+                // Instantiate the component
+                newComponent = Neo[vdomNode.module ? 'create' : 'ntype']({
+                    ...vdomNode,
+                    parentId: parentId,
+                    parentIndex: parentIndex // Pass the index to the component
+                });
+            }
+
+            // Add to the new map for tracking in this render cycle
+            this._newlyInstantiatedComponents.set(componentKey, newComponent);
+
+            // Replace the definition with a reference using the component's own method
+            return newComponent.createVdomReference();
+        }
+
+        // Recursively process children
+        if (vdomNode.cn && Array.isArray(vdomNode.cn)) {
+            vdomNode.cn = vdomNode.cn.map((child, index) =>
+                this.processVdomForComponents(child, parentId, index)
+            );
+        }
+
+        return vdomNode;
     }
 
     /**
@@ -194,13 +260,30 @@ class FunctionalBase extends Base {
                   newVdom = me[vdomToApplySymbol];
 
             if (newVdom) {
+                // Create a new map for components instantiated in this render cycle
+                me._newlyInstantiatedComponents = new Map();
+
+                // Process the newVdom to instantiate components
+                // The parentId for these components will be the functional component's id
+                const processedVdom = me.processVdomForComponents(newVdom, me.id);
+
+                // Destroy components that are no longer present in the new VDOM
+                me._instantiatedComponents?.forEach((component, key) => {
+                    if (!me._newlyInstantiatedComponents.has(key)) {
+                        component.destroy();
+                    }
+                });
+
+                // Update the main map of instantiated components
+                me._instantiatedComponents = me._newlyInstantiatedComponents;
+
                 // Clear the old vdom properties
                 for (const key in me.vdom) {
                     delete me.vdom[key]
                 }
 
                 // Assign the new properties
-                Object.assign(me.vdom, newVdom);
+                Object.assign(me.vdom, processedVdom); // Use processedVdom here
 
                 me[vdomToApplySymbol] = null;
 
