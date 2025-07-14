@@ -2,98 +2,59 @@
 
 This document outlines the plan for refactoring the `apps/email` application into a showcase for the Neo.mjs functional component architecture and multi-window capabilities.
 
+## Architectural Milestones & Key Learnings
+
+This epic has driven significant architectural improvements to the functional component system. For a full understanding of the current state, review these tickets:
+
+-   **[#ticket-functional-child-component-diffing.md](/.github/ticket-functional-child-component-diffing.md):** The most critical enhancement. We implemented a VDOM config diffing mechanism in `FunctionalBase` to prevent the re-creation of stateful child components (like stores). This allows for a truly declarative VDOM while preserving child state.
+-   **[#ticket-functional-base-windowid-propagation.md](/.github/ticket-functional-base-windowid-propagation.md):** Fixed a crucial bug where the `windowId` was not being propagated to child components, which is essential for multi-window support and event handling.
+-   **[#ticket-functional-recursive-config-diffing.md](/.github/ticket-functional-recursive-config-diffing.md):** A plan for a future enhancement to make the diffing logic recursive, allowing for deep, declarative control over nested component configurations.
+
+---
+
 ## Phase 1: Foundation and Basic Layout (Completed)
 
 **Goal:** Implement the main 3-pane layout as a functional `MainView` component and set it as the content of the existing classic `Viewport`.
 
-**Sub-Tasks:**
-
-1.  **Create `view/MainView.mjs`:**
-    -   Used `defineComponent` to create a new functional component.
-    -   Implemented a flexbox-based 3-pane layout (Folders, Email List, Email Detail).
-2.  **Update `view/Viewport.mjs`:**
-    -   Configured the `Viewport` with `layout: 'fit'`.
-    -   Replaced the old `TabContainer` with the new `MainView` component as its single item.
-3.  **Cleanup:**
-    -   Removed the `stateProvider` from the `Viewport` as it is not currently needed.
-
 **Learnings & Decisions:**
-
--   **Interoperability:** Decided to keep the classic `Viewport` and embed the new functional `MainView` component within it. This is a pragmatic approach that leverages existing structures and showcases the interoperability between classic and functional components.
--   **Naming:** Renamed the main functional component from `Main.mjs` to `MainView.mjs` for better clarity and to align with the `mainView` config in `app.mjs`.
-
+-   **Interoperability:** Kept the classic `Viewport` and embedded the new functional `MainView` component, showcasing seamless integration.
+-   **Naming:** Renamed `Main.mjs` to `MainView.mjs` for clarity.
 
 ---
 
 ## Phase 2: Email List View (Completed)
 
-**Goal:** Implement the email list pane using a Neo.mjs grid to display a list of emails.
-
-**Sub-Tasks:**
-
-1.  **Create Mock Data:**
-    -   Populated the `apps/email/store/Emails.mjs` with hardcoded sample email data.
-2.  **Integrate Grid:**
-    -   Replaced the "Email List" placeholder in `MainView.mjs` with a `Neo.grid.Container`.
-    -   Configured the grid to use the `Emails` store and defined the columns.
-3.  **Styling & Layout:**
-    -   Wrapped the grid in a styled `div` to ensure correct flexbox layout.
-    -   Used the `wrapperStyle` config on the grid to control its internal dimensions, which is necessary for the grid's layout engine.
-4.  **Enable Interoperability:**
-    -   Enhanced `functional.component.Base` to propagate the parent's `windowId` to all child components. This was a critical fix to ensure the classic grid component could function correctly when rendered inside our functional `MainView`.
+**Goal:** Implement the email list pane using a `Neo.grid.Container`.
 
 **Learnings & Decisions:**
-
--   **Complex Component Integration:** Integrating a complex classic component like `grid.Container` into a functional component requires more than just placing it in the VDOM. We must provide layout-critical styles (like `height` and `width`) via the component's specific config (`wrapperStyle`) for it to render correctly.
--   **`windowId` is Crucial:** The `windowId` must be manually propagated from functional parents to classic children. This is a fundamental requirement for interoperability and ensuring that events, theming, and other window-specific functionalities work correctly. This led to enhancing `functional.component.Base` and creating a dedicated ticket for it.
-
-**Next Steps:**
--   Implement selection handling on the grid to prepare for the detail view.
-
+-   **Complex Component Integration:** Discovered that complex classic components require specific configs (e.g., `wrapperStyle`) to manage their own layout when nested inside functional components.
+-   **Stateful Child Problem:** Uncovered the core issue of stateful children (stores, columns) being re-created on every parent render. This led directly to the architectural work on VDOM diffing.
 
 ---
 
 ## Phase 3: Email Detail View (Completed)
 
 **Goal:** Display the content of a selected email from the grid.
-
-**Sub-Tasks:**
-
-1.  **Grid Selection:**
-    -   Configured a `selection.RowModel` on the grid's `bodyConfig`.
-    -   Set `singleSelect: true` to allow only one row to be selected.
-2.  **State Management:**
-    -   Used the `useConfig()` hook in `MainView` to create a `selectedEmail` state variable.
-3.  **Event Handling:**
-    -   Added a `selectionChange` listener to the selection model.
-    -   The listener updates the `selectedEmail` state with the selected record.
-4.  **Detail View:**
-    -   The "Email Details" pane now conditionally renders the `title`, `sender`, and `content` of the `selectedEmail`.
-    -   If no email is selected, it displays a placeholder message.
-
-**Next Steps:**
--   Implement "Compose" functionality.
-
+-   Implemented a `selection.RowModel` on the grid and used a `useConfig` state variable (`selectedEmail`) to drive a conditional render of the detail pane.
 
 ---
 
-## Phase 4: Compose Email Functionality
+## Phase 4: Compose Email Functionality (Next)
 
 **Goal:** Implement the ability to compose a new email, initially within the main window.
 
-**Potential Tools to Explore:**
-
--   `src/dialog/Base.mjs`: To create a modal or non-modal dialog for the compose window.
--   Custom Functional Overlay: Build a new overlay component from scratch using functional components.
-
-**Sub-Tasks:**
-*(To be defined)*
+**Proposed Plan:**
+1.  **Compose Button:** Add a `Neo.button.Base` to the "Folders" pane.
+2.  **State Management:** Use `useConfig` in `MainView` to manage an `isComposing` boolean state.
+3.  **Compose View:** Create a new functional component, `view/ComposeView.mjs`, containing the form for the new email.
+4.  **Conditional Rendering:** Use the `isComposing` flag to conditionally render the `ComposeView` as an overlay on top of the main view.
+5.  **Event Handling:** The "Compose" button will set `isComposing` to `true`. The `ComposeView` will have a "Close" button that sets it back to `false`.
+6.  **Overlay Implementation:** We will build a custom functional overlay for this, as it's a good exercise and provides maximum flexibility.
 
 ---
 
 ## Phase 5: Multi-Window Detach
 
 **Goal:** Implement the "detach" functionality to move the compose view into a separate browser window.
+**Sub-Tasks:** *(To be defined)*
 
-**Sub-Tasks:**
-*(To be defined)*
