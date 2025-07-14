@@ -2,15 +2,10 @@ import {defineComponent} from '../../../src/functional/_export.mjs';
 
 export default defineComponent({
     config: {
-        className: 'Email.view.MainView'
+        className: 'Email.view.MainView',
+        cls      : ['email-mainview']
     },
     createVdom() {
-        const style = {
-            display: 'flex',
-            flex  : '1 1 auto',
-            height: '100%'
-        };
-
         const paneStyle = {
             border: '1px solid #c0c0c0',
             margin: '10px',
@@ -18,21 +13,16 @@ export default defineComponent({
         };
 
         return {
-            style,
-            cn: [
-                {
-                    style: {...paneStyle, flex: '0 0 200px'},
-                    text : 'Folders'
-                },
-                {
-                    style: {...paneStyle, flex: '1 1 400px'},
-                    text : 'Email List'
-                },
-                {
-                    style: {...paneStyle, flex: '1 1 600px'},
-                    text : 'Email Details'
-                }
-            ]
+            cn: [{
+                style: {...paneStyle, flex: '0 0 200px'},
+                text : 'Folders'
+            }, {
+                style: {...paneStyle, flex: '1 1 400px'},
+                text : 'Email List'
+            }, {
+                style: {...paneStyle, flex: '1 1 600px'},
+                text : 'Email Details'
+            }]
         }
     }
 });
