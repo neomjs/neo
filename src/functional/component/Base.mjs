@@ -188,66 +188,6 @@ class FunctionalBase extends Base {
     }
 
     /**
-     * Recursively processes a VDOM node to instantiate components defined within it.
-     * @param {Object} vdomNode The VDOM node to process.
-     * @param {String} parentId The ID of the parent component (the functional component hosting it).
-     * @param {Number} [parentIndex] The index of the vdomNode within its parent's children.
-     * @returns {Object} The processed VDOM node, potentially replaced with a component reference.
-     * @private
-     */
-    processVdomForComponents(vdomNode, parentId, parentIndex) {
-        if (!vdomNode) {
-            return vdomNode;
-        }
-
-        // If it's already a component reference, no need to process further
-        if (vdomNode.componentId) {
-            return vdomNode;
-        }
-
-        // Check if it's a component definition (functional or classic)
-        if (vdomNode.module || vdomNode.ntype) {
-            // Components are reconciled based on their `id` property in the VDOM definition.
-            // If no `id` is provided, a new instance will be created on every render.
-            const componentKey = vdomNode.id;
-
-            if (!componentKey) {
-                console.warn('Component definition in functional component VDOM is missing an "id". For stable reconciliation, especially in dynamic lists, provide a unique "id" property.', vdomNode);
-            }
-
-            // If the component already exists (e.g., from a previous render cycle), reuse it
-            let newComponent = this._instantiatedComponents?.get(componentKey);
-
-            if (!newComponent) {
-                this._instantiatedComponents ??= new Map();
-
-
-                // Instantiate the component
-                newComponent = Neo[vdomNode.module ? 'create' : 'ntype']({
-                    ...vdomNode,
-                    parentId: parentId,
-                    parentIndex: parentIndex // Pass the index to the component
-                });
-            }
-
-            // Add to the new map for tracking in this render cycle
-            this._newlyInstantiatedComponents.set(componentKey, newComponent);
-
-            // Replace the definition with a reference using the component's own method
-            return newComponent.createVdomReference();
-        }
-
-        // Recursively process children
-        if (vdomNode.cn && Array.isArray(vdomNode.cn)) {
-            vdomNode.cn = vdomNode.cn.map((child, index) =>
-                this.processVdomForComponents(child, parentId, index)
-            );
-        }
-
-        return vdomNode;
-    }
-
-    /**
      * This handler runs when the effect's `isRunning` state changes.
      * It runs outside the effect's tracking scope, preventing feedback loops.
      * @param {Boolean} value
@@ -306,6 +246,66 @@ class FunctionalBase extends Base {
                 }
             }
         }
+    }
+
+    /**
+     * Recursively processes a VDOM node to instantiate components defined within it.
+     * @param {Object} vdomNode The VDOM node to process.
+     * @param {String} parentId The ID of the parent component (the functional component hosting it).
+     * @param {Number} [parentIndex] The index of the vdomNode within its parent's children.
+     * @returns {Object} The processed VDOM node, potentially replaced with a component reference.
+     * @private
+     */
+    processVdomForComponents(vdomNode, parentId, parentIndex) {
+        if (!vdomNode) {
+            return vdomNode;
+        }
+
+        // If it's already a component reference, no need to process further
+        if (vdomNode.componentId) {
+            return vdomNode;
+        }
+
+        // Check if it's a component definition (functional or classic)
+        if (vdomNode.module || vdomNode.ntype) {
+            // Components are reconciled based on their `id` property in the VDOM definition.
+            // If no `id` is provided, a new instance will be created on every render.
+            const componentKey = vdomNode.id;
+
+            if (!componentKey) {
+                console.warn('Component definition in functional component VDOM is missing an "id". For stable reconciliation, especially in dynamic lists, provide a unique "id" property.', vdomNode);
+            }
+
+            // If the component already exists (e.g., from a previous render cycle), reuse it
+            let newComponent = this._instantiatedComponents?.get(componentKey);
+
+            if (!newComponent) {
+                this._instantiatedComponents ??= new Map();
+
+
+                // Instantiate the component
+                newComponent = Neo[vdomNode.module ? 'create' : 'ntype']({
+                    ...vdomNode,
+                    parentId: parentId,
+                    parentIndex: parentIndex // Pass the index to the component
+                });
+            }
+
+            // Add to the new map for tracking in this render cycle
+            this._newlyInstantiatedComponents.set(componentKey, newComponent);
+
+            // Replace the definition with a reference using the component's own method
+            return newComponent.createVdomReference();
+        }
+
+        // Recursively process children
+        if (vdomNode.cn && Array.isArray(vdomNode.cn)) {
+            vdomNode.cn = vdomNode.cn.map((child, index) =>
+                this.processVdomForComponents(child, parentId, index)
+            );
+        }
+
+        return vdomNode
     }
 }
 
