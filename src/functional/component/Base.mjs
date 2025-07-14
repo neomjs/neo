@@ -178,14 +178,20 @@ class FunctionalBase extends Base {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
+        const me = this;
+
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+            Neo.currentWorker.insertThemeFiles(value, me.__proto__)
         }
+
+        me.childComponents?.forEach(component => {
+            component.windowId = value
+        })
 
         // If a component gets moved into a different window, an update cycle might still be running.
         // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
         if (oldValue) {
-            this.isVdomUpdating = false
+            me.isVdomUpdating = false
         }
     }
 
@@ -353,12 +359,12 @@ class FunctionalBase extends Base {
             if (!component) {
                 me.childComponents ??= new Map();
 
-
                 // Instantiate the component
                 component = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
                     ...vdomTree,
                     parentId,
-                    parentIndex
+                    parentIndex,
+                    windowId: me.windowId
                 })
             } else {
                 const newConfig = {...vdomTree}; // Shallow copy

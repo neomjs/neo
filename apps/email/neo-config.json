@@ -4,6 +4,6 @@
     "environment": "development",
     "mainPath": "./Main.mjs",
     "themes": [
-        "neo-theme-light"
+        "neo-theme-dark"
     ]
 }

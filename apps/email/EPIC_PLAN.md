@@ -25,28 +25,55 @@ This document outlines the plan for refactoring the `apps/email` application int
 
 ---
 
-## Phase 2: Email List View
+## Phase 2: Email List View (Completed)
 
 **Goal:** Implement the email list pane using a Neo.mjs grid to display a list of emails.
 
-**Potential Tools to Explore:**
-
--   `src/grid/Base.mjs`: For a powerful, feature-rich data grid.
--   `src/list/Base.mjs`: For a simpler list view if a full grid is not needed initially.
--   `src/data/Store.mjs`: To manage the email data.
--   `src/collection/Base.mjs`: For sorting and filtering capabilities within the store.
-
 **Sub-Tasks:**
-*(To be defined)*
+
+1.  **Create Mock Data:**
+    -   Populated the `apps/email/store/Emails.mjs` with hardcoded sample email data.
+2.  **Integrate Grid:**
+    -   Replaced the "Email List" placeholder in `MainView.mjs` with a `Neo.grid.Container`.
+    -   Configured the grid to use the `Emails` store and defined the columns.
+3.  **Styling & Layout:**
+    -   Wrapped the grid in a styled `div` to ensure correct flexbox layout.
+    -   Used the `wrapperStyle` config on the grid to control its internal dimensions, which is necessary for the grid's layout engine.
+4.  **Enable Interoperability:**
+    -   Enhanced `functional.component.Base` to propagate the parent's `windowId` to all child components. This was a critical fix to ensure the classic grid component could function correctly when rendered inside our functional `MainView`.
+
+**Learnings & Decisions:**
+
+-   **Complex Component Integration:** Integrating a complex classic component like `grid.Container` into a functional component requires more than just placing it in the VDOM. We must provide layout-critical styles (like `height` and `width`) via the component's specific config (`wrapperStyle`) for it to render correctly.
+-   **`windowId` is Crucial:** The `windowId` must be manually propagated from functional parents to classic children. This is a fundamental requirement for interoperability and ensuring that events, theming, and other window-specific functionalities work correctly. This led to enhancing `functional.component.Base` and creating a dedicated ticket for it.
+
+**Next Steps:**
+-   Implement selection handling on the grid to prepare for the detail view.
+
 
 ---
 
-## Phase 3: Email Detail View
+## Phase 3: Email Detail View (Completed)
 
-**Goal:** Display the content of a selected email.
+**Goal:** Display the content of a selected email from the grid.
 
 **Sub-Tasks:**
-*(To be defined)*
+
+1.  **Grid Selection:**
+    -   Configured a `selection.RowModel` on the grid's `bodyConfig`.
+    -   Set `singleSelect: true` to allow only one row to be selected.
+2.  **State Management:**
+    -   Used the `useConfig()` hook in `MainView` to create a `selectedEmail` state variable.
+3.  **Event Handling:**
+    -   Added a `selectionChange` listener to the selection model.
+    -   The listener updates the `selectedEmail` state with the selected record.
+4.  **Detail View:**
+    -   The "Email Details" pane now conditionally renders the `title`, `sender`, and `content` of the `selectedEmail`.
+    -   If no email is selected, it displays a placeholder message.
+
+**Next Steps:**
+-   Implement "Compose" functionality.
+
 
 ---
 
