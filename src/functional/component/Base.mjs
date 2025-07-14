@@ -279,6 +279,8 @@ class FunctionalBase extends Base {
             return vdomTree
         }
 
+        const me = this;
+
         // Check if it's a component definition (functional or classic)
         if (vdomTree.className || vdomTree.module || vdomTree.ntype) {
             // Components are reconciled based on their `id` property in the VDOM definition.
@@ -295,35 +297,66 @@ class FunctionalBase extends Base {
             }
 
             // If the component already exists (e.g., from a previous render cycle), reuse it
-            let newComponent = this.childComponents?.get(componentKey);
+            let component = me.childComponents?.get(componentKey);
 
-            if (!newComponent) {
-                this.childComponents ??= new Map();
+            if (!component) {
+                me.childComponents ??= new Map();
 
 
                 // Instantiate the component
-                newComponent = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
+                component = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
                     ...vdomTree,
                     parentId,
                     parentIndex
                 })
+            } else {
+                const newConfig = {...vdomTree}; // Shallow copy
+
+                delete newConfig.className;
+                delete newConfig.id;
+                delete newConfig.module;
+                delete newConfig.ntype;
+
+                component.set(newConfig)
             }
 
             // Add to the new map for tracking in this render cycle
-            this.#newChildComponents.set(componentKey, newComponent);
+            me.#newChildComponents.set(componentKey, component);
 
             // Replace the definition with a reference using the component's own method
-            return newComponent.createVdomReference();
+            return component.createVdomReference();
         }
 
         // Recursively process children
         if (vdomTree.cn && Array.isArray(vdomTree.cn)) {
             vdomTree.cn = vdomTree.cn.map((child, index) =>
-                this.processVdomForComponents(child, parentId, index)
+                me.processVdomForComponents(child, parentId, index)
             )
         }
 
         return vdomTree
+    }
+
+    /**
+     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * @param {Object} values={}
+     * @param {Boolean} silent=false
+     * @returns {Promise<*>}
+     */
+    set(values={}, silent=false) {
+        let me = this;
+
+        me.silentVdomUpdate = true;
+
+        super.set(values);
+
+        me.silentVdomUpdate = false;
+
+        if (silent || !me.needsVdomUpdate) {
+            return Promise.resolve()
+        }
+
+        return me.promiseUpdate()
     }
 }
 
