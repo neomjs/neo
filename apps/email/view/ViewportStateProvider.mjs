@@ -1,11 +1,11 @@
-import EmailStore from '../store/Emails.mjs';
-import Provider   from '../../../src/state/Provider.mjs';
+import EmailStore    from '../store/Emails.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
  * @class Email.view.ViewportStateProvider
  * @extends Neo.state.Provider
  */
-class ViewportStateProvider extends Provider {
+class ViewportStateProvider extends StateProvider {
     static config = {
         /**
          * @member {String} className='Email.view.ViewportStateProvider'
