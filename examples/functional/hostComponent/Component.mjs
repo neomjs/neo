@@ -1,5 +1,5 @@
-import {defineComponent, useConfig, useEvent} from '../../../src/functional/_export.mjs';
-import Button                                 from '../../../src/button/Base.mjs';
+import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
+import Button                       from '../../../src/button/Base.mjs';
 
 export default defineComponent({
     config: {
