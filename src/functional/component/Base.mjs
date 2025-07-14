@@ -56,6 +56,18 @@ class FunctionalBase extends Base {
     }
 
     /**
+     * Neo component instances, which got defined inside createVdom()
+     * @member {Map|null} childComponents=null
+     */
+    childComponents = null
+    /**
+     * Internal Map to store new instances after the createVdom() Effect has run.
+     * @member {Map|null} newChildComponents=null
+     * @private
+     */
+    #newChildComponents = null
+
+    /**
      * Convenience method to access the parent component
      * @returns {Neo.component.Base|null}
      */
@@ -142,12 +154,18 @@ class FunctionalBase extends Base {
 
         if (pendingEvents.length > 0) {
             if (!Neo.isEqual(activeEvents, pendingEvents)) {
-                console.log('Applying pending DOM listeners', pendingEvents);
+                if (activeEvents?.length > 0) {
+                    // Remove old dynamic listeners
+                    me.removeDomListeners(me[activeDomListenersSymbol])
+                }
+
                 me.addDomListeners([...pendingEvents]);
 
-                me[activeDomListenersSymbol] = [...pendingEvents];
-                me[pendingDomEventsSymbol]   = [] // Clear pending events for next render
+                me[activeDomListenersSymbol] = [...pendingEvents]
             }
+
+            // Clear pending events for next `createVdom()` Effect run
+            me[pendingDomEventsSymbol] = []
         }
     }
 
@@ -172,15 +190,15 @@ class FunctionalBase extends Base {
         me.vdomEffect?.destroy();
 
         // Destroy all classic components instantiated by this functional component
-        me._instantiatedComponents.forEach(component => {
+        me.childComponents.forEach(component => {
             component.destroy();
         });
-        me._instantiatedComponents.clear();
+        me.childComponents.clear();
 
         me.removeDomEvents();
 
         // Remove any pending DOM event listeners that might not have been mounted
-        me[pendingDomEventsSymbol] = [];
+        me[pendingDomEventsSymbol] = null;
 
         ComponentManager.unregister(me);
 
@@ -201,21 +219,21 @@ class FunctionalBase extends Base {
 
             if (newVdom) {
                 // Create a new map for components instantiated in this render cycle
-                me._newlyInstantiatedComponents = new Map();
+                me.#newChildComponents = new Map();
 
                 // Process the newVdom to instantiate components
                 // The parentId for these components will be the functional component's id
                 const processedVdom = me.processVdomForComponents(newVdom, me.id);
 
                 // Destroy components that are no longer present in the new VDOM
-                me._instantiatedComponents?.forEach((component, key) => {
-                    if (!me._newlyInstantiatedComponents.has(key)) {
-                        component.destroy();
+                me.childComponents?.forEach((component, key) => {
+                    if (!me.#newChildComponents.has(key)) {
+                        component.destroy()
                     }
                 });
 
                 // Update the main map of instantiated components
-                me._instantiatedComponents = me._newlyInstantiatedComponents;
+                me.childComponents = me.#newChildComponents;
 
                 // Clear the old vdom properties
                 for (const key in me.vdom) {
@@ -237,12 +255,7 @@ class FunctionalBase extends Base {
 
                 // Update DOM event listeners based on the new render
                 if (me.mounted) {
-                    if (!Neo.isEqual(me[pendingDomEventsSymbol], me[activeDomListenersSymbol])) {
-                        me.removeDomListeners(me[activeDomListenersSymbol]); // Remove old dynamic listeners
-                        me._applyPendingDomListeners(); // Add new dynamic listeners and update active list
-                    } else {
-                        me[pendingDomEventsSymbol] = []; // Clear pending events even if no change
-                    }
+                    me.applyPendingDomListeners()
                 }
             }
         }
@@ -250,62 +263,67 @@ class FunctionalBase extends Base {
 
     /**
      * Recursively processes a VDOM node to instantiate components defined within it.
-     * @param {Object} vdomNode The VDOM node to process.
+     * @param {Object} vdomTree The VDOM node to process.
      * @param {String} parentId The ID of the parent component (the functional component hosting it).
      * @param {Number} [parentIndex] The index of the vdomNode within its parent's children.
      * @returns {Object} The processed VDOM node, potentially replaced with a component reference.
      * @private
      */
-    processVdomForComponents(vdomNode, parentId, parentIndex) {
-        if (!vdomNode) {
-            return vdomNode;
+    processVdomForComponents(vdomTree, parentId, parentIndex) {
+        if (!vdomTree) {
+            return vdomTree
         }
 
         // If it's already a component reference, no need to process further
-        if (vdomNode.componentId) {
-            return vdomNode;
+        if (vdomTree.componentId) {
+            return vdomTree
         }
 
         // Check if it's a component definition (functional or classic)
-        if (vdomNode.module || vdomNode.ntype) {
+        if (vdomTree.className || vdomTree.module || vdomTree.ntype) {
             // Components are reconciled based on their `id` property in the VDOM definition.
             // If no `id` is provided, a new instance will be created on every render.
-            const componentKey = vdomNode.id;
+            const componentKey = vdomTree.id;
 
             if (!componentKey) {
-                console.warn('Component definition in functional component VDOM is missing an "id". For stable reconciliation, especially in dynamic lists, provide a unique "id" property.', vdomNode);
+                console.error([
+                    'Component definition in functional component VDOM is missing an "id". For stable reconciliation, ',
+                    'especially in dynamic lists, provide a unique "id" property.'
+                    ].join(''),
+                    vdomTree
+                )
             }
 
             // If the component already exists (e.g., from a previous render cycle), reuse it
-            let newComponent = this._instantiatedComponents?.get(componentKey);
+            let newComponent = this.childComponents?.get(componentKey);
 
             if (!newComponent) {
-                this._instantiatedComponents ??= new Map();
+                this.childComponents ??= new Map();
 
 
                 // Instantiate the component
-                newComponent = Neo[vdomNode.module ? 'create' : 'ntype']({
-                    ...vdomNode,
-                    parentId: parentId,
-                    parentIndex: parentIndex // Pass the index to the component
-                });
+                newComponent = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
+                    ...vdomTree,
+                    parentId,
+                    parentIndex
+                })
             }
 
             // Add to the new map for tracking in this render cycle
-            this._newlyInstantiatedComponents.set(componentKey, newComponent);
+            this.#newChildComponents.set(componentKey, newComponent);
 
             // Replace the definition with a reference using the component's own method
             return newComponent.createVdomReference();
         }
 
         // Recursively process children
-        if (vdomNode.cn && Array.isArray(vdomNode.cn)) {
-            vdomNode.cn = vdomNode.cn.map((child, index) =>
+        if (vdomTree.cn && Array.isArray(vdomTree.cn)) {
+            vdomTree.cn = vdomTree.cn.map((child, index) =>
                 this.processVdomForComponents(child, parentId, index)
-            );
+            )
         }
 
-        return vdomNode
+        return vdomTree
     }
 }
 
