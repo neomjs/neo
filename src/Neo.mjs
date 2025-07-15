@@ -859,7 +859,8 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {String|null}
      */
     typeOf(item) {
-        if (item === null || item === undefined) {
+        // Return null for null or undefined
+        if (item == null) {
             return null
         }
 
