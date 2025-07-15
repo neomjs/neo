@@ -275,10 +275,7 @@ class FunctionalBase extends Base {
 
             if (!Neo.isEqual(newValue, oldValue)) {
                 // If the config property is an object and it maps to a sub-component instance, recurse.
-                if (
-                    Neo.typeOf(newValue) === 'Object' &&
-                    Neo.typeOf(instance[key]) === 'NeoInstance'
-                ) {
+                if (Neo.typeOf(newValue) === 'Object' && Neo.typeOf(instance[key]) === 'NeoInstance') {
                     this.diffAndSet(instance[key], newValue, oldValue || {})
                 } else {
                     // Otherwise, add it to the delta to be set on the current instance.
@@ -343,6 +340,13 @@ class FunctionalBase extends Base {
                     root.id = me.id
                 }
 
+                // If this component created other classic or functional components,
+                // include their full vdom into the next update cycle.
+                // We could make this more granular inside the future.
+                if (me.childComponents?.size > 0) {
+                    me.updateDepth = -1
+                }
+
                 me.updateVdom();
 
                 // Update DOM event listeners based on the new render
@@ -388,9 +392,8 @@ class FunctionalBase extends Base {
                 )
             }
 
-            let childData   = me.childComponents?.get(componentKey),
-                newConfig   = {...vdomTree}, // Shallow copy
-                deltaConfig = {},
+            let childData = me.childComponents?.get(componentKey),
+                newConfig = {...vdomTree}, // Shallow copy
                 instance;
 
             delete newConfig.className;
@@ -407,7 +410,11 @@ class FunctionalBase extends Base {
                     parentId,
                     parentIndex,
                     windowId: me.windowId
-                })
+                });
+
+                if (instance instanceof Neo.functional.component.Base) {
+                    instance.onEffectRunStateChange(false, true)
+                }
             } else {
                 instance = childData.instance;
 
