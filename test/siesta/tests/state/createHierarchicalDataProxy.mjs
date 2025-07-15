@@ -15,12 +15,7 @@ class MockStateProvider extends Base {
 
     #dataConfigs = {};
 
-    construct(config) {
-        super.construct(config);
-    }
-
     afterSetData(value, oldValue) {
-        console.log(value);
         if (value) {
             this.processDataObject(value);
         }
