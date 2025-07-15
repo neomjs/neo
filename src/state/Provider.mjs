@@ -262,7 +262,8 @@ class Provider extends Base {
      * @param {Neo.component.Base} component The component instance whose bindings are to be created.
      */
     createBindings(component) {
-        let hasTwoWayBinding = false;
+        let me               = this,
+            hasTwoWayBinding = false;
 
         Object.entries(component.bind || {}).forEach(([configKey, value]) => {
             let key = value;
@@ -276,12 +277,12 @@ class Provider extends Base {
             }
 
             // Determine if it's a store binding or a data binding.
-            if (this.isStoreValue(key)) {
+            if (me.isStoreValue(key)) {
                 // For store bindings, resolve the store and assign it to the component config.
-                this.resolveStore(component, configKey, key.substring(7)) // remove the "stores." prefix
+                me.resolveStore(component, configKey, key.substring(7)) // remove the "stores." prefix
             } else {
                 // For data bindings, create an Effect to keep the component config in sync with the data.
-                this.createBinding(component.id, configKey, key, value.twoWay)
+                me.createBinding(component.id, configKey, key, value.twoWay)
             }
         });
 
@@ -435,15 +436,18 @@ class Provider extends Base {
      * @returns {String[]}
      */
     getTopLevelDataKeys(path) {
-        const keys = new Set();
-        const pathPrefix = path ? `${path}.` : '';
+        const
+            keys       = new Set(),
+            pathPrefix = path ? `${path}.` : '';
 
         for (const fullPath in this.#dataConfigs) {
             if (fullPath.startsWith(pathPrefix)) {
-                const relativePath = fullPath.substring(pathPrefix.length);
-                const topLevelKey = relativePath.split('.')[0];
+                const
+                    relativePath = fullPath.substring(pathPrefix.length),
+                    topLevelKey  = relativePath.split('.')[0];
+
                 if (topLevelKey) {
-                    keys.add(topLevelKey);
+                    keys.add(topLevelKey)
                 }
             }
         }
@@ -552,14 +556,14 @@ class Provider extends Base {
 
             // Ensure a Config instance exists for the current fullPath
             if (me.#dataConfigs[fullPath]) {
-                me.#dataConfigs[fullPath].set(value);
+                me.#dataConfigs[fullPath].set(value)
             } else {
-                me.#dataConfigs[fullPath] = new Config(value);
+                me.#dataConfigs[fullPath] = new Config(value)
             }
 
             // If the value is a plain object, recursively process its properties
             if (Neo.typeOf(value) === 'Object') {
-                me.processDataObject(value, fullPath);
+                me.processDataObject(value, fullPath)
             }
         });
     }
