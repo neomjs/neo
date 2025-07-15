@@ -8,10 +8,10 @@ import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
 
 const
     activeDomListenersSymbol = Symbol.for('activeDomListeners'),
-    hookIndexSymbol        = Symbol.for('hookIndex'),
-    hooksSymbol            = Symbol.for('hooks'),
-    pendingDomEventsSymbol = Symbol.for('pendingDomEvents'),
-    vdomToApplySymbol      = Symbol('vdomToApply');
+    hookIndexSymbol          = Symbol.for('hookIndex'),
+    hooksSymbol              = Symbol.for('hooks'),
+    pendingDomEventsSymbol   = Symbol.for('pendingDomEvents'),
+    vdomToApplySymbol        = Symbol('vdomToApply');
 
 /**
  * @class Neo.functional.component.Base
