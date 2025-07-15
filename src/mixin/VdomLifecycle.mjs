@@ -1,5 +1,6 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
+import NeoArray         from '../util/Array.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
