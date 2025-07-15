@@ -334,8 +334,8 @@ class Helper extends Base {
                         }
 
                         newValue = [];
-
-                        value.forEach(item => {
+//console.log(Neo.clone(value, true));
+                        value.filter(Boolean).forEach(item => {
                             if (item.removeDom !== true) {
                                 delete item.removeDom; // could be false
                                 potentialNode = me.createVnode(item);

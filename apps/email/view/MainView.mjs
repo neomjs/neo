@@ -79,11 +79,11 @@ export default defineComponent({
                 ] : [{
                     text: 'Select an email to read'
                 }]
-            }, isComposing ? {
+            }, isComposing && {
                 module : ComposeView,
                 id     : 'compose-view',
                 onClose: onCloseCompose
-            } : null].filter(Boolean)
+            }]
         }
     }
 });

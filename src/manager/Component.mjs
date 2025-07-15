@@ -403,6 +403,10 @@ class Component extends Manager {
      * @returns {Object}
      */
     getVdomTree(vdom, depth=-1) {
+        if (!Neo.isObject(vdom)) {
+            return vdom
+        }
+
         let output = {...vdom}, // shallow copy
             childDepth;
 
