@@ -106,10 +106,11 @@
     }
 
     pre[data-javascript] {
-        border       : thin solid lightgray;
-        border-radius: 4px;
-        overflow-x   : scroll;
-        padding      : 12px;
+        border        : thin solid lightgray;
+        border-radius : 4px;
+        letter-spacing: 0;
+        overflow-x    : scroll;
+        padding       : 12px;
     }
 
     summary::-webkit-details-marker {
