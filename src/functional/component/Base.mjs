@@ -259,6 +259,41 @@ class FunctionalBase extends Base {
     }
 
     /**
+     * This method recursively compares the new VDOM config with the last applied config
+     * for a given component instance and its sub-instances.
+     * @param {Neo.core.Base} instance The component instance to update.
+     * @param {Object} newConfig The new configuration object from the VDOM.
+     * @param {Object} lastConfig The last applied configuration object.
+     * @private
+     */
+    diffAndSet(instance, newConfig, lastConfig) {
+        const deltaConfig = {};
+
+        for (const key in newConfig) {
+            const newValue = newConfig[key],
+                  oldValue = lastConfig[key];
+
+            if (!Neo.isEqual(newValue, oldValue)) {
+                // If the config property is an object and it maps to a sub-component instance, recurse.
+                if (
+                    Neo.typeOf(newValue) === 'Object' &&
+                    Neo.typeOf(instance[key]) === 'NeoInstance'
+                ) {
+                    this.diffAndSet(instance[key], newValue, oldValue || {})
+                } else {
+                    // Otherwise, add it to the delta to be set on the current instance.
+                    deltaConfig[key] = newValue
+                }
+            }
+        }
+
+        // Only call set() if there are actual changes for the current instance.
+        if (Object.keys(deltaConfig).length > 0) {
+            instance.set(deltaConfig)
+        }
+    }
+
+    /**
      * This handler runs when the effect's `isRunning` state changes.
      * It runs outside the effect's tracking scope, preventing feedback loops.
      * @param {Boolean} value
@@ -376,17 +411,8 @@ class FunctionalBase extends Base {
             } else {
                 instance = childData.instance;
 
-                // Diff the new config with the last applied config
-                for (const key in newConfig) {
-                    if (!Neo.isEqual(newConfig[key], childData.lastConfig[key])) {
-                        deltaConfig[key] = newConfig[key]
-                    }
-                }
-
-                // Only call set() if there are actual changes
-                if (Object.keys(deltaConfig).length > 0) {
-                    instance.set(deltaConfig)
-                }
+                // Recursively diff and set configs
+                this.diffAndSet(instance, newConfig, childData.lastConfig);
             }
 
             // Add to the new map for tracking in this render cycle
