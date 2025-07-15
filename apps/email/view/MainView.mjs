@@ -11,8 +11,9 @@ export default defineComponent({
         cls      : ['email-main-view']
     },
     createVdom() {
-        const [isComposing, setIsComposing] = useConfig(false);
-        const [selectedEmail, setSelectedEmail] = useConfig(null);
+        const
+            [isComposing,   setIsComposing]   = useConfig(false),
+            [selectedEmail, setSelectedEmail] = useConfig(null);
 
         const paneStyle = {
             border : '1px solid #c0c0c0',
@@ -21,7 +22,7 @@ export default defineComponent({
         };
 
         const onComposeClick = () => {
-            setIsComposing(true);
+            setIsComposing(true)
         };
 
         const onCloseCompose = () => {
@@ -29,7 +30,7 @@ export default defineComponent({
         };
 
         const onSelectionChange = ({records}) => {
-            setSelectedEmail(records[0] || null);
+            setSelectedEmail(records[0] || null)
         };
 
         return {
@@ -63,17 +64,17 @@ export default defineComponent({
                         {
                             cellAlign: 'right',
                             dataField: 'dateSent',
+                            renderer : (({value}) => new Date(value).toLocaleDateString()),
                             text     : 'Date',
-                            width    : 100,
-                            renderer : (({value}) => new Date(value).toLocaleDateString())
+                            width    : 100
                         }
                     ]
                 }]
             }, {
                 style: {...paneStyle, flex: '1 1 600px'},
                 cn: selectedEmail ? [
-                    {tag: 'h2', text: selectedEmail.title},
-                    {tag: 'p', text: `From: ${selectedEmail.sender}`},
+                    {tag: 'h2',  text: selectedEmail.title},
+                    {tag: 'p',   text: `From: ${selectedEmail.sender}`},
                     {tag: 'div', style: {marginTop: '10px'}, text: selectedEmail.content}
                 ] : [{
                     text: 'Select an email to read'
