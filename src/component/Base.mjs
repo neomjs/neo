@@ -1356,9 +1356,8 @@ class Component extends Base {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                  = this,
-            {parent, parentId}  = me,
-            parentStateProvider = parent?.getStateProvider?.(), // We need getStateProvider?.() until functional components support it too
+        let me                 = this,
+            {parent, parentId} = me,
             parentVdom;
 
         me.revertFocus();
@@ -1370,8 +1369,6 @@ class Component extends Base {
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
         me.stateProvider = null; // triggers destroy()
-
-        me.bind && parentStateProvider?.removeBindings(me.id);
 
         me.plugins?.forEach(plugin => {
             plugin.destroy()
