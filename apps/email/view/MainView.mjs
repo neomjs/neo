@@ -1,14 +1,14 @@
 import Button                       from '../../../src/button/Base.mjs';
 import ComposeView                  from './ComposeView.mjs';
-import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
-import GridContainer                from '../../../src/grid/Container.mjs';
 import EmailsStore                  from '../store/Emails.mjs';
+import GridContainer                from '../../../src/grid/Container.mjs';
 import RowModel                     from '../../../src/selection/grid/RowModel.mjs';
+import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
 
 export default defineComponent({
     config: {
         className: 'Email.view.MainView',
-        cls      : ['email-mainview']
+        cls      : ['email-main-view']
     },
     createVdom() {
         const [isComposing, setIsComposing] = useConfig(false);
