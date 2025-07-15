@@ -1,3 +1,5 @@
+import Button                       from '../../../src/button/Base.mjs';
+import ComposeView                  from './ComposeView.mjs';
 import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
 import GridContainer                from '../../../src/grid/Container.mjs';
 import EmailsStore                  from '../store/Emails.mjs';
@@ -9,12 +11,21 @@ export default defineComponent({
         cls      : ['email-mainview']
     },
     createVdom() {
+        const [isComposing, setIsComposing] = useConfig(false);
         const [selectedEmail, setSelectedEmail] = useConfig(null);
 
         const paneStyle = {
             border : '1px solid #c0c0c0',
             margin : '10px',
             padding: '10px'
+        };
+
+        const onComposeClick = () => {
+            setIsComposing(true);
+        };
+
+        const onCloseCompose = () => {
+            setIsComposing(false);
         };
 
         const onSelectionChange = ({records}) => {
@@ -24,7 +35,15 @@ export default defineComponent({
         return {
             cn: [{
                 style: {...paneStyle, flex: '0 0 200px'},
-                text : 'Folders'
+                cn: [{
+                    module : Button,
+                    handler: onComposeClick,
+                    id     : 'compose-button',
+                    text   : 'Compose',
+                    style  : {marginBottom: '10px', width: '100%'}
+                }, {
+                    text : 'Folders'
+                }]
             }, {
                 style: {...paneStyle, flex: '1 1 600px', padding: '0'},
                 cn: [{
@@ -59,7 +78,11 @@ export default defineComponent({
                 ] : [{
                     text: 'Select an email to read'
                 }]
-            }]
+            }, isComposing ? {
+                module : ComposeView,
+                id     : 'compose-view',
+                onClose: onCloseCompose
+            } : null].filter(Boolean)
         }
     }
 });

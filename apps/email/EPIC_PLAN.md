@@ -4,10 +4,8 @@ This document outlines the plan for refactoring the `apps/email` application int
 
 ## Architectural Milestones & Key Learnings
 
-This epic has driven significant architectural improvements to the functional component system. For a full understanding of the current state, review these tickets:
+This epic has driven significant architectural improvements to the functional component system. For a full understanding of the current state, review this ticket:
 
--   **[#ticket-functional-child-component-diffing.md](/.github/ticket-functional-child-component-diffing.md):** The most critical enhancement. We implemented a VDOM config diffing mechanism in `FunctionalBase` to prevent the re-creation of stateful child components (like stores). This allows for a truly declarative VDOM while preserving child state.
--   **[#ticket-functional-base-windowid-propagation.md](/.github/ticket-functional-base-windowid-propagation.md):** Fixed a crucial bug where the `windowId` was not being propagated to child components, which is essential for multi-window support and event handling.
 -   **[#ticket-functional-recursive-config-diffing.md](/.github/ticket-functional-recursive-config-diffing.md):** A plan for a future enhancement to make the diffing logic recursive, allowing for deep, declarative control over nested component configurations.
 
 ---
