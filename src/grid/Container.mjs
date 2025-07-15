@@ -80,14 +80,13 @@ class GridContainer extends BaseContainer {
         columns_: [],
         /**
          * Configs for Neo.grid.header.Toolbar
-         * @member {Object|null} [headerToolbarConfig=null]
+         * @member {Object|null} [headerToolbar_={[isDescriptor]: true, merge: 'deep', value: null}]
          */
-        headerToolbarConfig: null,
-        /**
-         * @member {String|null} headerToolbarId_=null
-         * @reactive
-         */
-        headerToolbarId_: null,
+        headerToolbar_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * @member {String} layout='base'
          * @reactive
@@ -152,14 +151,6 @@ class GridContainer extends BaseContainer {
     scrollManager = null
 
     /**
-     * Convenience method to access the Neo.grid.header.Toolbar
-     * @returns {Neo.grid.header.Toolbar|null}
-     */
-    get headerToolbar() {
-        return Neo.getComponent(this.headerToolbarId) || Neo.get(this.headerToolbarId)
-    }
-
-    /**
      * @param {Object} config
      */
     construct(config) {
@@ -168,15 +159,7 @@ class GridContainer extends BaseContainer {
         let me = this,
             {appName, rowHeight, store, windowId} = me;
 
-        me.headerToolbarId = Neo.getId('grid-header-toolbar');
-
-        me.items = [{
-            module           : header.Toolbar,
-            id               : me.headerToolbarId,
-            showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable,
-            ...me.headerToolbarConfig
-        }, me.body];
+        me.items = [me.headerToolbar, me.body];
 
         me.scrollbar = Neo.create({
             module  : VerticalScrollbar,
@@ -253,7 +236,7 @@ class GridContainer extends BaseContainer {
 
         // - If columns changed at run-time OR
         // - In case the `header.Toolbar#createItems()` method has run before columns where available
-        if (oldValue?.getCount?.() > 0 || (value?.count && headerToolbar?.isConstructed)) {
+        if (oldValue?.count || (value?.count && headerToolbar?.isConstructed)) {
             headerToolbar?.createItems()
 
             await me.timeout(50);
@@ -374,13 +357,19 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered before the headerToolbarId config gets changed.
-     * @param {String} value
-     * @param {String} oldValue
+     * Triggered before the headerToolbar config gets changed.
+     * @param {Object|Neo.grid.header.Toolbar|null} value
+     * @param {Object|Neo.grid.header.Toolbar|null} oldValue
      * @protected
      */
-    beforeSetHeaderToolbarId(value, oldValue) {
-        return value || oldValue
+    beforeSetHeaderToolbar(value, oldValue) {
+        const me = this;
+
+        return ClassSystemUtil.beforeSetInstance(value, header.Toolbar, {
+            parentId         : me.id,
+            showHeaderFilters: me.showHeaderFilters,
+            sortable         : me.sortable
+        })
     }
 
     /**
@@ -465,7 +454,8 @@ class GridContainer extends BaseContainer {
             })
         });
 
-        me.items[0].items = headerButtons;
+        me.headerToolbar.items = headerButtons;
+        me.headerToolbar.createItems();
 
         if (Neo.typeOf(me._columns) === 'NeoInstance') {
             me._columns.clear();
@@ -594,7 +584,7 @@ class GridContainer extends BaseContainer {
      */
     async passSizeToBody(silent=false) {
         let me                          = this,
-            [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbarId]);
+            [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbar.id]);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
