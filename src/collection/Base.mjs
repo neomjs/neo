@@ -151,16 +151,6 @@ class Collection extends Base {
     }
 
     /**
-     * Triggered after the badgePosition config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetCount(value, oldValue) {
-        this.fire('countChange', {oldValue, value})
-    }
-
-    /**
      * Triggered after the filters config got changed
      * @param {Array} value
      * @param {Array} oldValue
