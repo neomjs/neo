@@ -1,3 +1,5 @@
+# Events
+
 All components fire events. For example, form fields fire a `change` event, various 
 focus events, and others. Some other types fire events too, such as `Neo.data.Store`, 
 which fires a `load` event after the store is loaded with data.

@@ -1,3 +1,5 @@
+# Shared Bindable Data (State Providers)
+
 While Components can manage their own state using the Class Config System,
 you want to use VMs as soon as you want to share data properties with multiple child Components.
 

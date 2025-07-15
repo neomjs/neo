@@ -1,3 +1,5 @@
+# Main Thread Addons: Interacting with the Browser
+
 Neo.mjs is multi-threaded. There are worker threads that handle data access, application logic, and
 keeping track of DOM updates. Practically all your application logic is run in parallel in these
 threads. However, anything that needs to actually reference or update the DOM (`window.document`),

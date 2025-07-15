@@ -1,3 +1,5 @@
+# DOM Events
+
 ## Delegated global DOM Events
 
 By default, Neo.mjs will attach DOM event listeners for all common events to the `document.body`.

@@ -1,5 +1,6 @@
-Neo.mjs uses standard modular JavaScript, so you're free to use other class 
-features, like private members.
+# Other JavaScript Class Features
+
+Neo.mjs uses standard modular JavaScript, so you're free to use other class features, like private members.
 
 ```javascript readonly
 class Human extends Mammal {
@@ -27,7 +28,7 @@ class Human extends Mammal {
     }
 }
 
-Neo.setupClass(Human);
+Human = Neo.setupClass(Human);
 
 const myPerson = Neo.create(Human, {
     name: 'Herbert'

@@ -1,3 +1,5 @@
+# Extreme Speed
+
 The Neo.mjs architecture leverages web workers to run application logic, data processing,
 and even parts of the rendering pipeline in parallel, on separate CPU cores.
 This offloads heavy computations from the main thread, ensuring the UI remains responsive.

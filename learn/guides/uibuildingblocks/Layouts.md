@@ -1,3 +1,5 @@
+# Layouts
+
 ## Understanding Layouts in Neo.mjs
 
 Layouts are fundamental to arranging components within your application's user interface. In Neo.mjs, layouts are

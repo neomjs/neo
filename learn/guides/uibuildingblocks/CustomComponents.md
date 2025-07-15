@@ -1,3 +1,5 @@
+# Custom Components
+
 ## Introduction
 
 A major strength of Neo.mjs is its extensive library of components. In most cases, you can build sophisticated

@@ -1,3 +1,4 @@
+# Neo.mjs vs Ext.js
 
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike legacy frameworks like Ext.js that are architecturally bound to a single thread and a rigid, monolithic build system, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 

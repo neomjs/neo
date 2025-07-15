@@ -1,3 +1,5 @@
+# Introduction
+
 ## Why Organizations Choose Neo.mjs
 
 Are your development teams burdened by slow build times, the debugging complexities introduced by transpilation and

@@ -1,3 +1,4 @@
+# Collections
 
 Neo.mjs provides a powerful and flexible `Neo.collection.Base` class for managing data. This guide will explore its
 features, including:

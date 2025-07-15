@@ -1,3 +1,5 @@
+# Shared Bindable Data
+
 Neo has a feature that allows shared, bindable, data.
 
 A _state provider_ &mdash; `Neo.state.Provider` &mdash; instance holds properties that 

@@ -1,3 +1,4 @@
+# Neo.mjs vs Solid.js
 
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as Solid.js that focus purely on rendering and are typically part of a manually assembled toolchain, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 

@@ -1,3 +1,4 @@
+# Neo.mjs vs Vue.js
 
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike frameworks like Vue.js, which operate within a single-threaded browser environment, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 

@@ -1,3 +1,5 @@
+# Config
+
 As you've probably noticed, Neo.mjs classes have a `static config` property. 
 
 The config describes properties you can specify as you create an instance of the class.
