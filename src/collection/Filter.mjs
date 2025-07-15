@@ -4,6 +4,7 @@ import Observable from '../core/Observable.mjs';
 /**
  * @class Neo.collection.Filter
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Filter extends Base {
     /**

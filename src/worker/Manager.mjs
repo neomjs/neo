@@ -18,6 +18,8 @@ navigator.serviceWorker?.addEventListener('controllerchange', function() {
  * Also, responsible for sending messages from the main thread to the different workers.
  * @class Neo.worker.Manager
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
+ * @mixes Neo.worker.mixin.RemoteMethodAccess
  * @singleton
  */
 class Manager extends Base {

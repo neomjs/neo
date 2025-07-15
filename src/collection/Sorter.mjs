@@ -4,6 +4,7 @@ import Observable from '../core/Observable.mjs';
 /**
  * @class Neo.collection.Sorter
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Sorter extends Base {
     /**

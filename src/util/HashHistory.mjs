@@ -4,6 +4,7 @@ import Observable from '../core/Observable.mjs';
 /**
  * @class Neo.util.HashHistory
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  * @singleton
  */
 class HashHistory extends Base {

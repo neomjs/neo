@@ -12,6 +12,7 @@ const twoWayBindingSymbol = Symbol.for('twoWayBinding');
  * An optional component state provider for adding bindings to configs
  * @class Neo.state.Provider
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Provider extends Base {
     /**

@@ -7,6 +7,7 @@ import VDomUtil           from '../util/VDom.mjs';
 /**
  * @class Neo.draggable.DragZone
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class DragZone extends Base {
     /**

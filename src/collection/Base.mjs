@@ -16,6 +16,7 @@ const countMutations   = Symbol('countMutations'),
 /**
  * @class Neo.collection.Base
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Collection extends Base {
     /**

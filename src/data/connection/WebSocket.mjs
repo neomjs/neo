@@ -5,6 +5,7 @@ import Observable          from '../../core/Observable.mjs';
 /**
  * @class Neo.data.connection.WebSocket
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Socket extends Base {
     /**

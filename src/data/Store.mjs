@@ -7,6 +7,7 @@ import RecordFactory   from './RecordFactory.mjs';
 /**
  * @class Neo.data.Store
  * @extends Neo.collection.Base
+ * @mixes Neo.core.Observable
  */
 class Store extends Base {
     /**

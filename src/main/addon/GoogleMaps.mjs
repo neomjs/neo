@@ -6,6 +6,7 @@ import Observable from '../../core/Observable.mjs';
 /**
  * @class Neo.main.addon.GoogleMaps
  * @extends Neo.main.addon.Base
+ * @mixes Neo.core.Observable
  */
 class GoogleMaps extends Base {
     /**

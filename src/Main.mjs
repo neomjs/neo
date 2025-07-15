@@ -10,6 +10,7 @@ import WorkerManager         from './worker/Manager.mjs';
 /**
  * @class Neo.Main
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  * @singleton
  */
 class Main extends core.Base {
