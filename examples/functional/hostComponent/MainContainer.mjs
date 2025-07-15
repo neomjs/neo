@@ -9,21 +9,29 @@ import TextField             from '../../../src/form/field/Text.mjs';
 class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.functional.hostComponent.MainContainer',
-        configItemLabelWidth: 160,
-        configItemWidth     : 280,
+        configItemLabelWidth: 120,
+        configItemWidth     : 300,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
-    createConfigurationComponents() {
-        let me = this;
+    async createConfigurationComponents() {
+        // Wait one micro task queue tick, to ensure the fn render Effect is done
+        await Promise.resolve();
+
+        const button = Neo.getComponent('myButtonModule');
 
         return [{
             module    : TextField,
             clearable : true,
-            labelText : 'greeting',
-            listeners : {change: me.onConfigChange.bind(me, 'greeting')},
+            labelText : 'Button Text',
             style     : {marginTop: '10px'},
-            value     : me.exampleComponent.greeting
+            value     : button.text,
+
+            listeners : {
+                change({value}) {
+                    button.text = value
+                }
+            }
         }]
     }
 

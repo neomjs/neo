@@ -69,10 +69,13 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * Override this method to create the components to show inside the configuration container
-     * @returns {Object[]|null}
+     * Override this method to create the components to show inside the configuration container.
+     * The method can optionally be async => Use this for functional components,
+     * where you want to subscribe controls to "classic" components inside functional components.
+     * @see:Neo.examples.functional.hostComponent.MainContainer
+     * @returns {Promise<Object[]>|Object[]|null}
      */
-    createConfigurationComponents() {
+    async createConfigurationComponents() {
         return null
     }
 
@@ -102,7 +105,7 @@ class ConfigurationViewport extends Viewport {
     /**
      *
      */
-    onConstructed() {
+    async onConstructed() {
         let me    = this,
             style = me.exampleContainerConfig?.style,
             exampleComponentType, theme;
@@ -119,7 +122,7 @@ class ConfigurationViewport extends Viewport {
             me.exampleComponent = Neo.create(me.exampleComponent)
         }
 
-        me.configurationComponents = me.createConfigurationComponents() || [];
+        me.configurationComponents = await me.createConfigurationComponents() || [];
 
         theme = me.exampleComponent.getTheme?.() || 'neo-theme-light';
 

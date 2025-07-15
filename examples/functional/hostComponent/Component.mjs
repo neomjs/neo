@@ -23,6 +23,7 @@ export default defineComponent({
             }, {
                 module : Button,
                 id     : 'myButtonModule',
+                theme  : 'neo-theme-neo-light',
                 text   : 'Click Me (Neo Button)',
                 handler: () => setCount(prev => prev + 1)
             }
