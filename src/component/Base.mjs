@@ -1358,7 +1358,7 @@ class Component extends Base {
     destroy(updateParentVdom=false, silent=false) {
         let me                  = this,
             {parent, parentId}  = me,
-            parentStateProvider = parent?.getStateProvider(),
+            parentStateProvider = parent?.getStateProvider?.(), // We need getStateProvider?.() until functional components support it too
             parentVdom;
 
         me.revertFocus();
