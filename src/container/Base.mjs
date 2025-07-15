@@ -352,7 +352,8 @@ class Container extends Component {
 
                     // Convenience logic, especially for moving components into different browser windows:
                     // A component might rely on references & handler methods inside the previous controller realm
-                    if (!item.controller && !me.getController() && parent.getController()) {
+                    // todo: We need ?. until functional.component.Base supports controllers
+                    if (!item.controller && !me.getController() && parent.getController?.()) {
                         item.controller = {parent: parent.getController()}
                     }
                 }

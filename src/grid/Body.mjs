@@ -1145,7 +1145,7 @@ class GridBody extends Component {
      */
     updateScrollHeight(silent=false) {
         let me           = this,
-            countRecords = me.store.getCount(),
+            countRecords = me.store?.getCount() || 0,
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {

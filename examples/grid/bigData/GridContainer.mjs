@@ -19,9 +19,9 @@ class GridContainer extends BaseGridContainer {
          */
         amountColumns_: 50,
         /**
-         * @member {Object} bodyConfig
+         * @member {Object} body
          */
-        bodyConfig: {
+        body: {
             bufferColumnRange: 3,
             bufferRowRange   : 5
         },

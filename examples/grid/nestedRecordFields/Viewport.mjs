@@ -53,7 +53,7 @@ class Viewport extends BaseViewport {
             bind     : {store: 'stores.mainStore'},
             reference: 'grid',
 
-            bodyConfig: {
+            body: {
                 highlightModifiedCells: true
             },
 

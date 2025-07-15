@@ -114,7 +114,7 @@ class MainContainer extends ConfigurationViewport {
             store       : MainStore,
             wrapperStyle: {maxWidth: '1002px'},
 
-            bodyConfig: {
+            body: {
                 selectionModel: CellModel
             },
 

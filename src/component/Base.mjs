@@ -1452,7 +1452,8 @@ class Component extends Base {
         }
 
         if (parentComponent) {
-            return parentComponent.getConfigInstanceByNtype(configName, ntype)
+            // todo: We need ?. until functional.component.Base supports controllers
+            return parentComponent.getConfigInstanceByNtype?.(configName, ntype)
         }
 
         return null

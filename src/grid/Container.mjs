@@ -7,6 +7,7 @@ import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
 import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
+import {isDescriptor}    from '../core/ConfigSymbols.mjs';
 
 /**
  * @class Neo.grid.Container
@@ -54,15 +55,13 @@ class GridContainer extends BaseContainer {
         baseCls: ['neo-grid-container'],
         /**
          * Configs for Neo.grid.Body
-         * @member {Object|null} [bodyConfig=null]
+         * @member {Object|null} [body_={[isDescriptor]: true, merge: 'deep', value: null}]
          */
-        bodyConfig: null,
-        /**
-         * @member {String|null} bodyId_=null
-         * @protected
-         * @reactive
-         */
-        bodyId_: null,
+        body_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
@@ -153,14 +152,6 @@ class GridContainer extends BaseContainer {
     scrollManager = null
 
     /**
-     * Convenience method to access the Neo.grid.Body
-     * @returns {Neo.grid.Body|null}
-     */
-    get body() {
-        return Neo.getComponent(this.bodyId) || Neo.get(this.bodyId)
-    }
-
-    /**
      * Convenience method to access the Neo.grid.header.Toolbar
      * @returns {Neo.grid.header.Toolbar|null}
      */
@@ -177,7 +168,6 @@ class GridContainer extends BaseContainer {
         let me = this,
             {appName, rowHeight, store, windowId} = me;
 
-        me.bodyId          = Neo.getId('grid-body');
         me.headerToolbarId = Neo.getId('grid-header-toolbar');
 
         me.items = [{
@@ -186,15 +176,7 @@ class GridContainer extends BaseContainer {
             showHeaderFilters: me.showHeaderFilters,
             sortable         : me.sortable,
             ...me.headerToolbarConfig
-        }, {
-            module       : GridBody,
-            flex         : 1,
-            gridContainer: me,
-            id           : me.bodyId,
-            rowHeight,
-            store,
-            ...me.bodyConfig
-        }];
+        }, me.body];
 
         me.scrollbar = Neo.create({
             module  : VerticalScrollbar,
@@ -361,13 +343,20 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered before the bodyId config gets changed.
-     * @param {String} value
-     * @param {String} oldValue
+     * Triggered before the body config gets changed.
+     * @param {Object|Neo.grid.Body|null} value
+     * @param {Object|Neo.grid.Body|null} oldValue
      * @protected
      */
-    beforeSetBodyId(value, oldValue) {
-        return value || oldValue
+    beforeSetBody(value, oldValue) {
+        const me = this;
+
+        return ClassSystemUtil.beforeSetInstance(value, GridBody, {
+            flex         : 1,
+            gridContainer: me,
+            parentId     : me.id,
+            store        : me.store
+        })
     }
 
     /**
