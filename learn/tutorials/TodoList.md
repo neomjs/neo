@@ -69,9 +69,9 @@ class MainComponent extends Component {
                 tag: 'li',
                 cn : [
                     {tag: 'span', cls, style: {cursor: 'pointer', width: '20px'}},
-                    {vtype: 'text', html: item.text}
+                    {vtype: 'text', text: item.text}
                 ]
-            });
+            })
         });
 
         me.update()
@@ -238,6 +238,7 @@ This version shows how to build the same UI using a single functional component.
 It uses hooks for state management, resulting in more concise and declarative code.
 
 ```javascript live-preview
+import VdomUtil                               from '../util/VDom.mjs';
 import {defineComponent, useConfig, useEvent} from '../functional/_export.mjs';
 
 let MainContainer = defineComponent({
@@ -263,22 +264,20 @@ let MainContainer = defineComponent({
                 setItems([...items, newItem]);
                 setInputValue('');
             }
-        }, {delegate: '.todo-add-button'});
+        }, '.todo-add-button');
 
         useEvent('click', data => {
-            const itemNode = Neo.vdom.Util.find(data.path[0].id);
-            const itemIndex = itemNode.vdom.parent.cn.indexOf(itemNode.vdom);
-            const itemToToggle = items[itemIndex];
+            const itemDetails  = VdomUtil.find(this.vdom, data.path[1].id);
+            const itemToToggle = items[itemDetails.index];
 
-            const newItems = items.map(item =>
+            setItems(items => items.map(item =>
                 item.id === itemToToggle.id ? {...item, done: !item.done} : item
-            );
-            setItems(newItems);
-        }, {delegate: '.todo-item'});
+            ))
+        }, '.todo-item');
 
         useEvent('input', data => {
             setInputValue(data.value);
-        }, {delegate: '.todo-input'});
+        }, '.todo-input');
 
         return {
             style: {border: '1px solid #000', margin: '20px', padding: '10px', maxWidth: '300px'},
@@ -295,21 +294,16 @@ let MainContainer = defineComponent({
                         {vtype: 'text', html: item.text}
                     ]
                 }))},
-                {
-                    cn: [
-                        {
-                            tag: 'input',
-                            cls: ['todo-input'],
-                            value: inputValue
-                        },
-                        {
-                            tag: 'button',
-                            cls: ['todo-add-button'],
-                            html: 'Add Item',
-                            style: {marginLeft: '1em'}
-                        }
-                    ]
-                }
+                {cn: [{
+                    tag: 'input',
+                    cls: ['todo-input'],
+                    value: inputValue
+                }, {
+                    tag: 'button',
+                    cls: ['todo-add-button'],
+                    html: 'Add Item',
+                    style: {marginLeft: '1em'}
+                }]}
             ]
         };
     }
