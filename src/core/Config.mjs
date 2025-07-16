@@ -136,7 +136,7 @@ class Config {
                 const subscriberMap = this.#subscribers[id];
                 for (const [fn, scopeSet] of subscriberMap) {
                     for (const scope of scopeSet) {
-                        fn.call(scope || null, newValue, oldValue);
+                        fn.call(scope || null, newValue, oldValue)
                     }
                 }
             }
@@ -199,14 +199,14 @@ class Config {
 
         // Get or create the top-level Map for the subscription owner.
         if (!me.#subscribers[id]) {
-            me.#subscribers[id] = new Map();
+            me.#subscribers[id] = new Map()
         }
 
         const subscriberMap = me.#subscribers[id];
 
         // Get or create the Set of scopes for the specific callback function.
         if (!subscriberMap.has(fn)) {
-            subscriberMap.set(fn, new Set());
+            subscriberMap.set(fn, new Set())
         }
 
         const scopeSet = subscriberMap.get(fn);
@@ -224,7 +224,7 @@ class Config {
                     if (currentScopeSet.size === 0) {
                         currentSubscriberMap.delete(fn);
                         if (currentSubscriberMap.size === 0) {
-                            delete me.#subscribers[id];
+                            delete me.#subscribers[id]
                         }
                     }
                 }
