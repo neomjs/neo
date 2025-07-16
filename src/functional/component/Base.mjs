@@ -86,11 +86,11 @@ class FunctionalBase extends Base {
      */
     currentUpdateDepth = null
     /**
-     * Internal Map to store new instances after the createVdom() Effect has run.
-     * @member {Map|null} newChildComponents=null
+     * Internal Map to store the next set of components after the createVdom() Effect has run.
+     * @member {Map|null} nextChildComponents=null
      * @private
      */
-    #newChildComponents = null
+    #nextChildComponents = null
     /**
      * @member {Function[]} resolveUpdateCache=[]
      */
@@ -300,7 +300,7 @@ class FunctionalBase extends Base {
 
             if (newVdom) {
                 // Create a new map for components instantiated in this render cycle
-                me.#newChildComponents = new Map();
+                me.#nextChildComponents = new Map();
 
                 // Process the newVdom to instantiate components
                 // The parentId for these components will be the functional component's id
@@ -308,13 +308,13 @@ class FunctionalBase extends Base {
 
                 // Destroy components that are no longer present in the new VDOM
                 me.childComponents?.forEach((childData, key) => {
-                    if (!me.#newChildComponents.has(key)) {
+                    if (!me.#nextChildComponents.has(key)) {
                         childData.instance.destroy()
                     }
                 });
 
                 // Update the main map of instantiated components
-                me.childComponents = me.#newChildComponents;
+                me.childComponents = me.#nextChildComponents;
 
                 // Clear the old vdom properties
                 for (const key in me.vdom) {
@@ -338,9 +338,18 @@ class FunctionalBase extends Base {
 
                 // If this component created other classic or functional components,
                 // include their full vdom into the next update cycle.
-                // We could make this more granular inside the future.
-                if (me.childComponents?.size > 0) {
-                    me.updateDepth = -1
+                const oldKeys = me.childComponents ? new Set(me.childComponents.keys()) : new Set();
+                let hasNewChildren = false;
+
+                for (const newKey of me.#nextChildComponents.keys()) {
+                    if (!oldKeys.has(newKey)) {
+                        hasNewChildren = true;
+                        break
+                    }
+                }
+
+                if (hasNewChildren) {
+                    me.updateDepth = 2
                 }
 
                 me.updateVdom();
@@ -415,7 +424,7 @@ class FunctionalBase extends Base {
             }
 
             // Add to the new map for tracking in this render cycle
-            me.#newChildComponents.set(componentKey, {
+            me.#nextChildComponents.set(componentKey, {
                 instance,
                 lastConfig: newConfig
             });
