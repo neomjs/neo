@@ -57,9 +57,9 @@ class Effect {
     }
 
     /**
-     * @param {Function} fn The function to execute for the effect.
-     * @param {String} [componentId] The component id this effect belongs to.
-     * @param {Object} [subscriber] Optional. An object containing the subscription details.
+     * @param {Function} fn          - The function to execute for the effect.
+     * @param {String} [componentId] - The component id this effect belongs to.
+     * @param {Object} [subscriber]  - Optional. An object containing the subscription details.
      */
     constructor(fn, componentId, subscriber) {
         const me = this;
@@ -126,7 +126,7 @@ class Effect {
             EffectManager.pop();
             EffectManager.pause(); // Pause dependency tracking for isRunning.set(false)
             me.isRunning.set(false);
-            EffectManager.resume(); // Resume after isRunning.set(false)
+            EffectManager.resume() // Resume after isRunning.set(false)
         }
     }
 
