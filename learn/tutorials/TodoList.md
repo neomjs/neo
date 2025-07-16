@@ -159,7 +159,7 @@ let MainContainer = defineComponent({
 
         useEvent('click', data => {
             const liNode        = data.path[1];
-            const clickedItemId = liNode['data-id'];
+            const clickedItemId = parseInt(liNode.data.id);
 
             setItems(items => items.map(item =>
                 item.id === clickedItemId ? {...item, done: !item.done} : item
@@ -201,8 +201,6 @@ let MainContainer = defineComponent({
         };
     }
 });
-
-MainContainer = Neo.setupClass(MainContainer);
 ```
 
 ## 3. Classic Neo Style
