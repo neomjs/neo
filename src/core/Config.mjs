@@ -241,7 +241,11 @@ Object.defineProperties(Config.prototype, {
     mergeStrategy: {configurable: true, enumerable: false, value: 'replace',   writable: false}
 });
 
-const ns = Neo.ns('Neo.core', true);
-ns.Config = Config;
+Neo.core ??= {};
 
-export default Config;
+if (!Neo.core.Config) {
+    Neo.core.Config = Config
+}
+
+export default Neo.core.Config;
+

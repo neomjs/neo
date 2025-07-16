@@ -61,12 +61,14 @@ class Effect {
      * @param {String} [componentId] The component id this effect belongs to.
      */
     constructor(fn, componentId) {
-        this.isRunning = new Config(false);
-        this.fn        = fn;
+        const me = this;
 
         if (componentId) {
-            this.componentId = componentId
+            me.componentId = componentId
         }
+
+        me.isRunning = new Config(false);
+        me.fn        = fn;
     }
 
     /**
@@ -139,12 +141,16 @@ class Effect {
     }
 }
 
-const ns = Neo.ns('Neo.core', true);
-ns.Effect = Effect;
+Neo.core ??= {};
 
-// Register a shortcut to the Neo namespace
-Neo.effect = function(fn, id) {
-    return new Effect(fn, id)
+if (!Neo.core.Effect) {
+    Neo.core.Effect = Effect;
+
+    // Register a shortcut to the Neo namespace
+    Neo.effect = function(fn, id) {
+        return new Effect(fn, id)
+    }
 }
 
-export default Effect;
+export default Neo.core.Effect;
+

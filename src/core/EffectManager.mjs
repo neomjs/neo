@@ -60,7 +60,11 @@ const EffectManager = {
     }
 };
 
-const ns = Neo.ns('Neo.core', true);
-ns.EffectManager = EffectManager;
+Neo.core ??= {};
 
-export default EffectManager;
+if (!Neo.core.EffectManager) {
+    Neo.core.EffectManager = EffectManager
+}
+
+export default Neo.core.EffectManager;
+

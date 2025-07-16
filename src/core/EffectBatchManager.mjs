@@ -64,8 +64,10 @@ const EffectBatchManager = {
     }
 };
 
-// Assign to Neo namespace
-const ns = Neo.ns('Neo.core', true);
-ns.EffectBatchManager = EffectBatchManager;
+Neo.core ??= {};
 
-export default EffectBatchManager;
+if (!Neo.core.EffectBatchManager) {
+    Neo.core.EffectBatchManager = EffectBatchManager
+}
+
+export default Neo.core.EffectBatchManager;
