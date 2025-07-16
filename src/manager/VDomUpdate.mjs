@@ -45,34 +45,36 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId
      * @param {String} childId
      * @param {Array} callbacks
+     * @param {Number} childUpdateDepth
+     * @param {Number} distance
      */
-    registerMerged(ownerId, childId, callbacks) {
+    registerMerged(ownerId, childId, callbacks, childUpdateDepth, distance) {
         let me   = this,
             item = me.mergedCallbackMap.get(ownerId);
 
         if (!item) {
-            item = {ownerId, callbacks: [], childIds: []};
+            item = {ownerId, children: []};
             me.mergedCallbackMap.add(item);
         }
 
-        item.callbacks.push(...callbacks);
-        item.childIds.push(childId);
+        item.children.push({childId, callbacks, childUpdateDepth, distance});
     }
 
     /**
      * @param {String} ownerId
      * @param {String} childId
+     * @param {Function} [resolve]
      */
-    registerPostUpdate(ownerId, childId) {
+    registerPostUpdate(ownerId, childId, resolve) {
         let me   = this,
             item = me.postUpdateQueueMap.get(ownerId);
 
         if (!item) {
-            item = {ownerId, childIds: []};
+            item = {ownerId, children: []};
             me.postUpdateQueueMap.add(item);
         }
 
-        item.childIds.push(childId);
+        item.children.push({childId, resolve});
     }
 
     /**
@@ -96,9 +98,12 @@ class VDomUpdate extends Collection {
             item = me.postUpdateQueueMap.get(ownerId);
 
         if (item) {
-            item.childIds.forEach(childId => {
-                let component = Neo.getComponent(childId);
-                component?.update();
+            item.children.forEach(entry => {
+                let component = Neo.getComponent(entry.childId);
+                if (component) {
+                    entry.resolve && component.resolveUpdateCache.push(entry.resolve);
+                    component.update();
+                }
             });
 
             me.postUpdateQueueMap.remove(item);

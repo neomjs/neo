@@ -249,6 +249,10 @@ class Helper extends Base {
                 childNode.id === oldChildNode.id ||
                 (childNode.componentId && childNode.componentId === oldChildNode.componentId))
             ) {
+                if (childNode.componentId === 'neo-ignore') {
+                    continue
+                }
+
                 me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap});
                 continue
             }

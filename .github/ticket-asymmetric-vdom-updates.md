@@ -16,17 +16,17 @@ We will introduce a new manager to act as a central orchestrator for all collisi
 ### 1. New Class: `Neo.manager.VDomUpdate` (Orchestrator)
 -   This new singleton manager will **not** schedule or delay updates.
 -   It will contain two maps to manage all collision scenarios:
-    -   `mergedCallbackMap`: Stores callbacks for **pre-flight merges**.
+    -   `mergedCallbackMap`: Stores callbacks and relevant update depth information for **pre-flight merges**.
     -   `postUpdateQueueMap`: Stores child components that need updating after an **in-flight collision**.
 -   It will expose methods to be called by the `VdomLifecycle` mixin:
-    -   `registerMerged(ownerId, childId, callbacks)`
-    -   `registerPostUpdate(ownerId, childId)`
-    -   `executeCallbacks(ownerId)`
+    -   `registerMerged(ownerId, childId, callbacks, childUpdateDepth, distance)`: Stores the child's callbacks, its `updateDepth`, and its `distance` from the owner.
+    -   `registerPostUpdate(ownerId, childId, resolve)`
+    -   `executeCallbacks(ownerId)`: This method will also be responsible for calculating the maximum required `updateDepth` for the `ownerId` (parent) based on the `childUpdateDepth` and `distance` of all merged children. It will then set the `ownerId` component's `updateDepth` to this calculated maximum *before* the parent's `update()` method is called (if `needsVdomUpdate` is true).
     -   `triggerPostUpdates(ownerId)`
 
 ### 2. `VdomLifecycle.mjs` Refactoring
 -   The core, high-performance update logic (`updateVdom`, collision detection) will remain.
--   **Pre-Flight Merge:** When an update is merged (e.g., in `mergeIntoParentUpdate()`), it will now call `Neo.manager.VDomUpdate.registerMerged(...)` instead of manipulating local caches.
+-   **Pre-Flight Merge:** When an update is merged (e.g., in `mergeIntoParentUpdate()`), it will now call `Neo.manager.VDomUpdate.registerMerged(parent.id, me.id, me.resolveUpdateCache, me.updateDepth, distance)` instead of manipulating local caches.
 -   **In-Flight Collision:** When an update collides with an in-flight parent (in `isParentUpdating()`), it will call `Neo.manager.VDomUpdate.registerPostUpdate(...)`. The child component will still set its own `needsVdomUpdate = true` and hold its own callback in its `resolveUpdateCache` for the update it will eventually run.
 -   **On Update Completion:** When a root update cycle finishes, its `then()` block will call both `manager.executeCallbacks(this.id)` and `manager.triggerPostUpdates(this.id)`.
 -   This change allows for the complete removal of the complex `childUpdateCache` property and simplifies the logic around `resolveUpdateCache`.
@@ -34,7 +34,7 @@ We will introduce a new manager to act as a central orchestrator for all collisi
 ### 3. Asymmetric VDOM Serialization (`ComponentManager.mjs`)
 -   This part of the plan remains crucial and unchanged.
 -   `getVdomTree()` and `getVnodeTree()` will be refactored to honor the `updateDepth` of each individual component.
--   If a child component is excluded from an update, a lightweight placeholder object `{componentId: 'neo-ignore', id: childComponent.id}` will be inserted into the tree to preserve its structural integrity.
+-   If a child component is excluded from an update, a lightweight placeholder object `{componentId: 'neo-ignore'}` will be inserted into the tree to preserve its structural integrity.
 
 ### 4. VDOM Worker Enhancement (`vdom/Helper.mjs`)
 -   The VDOM worker's `createDeltas()` method will be enhanced to recognize the `neo-ignore` placeholder. When it encounters this node, it will skip the diffing process, leaving the corresponding DOM element untouched.
