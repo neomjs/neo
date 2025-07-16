@@ -14,11 +14,7 @@ const EffectManager = {
      * @param {Neo.core.Config} config The config instance to add as a dependency.
      */
     addDependency(config) {
-        const activeEffect = this.getActiveEffect();
-
-        if (!this.isPaused && activeEffect) {
-            activeEffect.addDependency(config)
-        }
+        !this.isPaused && this.getActiveEffect()?.addDependency(config)
     },
 
     /**
