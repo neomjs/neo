@@ -1,5 +1,6 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
+import VDomUpdate       from '../manager/VDomUpdate.mjs'; // New import
 import NeoArray         from '../util/Array.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
@@ -345,11 +346,7 @@ class VdomLifecycle extends Base {
                             console.warn('vdom parent update conflict with:', parent, 'for:', me)
                         }
 
-                        parent.childUpdateCache[me.id] = {distance, resolve};
-
-                        // Adding the resolve fn to its own cache, since the parent will trigger
-                        // a new update() directly on this cmp
-                        resolve && me.resolveUpdateCache.push(resolve);
+                        VDomUpdate.registerPostUpdate(parent.id, me.id, resolve);
                         return true
                     }
 
@@ -371,7 +368,7 @@ class VdomLifecycle extends Base {
      * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    needsParentUpdate(parentId=this.parentId, resolve, distance=1) {
+    mergeIntoParentUpdate(parentId=this.parentId, resolve, distance=1) { // Renamed from needsParentUpdate
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -379,13 +376,13 @@ class VdomLifecycle extends Base {
             if (parent) {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
                 if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
-                    parent.resolveUpdateCache.push(...me.resolveUpdateCache);
-                    resolve && parent.resolveUpdateCache.push(resolve);
+                    VDomUpdate.registerMerged(parent.id, me.id, me.resolveUpdateCache);
+                    resolve && NeoArray.add(me.resolveUpdateCache, resolve);
                     me.resolveUpdateCache = [];
                     return true
                 }
 
-                return me.needsParentUpdate(parent.parentId, resolve, distance+1)
+                return me.mergeIntoParentUpdate(parent.parentId, resolve, distance+1)
             }
         }
 
@@ -512,47 +509,31 @@ class VdomLifecycle extends Base {
      * @protected
      */
     resolveVdomUpdate(resolve) {
-        let me                  = this,
-            hasChildUpdateCache = !Neo.isEmpty(me.childUpdateCache),
-            component;
+        let me = this;
 
         me.doResolveUpdateCache();
 
         resolve?.();
 
         if (me.needsVdomUpdate) {
-            if (hasChildUpdateCache) {
-                Object.entries(me.childUpdateCache).forEach(([key, value]) => {
-                    component = Neo.getComponent(key);
+            // The updateDepth needs to be adjusted before the next update cycle
+            // This logic is now handled by the VDomUpdate manager during merging
+            // if (me.updateDepth !== -1) {
+            //     if (component.updateDepth === -1) {
+            //         me.updateDepth = -1
+            //     } else {
+            //         me.updateDepth = me.updateDepth + value.distance + component.updateDepth - 1
+            //     }
+            // }
 
-                    // The component might already got destroyed
-                    if (component) {
-                        // Pass callbacks to the resolver cache => getting executed once the following update is done
-                        value.resolve && NeoArray.add(me.resolveUpdateCache, value.resolve);
-
-                        // Adjust the updateDepth to include the depth of all merged child updates
-                        if (me.updateDepth !== -1) {
-                            if (component.updateDepth === -1) {
-                                me.updateDepth = -1
-                            } else {
-                                // Since updateDepth is 1-based, we need to subtract 1 level
-                                me.updateDepth = me.updateDepth + value.distance + component.updateDepth - 1
-                            }
-                        }
-                    }
-                });
-
-                me.childUpdateCache = {}
-            }
-
-            me.update()
-        } else if (hasChildUpdateCache) {
-            Object.keys(me.childUpdateCache).forEach(key => {
-                Neo.getComponent(key)?.update()
-            });
-
-            me.childUpdateCache = {}
+            me.update();
         }
+
+        // Execute callbacks for merged updates
+        VDomUpdate.executeCallbacks(me.id);
+
+        // Trigger updates for components that were in-flight
+        VDomUpdate.triggerPostUpdates(me.id);
     }
 
     /**
@@ -667,7 +648,7 @@ class VdomLifecycle extends Base {
                 }
 
                 if (
-                    !me.needsParentUpdate(parentId, resolve)
+                    !me.mergeIntoParentUpdate(parentId, resolve) // Renamed call
                     && !me.isParentUpdating(parentId, resolve)
                     && mounted
                     && vnode
