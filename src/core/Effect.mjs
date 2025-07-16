@@ -59,8 +59,9 @@ class Effect {
     /**
      * @param {Function} fn The function to execute for the effect.
      * @param {String} [componentId] The component id this effect belongs to.
+     * @param {Object} [subscriber] Optional. An object containing the subscription details.
      */
-    constructor(fn, componentId) {
+    constructor(fn, componentId, subscriber) {
         const me = this;
 
         if (componentId) {
@@ -68,7 +69,15 @@ class Effect {
         }
 
         me.isRunning = new Config(false);
-        me.fn        = fn;
+
+        // The subscriber must be added *before* the first run is triggered via the fn setter.
+        // This is critical for consumers like functional components, which need to process
+        // the initial VDOM synchronously within the constructor lifecycle.
+        if (subscriber) {
+            me.isRunning.subscribe(subscriber)
+        }
+
+        me.fn = fn
     }
 
     /**

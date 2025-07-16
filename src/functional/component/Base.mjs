@@ -128,11 +128,7 @@ class FunctionalBase extends Base {
             me[hookIndexSymbol]        = 0;
             me[pendingDomEventsSymbol] = []; // Clear pending events for new render
             me[vdomToApplySymbol]      = me.createVdom(me, me.data)
-        }, me.id);
-
-        // We subscribe to the effect's isRunning state.
-        // The handler runs *outside* the effect's tracking scope.
-        me.vdomEffect.isRunning.subscribe({
+        }, me.id, {
             id   : me.id,
             fn   : me.onEffectRunStateChange,
             scope: me
@@ -411,10 +407,6 @@ class FunctionalBase extends Base {
                     parentIndex,
                     windowId: me.windowId
                 });
-
-                if (instance instanceof Neo.functional.component.Base) {
-                    instance.onEffectRunStateChange(false, true)
-                }
             } else {
                 instance = childData.instance;
 
