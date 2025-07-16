@@ -314,9 +314,7 @@ Neo = globalThis.Neo = Object.assign({
             beforeSet = 'beforeSet' + uKey,
             afterSet  = 'afterSet'  + uKey;
 
-        if (!Neo[getSetCache]) {
-            Neo[getSetCache] = {}
-        }
+        Neo[getSetCache] ??= {};
 
         if (!Neo[getSetCache][key]) {
             // Public Descriptor
