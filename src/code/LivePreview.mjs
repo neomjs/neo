@@ -316,7 +316,10 @@ class LivePreview extends Container {
             `        container.add({module:${className}})`,
             '    }',
             '})',
-            '.catch(error => container.add({ntype:\'component\', html:error.message}));'
+            '.catch(error => {',
+            '    console.warn("LivePreview Error:", error);',
+            '    container.add({ntype:\'component\', html:error.message});',
+            '})'
         ].join('\n')
 
         container.removeAll();
