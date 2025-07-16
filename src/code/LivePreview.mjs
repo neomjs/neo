@@ -3,10 +3,9 @@ import MonacoEditor from '../component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../tab/Container.mjs';
 
 const
-    classNameRegex  = /className\s*:\s*['\"]([^'\"]+)['\"]/g,
-    exportRegex     = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
-    importRegex     = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['\"]([^'\"]+)['\"]/,
-    setupClassRegex = /(\w+)\s*=\s*Neo\.setupClass/g;
+    classNameRegex = /className\s*:\s*['\"]([^'\"]+)['\"]/g,
+    exportRegex    = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
+    importRegex    = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['\"]([^'\"]+)['\"]/;
 
 /**
  * @class Neo.code.LivePreview
@@ -229,12 +228,12 @@ class LivePreview extends Container {
             {environment}     = Neo.config,
             container         = me.getPreviewContainer(),
             source            = me.editorValue || me.value,
-            className         = me.findSetupClassName(source),
+            className         = me.findMainClassName(source),
             cleanLines        = [],
             moduleNameAndPath = [],
             params            = [],
             vars              = [],
-            codeString, promises;
+            codeString, module, promises;
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
@@ -309,11 +308,13 @@ class LivePreview extends Container {
             `${vars.join('\n')}`,
             `    ${cleanLines.join('\n')}`,
             '',
-            `    if (${className} && (`,
-            `        Neo.component.Base.isPrototypeOf(${className}) ||`,
-            `        Neo.functional.component.Base.isPrototypeOf(${className})`,
+            `    module = Neo.ns('${className}');`,
+            '',
+            `    if (module && (`,
+            `        Neo.component.Base.isPrototypeOf(module) ||`,
+            `        Neo.functional.component.Base.isPrototypeOf(module)`,
             `    )) {`,
-            `        container.add({module:${className}})`,
+            `        container.add({module})`,
             '    }',
             '})',
             '.catch(error => {',
@@ -337,7 +338,7 @@ class LivePreview extends Container {
         });
 
         try {
-            new Function('container', codeString)(container);
+            new Function('container', 'module', codeString)(container, module);
         } catch (error) {
             container.add({
                 ntype: 'component',
@@ -365,17 +366,28 @@ class LivePreview extends Container {
      * @param {String} sourceCode
      * @returns {String|null}
      */
-    findSetupClassName(sourceCode) {
-        let lastClassName = null,
-            match;
+    findMainClassName(sourceCode) {
+        let classNames = this.findClassNames(sourceCode),
+            mainName   = null,
+            prioNames  = ['MainContainer', 'MainComponent', 'MainView', 'Main'];
 
-        while ((match = setupClassRegex.exec(sourceCode)) !== null) {
-            // Update the last class name found
-            lastClassName = match[1]
+        if (classNames.length > 0) {
+            for (const name of prioNames) {
+                mainName = classNames.find(className => className.endsWith(name));
+                if (mainName) {
+                    break
+                }
+            }
+
+            if (!mainName) {
+                mainName = classNames[classNames.length - 1]
+            }
         }
 
-        return lastClassName
+        return mainName
     }
+
+    
 
     /**
      * @returns {Neo.component.Base|null}
