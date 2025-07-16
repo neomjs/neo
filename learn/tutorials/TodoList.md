@@ -231,3 +231,89 @@ class MainContainer extends Container {
 
 MainContainer = Neo.setupClass(MainContainer);
 ```
+
+## Functional Style
+
+This version shows how to build the same UI using a single functional component.
+It uses hooks for state management, resulting in more concise and declarative code.
+
+```javascript live-preview
+import {defineComponent, useConfig, useEvent} from '../functional/_export.mjs';
+
+let MainContainer = defineComponent({
+    config: {
+        className: 'Neo.examples.todoList.version3.MainContainer'
+    },
+    createVdom() {
+        const [items, setItems] = useConfig([
+            {id: 1, done: true,  text: 'Todo Item 1'},
+            {id: 2, done: false, text: 'Todo Item 2'},
+            {id: 3, done: false, text: 'Todo Item 3'}
+        ]);
+
+        const [inputValue, setInputValue] = useConfig('');
+
+        useEvent('click', data => {
+            if (inputValue) {
+                const newItem = {
+                    id  : items.length + 1,
+                    done: false,
+                    text: inputValue
+                };
+                setItems([...items, newItem]);
+                setInputValue('');
+            }
+        }, {delegate: '.todo-add-button'});
+
+        useEvent('click', data => {
+            const itemNode = Neo.vdom.Util.find(data.path[0].id);
+            const itemIndex = itemNode.vdom.parent.cn.indexOf(itemNode.vdom);
+            const itemToToggle = items[itemIndex];
+
+            const newItems = items.map(item =>
+                item.id === itemToToggle.id ? {...item, done: !item.done} : item
+            );
+            setItems(newItems);
+        }, {delegate: '.todo-item'});
+
+        useEvent('input', data => {
+            setInputValue(data.value);
+        }, {delegate: '.todo-input'});
+
+        return {
+            style: {border: '1px solid #000', margin: '20px', padding: '10px', maxWidth: '300px'},
+            cn: [
+                {tag: 'h3', html: 'Todo List'},
+                {tag: 'ol', cn: items.map(item => ({
+                    tag: 'li',
+                    cn: [
+                        {
+                            tag : 'span',
+                            cls : ['todo-item', item.done ? 'fa fa-check' : 'far fa-square'],
+                            style: {cursor: 'pointer', width: '20px', marginRight: '5px'}
+                        },
+                        {vtype: 'text', html: item.text}
+                    ]
+                }))},
+                {
+                    cn: [
+                        {
+                            tag: 'input',
+                            cls: ['todo-input'],
+                            value: inputValue
+                        },
+                        {
+                            tag: 'button',
+                            cls: ['todo-add-button'],
+                            html: 'Add Item',
+                            style: {marginLeft: '1em'}
+                        }
+                    ]
+                }
+            ]
+        };
+    }
+});
+
+MainContainer = Neo.setupClass(MainContainer);
+```
