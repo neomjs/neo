@@ -155,8 +155,23 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Convenience shortcut to create a component reference
-     * @returns {Object}
+     * Creates a lightweight, serializable placeholder for this component, intended for injection
+     * into the VDOM of other components.
+     *
+     * This is the **only recommended way** to nest a component within another component's VDOM tree.
+     * Directly embedding one component's full `vdom` object into another's is an anti-pattern
+     * that violates the principle of scoped VDOM, leading to unpredictable rendering behavior
+     * and making updates inefficient.
+     *
+     * At its core, the returned object contains a `componentId` that uniquely identifies the
+     * component instance. In cases where a component's structure is wrapped by another element
+     * (e.g., a Button in a Table Header being wrapped by a `<td>`), the reference will also
+     * include the wrapper's `id`. This happens when a component uses `getVdomRoot()` to
+     * designate a deeper node as its logical root, causing the component's `id` and its
+     * VDOM root's `id` to differ. The framework uses this dual-ID reference to correctly
+     * assemble the final VDOM tree.
+     *
+     * @returns {{componentId: String, id: String|undefined}} The VDOM reference object.
      */
     createVdomReference() {
         let me        = this,
