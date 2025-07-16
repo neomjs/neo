@@ -1,9 +1,15 @@
 # Todo List
 
-## HTML Style
+This tutorial guides you through creating the same simple Todo List application using three different coding styles
+available in Neo.mjs. This will help you understand the flexibility of the framework and choose the approach that best
+fits your project or personal preference.
 
-In case you did not work with neo yet, but come from a more HTML driven ecosystem,
-you could achieve the task in a similar way.
+## 1. HTML Style
+
+This first version demonstrates how you can build a component in a way that might feel familiar if you have a background
+in traditional HTML and JavaScript. It directly constructs and manipulates a `vdom` (Virtual DOM) object that mirrors an
+HTML structure. Event handling is set up manually using DOM listeners. This approach offers fine-grained control and is
+useful for understanding the fundamentals of Neo.mjs's vdom system.
 
 ```javascript live-preview
 import Component from '../component/Base.mjs';
@@ -114,9 +120,98 @@ class MainComponent extends Component {
 MainComponent = Neo.setupClass(MainComponent);
 ```
 
-## Neo Style
+## 2. Functional Style
 
-content
+This second version showcases a more modern and concise way to build components using a functional approach. It
+leverages hooks like `useConfig` for state management and `useEvent` for handling DOM events, resulting in more
+declarative and readable code. This style is heavily inspired by concepts like React Hooks and is ideal for creating
+self-contained, stateful components with minimal boilerplate.
+
+```javascript live-preview
+import {defineComponent, useConfig, useEvent} from '../functional/_export.mjs';
+
+let MainContainer = defineComponent({
+    config: {
+        className: 'Neo.examples.todoList.version3.MainContainer'
+    },
+    createVdom() {
+        const [items, setItems] = useConfig([
+            {id: 1, done: true,  text: 'Todo Item 1'},
+            {id: 2, done: false, text: 'Todo Item 2'},
+            {id: 3, done: false, text: 'Todo Item 3'}
+        ]);
+
+        const [inputValue, setInputValue]         = useConfig('');
+        const [inputVdomValue, setInputVdomValue] = useConfig('');
+
+        useEvent('click', data => {
+            if (inputValue) {
+                const newItem = {
+                    id  : (items.length > 0 ? Math.max(...items.map(i => i.id)) : 0) + 1,
+                    done: false,
+                    text: inputValue
+                };
+                setItems([...items, newItem]);
+                setInputValue('');
+                setInputVdomValue('');
+            }
+        }, '.todo-add-button');
+
+        useEvent('click', data => {
+            const liNode        = data.path[1];
+            const clickedItemId = liNode['data-id'];
+
+            setItems(items => items.map(item =>
+                item.id === clickedItemId ? {...item, done: !item.done} : item
+            ));
+        }, '.todo-item');
+
+        useEvent('input', data => {
+            setInputValue(data.value);
+            setInputVdomValue(undefined);
+        }, '.todo-input');
+
+        return {
+            style: {border: '1px solid #000', margin: '20px', padding: '10px', maxWidth: '300px'},
+            cn: [
+                {tag: 'h3', html: 'Todo List'},
+                {tag: 'ol', cn: items.map(item => ({
+                    tag    : 'li',
+                    'data-id': item.id,
+                    cn     : [
+                        {
+                            tag : 'span',
+                            cls : ['todo-item', item.done ? 'fa fa-check' : 'far fa-square'],
+                            style: {cursor: 'pointer', width: '20px', marginRight: '5px'}
+                        },
+                        {vtype: 'text', html: item.text}
+                    ]
+                }))},
+                {cn: [{
+                    tag: 'input',
+                    cls: ['todo-input'],
+                    value: inputVdomValue
+                }, {
+                    tag: 'button',
+                    cls: ['todo-add-button'],
+                    html: 'Add Item',
+                    style: {marginLeft: '1em'}
+                }]}
+            ]
+        };
+    }
+});
+
+MainContainer = Neo.setupClass(MainContainer);
+```
+
+## 3. Classic Neo Style
+
+This final version illustrates the classic, object-oriented approach to building UIs in Neo.mjs. It separates concerns
+by using dedicated classes for different parts of the application: a `Store` to manage the data, a `Model` to define
+the data structure, and `Container` with child components (`List`, `Toolbar`, `TextField`) to create the view.
+This powerful, structured approach is well-suited for larger, more complex applications where a clear separation of data,
+logic, and presentation is beneficial.
 
 ```javascript live-preview
 import Container from '../container/Base.mjs';
@@ -232,82 +327,3 @@ class MainContainer extends Container {
 MainContainer = Neo.setupClass(MainContainer);
 ```
 
-## Functional Style
-
-This version shows how to build the same UI using a single functional component.
-It uses hooks for state management, resulting in more concise and declarative code.
-
-```javascript live-preview
-import VdomUtil                               from '../util/VDom.mjs';
-import {defineComponent, useConfig, useEvent} from '../functional/_export.mjs';
-
-let MainContainer = defineComponent({
-    config: {
-        className: 'Neo.examples.todoList.version3.MainContainer'
-    },
-    createVdom() {
-        const [items, setItems] = useConfig([
-            {id: 1, done: true,  text: 'Todo Item 1'},
-            {id: 2, done: false, text: 'Todo Item 2'},
-            {id: 3, done: false, text: 'Todo Item 3'}
-        ]);
-
-        const [inputValue, setInputValue] = useConfig('');
-
-        useEvent('click', data => {
-            if (inputValue) {
-                const newItem = {
-                    id  : items.length + 1,
-                    done: false,
-                    text: inputValue
-                };
-                setItems([...items, newItem]);
-                setInputValue('');
-            }
-        }, '.todo-add-button');
-
-        useEvent('click', data => {
-            const itemDetails  = VdomUtil.find(this.vdom, data.path[1].id);
-            const itemToToggle = items[itemDetails.index];
-
-            setItems(items => items.map(item =>
-                item.id === itemToToggle.id ? {...item, done: !item.done} : item
-            ))
-        }, '.todo-item');
-
-        useEvent('input', data => {
-            setInputValue(data.value);
-        }, '.todo-input');
-
-        return {
-            style: {border: '1px solid #000', margin: '20px', padding: '10px', maxWidth: '300px'},
-            cn: [
-                {tag: 'h3', html: 'Todo List'},
-                {tag: 'ol', cn: items.map(item => ({
-                    tag: 'li',
-                    cn: [
-                        {
-                            tag : 'span',
-                            cls : ['todo-item', item.done ? 'fa fa-check' : 'far fa-square'],
-                            style: {cursor: 'pointer', width: '20px', marginRight: '5px'}
-                        },
-                        {vtype: 'text', html: item.text}
-                    ]
-                }))},
-                {cn: [{
-                    tag: 'input',
-                    cls: ['todo-input'],
-                    value: inputValue
-                }, {
-                    tag: 'button',
-                    cls: ['todo-add-button'],
-                    html: 'Add Item',
-                    style: {marginLeft: '1em'}
-                }]}
-            ]
-        };
-    }
-});
-
-MainContainer = Neo.setupClass(MainContainer);
-```
