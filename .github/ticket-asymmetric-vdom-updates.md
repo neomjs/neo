@@ -99,6 +99,7 @@ This feature branch represents a major architectural enhancement to the VDOM upd
 
 -   **Core Framework Refactoring:**
     -   `mixin/VdomLifecycle.mjs`: This critical mixin has been significantly refactored. The complex, distributed state management (`childUpdateCache`) has been removed, and it now delegates all collision and merge logic to the new `VDomUpdate` manager.
+    The `executeVdomUpdate()` method has been modernized to use `async/await`, making the control flow more robust and readable, and ensuring deltas are correctly applied in non-worker environments.
     -   `vdom/Helper.mjs`: The diffing engine has been enhanced to support the new asymmetric update strategy.
     -   `component/Base.mjs`: The base component has been improved with a robust `mountedPromise` for easier async handling and other lifecycle enhancements to support the new update model.
     -   `manager/Component.mjs`: Has undergone significant refactoring to align with the new VDOM strategies.
@@ -112,8 +113,10 @@ This feature branch represents a major architectural enhancement to the VDOM upd
 
 ### Remaining Work to Complete the Epic (as of this PR)
 
-The `dev` branch still contains the original, distributed state management logic within `VdomLifecycle.mjs`. The following work remains to be done on this feature branch before it can be merged:
+While the core architectural shift is complete, the following tasks remain to finalize the epic:
 
--   **Full Integration:** Refactor `VdomLifecycle.mjs` to completely remove its local caches and delegate all collision and merge logic to the new `VDomUpdate` manager.
--   **Finalize Asymmetric Logic:** Complete the implementation in `TreeBuilder` and `vdom.Helper` to handle the `neo-ignore` placeholder for truly asymmetric updates.
+-   **Finalize Cleanup:**
+    -   The `childUpdateCache` property inside `src/component/Base.mjs` is now obsolete. It can be safely removed, as `VDomUpdate` has taken over its responsibilities.
+    -   The `updateVdom()` method in `VdomLifecycle.mjs` still uses a `timeout` to handle updates on unmounted components. This can be refactored to use the new `mountedPromise`, creating a cleaner and more robust implementation.
+-   **Complete Asymmetric Logic:** The `TreeBuilder` and `vdom.Helper` still need the final logic to handle the `neo-ignore` placeholder. This will enable truly asymmetric updates where non-participating component sub-trees are completely skipped during the diffing process.
 -   **Performance Benchmarking:** Conduct rigorous performance tests to compare this branch against `dev` and ensure no regressions.

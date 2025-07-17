@@ -34,10 +34,10 @@ class TreeBuilder extends Base {
      */
     getVdomTree(vdom, depth = -1, mergedChildIds = null) {
         if (!Neo.isObject(vdom)) {
-            return vdom;
+            return vdom
         }
 
-        let output     = {...vdom}, // shallow copy
+        let output     = {...vdom}, // Shallow copy
             childDepth;
 
         if (vdom.cn) {
@@ -47,24 +47,28 @@ class TreeBuilder extends Base {
                 let currentItem = item;
 
                 if (currentItem.componentId) {
-                    // A component placeholder is expanded if depth is -1 (full tree) or if
-                    // the current expansion depth is greater than 1.
-                    if (depth === -1 || depth > 1) {
+                    // Prune the branch only if we are at the boundary AND the child is not part of a merged update
+                    if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
+                        currentItem = {componentId: 'neo-ignore', id: currentItem.id}
+                    }
+                    // Expand the branch if it's part of a merged update, or if the depth requires it
+                    else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
                         const component = ComponentManager.get(currentItem.componentId);
                         if (component?.vdom) {
-                            currentItem = component.vdom;
+                            currentItem = component.vdom
                         }
                     }
                 }
 
-                if (item.componentId) { // check original item
-                    childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1);
+                // Check original item
+                if (item.componentId) {
+                    childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1)
                 } else {
-                    childDepth = depth;
+                    childDepth = depth
                 }
 
-                output.cn.push(this.getVdomTree(currentItem, childDepth, mergedChildIds));
-            });
+                output.cn.push(this.getVdomTree(currentItem, childDepth, mergedChildIds))
+            })
         }
 
         return output
@@ -80,7 +84,7 @@ class TreeBuilder extends Base {
      * @returns {Object}
      */
     getVnodeTree(vnode, depth = -1, mergedChildIds = null) {
-        let output     = {...vnode}, // shallow copy
+        let output     = {...vnode}, // Shallow copy
             childDepth, component;
 
         if (vnode.childNodes) {
@@ -90,26 +94,30 @@ class TreeBuilder extends Base {
                 let currentItem = item;
 
                 if (currentItem.componentId) {
-                    // A component placeholder is expanded if depth is -1 (full tree) or if
-                    // the current expansion depth is greater than 1.
-                    if (depth === -1 || depth > 1) {
+                    // Prune the branch only if we are at the boundary AND the child is not part of a merged update
+                    if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
+                        currentItem = {componentId: 'neo-ignore', id: currentItem.id}
+                    }
+                    // Expand the branch if it's part of a merged update, or if the depth requires it
+                    else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
                         component = ComponentManager.get(currentItem.componentId);
 
-                        // keep references in case there is no vnode (e.g. component not mounted yet)
+                        // Keep references in case there is no vnode (e.g. component not mounted yet)
                         if (component?.vnode) {
-                            currentItem = component.vnode;
+                            currentItem = component.vnode
                         }
                     }
                 }
 
-                if (item.componentId) { // check original item
-                    childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1);
+                // Check original item
+                if (item.componentId) {
+                    childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1)
                 } else {
-                    childDepth = depth;
+                    childDepth = depth
                 }
 
-                output.childNodes.push(this.getVnodeTree(currentItem, childDepth, mergedChildIds));
-            });
+                output.childNodes.push(this.getVnodeTree(currentItem, childDepth, mergedChildIds))
+            })
         }
 
         return output
