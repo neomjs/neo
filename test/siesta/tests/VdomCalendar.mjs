@@ -7,6 +7,10 @@ import VDomUtil   from '../../../src/util/VDom.mjs';
 
 let deltas, output, vdom, vnode;
 
+// tests are designed for this rendering mode
+Neo.config.useDomApiRenderer = false;
+VdomHelper.onNeoConfigChange({useDomApiRenderer: false})
+
 StartTest(t => {
     t.it('Week view: Infinite Scrolling', t => {
         vdom =
@@ -23,7 +27,7 @@ StartTest(t => {
             {id: 'col-15'}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        let vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-vnode-1', cn: [
@@ -105,7 +109,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        let vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -165,7 +169,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        let vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -216,7 +220,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        let vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -268,7 +272,7 @@ StartTest(t => {
             {id: 'neo-column-3'}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        let vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -333,7 +337,7 @@ StartTest(t => {
         vdom =
         {id: 'neo-1'};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-1', removeDom: true};
@@ -358,7 +362,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -403,7 +407,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {tag: 'ul', id: 'neo-calendar-calendars-list-1', cn: [
@@ -1696,7 +1700,7 @@ StartTest(t => {
             }], tag: 'div'
         }
 
-        vnode = VdomHelper.create(vdom);
+        let vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {cls: ['neo-c-m-scrollcontainer', 'neo-scroll-shadows', 'neo-is-scrolling'], id: 'neo-vnode-150', cn: [
