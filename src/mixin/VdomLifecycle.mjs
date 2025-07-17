@@ -599,13 +599,18 @@ class VdomLifecycle extends Base {
      * @protected
      */
     updateVdom(resolve, reject) {
+        if (!this.isConstructed) {
+            resolve?.();
+            return
+        }
+
         if (Neo.config.unitTestMode && !Neo.config.allowVdomUpdatesInTests) {
             reject?.();
             return
         }
 
-        let me                              = this,
-            {app, mounted, parentId, vnode} = me;
+        let me                         = this,
+            {mounted, parentId, vnode} = me;
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
@@ -616,7 +621,7 @@ class VdomLifecycle extends Base {
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
 
             // If an update is triggered on an unmounted component, we must wait for it to be mounted.
-            if (!mounted && me.isConstructed) {
+            if (!mounted) {
                 // Use a flag to prevent setting up multiple `then` listeners for subsequent updates
                 // that might arrive before the component is mounted.
                 if (!me.isAwaitingMount) {

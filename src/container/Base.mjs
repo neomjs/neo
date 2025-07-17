@@ -441,7 +441,7 @@ class Container extends Component {
 
         // We need to add items into the vdom
         me.updateDepth = -1;
-        me.update();
+        me.isConstructed && me.update();
 
         me.fire('itemsCreated', {id: me.id, items})
     }
