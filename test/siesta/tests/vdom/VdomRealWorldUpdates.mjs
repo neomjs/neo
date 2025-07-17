@@ -131,6 +131,10 @@ StartTest(t => {
     });
 
     t.it('Should handle a simple child-only update', async t => {
+        // A small delay to ensure any in-flight updates from the initial
+        // render() and mount cycle have fully completed before this test runs.
+        await Promise.resolve();
+
         grandchild.setSilent({text: 'Updated Grandchild'});
         const {deltas} = await grandchild.promiseUpdate();
 
