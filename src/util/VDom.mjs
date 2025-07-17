@@ -261,7 +261,13 @@ class VDom extends Base {
      */
     static getVdom(vdom) {
         if (vdom.componentId) {
-            vdom = ComponentManager.get(vdom.componentId).vdom
+            const component = ComponentManager.get(vdom.componentId);
+
+            if (!component) {
+                throw new Error(`util.VDom.getVdom: Component not found for id: ${vdom.componentId}`)
+            }
+
+            vdom = component.vdom
         }
 
         return vdom
