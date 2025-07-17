@@ -415,6 +415,33 @@ class Component extends Base {
     }
 
     /**
+     * A Promise that resolves when the component is mounted to the DOM.
+     * This provides a convenient way to wait for the component to be fully
+     * available and interactive before executing subsequent logic.
+     *
+     * It also handles unmounting by resetting the promise, so it can be safely
+     * awaited again if the component is remounted.
+     * @returns {Promise<Neo.component.Base>}
+     */
+    get mountedPromise() {
+        let me = this;
+
+        if (!me._mountedPromise) {
+            me._mountedPromise = new Promise(resolve => {
+                if (me.mounted) {
+                    // If already mounted, resolve immediately.
+                    resolve(me)
+                } else {
+                    // Otherwise, store the resolver to be called by afterSetMounted.
+                    me.mountedPromiseResolve = resolve
+                }
+            })
+        }
+
+        return this._mountedPromise
+    }
+
+    /**
      * Convenience method to access the parent component
      * @returns {Neo.component.Base|null}
      */
@@ -739,7 +766,7 @@ class Component extends Base {
             let me             = this,
                 {id, windowId} = me;
 
-            if (value) {
+            if (value) { // mount
                 me.hasBeenMounted = true;
 
                 me.initDomEvents();
@@ -753,9 +780,15 @@ class Component extends Base {
                     me.focus(id, true)
                 }
 
-                me.fire('mounted', me.id)
-            } else {
-                me.revertFocus()
+                me.mountedPromiseResolve?.(this);
+                delete me.mountedPromiseResolve;
+
+                me.fire('mounted', me.id);
+            } else { // unmount
+                me.revertFocus();
+
+                // The promise needs to get reset, in case the component gets remounted.
+                delete me._mountedPromise;
             }
         }
     }

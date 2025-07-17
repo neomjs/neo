@@ -70,7 +70,8 @@ project.plan(
             ]
         },
         'tests/vdom/Advanced.mjs',
-        'tests/vdom/VdomAsymmetricUpdates.mjs']
+        'tests/vdom/VdomAsymmetricUpdates.mjs',
+        'tests/vdom/VdomRealWorldUpdates.mjs']
     }
 );
 
