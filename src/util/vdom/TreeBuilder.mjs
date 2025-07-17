@@ -47,10 +47,12 @@ class TreeBuilder extends Base {
                 let currentItem = item;
 
                 if (currentItem.componentId) {
-                    // Expand if:
-                    // 1. We are not at the depth limit (depth > 1 or depth === -1).
-                    // 2. The child component is part of the set of components whose updates were merged into this one.
-                    if ((depth === -1 || depth > 1) && mergedChildIds?.has(currentItem.componentId)) {
+                    // A component is always expanded if depth is -1 (brute force).
+                    // Otherwise, it's expanded if:
+                    // 1. We are not at the depth limit (depth > 1).
+                    // 2. AND it's a full-depth render (mergedChildIds is null),
+                    //    OR it's a selective update and the component is in the merged set.
+                    if (depth === -1 || (depth > 1 && (mergedChildIds === null || mergedChildIds.has(currentItem.componentId)))) {
                         const component = ComponentManager.get(currentItem.componentId);
                         if (component?.vdom) {
                             currentItem = component.vdom;
@@ -91,10 +93,12 @@ class TreeBuilder extends Base {
                 let currentItem = item;
 
                 if (currentItem.componentId) {
-                    // Expand if:
-                    // 1. We are not at the depth limit (depth > 1 or depth === -1).
-                    // 2. The child component is part of the set of components whose updates were merged into this one.
-                    if ((depth === -1 || depth > 1) && mergedChildIds?.has(currentItem.componentId)) {
+                    // A component is always expanded if depth is -1 (brute force).
+                    // Otherwise, it's expanded if:
+                    // 1. We are not at the depth limit (depth > 1).
+                    // 2. AND it's a full-depth render (mergedChildIds is null),
+                    //    OR it's a selective update and the component is in the merged set.
+                    if (depth === -1 || (depth > 1 && (mergedChildIds === null || mergedChildIds.has(currentItem.componentId)))) {
                         component = ComponentManager.get(currentItem.componentId);
 
                         // keep references in case there is no vnode (e.g. component not mounted yet)
