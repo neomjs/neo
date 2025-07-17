@@ -211,7 +211,7 @@ class VdomLifecycle extends Base {
             mergedChildIds, opts = {},
             deltas;
 
-        if (currentWorker.isSharedWorker) {
+        if (currentWorker?.isSharedWorker) {
             opts.appName  = me.appName;
             opts.windowId = me.windowId;
         }
@@ -230,29 +230,28 @@ class VdomLifecycle extends Base {
         // Reset the updateDepth to the default value for the next update cycle
         me._updateDepth = me.constructor.config.updateDepth;
 
-        Neo.vdom.Helper.update(opts).catch(err => {
+        Promise.resolve(Neo.vdom.Helper.update(opts)).catch(err => {
             me.isVdomUpdating = false;
             reject?.()
         }).then(data => {
             // Checking if the component got destroyed before the update cycle is done
             if (me.id) {
                 // It is crucial to delegate the vnode tree before resolving the cycle
-                me.vnode          = data.vnode;
+                me.vnode = data.vnode;
                 me.isVdomUpdating = false;
 
                 deltas = data.deltas;
 
                 if (!Neo.config.useVdomWorker && deltas.length > 0) {
                     Neo.applyDeltas(me.appName, deltas).then(() => {
-                        me.resolveVdomUpdate(resolve)
+                        me.resolveVdomUpdate(resolve, data)
                     })
                 } else {
-                    me.resolveVdomUpdate(resolve)
+                    me.resolveVdomUpdate(resolve, data)
                 }
             }
         })
     }
-
     /**
      * Honors different item roots for mount / render OPs
      * @returns {String}
@@ -410,7 +409,7 @@ class VdomLifecycle extends Base {
                 app.rendered = true;
                 app.fire('render')
             }
-
+console.log(vnode);
             me.vnode = vnode;
 
             let childIds = ComponentManager.getChildIds(vnode),
@@ -460,12 +459,12 @@ class VdomLifecycle extends Base {
         let me                            = this,
             autoMount                     = mount || me.autoMount,
             {app}                         = me,
-            {unitTestMode, useVdomWorker} = Neo.config;
+            {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
 
-        if (unitTestMode) return;
+        if (unitTestMode && !allowVdomUpdatesInTests) return;
 
         // Verify that the critical rendering path => CSS files for the new tree is in place
-        if (autoMount && currentWorker.countLoadingThemeFiles !== 0) {
+        if (!unitTestMode && autoMount && currentWorker.countLoadingThemeFiles !== 0) {
             currentWorker.on('themeFilesLoaded', function() {
                 !me.mounted && me.render(mount)
             }, me, {once: true});
@@ -487,14 +486,14 @@ class VdomLifecycle extends Base {
             me._needsVdomUpdate = false;
             me.afterSetNeedsVdomUpdate?.(false, true);
 
-            const data = await Neo.vdom.Helper.create({
+            const data = await Promise.resolve(Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                 vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
                 windowId   : me.windowId
-            });
+            }));
 
             me.onRender(data.vnode, useVdomWorker ? autoMount : false);
             me.isVdomUpdating = false;
@@ -507,28 +506,19 @@ class VdomLifecycle extends Base {
 
     /**
      * Internal helper fn to resolve the Promise for updateVdom()
-     * @param {Function|undefined} resolve
+     * @param {Function} [resolve]
+     * @param {Object}   [data] The return value of vdom.Helper.update()
      * @protected
      */
-    resolveVdomUpdate(resolve) {
+    resolveVdomUpdate(resolve, data) {
         let me = this;
 
         me.doResolveUpdateCache();
 
-        resolve?.();
+        resolve?.(data);
 
         if (me.needsVdomUpdate) {
-            // The updateDepth needs to be adjusted before the next update cycle
-            // This logic is now handled by the VDomUpdate manager during merging
-            // if (me.updateDepth !== -1) {
-            //     if (component.updateDepth === -1) {
-            //         me.updateDepth = -1
-            //     } else {
-            //         me.updateDepth = me.updateDepth + value.distance + component.updateDepth - 1
-            //     }
-            // }
-
-            me.update();
+            me.update()
         }
 
         // Execute callbacks for merged updates
@@ -624,7 +614,7 @@ class VdomLifecycle extends Base {
      * @protected
      */
     updateVdom(resolve, reject) {
-        if (Neo.config.unitTestMode) {
+        if (Neo.config.unitTestMode && !Neo.config.allowVdomUpdatesInTests) {
             reject?.();
             return
         }
@@ -663,7 +653,7 @@ class VdomLifecycle extends Base {
                     }
 
                     // Verify that the critical rendering path => CSS files for the new tree is in place
-                    if (currentWorker.countLoadingThemeFiles !== 0) {
+                    if (!Neo.config.unitTestMode && currentWorker.countLoadingThemeFiles !== 0) {
                         currentWorker.on('themeFilesLoaded', function() {
                             me.updateVdom(resolve, reject)
                         }, me, {once: true})

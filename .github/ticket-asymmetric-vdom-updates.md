@@ -58,3 +58,55 @@ Given the architectural significance of these changes, a comprehensive testing s
     -   Run these benchmarks on both the `main` branch (old implementation) and the feature branch (new implementation) to rigorously compare performance and ensure there are no regressions.
 
 This final, refined approach provides the best of all worlds: it fixes the code complexity and maintainability issues by centralizing all collision-related state, while fully preserving the framework's proven, real-time performance characteristics.
+
+## Implementation Progress
+
+**Status:** Foundational work complete. Documentation and a regression test suite are in place, and key framework APIs have been enhanced.
+
+### 1. Documentation & Test Suite
+
+Two crucial files have been created to guide and validate this epic:
+
+-   **Epic Ticket (`.github/ticket-asymmetric-vdom-updates.md`):** This central document outlines the problem, defines the solution, and tracks our progress.
+-   **`VdomAsymmetricUpdates.mjs`:** A low-level unit test that directly validates the core logic of the new `VDomUpdate` manager and `TreeBuilder`. It simulates asymmetric updates with mock components to ensure the delta generation is correct.
+-   **`VdomRealWorldUpdates.mjs`:** A high-level integration test using real components to create a regression suite. It verifies that the framework's *existing* ability to merge updates from multiple component levels into a single, efficient cycle remains intact.
+
+Key achievements of these tests:
+-   **Validates Current Logic:** It successfully tests the *existing* logic where updates from multiple component levels (e.g., a parent and a grandchild) within the same event loop tick are correctly merged into a single, efficient VDOM update cycle.
+-   **Pure VDOM Testing:** The test runs without a real DOM. It creates component instances, generates their initial `vnode` structure, and then programmatically triggers updates.
+-   **Asserts on Deltas:** Instead of inspecting the DOM, the test awaits the `promiseUpdate()` method (which was enhanced to resolve with the update data) and directly inspects the raw `deltas` array. This provides a precise and reliable way to verify that the update-merging logic is working as expected.
+
+This test now serves as a critical regression suite, ensuring that the planned refactoring of the update mechanism will not alter this core, high-performance behavior.
+
+### 2. Framework API Enhancements
+
+The process of building the test suite revealed opportunities to improve the core framework. The following enhancements have been implemented:
+
+-   **`Component.mountedPromise`:** A new, robust `mountedPromise` getter has been added to `component.Base`. This provides a clean, reusable, promise-based API for awaiting a component's mounted state. The implementation is resilient to the framework's full lifecycle, correctly handling unmounting and remounting, making it a valuable tool for both testing and application-level code.
+-   **`VdomLifecycle.promiseUpdate()` Enhancement:** The `promiseUpdate()` method was refactored to resolve with the full data object from `vdom.Helper.update()`, giving developers and tests access to the generated `deltas` and the new `vnode`.
+-   **Environment Robustness:** Several fixes were made to the `VdomLifecycle` mixin to ensure it works reliably in both multi-threaded (worker) and single-threaded (test) environments, particularly around `vdom.Helper` calls and `Neo.currentWorker` access.
+
+## Comparison with `dev` Branch
+
+This feature branch contains significant foundational work not present in the `dev` branch. The changes lay the groundwork for the full refactoring while ensuring backward compatibility through extensive testing.
+
+### Changes on this Branch (Not in `dev`)
+
+-   **New Managers & Utilities:**
+    -   `manager.VDomUpdate`: The new central orchestrator for update collisions has been created.
+    -   `util.vdom.TreeBuilder`: The tree builder has been significantly refactored. It now correctly supports depth-based asymmetric expansion, which is a cornerstone of the new update strategy.
+-   **New Test Suites:** Two comprehensive test suites (`VdomAsymmetricUpdates.mjs` and `VdomRealWorldUpdates.mjs`) exist on this branch to validate both the new and existing logic, providing a safety net for the refactoring.
+-   **Framework Enhancements:** Core APIs like `Component.mountedPromise` and `VdomLifecycle.promiseUpdate` have been added or improved, enhancing the framework's capabilities for testing and asynchronous operations.
+-   **Core Robustness & Refactoring:**
+    -   **`VdomLifecycle.mjs`:** The mixin has been hardened to work reliably in both single-threaded (test) and multi-threaded (worker) environments by wrapping VDOM helper calls in `Promise.resolve()` and using safer access to `Neo.currentWorker`.
+    -   **`main/DeltaUpdates.mjs`:** This module now dynamically imports the correct renderer (`DomApiRenderer` or `StringBasedRenderer`) based on the `useDomApiRenderer` config, making it more flexible and robust.
+    -   **`core/Config.mjs`:** The internal subscription mechanism has been re-architected to be owner-ID-based, preventing subtle bugs when the same callback is registered with different scopes.
+    -   **Markdown Processing:** The logic in `apps/portal/view/learn/ContentComponent.mjs` for handling code blocks has been refactored for better correctness and maintainability.
+
+### Remaining Work to Complete the Epic
+
+The `dev` branch still contains the original, distributed state management logic within `VdomLifecycle.mjs`. The following work remains to be done on this feature branch before it can be merged:
+
+-   **Full Integration:** Refactor `VdomLifecycle.mjs` to completely remove its local caches and delegate all collision and merge logic to the new `VDomUpdate` manager.
+-   **Finalize Asymmetric Logic:** Complete the implementation in `TreeBuilder` and `vdom.Helper` to handle the `neo-ignore` placeholder for truly asymmetric updates.
+-   **Performance Benchmarking:** Conduct rigorous performance tests to compare this branch against `dev` and ensure no regressions.
