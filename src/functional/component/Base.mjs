@@ -307,11 +307,14 @@ class FunctionalBase extends Base {
                 const processedVdom = me.processVdomForComponents(newVdom, me.id);
 
                 // Destroy components that are no longer present in the new VDOM
-                me.childComponents?.forEach((childData, key) => {
-                    if (!me.#nextChildComponents.has(key)) {
-                        childData.instance.destroy()
-                    }
-                });
+                if (me.childComponents?.size > 0) {
+                    [...me.childComponents].forEach(([key, childData]) => {
+                        if (!me.#nextChildComponents.has(key)) {
+                            me.childComponents.delete(key);
+                            childData.instance.destroy()
+                        }
+                    })
+                }
 
                 // If this component created other classic or functional components,
                 // include their full vdom into the next update cycle.

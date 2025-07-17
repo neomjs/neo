@@ -49,7 +49,7 @@ class Helper extends Base {
      */
     compareAttributes({deltas, oldVnode, vnode, vnodeMap}) {
         // Do not compare attributes for component references
-        if (oldVnode.componentId && (oldVnode.id === vnode.id || oldVnode.componentId === vnode.id)) {
+        if (oldVnode.componentId && (oldVnode.id === vnode.id || oldVnode.componentId === vnode.componentId)) {
             return deltas
         }
 

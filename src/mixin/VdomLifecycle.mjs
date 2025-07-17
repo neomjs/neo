@@ -370,7 +370,7 @@ class VdomLifecycle extends Base {
      * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    mergeIntoParentUpdate(parentId=this.parentId, resolve, distance=1) { // Renamed from needsParentUpdate
+    mergeIntoParentUpdate(parentId=this.parentId, resolve, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
