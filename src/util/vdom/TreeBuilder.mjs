@@ -47,12 +47,9 @@ class TreeBuilder extends Base {
                 let currentItem = item;
 
                 if (currentItem.componentId) {
-                    // A component is always expanded if depth is -1 (brute force).
-                    // Otherwise, it's expanded if:
-                    // 1. We are not at the depth limit (depth > 1).
-                    // 2. AND it's a full-depth render (mergedChildIds is null),
-                    //    OR it's a selective update and the component is in the merged set.
-                    if (depth === -1 || (depth > 1 && (mergedChildIds === null || mergedChildIds.has(currentItem.componentId)))) {
+                    // A component placeholder is expanded if depth is -1 (full tree) or if
+                    // the current expansion depth is greater than 1.
+                    if (depth === -1 || depth > 1) {
                         const component = ComponentManager.get(currentItem.componentId);
                         if (component?.vdom) {
                             currentItem = component.vdom;
@@ -93,12 +90,9 @@ class TreeBuilder extends Base {
                 let currentItem = item;
 
                 if (currentItem.componentId) {
-                    // A component is always expanded if depth is -1 (brute force).
-                    // Otherwise, it's expanded if:
-                    // 1. We are not at the depth limit (depth > 1).
-                    // 2. AND it's a full-depth render (mergedChildIds is null),
-                    //    OR it's a selective update and the component is in the merged set.
-                    if (depth === -1 || (depth > 1 && (mergedChildIds === null || mergedChildIds.has(currentItem.componentId)))) {
+                    // A component placeholder is expanded if depth is -1 (full tree) or if
+                    // the current expansion depth is greater than 1.
+                    if (depth === -1 || depth > 1) {
                         component = ComponentManager.get(currentItem.componentId);
 
                         // keep references in case there is no vnode (e.g. component not mounted yet)

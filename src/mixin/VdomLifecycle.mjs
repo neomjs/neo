@@ -1,9 +1,9 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import VDomUpdate       from '../manager/VDomUpdate.mjs'; // New import
 import NeoArray         from '../util/Array.mjs';
 import TreeBuilder      from '../util/vdom/TreeBuilder.mjs';
 import VDomUtil         from '../util/VDom.mjs';
+import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
