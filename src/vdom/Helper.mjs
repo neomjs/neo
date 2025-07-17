@@ -204,10 +204,6 @@ class Helper extends Base {
         let {deltas={default: [], remove: []}, oldVnode, vnode} = config,
             vnodeId = vnode?.id;
 
-        if (!vnode) {
-            console.log(config);
-        }
-
         // Edge case: setting `removeDom: true` on a top-level vdom node
         if (!vnode && (oldVnode?.id || oldVnode?.componentId)) {
             deltas.remove.push({action: 'removeNode', id: oldVnode.id || oldVnode.componentId});
