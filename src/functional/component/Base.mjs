@@ -74,17 +74,11 @@ class FunctionalBase extends Base {
      */
     childComponents = null
     /**
-     * If an update() gets called while a parent is updating, we store the id & distance of the
-     * requesting component inside the childUpdateCache of the parent, to get resolved once the update is done.
-     * e.g. childUpdateCache = {'neo-grid-view-1': {distance: 1, resolve: fn}}
-     * @member {Object} childUpdateCache={}
+     * Internal flag which will get set to true while a component is waiting for its mountedPromise
+     * @member {Boolean} isAwaitingMount=false
+     * @protected
      */
-    childUpdateCache = {}
-    /**
-     * Stores the updateDepth while an update is running to enable checks for parent update collisions
-     * @member {Number|null} currentUpdateDepth=null
-     */
-    currentUpdateDepth = null
+    isAwaitingMount = false
     /**
      * Internal Map to store the next set of components after the createVdom() Effect has run.
      * @member {Map|null} nextChildComponents=null
@@ -95,6 +89,31 @@ class FunctionalBase extends Base {
      * @member {Function[]} resolveUpdateCache=[]
      */
     resolveUpdateCache = []
+
+        /**
+         * A Promise that resolves when the component is mounted to the DOM.
+         * This provides a convenient way to wait for the component to be fully
+         * available and interactive before executing subsequent logic.
+         *
+         * It also handles unmounting by resetting the promise, so it can be safely
+         * awaited again if the component is remounted.
+         * @returns {Promise<Neo.component.Base>}
+         */
+        get mountedPromise() {
+            let me = this;
+
+            if (!me._mountedPromise) {
+                me._mountedPromise = new Promise(resolve => {
+                    if (me.mounted) {
+                        resolve(me);
+                    } else {
+                        me.mountedPromiseResolve = resolve
+                    }
+                })
+            }
+
+            return me._mountedPromise
+        }
 
     /**
      * Convenience method to access the parent component
@@ -156,13 +175,18 @@ class FunctionalBase extends Base {
      */
     afterSetMounted(value, oldValue) {
         if (oldValue !== undefined) {
-            if (value) {
-                const me = this
+            const me = this;
 
+            if (value) { // mount
                 me.initDomEvents();
 
                 // Initial registration of DOM event listeners when component mounts
-                me.applyPendingDomListeners()
+                me.applyPendingDomListeners();
+
+                me.mountedPromiseResolve?.(this);
+                delete me.mountedPromiseResolve
+            } else { // unmount
+                delete me._mountedPromise
             }
         }
     }

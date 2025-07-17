@@ -146,12 +146,6 @@ class Component extends Base {
          */
         hasBeenMounted: false,
         /**
-         * Internal flag
-         * @member {Boolean} hasRenderingListener=false
-         * @protected
-         */
-        hasRenderingListener: false,
-        /**
          * Shortcut for style.height, defaults to px
          * @member {Number|String|null} height_=null
          * @reactive
@@ -372,17 +366,11 @@ class Component extends Base {
     }
 
     /**
-     * If an update() gets called while a parent is updating, we store the id & distance of the
-     * requesting component inside the childUpdateCache of the parent, to get resolved once the update is done.
-     * e.g. childUpdateCache = {'neo-grid-view-1': {distance: 1, resolve: fn}}
-     * @member {Object} childUpdateCache={}
+     * Internal flag which will get set to true while a component is waiting for its mountedPromise
+     * @member {Boolean} isAwaitingMount=false
+     * @protected
      */
-    childUpdateCache = {}
-    /**
-     * Stores the updateDepth while an update is running to enable checks for parent update collisions
-     * @member {Number|null} currentUpdateDepth=null
-     */
-    currentUpdateDepth = null
+    isAwaitingMount = false
     /**
      * @member {Function[]} resolveUpdateCache=[]
      */
@@ -770,8 +758,6 @@ class Component extends Base {
                 me.hasBeenMounted = true;
 
                 me.initDomEvents();
-
-                me.doResolveUpdateCache();
 
                 if (me.floating) {
                     me.alignTo();
