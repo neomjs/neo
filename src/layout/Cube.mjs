@@ -116,7 +116,7 @@ class Cube extends Card {
 
         container.mounted && container.update();
 
-        me.timeout(100).then(() => {
+        me.timeout(50).then(() => {
             container.addCls('neo-animate')
         })
     }

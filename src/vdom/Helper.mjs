@@ -54,7 +54,8 @@ class Helper extends Base {
             return deltas;
         }
 
-        let attributes, delta, value, keys, styles, add, remove;
+        let delta = {},
+            attributes, value, keys, styles, add, remove;
 
         if (vnode.vtype === 'text' && vnode.textContent !== oldVnode.textContent) {
             deltas.default.push({
@@ -79,7 +80,6 @@ class Helper extends Base {
             });
 
             keys.forEach(prop => {
-                delta = {};
                 value = vnode[prop];
 
                 switch (prop) {
@@ -145,12 +145,12 @@ class Helper extends Base {
                         }
                         break
                 }
+            });
 
-                if (Object.keys(delta).length > 0) {
-                    delta.id = vnode.id;
-                    deltas.default.push(delta)
-                }
-            })
+            if (Object.keys(delta).length > 0) {
+                delta.id = vnode.id;
+                deltas.default.push(delta)
+            }
         }
 
         return deltas
@@ -698,7 +698,7 @@ class Helper extends Base {
                 throw new Error('Neo.vdom.Helper: StringFromVnode is not loaded yet for updates!');
             }
         }
-
+console.log(opts.vdom.id);
         vnode  = me.createVnode(opts.vdom);
         deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
 

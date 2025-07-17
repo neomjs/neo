@@ -304,7 +304,11 @@ Neo = globalThis.Neo = Object.assign({
      */
     createConfig(target, key, initialValue) {
         if (Neo.hasPropertySetter(target, key)) {
-            throw('Config ' + key + '_ (' + target.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead')
+            throw(
+`Invalid config in ${target.className}: '${key}_'. The config '${key}' is already defined as reactive by a parent class.
+To override the default value, use '${key}' (without the underscore) in your static config.
+If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}()', 'beforeSet${Neo.capitalize(key)}()', and 'afterSet${Neo.capitalize(key)}()' hooks instead of redefining the config.`
+            )
         }
 
         const
