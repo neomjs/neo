@@ -650,7 +650,7 @@ class VdomLifecycle extends Base {
                 }
 
                 if (
-                    !me.mergeIntoParentUpdate(parentId, resolve) // Renamed call
+                    !me.mergeIntoParentUpdate(parentId, resolve)
                     && !me.isParentUpdating(parentId, resolve)
                     && mounted
                     && vnode
