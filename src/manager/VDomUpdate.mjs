@@ -95,9 +95,8 @@ class VDomUpdate extends Collection {
                 if (child.childUpdateDepth === -1) {
                     newDepth = -1;
                 } else {
-                    // The new depth is the distance to the child plus its own update depth,
-                    // minus 1 because the child's root is at the parent's level 1.
-                    newDepth = child.distance + child.childUpdateDepth - 1;
+                    // The new depth is the distance to the child plus the child's own required update depth.
+                    newDepth = child.distance + child.childUpdateDepth;
                 }
 
                 if (newDepth === -1) {

@@ -89,17 +89,23 @@ StartTest(t => {
 
         // 4. GENERATE DELTAS
         // VdomHelper diffs the new, expanded tree against the parent's OLD vnode.
+        // The old vnode must also be expanded to the same depth to ensure a correct diff.
+        const oldAsymmetricVnode = TreeBuilder.getVnodeTree(parent.vnode, adjustedDepth);
         const { deltas } = VdomHelper.update({
             vdom : newAsymmetricVdom,
-            vnode: parent.vnode
+            vnode: oldAsymmetricVnode
         });
 
         // 5. ASSERTIONS
+        // For useDomApiRenderer=true, a text change results in a delta updating
+        // the `textContent` property of the parent element's vnode.
         t.is(deltas.length, 1, 'Should generate exactly one delta for the text change');
+        const spanVnode = oldAsymmetricVnode.childNodes[0].childNodes[0];
         const delta = deltas[0];
-        t.is(delta.action, 'updateVtext', 'The delta action should be to update the text node');
-        t.is(delta.value, 'Updated', 'The new text content should be correct');
-        t.ok(delta.id.startsWith('neo-vtext'), 'The delta correctly targets the text vnode');
+
+        t.is(delta.id, spanVnode.id, 'Delta targets the correct span element');
+        t.is(delta.textContent, 'Updated', 'The new text content should be correct');
+        t.is(Object.keys(delta).length, 2, 'Delta has the correct shape (id, textContent)');
     });
 
     t.it('Should handle nested asymmetric update (grandchild update)', t => {
@@ -149,13 +155,21 @@ StartTest(t => {
         t.is(expandedGrandchild.cn[0].text, 'Updated', 'The expanded VDOM reflects the grandchilds updated state');
 
         // 4. GENERATE DELTAS
+        const oldAsymmetricVnode = TreeBuilder.getVnodeTree(parent.vnode, adjustedDepth);
         const { deltas } = VdomHelper.update({
             vdom : newAsymmetricVdom,
-            vnode: parent.vnode
+            vnode: oldAsymmetricVnode
         });
 
         // 5. ASSERTIONS
+        // For useDomApiRenderer=true, a text change results in a delta updating
+        // the `textContent` property of the parent element's vnode.
         t.is(deltas.length, 1, 'Should generate exactly one delta for the text change');
-        t.is(deltas[0].action, 'updateVtext', 'The delta action should be to update the text node');
+        const spanVnode = oldAsymmetricVnode.childNodes[0].childNodes[0].childNodes[0];
+        const delta     = deltas[0];
+
+        t.is(delta.id, spanVnode.id, 'Delta targets the correct span element');
+        t.is(delta.textContent, 'Updated', 'The new text content should be correct');
+        t.is(Object.keys(delta).length, 2, 'Delta has the correct shape (id, textContent)');
     });
 });
