@@ -313,6 +313,25 @@ class FunctionalBase extends Base {
                     }
                 });
 
+                // If this component created other classic or functional components,
+                // include their full vdom into the next update cycle.
+                const oldKeys = me.childComponents ? new Set(me.childComponents.keys()) : new Set();
+                let hasNewChildren = false;
+
+                for (const newKey of me.#nextChildComponents.keys()) {
+                    if (!oldKeys.has(newKey)) {
+                        hasNewChildren = true;
+                        break
+                    }
+                }
+
+                if (hasNewChildren) {
+                    // When new child components are created, we need to send their full VDOM
+                    // to the vdom-worker, so they can get rendered.
+                    // Subsequent updates will be granular via diffAndSet() => set() on the child.
+                    me.updateDepth = -1;
+                }
+
                 // Update the main map of instantiated components
                 me.childComponents = me.#nextChildComponents;
 
@@ -334,25 +353,6 @@ class FunctionalBase extends Base {
 
                 if (me.id) {
                     root.id = me.id
-                }
-
-                // If this component created other classic or functional components,
-                // include their full vdom into the next update cycle.
-                const oldKeys = me.childComponents ? new Set(me.childComponents.keys()) : new Set();
-                let hasNewChildren = false;
-
-                for (const newKey of me.#nextChildComponents.keys()) {
-                    if (!oldKeys.has(newKey)) {
-                        hasNewChildren = true;
-                        break
-                    }
-                }
-
-                if (hasNewChildren) {
-                    // When new child components are created, we need to send their full VDOM
-                    // to the vdom-worker, so they can get rendered.
-                    // Subsequent updates will be granular via diffAndSet() => set() on the child.
-                    me.updateDepth = -1;
                 }
 
                 me.updateVdom();
