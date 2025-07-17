@@ -2,6 +2,7 @@ import Base             from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs'; // New import
 import NeoArray         from '../util/Array.mjs';
+import TreeBuilder      from '../util/vdom/TreeBuilder.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
@@ -207,12 +208,12 @@ class VdomLifecycle extends Base {
     executeVdomUpdate(resolve, reject) {
         let me            = this,
             {vdom, vnode} = me,
-            opts          = {},
+            mergedChildIds, opts = {},
             deltas;
 
         if (currentWorker.isSharedWorker) {
             opts.appName  = me.appName;
-            opts.windowId = me.windowId
+            opts.windowId = me.windowId;
         }
 
         me.isVdomUpdating = true;
@@ -222,8 +223,9 @@ class VdomLifecycle extends Base {
         me._needsVdomUpdate = false;
         me.afterSetNeedsVdomUpdate?.(false, true);
 
-        opts.vdom  = ComponentManager.getVdomTree(vdom, me.updateDepth);
-        opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
+        mergedChildIds = VDomUpdate.getMergedChildIds(me.id);
+        opts.vdom      = TreeBuilder.getVdomTree(vdom, me.updateDepth, mergedChildIds);
+        opts.vnode     = TreeBuilder.getVnodeTree(vnode, me.updateDepth, mergedChildIds);
 
         // Reset the updateDepth to the default value for the next update cycle
         me._updateDepth = me.constructor.config.updateDepth;
@@ -490,7 +492,7 @@ class VdomLifecycle extends Base {
                 autoMount,
                 parentId   : autoMount ? me.getMountedParentId()    : undefined,
                 parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
-                vdom       : ComponentManager.getVdomTree(me.vdom),
+                vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
                 windowId   : me.windowId
             });
 
