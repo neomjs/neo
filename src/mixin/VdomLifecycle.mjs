@@ -127,16 +127,6 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Triggered after the isVdomUpdating config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     */
-    afterSetIsVdomUpdating(value, oldValue) {
-        this.currentUpdateDepth = value ? this.updateDepth : null
-    }
-
-    /**
      * Triggered after the vdom pseudo-config got changed
      * @param {Object} value
      * @param {Object|null} oldValue
@@ -188,18 +178,6 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Triggers all stored resolve() callbacks
-     */
-    doResolveUpdateCache() {
-        let me = this;
-
-        if (me.resolveUpdateCache) {
-            me.resolveUpdateCache.forEach(item => item());
-            me.resolveUpdateCache = []
-        }
-    }
-
-    /**
      * Internal method to send update requests to the vdom worker
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -208,7 +186,11 @@ class VdomLifecycle extends Base {
     async executeVdomUpdate(resolve, reject) {
         let me = this;
 
+        resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
+
         me.isVdomUpdating = true;
+        // Centralize in-flight state
+        VDomUpdate.registerInFlightUpdate(me.id, me.updateDepth);
 
         try {
             const
@@ -245,13 +227,16 @@ class VdomLifecycle extends Base {
                 }
 
                 me.isVdomUpdating = false;
-                me.resolveVdomUpdate(resolve, data)
+                me.resolveVdomUpdate(data)
             }
         } catch (err) {
             me.isVdomUpdating = false;
+            // Ensure state is cleaned up on error
+            VDomUpdate.unregisterInFlightUpdate(me.id);
             reject?.(err)
         }
     }
+
     /**
      * Honors different item roots for mount / render OPs
      * @returns {String}
@@ -342,7 +327,10 @@ class VdomLifecycle extends Base {
 
             if (parent) {
                 if (parent.isVdomUpdating) {
-                    if (me.hasUpdateCollision(parent.currentUpdateDepth, distance)) {
+                    // Get the in-flight update depth from the central manager
+                    const parentUpdateDepth = VDomUpdate.getInFlightUpdateDepth(parent.id);
+
+                    if (me.hasUpdateCollision(parentUpdateDepth, distance)) {
                         if (Neo.config.logVdomUpdateCollisions) {
                             console.warn('vdom parent update conflict with:', parent, 'for:', me)
                         }
@@ -369,7 +357,7 @@ class VdomLifecycle extends Base {
      * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
      */
-    mergeIntoParentUpdate(parentId=this.parentId, resolve, distance=1) {
+    mergeIntoParentUpdate(parentId=this.parentId, distance=1) {
         if (parentId !== 'document.body') {
             let me     = this,
                 parent = Neo.getComponent(parentId);
@@ -377,13 +365,11 @@ class VdomLifecycle extends Base {
             if (parent) {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
                 if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
-                    VDomUpdate.registerMerged(parent.id, me.id, me.resolveUpdateCache, me.updateDepth, distance);
-                    resolve && NeoArray.add(me.resolveUpdateCache, resolve);
-                    me.resolveUpdateCache = [];
+                    VDomUpdate.registerMerged(parent.id, me.id, me.updateDepth, distance);
                     return true
                 }
 
-                return me.mergeIntoParentUpdate(parent.parentId, resolve, distance+1)
+                return me.mergeIntoParentUpdate(parent.parentId, distance+1)
             }
         }
 
@@ -506,26 +492,25 @@ class VdomLifecycle extends Base {
 
     /**
      * Internal helper fn to resolve the Promise for updateVdom()
-     * @param {Function} [resolve]
      * @param {Object}   [data] The return value of vdom.Helper.update()
      * @protected
      */
-    resolveVdomUpdate(resolve, data) {
+    resolveVdomUpdate(data) {
         let me = this;
 
-        me.doResolveUpdateCache();
-
-        resolve?.(data);
-
-        if (me.needsVdomUpdate) {
-            me.update()
-        }
-
         // Execute callbacks for merged updates
-        VDomUpdate.executeCallbacks(me.id);
+        VDomUpdate.executeCallbacks(me.id, data);
+
+        // The update is no longer in-flight
+        VDomUpdate.unregisterInFlightUpdate(me.id);
 
         // Trigger updates for components that were in-flight
         VDomUpdate.triggerPostUpdates(me.id);
+
+        if (me.needsVdomUpdate) {
+            // any new promise callbacks will get picked up by the next update cycle
+            me.update()
+        }
     }
 
     /**
@@ -623,24 +608,28 @@ class VdomLifecycle extends Base {
             {app, mounted, parentId, vnode} = me;
 
         if (me.isVdomUpdating || me.silentVdomUpdate) {
-            resolve && me.resolveUpdateCache.push(resolve);
+            resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
             me.needsVdomUpdate = true
         } else {
-            if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                me.hasRenderingListener = true;
+            // If there's a promise, register it against this component's ID immediately.
+            // The manager will ensure it's called when the appropriate update cycle completes.
+            resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
 
-                app.on('mounted', () => {
-                    me.timeout(50).then(() => {
-                        me.vnode && me.updateVdom(resolve, reject)
-                    })
-                }, me, {once: true})
-            } else {
-                if (resolve && (!mounted || !vnode)) {
-                    me.resolveUpdateCache.push(resolve)
+            // If an update is triggered on an unmounted component, we must wait for it to be mounted.
+            if (!mounted && me.isConstructed) {
+                // Use a flag to prevent setting up multiple `then` listeners for subsequent updates
+                // that might arrive before the component is mounted.
+                if (!me.isAwaitingMount) {
+                    me.isAwaitingMount = true;
+                    me.mountedPromise.then(() => {
+                        me.isAwaitingMount = false;
+                        // After mounting, re-trigger the update cycle. The cached callbacks will be picked up.
+                        me.vnode && me.update();
+                    });
                 }
-
+            } else {
                 if (
-                    !me.mergeIntoParentUpdate(parentId, resolve)
+                    !me.mergeIntoParentUpdate(parentId)
                     && !me.isParentUpdating(parentId, resolve)
                     && mounted
                     && vnode
@@ -658,7 +647,7 @@ class VdomLifecycle extends Base {
                             me.updateVdom(resolve, reject)
                         }, me, {once: true})
                     } else {
-                        me.executeVdomUpdate(resolve, reject)
+                        me.executeVdomUpdate(null, reject)
                     }
                 }
             }

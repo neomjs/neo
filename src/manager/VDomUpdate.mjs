@@ -26,8 +26,19 @@ class VDomUpdate extends Collection {
          * @member {Neo.collection.Base|null} postUpdateQueueMap=null
          * @protected
          */
-        postUpdateQueueMap: null
+        postUpdateQueueMap: null,
     }
+
+    /**
+     * @member {Map|null} inFlightUpdateMap=null
+     * @protected
+     */
+    inFlightUpdateMap = null;
+    /**
+     * @member {Map|null} promiseCallbackMap=null
+     * @protected
+     */
+    promiseCallbackMap = null;
 
     /**
      * @param {Object} config
@@ -35,29 +46,70 @@ class VDomUpdate extends Collection {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        const me = this;
 
+        me.inFlightUpdateMap  = new Map();
         me.mergedCallbackMap  = Neo.create(Collection, {keyProperty: 'ownerId'});
         me.postUpdateQueueMap = Neo.create(Collection, {keyProperty: 'ownerId'});
+        me.promiseCallbackMap = new Map();
+    }
+
+    /**
+     * @param {String} ownerId
+     * @param {Function} callback
+     */
+    addPromiseCallback(ownerId, callback) {
+        let me = this;
+
+        if (!me.promiseCallbackMap.has(ownerId)) {
+            me.promiseCallbackMap.set(ownerId, [])
+        }
+
+        me.promiseCallbackMap.get(ownerId).push(callback)
+    }
+
+    /**
+     * Registers an update that is currently in-flight to the worker.
+     * @param {String} ownerId The ID of the component owning the update.
+     * @param {Number} updateDepth The depth of the in-flight update.
+     */
+    registerInFlightUpdate(ownerId, updateDepth) {
+        this.inFlightUpdateMap.set(ownerId, updateDepth);
+    }
+
+    /**
+     * Retrieves the update depth for an in-flight update.
+     * @param {String} ownerId The ID of the component owning the update.
+     * @returns {Number|undefined} The update depth, or undefined if not found.
+     */
+    getInFlightUpdateDepth(ownerId) {
+        return this.inFlightUpdateMap.get(ownerId);
+    }
+
+    /**
+     * Unregisters an in-flight update once it has completed.
+     * @param {String} ownerId The ID of the component owning the update.
+     */
+    unregisterInFlightUpdate(ownerId) {
+        this.inFlightUpdateMap.delete(ownerId);
     }
 
     /**
      * @param {String} ownerId
      * @param {String} childId
-     * @param {Array} callbacks
      * @param {Number} childUpdateDepth
      * @param {Number} distance
      */
-    registerMerged(ownerId, childId, callbacks, childUpdateDepth, distance) {
+    registerMerged(ownerId, childId, childUpdateDepth, distance) {
         let me   = this,
             item = me.mergedCallbackMap.get(ownerId);
 
         if (!item) {
-            item = {ownerId, children: []};
+            item = {ownerId, children: new Map()};
             me.mergedCallbackMap.add(item);
         }
 
-        item.children.push({childId, callbacks, childUpdateDepth, distance});
+        item.children.set(childId, {childUpdateDepth, distance});
     }
 
     /**
@@ -67,14 +119,15 @@ class VDomUpdate extends Collection {
      */
     registerPostUpdate(ownerId, childId, resolve) {
         let me   = this,
-            item = me.postUpdateQueueMap.get(ownerId);
+            item = me.postUpdateQueueMap.get(ownerId),
+            childCallbacks;
 
         if (!item) {
             item = {ownerId, children: []};
             me.postUpdateQueueMap.add(item);
         }
 
-        item.children.push({childId, resolve});
+        item.children.push({childId, resolve})
     }
 
     /**
@@ -91,12 +144,12 @@ class VDomUpdate extends Collection {
             newDepth;
 
         if (item) {
-            item.children.forEach(child => {
-                if (child.childUpdateDepth === -1) {
+            item.children.forEach(value => {
+                if (value.childUpdateDepth === -1) {
                     newDepth = -1;
                 } else {
                     // The new depth is the distance to the child plus the child's own required update depth.
-                    newDepth = child.distance + child.childUpdateDepth;
+                    newDepth = value.distance + value.childUpdateDepth;
                 }
 
                 if (newDepth === -1) {
@@ -120,24 +173,40 @@ class VDomUpdate extends Collection {
     getMergedChildIds(ownerId) {
         const item = this.mergedCallbackMap.get(ownerId);
         if (item) {
-            return new Set(item.children.map(c => c.childId));
+            return new Set(item.children.keys());
         }
         return null;
     }
 
     /**
      * @param {String} ownerId
+     * @param {Object} [data]
      */
-    executeCallbacks(ownerId) {
-        let me   = this,
-            item = me.mergedCallbackMap.get(ownerId);
+    executeCallbacks(ownerId, data) {
+        let me           = this,
+            item         = me.mergedCallbackMap.get(ownerId),
+            callbackData = data ? [data] : [];
 
         if (item) {
-            item.children.forEach(child => {
-                child.callbacks.forEach(callback => callback());
+            item.children.forEach((value, key) => {
+                me.executePromiseCallbacks(key, ...callbackData)
             });
             me.mergedCallbackMap.remove(item);
         }
+
+        me.executePromiseCallbacks(ownerId, ...callbackData)
+    }
+
+    /**
+     * @param {String} ownerId
+     * @param {Object} [data]
+     */
+    executePromiseCallbacks(ownerId, data) {
+        let me        = this,
+            callbacks = me.promiseCallbackMap.get(ownerId);
+
+        callbacks?.forEach(callback => callback(data));
+        me.promiseCallbackMap.delete(ownerId);
     }
 
     /**
@@ -145,13 +214,15 @@ class VDomUpdate extends Collection {
      */
     triggerPostUpdates(ownerId) {
         let me   = this,
-            item = me.postUpdateQueueMap.get(ownerId);
+            item = me.postUpdateQueueMap.get(ownerId),
+            component;
 
         if (item) {
             item.children.forEach(entry => {
-                let component = Neo.getComponent(entry.childId);
+                component = Neo.getComponent(entry.childId);
+
                 if (component) {
-                    entry.resolve && component.resolveUpdateCache.push(entry.resolve);
+                    entry.resolve && me.addPromiseCallback(component.id, entry.resolve);
                     component.update();
                 }
             });
