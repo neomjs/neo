@@ -115,8 +115,8 @@ StartTest(t => {
 
     t.afterEach(t => {
         parent.destroy();
-        parent = null;
-        child = null;
+        parent     = null;
+        child      = null;
         grandchild = null;
     });
 
@@ -131,8 +131,6 @@ StartTest(t => {
     });
 
     t.it('Should handle a simple child-only update', async t => {
-        await grandchild.timeout(5);
-
         grandchild.setSilent({text: 'Updated Grandchild'});
         const {deltas} = await grandchild.promiseUpdate();
 

@@ -23,10 +23,8 @@ const createMockComponent = (id, parentId, vdom) => {
         id,
         parentId,
         vdom,
-        // Add properties and methods from VdomLifecycle that we need to test
-        isVdomUpdating    : false,
-        currentUpdateDepth: null,
-        resolveUpdateCache: [],
+        // Add properties from VdomLifecycle that we need to test
+        isVdomUpdating: false,
         // By adding the prototype methods to our mock instances, we can test
         // the lifecycle logic without needing full component instantiation.
         hasUpdateCollision: VdomLifecycle.prototype.hasUpdateCollision,
@@ -74,7 +72,6 @@ StartTest(t => {
         VDomUpdate.registerMerged(
             parent.id,
             child.id,
-            [],   // callbacks
             1,    // childUpdateDepth
             1     // distance
         );
@@ -140,7 +137,6 @@ StartTest(t => {
         VDomUpdate.registerMerged(
             parent.id,
             grandchild.id,
-            [],   // callbacks
             1,    // grandchild's own updateDepth
             2     // distance from parent
         );
@@ -203,7 +199,6 @@ StartTest(t => {
         VDomUpdate.registerMerged(
             parent.id,
             grandchild.id,
-            [],   // callbacks
             1,    // grandchild's own updateDepth
             2     // distance from parent
         );
@@ -254,14 +249,13 @@ StartTest(t => {
         // 2. SIMULATE A PARENT UPDATE IN PROGRESS
         // This is the state during a real update, before post-processing.
         parent.isVdomUpdating = true;
-        parent.currentUpdateDepth = 2; // Parent is updating itself and its direct children.
+        VDomUpdate.registerInFlightUpdate(parent.id, 2);
 
         // 3. SIMULATE A CHILD-INITIATED UPDATE (during the parent's update)
         let hasCollision = child.isParentUpdating(child.parentId, () => {});
 
         // 4. ASSERTIONS
         t.ok(hasCollision, 'isParentUpdating should return true, detecting a collision');
-
         const postUpdateQueue = VDomUpdate.postUpdateQueueMap.get(parent.id);
         t.ok(postUpdateQueue, 'Parent should have a post-update queue');
         t.is(postUpdateQueue.children.length, 1, 'Post-update queue should have one entry');
@@ -280,7 +274,7 @@ StartTest(t => {
 
         // 2. SIMULATE A PARENT UPDATE IN PROGRESS
         parent.isVdomUpdating = true;
-        parent.currentUpdateDepth = 2; // Parent update only includes direct children, NOT grandchildren.
+        VDomUpdate.registerInFlightUpdate(parent.id, 2);
 
         // 3. SIMULATE A GRANDCHILD-INITIATED UPDATE
         // The grandchild is at distance 2 from the parent. hasUpdateCollision(2, 2) should be false.
@@ -319,9 +313,9 @@ StartTest(t => {
 
         // 2. SIMULATE MULTIPLE MERGED UPDATES
         // Grandchild1 (at distance 2) requests an update
-        VDomUpdate.registerMerged(parent.id, grandchild1.id, [], 1, 2);
+        VDomUpdate.registerMerged(parent.id, grandchild1.id, 1, 2);
         // Child3 (at distance 1) requests an update
-        VDomUpdate.registerMerged(parent.id, child3.id, [], 1, 1);
+        VDomUpdate.registerMerged(parent.id, child3.id, 1, 1);
 
         // Make the changes to the source vdoms
         grandchild1.vdom.cn[0].text = 'Updated GC';
@@ -333,9 +327,8 @@ StartTest(t => {
         // The max should be taken.
         t.is(adjustedDepth, 3, 'Adjusted update depth should be 3, the max required by children');
 
-        const mergedChildIds     = VDomUpdate.getMergedChildIds(parent.id);
-        const newAsymmetricVdom  = TreeBuilder.getVdomTree(parent.vdom, adjustedDepth, mergedChildIds);
-        const oldAsymmetricVnode = TreeBuilder.getVnodeTree(parent.vnode, adjustedDepth, mergedChildIds);
+        const newAsymmetricVdom  = TreeBuilder.getVdomTree(parent.vdom, adjustedDepth);
+        const oldAsymmetricVnode = TreeBuilder.getVnodeTree(parent.vnode, adjustedDepth);
 
         // Verify the new VDOM structure is correctly expanded.
         // TreeBuilder expands based on depth, so non-updating siblings within the depth are also expanded.
