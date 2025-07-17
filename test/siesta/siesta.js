@@ -69,7 +69,8 @@ project.plan(
                 'tests/vdom/table/Container.mjs'
             ]
         },
-        'tests/vdom/Advanced.mjs']
+        'tests/vdom/Advanced.mjs',
+        'tests/vdom/VdomAsymmetricUpdates.mjs']
     }
 );
 
