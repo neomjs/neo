@@ -698,7 +698,7 @@ class Helper extends Base {
                 throw new Error('Neo.vdom.Helper: StringFromVnode is not loaded yet for updates!');
             }
         }
-console.log(opts.vdom.id);
+
         vnode  = me.createVnode(opts.vdom);
         deltas = me.createDeltas({oldVnode: opts.vnode, vnode});
 
