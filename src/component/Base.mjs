@@ -371,10 +371,6 @@ class Component extends Base {
      * @protected
      */
     isAwaitingMount = false
-    /**
-     * @member {Function[]} resolveUpdateCache=[]
-     */
-    resolveUpdateCache = []
 
     /**
      * Convenience shortcut to access the App this component belongs to

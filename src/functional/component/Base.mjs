@@ -85,35 +85,31 @@ class FunctionalBase extends Base {
      * @private
      */
     #nextChildComponents = null
+
     /**
-     * @member {Function[]} resolveUpdateCache=[]
+     * A Promise that resolves when the component is mounted to the DOM.
+     * This provides a convenient way to wait for the component to be fully
+     * available and interactive before executing subsequent logic.
+     *
+     * It also handles unmounting by resetting the promise, so it can be safely
+     * awaited again if the component is remounted.
+     * @returns {Promise<Neo.component.Base>}
      */
-    resolveUpdateCache = []
+    get mountedPromise() {
+        let me = this;
 
-        /**
-         * A Promise that resolves when the component is mounted to the DOM.
-         * This provides a convenient way to wait for the component to be fully
-         * available and interactive before executing subsequent logic.
-         *
-         * It also handles unmounting by resetting the promise, so it can be safely
-         * awaited again if the component is remounted.
-         * @returns {Promise<Neo.component.Base>}
-         */
-        get mountedPromise() {
-            let me = this;
-
-            if (!me._mountedPromise) {
-                me._mountedPromise = new Promise(resolve => {
-                    if (me.mounted) {
-                        resolve(me);
-                    } else {
-                        me.mountedPromiseResolve = resolve
-                    }
-                })
-            }
-
-            return me._mountedPromise
+        if (!me._mountedPromise) {
+            me._mountedPromise = new Promise(resolve => {
+                if (me.mounted) {
+                    resolve(me);
+                } else {
+                    me.mountedPromiseResolve = resolve
+                }
+            })
         }
+
+        return me._mountedPromise
+    }
 
     /**
      * Convenience method to access the parent component
