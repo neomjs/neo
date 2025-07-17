@@ -55,12 +55,12 @@ class Helper extends Base {
 
         let attributes, delta, value, keys, styles, add, remove;
 
-        if (vnode.vtype === 'text' && vnode.innerHTML !== oldVnode.innerHTML) {
+        if (vnode.vtype === 'text' && vnode.textContent !== oldVnode.textContent) {
             deltas.default.push({
                 action  : 'updateVtext',
                 id      : vnode.id,
                 parentId: vnodeMap.get(vnode.id).parentNode.id,
-                value   : vnode.innerHTML
+                value   : vnode.textContent
             })
         } else {
             keys = Object.keys(vnode);
