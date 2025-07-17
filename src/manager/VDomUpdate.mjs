@@ -78,6 +78,42 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Calculates the adjusted updateDepth for a parent component based on its merged children.
+     * This method is called by the parent component right before it executes its own VDOM update.
+     * @param {String} ownerId
+     * @returns {Number|null} The adjusted update depth or null if no merged children are found
+     */
+    getAdjustedUpdateDepth(ownerId) {
+        let me       = this,
+            owner    = Neo.getComponent(ownerId),
+            item     = me.mergedCallbackMap.get(ownerId),
+            maxDepth = owner?.updateDepth ?? 1,
+            newDepth;
+
+        if (item) {
+            item.children.forEach(child => {
+                if (child.childUpdateDepth === -1) {
+                    newDepth = -1;
+                } else {
+                    // The new depth is the distance to the child plus its own update depth,
+                    // minus 1 because the child's root is at the parent's level 1.
+                    newDepth = child.distance + child.childUpdateDepth - 1;
+                }
+
+                if (newDepth === -1) {
+                    maxDepth = -1;
+                } else if (maxDepth !== -1) {
+                    maxDepth = Math.max(maxDepth, newDepth);
+                }
+            });
+
+            return maxDepth;
+        }
+
+        return null;
+    }
+
+    /**
      * @param {String} ownerId
      */
     executeCallbacks(ownerId) {
@@ -85,7 +121,9 @@ class VDomUpdate extends Collection {
             item = me.mergedCallbackMap.get(ownerId);
 
         if (item) {
-            item.callbacks.forEach(callback => callback());
+            item.children.forEach(child => {
+                child.callbacks.forEach(callback => callback());
+            });
             me.mergedCallbackMap.remove(item);
         }
     }

@@ -376,7 +376,7 @@ class VdomLifecycle extends Base {
             if (parent) {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
                 if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
-                    VDomUpdate.registerMerged(parent.id, me.id, me.resolveUpdateCache);
+                    VDomUpdate.registerMerged(parent.id, me.id, me.resolveUpdateCache, me.updateDepth, distance);
                     resolve && NeoArray.add(me.resolveUpdateCache, resolve);
                     me.resolveUpdateCache = [];
                     return true
@@ -653,6 +653,13 @@ class VdomLifecycle extends Base {
                     && mounted
                     && vnode
                 ) {
+                    // Check for merged child updates and adjust the update depth accordingly
+                    let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
+
+                    if (adjustedDepth !== null) {
+                        me.updateDepth = adjustedDepth;
+                    }
+
                     // Verify that the critical rendering path => CSS files for the new tree is in place
                     if (currentWorker.countLoadingThemeFiles !== 0) {
                         currentWorker.on('themeFilesLoaded', function() {
