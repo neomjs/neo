@@ -114,6 +114,19 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Returns a Set of child IDs that have been merged into a parent's update.
+     * @param {String} ownerId The ID of the parent component owning the update.
+     * @returns {Set<String>|null} A Set containing the IDs of the merged children, or null.
+     */
+    getMergedChildIds(ownerId) {
+        const item = this.mergedCallbackMap.get(ownerId);
+        if (item) {
+            return new Set(item.children.map(c => c.childId));
+        }
+        return null;
+    }
+
+    /**
      * @param {String} ownerId
      */
     executeCallbacks(ownerId) {
