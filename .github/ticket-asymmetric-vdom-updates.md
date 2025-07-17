@@ -86,24 +86,31 @@ The process of building the test suite revealed opportunities to improve the cor
 -   **`VdomLifecycle.promiseUpdate()` Enhancement:** The `promiseUpdate()` method was refactored to resolve with the full data object from `vdom.Helper.update()`, giving developers and tests access to the generated `deltas` and the new `vnode`.
 -   **Environment Robustness:** Several fixes were made to the `VdomLifecycle` mixin to ensure it works reliably in both multi-threaded (worker) and single-threaded (test) environments, particularly around `vdom.Helper` calls and `Neo.currentWorker` access.
 
-## Comparison with `dev` Branch
+-   **`VdomLifecycle.promiseUpdate()` Enhancement:** The `promiseUpdate()` method was refactored to resolve with the full data object from `vdom.Helper.update()`, giving developers and tests access to the generated `deltas` and the new `vnode`.
+-   **Environment Robustness:** Several fixes were made to the `VdomLifecycle` mixin to ensure it works reliably in both multi-threaded (worker) and single-threaded (test) environments, particularly around `vdom.Helper` calls and `Neo.currentWorker` access.
 
-This feature branch contains significant foundational work not present in the `dev` branch. The changes lay the groundwork for the full refactoring while ensuring backward compatibility through extensive testing.
+## Comparison with `dev` Branch (based on PR #7077)
 
-### Changes on this Branch (Not in `dev`)
+This feature branch represents a major architectural enhancement to the VDOM update lifecycle. Here is a summary of the key changes compared to the `dev` branch:
 
--   **New Managers & Utilities:**
-    -   `manager.VDomUpdate`: The new central orchestrator for update collisions has been created.
-    -   `util.vdom.TreeBuilder`: The tree builder has been significantly refactored. It now correctly supports depth-based asymmetric expansion, which is a cornerstone of the new update strategy.
--   **New Test Suites:** Two comprehensive test suites (`VdomAsymmetricUpdates.mjs` and `VdomRealWorldUpdates.mjs`) exist on this branch to validate both the new and existing logic, providing a safety net for the refactoring.
--   **Framework Enhancements:** Core APIs like `Component.mountedPromise` and `VdomLifecycle.promiseUpdate` have been added or improved, enhancing the framework's capabilities for testing and asynchronous operations.
--   **Core Robustness & Refactoring:**
-    -   **`VdomLifecycle.mjs`:** The mixin has been hardened to work reliably in both single-threaded (test) and multi-threaded (worker) environments by wrapping VDOM helper calls in `Promise.resolve()` and using safer access to `Neo.currentWorker`.
-    -   **`main/DeltaUpdates.mjs`:** This module now dynamically imports the correct renderer (`DomApiRenderer` or `StringBasedRenderer`) based on the `useDomApiRenderer` config, making it more flexible and robust.
-    -   **`core/Config.mjs`:** The internal subscription mechanism has been re-architected to be owner-ID-based, preventing subtle bugs when the same callback is registered with different scopes.
-    -   **Markdown Processing:** The logic in `apps/portal/view/learn/ContentComponent.mjs` for handling code blocks has been refactored for better correctness and maintainability.
+-   **New Update Orchestration Core:**
+    -   `manager.VDomUpdate`: A new singleton manager has been introduced to centralize the state for both pre-flight update merges and in-flight update collisions.
+    -   `util.vdom.TreeBuilder`: A new utility class for recursively building VDOM and VNode trees. It is the engine behind creating the *asymmetric* trees needed for optimized updates, correctly expanding component references based on a calculated `updateDepth`.
 
-### Remaining Work to Complete the Epic
+-   **Core Framework Refactoring:**
+    -   `mixin/VdomLifecycle.mjs`: This critical mixin has been significantly refactored. The complex, distributed state management (`childUpdateCache`) has been removed, and it now delegates all collision and merge logic to the new `VDomUpdate` manager.
+    -   `vdom/Helper.mjs`: The diffing engine has been enhanced to support the new asymmetric update strategy.
+    -   `component/Base.mjs`: The base component has been improved with a robust `mountedPromise` for easier async handling and other lifecycle enhancements to support the new update model.
+    -   `manager/Component.mjs`: Has undergone significant refactoring to align with the new VDOM strategies.
+    -   `functional/component/Base.mjs`: The base for functional components has been updated to align with the lifecycle changes in `component.Base`.
+
+-   **New Testing Infrastructure:**
+    -   `test/siesta/tests/vdom/VdomAsymmetricUpdates.mjs`: A new low-level test suite that directly validates the logic of `VDomUpdate` and `TreeBuilder` using mock components.
+    -   `test/siesta/tests/vdom/VdomRealWorldUpdates.mjs`: A new high-level integration test suite using real, nested components to serve as a regression test.
+    -   `src/DefaultConfig.mjs`: The new `allowVdomUpdatesInTests: true` flag has been added to facilitate running VDOM-related tests in a unit test environment.
+    -   `test/siesta/siesta.js`: The test runner has been updated to include these new test suites.
+
+### Remaining Work to Complete the Epic (as of this PR)
 
 The `dev` branch still contains the original, distributed state management logic within `VdomLifecycle.mjs`. The following work remains to be done on this feature branch before it can be merged:
 
