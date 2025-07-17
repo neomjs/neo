@@ -71,8 +71,8 @@ StartTest(t => {
         );
 
         // The child's vdom has now changed. We update our mock to reflect this.
-        const childVdomUpdated = { id: 'child-1', cn: [{ tag: 'span', text: 'Updated' }] };
-        child.vdom = childVdomUpdated;
+        // By mutating the existing vdom object, we ensure stable IDs are preserved for diffing.
+        child.vdom.cn[0].text = 'Updated';
 
         // 3. SIMULATE THE PARENT'S UPDATE LIFECYCLE
         // The parent calculates the required depth for the update.
@@ -123,7 +123,7 @@ StartTest(t => {
         // Create components dependency-first (grandchild -> child -> parent) to ensure
         // component references can be resolved during VDOM/VNode processing.
         let grandchild = createMockComponent('grandchild-1', 'child-1', grandchildVdomInitial);
-        let child      = createMockComponent('child-1', 'parent-1', childVdom);
+        createMockComponent('child-1', 'parent-1', childVdom);
         let parent     = createMockComponent('parent-1', 'root', parentVdom);
 
         // 2. SIMULATE A GRANDCHILD-INITIATED UPDATE
@@ -137,8 +137,8 @@ StartTest(t => {
         );
 
         // The grandchild's vdom has now changed.
-        const grandchildVdomUpdated = { id: 'grandchild-1', cn: [{ tag: 'span', text: 'Updated' }] };
-        grandchild.vdom = grandchildVdomUpdated;
+        // By mutating the existing vdom object, we ensure stable IDs are preserved for diffing.
+        grandchild.vdom.cn[0].text = 'Updated';
 
         // 3. SIMULATE THE PARENT'S UPDATE LIFECYCLE
         // The required depth for the parent should be 3 to expand down to the grandchild.
