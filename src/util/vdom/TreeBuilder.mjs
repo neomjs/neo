@@ -37,19 +37,21 @@ class TreeBuilder extends Base {
             return vdom
         }
 
-        let output     = {...vdom}, // Shallow copy
-            childDepth;
+        let output = {...vdom}; // Shallow copy
 
         if (vdom.cn) {
             output.cn = [];
 
             vdom.cn.forEach(item => {
-                let currentItem = item;
+                let currentItem = item,
+                    childDepth;
 
                 if (currentItem.componentId) {
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        currentItem = {componentId: 'neo-ignore', id: currentItem.id || currentItem.componentId};
+                        output.cn.push({componentId: 'neo-ignore', id: item.id || item.componentId});
+                        // Stop processing this branch
+                        return
                     }
                     // Expand the branch if it's part of a merged update, or if the depth requires it
                     else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
@@ -60,7 +62,6 @@ class TreeBuilder extends Base {
                     }
                 }
 
-                // Check original item
                 if (item.componentId) {
                     childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1)
                 } else {
@@ -84,19 +85,21 @@ class TreeBuilder extends Base {
      * @returns {Object}
      */
     getVnodeTree(vnode, depth = -1, mergedChildIds = null) {
-        let output     = {...vnode}, // Shallow copy
-            childDepth, component;
+        let output = {...vnode}; // Shallow copy
 
         if (vnode.childNodes) {
             output.childNodes = [];
 
             vnode.childNodes.forEach(item => {
-                let currentItem = item;
+                let currentItem = item,
+                    childDepth, component;
 
                 if (currentItem.componentId) {
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        currentItem = {componentId: 'neo-ignore', id: currentItem.id || currentItem.componentId};
+                        output.childNodes.push({componentId: 'neo-ignore', id: item.id || item.componentId});
+                        // Stop processing this branch
+                        return
                     }
                     // Expand the branch if it's part of a merged update, or if the depth requires it
                     else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
@@ -109,7 +112,6 @@ class TreeBuilder extends Base {
                     }
                 }
 
-                // Check original item
                 if (item.componentId) {
                     childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1)
                 } else {
