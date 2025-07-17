@@ -25,11 +25,9 @@ Neo.apps[appName] = {
 class TestGrandchild extends Component {
     static config = {
         className: 'Test.Grandchild',
-        ntype: 'test-grandchild',
-
-        // Since Component already defines 'text_', we provide a default value for 'text'.
-        text: 'initial grandchild',
-        tag : 'span'
+        ntype    : 'test-grandchild',
+        tag      : 'span',
+        text     : 'initial grandchild'
     }
 }
 Neo.setupClass(TestGrandchild);
@@ -37,33 +35,14 @@ Neo.setupClass(TestGrandchild);
 class TestChild extends Container {
     static config = {
         className: 'Test.Child',
-        ntype: 'test-child',
-        layout: {ntype: 'vbox'},
-
-        title_: 'initial child',
-    }
-
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        // The "chrome" component for this container's title is created and managed internally.
-        // We pass a config object, and insert() will create the instance for us.
-        me.titleComponent = me.insert(0, {
-            module: Component,
-            vdom: {
-                tag : 'h2',
-                id  : me.id + '__title',
-                text: me.title
-            }
-        }, true);
+        ntype    : 'test-child',
+        layout   : {ntype: 'vbox'},
+        title_   : 'initial child'
     }
 
     afterSetTitle(value, oldValue) {
         if (oldValue !== undefined) {
-            this.titleComponent.vdom.text = value;
-            this.titleComponent.update();
+            this.items[0].text = value;
         }
     }
 }
@@ -72,24 +51,19 @@ Neo.setupClass(TestChild);
 class TestParent extends Container {
     static config = {
         className: 'Test.Parent',
-        ntype: 'test-parent',
-        layout: {ntype: 'vbox'},
-
-        heading_: 'initial parent',
+        ntype    : 'test-parent',
+        layout   : {ntype: 'vbox'},
+        heading_ : 'initial parent'
     }
 
     construct(config) {
         super.construct(config);
-
         let me = this;
-
-        // The "chrome" component for this container's heading is created and managed internally.
-        // We pass a config object, and insert() will create the instance for us.
         me.headingComponent = me.insert(0, {
             module: Component,
-            vdom: {
-                tag: 'h1',
-                id: me.id + '__heading',
+            vdom  : {
+                tag : 'h1',
+                id  : me.id + '__heading',
                 text: me.heading
             }
         }, true);
@@ -97,57 +71,177 @@ class TestParent extends Container {
 
     afterSetHeading(value, oldValue) {
         if (oldValue !== undefined) {
-            this.headingComponent.vdom.text = value;
-            this.headingComponent.update();
+            this.headingComponent.text = value;
         }
     }
 }
 Neo.setupClass(TestParent);
 
+// A container with its own nested item to test deep structural changes
+class TestChildContainer extends Container {
+    static config = {
+        className: 'Test.ChildContainer',
+        ntype    : 'test-child-container',
+        items    : [
+            {ntype: 'test-grandchild', text: 'I am nested'}
+        ]
+    }
+}
+Neo.setupClass(TestChildContainer);
+
+
 StartTest(t => {
-    t.it('Should merge updates from multiple component levels into a single DOM update', async t => {
-        let parent = Neo.create(TestParent, {
+    let parent, child, grandchild, testRun = 0;
+
+    t.beforeEach(async t => {
+        testRun++;
+        parent = Neo.create(TestParent, {
             appName,
-            id   : 'test-parent-1',
+            id   : 'test-parent-' + testRun,
             items: [
                 {
                     ntype: 'test-child',
-                    id: 'test-child-1',
-                    items: [{ntype: 'test-grandchild'}]
+                    id   : 'test-child-' + testRun,
+                    items: [{ntype: 'test-grandchild', id: 'test-grandchild-' + testRun}]
                 }
             ]
         });
 
-        // 1. Render without mounting to generate the initial vnode state.
         await parent.render();
-
-        let child = Neo.getComponent('test-child-1');
-        let grandchild = child.down('test-grandchild');
-
-        // For a pure VDOM test, we set mounted to true. This will trigger the afterSetMounted hook,
-        // which will propagate down the component tree. This is necessary for promiseUpdate() to run.
+        child      = parent.items[1]; // TestParent inserts a component at index 0
+        grandchild = child.items[0];
         parent.mounted = true;
+    });
 
-        // 2. Trigger updates on the parent and the grandchild in the same event loop tick.
-        // The framework's EffectManager should batch these changes. The grandchild update
-        // should merge into the parent's update cycle.
-        parent.heading = 'Updated Parent';
-        grandchild.text = 'Updated Grandchild';
+    t.afterEach(t => {
+        parent.destroy();
+        parent = null;
+        child = null;
+        grandchild = null;
+    });
 
-        // 3. Wait for the update cycle & get the deltas without rendering to DOM.
-        const updateData = await parent.promiseUpdate();
-        const { deltas } = updateData;
+    t.it('Should handle a simple parent-only update', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        const {deltas} = await parent.promiseUpdate();
 
-        // 4. Assert that the generated deltas are correct.
+        t.is(deltas.length, 1, 'Should generate exactly one delta');
+        const parentUpdate = deltas[0];
+        t.is(parentUpdate.id, parent.headingComponent.id, 'Delta should target the heading component');
+        t.is(parentUpdate.textContent, 'Updated Parent', 'Parent delta text is correct');
+    });
+
+    t.it('Should handle a simple child-only update', async t => {
+        await grandchild.timeout(5);
+
+        grandchild.setSilent({text: 'Updated Grandchild'});
+        const {deltas} = await grandchild.promiseUpdate();
+
+        t.is(deltas.length, 1, 'Should generate exactly one delta');
+        const grandchildUpdate = deltas[0];
+        t.is(grandchildUpdate.id, grandchild.id, 'Delta should target the grandchild component');
+        t.is(grandchildUpdate.textContent, 'Updated Grandchild', 'Grandchild delta text is correct');
+    });
+
+    t.it('Should merge a parent update and a reactively-triggered child update', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        child.setSilent({title: 'Updated Child Title'}); // This reactively updates the grandchild's text
+        const {deltas} = await parent.promiseUpdate();
+
+        t.is(deltas.length, 2, 'Should generate exactly two deltas');
+
         const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
         const grandchildUpdate = deltas.find(d => d.id === grandchild.id);
 
         t.ok(parentUpdate, 'Should have a delta for the parent heading component');
         t.is(parentUpdate.textContent, 'Updated Parent', 'Parent delta text is correct');
-
         t.ok(grandchildUpdate, 'Should have a delta for the grandchild component');
-        t.is(grandchildUpdate.textContent, 'Updated Grandchild', 'Grandchild delta text is correct');
+        t.is(grandchildUpdate.textContent, 'Updated Child Title', 'Grandchild delta text is correct');
+    });
 
-        parent.destroy();
+    t.it('Should handle silent child update merged with parent update', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        grandchild.setSilent({text: 'Silently Updated Grandchild'});
+        const {deltas} = await parent.promiseUpdate();
+
+        t.is(deltas.length, 2, 'Should generate exactly two deltas');
+        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        const grandchildUpdate = deltas.find(d => d.id === grandchild.id);
+
+        t.ok(parentUpdate, 'Should have a delta for the parent heading component');
+        t.is(parentUpdate.textContent, 'Updated Parent', 'Parent delta text is correct');
+        t.ok(grandchildUpdate, 'Should have a delta for the grandchild component');
+        t.is(grandchildUpdate.textContent, 'Silently Updated Grandchild', 'Grandchild delta text is correct');
+    });
+
+    t.it('Should handle structural change (add) in a silent child update', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        const newGrandchild = child.insert(1, {ntype: 'test-grandchild', id: 'new-grandchild-' + testRun, text: 'New Grandchild'}, true);
+        const {deltas} = await parent.promiseUpdate();
+
+        t.is(deltas.length, 2, 'Should generate exactly two deltas');
+        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        const insertionDelta = deltas.find(d => d.action === 'insertNode');
+
+        t.ok(parentUpdate, 'Should have a delta for the parent heading component');
+        t.ok(insertionDelta, 'Should have a delta for the node insertion');
+        t.is(insertionDelta.parentId, child.getVdomItemsRoot().id, 'Insertion delta has correct parentId');
+        t.is(insertionDelta.vnode.id, newGrandchild.vdom.id, 'Inserted vnode has the correct ID');
+        t.is(insertionDelta.vnode.textContent, 'New Grandchild', 'Inserted vnode has correct text');
+
+        newGrandchild.destroy();
+    });
+
+    t.it('Should handle structural change (remove) in a silent child update', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        child.removeAt(0, false, true);
+        const {deltas} = await parent.promiseUpdate();
+
+        t.is(deltas.length, 2, 'Should generate exactly two deltas');
+        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        const removalDelta = deltas.find(d => d.action === 'removeNode');
+
+        t.ok(parentUpdate, 'Should have a delta for the parent heading component');
+        t.ok(removalDelta, 'Should have a delta for the node removal');
+        t.is(removalDelta.id, grandchild.vdom.id, 'Removal delta has the correct ID');
+    });
+
+    t.it('Should handle silent insertion of a container with nested items', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        const newContainer = child.insert(1, {ntype: 'test-child-container', id: 'new-container-' + testRun}, true);
+        const {deltas} = await parent.promiseUpdate();
+
+        t.is(deltas.length, 2, 'Should generate exactly two deltas');
+        const insertionDelta = deltas.find(d => d.action === 'insertNode');
+
+        t.ok(insertionDelta, 'Should have a delta for the node insertion');
+        t.is(insertionDelta.vnode.id, newContainer.vdom.id, 'Inserted vnode has the correct ID');
+        t.is(insertionDelta.vnode.childNodes.length, 1, 'Inserted vnode should have one child node');
+
+        const nestedChild = insertionDelta.vnode.childNodes[0];
+        t.is(nestedChild.id, newContainer.items[0].vdom.id, 'Nested child vnode has the correct ID');
+        t.is(nestedChild.textContent, 'I am nested', 'Nested child vnode has the correct text');
+
+        newContainer.destroy();
+    });
+
+    t.it('Should merge multiple property updates on a child into a single parent update cycle', async t => {
+        parent.setSilent({heading: 'Updated Parent'});
+        grandchild.setSilent({
+            cls : ['new-class'],
+            text: 'Updated Grandchild'
+        });
+        const {deltas} = await parent.promiseUpdate();
+
+        t.is(deltas.length, 2, 'Should generate exactly two deltas');
+
+        const parentUpdate     = deltas.find(d => d.id === parent.headingComponent.id);
+        const grandchildUpdate = deltas.find(d => d.id === grandchild.id);
+
+        t.ok(parentUpdate, 'Should have a delta for the parent heading component');
+        t.is(parentUpdate.textContent, 'Updated Parent', 'Parent delta text is correct');
+
+        t.ok(grandchildUpdate, 'Should have a delta for the grandchild changes');
+        t.is(grandchildUpdate.textContent, 'Updated Grandchild', 'Grandchild text delta is correct');
+        t.isDeeplyStrict(grandchildUpdate.cls.add, ['new-class'], 'Grandchild class delta is correct');
     });
 });

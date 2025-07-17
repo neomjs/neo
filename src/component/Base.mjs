@@ -1899,33 +1899,33 @@ class Component extends Base {
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
-        let me             = this,
-            needsRendering = values.hidden === false && values.hidden !== me.hidden;
+        const
+            me        = this,
+            wasHidden = me.hidden;
 
-        me.silentVdomUpdate = true;
+        me.setSilent(values);
 
-        super.set(values);
-
-        me.silentVdomUpdate = false;
-
-        if (silent || !me.needsVdomUpdate) {
-            return Promise.resolve()
-        } else {
-            if (needsRendering) {
+        if (!silent && me.needsVdomUpdate) {
+            if (wasHidden && !me.hidden) {
                 me.show();
                 return Promise.resolve()
             }
 
             return me.promiseUpdate()
         }
+
+        return Promise.resolve()
     }
 
     /**
-     * Convenience shortcut calling set() with the silent flag
+     * A silent version of set(), which does not trigger a vdom update at the end.
+     * Useful for batching multiple config changes.
      * @param {Object} values={}
      */
-    setSilent(values = {}) {
-        return this.set(values, true)
+    setSilent(values={}) {
+        this.silentVdomUpdate = true;
+        super.set(values);
+        this.silentVdomUpdate = false
     }
 
     /**
