@@ -205,52 +205,52 @@ class VdomLifecycle extends Base {
      * @param {function} [reject] used by promiseUpdate()
      * @private
      */
-    executeVdomUpdate(resolve, reject) {
-        let me            = this,
-            {vdom, vnode} = me,
-            mergedChildIds, opts = {},
-            deltas;
-
-        if (currentWorker?.isSharedWorker) {
-            opts.appName  = me.appName;
-            opts.windowId = me.windowId;
-        }
+    async executeVdomUpdate(resolve, reject) {
+        let me = this;
 
         me.isVdomUpdating = true;
 
-        // we can not set the config directly => it could already be false,
-        // and we still want to pass it further into subtrees
-        me._needsVdomUpdate = false;
-        me.afterSetNeedsVdomUpdate?.(false, true);
+        try {
+            const
+                {vdom, vnode} = me,
+                mergedChildIds = VDomUpdate.getMergedChildIds(me.id),
+                opts = {
+                    vdom : TreeBuilder.getVdomTree(vdom,   me.updateDepth, mergedChildIds),
+                    vnode: TreeBuilder.getVnodeTree(vnode, me.updateDepth, mergedChildIds)
+                };
 
-        mergedChildIds = VDomUpdate.getMergedChildIds(me.id);
-        opts.vdom      = TreeBuilder.getVdomTree(vdom, me.updateDepth, mergedChildIds);
-        opts.vnode     = TreeBuilder.getVnodeTree(vnode, me.updateDepth, mergedChildIds);
+            if (currentWorker?.isSharedWorker) {
+                opts.appName  = me.appName;
+                opts.windowId = me.windowId;
+            }
 
-        // Reset the updateDepth to the default value for the next update cycle
-        me._updateDepth = me.constructor.config.updateDepth;
+            // We cannot set the config directly => it could already be false,
+            // and we still want to pass it further into subtrees
+            me._needsVdomUpdate = false;
+            me.afterSetNeedsVdomUpdate?.(false, true);
 
-        Promise.resolve(Neo.vdom.Helper.update(opts)).catch(err => {
-            me.isVdomUpdating = false;
-            reject?.()
-        }).then(data => {
-            // Checking if the component got destroyed before the update cycle is done
+            // Reset the updateDepth to the default value for the next update cycle
+            me._updateDepth = me.constructor.config.updateDepth;
+
+            const data = await Promise.resolve(Neo.vdom.Helper.update(opts));
+
+            // Component could be destroyed while the update is running
             if (me.id) {
                 // It is crucial to delegate the vnode tree before resolving the cycle
                 me.vnode = data.vnode;
-                me.isVdomUpdating = false;
 
-                deltas = data.deltas;
-
-                if (!Neo.config.useVdomWorker && deltas.length > 0) {
-                    Neo.applyDeltas(me.appName, deltas).then(() => {
-                        me.resolveVdomUpdate(resolve, data)
-                    })
-                } else {
-                    me.resolveVdomUpdate(resolve, data)
+                // When not using a VdomWorker, we need to apply the deltas inside the App worker
+                if (!Neo.config.useVdomWorker && data.deltas?.length > 0) {
+                    await Neo.applyDeltas(me.appName, data.deltas)
                 }
+
+                me.isVdomUpdating = false;
+                me.resolveVdomUpdate(resolve, data)
             }
-        })
+        } catch (err) {
+            me.isVdomUpdating = false;
+            reject?.(err)
+        }
     }
     /**
      * Honors different item roots for mount / render OPs
@@ -409,7 +409,7 @@ class VdomLifecycle extends Base {
                 app.rendered = true;
                 app.fire('render')
             }
-console.log(vnode);
+
             me.vnode = vnode;
 
             let childIds = ComponentManager.getChildIds(vnode),
