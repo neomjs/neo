@@ -49,7 +49,7 @@ class TreeBuilder extends Base {
                 if (currentItem.componentId) {
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        currentItem = {componentId: 'neo-ignore', id: currentItem.id}
+                        currentItem = {componentId: 'neo-ignore', id: currentItem.id || currentItem.componentId};
                     }
                     // Expand the branch if it's part of a merged update, or if the depth requires it
                     else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
@@ -96,7 +96,7 @@ class TreeBuilder extends Base {
                 if (currentItem.componentId) {
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        currentItem = {componentId: 'neo-ignore', id: currentItem.id}
+                        currentItem = {componentId: 'neo-ignore', id: currentItem.id || currentItem.componentId};
                     }
                     // Expand the branch if it's part of a merged update, or if the depth requires it
                     else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
