@@ -349,7 +349,10 @@ class FunctionalBase extends Base {
                 }
 
                 if (hasNewChildren) {
-                    me.updateDepth = 2
+                    // When new child components are created, we need to send their full VDOM
+                    // to the vdom-worker, so they can get rendered.
+                    // Subsequent updates will be granular via diffAndSet() => set() on the child.
+                    me.updateDepth = -1;
                 }
 
                 me.updateVdom();
