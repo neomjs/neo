@@ -166,19 +166,16 @@ class Provider extends Base {
 
         if (value) {
             Object.entries(value).forEach(([formulaKey, formulaFn]) => {
-                // Create a new Effect for each formula. The Effect's fn will re-run whenever its dependencies change.
-                const effect = new Effect(() => {
-                    const
-                        hierarchicalData = me.getHierarchyData(), // Get the reactive data proxy
-                        result           = formulaFn(hierarchicalData); // Execute the formula with the data
+                // Create a new lazy Effect. It will not run until explicitly told to.
+                const effect = new Effect({
+                    fn: () => {
+                        const
+                            hierarchicalData = me.getHierarchyData(),
+                            result           = formulaFn(hierarchicalData);
 
-                    // Assign the result back to the state provider's data.
-                    // This makes the formula's output available as a data property.
-                    if (isNaN(result)) {
-                        me.setData(formulaKey, null)
-                    } else {
-                        me.setData(formulaKey, result)
-                    }
+                        me.setData(formulaKey, result);
+                    },
+                    lazy: true
                 });
 
                 me.#formulaEffects.set(formulaKey, effect)
@@ -241,7 +238,7 @@ class Provider extends Base {
                     component[configKey] = newValue;
                     delete component._skipTwoWayPush
                 }
-        });
+            });
 
         me.#bindingEffects.set(componentId, effect);
 
@@ -531,6 +528,18 @@ class Provider extends Base {
      */
     isStoreValue(value) {
         return Neo.isString(value) && value.startsWith('stores.')
+    }
+
+    /**
+     * Gets called after all constructors & configs are applied.
+     * @protected
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        // After the provider is fully constructed and initial data is set,
+        // run the formula effects for the first time to compute their initial values.
+        this.#formulaEffects.forEach(effect => effect.run())
     }
 
     /**

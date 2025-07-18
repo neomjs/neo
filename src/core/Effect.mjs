@@ -57,12 +57,30 @@ class Effect {
     }
 
     /**
-     * @param {Function} fn          - The function to execute for the effect.
-     * @param {String} [componentId] - The component id this effect belongs to.
-     * @param {Object} [subscriber]  - Optional. An object containing the subscription details.
+     * @param {Function|Object}  fn              - The function to execute, or a config object for the effect.
+     * @param {Function}        [fn.fn]          - The function to execute for the effect (if the first argument is an object).
+     * @param {String}          [fn.componentId] - The component id this effect belongs to.
+     * @param {Boolean}         [fn.lazy=false]  - If true, the effect will not run immediately upon creation.
+     * @param {Object|Object[]} [fn.subscriber]  - A single subscriber or an array of subscribers for the isRunning config.
+     * @param {Object}          [options={}]     - Optional. Used if the first argument is a function, this object contains the options.
+     * @example
+     * // Signature 1: Function and Options
+     * const myEffect = new Effect(() => console.log('Run'), {lazy: true});
+     * @example
+     * // Signature 2: Single Config Object
+     * const myEffect = new Effect({fn: () => console.log('Run'), lazy: true});
      */
-    constructor(fn, componentId, subscriber) {
+    constructor(fn, options={}) {
         const me = this;
+
+        // This single statement handles both (fn, options) and ({...}) signatures
+        // by normalizing them into a single object that we can destructure.
+        const {
+              fn: effectFn,
+              componentId,
+              lazy = false,
+              subscriber
+        } = (typeof fn === 'function') ? { ...options, fn } : (fn || {});
 
         if (componentId) {
             me.componentId = componentId
@@ -70,14 +88,19 @@ class Effect {
 
         me.isRunning = new Config(false);
 
-        // The subscriber must be added *before* the first run is triggered via the fn setter.
-        // This is critical for consumers like functional components, which need to process
-        // the initial VDOM synchronously within the constructor lifecycle.
+        // The subscriber(s) must be added *before* the first run is triggered.
         if (subscriber) {
-            me.isRunning.subscribe(subscriber)
+            // A concise way to handle both single and array subscribers.
+            [].concat(subscriber).forEach(sub => me.isRunning.subscribe(sub))
         }
 
-        me.fn = fn
+        // If lazy, just store the function without running it.
+        // Otherwise, use the setter to trigger the initial run.
+        if (lazy) {
+            me._fn = effectFn
+        } else {
+            me.fn = effectFn
+        }
     }
 
     /**
@@ -155,11 +178,14 @@ Neo.core ??= {};
 if (!Neo.core.Effect) {
     Neo.core.Effect = Effect;
 
-    // Register a shortcut to the Neo namespace
-    Neo.effect = function(fn, id) {
-        return new Effect(fn, id)
-    }
+    /**
+     * Factory shortcut to create a new Neo.core.Effect instance.
+     * @function Neo.effect
+     * @param {Function|Object} fn - The function to execute, or a config object for the effect.
+     * @param {Object} [options] - Optional. Used if the first argument is a function.
+     * @returns {Neo.core.Effect}
+     */
+    Neo.effect = (fn, options) => new Effect(fn, options)
 }
 
 export default Neo.core.Effect;
-

@@ -139,14 +139,18 @@ class FunctionalBase extends Base {
         });
 
         // Creates a reactive effect that re-executes createVdom() when dependencies change.
-        me.vdomEffect = new Effect(() => {
-            me[hookIndexSymbol]        = 0;
-            me[pendingDomEventsSymbol] = []; // Clear pending events for new render
-            me[vdomToApplySymbol]      = me.createVdom(me, me.data)
-        }, me.id, {
-            id   : me.id,
-            fn   : me.onEffectRunStateChange,
-            scope: me
+        me.vdomEffect = new Effect({
+            fn: () => {
+                me[hookIndexSymbol]        = 0;
+                me[pendingDomEventsSymbol] = []; // Clear pending events for new render
+                me[vdomToApplySymbol]      = me.createVdom(me, me.data)
+            },
+            componentId: me.id,
+            subscriber : {
+                id   : me.id,
+                fn   : me.onEffectRunStateChange,
+                scope: me
+            }
         })
     }
 
