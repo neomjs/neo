@@ -56,11 +56,5 @@ const EffectManager = {
     }
 };
 
-Neo.core ??= {};
-
-if (!Neo.core.EffectManager) {
-    Neo.core.EffectManager = EffectManager
-}
-
-export default Neo.core.EffectManager;
+export default Neo.gatekeep(EffectManager, 'Neo.core.EffectManager');
 

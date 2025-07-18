@@ -136,7 +136,4 @@ function normalizeClassName(classNameInput) {
     return [...new Set(normalizedClasses)]
 }
 
-const ns = Neo.ns('Neo.vdom', true);
-ns.VNode = VNode;
-
-export default VNode;
+export default Neo.gatekeep(VNode, 'Neo.vdom.VNode');

@@ -30,12 +30,6 @@ const IdGenerator = {
     }
 }
 
-Neo.core ??= {};
-
-if (!Neo.core.IdGenerator) {
-    Neo.core.IdGenerator = IdGenerator;
-
-    Neo.getId = IdGenerator.getId.bind(IdGenerator)
-}
-
-export default Neo.core.IdGenerator;
+export default Neo.gatekeep(IdGenerator, 'Neo.core.IdGenerator', () => {
+    Neo.getId = IdGenerator.getId.bind(IdGenerator);
+});

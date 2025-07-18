@@ -229,9 +229,8 @@ class Config {
                     }
                 }
             }
-        };
+        }
     }
-
 }
 
 Object.defineProperties(Config.prototype, {
@@ -241,11 +240,4 @@ Object.defineProperties(Config.prototype, {
     mergeStrategy: {configurable: true, enumerable: false, value: 'replace',   writable: false}
 });
 
-Neo.core ??= {};
-
-if (!Neo.core.Config) {
-    Neo.core.Config = Config
-}
-
-export default Neo.core.Config;
-
+export default Neo.gatekeep(Config, 'Neo.core.Config');

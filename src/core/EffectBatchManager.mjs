@@ -64,10 +64,4 @@ const EffectBatchManager = {
     }
 };
 
-Neo.core ??= {};
-
-if (!Neo.core.EffectBatchManager) {
-    Neo.core.EffectBatchManager = EffectBatchManager
-}
-
-export default Neo.core.EffectBatchManager;
+export default Neo.gatekeep(EffectBatchManager, 'Neo.core.EffectBatchManager');

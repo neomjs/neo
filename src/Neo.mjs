@@ -453,6 +453,36 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
     emptyFn() {},
 
     /**
+     * Ensures a class is assigned to the Neo namespace only once, preventing duplicates.
+     * This is a lightweight version of `Neo.setupClass` for simple classes
+     * that do not extend `Neo.core.Base`.
+     * It follows a "first one wins" strategy.
+     *
+     * @param {Function|Object} module    - The class constructor or singleton object to register.
+     * @param {String}          classPath - The fully qualified name (e.g., 'Neo.core.Config').
+     * @param {Function}       [onFirst]  - An optional callback that runs only the first time the class is registered.
+     * @returns {Function|Object} The class or singleton from the Neo namespace (either the existing one or the newly set one).
+     */
+    gatekeep(module, classPath, onFirst) {
+        const existingClass = Neo.ns(classPath, false);
+
+        if (existingClass) {
+            return existingClass
+        }
+
+        const
+            nsArray   = classPath.split('.'),
+            className = nsArray.pop(),
+            parentNs  = Neo.ns(nsArray, true);
+
+        parentNs[className] = module;
+
+        onFirst?.(module);
+
+        return parentNs[className]
+    },
+
+    /**
      * Checks if there is a set method for a given property key inside the prototype chain
      * @memberOf module:Neo
      * @param {Neo.core.Base} proto The top level prototype of a class

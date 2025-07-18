@@ -163,10 +163,7 @@ class Compare {
     }
 }
 
-const ns = Neo.ns('Neo.core', true);
-ns.Compare = Compare;
-
-// alias
-Neo.isEqual = Compare.isEqual;
-
-export default Compare;
+export default Neo.gatekeep(Compare, 'Neo.core.Compare', () => {
+    // alias
+    Neo.isEqual = Compare.isEqual
+});
