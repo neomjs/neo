@@ -48,7 +48,8 @@ project.plan(
         group: 'state',
         items: [
             'tests/state/createHierarchicalDataProxy.mjs',
-            'tests/state/Provider.mjs'
+            'tests/state/Provider.mjs',
+            'tests/state/ProviderNestedDataConfigs.mjs'
         ]
     },
     'tests/CollectionBase.mjs',

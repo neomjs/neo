@@ -2,6 +2,7 @@ import Base                          from '../core/Base.mjs';
 import ClassSystemUtil               from '../util/ClassSystem.mjs';
 import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
+import EffectBatchManager            from '../core/EffectBatchManager.mjs';
 import Observable                    from '../core/Observable.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
@@ -449,22 +450,25 @@ class Provider extends Base {
                 }
             }
         }
-        return Array.from(keys);
+
+        return Array.from(keys)
     }
 
     /**
-     * Internal method to avoid code redundancy.
-     * Use setData() or setDataAtSameLevel() instead.
+     * This is the core method for setting data, providing a single entry point for all data modifications.
+     * It handles multiple scenarios:
+     * 1.  **Object-based updates:** If `key` is an object, it recursively calls itself for each key-value pair.
+     * 2.  **Data Records:** If `value` is a `Neo.data.Record`, it is treated as an atomic value and set directly.
+     * 3.  **Bubbling Reactivity:** For a given key (e.g., 'user.name'), it sets the leaf value and then "bubbles up"
+     *     the change, creating new parent objects (e.g., 'user') to ensure that effects depending on any part
+     *     of the path are triggered.
      *
-     * This method handles setting data properties, including nested paths and Neo.data.Record instances.
-     * It determines the owning StateProvider in the hierarchy and delegates to #setConfigValue.
+     * All updates are batched by the public `setData` methods to ensure effects run only once.
+     * Use `setData()` or `setDataAtSameLevel()` instead of calling this method directly.
      *
-     * Passing an originStateProvider param will try to set each key on the closest property match
-     * inside the parent stateProvider chain => setData()
-     * Not passing it will set all values on the stateProvider where the method gets called => setDataAtSameLevel()
-     * @param {Object|String} key
-     * @param {*} value
-     * @param {Neo.state.Provider} [originStateProvider]
+     * @param {Object|String} key The property to set, or an object of key-value pairs.
+     * @param {*} value The new value.
+     * @param {Neo.state.Provider} [originStateProvider] The provider to start the search from for hierarchical updates.
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
@@ -472,7 +476,7 @@ class Provider extends Base {
 
         // If the value is a Neo.data.Record, treat it as an atomic value
         // and set it directly without further recursive processing of its properties.
-        if (Neo.isObject(value) && value.isRecord) {
+        if (Neo.isRecord(value)) {
             const
                 ownerDetails   = me.getOwnerOfDataProperty(key),
                 targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
@@ -481,8 +485,6 @@ class Provider extends Base {
             return
         }
 
-        // If the key is an object, iterate over its entries and recursively call internalSetData.
-        // This handles setting multiple properties at once (e.g., setData({prop1: val1, prop2: val2})).
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originStateProvider)
@@ -490,33 +492,33 @@ class Provider extends Base {
             return
         }
 
-        // Handle single key/value pairs, including nested paths (e.g., 'user.firstName').
         const
             ownerDetails   = me.getOwnerOfDataProperty(key),
-            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me),
-            pathParts      = key.split('.');
+            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
 
-        let currentPath     = '',
-            currentConfig   = null,
-            currentProvider = targetProvider;
+        me.#setConfigValue(targetProvider, key, value, null);
 
-        for (let i = 0; i < pathParts.length; i++) {
-            const part = pathParts[i];
-            currentPath = currentPath ? `${currentPath}.${part}` : part;
-            currentConfig = currentProvider.getDataConfig(currentPath);
+        // Bubble up the change to parent configs to trigger their effects
+        let path        = key,
+            latestValue = value;
 
-            if (i === pathParts.length - 1) { // Last part of the path
-                // Set the value for the final property in the path.
-                me.#setConfigValue(currentProvider, currentPath, value, null)
-            } else { // Intermediate part of the path
-                // Ensure intermediate paths exist as objects. If not, create them.
-                // If an intermediate path exists but is not an object, overwrite it with an empty object.
-                if (!currentConfig) {
-                    currentConfig = new Config({}); // Create an empty object config
-                    currentProvider.#dataConfigs[currentPath] = currentConfig
-                } else if (!Neo.isObject(currentConfig.get())) {
-                    currentConfig.set({})
+        while (path.includes('.')) {
+            const leafKey = path.split('.').pop();
+            path = path.substring(0, path.lastIndexOf('.'));
+
+            const parentConfig = targetProvider.getDataConfig(path);
+
+            if (parentConfig) {
+                const oldParentValue = parentConfig.get();
+                if (Neo.isObject(oldParentValue)) {
+                    const newParentValue = { ...oldParentValue, [leafKey]: latestValue };
+                    parentConfig.set(newParentValue);
+                    latestValue = newParentValue;
+                } else {
+                    break // Stop if parent is not an object
                 }
+            } else {
+                break // Stop if parent config does not exist
             }
         }
     }
@@ -622,21 +624,33 @@ class Provider extends Base {
     /**
      * The method will assign all values to the closest stateProvider where it finds an existing key.
      * In case no match is found inside the parent chain, a new data property will get generated.
+     *
+     * All updates within a single call are batched to ensure that reactive effects (bindings and formulas)
+     * are run only once.
+     *
      * @param {Object|String} key
      * @param {*} value
      */
     setData(key, value) {
-        this.internalSetData(key, value, this)
+        EffectBatchManager.startBatch();
+        this.internalSetData(key, value, this);
+        EffectBatchManager.endBatch()
     }
 
     /**
      * Use this method instead of setData() in case you want to enforce
      * setting all keys on this instance instead of looking for matches inside parent stateProviders.
+     *
+     * All updates within a single call are batched to ensure that reactive effects (bindings and formulas)
+     * are run only once.
+     *
      * @param {Object|String} key
      * @param {*} value
      */
     setDataAtSameLevel(key, value) {
-        this.internalSetData(key, value)
+        EffectBatchManager.startBatch();
+        this.internalSetData(key, value);
+        EffectBatchManager.endBatch()
     }
 }
 
