@@ -14,6 +14,7 @@ class PageSectionsContainer extends Container {
         className: 'Portal.view.learn.PageSectionsContainer',
         /**
          * @member {String[]} cls=['portal-page-sections-container']
+         * @reactive
          */
         cls: ['portal-page-sections-container'],
         /**
@@ -42,10 +43,12 @@ class PageSectionsContainer extends Container {
         }],
         /**
          * @member {Object} layout={ntype:'vbox'}
+         * @reactive
          */
         layout: {ntype: 'vbox'},
         /**
          * @member {String} tag='aside'
+         * @reactive
          */
         tag: 'aside'
     }

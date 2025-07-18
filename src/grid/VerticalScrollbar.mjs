@@ -26,10 +26,12 @@ class VerticalScrollbar extends Component {
         /**
          * Number in px
          * @member {Number} rowHeight_=0
+         * @reactive
          */
         rowHeight_: 0,
         /**
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**

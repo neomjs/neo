@@ -2,6 +2,7 @@ import Base                          from '../core/Base.mjs';
 import ClassSystemUtil               from '../util/ClassSystem.mjs';
 import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
+import EffectBatchManager            from '../core/EffectBatchManager.mjs';
 import Observable                    from '../core/Observable.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
@@ -12,6 +13,7 @@ const twoWayBindingSymbol = Symbol.for('twoWayBinding');
  * An optional component state provider for adding bindings to configs
  * @class Neo.state.Provider
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Provider extends Base {
     /**
@@ -55,6 +57,7 @@ class Provider extends Base {
          *             theme: 'dark'
          *         }
          *     }
+         * @reactive
          */
         data_: {
             [isDescriptor]: true,
@@ -79,10 +82,12 @@ class Provider extends Base {
          *         // Accessing parent data (assuming a parent provider has a 'taxRate' property)
          *         totalWithTax: (data) => data.total * (1 + data.taxRate)
          *     }
+         * @reactive
          */
         formulas_: null,
         /**
          * @member {Neo.state.Provider|null} parent_=null
+         * @reactive
          */
         parent_: null,
         /**
@@ -104,6 +109,7 @@ class Provider extends Base {
          *             autoLoad: true
          *         }
          *     }
+         * @reactive
          */
         stores_: null
     }
@@ -161,21 +167,16 @@ class Provider extends Base {
 
         if (value) {
             Object.entries(value).forEach(([formulaKey, formulaFn]) => {
-                // Create a new Effect for each formula. The Effect's fn will re-run whenever its dependencies change.
+                // Create a new lazy Effect. It will not run until explicitly told to.
                 const effect = new Effect({
                     fn: () => {
                         const
-                            hierarchicalData = me.getHierarchyData(), // Get the reactive data proxy
-                            result           = formulaFn(hierarchicalData); // Execute the formula with the data
+                            hierarchicalData = me.getHierarchyData(),
+                            result           = formulaFn(hierarchicalData);
 
-                        // Assign the result back to the state provider's data.
-                        // This makes the formula's output available as a data property.
-                        if (isNaN(result)) {
-                            me.setData(formulaKey, null)
-                        } else {
-                            me.setData(formulaKey, result)
-                        }
-                    }
+                        me.setData(formulaKey, result);
+                    },
+                    lazy: true
                 });
 
                 me.#formulaEffects.set(formulaKey, effect)
@@ -223,24 +224,22 @@ class Provider extends Base {
      * @param {String} configKey The component config to bind (e.g., 'text').
      * @param {String|Function} formatter The function that computes the value.
      */
-    createBinding(componentId, configKey, key, isTwoWay) {
+    createBinding(componentId, configKey, formatter) {
         const
             me     = this,
-            effect = new Effect({
-            fn: () => {
+            effect = new Effect(() => {
                 const component = Neo.get(componentId);
 
                 if (component && !component.isDestroyed) {
                     const
                         hierarchicalData = me.getHierarchyData(),
-                        newValue         = Neo.isFunction(key) ? key.call(me, hierarchicalData) : hierarchicalData[key];
+                        newValue         = Neo.isFunction(formatter) ? formatter.call(me, hierarchicalData) : hierarchicalData[formatter];
 
                     component._skipTwoWayPush = configKey;
                     component[configKey] = newValue;
                     delete component._skipTwoWayPush
                 }
-            }
-        });
+            });
 
         me.#bindingEffects.set(componentId, effect);
 
@@ -262,7 +261,8 @@ class Provider extends Base {
      * @param {Neo.component.Base} component The component instance whose bindings are to be created.
      */
     createBindings(component) {
-        let hasTwoWayBinding = false;
+        let me               = this,
+            hasTwoWayBinding = false;
 
         Object.entries(component.bind || {}).forEach(([configKey, value]) => {
             let key = value;
@@ -276,12 +276,12 @@ class Provider extends Base {
             }
 
             // Determine if it's a store binding or a data binding.
-            if (this.isStoreValue(key)) {
+            if (me.isStoreValue(key)) {
                 // For store bindings, resolve the store and assign it to the component config.
-                this.resolveStore(component, configKey, key.substring(7)) // remove the "stores." prefix
+                me.resolveStore(component, configKey, key.substring(7)) // remove the "stores." prefix
             } else {
                 // For data bindings, create an Effect to keep the component config in sync with the data.
-                this.createBinding(component.id, configKey, key, value.twoWay)
+                me.createBinding(component.id, configKey, key, value.twoWay)
             }
         });
 
@@ -435,34 +435,40 @@ class Provider extends Base {
      * @returns {String[]}
      */
     getTopLevelDataKeys(path) {
-        const keys = new Set();
-        const pathPrefix = path ? `${path}.` : '';
+        const
+            keys       = new Set(),
+            pathPrefix = path ? `${path}.` : '';
 
         for (const fullPath in this.#dataConfigs) {
             if (fullPath.startsWith(pathPrefix)) {
-                const relativePath = fullPath.substring(pathPrefix.length);
-                const topLevelKey = relativePath.split('.')[0];
+                const
+                    relativePath = fullPath.substring(pathPrefix.length),
+                    topLevelKey  = relativePath.split('.')[0];
+
                 if (topLevelKey) {
-                    keys.add(topLevelKey);
+                    keys.add(topLevelKey)
                 }
             }
         }
-        return Array.from(keys);
+
+        return Array.from(keys)
     }
 
     /**
-     * Internal method to avoid code redundancy.
-     * Use setData() or setDataAtSameLevel() instead.
+     * This is the core method for setting data, providing a single entry point for all data modifications.
+     * It handles multiple scenarios:
+     * 1.  **Object-based updates:** If `key` is an object, it recursively calls itself for each key-value pair.
+     * 2.  **Data Records:** If `value` is a `Neo.data.Record`, it is treated as an atomic value and set directly.
+     * 3.  **Bubbling Reactivity:** For a given key (e.g., 'user.name'), it sets the leaf value and then "bubbles up"
+     *     the change, creating new parent objects (e.g., 'user') to ensure that effects depending on any part
+     *     of the path are triggered.
      *
-     * This method handles setting data properties, including nested paths and Neo.data.Record instances.
-     * It determines the owning StateProvider in the hierarchy and delegates to #setConfigValue.
+     * All updates are batched by the public `setData` methods to ensure effects run only once.
+     * Use `setData()` or `setDataAtSameLevel()` instead of calling this method directly.
      *
-     * Passing an originStateProvider param will try to set each key on the closest property match
-     * inside the parent stateProvider chain => setData()
-     * Not passing it will set all values on the stateProvider where the method gets called => setDataAtSameLevel()
-     * @param {Object|String} key
-     * @param {*} value
-     * @param {Neo.state.Provider} [originStateProvider]
+     * @param {Object|String} key The property to set, or an object of key-value pairs.
+     * @param {*} value The new value.
+     * @param {Neo.state.Provider} [originStateProvider] The provider to start the search from for hierarchical updates.
      * @protected
      */
     internalSetData(key, value, originStateProvider) {
@@ -470,7 +476,7 @@ class Provider extends Base {
 
         // If the value is a Neo.data.Record, treat it as an atomic value
         // and set it directly without further recursive processing of its properties.
-        if (Neo.isObject(value) && value.isRecord) {
+        if (Neo.isRecord(value)) {
             const
                 ownerDetails   = me.getOwnerOfDataProperty(key),
                 targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
@@ -479,8 +485,6 @@ class Provider extends Base {
             return
         }
 
-        // If the key is an object, iterate over its entries and recursively call internalSetData.
-        // This handles setting multiple properties at once (e.g., setData({prop1: val1, prop2: val2})).
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originStateProvider)
@@ -488,33 +492,33 @@ class Provider extends Base {
             return
         }
 
-        // Handle single key/value pairs, including nested paths (e.g., 'user.firstName').
         const
             ownerDetails   = me.getOwnerOfDataProperty(key),
-            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me),
-            pathParts      = key.split('.');
+            targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
 
-        let currentPath     = '',
-            currentConfig   = null,
-            currentProvider = targetProvider;
+        me.#setConfigValue(targetProvider, key, value, null);
 
-        for (let i = 0; i < pathParts.length; i++) {
-            const part = pathParts[i];
-            currentPath = currentPath ? `${currentPath}.${part}` : part;
-            currentConfig = currentProvider.getDataConfig(currentPath);
+        // Bubble up the change to parent configs to trigger their effects
+        let path        = key,
+            latestValue = value;
 
-            if (i === pathParts.length - 1) { // Last part of the path
-                // Set the value for the final property in the path.
-                me.#setConfigValue(currentProvider, currentPath, value, null)
-            } else { // Intermediate part of the path
-                // Ensure intermediate paths exist as objects. If not, create them.
-                // If an intermediate path exists but is not an object, overwrite it with an empty object.
-                if (!currentConfig) {
-                    currentConfig = new Config({}); // Create an empty object config
-                    currentProvider.#dataConfigs[currentPath] = currentConfig
-                } else if (!Neo.isObject(currentConfig.get())) {
-                    currentConfig.set({})
+        while (path.includes('.')) {
+            const leafKey = path.split('.').pop();
+            path = path.substring(0, path.lastIndexOf('.'));
+
+            const parentConfig = targetProvider.getDataConfig(path);
+
+            if (parentConfig) {
+                const oldParentValue = parentConfig.get();
+                if (Neo.isObject(oldParentValue)) {
+                    const newParentValue = { ...oldParentValue, [leafKey]: latestValue };
+                    parentConfig.set(newParentValue);
+                    latestValue = newParentValue;
+                } else {
+                    break // Stop if parent is not an object
                 }
+            } else {
+                break // Stop if parent config does not exist
             }
         }
     }
@@ -526,6 +530,18 @@ class Provider extends Base {
      */
     isStoreValue(value) {
         return Neo.isString(value) && value.startsWith('stores.')
+    }
+
+    /**
+     * Gets called after all constructors & configs are applied.
+     * @protected
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        // After the provider is fully constructed and initial data is set,
+        // run the formula effects for the first time to compute their initial values.
+        this.#formulaEffects.forEach(effect => effect.run())
     }
 
     /**
@@ -552,14 +568,14 @@ class Provider extends Base {
 
             // Ensure a Config instance exists for the current fullPath
             if (me.#dataConfigs[fullPath]) {
-                me.#dataConfigs[fullPath].set(value);
+                me.#dataConfigs[fullPath].set(value)
             } else {
-                me.#dataConfigs[fullPath] = new Config(value);
+                me.#dataConfigs[fullPath] = new Config(value)
             }
 
             // If the value is a plain object, recursively process its properties
             if (Neo.typeOf(value) === 'Object') {
-                me.processDataObject(value, fullPath);
+                me.processDataObject(value, fullPath)
             }
         });
     }
@@ -608,21 +624,33 @@ class Provider extends Base {
     /**
      * The method will assign all values to the closest stateProvider where it finds an existing key.
      * In case no match is found inside the parent chain, a new data property will get generated.
+     *
+     * All updates within a single call are batched to ensure that reactive effects (bindings and formulas)
+     * are run only once.
+     *
      * @param {Object|String} key
      * @param {*} value
      */
     setData(key, value) {
-        this.internalSetData(key, value, this)
+        EffectBatchManager.startBatch();
+        this.internalSetData(key, value, this);
+        EffectBatchManager.endBatch()
     }
 
     /**
      * Use this method instead of setData() in case you want to enforce
      * setting all keys on this instance instead of looking for matches inside parent stateProviders.
+     *
+     * All updates within a single call are batched to ensure that reactive effects (bindings and formulas)
+     * are run only once.
+     *
      * @param {Object|String} key
      * @param {*} value
      */
     setDataAtSameLevel(key, value) {
-        this.internalSetData(key, value)
+        EffectBatchManager.startBatch();
+        this.internalSetData(key, value);
+        EffectBatchManager.endBatch()
     }
 }
 

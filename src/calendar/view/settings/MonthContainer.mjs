@@ -15,6 +15,7 @@ class MonthContainer extends Container {
         className: 'Neo.calendar.view.settings.MonthContainer',
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }

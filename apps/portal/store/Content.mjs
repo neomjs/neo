@@ -14,6 +14,7 @@ class Content extends Store {
         className: 'Portal.store.Content',
         /**
          * @member {Neo.data.Model} model=ContentModel
+         * @reactive
          */
         model: ContentModel
     }

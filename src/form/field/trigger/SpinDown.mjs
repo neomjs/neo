@@ -19,10 +19,12 @@ class SpinDown extends Base {
         ntype: 'trigger-spindown',
         /**
          * @member {String} align_='start'
+         * @reactive
          */
         align: 'start',
         /**
          * @member {String|null} iconCls='fa fa-chevron-left'
+         * @reactive
          */
         iconCls: 'fa fa-chevron-left',
         /**

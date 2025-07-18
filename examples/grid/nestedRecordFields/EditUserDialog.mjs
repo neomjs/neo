@@ -29,14 +29,17 @@ class EditUserDialog extends Dialog {
         },
         /**
          * @member {Boolean} modal=true
+         * @reactive
          */
         modal: true,
         /**
          * @member {Record|null} record_=null
+         * @reactive
          */
         record_: null,
         /**
          * @member {String} title='Edit User'
+         * @reactive
          */
         title: 'Edit User',
         /**

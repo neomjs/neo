@@ -18,6 +18,7 @@ class CountryStore extends Store {
         keyProperty: 'country',
         /**
          * @member {Neo.data.Model} model=CountryModel
+         * @reactive
          */
         model: CountryModel
     }

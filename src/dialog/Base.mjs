@@ -35,6 +35,7 @@ class Dialog extends Panel {
         animateOnDragEnd: false,
         /**
          * @member {String|null} animateTargetId_=null
+         * @reactive
          */
         animateTargetId_: null,
         /**
@@ -68,6 +69,7 @@ class Dialog extends Panel {
         closeAction: 'close',
         /**
          * @member {Boolean} draggable_=true
+         * @reactive
          */
         draggable_: true,
         /**
@@ -102,6 +104,7 @@ class Dialog extends Panel {
         isDragging: false,
         /**
          * @member {Object} keys={Escape:'onKeyDownEscape'}
+         * @reactive
          */
         keys: {
             Escape: 'onKeyDownEscape'
@@ -112,6 +115,7 @@ class Dialog extends Panel {
         maximizeCls: 'far fa-window-maximize',
         /**
          * @member {Boolean} maximized_=false
+         * @reactive
          */
         maximized_: false,
         /**
@@ -120,10 +124,12 @@ class Dialog extends Panel {
         minimizeCls: 'far fa-window-minimize',
         /**
          * @member {Boolean} modal_=false
+         * @reactive
          */
         modal_: false,
         /**
          * @member {Boolean} resizable_=true
+         * @reactive
          */
         resizable_: true,
         /**
@@ -132,12 +138,14 @@ class Dialog extends Panel {
         resizablePluginConfig: null,
         /**
          * @member {String|null} title_=null
+         * @reactive
          */
         title_: null,
         /**
          * Set to `true` to have tabbing wrap within this Dialog.
          * Should be used with `modal`.
          * @member {Boolean} trapFocus_=false
+         * @reactive
          */
         trapFocus_: false
     }

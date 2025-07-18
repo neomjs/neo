@@ -16,6 +16,7 @@ const countMutations   = Symbol('countMutations'),
 /**
  * @class Neo.collection.Base
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Collection extends Base {
     /**
@@ -51,6 +52,7 @@ class Collection extends Base {
         /**
          * Stores the items.length of the items array in use
          * @member {Number} count_=0
+         * @reactive
          */
         count_: 0,
         /**
@@ -62,10 +64,12 @@ class Collection extends Base {
         /**
          * An Array containing Neo.util.Filter config objects or instances
          * @member {Array} filters_=[]
+         * @reactive
          */
         filters_: [],
         /**
          * @member {Object[]|null} items_=null
+         * @reactive
          */
         items_: null,
         /**
@@ -83,6 +87,7 @@ class Collection extends Base {
          * A map containing the key & reference of each collection item for faster access
          * @member {Map} map_=null
          * @protected
+         * @reactive
          */
         map_: null,
         /**
@@ -100,11 +105,13 @@ class Collection extends Base {
         /**
          * An Array containing Neo.util.Sorter config objects or instances
          * @member {Array} sorters_=[]
+         * @reactive
          */
         sorters_: [],
         /**
          * The id of another collection instance to use as this data source
          * @member {String|null} sourceId_=null
+         * @reactive
          */
         sourceId_: null
     }
@@ -142,16 +149,6 @@ class Collection extends Base {
      */
     add(item) {
         return this.splice(null, null, item).addedItems
-    }
-
-    /**
-     * Triggered after the badgePosition config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetCount(value, oldValue) {
-        this.fire('countChange', {oldValue, value})
     }
 
     /**

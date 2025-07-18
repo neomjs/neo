@@ -1,3 +1,4 @@
+# Extending Neo Classes
 
 Neo.mjs is built upon a robust and consistent class system. Understanding how to extend framework classes is fundamental
 to building custom functionality, whether you're creating new UI components, defining data structures, or implementing

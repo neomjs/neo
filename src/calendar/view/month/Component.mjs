@@ -41,28 +41,33 @@ class Component extends BaseComponent {
         /**
          * Bound to the state provider
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         * @reactive
          */
         calendarStore_: null,
         /**
          * Will get passed from the MainContainer
          * @member {Date|null} currentDate_=null
          * @protected
+         * @reactive
          */
         currentDate_: null,
         /**
          * The format of the column headers.
          * Valid values are: narrow, short & long
          * @member {String} dayNameFormat_='short'
+         * @reactive
          */
         dayNameFormat_: 'short',
         /**
          * Bound to the state provider
          * @member {String|null} eventBorder_=null
+         * @reactive
          */
         eventBorder_: null,
         /**
          * Bound to the state provider.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
+         * @reactive
          */
         eventStore_: null,
         /**
@@ -95,12 +100,14 @@ class Component extends BaseComponent {
         /**
          * Bound to the state provider.
          * @member {String} locale_=Neo.config.locale
+         * @reactive
          */
         locale_: Neo.config.locale,
         /**
          * The format of the month header names.
          * Valid values are: narrow, short & long
          * @member {String} monthNameFormat_='long'
+         * @reactive
          */
         monthNameFormat_: 'short',
         /**
@@ -122,15 +129,18 @@ class Component extends BaseComponent {
         /**
          * Bound to the state provider.
          * @member {Boolean} showWeekends_=true
+         * @reactive
          */
         showWeekends_: true,
         /**
          * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
+         * @reactive
          */
         timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * True to use box shadows for the months while scrolling
          * @member {Boolean} useScrollBoxShadows_=true
+         * @reactive
          */
         useScrollBoxShadows_: true,
         /**
@@ -150,6 +160,7 @@ class Component extends BaseComponent {
          * 0-6 => Sun-Sat
          * Bound to the state provider.
          * @member {Number} weekStartDay_=0
+         * @reactive
          */
         weekStartDay_: 0
     }

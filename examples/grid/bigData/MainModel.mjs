@@ -13,6 +13,7 @@ class MainModel extends Model {
         className: 'Neo.examples.grid.bigData.MainModel',
         /**
          * @member {Number} amountColumns_=50
+         * @reactive
          */
         amountColumns_: 50
     }

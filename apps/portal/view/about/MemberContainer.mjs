@@ -14,30 +14,37 @@ class MemberContainer extends Container {
         className: 'Portal.view.about.MemberContainer',
         /**
          * @member {String[]} cls=['portal-about-member-container']
+         * @reactive
          */
         cls: ['portal-about-member-container'],
         /**
          * @member {String|null} location_=null
+         * @reactive
          */
         location_: null,
         /**
          * @member {String|null} name_=null
+         * @reactive
          */
         name_: null,
         /**
          * @member {String|null} picture_=null
+         * @reactive
          */
         picture_: null,
         /**
          * @member {String|null} profileGitHub_=null
+         * @reactive
          */
         profileGitHub_: null,
         /**
          * @member {String|null} profileLinkedIn_=null
+         * @reactive
          */
         profileLinkedIn_: null,
         /**
          * @member {String|null} teamRole_=null
+         * @reactive
          */
         teamRole_: null,
         /**

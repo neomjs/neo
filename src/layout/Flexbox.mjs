@@ -49,21 +49,25 @@ class Flexbox extends Base {
         /**
          * Valid values: 'center', 'end', 'start', 'stretch', null
          * @member {String|null} align_=null
+         * @reactive
          */
         align_: null,
         /**
          * Valid values: 'column', 'column-reverse', 'row', 'row-reverse', null
          * @member {String|null} direction_=null
+         * @reactive
          */
         direction_: null,
         /**
          * flex css allows gap. This adds it to the component style
          * @member {String} gap_=null
+         * @reactive
          */
         gap_: null,
         /**
          * Valid values: 'center', 'end', 'start', null
          * @member {String|null} pack_=null
+         * @reactive
          */
         pack_: null,
         /**
@@ -74,6 +78,7 @@ class Flexbox extends Base {
         /**
          * Valid values: nowrap, wrap, wrapreverse
          * @member {String} wrap_='nowrap'
+         * @reactive
          */
         wrap_: 'nowrap'
     }
@@ -141,6 +146,8 @@ class Flexbox extends Base {
      * @param {Number} index
      */
     applyChildAttributes(item, index) {
+        if (!item.wrapperStyle) return;
+
         let style = item.wrapperStyle,
             flex  = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
 

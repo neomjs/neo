@@ -20,6 +20,7 @@ class Xhr extends XhrConnection {
         /**
          * @member {Object} remote={app:['promiseRequest','promiseJson','setDefaultHeaders']}
          * @protected
+         * @reactive
          */
         remote: {
             app: [

@@ -1,3 +1,5 @@
+# Super
+
 To call a super-class method use the `super` keyword.
 
 ```javascript readonly
@@ -11,7 +13,7 @@ class Mammal extends Base {
         console.log(`${this.name} is doing something mammals do`)
     }
 }
-Neo.setupClass(Mammal);
+export default Neo.setupClass(Mammal);
 ```
 
 ```javascript readonly
@@ -20,17 +22,18 @@ class Human extends Mammal {
         className: 'Simple.example.Human',
     }
     doSomething(){
-        <span style="color:#b91010">super.doSomething();</span>
+        super.doSomething();
         console.log(`${this.name} is doing something humans do`)
     }
 }
 
+Human = Neo.setupClass(Human);
+
 const myPerson = Neo.create(Human, {
     name: 'Herbert'
 });
-myPerson.doSomething();
 
-Neo.setupClass(Mammal);
+myPerson.doSomething();
 ```
 
 Sometimes you aren't sure if a super class has a method. In that case use the
@@ -47,7 +50,7 @@ class Mammal extends Base {
         console.log(`${this.name} is doing something mammals do`)
     }
 }
-Neo.setupClass(Mammal);
+export default Neo.setupClass(Mammal);
 ```
 
 ```javascript readonly
@@ -56,15 +59,16 @@ class Human extends Mammal {
         className: 'Simple.example.Human',
     }
     doSomething(){
-        <span style="color:#b91010">super?.doSomething();</span>
+        super.doSomething?.();
         console.log(`${this.name} is doing something humans do`)
     }
 }
 
+Human = Neo.setupClass(Human);
+
 const myPerson = Neo.create(Human, {
     name: 'Herbert'
 });
-myPerson.doSomething();
 
-Neo.setupClass(Mammal);
+myPerson.doSomething();
 ```

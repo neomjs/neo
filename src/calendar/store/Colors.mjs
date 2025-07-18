@@ -29,6 +29,7 @@ class Colors extends Store {
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=Color
+         * @reactive
          */
         model: Color
     }

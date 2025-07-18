@@ -1,3 +1,5 @@
+# Declarative Component Trees VS Imperative Vdom
+
 ## Overview
 
 Neo.mjs employs a unique two-tier architecture that separates **declarative component configuration** from **imperative

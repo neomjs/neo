@@ -20,32 +20,39 @@ class Button extends Component {
         ntype: 'mwc-button',
         /**
          * @member {Boolean} dense_=false
+         * @reactive
          */
         dense_: false,
         /**
          * Shortcut for domListeners={click:handler}
          * A string based value assumes that the handlerFn lives inside a ComponentController
          * @member {Function|String|null} handler_=null
+         * @reactive
          */
         handler_: null,
         /**
          * @member {String} icon_=''
+         * @reactive
          */
         icon_: '',
         /**
          * @member {String} label_=''
+         * @reactive
          */
         label_: '',
         /**
          * @member {Boolean} outlined_=false
+         * @reactive
          */
         outlined_: false,
         /**
          * @member {Boolean} raised_=false
+         * @reactive
          */
         raised_: false,
         /**
          * @member {Boolean} unelevated_=false
+         * @reactive
          */
         unelevated_: false,
         /**

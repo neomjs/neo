@@ -24,6 +24,7 @@ class SettingsContainer extends Container {
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**

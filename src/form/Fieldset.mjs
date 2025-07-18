@@ -24,14 +24,17 @@ class Fieldset extends FormContainer {
         baseCls: ['neo-fieldset'],
         /**
          * @member {Boolean} collapsed_=false,
+         * @reactive
          */
         collapsed_: false,
         /**
          * @member {Boolean} collapsible_=true,
+         * @reactive
          */
         collapsible_: true,
         /**
          * @member {Boolean} disableItemsOnCollapse_=true,
+         * @reactive
          */
         disableItemsOnCollapse_: true,
         /**
@@ -41,10 +44,12 @@ class Fieldset extends FormContainer {
         hasLabelClickListener: false,
         /**
          * @member {String} iconClsChecked_='far fa-check'
+         * @reactive
          */
         iconClsChecked_: 'far fa-check',
         /**
          * @member {String} iconClsUnchecked_='far fa-square'
+         * @reactive
          */
         iconClsUnchecked_: 'far fa-square',
         /**
@@ -64,6 +69,7 @@ class Fieldset extends FormContainer {
         legendConfig: null,
         /**
          * @member {String} title_=''
+         * @reactive
          */
         title_: '',
         /**

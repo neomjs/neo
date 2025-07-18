@@ -23,10 +23,12 @@ class Button extends BaseButton {
         /**
          * Specify a role tag attribute for the vdom root.
          * @member {String|null} role='tab'
+         * @reactive
          */
         role: 'tab',
         /**
          * @member {Boolean} useActiveTabIndicator_=true
+         * @reactive
          */
         useActiveTabIndicator_: true,
         /**

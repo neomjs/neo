@@ -70,16 +70,19 @@ class Toast extends Component {
         /**
          * Limits the width of the Toast
          * @member {Number} maxWidth=250
+         * @reactive
          */
         maxWidth: 250,
         /**
          * Sets the minimum height of the Toast
          * @member {Number} minHeight=50
+         * @reactive
          */
         minHeight: 50,
         /**
          * Your message. You can also pass in an iconCls
          * @member {String|null} msg_=null
+         * @reactive
          */
         msg_: null,
         /**
@@ -92,15 +95,18 @@ class Toast extends Component {
          * Describes which direction from which side the toasts slides-in
          * This creates a cls `neo-toast-slide-${direction}-in`
          * @member {'down'|'up'|'left'|'right'} slideDirection_='right'
+         * @reactive
          */
         slideDirection_: 'right',
         /**
          * Adds a title to the toast
          * @member {Number} title_=null
+         * @reactive
          */
         title_: null,
         /**
          * @member {String|null} title=null
+         * @reactive
          */
         vdom:
         {cn: [

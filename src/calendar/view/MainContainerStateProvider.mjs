@@ -64,11 +64,6 @@ class MainContainerStateProvider extends StateProvider {
                 enableResizingAcrossOppositeEdge: true
             },
             /**
-             * Read only, it will automatically get created inside onDataPropertyChange()
-             * @member {Intl.DateTimeFormat|null} data.intlFormat_time=null
-             */
-            intlFormat_time: null,
-            /**
              * @member {String} data.locale=Neo.config.locale
              */
             locale: Neo.config.locale,
@@ -101,6 +96,20 @@ class MainContainerStateProvider extends StateProvider {
              * @member {Number} data.weekStartDay=0
              */
             weekStartDay: 0
+        },
+        /**
+         * Defines computed properties based on other data properties.
+         * @member {Object} formulas
+         */
+        formulas: {
+            /**
+             * Creates the Intl.DateTimeFormat instance based on the current locale and timeFormat.
+             * This formula will automatically re-run whenever `data.locale` or `data.timeFormat` changes.
+             * The result is exposed as the 'timeFormatter' property in the state.
+             * @param {Object} data The hierarchical data proxy
+             * @returns {Intl.DateTimeFormat}
+             */
+            timeFormatter: data => (data.locale && data.timeFormat) ? new Intl.DateTimeFormat(data.locale, data.timeFormat) : null
         }
     }
 
@@ -140,29 +149,6 @@ class MainContainerStateProvider extends StateProvider {
             events: {
                 module: EventsStore,
                 ...component.eventStoreConfig
-            }
-        };
-    }
-
-    /**
-     * @param {String} key
-     * @param {*} value
-     * @param {*} oldValue
-     */
-    onDataPropertyChange(key, value, oldValue) {
-        super.onDataPropertyChange(key, value, oldValue);
-
-        let {data} = this;
-
-        switch (key) {
-            case 'locale': {
-                data.intlFormat_time = new Intl.DateTimeFormat(value, data.timeFormat);
-                break
-            }
-
-            case 'timeFormat': {
-                data.intlFormat_time = new Intl.DateTimeFormat(data.locale, value);
-                break
             }
         }
     }

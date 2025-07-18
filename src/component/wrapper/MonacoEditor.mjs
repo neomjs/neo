@@ -47,34 +47,41 @@ class MonacoEditor extends Base {
         baseCls: ['neo-monaco-editor'],
         /**
          * @member {Boolean} contextmenu_=false
+         * @reactive
          */
         contextmenu_: false,
         /**
          * Options are: 'blink', 'expand', 'phase', 'smooth', 'solid'
          * @member {String} cursorBlinking_='blink'
+         * @reactive
          */
         cursorBlinking_: 'blink',
         /**
          * additional property to only use in combination with readOnly === true.
          * domReadOnly additionally sets the readonly attribute to the underlying textarea.
          * @member {Boolean} domReadOnly_=false
+         * @reactive
          */
         domReadOnly_: false,
         /**
          * Options are: 'vs', 'vs-dark', 'hc-black', 'hc-light'
          * @member {String} editorTheme_='vs'
+         * @reactive
          */
         editorTheme_: 'vs',
         /**
          * @member {Number} fontSize_=14
+         * @reactive
          */
         fontSize_: 14,
         /**
          * @member {String} language_='javascript'
+         * @reactive
          */
         language_: 'javascript',
         /**
          * @member {Object} minimap_={enabled: false}
+         * @reactive
          */
         minimap_: {enabled: false},
         /**
@@ -85,22 +92,27 @@ class MonacoEditor extends Base {
          * For initial options this config will win over related class configs.
          * However, run-time changes of related class configs will dynamically change their option values.
          * @member {Object} options_={}
+         * @reactive
          */
         options_: {},
         /**
          * @member {Boolean} readOnly_=false
+         * @reactive
          */
         readOnly_: false,
         /**
          * @member {Boolean} scrollBeyondLastLine_=false
+         * @reactive
          */
         scrollBeyondLastLine_: false,
         /**
          * @member {Boolean} showLineNumbers_=true
+         * @reactive
          */
         showLineNumbers_: true,
         /**
          * @member {String|String[]} value_=''
+         * @reactive
          */
         value_: ''
     }

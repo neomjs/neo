@@ -19,6 +19,7 @@ class SpinUp extends Base {
         ntype: 'trigger-spinup',
         /**
          * @member {String|null} iconCls='fa fa-chevron-right'
+         * @reactive
          */
         iconCls: 'fa fa-chevron-right',
         /**

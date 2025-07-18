@@ -36,6 +36,7 @@ class Cube extends Card {
         ntype: 'layout-cube',
         /**
          * @member {String|null} activeFace_=null
+         * @reactive
          */
         activeFace_: null,
         /**
@@ -45,11 +46,13 @@ class Cube extends Card {
         /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
+         * @reactive
          */
         containerCls: 'neo-layout-cube',
         /**
          * Updates the cube size to fit the owner container dimensions
          * @member {Boolean} fitContainer_=false
+         * @reactive
          */
         fitContainer_: false,
         /**
@@ -59,30 +62,37 @@ class Cube extends Card {
         hideInactiveCardsOnDestroy: false,
         /**
          * @member {Number} perspective_=600
+         * @reactive
          */
         perspective_: 600,
         /**
          * @member {Number} rotateX_=0
+         * @reactive
          */
         rotateX_: 0,
         /**
          * @member {Number} rotateY_=0
+         * @reactive
          */
         rotateY_: 0,
         /**
          * @member {Number} rotateZ_=0
+         * @reactive
          */
         rotateZ_: 0,
         /**
          * @member {Number} sideX_=300
+         * @reactive
          */
         sideX_: 300,
         /**
          * @member {Number} sideY_=300
+         * @reactive
          */
         sideY_: 300,
         /**
          * @member {Number} sideZ_=300
+         * @reactive
          */
         sideZ_: 300
     }
@@ -106,7 +116,7 @@ class Cube extends Card {
 
         container.mounted && container.update();
 
-        me.timeout(100).then(() => {
+        me.timeout(50).then(() => {
             container.addCls('neo-animate')
         })
     }

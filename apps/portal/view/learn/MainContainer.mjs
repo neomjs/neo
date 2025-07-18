@@ -19,10 +19,12 @@ class MainContainer extends Container {
         className: 'Portal.view.learn.MainContainer',
         /**
          * @member {String[]} cls=['portal-learn-maincontainer']
+         * @reactive
          */
         cls: ['portal-learn-maincontainer'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
@@ -61,10 +63,12 @@ class MainContainer extends Container {
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
+         * @reactive
          */
         stateProvider: MainContainerStateProvider
     }

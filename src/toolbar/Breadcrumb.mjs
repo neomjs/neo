@@ -21,6 +21,7 @@ class Breadcrumb extends Toolbar {
         ntype: 'breadcrumb-toolbar',
         /**
          * @member {Number|String|null} activeKey_=null
+         * @reactive
          */
         activeKey_: null,
         /**
@@ -29,6 +30,7 @@ class Breadcrumb extends Toolbar {
         baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
         /**
          * @member {Object} itemDefaults={ntype:'button', ui: 'tertiary'}
+         * @reactive
          */
         itemDefaults: {
             ntype: 'button',
@@ -36,6 +38,7 @@ class Breadcrumb extends Toolbar {
         },
         /**
          * @member {Neo.data.Store|Object} store_=null
+         * @reactive
          */
         store_: null
     }

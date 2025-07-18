@@ -1,3 +1,5 @@
+# Earthquakes
+
 In this topic you'll create an application that fetches data on earthquakes in Iceland,
 and show the information in two views: a table, and a map.
 

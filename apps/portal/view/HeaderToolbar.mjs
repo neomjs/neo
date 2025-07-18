@@ -13,6 +13,7 @@ class HeaderToolbar extends Base {
         className: 'Portal.view.HeaderToolbar',
         /**
          * @member {String[]} cls=['portal-header-toolbar']
+         * @reactive
          */
         cls: ['portal-header-toolbar'],
         /**

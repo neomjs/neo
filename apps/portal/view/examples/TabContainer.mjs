@@ -16,6 +16,7 @@ class TabContainer extends Container {
         className: 'Portal.view.examples.TabContainer',
         /**
          * @member {Number|null} activeIndex=null
+         * @reactive
          */
         activeIndex: null,
         /**
@@ -24,6 +25,7 @@ class TabContainer extends Container {
         baseCls: ['portal-examples-tab-container', 'neo-tab-container'],
         /**
          * @member {Neo.controller.Component} controller=TabContainerController
+         * @reactive
          */
         controller: TabContainerController,
         /**
@@ -79,10 +81,12 @@ class TabContainer extends Container {
         }],
         /**
          * @member {Boolean} sortable=true
+         * @reactive
          */
         sortable: true,
         /**
          * @member {String} tabBarPosition='left'
+         * @reactive
          */
         tabBarPosition: 'left',
     }

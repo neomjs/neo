@@ -294,9 +294,193 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
+     * Defines a reactive configuration property on a target object (prototype or instance).
+     * This method creates getters and setters that fully participate in Neo.mjs's reactive config system,
+     * including lifecycle hooks.
+     *
+     * @param {Neo.core.Base}  target        - The instance or prototype on which to define the config.
+     * @param {String}         key           - The name of the config property (without the '_' suffix).
+     * @param {*}             [initialValue] - The initial value for the config.
+     */
+    createConfig(target, key, initialValue) {
+        if (Neo.hasPropertySetter(target, key)) {
+            throw(
+`Invalid config in ${target.className}: '${key}_'. The config '${key}' is already defined as reactive by a parent class.
+To override the default value, use '${key}' (without the underscore) in your static config.
+If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}()', 'beforeSet${Neo.capitalize(key)}()', and 'afterSet${Neo.capitalize(key)}()' hooks instead of redefining the config.`
+            )
+        }
+
+        const
+            _key      = '_' + key,
+            uKey      = key[0].toUpperCase() + key.slice(1),
+            beforeGet = 'beforeGet' + uKey,
+            beforeSet = 'beforeSet' + uKey,
+            afterSet  = 'afterSet'  + uKey;
+
+        Neo[getSetCache] ??= {};
+
+        if (!Neo[getSetCache][key]) {
+            // Public Descriptor
+            Neo[getSetCache][key] = {
+                get() {
+                    let me        = this,
+                        config    = me.getConfig(key),
+                        hasNewKey = Object.hasOwn(me[configSymbol], key),
+                        newKey    = me[configSymbol][key],
+                        value     = hasNewKey ? newKey : me[_key];
+
+                    if (value instanceof Date) {
+                        value = new Date(value.valueOf());
+                    }
+                    // new, explicit opt-in path
+                    else if (config.cloneOnGet) {
+                        const {cloneOnGet} = config;
+
+                        if (cloneOnGet === 'deep') {
+                            value = Neo.clone(value, true, true);
+                        } else if (cloneOnGet === 'shallow') {
+                            const type = Neo.typeOf(value);
+
+                            if (type === 'Array') {
+                                value = [...value];
+                            } else if (type === 'Object') {
+                                value = {...value};
+                            }
+                        }
+                    }
+                    // legacy behavior
+                    else if (Array.isArray(value)) {
+                        value = [...value];
+                    }
+
+                    if (hasNewKey) {
+                        me[key] = value;  // We do want to trigger the setter => beforeSet, afterSet
+                        value = me[_key]; // Return the value parsed by the setter
+                        delete me[configSymbol][key]
+                    }
+
+                    if (typeof me[beforeGet] === 'function') {
+                        value = me[beforeGet](value)
+                    }
+
+                    return value
+                },
+                set(value) {
+                    if (value === undefined) return;
+
+                    const config = this.getConfig(key);
+                    if (!config) return;
+
+                    let me                   = this,
+                        oldValue             = config.get(), // Get the old value from the Config instance
+                        {EffectBatchManager} = Neo.core,
+                        isNewBatch           = !EffectBatchManager?.isBatchActive();
+
+                    // If a config change is not triggered via `core.Base#set()`, honor changes inside hooks.
+                    isNewBatch && EffectBatchManager?.startBatch();
+
+                    // 1. Prevent infinite loops:
+                    // Immediately remove the pending value from the configSymbol to prevent a getter from
+                    // recursively re-triggering this setter.
+                    delete me[configSymbol][key];
+
+                    switch (config.clone) {
+                        case 'deep':
+                            value = Neo.clone(value, true, true);
+                            break;
+                        case 'shallow':
+                            value = Neo.clone(value, false, true);
+                            break;
+                    }
+
+                    // 2. Create a temporary state for beforeSet hooks:
+                    // Set the new value directly on the private backing property. This allows any beforeSet
+                    // hook to access the new value of this and other configs within the same `set()` call.
+                    me[_key] = value;
+
+                    if (typeof me[beforeSet] === 'function') {
+                        value = me[beforeSet](value, oldValue);
+
+                        // If they don't return a value, that means no change
+                        if (value === undefined) {
+                            // Restore the original value if the update is canceled.
+                            me[_key] = oldValue;
+                            isNewBatch && EffectBatchManager?.endBatch();
+                            return
+                        }
+                    }
+
+                    // 3. Restore state for change detection:
+                    // Revert the private backing property to its original value. This is crucial for the
+                    // `config.set()` method to correctly detect if the value has actually changed.
+                    me[_key] = oldValue;
+
+                    // 4. Finalize the change:
+                    // The config.set() method performs the final check and, if the value changed,
+                    // triggers afterSet hooks and notifies subscribers.
+                    if (config.set(value)) {
+                        me[afterSet]?.(value, oldValue);
+                        me.afterSetConfig?.(key, value, oldValue)
+                    }
+
+                    isNewBatch && EffectBatchManager?.endBatch()
+                }
+            };
+
+            // Private Descriptor
+            Neo[getSetCache][_key] = {
+                get() {
+                    return this.getConfig(key)?.get()
+                },
+                set(value) {
+                    this.getConfig(key)?.setRaw(value)
+                }
+            }
+        }
+
+        Object.defineProperty(target, key,  Neo[getSetCache][key]);
+        Object.defineProperty(target, _key, Neo[getSetCache][_key]);
+
+        if (initialValue !== undefined) {
+            target[key] = initialValue
+        }
+    },
+
+    /**
      *
      */
     emptyFn() {},
+
+    /**
+     * Ensures a class is assigned to the Neo namespace only once, preventing duplicates.
+     * This is a lightweight version of `Neo.setupClass` for simple classes
+     * that do not extend `Neo.core.Base`.
+     * It follows a "first one wins" strategy.
+     *
+     * @param {Function|Object} module    - The class constructor or singleton object to register.
+     * @param {String}          classPath - The fully qualified name (e.g., 'Neo.core.Config').
+     * @param {Function}       [onFirst]  - An optional callback that runs only the first time the class is registered.
+     * @returns {Function|Object} The class or singleton from the Neo namespace (either the existing one or the newly set one).
+     */
+    gatekeep(module, classPath, onFirst) {
+        const existingClass = Neo.ns(classPath, false);
+
+        if (existingClass) {
+            return existingClass
+        }
+
+        const
+            nsArray   = classPath.split('.'),
+            className = nsArray.pop(),
+            parentNs  = Neo.ns(nsArray, true);
+
+        parentNs[className] = module;
+
+        onFirst?.(module);
+
+        return parentNs[className]
+    },
 
     /**
      * Checks if there is a set method for a given property key inside the prototype chain
@@ -480,27 +664,39 @@ Neo = globalThis.Neo = Object.assign({
     },
 
     /**
-     * Updates the global Neo.config object across all active workers and connected browser windows.
+     * This is the final and most critical step in the Neo.mjs class creation process.
+     * It is called at the end of every class module definition.
      *
-     * This is the unified entry point for changing global framework configurations.
-     * The framework automatically handles the complex multi-threaded and multi-window
-     * synchronization (via App Workers and Shared Workers, if active), ensuring
-     * consistency across the entire application without boilerplate.
+     * `setupClass` performs several key operations:
+     * 1.  **Mixed-Environment Gatekeeper:** It first checks if the class's namespace already exists.
+     *     If it does, it immediately returns the existing class. This is the crucial "first comes wins"
+     *     strategy that enables Neo.mjs to safely combine environments. For example, a bundled
+     *     `dist/production` app can dynamically load an unbundled module from `dist/esm` at runtime.
+     *     If that module imports a class already present in the main bundle, this check ensures the
+     *     original, bundled class is used, preventing conflicts and maintaining application integrity.
+     * 1.  **Configuration Merging:** It traverses the prototype chain to merge `static config`
+     *     objects from parent classes into the current class, creating a unified `config`.
+     * 2.  **Applying Overwrites:** It calls the static `applyOverwrites()` method on the class,
+     *     allowing the global `Neo.overwrites` object to modify the class's default prototype
+     *     configs. This is a key mechanism for external theming and configuration.
+     * 3.  **Reactive Getter/Setter Generation:** For any config ending with an underscore (e.g., `myConfig_`),
+     *     it automatically generates the corresponding public getter and setter. This enables optional
+     *     lifecycle hooks that are called automatically if implemented on the class:
+     *     - `beforeGetMyConfig(value)`
+     *     - `beforeSetMyConfig(newValue, oldValue)`
+     *     - `afterSetMyConfig(newValue, oldValue)`
+     * 4.  **Prototype-based Configs:** Non-reactive configs (without an underscore) are set
+     *     directly on the prototype for memory efficiency.
+     * 5.  **Mixin Application:** It processes the `mixins` config to blend in functionality from
+     *     other classes.
+     * 6.  **Namespace Registration:** It registers the class in the global `Neo` namespace.
+     * 7.  **Singleton Instantiation:** If the class is configured as a singleton, it creates the
+     *     single instance.
      *
-     * You can pass a partial config object to update specific keys.
-     * For nested objects, Neo.mjs performs a deep merge to preserve existing properties.
-     *
-     * @memberOf module:Neo
-     * @function setGlobalConfig
-     * @param {Object} config The partial or full Neo.config object with changes to apply.
-     */
-
-    /**
-     * Internally used at the end of each class / module definition
      * @memberOf module:Neo
      * @template T
-     * @param {T} cls
-     * @returns {T}
+     * @param {T} cls The class constructor to process.
+     * @returns {T} The processed and finalized class constructor or singleton instance.
      */
     setupClass(cls) {
         let baseConfig            = null,
@@ -574,7 +770,7 @@ Neo = globalThis.Neo = Object.assign({
                 if (isReactive) {
                     delete cfg[key];      // Remove original key with underscore
                     cfg[baseKey] = value; // Use the potentially modified value
-                    autoGenerateGetSet(element, baseKey)
+                    Neo.createConfig(element, baseKey)
                 }
                 // This part handles non-reactive configs (including those that were descriptors)
                 // If no property setter exists, define it directly on the prototype.
@@ -695,7 +891,8 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {String|null}
      */
     typeOf(item) {
-        if (item === null || item === undefined) {
+        // Return null for null or undefined
+        if (item == null) {
             return null
         }
 
@@ -763,152 +960,6 @@ function applyMixins(cls, mixins, classConfig) {
 }
 
 /**
- * Creates get / set methods for class configs ending with an underscore
- * @param {Neo.core.Base} proto
- * @param {String}        key
- * @private
- * @tutorial 02_ClassSystem
- */
-function autoGenerateGetSet(proto, key) {
-    if (Neo.hasPropertySetter(proto, key)) {
-        throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead')
-    }
-
-    const
-        _key      = '_' + key,
-        uKey      = key[0].toUpperCase() + key.slice(1),
-        beforeGet = 'beforeGet' + uKey,
-        beforeSet = 'beforeSet' + uKey,
-        afterSet  = 'afterSet'  + uKey;
-
-    if (!Neo[getSetCache]) {
-        Neo[getSetCache] = {}
-    }
-
-    if (!Neo[getSetCache][key]) {
-        // Public Descriptor
-        Neo[getSetCache][key] = {
-            get() {
-                let me        = this,
-                    config    = me.getConfig(key),
-                    hasNewKey = Object.hasOwn(me[configSymbol], key),
-                    newKey    = me[configSymbol][key],
-                    value     = hasNewKey ? newKey : me[_key];
-
-                if (value instanceof Date) {
-                    value = new Date(value.valueOf());
-                }
-                // new, explicit opt-in path
-                else if (config.cloneOnGet) {
-                    const {cloneOnGet} = config;
-
-                    if (cloneOnGet === 'deep') {
-                        value = Neo.clone(value, true, true);
-                    } else if (cloneOnGet === 'shallow') {
-                        const type = Neo.typeOf(value);
-
-                        if (type === 'Array') {
-                            value = [...value];
-                        } else if (type === 'Object') {
-                            value = {...value};
-                        }
-                    }
-                }
-                // legacy behavior
-                else if (Array.isArray(value)) {
-                    value = [...value];
-                }
-
-                if (hasNewKey) {
-                    me[key] = value;  // We do want to trigger the setter => beforeSet, afterSet
-                    value = me[_key]; // Return the value parsed by the setter
-                    delete me[configSymbol][key]
-                }
-
-                if (typeof me[beforeGet] === 'function') {
-                    value = me[beforeGet](value)
-                }
-
-                return value
-            },
-            set(value) {
-                if (value === undefined) return;
-
-                const config = this.getConfig(key);
-                if (!config) return;
-
-                let me                   = this,
-                    oldValue             = config.get(), // Get the old value from the Config instance
-                    {EffectBatchManager} = Neo.core,
-                    isNewBatch           = !EffectBatchManager?.isBatchActive();
-
-                // If a config change is not triggered via `core.Base#set()`, honor changes inside hooks.
-                isNewBatch && EffectBatchManager?.startBatch();
-
-                // 1. Prevent infinite loops:
-                // Immediately remove the pending value from the configSymbol to prevent a getter from
-                // recursively re-triggering this setter.
-                delete me[configSymbol][key];
-
-                switch (config.clone) {
-                    case 'deep':
-                        value = Neo.clone(value, true, true);
-                        break;
-                    case 'shallow':
-                        value = Neo.clone(value, false, true);
-                        break;
-                }
-
-                // 2. Create a temporary state for beforeSet hooks:
-                // Set the new value directly on the private backing property. This allows any beforeSet
-                // hook to access the new value of this and other configs within the same `set()` call.
-                me[_key] = value;
-
-                if (typeof me[beforeSet] === 'function') {
-                    value = me[beforeSet](value, oldValue);
-
-                    // If they don't return a value, that means no change
-                    if (value === undefined) {
-                        // Restore the original value if the update is canceled.
-                        me[_key] = oldValue;
-                        isNewBatch && EffectBatchManager?.endBatch();
-                        return
-                    }
-                }
-
-                // 3. Restore state for change detection:
-                // Revert the private backing property to its original value. This is crucial for the
-                // `config.set()` method to correctly detect if the value has actually changed.
-                me[_key] = oldValue;
-
-                // 4. Finalize the change:
-                // The config.set() method performs the final check and, if the value changed,
-                // triggers afterSet hooks and notifies subscribers.
-                if (config.set(value)) {
-                    me[afterSet]?.(value, oldValue);
-                    me.afterSetConfig?.(key, value, oldValue)
-                }
-
-                isNewBatch && EffectBatchManager?.endBatch()
-            }
-        };
-
-        // Private Descriptor
-        Neo[getSetCache][_key] = {
-            get() {
-                return this.getConfig(key)?.get()
-            },
-            set(value) {
-                this.getConfig(key)?.setRaw(value)
-            }
-        }
-    }
-
-    Object.defineProperty(proto, key,  Neo[getSetCache][key]);
-    Object.defineProperty(proto, _key, Neo[getSetCache][_key])
-}
-
-/**
  * @param {Boolean} create
  * @param {Object}  current
  * @param {Object}  prev
@@ -973,7 +1024,7 @@ function mixinProperty(proto, mixinProto, classConfig) {
 
         // Reactive neo configs, or public class fields defined via get() AND set()
         if (descriptor.get && descriptor.set) {
-            autoGenerateGetSet(proto, key);
+            Neo.createConfig(proto, key);
 
             const mixinClassConfig = mixinProto.constructor.config;
 

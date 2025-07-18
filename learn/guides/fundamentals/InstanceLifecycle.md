@@ -1,3 +1,5 @@
+# Instance Lifecycle
+
 Understanding the lifecycle of a class instance in Neo.mjs is crucial for building robust and predictable
 applications. The framework provides a series of well-defined hooks that allow you to tap into different stages of an
 instance's life, from its creation to its destruction.

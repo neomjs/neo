@@ -22,12 +22,26 @@ function createNestedProxy(rootProvider, path) {
             // Handle internal properties that might be set directly on the proxy's target
             // or are expected by the environment (like Siesta's __REFADR__).
             if (typeof property === 'symbol' || property === '__REFADR__' || property === 'inspect' || property === 'then') {
-                return Reflect.get(currentTarget, property);
+                return Reflect.get(currentTarget, property)
             }
 
             // Only allow string or number properties to proceed as data paths.
             if (typeof property !== 'string' && typeof property !== 'number') {
                 return undefined; // For other non-string/non-number properties, return undefined.
+            }
+
+            // Special handling for the 'stores' property at the root level
+            if (path === '' && property === 'stores') {
+                return new Proxy({}, {
+                    get(target, storeName) {
+                        if (typeof storeName === 'symbol' || storeName === '__REFADR__') {
+                            return Reflect.get(target, storeName)
+                        }
+                        // Delegate to the StateProvider's getStore method for hierarchical resolution
+                        // Accessing store.count later will register the dependency via the Config system
+                        return rootProvider.getStore(storeName)
+                    }
+                })
             }
 
             const fullPath = path ? `${path}.${property}` : property;
@@ -41,17 +55,15 @@ function createNestedProxy(rootProvider, path) {
                     config                = owner.getDataConfig(propertyName);
 
                 if (config) {
-                    const activeEffect = EffectManager.getActiveEffect();
-                    if (activeEffect) {
-                        activeEffect.addDependency(config);
-                    }
+                    EffectManager.getActiveEffect()?.addDependency(config);
 
                     const value = config.get();
                     // If the value is an object, return a new proxy for it to ensure nested accesses are also proxied.
-                    if (Neo.typeOf(value) === 'Object') {
+                    if (Neo.isObject(value)) {
                         return createNestedProxy(rootProvider, fullPath)
                     }
-                    return value;
+
+                    return value
                 }
             }
 
@@ -62,52 +74,54 @@ function createNestedProxy(rootProvider, path) {
                 return createNestedProxy(rootProvider, fullPath)
             }
 
-            // 3. If it's neither a data property nor a path to one, it doesn't exist in the state.
-            return null
+            // 3. If it's neither a data property nor a path to one, it doesn't exist.
+            //    Returning undefined ensures that chained accesses (e.g., data.nonexistent.property) fail gracefully.
         },
 
         set(currentTarget, property, value) {
             // Allow internal properties (like Symbols or specific strings) to be set directly on the target.
             if (typeof property === 'symbol' || property === '__REFADR__') {
-                return Reflect.set(currentTarget, property, value);
+                return Reflect.set(currentTarget, property, value)
             }
 
-            const fullPath = path ? `${path}.${property}` : property;
-            const ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
-
+            const
+                fullPath     = path ? `${path}.${property}` : property,
+                ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
             let targetProvider;
+
             if (ownerDetails) {
-                targetProvider = ownerDetails.owner;
+                targetProvider = ownerDetails.owner
             } else {
                 // If no owner is found, set it on the rootProvider (the one that created this proxy)
-                targetProvider = rootProvider;
+                targetProvider = rootProvider
             }
 
             targetProvider.setData(fullPath, value);
-            return true; // Indicate that the assignment was successful
+            return true // Indicate that the assignment was successful
         },
 
         ownKeys(currentTarget) {
-            return rootProvider.getTopLevelDataKeys(path);
+            return rootProvider.getTopLevelDataKeys(path)
         },
 
         getOwnPropertyDescriptor(currentTarget, property) {
-            const fullPath = path ? `${path}.${property}` : property;
-            const ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
+            const
+                fullPath     = path ? `${path}.${property}` : property,
+                ownerDetails = rootProvider.getOwnerOfDataProperty(fullPath);
 
             if (ownerDetails) {
                 const config = ownerDetails.owner.getDataConfig(ownerDetails.propertyName);
+
                 if (config) {
                     const value = config.get();
                     return {
-                        value: Neo.isObject(value) ? createNestedProxy(rootProvider, fullPath) : value,
-                        writable: true,
-                        enumerable: true,
-                        configurable: true,
-                    };
+                        value       : Neo.isObject(value) ? createNestedProxy(rootProvider, fullPath) : value,
+                        writable    : true,
+                        enumerable  : true,
+                        configurable: true
+                    }
                 }
             }
-            return undefined; // Property not found
         }
     })
 }

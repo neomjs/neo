@@ -70,22 +70,27 @@ class StatusBadge extends Base {
         iconSuccess_: 'fa fa-check',
         /**
          * @member {String} labelAlert_='Alert'
+         * @reactive
          */
         labelAlert_: 'Alert',
         /**
          * @member {String} labelError_='Error'
+         * @reactive
          */
         labelError_: 'Error',
         /**
          * @member {String} labelInfo_='Info'
+         * @reactive
          */
         labelInfo_: 'Info',
         /**
          * @member {String} labelNeutral_='Neutral'
+         * @reactive
          */
         labelNeutral_: 'Neutral',
         /**
          * @member {String} labelSuccess_='Success'
+         * @reactive
          */
         labelSuccess_: 'Success',
         /**
@@ -110,6 +115,7 @@ class StatusBadge extends Base {
         sideIconSuccess_: 'fa fa-registered',
         /**
          * @member {String} state_='neutral'
+         * @reactive
          */
         state_: 'neutral',
         /**

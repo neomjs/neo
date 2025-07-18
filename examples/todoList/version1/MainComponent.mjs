@@ -75,7 +75,7 @@ class MainComponent extends Component {
                     style: {cursor: 'pointer', width: '20px'}
                 }, {
                     vtype: 'text',
-                    html : item.text
+                    text : item.text
                 }]
             })
         });

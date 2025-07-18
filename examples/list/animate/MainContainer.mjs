@@ -20,10 +20,12 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.list.animate.MainContainer',
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**

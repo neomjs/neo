@@ -45,7 +45,7 @@ class Component extends BaseComponent {
             endTime             : data => data.endTime,
             eventBorder         : data => data.events.border,
             eventStore          : 'stores.events',
-            intlFormat_time     : data => data.intlFormat_time,
+            intlFormat_time     : data => data.timeFormatter,
             locale              : data => data.locale,
             minimumEventDuration: data => data.minimumEventDuration,
             showWeekends        : data => data.showWeekends,
@@ -55,39 +55,46 @@ class Component extends BaseComponent {
         /**
          * Bound to the state provider
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         * @reactive
          */
         calendarStore_: null,
         /**
          * Amount of hidden columns on both sides each inside this view.
          * @member {Number} columnsBuffer_=7
+         * @reactive
          */
         columnsBuffer_: 7,
         /**
          * Amount of visible columns inside this view.
          * @member {Number} columnsVisible_=7
+         * @reactive
          */
         columnsVisible_: 7,
         /**
          * Bound to the state provider.
          * @member {Date|null} currentDate_=null
          * @protected
+         * @reactive
          */
         currentDate_: null,
         /**
          * The format of the column headers.
          * Valid values are: narrow, short & long
          * @member {String} dayNameFormat_='short'
+         * @reactive
          */
         dayNameFormat_: 'short',
         /**
          * Bound to the state provider.
          * @member {Boolean} enableDrag_=true
          * @protected
+         * @reactive
          */
         enableDrag_: true,
         /**
          * Bound to the state provider
          * @member {String|null} eventBorder_=null
+         * @reactive
          */
         eventBorder_: null,
         /**
@@ -97,6 +104,7 @@ class Component extends BaseComponent {
         /**
          * Bound to the state provider
          * @member {Neo.calendar.store.Events|null} eventStore_=null
+         * @reactive
          */
         eventStore_: null,
         /**
@@ -120,6 +128,7 @@ class Component extends BaseComponent {
          * Bound to the state provider.
          * @member {Intl.DateTimeFormat|null} intlFormat_time_=null
          * @protected
+         * @reactive
          */
         intlFormat_time_: null,
         /**
@@ -130,6 +139,7 @@ class Component extends BaseComponent {
         /**
          * Bound to the state provider.
          * @member {String} locale_=Neo.config.locale
+         * @reactive
          */
         locale_: Neo.config.locale,
         /**
@@ -161,11 +171,13 @@ class Component extends BaseComponent {
         pluginEventResizableConfig: null,
         /**
          * @member {Boolean} showEventEndTime_=false
+         * @reactive
          */
         showEventEndTime_: false,
         /**
          * Bound to the state provider.
          * @member {Boolean} showWeekends_=true
+         * @reactive
          */
         showWeekends_: true,
         /**
@@ -181,6 +193,7 @@ class Component extends BaseComponent {
          * Valid values are start & end.
          * start => left, end => right in LTR mode.
          * @member {String} timeAxisPosition_='start'
+         * @reactive
          */
         timeAxisPosition_: 'start',
         /**
@@ -208,6 +221,7 @@ class Component extends BaseComponent {
          * 0-6 => Sun-Sat
          * Bound to the state provider.
          * @member {Number} weekStartDay_=0
+         * @reactive
          */
         weekStartDay_: 0
     }

@@ -20,6 +20,7 @@ class Fit extends Base {
         /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
+         * @reactive
          */
         containerCls: 'neo-layout-fit'
     }

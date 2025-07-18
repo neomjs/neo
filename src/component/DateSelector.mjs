@@ -43,6 +43,7 @@ class DateSelector extends Component {
          * Date object created on the value config
          * @member {Date|null} currentDate_=null
          * @protected
+         * @reactive
          */
         currentDate_: null,
         /**
@@ -53,6 +54,7 @@ class DateSelector extends Component {
          * The format of the column headers.
          * Valid values are: narrow, short & long
          * @member {String} dayNameFormat_='short'
+         * @reactive
          */
         dayNameFormat_: 'short',
         /**
@@ -64,6 +66,7 @@ class DateSelector extends Component {
          * Internal flag to prevent changing the date while change animations are still running
          * @member {Boolean} isUpdating_=false
          * @protected
+         * @reactive
          */
         isUpdating_: false,
         /**
@@ -73,14 +76,17 @@ class DateSelector extends Component {
         keys: {},
         /**
          * @member {String} locale_=Neo.config.locale
+         * @reactive
          */
         locale_: Neo.config.locale,
         /**
          * @member {String|null} maxValue_=null
+         * @reactive
          */
         maxValue_: null,
         /**
          * @member {String|null} minValue_=null
+         * @reactive
          */
         minValue_: null,
         /**
@@ -98,20 +104,24 @@ class DateSelector extends Component {
         /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
          * True to show inner cell & header cell borders
          * @member {Boolean} showCellBorders_=true
+         * @reactive
          */
         showCellBorders_: false,
         /**
          * True to show the days of the previous or next month (not selectable)
          * @member {Boolean} showDisabledDays_=true
+         * @reactive
          */
         showDisabledDays_: true,
         /**
          * @member {Boolean} showWeekends_=true
+         * @reactive
          */
         showWeekends_: true,
         /**
@@ -121,11 +131,13 @@ class DateSelector extends Component {
         useAnimations: true,
         /**
          * @member {String} value_=DateUtil.convertToyyyymmdd(new Date())
+         * @reactive
          */
         value_: DateUtil.convertToyyyymmdd(todayDate),
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
+         * @reactive
          */
         weekStartDay_: 0,
         /**

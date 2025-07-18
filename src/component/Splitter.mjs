@@ -41,6 +41,7 @@ class Splitter extends Component {
         /**
          * Either 'horizontal' or 'vertical'
          * @member {String} direction_='vertical'
+         * @reactive
          */
         direction_: 'vertical',
         /**
@@ -56,12 +57,14 @@ class Splitter extends Component {
          * Choose which sibling to resize
          * Valid values: 'next' or 'previous'
          * @member {String} resizeTarget_='next'
+         * @reactive
          */
         resizeTarget_: 'next',
         /**
          * Either height or with, depending on the direction.
          * Defaults to px
          * @member {Number} size_=10
+         * @reactive
          */
         size_: 10
     }

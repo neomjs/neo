@@ -16,6 +16,7 @@ class GridContainer extends BaseGridContainer {
         className: 'Neo.examples.grid.covid.GridContainer',
         /**
          * @member {String[]} cls=['covid-country-grid']
+         * @reactive
          */
         cls: ['covid-country-grid'],
         /**
@@ -99,10 +100,12 @@ class GridContainer extends BaseGridContainer {
         }],
         /**
          * @member {Neo.controller.Component} controller=GridContainerController
+         * @reactive
          */
         controller: GridContainerController,
         /**
          * @member {Object[]} store=Store
+         * @reactive
          */
         store: Store
     }

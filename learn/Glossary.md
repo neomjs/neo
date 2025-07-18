@@ -1,3 +1,4 @@
+# Glossary
 
 This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding
 these terms is essential for grasping the framework's unique architecture and capabilities.

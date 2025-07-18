@@ -23,10 +23,12 @@ class MainContainer extends Viewport {
         baseCls: ['rw2-main-container', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout: {
             ntype: 'vbox',

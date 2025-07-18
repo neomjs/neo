@@ -15,6 +15,7 @@ class FooterContainer extends Container {
         className: 'Portal.view.home.FooterContainer',
         /**
          * @member {String[]} cls=['portal-home-footer-container']
+         * @reactive
          */
         cls: ['portal-home-footer-container'],
         /**
@@ -107,15 +108,17 @@ class FooterContainer extends Container {
             }, {
                 module: Component,
                 cls   : ['neo-version'],
-                text  : 'v10.0.0-beta.5'
+                text  : 'v10.0.0-beta.6'
             }]
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {String} tag='footer'
+         * @reactive
          */
         tag: 'footer'
     }

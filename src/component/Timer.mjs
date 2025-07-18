@@ -25,21 +25,25 @@ class Timer extends Component {
         /**
          * End color of the circle. If not set, it uses the css default
          * @member {Number|String} colorEnd_=null
+         * @reactive
          */
         colorEnd_: null,
         /**
          * Start color of the circle. If not set, it uses the css default
          * @member {Number|String} colorStart_=null
+         * @reactive
          */
         colorStart_: null,
         /**
          * Start time. This might be '5m', '30s' or milliseconds as number
          * @member {Number|String} duration_='5m'
+         * @reactive
          */
         duration_: '10m',
         /**
          * Defines height and min-width. This can be a number in px or a string.
          * @member {Number|String} dimensions_='6rem'
+         * @reactive
          */
         dimensions_: '8em',
         /**

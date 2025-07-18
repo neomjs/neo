@@ -14,6 +14,7 @@ class ViewportController extends Controller {
         /**
          * @member {Neo.component.Gallery|null} gallery_=null
          * @protected
+         * @reactive
          */
         gallery_: null
     }

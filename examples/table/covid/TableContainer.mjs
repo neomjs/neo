@@ -16,6 +16,7 @@ class TableContainer extends BaseTableContainer {
         className: 'Neo.examples.table.covid.TableContainer',
         /**
          * @member {String[]} cls=['covid-country-table']
+         * @reactive
          */
         cls: ['covid-country-table'],
         /**
@@ -99,10 +100,12 @@ class TableContainer extends BaseTableContainer {
         }],
         /**
          * @member {Neo.controller.Component} controller=TableContainerController
+         * @reactive
          */
         controller: TableContainerController,
         /**
          * @member {Object[]} store=MainStore
+         * @reactive
          */
         store: Store
     }

@@ -14,10 +14,12 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.grid.covid.MainContainer',
         /**
          * @member {Object[]} items=[GridContainer]
+         * @reactive
          */
         items: [GridContainer],
         /**
          * @member {Object} layout={ntype:'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'},
         /**

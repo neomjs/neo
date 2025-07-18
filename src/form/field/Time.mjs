@@ -30,6 +30,7 @@ class Time extends Picker {
         collection: null,
         /**
          * @member {String} inputType='time'
+         * @reactive
          */
         inputType: 'time',
         /**
@@ -51,10 +52,12 @@ class Time extends Picker {
         listConfig: null,
         /**
          * @member {String} maxValue_='16:00'
+         * @reactive
          */
         maxValue_: '16:00',
         /**
          * @member {String} minValue_='08:00'
+         * @reactive
          */
         minValue_: '08:00',
         /**
@@ -65,11 +68,13 @@ class Time extends Picker {
         /**
          * Value in seconds, defaults to 5min
          * @member {Number} stepSize_=60*5
+         * @reactive
          */
         stepSize_: 60 * 5, // 5min
         /**
          * @member {Object|Object[]} triggers=[{module: TimeTrigger}]
          * @protected
+         * @reactive
          */
         triggers: [{
             module: TimeTrigger
@@ -77,6 +82,7 @@ class Time extends Picker {
         /**
          * @member {Intl.DateTimeFormat|null} valueFormat_=null
          * @protected
+         * @reactive
          */
         valueFormat_: null
     }

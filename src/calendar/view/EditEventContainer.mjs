@@ -26,7 +26,7 @@ class EditEventContainer extends FormContainer {
          */
         bind: {
             endTime             : data => data.endTime,
-            intlFormat_time     : data => data.intlFormat_time,
+            intlFormat_time     : data => data.timeFormatter,
             minimumEventDuration: data => data.minimumEventDuration,
             startTime           : data => data.startTime
         },
@@ -38,6 +38,7 @@ class EditEventContainer extends FormContainer {
          * Only full hours are valid for now
          * format: 'hh:mm'
          * @member {String} endTime_='24:00'
+         * @reactive
          */
         endTime_: '24:00',
         /**
@@ -56,12 +57,14 @@ class EditEventContainer extends FormContainer {
         owner: null,
         /**
          * @member {Neo.calendar.model.Event|null} record_=null
+         * @reactive
          */
         record_: null,
         /**
          * Only full hours are valid for now
          * format: 'hh:mm'
          * @member {String} startTime_='00:00'
+         * @reactive
          */
         startTime_: '00:00',
         /**

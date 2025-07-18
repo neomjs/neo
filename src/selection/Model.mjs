@@ -1,10 +1,12 @@
-import Base       from '../core/Base.mjs';
-import NeoArray   from '../util/Array.mjs';
-import Observable from '../core/Observable.mjs';
+import Base           from '../core/Base.mjs';
+import NeoArray       from '../util/Array.mjs';
+import Observable     from '../core/Observable.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
  * @class Neo.selection.Model
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Model extends Base {
     /**
@@ -32,10 +34,17 @@ class Model extends Base {
          */
         cls: null,
         /**
-         * @member {Array} items_=null
+         * @member {Array} items_
          * @protected
+         * @reactive
          */
-        items_: null,
+        items_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            isEqual       : () => false,
+            value         : []
+        },
         /**
          * @member {String} selectedCls='selected'
          */
@@ -48,21 +57,9 @@ class Model extends Base {
          * Internally saves the view id, but the getter will return the matching instance
          * @member {Object} view_=null
          * @protected
+         * @reactive
          */
         view_: null
-    }
-
-    /**
-     * Gets triggered before getting the value of the items config
-     * @param {Array|null} value
-     * @returns {Array}
-     */
-    beforeGetItems(value) {
-        if (!value) {
-            this._items = value = []
-        }
-
-        return value
     }
 
     /**

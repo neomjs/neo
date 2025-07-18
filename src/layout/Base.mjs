@@ -22,6 +22,7 @@ class Layout extends Base {
         /**
          * The name of the App this layout belongs to
          * @member {String|null} appName_=null
+         * @reactive
          */
         appName_: null,
         /**
@@ -34,6 +35,7 @@ class Layout extends Base {
          * A layout specific CSS selector which gets added to Container the layout is bound to.
          * @member {String|null} containerCls_=null
          * @protected
+         * @reactive
          */
         containerCls_: null,
         /**
@@ -44,6 +46,7 @@ class Layout extends Base {
         isLayout: true,
         /**
          * @member {Number|null} windowId_=null
+         * @reactive
          */
         windowId_: null
     }

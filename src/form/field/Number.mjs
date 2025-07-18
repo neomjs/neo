@@ -35,6 +35,7 @@ class Number extends Text {
         /**
          * Prevent users from typing specific characters.
          * @member {String[]|null} disabledChars=['e','E']
+         * @reactive
          */
         disabledChars: ['e', 'E'],
         /**
@@ -58,23 +59,28 @@ class Number extends Text {
         /**
          * false only allows changing the field using the spin buttons
          * @member {Boolean} inputEditable_=true
+         * @reactive
          */
         inputEditable_: true,
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='number'
+         * @reactive
          */
         inputType: 'number',
         /**
          * @member {Number} maxValue_=100
+         * @reactive
          */
         maxValue_: 100,
         /**
          * @member {Number} minValue_=0
+         * @reactive
          */
         minValue_: 0,
         /**
          * @member {Number} stepSize_=1
+         * @reactive
          */
         stepSize_: 1,
         /**
@@ -84,6 +90,7 @@ class Number extends Text {
         triggerPosition_: 'right',
         /**
          * @member {Boolean} useSpinButtons_=true
+         * @reactive
          */
         useSpinButtons_: true
     }

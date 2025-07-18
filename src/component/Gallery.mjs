@@ -25,11 +25,13 @@ class Gallery extends Component {
         /**
          * The amount of visible rows inside the gallery
          * @member {Number} amountRows_=3
+         * @reactive
          */
         amountRows_: 3,
         /**
          * The background color of the gallery container
          * @member {String} backgroundColor_='#000000'
+         * @reactive
          */
         backgroundColor_: '#000000',
         /**
@@ -53,6 +55,7 @@ class Gallery extends Component {
         itemHeight: 160,
         /**
          * @member {Object} itemTpl_
+         * @reactive
          */
         itemTpl_:
         {cls: ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'], tabIndex: '-1', cn: [
@@ -78,6 +81,7 @@ class Gallery extends Component {
         /**
          * The max amount of store items to show
          * @member {Number} maxItems_=300
+         * @reactive
          */
         maxItems_: 300,
         /**
@@ -93,6 +97,7 @@ class Gallery extends Component {
         /**
          * Specifies whether the mouse wheel should change the translateZ value for zooming
          * @member {Boolean} mouseWheelEnabled_=true
+         * @reactive
          */
         mouseWheelEnabled_: true,
         /**
@@ -112,6 +117,7 @@ class Gallery extends Component {
         /**
          * Set this one to true to order the items by row instead of by column
          * @member {Boolean} orderByRow_=false
+         * @reactive
          */
         orderByRow_: false,
         /**
@@ -122,6 +128,7 @@ class Gallery extends Component {
         /**
          * Uses the selection.GalleryModel by default
          * @member {Neo.selection.GalleryModel|null} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
@@ -132,6 +139,7 @@ class Gallery extends Component {
         /**
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
@@ -143,16 +151,19 @@ class Gallery extends Component {
         /**
          * The translateX value of the view origin
          * @member {Number} translateX_=0
+         * @reactive
          */
         translateX_: 0,
         /**
          * The translateX value of the view origin
          * @member {Number} translateY_=0
+         * @reactive
          */
         translateY_: 0,
         /**
          * The translateX value of the view origin
          * @member {Number} translateZ_=0
+         * @reactive
          */
         translateZ_: 0,
         /**

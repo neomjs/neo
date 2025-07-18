@@ -29,10 +29,12 @@ class MainContainer extends Container {
         baseCls: ['neo-docs-classdetails-maincontainer', 'neo-container'],
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
@@ -41,6 +43,7 @@ class MainContainer extends Container {
         structureData: null,
         /**
          * @member {Array} items=[//...]]
+         * @reactive
          */
         items: [{
             ntype    : 'container',

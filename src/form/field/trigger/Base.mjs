@@ -28,6 +28,7 @@ class Base extends Component {
         ntype: 'trigger',
         /**
          * @member {String} align_='end'
+         * @reactive
          */
         align: 'end',
         /**
@@ -40,6 +41,7 @@ class Base extends Component {
         field_: null,
         /**
          * @member {String|null} iconCls_=null
+         * @reactive
          */
         iconCls_: null,
         /**
@@ -64,6 +66,7 @@ class Base extends Component {
         type: 'base',
         /**
          * @member {Number} weight_=10
+         * @reactive
          */
         weight_: 10
     }

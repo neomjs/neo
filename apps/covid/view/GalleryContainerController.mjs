@@ -14,6 +14,7 @@ class GalleryContainerController extends ComponentController {
         /**
          * @member {Neo.component.Gallery|null} gallery_=null
          * @protected
+         * @reactive
          */
         gallery_: null
     }

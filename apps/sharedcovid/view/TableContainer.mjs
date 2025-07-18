@@ -26,10 +26,12 @@ class TableContainer extends Container {
         },
         /**
          * @member {Neo.controller.Component|null} controller=TableContainerController
+         * @reactive
          */
         controller: TableContainerController,
         /**
          * @member {Object} countryRecord_=null
+         * @reactive
          */
         countryRecord_: null,
         /**
@@ -47,6 +49,7 @@ class TableContainer extends Container {
         tableConfig: null,
         /**
          * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**

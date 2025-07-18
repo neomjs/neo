@@ -16,6 +16,7 @@ class ServiceBase extends Base {
         className: 'Neo.worker.ServiceBase',
         /**
          * @member {String} cacheName_='neo-runtime'
+         * @reactive
          */
         cacheName_: 'neo-runtime',
         /**
@@ -26,6 +27,7 @@ class ServiceBase extends Base {
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
          * @protected
+         * @reactive
          */
         remote: {
             app: [
@@ -175,6 +177,8 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     async onActivate(event) {
+        await globalThis.clients.claim();
+
         console.log('onActivate', event);
 
         let me   = this,
@@ -229,7 +233,8 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
-        console.log('onInstall', event)
+        console.log('onInstall', event);
+        globalThis.skipWaiting();
     }
 
     /**

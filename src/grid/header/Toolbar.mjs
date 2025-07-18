@@ -22,30 +22,36 @@ class Toolbar extends BaseToolbar {
         baseCls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
          * @member {Boolean} draggable_=true
+         * @reactive
          */
         draggable_: true,
         /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
+         * @reactive
          */
         itemDefaults: {
             ntype: 'grid-header-button'
         },
         /**
          * @member {String} role='row'
+         * @reactive
          */
         role: 'row',
         /**
          * @member {Number} scrollLeft_=0
+         * @reactive
          */
         scrollLeft_: 0,
         /**
          * @member {Boolean} showHeaderFilters_=false
+         * @reactive
          */
         showHeaderFilters_: false,
         /**
          * Convenience shortcut to pass sortable to all toolbar items.
          * If set to true, header clicks will sort the matching column (ASC, DESC, null)
          * @member {Boolean} sortable=true
+         * @reactive
          */
         sortable: true,
         /**

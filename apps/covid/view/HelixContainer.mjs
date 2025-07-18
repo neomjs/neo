@@ -22,6 +22,7 @@ class HelixContainer extends Container {
         baseCls: ['neo-helix-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.controller.Component|null} controller=HelixContainerController
+         * @reactive
          */
         controller: HelixContainerController,
         /**
@@ -34,6 +35,7 @@ class HelixContainer extends Container {
         helixConfig: null,
         /**
          * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**

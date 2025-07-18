@@ -14,6 +14,7 @@ class Container extends Base {
         className: 'Portal.view.about.Container',
         /**
          * @member {String[]} cls=['portal-about-container']
+         * @reactive
          */
         cls: ['portal-about-container'],
         /**
@@ -57,6 +58,7 @@ class Container extends Base {
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'center'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'center'}
     }

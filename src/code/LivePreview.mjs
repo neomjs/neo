@@ -3,10 +3,9 @@ import MonacoEditor from '../component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../tab/Container.mjs';
 
 const
-    classDeclarationRegex = /class\s+([a-zA-Z$_][a-zA-Z0-9$_]*)\s*(?:extends\s+[a-zA-Z$_][a-zA-Z0-9$_]*)?\s*{[\s\S]*?}/g,
-    classNameRegex        = /className\s*:\s*['"]([^'"]+)['"]/g,
-    exportRegex           = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
-    importRegex           = /import\s+([\w-]+)\s+from\s+['"]([^'"]+)['"]/;
+    classNameRegex = /className\s*:\s*['\"]([^'\"]+)['\"]/g,
+    exportRegex    = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
+    importRegex    = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['\"]([^'\"]+)['\"]/;
 
 /**
  * @class Neo.code.LivePreview
@@ -35,6 +34,7 @@ class LivePreview extends Container {
         /**
          * Valid values are 'preview' and 'source'
          * @member {String} activeView_='source'
+         * @reactive
          */
         activeView_: 'source',
         /**
@@ -51,6 +51,7 @@ class LivePreview extends Container {
         enableFullscreen: true,
         /**
          * @member {Object|String} layout='fit'
+         * @reactive
          */
         layout: 'fit',
         /**
@@ -78,6 +79,7 @@ class LivePreview extends Container {
         /**
          * The code to display inside the Monaco editor
          * @member {String|null} value_=null
+         * @reactive
          */
         value_: null,
     }
@@ -226,19 +228,20 @@ class LivePreview extends Container {
             {environment}     = Neo.config,
             container         = me.getPreviewContainer(),
             source            = me.editorValue || me.value,
-            className         = me.findLastClassName(source),
+            className         = me.findMainClassName(source),
             cleanLines        = [],
             moduleNameAndPath = [],
             params            = [],
             vars              = [],
-            codeString, promises;
+            codeString, module, promises;
 
         source.split('\n').forEach(line => {
             let importMatch = line.match(importRegex);
 
             if (importMatch) {
-                let moduleName = importMatch[1],
-                    path       = importMatch[2],
+                let defaultImport = importMatch[1],
+                    namedImports  = importMatch[2]?.split(',').map(name => name.trim()),
+                    path          = importMatch[3],
                     index;
 
                 // We want the non-minified version for code which can not get bundled.
@@ -263,7 +266,7 @@ class LivePreview extends Container {
                     }
                 }
 
-                moduleNameAndPath.push({moduleName, path})
+                moduleNameAndPath.push({defaultImport, namedImports, path})
             } else if (line.match(exportRegex)) {
                 // Skip export statements
             } else {
@@ -286,9 +289,15 @@ class LivePreview extends Container {
         //   });
         // Making the promise part of the eval seems weird, but it made it easier to
         // set up the import vars.
-        promises = moduleNameAndPath.map(item => {
-            params.push(`${item.moduleName}Module`);
-            vars.push(`    const ${item.moduleName} = ${item.moduleName}Module.default;`);
+        promises = moduleNameAndPath.map((item, i) => {
+            let moduleAlias = `Module${i}`;
+            params.push(moduleAlias);
+            if (item.defaultImport) {
+                vars.push(`    const ${item.defaultImport} = ${moduleAlias}.default;`);
+            }
+            if (item.namedImports) {
+                vars.push(`    const {${item.namedImports.join(', ')}} = ${moduleAlias};`);
+            }
             return `import('${item.path}')`
         });
 
@@ -299,11 +308,19 @@ class LivePreview extends Container {
             `${vars.join('\n')}`,
             `    ${cleanLines.join('\n')}`,
             '',
-            `    if (${className} && Neo.component.Base.isPrototypeOf(${className})) {`,
-            `        container.add({module:${className}})`,
+            `    module = Neo.ns('${className}');`,
+            '',
+            `    if (module && (`,
+            `        Neo.component.Base.isPrototypeOf(module) ||`,
+            `        Neo.functional.component.Base.isPrototypeOf(module)`,
+            `    )) {`,
+            `        container.add({module})`,
             '    }',
             '})',
-            '.catch(error => container.add({ntype:\'component\', html:error.message}));'
+            '.catch(error => {',
+            '    console.warn("LivePreview Error:", error);',
+            '    container.add({ntype:\'component\', html:error.message});',
+            '})'
         ].join('\n')
 
         container.removeAll();
@@ -321,7 +338,7 @@ class LivePreview extends Container {
         });
 
         try {
-            new Function('container', codeString)(container);
+            new Function('container', 'module', codeString)(container, module);
         } catch (error) {
             container.add({
                 ntype: 'component',
@@ -349,17 +366,28 @@ class LivePreview extends Container {
      * @param {String} sourceCode
      * @returns {String|null}
      */
-    findLastClassName(sourceCode) {
-        let lastClassName = null,
-            match;
+    findMainClassName(sourceCode) {
+        let classNames = this.findClassNames(sourceCode),
+            mainName   = null,
+            prioNames  = ['MainContainer', 'MainComponent', 'MainView', 'Main'];
 
-        while ((match = classDeclarationRegex.exec(sourceCode)) !== null) {
-            // Update the last class name found
-            lastClassName = match[1]
+        if (classNames.length > 0) {
+            for (const name of prioNames) {
+                mainName = classNames.find(className => className.endsWith(name));
+                if (mainName) {
+                    break
+                }
+            }
+
+            if (!mainName) {
+                mainName = classNames[classNames.length - 1]
+            }
         }
 
-        return lastClassName
+        return mainName
     }
+
+    
 
     /**
      * @returns {Neo.component.Base|null}

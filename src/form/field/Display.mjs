@@ -24,6 +24,7 @@ class Display extends Text {
         /**
          * @member {Boolean} clearable=false
          * @protected
+         * @reactive
          */
         clearable: false
     }

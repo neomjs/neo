@@ -24,6 +24,7 @@ class Label extends Component {
         /**
          * @member {String} tag='label'
          * @protected
+         * @reactive
          */
         tag: 'label'
     }

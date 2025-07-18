@@ -16,6 +16,7 @@ class DemoDialog extends Dialog {
         /**
          * Custom config to dynamically enable / disable the animateTargetId
          * @member {Boolean} animated_=true
+         * @reactive
          */
         animated_: true,
         /**
@@ -33,6 +34,7 @@ class DemoDialog extends Dialog {
         index: 1,
         /**
          * @member {Boolean} modal=true
+         * @reactive
          */
         modal: true,
         /**

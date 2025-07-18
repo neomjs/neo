@@ -27,6 +27,7 @@ class Plugin extends Base {
         owner: null,
         /**
          * @member {Number|null} windowId_=null
+         * @reactive
          */
         windowId_: null
     }

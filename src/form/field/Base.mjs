@@ -31,24 +31,29 @@ class Field extends Component {
          * Form groups can get set on any parent component level.
          * An alternative way for using dots in field names.
          * @member {String|null} formGroup_=null
+         * @reactive
          */
         formGroup_: null,
         /**
          * @member {Object|null} keys={}
+         * @reactive
          */
         keys: {},
         /**
          * True indicates that a user has interacted with the form field
          * @member {Boolean} isTouched_=false
+         * @reactive
          */
         isTouched_: false,
         /**
          * Event name which sets isTouched to true. Valid options are 'focusEnter' & 'focusLeave'
          * @member {String} isTouched_=false
+         * @reactive
          */
         isTouchedEvent_: 'focusLeave',
         /**
          * @member {String|null} name_=null
+         * @reactive
          */
         name_: null,
         /**
@@ -57,6 +62,7 @@ class Field extends Component {
          * & accessibility though, so the default got set to true.
          * Feel free to change it to false to keep the DOM minimal.
          * @member {Boolean} renderName_=true
+         * @reactive
          */
         renderName_: true,
         /**
@@ -67,6 +73,7 @@ class Field extends Component {
         renderPath: true,
         /**
          * @member {*} value_=null
+         * @reactive
          */
         value_: null
     }

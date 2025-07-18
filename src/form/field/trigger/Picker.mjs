@@ -19,6 +19,7 @@ class Picker extends Base {
         ntype: 'trigger-picker',
         /**
          * @member {String|null} iconCls='fa fa-caret-down'
+         * @reactive
          */
         iconCls: 'fa fa-caret-down',
         /**

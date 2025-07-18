@@ -60,10 +60,12 @@ class PageContainer extends Container {
         }],
         /**
          * @member {Object} nextPageRecord_=null
+         * @reactive
          */
         nextPageRecord_: null,
         /**
          * @member {Object} previousPageRecord_=null
+         * @reactive
          */
         previousPageRecord_: null
     }

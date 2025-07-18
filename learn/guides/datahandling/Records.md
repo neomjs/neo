@@ -1,3 +1,4 @@
+# Records
 
 In Neo.mjs, a **Record** is a super lightweight, reactive JavaScript object, dynamically created and structured
 according to a `Neo.data.Model`. Records provide a powerful way to manage application data with built-in features like

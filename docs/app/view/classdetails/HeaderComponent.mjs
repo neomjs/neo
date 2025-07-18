@@ -23,6 +23,7 @@ class HeaderComponent extends Component {
         baseCls: ['neo-docs-classdetails-headercomponent'],
         /**
          * @member {Object|null} record_=null
+         * @reactive
          */
         record_: null,
         /**

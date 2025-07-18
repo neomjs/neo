@@ -22,10 +22,12 @@ class BlogPosts extends Store {
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=BlogPost
+         * @reactive
          */
         model: BlogPost,
         /**
          * @member {Object[]} sorters=[{property: 'id', direction: 'DESC'}]
+         * @reactive
          */
         sorters: [{
             property : 'id',

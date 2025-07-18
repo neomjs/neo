@@ -14,6 +14,7 @@ class Colors extends Store {
         className: 'Colors.store.Colors',
         /**
          * @member {Neo.data.Model} model=ColorModel
+         * @reactive
          */
         model: ColorModel
     }

@@ -25,6 +25,7 @@ class MainStore extends Store {
         ],
         /**
          * @member {Neo.data.Model} model=MainModel
+         * @reactive
          */
         model: MainModel
     }

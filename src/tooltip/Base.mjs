@@ -27,6 +27,7 @@ class Tooltip extends Container {
         /**
          * A reference to the target component which is supposed to show this tooltip on mouseenter
          * @member {String|null} componentId_=null
+         * @reactive
          */
         componentId_: null,
         /**
@@ -75,6 +76,7 @@ class Tooltip extends Container {
         /**
          * True prevents the tooltip from hiding while the mouse cursor is above it
          * @member {Boolean|null} stayOnHover_=true
+         * @reactive
          */
         stayOnHover_: true
     }

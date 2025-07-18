@@ -41,6 +41,7 @@ class Chip extends ComponentList {
         /**
          * True will flex each list item horizontally
          * @member {Boolean} stacked_=true
+         * @reactive
          */
         stacked_: true,
         /**

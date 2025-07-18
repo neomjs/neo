@@ -13,10 +13,12 @@ class MainContainerController extends Controller {
         className: 'Neo.examples.stateProvider.inlineNoStateProvider.MainContainerController',
         /**
          * @member {String} button1Text_='Button 1'
+         * @reactive
          */
         button1Text_: 'Button 1',
         /**
          * @member {String} button1Text_='Button 2'
+         * @reactive
          */
         button2Text_: 'Button 2'
     }

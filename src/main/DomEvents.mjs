@@ -70,6 +70,8 @@ const
 /**
  * @class Neo.main.DomEvents
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
+ * @mixes Neo.main.mixin.TouchDomEvents
  * @singleton
  */
 class DomEvents extends Base {

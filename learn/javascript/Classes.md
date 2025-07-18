@@ -1,3 +1,5 @@
+# Classes, Properties, and Methods
+
 Neo.mjs classes are standard JavaScript classes. Every source file
 you write will be a class definition, extending some Neo.mjs
 class. 
@@ -13,8 +15,8 @@ class Mammal extends Base {
 
 const myMammal = Neo.create(Mammal);
 
-Neo.setupClass(Mammal); // Where Neo.mjs initializes the class config. 
-export default Mammal;        // Makes the class available elsewhere.
+// Where Neo.mjs initializes the class and makes the class available elsewhere.
+export default Neo.setupClass(Mammal);
 ```
 
 In the example above, we're extending the Neo.mjs base class. The static
@@ -40,16 +42,14 @@ class Mammal extends Base {
 }
 
 const myMammal = Neo.create(Mammal);
-console.log(myMammal.name);           // Logs "Anonymous"
+console.log(myMammal.name); // Logs "Anonymous"
 myMammal.name = 'Herbert';
-console.log(myMammal.name);           // Logs "Herbert"
+console.log(myMammal.name); // Logs "Herbert"
 
-Neo.setupClass(Mammal);
-
-export default Mammal;
+export default Neo.setupClass(Mammal);
 ```
 
-In Neo.mjs, instance properties are usually added in the `static config` block.
+In Neo.mjs, instance properties are usually added in the `static config` block.</br>
 The `static config` block does two things: 
 - It formally describes the properties API for your class.
 - It lets Neo.mjs manage the initialization and lifecycle of those properties.
@@ -65,9 +65,8 @@ the instance, using the second argument to the `create` method.
 const myMammal = Neo.create(Mammal, {
     name: 'Creature'
 });
-console.log(myMammal.name);           // Logs "Creature"
+console.log(myMammal.name); // Logs "Creature"
 ```
-
 
 Since _you_ define those properties, you can
 look for them in class methods and use them as needed.
@@ -93,9 +92,7 @@ const myMammal = Neo.create(Mammal, {
 
 myMammal.speak(); // Logs "Creature is grunting."
 
-Neo.setupClass(Mammal);
-
-export default Mammal;
+export default Neo.setupClass(Mammal);
 ```
 
 

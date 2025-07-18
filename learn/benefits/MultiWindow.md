@@ -1,4 +1,6 @@
-## Multi-Window Applications: Unleashing Desktop-Class Experiences
+# Multi-Window Applications
+
+## Unleashing Desktop-Class Experiences
 
 Traditional web applications are often confined to a single browser window or tab, limiting user productivity and the
 ability to manage complex workflows. Neo.mjs shatters this limitation by providing native, robust support for

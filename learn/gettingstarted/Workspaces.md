@@ -1,3 +1,5 @@
+# Workspaces and Applications
+
 The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace,
 and the structure of an application.
 

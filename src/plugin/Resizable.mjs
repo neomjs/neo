@@ -49,6 +49,7 @@ class Resizable extends Plugin {
         /**
          * The name of the App this instance belongs to
          * @member {String|null} appName_=null
+         * @reactive
          */
         appName_: null,
         /**
@@ -74,6 +75,7 @@ class Resizable extends Plugin {
         /**
          * Directions into which you want to drag => resize
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
+         * @reactive
          */
         directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr'],
         /**

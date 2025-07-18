@@ -13,6 +13,7 @@ class Component extends BaseComponent {
         className: 'Portal.view.services.Component',
         /**
          * @member {String[]} cls=['portal-services-component']
+         * @reactive
          */
         cls: ['portal-services-component'],
         /**

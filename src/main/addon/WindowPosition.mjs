@@ -25,6 +25,7 @@ class WindowPosition extends Base {
         intervalTime: 20,
         /**
          * @member {Boolean} observeResize_=false
+         * @reactive
          */
         observeResize_: false,
         /**
@@ -156,7 +157,7 @@ class WindowPosition extends Base {
             {screenLeft, screenTop} = win,
             left, top;
 
-        switch(data.dock) {
+        switch (data.dock) {
             case 'bottom':
                 left = screenLeft;
                 top  = win.outerHeight + screenTop - 62;

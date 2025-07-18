@@ -17,6 +17,7 @@ class FooterComponent extends Component {
         baseCls: ['rw2-footer-component'],
         /**
          * @member {Number} height=40
+         * @reactive
          */
         height: 40,
         /**

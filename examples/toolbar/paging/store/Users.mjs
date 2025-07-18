@@ -27,6 +27,7 @@ class Users extends Store {
         autoSort: false,
         /**
          * @member {Neo.data.Model} model=UserModel
+         * @reactive
          */
         model: UserModel,
         /**

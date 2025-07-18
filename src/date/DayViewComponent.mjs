@@ -41,6 +41,7 @@ class DayViewComponent extends Base {
         /**
          * @member {Date|null} currentDate_=null
          * @protected
+         * @reactive
          */
         currentDate_: null,
         /**
@@ -51,6 +52,7 @@ class DayViewComponent extends Base {
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
+         * @reactive
          */
         weekStartDay_: 0,
         /**

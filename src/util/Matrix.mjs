@@ -15,6 +15,7 @@ class Matrix extends Base {
         /**
          * @member {Array|null} items_=null
          * @protected
+         * @reactive
          */
         items_: null
     }

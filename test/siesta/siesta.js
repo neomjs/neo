@@ -48,7 +48,8 @@ project.plan(
         group: 'state',
         items: [
             'tests/state/createHierarchicalDataProxy.mjs',
-            'tests/state/Provider.mjs'
+            'tests/state/Provider.mjs',
+            'tests/state/ProviderNestedDataConfigs.mjs'
         ]
     },
     'tests/CollectionBase.mjs',
@@ -69,7 +70,9 @@ project.plan(
                 'tests/vdom/table/Container.mjs'
             ]
         },
-        'tests/vdom/Advanced.mjs']
+        'tests/vdom/Advanced.mjs',
+        'tests/vdom/VdomAsymmetricUpdates.mjs',
+        'tests/vdom/VdomRealWorldUpdates.mjs']
     }
 );
 

@@ -26,6 +26,7 @@ class Strip extends Component {
         tabContainerId: null,
         /**
          * @member {Boolean} useActiveTabIndicator_=true
+         * @reactive
          */
         useActiveTabIndicator_: true,
         /**

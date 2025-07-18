@@ -34,11 +34,13 @@ class Container extends BaseContainer {
         /**
          * @member {String|null} bodyId_=null
          * @protected
+         * @reactive
          */
         bodyId_: null,
         /**
          * true uses table.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
+         * @reactive
          */
         cellEditing_: false,
         /**
@@ -48,6 +50,7 @@ class Container extends BaseContainer {
         columnDefaults: null,
         /**
          * @member {Object[]} columns_=[]
+         * @reactive
          */
         columns_: [],
         /**
@@ -57,10 +60,12 @@ class Container extends BaseContainer {
         headerToolbarConfig: null,
         /**
          * @member {String|null} headerToolbarId_=null
+         * @reactive
          */
         headerToolbarId_: null,
         /**
          * @member {String} layout='base'
+         * @reactive
          */
         layout: 'base',
         /**
@@ -70,24 +75,29 @@ class Container extends BaseContainer {
         scrollbarsCssApplied: false,
         /**
          * @member {Boolean} showHeaderFilters_=false
+         * @reactive
          */
         showHeaderFilters_: false,
         /**
          * @member {Boolean} sortable_=true
+         * @reactive
          */
         sortable_: true,
         /**
          * @member {Neo.data.Store} store_=null
+         * @reactive
          */
         store_: null,
         /**
          * todo: only works for chrome & safari -> add a check
          * @member {Boolean} useCustomScrollbars_=true
+         * @reactive
          */
         useCustomScrollbars_: true,
         /**
          * @member {Array|null} items=null
          * @protected
+         * @reactive
          */
         items: null,
         /**

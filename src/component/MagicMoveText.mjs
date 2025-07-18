@@ -20,10 +20,12 @@ class MagicMoveText extends Component {
         ntype: 'magic-move-text',
         /**
          * @member {Boolean} autoCycle_=true
+         * @reactive
          */
         autoCycle_: true,
         /**
          * @member {Number} autoCycleInterval_=2000
+         * @reactive
          */
         autoCycleInterval_: 2000,
         /**
@@ -49,11 +51,13 @@ class MagicMoveText extends Component {
         cycleTexts: null,
         /**
          * @member {String} fontFamily_='Helvetica Neue'
+         * @reactive
          */
         fontFamily_: 'Helvetica Neue',
         /**
          * Time in ms for the fadeIn, fadeOut and move character OPs
          * @member {Number} transitionTime_=500
+         * @reactive
          */
         transitionTime_: 500,
         /**

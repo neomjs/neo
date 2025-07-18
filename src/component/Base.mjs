@@ -1,13 +1,14 @@
 import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import DomEventManager  from '../manager/DomEvent.mjs';
+import DomEvents        from '../mixin/DomEvents.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Observable       from '../core/Observable.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
+import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
@@ -24,6 +25,9 @@ const
  * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
  * @extends Neo.core.Base
+ * @mixes Neo.component.mixin.DomEvents
+ * @mixes Neo.core.Observable
+ * @mixes Neo.component.mixin.VdomLifecycle
  */
 class Component extends Base {
     /**
@@ -33,12 +37,6 @@ class Component extends Base {
      * @static
      */
     static hideModes = ['removeDom', 'visibility']
-    /**
-     * True automatically applies the core.Observable mixin
-     * @member {Boolean} observable=true
-     * @static
-     */
-    static observable = true
 
     static config = {
         /**
@@ -55,6 +53,7 @@ class Component extends Base {
          * The default alignment specification to position this Component relative to some other
          * Component, or Element or Rectangle. Only applies in case floating = true.
          * @member {Object|String} align_={[isDescriptor]: true, merge: 'deep', value: {edgeAlign: 't-b',constrainTo: 'document.body'}}
+         * @reactive
          */
         align_: {
             [isDescriptor]: true,
@@ -67,23 +66,9 @@ class Component extends Base {
         /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
+         * @reactive
          */
         appName_: null,
-        /**
-         * True automatically mounts a component after being rendered.
-         * Use this for the top level component of your app.
-         * @member {Boolean} autoMount=false
-         * @tutorial 02_ClassSystem
-         */
-        autoMount: false,
-        /**
-         * True automatically renders a component after being created inside the init call.
-         * Use this for the top level component of your app.
-         * @member {Boolean} autoRender=false
-         * @see {@link Neo.component.Base#init init}
-         * @tutorial 02_ClassSystem
-         */
-        autoRender: false,
         /**
          * CSS selectors to apply to the root level node of this component
          * @member {String[]} baseCls=[]
@@ -105,17 +90,20 @@ class Component extends Base {
          * Custom CSS selectors to apply to the root level node of this component
          * You can override baseCls to remove default selectors.
          * @member {String[]} cls_=null
+         * @reactive
          */
         cls_: null,
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
+         * @reactive
          */
         containsFocus_: false,
         /**
          * Assign a component controller to this component (pass an imported module or the string based class name)
          * @member {Neo.controller.Component|String} controller_=null
+         * @reactive
          */
         controller_: null,
         /**
@@ -123,32 +111,19 @@ class Component extends Base {
          * Read only.
          * @member {Object} data_=null
          * @protected
+         * @reactive
          */
         data_: null,
         /**
          * Disabled components will get the neo-disabled cls applied and won't receive DOM events
          * @member {Boolean} disabled_=false
+         * @reactive
          */
         disabled_: false,
         /**
-         * An array of domListener configs
-         * @member {Object[]|null} domListeners_=null
-         * @example
-         * afterSetStayOnHover(value, oldValue) {
-         *     if (value) {
-         *         let me = this;
-         *
-         *         me.addDomListeners(
-         *             {mouseenter: me.onMouseEnter, scope: me},
-         *             {mouseleave: me.onMouseLeave, scope: me}
-         *         )
-         *    }
-         *}
-         */
-        domListeners_: null,
-        /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
+         * @reactive
          */
         droppable_: false,
         /**
@@ -171,38 +146,29 @@ class Component extends Base {
          */
         hasBeenMounted: false,
         /**
-         * Internal flag
-         * @member {Boolean} hasRenderingListener=false
-         * @protected
-         */
-        hasRenderingListener: false,
-        /**
-         * Internal flag for vdom changes after a component got unmounted
-         * (delta updates can no longer get applied & a new render call is required before re-mounting)
-         * @member {Boolean} hasUnmountedVdomChanges_=false
-         * @protected
-         */
-        hasUnmountedVdomChanges_: false,
-        /**
          * Shortcut for style.height, defaults to px
          * @member {Number|String|null} height_=null
+         * @reactive
          */
         height_: null,
         /**
          * Initial setting to hide or show the component and
          * you can use either hide()/show() or change this config directly to change the hidden state
          * @member {Boolean} hidden_=false
+         * @reactive
          */
         hidden_: false,
         /**
          * Used for hide and show and defines if the component
          * should use css visibility:'hidden' or vdom:removeDom
          * @member {String} hideMode_='removeDom'
+         * @reactive
          */
         hideMode_: 'removeDom',
         /**
          * The top level innerHTML of the component
          * @member {String|null} html_=null
+         * @reactive
          */
         html_: null,
         /**
@@ -212,42 +178,46 @@ class Component extends Base {
          */
         isLoading_: false,
         /**
-         * Internal flag which will get set to true while an update request (worker messages) is in progress
-         * @member {Boolean} isVdomUpdating_=false
-         * @protected
-         */
-        isVdomUpdating_: false,
-        /**
          * Using the keys config will create an instance of Neo.util.KeyNavigation.
          * @see {@link Neo.util.KeyNavigation KeyNavigation}
          * @member {Object} keys_=null
+         * @reactive
          */
         keys_: null,
         /**
          * Gets used inside afterSetIsLoading() to define the CSS for the loading spinner icon
          * @member {String[]} loadingSpinnerCls_=['fa','fa-spinner','fa-spin']
+         * @reactive
          */
         loadingSpinnerCls_: ['fa', 'fa-spinner', 'fa-spin'],
         /**
          * Shortcut for style.maxHeight, defaults to px
          * @member {Number|String|null} maxHeight_=null
+         * @reactive
          */
         maxHeight_: null,
         /**
          * Shortcut for style.maxWidth, defaults to px
          * @member {Number|String|null} maxWidth_=null
+         * @reactive
          */
         maxWidth_: null,
         /**
          * Shortcut for style.minHeight, defaults to px
          * @member {Number|String|null} minHeight_=null
+         * @reactive
          */
         minHeight_: null,
         /**
          * Shortcut for style.minWidth, defaults to px
          * @member {Number|String|null} minWidth_=null
+         * @reactive
          */
         minWidth_: null,
+        /**
+         * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
+         */
+        mixins: [DomEvents, Observable, VdomLifecycle],
         /**
          * Override specific stateProvider data properties.
          * This will merge the content.
@@ -255,34 +225,25 @@ class Component extends Base {
          */
         modelData: null,
         /**
-         * True in case the component is mounted to the DOM
-         * @member {Boolean} mounted_=false
-         * @protected
-         */
-        mounted_: false,
-        /**
-         * Internal flag which will get set to true in case an update call arrives while another update is running
-         * @member {Boolean} needsVdomUpdate_=false
-         * @protected
-         */
-        needsVdomUpdate_: false,
-        /**
          * If the parentId does not match a neo component id, you can manually set this value for finding
          * view controllers or state providers.
          * Use case: manually dropping components into a vdom structure
          * @member {Neo.component.Base|null} parentComponent_=null
          * @protected
+         * @reactive
          */
         parentComponent_: null,
         /**
          * The parent component id or document.body
          * @member {String} parentId_='document.body'
+         * @reactive
          */
         parentId_: 'document.body',
         /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
          * @protected
+         * @reactive
          */
         plugins_: null,
         /**
@@ -290,6 +251,7 @@ class Component extends Base {
          * References will also get mapped into the vdom root (data-ref: value).
          * @member {String|null} reference_=null
          * @protected
+         * @reactive
          */
         reference_: null,
         /**
@@ -300,15 +262,10 @@ class Component extends Base {
          */
         responsive_: null,
         /**
-         * True in case the component is rendering the vnode
-         * @member {Boolean} rendering_=false
-         * @protected
-         */
-        rendering_: false,
-        /**
          * Specify a role tag attribute for the vdom root.
          * See: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles
          * @member {String|null} role_=null
+         * @reactive
          */
         role_: null,
         /**
@@ -316,17 +273,13 @@ class Component extends Base {
          * Set this to 'x' or 'y' to add style 'overflow-x' or 'overflow-y' to 'auto'
          * Other than false this will add cls 'neo-scrollable'.
          * @member {Boolean|"x"|"y"} scrollable_=false
+         * @reactive
          */
         scrollable_: false,
         /**
-         * Set this to true for bulk updates. Ensure to set it back to false afterwards.
-         * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
-         * @member {Boolean} silentVdomUpdate_=false
-         */
-        silentVdomUpdate_: false,
-        /**
          * Optionally add a state.Provider to share state data with child components
          * @member {Object|null} stateProvider_=null
+         * @reactive
          */
         stateProvider_: null,
         /**
@@ -342,6 +295,7 @@ class Component extends Base {
          * You can pass a used theme directly to any component,
          * to style specific component trees differently from your main view.
          * @member {String|null} theme_=null
+         * @reactive
          */
         theme_: null,
         /**
@@ -349,11 +303,13 @@ class Component extends Base {
          * this shortcut enables us to change the vdom root tag on instance level.
          * Use cases: switch a Toolbar to a "nav" tag, switch a SideNav to an "aside" tag.
          * @member {String|null} tag_=null
+         * @reactive
          */
         tag_: null,
         /**
          * The top level textContent of the component
          * @member {String|null} text_=null
+         * @reactive
          */
         text_: null,
         /**
@@ -366,51 +322,36 @@ class Component extends Base {
          * If a widget needs its own instance for any reason, inslude the property `ownInstance : true`
          * in the tooltip config object.
          * @member {Object|String} tooltip_=null
+         * @reactive
          */
         tooltip_: null,
         /**
          * Add 'primary' and other attributes to make it an outstanding design
          * @member {String|null} ui_=null
+         * @reactive
          */
         ui_: null,
         /**
-         * Defines the depth of the vdom tree for the next update cycle.
-         * - The value 1 will only send the current vdom structure as it is
-         * - The value of 2 will include the vdom of direct children
-         * - The value of 3 will include the vdom of grandchildren
-         * - The value of -1 will include the full tree of any depth
-         * @member {Number} updateDepth_=1
-         */
-        updateDepth_: 1,
-        /**
-         * The component vnode tree. Available after the component got rendered.
-         * @member {Object} vnode_=={[isDescriptor]: true, value: null, isEqual: (a, b) => a === b,}
-         * @protected
-         */
-        vnode_: {
-            [isDescriptor]: true,
-            clone         : 'none',
-            cloneOnGet    : 'none',
-            isEqual       : (a, b) => a === b, // vnode trees can be huge, and will get compared by the vdom worker.
-            value         : null,
-        },
-        /**
          * Shortcut for style.width, defaults to px
          * @member {Number|String|null} width_=null
+         * @reactive
          */
         width_: null,
         /**
          * The custom windowIs (timestamp) this component belongs to
          * @member {Number|null} windowId_=null
+         * @reactive
          */
         windowId_: null,
         /**
          * @member {String[]|null} wrapperCls_=null
+         * @reactive
          */
         wrapperCls_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'shallow', value: null}
+         * @reactive
          */
         wrapperStyle_: {
             [isDescriptor]: true,
@@ -425,21 +366,11 @@ class Component extends Base {
     }
 
     /**
-     * If an update() gets called while a parent is updating, we store the id & distance of the
-     * requesting component inside the childUpdateCache of the parent, to get resolved once the update is done.
-     * e.g. childUpdateCache = {'neo-grid-view-1': {distance: 1, resolve: fn}}
-     * @member {Object} childUpdateCache={}
+     * Internal flag which will get set to true while a component is waiting for its mountedPromise
+     * @member {Boolean} isAwaitingMount=false
+     * @protected
      */
-    childUpdateCache = {}
-    /**
-     * Stores the updateDepth while an update is running to enable checks for parent update collisions
-     * @member {Number|null} currentUpdateDepth=null
-     */
-    currentUpdateDepth = null
-    /**
-     * @member {Function[]} resolveUpdateCache=[]
-     */
-    resolveUpdateCache = []
+    isAwaitingMount = false
 
     /**
      * Convenience shortcut to access the App this component belongs to
@@ -465,6 +396,33 @@ class Component extends Base {
     }
     set listeners(value) {
         this._listeners = value
+    }
+
+    /**
+     * A Promise that resolves when the component is mounted to the DOM.
+     * This provides a convenient way to wait for the component to be fully
+     * available and interactive before executing subsequent logic.
+     *
+     * It also handles unmounting by resetting the promise, so it can be safely
+     * awaited again if the component is remounted.
+     * @returns {Promise<Neo.component.Base>}
+     */
+    get mountedPromise() {
+        let me = this;
+
+        if (!me._mountedPromise) {
+            me._mountedPromise = new Promise(resolve => {
+                if (me.mounted) {
+                    // If already mounted, resolve immediately.
+                    resolve(me)
+                } else {
+                    // Otherwise, store the resolver to be called by afterSetMounted.
+                    me.mountedPromiseResolve = resolve
+                }
+            })
+        }
+
+        return this._mountedPromise
     }
 
     /**
@@ -517,21 +475,7 @@ class Component extends Base {
         this.cls = cls
     }
 
-    /**
-     * Convenience shortcut to add additional dom listeners
-     * @param {Object|Object[]} value
-     */
-    addDomListeners(value) {
-        if (!Array.isArray(value)) {
-            value = [value]
-        }
 
-        let domListeners = this.domListeners;
-
-        domListeners.push(...value);
-
-        this.domListeners = domListeners
-    }
 
     /**
      * Either a string like 'color: red; background-color: blue;'
@@ -634,19 +578,7 @@ class Component extends Base {
         this.cls = cls
     }
 
-    /**
-     * Registers the domListeners inside the Neo.manager.DomEvent
-     * @param {Object[]} value
-     * @param {Object[]} oldValue
-     * @protected
-     */
-    afterSetDomListeners(value, oldValue) {
-        let me = this;
 
-        if (value?.[0] || oldValue?.[0]) {
-            DomEventManager.updateDomListeners(me, value, oldValue)
-        }
-    }
 
     /**
      * Triggered after the droppable config got changed
@@ -667,29 +599,6 @@ class Component extends Base {
                     ...me.dropZoneConfig
                 })
             })
-        }
-    }
-
-    /**
-     * Triggered after the hasUnmountedVdomChanges config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetHasUnmountedVdomChanges(value, oldValue) {
-        if (value || (!value && oldValue)) {
-            let parentIds = ComponentManager.getParentIds(this),
-                i         = 0,
-                len       = parentIds.length,
-                parent;
-
-            for (; i < len; i++) {
-                parent = Neo.getComponent(parentIds[i]);
-
-                if (parent) {
-                    parent._hasUnmountedVdomChanges = value // silent update
-                }
-            }
         }
     }
 
@@ -787,16 +696,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggered after the isVdomUpdating config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     */
-    afterSetIsVdomUpdating(value, oldValue) {
-        this.currentUpdateDepth = value ? this.updateDepth : null
-    }
-
-    /**
      * Triggered after the maxHeight config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
@@ -851,17 +750,10 @@ class Component extends Base {
             let me             = this,
                 {id, windowId} = me;
 
-            if (value) {
+            if (value) { // mount
                 me.hasBeenMounted = true;
 
-                if (me.domListeners?.length > 0) {
-                    // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
-                    me.timeout(150).then(() => {
-                        DomEventManager.mountDomListeners(me)
-                    })
-                }
-
-                me.doResolveUpdateCache();
+                me.initDomEvents();
 
                 if (me.floating) {
                     me.alignTo();
@@ -870,9 +762,15 @@ class Component extends Base {
                     me.focus(id, true)
                 }
 
-                me.fire('mounted', me.id)
-            } else {
-                me.revertFocus()
+                me.mountedPromiseResolve?.(this);
+                delete me.mountedPromiseResolve;
+
+                me.fire('mounted', me.id);
+            } else { // unmount
+                me.revertFocus();
+
+                // The promise needs to get reset, in case the component gets remounted.
+                delete me._mountedPromise;
             }
         }
     }
@@ -1069,26 +967,6 @@ class Component extends Base {
         }
 
         me.cls = cls
-    }
-
-    /**
-     * Triggered after the vdom pseudo-config got changed
-     * @param {Object} value
-     * @param {Object|null} oldValue
-     * @protected
-     */
-    afterSetVdom(value, oldValue) {
-        this.updateVdom()
-    }
-
-    /**
-     * Triggered after the vnode config got changed
-     * @param {Object} value
-     * @param {Object|null} oldValue
-     * @protected
-     */
-    afterSetVnode(value, oldValue) {
-        oldValue !== undefined && this.syncVnodeTree()
     }
 
     /**
@@ -1487,44 +1365,25 @@ class Component extends Base {
     }
 
     /**
-     * Convenience shortcut to create a component reference
-     * @returns {Object}
-     */
-    createVdomReference() {
-        let me        = this,
-            reference = {componentId: me.id},
-            vdomId    = me.vdom.id;
-
-        if (vdomId && me.id !== vdomId) {
-            reference.id = vdomId
-        }
-
-        return reference
-    }
-
-    /**
      * Unregister this instance from the ComponentManager
      * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me                  = this,
-            {parent, parentId}  = me,
-            parentStateProvider = parent?.getStateProvider(),
+        let me                 = this,
+            {parent, parentId} = me,
             parentVdom;
 
         me.revertFocus();
 
-        me.domListeners = [];
+        me.removeDomEvents();
 
         me.controller = null; // triggers destroy()
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
         me.stateProvider = null; // triggers destroy()
-
-        me.bind && parentStateProvider?.removeBindings(me.id);
 
         me.plugins?.forEach(plugin => {
             plugin.destroy()
@@ -1551,18 +1410,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggers all stored resolve() callbacks
-     */
-    doResolveUpdateCache() {
-        let me = this;
-
-        if (me.resolveUpdateCache) {
-            me.resolveUpdateCache.forEach(item => item());
-            me.resolveUpdateCache = []
-        }
-    }
-
-    /**
      * Convenience shortcut for Neo.manager.Component.down
      * @param {Object|String} config
      * @param {Boolean} returnFirstMatch=true
@@ -1570,59 +1417,6 @@ class Component extends Base {
      */
     down(config, returnFirstMatch=true) {
         return ComponentManager.down(this, config, returnFirstMatch)
-    }
-
-    /**
-     * Internal method to send update requests to the vdom worker
-     * @param {function} [resolve] used by promiseUpdate()
-     * @param {function} [reject] used by promiseUpdate()
-     * @private
-     */
-    #executeVdomUpdate(resolve, reject) {
-        let me            = this,
-            {vdom, vnode} = me,
-            opts          = {},
-            deltas;
-
-        if (currentWorker.isSharedWorker) {
-            opts.appName  = me.appName;
-            opts.windowId = me.windowId
-        }
-
-        me.isVdomUpdating = true;
-
-        // we can not set the config directly => it could already be false,
-        // and we still want to pass it further into subtrees
-        me._needsVdomUpdate = false;
-        me.afterSetNeedsVdomUpdate?.(false, true);
-
-        opts.vdom  = ComponentManager.getVdomTree(vdom, me.updateDepth);
-        opts.vnode = ComponentManager.getVnodeTree(vnode, me.updateDepth);
-
-        // Reset the updateDepth to the default value for the next update cycle
-        me._updateDepth = me.constructor.config.updateDepth;
-
-        Neo.vdom.Helper.update(opts).catch(err => {
-            me.isVdomUpdating = false;
-            reject?.()
-        }).then(data => {
-            // Checking if the component got destroyed before the update cycle is done
-            if (me.id) {
-                // It is crucial to delegate the vnode tree before resolving the cycle
-                me.vnode          = data.vnode;
-                me.isVdomUpdating = false;
-
-                deltas = data.deltas;
-
-                if (!Neo.config.useVdomWorker && deltas.length > 0) {
-                    Neo.applyDeltas(me.appName, deltas).then(() => {
-                        me.resolveVdomUpdate(resolve)
-                    })
-                } else {
-                    me.resolveVdomUpdate(resolve)
-                }
-            }
-        })
     }
 
     /**
@@ -1670,7 +1464,8 @@ class Component extends Base {
         }
 
         if (parentComponent) {
-            return parentComponent.getConfigInstanceByNtype(configName, ntype)
+            // todo: We need ?. until functional.component.Base supports controllers
+            return parentComponent.getConfigInstanceByNtype?.(configName, ntype)
         }
 
         return null
@@ -1716,43 +1511,6 @@ class Component extends Base {
         }
 
         return Rectangle.clone(result)
-    }
-
-    /**
-     * Honors different item roots for mount / render OPs
-     * @returns {String}
-     */
-    getMountedParentId() {
-        let parentId  = this.parentId,
-            parent    = Neo.getComponent(parentId),
-            itemsRoot = parent?.getVdomItemsRoot?.();
-
-        return itemsRoot ? itemsRoot.id : parentId
-    }
-
-    /**
-     * Calculate the real parentIndex inside the DOM
-     * @returns {Number|undefined}
-     */
-    getMountedParentIndex() {
-        let parent = this.parent,
-            items  = parent?.items || [],
-            i      = 0,
-            index  = 0,
-            len    = items.length,
-            item;
-
-        for (; i < len; i++) {
-            item = items[i];
-
-            if (item === this) {
-                return index
-            }
-
-            if (!item.hidden && item.hideMode === 'removeDom') {
-                index++
-            }
-        }
     }
 
     /**
@@ -1878,44 +1636,6 @@ class Component extends Base {
     }
 
     /**
-     * Search a vdom child node by id for a given vdom tree
-     * @param {String} id
-     * @param {Object} vdom=this.vdom
-     * @returns {Object}
-     */
-    getVdomChild(id, vdom=this.vdom) {
-        return VDomUtil.find(vdom, id)?.vdom
-    }
-
-    /**
-     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom
-    }
-
-    /**
-     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode
-    }
-
-    /**
-     * Checks if a given updateDepth & distance would result in an update collision
-     * @param {Number} updateDepth
-     * @param {Number} distance
-     * @returns {Boolean}
-     */
-    hasUpdateCollision(updateDepth, distance) {
-        return updateDepth === -1 ? true : distance < updateDepth
-    }
-
-    /**
      * Hide the component.
      * hideMode: 'removeDom'  uses vdom removeDom.
      * hideMode: 'visibility' uses css visibility.
@@ -1981,45 +1701,6 @@ class Component extends Base {
         }
 
         return  me.parent.floating
-    }
-
-    /**
-     * Checks for vdom updates inside the parent chain and if found.
-     * Registers the component for a vdom update once done.
-     * @param {String} parentId=this.parentId
-     * @param {Function} [resolve] Gets passed by updateVdom()
-     * @param {Number} distance=1 Distance inside the component tree
-     * @returns {Boolean}
-     */
-    isParentUpdating(parentId=this.parentId, resolve, distance=1) {
-        if (parentId !== 'document.body') {
-            let me     = this,
-                parent = Neo.getComponent(parentId);
-
-            if (parent) {
-                if (parent.isVdomUpdating) {
-                    if (me.hasUpdateCollision(parent.currentUpdateDepth, distance)) {
-                        if (Neo.config.logVdomUpdateCollisions) {
-                            console.warn('vdom parent update conflict with:', parent, 'for:', me)
-                        }
-
-                        parent.childUpdateCache[me.id] = {distance, resolve};
-
-                        // Adding the resolve fn to its own cache, since the parent will trigger
-                        // a new update() directly on this cmp
-                        resolve && me.resolveUpdateCache.push(resolve);
-                        return true
-                    }
-
-                    // If an update is running and does not have a collision, we do not need to check further parents
-                    return false
-                }
-
-                return me.isParentUpdating(parent.parentId, resolve, distance+1)
-            }
-        }
-
-        return false
     }
 
     /**
@@ -2110,34 +1791,6 @@ class Component extends Base {
     }
 
     /**
-     * Checks the needsVdomUpdate config inside the parent tree
-     * @param {String} parentId=this.parentId
-     * @param {Function} [resolve] gets passed by updateVdom()
-     * @param {Number} distance=1 Distance inside the component tree
-     * @returns {Boolean}
-     */
-    needsParentUpdate(parentId=this.parentId, resolve, distance=1) {
-        if (parentId !== 'document.body') {
-            let me     = this,
-                parent = Neo.getComponent(parentId);
-
-            if (parent) {
-                // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
-                if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
-                    parent.resolveUpdateCache.push(...me.resolveUpdateCache);
-                    resolve && parent.resolveUpdateCache.push(resolve);
-                    me.resolveUpdateCache = [];
-                    return true
-                }
-
-                return me.needsParentUpdate(parent.parentId, resolve, distance+1)
-            }
-        }
-
-        return false
-    }
-
-    /**
      *
      */
     onConstructed() {
@@ -2189,65 +1842,6 @@ class Component extends Base {
      */
 
     /**
-     * Gets called from the render() promise success handler
-     * @param {Object} vnode
-     * @param {Boolean} autoMount Mount the DOM after the vnode got created
-     * @protected
-     */
-    onRender(vnode, autoMount) {
-        let me    = this,
-            {app} = me;
-
-        me.rendering = false;
-
-        // if app is a check to see if the Component got destroyed while rendering => before onRender got triggered
-        if (app) {
-            if (!app.rendered) {
-                app.rendering = false;
-                app.rendered = true;
-                app.fire('render')
-            }
-
-            me.vnode = vnode;
-
-            let childIds = ComponentManager.getChildIds(vnode),
-                i        = 0,
-                len      = childIds.length,
-                child;
-
-            for (; i < len; i++) {
-                child = Neo.getComponent(childIds[i]);
-
-                if (child) {
-                    child.rendered = true
-                }
-            }
-
-            me._rendered = true; // silent update
-            me.fire('rendered', me.id);
-
-            if (autoMount) {
-                me.mounted = true;
-
-                if (!app.mounted) {
-                    app.mounted = true;
-                    app.fire('mounted')
-                }
-            }
-        }
-    }
-
-    /**
-     * Promise based vdom update
-     * @returns {Promise<any>}
-     */
-    promiseUpdate() {
-        return new Promise((resolve, reject) => {
-            this.updateVdom(resolve, reject)
-        })
-    }
-
-    /**
      * Remove a cls from the vdomRoot
      * @param {String} value
      */
@@ -2258,32 +1852,7 @@ class Component extends Base {
         this.cls = cls
     }
 
-    /**
-     * @param {Array|Object} value
-     */
-    removeDomListeners(value) {
-        if (!Array.isArray(value)) {
-            value = [value];
-        }
 
-        let me             = this,
-            {domListeners} = me,
-            i, len;
-
-        value.forEach(item => {
-            i = 0;
-            len = domListeners.length;
-
-            for (; i < len; i++) {
-                if (Neo.isEqual(item, domListeners[i])) {
-                    domListeners.splice(i, 1);
-                    break
-                }
-            }
-        });
-
-        me.domListeners = domListeners
-    }
 
     /**
      * Either a string like 'color' or an array containing style attributes to remove
@@ -2313,110 +1882,6 @@ class Component extends Base {
     }
 
     /**
-     * Creates the vnode tree for this component and mounts the component in case
-     * - you pass true for the mount param
-     * - or the autoMount config is set to true
-     * @param {Boolean} [mount] Mount the DOM after the vnode got created
-     */
-    async render(mount) {
-        let me                            = this,
-            autoMount                     = mount || me.autoMount,
-            {app}                         = me,
-            {unitTestMode, useVdomWorker} = Neo.config;
-
-        if (unitTestMode) return;
-
-        // Verify that the critical rendering path => CSS files for the new tree is in place
-        if (autoMount && currentWorker.countLoadingThemeFiles !== 0) {
-            currentWorker.on('themeFilesLoaded', function() {
-                !me.mounted && me.render(mount)
-            }, me, {once: true});
-
-            return
-        }
-
-        me.rendering = true;
-
-        if (!app.rendered) {
-            app.rendering = true
-        }
-
-        if (me.vdom) {
-            me.isVdomUpdating = true;
-
-            delete me.vdom.removeDom;
-
-            me._needsVdomUpdate = false;
-            me.afterSetNeedsVdomUpdate?.(false, true);
-
-            const data = await Neo.vdom.Helper.create({
-                appName    : me.appName,
-                autoMount,
-                parentId   : autoMount ? me.getMountedParentId()    : undefined,
-                parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
-                vdom       : ComponentManager.getVdomTree(me.vdom),
-                windowId   : me.windowId
-            });
-
-            me.onRender(data.vnode, useVdomWorker ? autoMount : false);
-            me.isVdomUpdating = false;
-
-            autoMount && !useVdomWorker && me.mount();
-
-            me.resolveVdomUpdate()
-        }
-    }
-
-    /**
-     * Internal helper fn to resolve the Promise for updateVdom()
-     * @param {Function|undefined} resolve
-     * @protected
-     */
-    resolveVdomUpdate(resolve) {
-        let me                  = this,
-            hasChildUpdateCache = !Neo.isEmpty(me.childUpdateCache),
-            component;
-
-        me.doResolveUpdateCache();
-
-        resolve?.();
-
-        if (me.needsVdomUpdate) {
-            if (hasChildUpdateCache) {
-                Object.entries(me.childUpdateCache).forEach(([key, value]) => {
-                    component = Neo.getComponent(key);
-
-                    // The component might already got destroyed
-                    if (component) {
-                        // Pass callbacks to the resolver cache => getting executed once the following update is done
-                        value.resolve && NeoArray.add(me.resolveUpdateCache, value.resolve);
-
-                        // Adjust the updateDepth to include the depth of all merged child updates
-                        if (me.updateDepth !== -1) {
-                            if (component.updateDepth === -1) {
-                                me.updateDepth = -1
-                            } else {
-                                // Since updateDepth is 1-based, we need to subtract 1 level
-                                me.updateDepth = me.updateDepth + value.distance + component.updateDepth - 1
-                            }
-                        }
-                    }
-                });
-
-                me.childUpdateCache = {}
-            }
-
-            me.update()
-        } else if (hasChildUpdateCache) {
-            Object.keys(me.childUpdateCache).forEach(key => {
-                Neo.getComponent(key)?.update()
-            });
-
-            me.childUpdateCache = {}
-        }
-    }
-
-    /**
      *
      */
     revertFocus() {
@@ -2434,33 +1899,33 @@ class Component extends Base {
      * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
-        let me             = this,
-            needsRendering = values.hidden === false && values.hidden !== me.hidden;
+        const
+            me        = this,
+            wasHidden = me.hidden;
 
-        me.silentVdomUpdate = true;
+        me.setSilent(values);
 
-        super.set(values);
-
-        me.silentVdomUpdate = false;
-
-        if (silent || !me.needsVdomUpdate) {
-            return Promise.resolve()
-        } else {
-            if (needsRendering) {
+        if (!silent && me.needsVdomUpdate) {
+            if (wasHidden && !me.hidden) {
                 me.show();
                 return Promise.resolve()
             }
 
             return me.promiseUpdate()
         }
+
+        return Promise.resolve()
     }
 
     /**
-     * Convenience shortcut calling set() with the silent flag
+     * A silent version of set(), which does not trigger a vdom update at the end.
+     * Useful for batching multiple config changes.
      * @param {Object} values={}
      */
-    setSilent(values = {}) {
-        return this.set(values, true)
+    setSilent(values={}) {
+        this.silentVdomUpdate = true;
+        super.set(values);
+        this.silentVdomUpdate = false
     }
 
     /**
@@ -2497,78 +1962,6 @@ class Component extends Base {
         }
 
         me._hidden = false
-    }
-
-    /**
-     * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
-     * @param {Neo.vdom.VNode} [vnode=this.vnode]
-     * @param {Object} [vdom=this.vdom]
-     * @param {Boolean} force=false
-     */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
-        VDomUtil.syncVdomIds(vnode, vdom, force)
-    }
-
-    /**
-     * In case a component receives a new vnode, we want to do:
-     * - sync the vdom ids
-     * - setting rendered to true for child components
-     * - updating the parent component to ensure that the vnode tree stays persistent
-     * @param {Neo.vdom.VNode} [vnode=this.vnode]
-     */
-    syncVnodeTree(vnode=this.vnode) {
-        let me              = this,
-            childComponents = ComponentManager.getChildren(me),
-            debug           = false,
-            map             = {},
-            childVnode, start;
-
-        if (debug) {
-            start = performance.now()
-        }
-
-        me.syncVdomIds();
-
-        if (vnode && me.id !== vnode.id) {
-            ComponentManager.registerWrapperNode(vnode.id, me)
-        }
-
-        // we need one separate iteration first to ensure all wrapper nodes get registered
-        childComponents.forEach(component => {
-            childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode;
-
-            if (childVnode) {
-                map[component.id] = childVnode;
-
-                if (component.id !== childVnode.id) {
-                    ComponentManager.registerWrapperNode(childVnode.id, component)
-                }
-            }
-        });
-
-        // delegate the latest node updates to all possible child components found inside the vnode tree
-        childComponents.forEach(component => {
-            childVnode = map[component.id];
-
-            if (childVnode) {
-                // silent update
-                component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
-
-                if (!component.rendered) {
-                    component._rendered = true;
-                    component.fire('rendered', component.id)
-                }
-
-                component.mounted = true
-            } else {
-                console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
-            }
-        });
-
-        // silent update
-        me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;
-
-        debug && console.log('syncVnodeTree', me.id, performance.now() - start)
     }
 
     /**
@@ -2609,13 +2002,6 @@ class Component extends Base {
     /**
      *
      */
-    update() {
-        this.afterSetVdom(this.vdom, null)
-    }
-
-    /**
-     *
-     */
     updateStyle() {
         let me       = this,
             {vdom}   = me,
@@ -2629,59 +2015,6 @@ class Component extends Base {
         }
 
         me.update()
-    }
-
-    /**
-     * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
-     * @param {function} [resolve] used by promiseUpdate()
-     * @param {function} [reject] used by promiseUpdate()
-     * @protected
-     */
-    updateVdom(resolve, reject) {
-        if (Neo.config.unitTestMode) {
-            reject?.();
-            return
-        }
-
-        let me                              = this,
-            {app, mounted, parentId, vnode} = me;
-
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
-            resolve && me.resolveUpdateCache.push(resolve);
-            me.needsVdomUpdate = true
-        } else {
-            if (!mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
-                me.hasRenderingListener = true;
-
-                app.on('mounted', () => {
-                    me.timeout(50).then(() => {
-                        me.vnode && me.updateVdom(resolve, reject)
-                    })
-                }, me, {once: true})
-            } else {
-                if (resolve && (!mounted || !vnode)) {
-                    me.resolveUpdateCache.push(resolve)
-                }
-
-                if (
-                    !me.needsParentUpdate(parentId, resolve)
-                    && !me.isParentUpdating(parentId, resolve)
-                    && mounted
-                    && vnode
-                ) {
-                    // Verify that the critical rendering path => CSS files for the new tree is in place
-                    if (currentWorker.countLoadingThemeFiles !== 0) {
-                        currentWorker.on('themeFilesLoaded', function() {
-                            me.updateVdom(resolve, reject)
-                        }, me, {once: true})
-                    } else {
-                        me.#executeVdomUpdate(resolve, reject)
-                    }
-                }
-            }
-        }
-
-        me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
     }
 
     /**

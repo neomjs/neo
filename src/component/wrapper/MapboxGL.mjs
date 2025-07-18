@@ -25,10 +25,12 @@ class MapboxGL extends Component {
         accessToken: null,
         /**
          * @member {Array|null} chartData_=null
+         * @reactive
          */
         chartData_: null,
         /**
          * @member {Object} center_={lat: 0, lng: 0}
+         * @reactive
          */
         center_: {lat: 0, lng: 0},
         /**
@@ -47,6 +49,7 @@ class MapboxGL extends Component {
          * beforeId is a custom property which will get passed as the second param for:
          * https://docs.mapbox.com/mapbox-gl-js/api/#map#addlayer
          * @member {Object[]|null} layers_=null
+         * @reactive
          */
         layers_: null,
         /**
@@ -59,6 +62,7 @@ class MapboxGL extends Component {
          * id is a custom property which will get passed as the first param for:
          * https://docs.mapbox.com/mapbox-gl-js/api/#map#addsource
          * @member {Object[]|null} sources_=null
+         * @reactive
          */
         sources_: null,
         /**
@@ -73,6 +77,7 @@ class MapboxGL extends Component {
         /**
          *
          * @member {Number} zoom_=3
+         * @reactive
          */
         zoom_: 3
     }

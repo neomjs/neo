@@ -14,10 +14,12 @@ class MainStore extends Store {
         className: 'Neo.examples.grid.bigData.MainStore',
         /**
          * @member {Number} amountColumns_=50
+         * @reactive
          */
         amountColumns_: 50,
         /**
          * @member {Number} amountRows_=1000
+         * @reactive
          */
         amountRows_: 1000,
         /**
@@ -34,6 +36,7 @@ class MainStore extends Store {
         }],
         /**
          * @member {Neo.data.Model} model=Model
+         * @reactive
          */
         model: Model
     }

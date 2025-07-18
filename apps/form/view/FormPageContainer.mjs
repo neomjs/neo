@@ -19,6 +19,7 @@ class FormPageContainer extends FormContainer {
         },
         /**
          * @member {Object} layout={ntype:'vbox'}
+         * @reactive
          */
         layout: {ntype: 'vbox'},
         /**
@@ -27,6 +28,7 @@ class FormPageContainer extends FormContainer {
         style: {overflow: 'auto'},
         /**
          * @member {String} tag='div'
+         * @reactive
          */
         tag: 'div' // using a div instead of a form tag
     }

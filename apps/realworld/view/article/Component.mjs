@@ -16,6 +16,7 @@ class Component extends BaseComponent {
         className: 'RealWorld.view.article.Component',
         /**
          * @member {Object|null} author_=null
+         * @reactive
          */
         author_: null,
         /**
@@ -24,6 +25,7 @@ class Component extends BaseComponent {
         baseCls: ['article-page'],
         /**
          * @member {String|null} body_=null
+         * @reactive
          */
         body_: null,
         /**
@@ -38,6 +40,7 @@ class Component extends BaseComponent {
         commentComponents: [],
         /**
          * @member {Object[]|null} comments_=null
+         * @reactive
          */
         comments_: null,
         /**
@@ -46,22 +49,27 @@ class Component extends BaseComponent {
         createCommentComponent: null,
         /**
          * @member {String|null} createdAt_=null
+         * @reactive
          */
         createdAt_: null,
         /**
          * @member {Boolean} favorited_=false
+         * @reactive
          */
         favorited_: false,
         /**
          * @member {Number|null} favoritesCount_=null
+         * @reactive
          */
         favoritesCount_: null,
         /**
          * @member {Array|null} tagList_=null
+         * @reactive
          */
         tagList_: null,
         /**
          * @member {String|null} title_=null
+         * @reactive
          */
         title_: null,
         /**
@@ -80,7 +88,7 @@ class Component extends BaseComponent {
                             {tag: 'a', cls: ['author'], flag: 'username'},
                             {tag: 'span', cls: ['date'], flag: 'createdAt'}
                         ]},
-                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], flag: 'follow-button', cn: [
                             {tag: 'i', flag: 'followIcon'},
                             {vtype: 'text', flag: 'followAuthor'},
                             {vtype: 'text', flag: 'username'}
@@ -93,7 +101,7 @@ class Component extends BaseComponent {
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
                             {tag: 'i', cls: ['ion-heart']},
                             {vtype: 'text', html: '&nbsp;'},
-                            {vtype: 'text'},
+                            {vtype: 'text', flag: 'favorite-text'},
                             {vtype: 'text', text: ' Post '},
                             {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
                         ]},
@@ -116,7 +124,7 @@ class Component extends BaseComponent {
                             {tag: 'a', cls: ['author'], flag: 'username'},
                             {tag: 'span', cls: ['date'], text: 'January 20th'}
                         ]},
-                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], flag: 'follow-button', cn: [
                             {tag: 'i', flag: 'followIcon'},
                             {vtype: 'text', flag: 'followAuthor'},
                             {vtype: 'text', flag: 'username'}
@@ -125,7 +133,7 @@ class Component extends BaseComponent {
                         {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
                             {tag: 'i', cls: ['ion-heart']},
                             {vtype: 'text', html: '&nbsp;'},
-                            {vtype: 'text'},
+                            {vtype: 'text', flag: 'favorite-text'},
                             {vtype: 'text', text: ' Post '},
                             {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
                         ]}
@@ -306,7 +314,7 @@ class Component extends BaseComponent {
         let me = this;
 
         VDomUtil.getFlags(me.vdom, 'favorited').forEach(node => {
-            node.cn[2].text = value ? 'Unfavorite' : 'Favorite';
+            VDomUtil.getByFlag(node, 'favorite-text').text = value ? 'Unfavorite' : 'Favorite';
 
             NeoArray.add(node.cls, value ? 'btn-primary' : 'btn-outline-primary');
             NeoArray.remove(node.cls, value ? 'btn-outline-primary' : 'btn-primary');
@@ -388,7 +396,7 @@ class Component extends BaseComponent {
     /**
      *
      */
-    onCurrentUserChange() {console.log('### onCurrentUserChange');
+    onCurrentUserChange() {
         let me          = this,
             currentUser = me.getController().currentUser,
             vdom        = me.vdom,
@@ -397,10 +405,9 @@ class Component extends BaseComponent {
         if (me.author && currentUser) {
             isCurrentUser = me.author.username === currentUser.username;
 
-            vdom.cn[0].cn[0].cn[1].cn[2].removeDom = isCurrentUser; // follow user button
-            vdom.cn[0].cn[0].cn[1].cn[5].removeDom = isCurrentUser; // favorite post button
-
-            VDomUtil.getByFlag(vdom, 'article-actions').removeDom = isCurrentUser;
+            VDomUtil.getFlags(vdom, 'follow-button').forEach(node => node.removeDom = isCurrentUser);
+            VDomUtil.getFlags(vdom, 'favorited').forEach(node => node.removeDom = isCurrentUser);
+            VDomUtil.getByFlag(vdom, 'article-actions').removeDom = isCurrentUser; // this one is unique
             VDomUtil.getByFlag(vdom, 'delete-button')  .removeDom = !isCurrentUser;
             VDomUtil.getByFlag(vdom, 'edit-button')    .removeDom = !isCurrentUser;
 

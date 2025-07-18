@@ -45,6 +45,7 @@ class List extends BaseList {
         sourceBaseUrl: 'https://github.com/neomjs/neo/tree/dev/',
         /**
          * @member {Boolean} useWrapperNode=true
+         * @reactive
          */
         useWrapperNode: true,
         /**

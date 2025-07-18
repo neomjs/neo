@@ -53,6 +53,7 @@ class BaseModel extends Model {
             }
 
             me.fire('selectionChange', {
+                records  : me.selectedRows.map(id => view.store.get(id)),
                 selection: me.selectedRows
             })
         } else if (!silent) {

@@ -15,12 +15,13 @@ class GridContainer extends BaseGridContainer {
         className: 'Neo.examples.grid.bigData.GridContainer',
         /**
          * @member {Number} amountColumns_=50
+         * @reactive
          */
         amountColumns_: 50,
         /**
-         * @member {Object} bodyConfig
+         * @member {Object} body
          */
-        bodyConfig: {
+        body: {
             bufferColumnRange: 3,
             bufferRowRange   : 5
         },
@@ -35,6 +36,7 @@ class GridContainer extends BaseGridContainer {
         },
         /**
          * @member {Object[]} store=MainStore
+         * @reactive
          */
         store: MainStore
     }

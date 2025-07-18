@@ -19,6 +19,7 @@ class Password extends Text {
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='password'
+         * @reactive
          */
         inputType: 'password'
     }

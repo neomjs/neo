@@ -1,3 +1,5 @@
+# RPC Layer
+
 ## Seamless Communication Across Threads and Beyond
 
 In a multi-threaded architecture like Neo.mjs, efficient and seamless communication between different execution contexts

@@ -14,6 +14,7 @@ class SideNav extends Store {
         className: 'Form.store.SideNav',
         /**
          * @member {Neo.data.Model} model=SideNavModel
+         * @reactive
          */
         model: SideNavModel
     }

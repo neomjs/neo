@@ -15,12 +15,7 @@ class MockStateProvider extends Base {
 
     #dataConfigs = {};
 
-    construct(config) {
-        super.construct(config);
-    }
-
     afterSetData(value, oldValue) {
-        console.log(value);
         if (value) {
             this.processDataObject(value);
         }
@@ -74,17 +69,15 @@ StartTest(t => {
         const provider = Neo.create(MockStateProvider, {data: {name: 'Neo', version: 10}});
         let effectRunCount = 0;
 
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                const proxy = createHierarchicalDataProxy(provider);
-                if (effectRunCount === 1) {
-                    t.is(proxy.name, 'Neo', 'Should get name from proxy (initial)');
-                    t.is(proxy.version, 10, 'Should get version from proxy (initial)');
-                } else if (effectRunCount === 2) {
-                    t.is(proxy.name, 'Neo.mjs', 'Should get name from proxy (updated)');
-                    t.is(proxy.version, 10, 'Should get version from proxy (unchanged)');
-                }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            const proxy = createHierarchicalDataProxy(provider);
+            if (effectRunCount === 1) {
+                t.is(proxy.name, 'Neo', 'Should get name from proxy (initial)');
+                t.is(proxy.version, 10, 'Should get version from proxy (initial)');
+            } else if (effectRunCount === 2) {
+                t.is(proxy.name, 'Neo.mjs', 'Should get name from proxy (updated)');
+                t.is(proxy.version, 10, 'Should get version from proxy (unchanged)');
             }
         });
 
@@ -102,17 +95,15 @@ StartTest(t => {
         const provider = Neo.create(MockStateProvider, {data: {user: {firstName: 'John', lastName: 'Doe'}}});
         let effectRunCount = 0;
 
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                const proxy = createHierarchicalDataProxy(provider);
-                if (effectRunCount === 1) {
-                    t.is(proxy.user.firstName, 'John', 'Should get nested firstName (initial)');
-                    t.is(proxy.user.lastName, 'Doe', 'Should get nested lastName (initial)');
-                } else if (effectRunCount === 2) {
-                    t.is(proxy.user.firstName, 'Jane', 'Should get nested firstName (updated)');
-                    t.is(proxy.user.lastName, 'Doe', 'Should get nested lastName (unchanged)');
-                }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            const proxy = createHierarchicalDataProxy(provider);
+            if (effectRunCount === 1) {
+                t.is(proxy.user.firstName, 'John', 'Should get nested firstName (initial)');
+                t.is(proxy.user.lastName, 'Doe', 'Should get nested lastName (initial)');
+            } else if (effectRunCount === 2) {
+                t.is(proxy.user.firstName, 'Jane', 'Should get nested firstName (updated)');
+                t.is(proxy.user.lastName, 'Doe', 'Should get nested lastName (unchanged)');
             }
         });
 
@@ -133,27 +124,25 @@ StartTest(t => {
 
         let effectRunCount = 0;
 
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                const proxy = createHierarchicalDataProxy(childProvider);
-                if (effectRunCount === 1) {
-                    t.is(proxy.appTitle, 'My App', 'Should get appTitle from parent (initial)');
-                    t.is(proxy.user.firstName, 'Parent', 'Should get firstName from parent (initial)');
-                    t.is(proxy.user.lastName, 'Child', 'Should get lastName from child (initial)');
-                } else if (effectRunCount === 2) {
-                    t.is(proxy.appTitle, 'New App Title', 'Should get appTitle from parent (updated)');
-                    t.is(proxy.user.firstName, 'Parent', 'Should get firstName from parent (unchanged)');
-                    t.is(proxy.user.lastName, 'Child', 'Should get lastName from child (unchanged)');
-                } else if (effectRunCount === 3) {
-                    t.is(proxy.appTitle, 'New App Title', 'Should get appTitle from parent (unchanged)');
-                    t.is(proxy.user.firstName, 'Parent', 'Should get firstName from parent (unchanged)');
-                    t.is(proxy.user.lastName, 'New Child', 'Should get lastName from child (updated)');
-                } else if (effectRunCount === 4) {
-                    t.is(proxy.appTitle, 'New App Title', 'Should get appTitle from parent (unchanged)');
-                    t.is(proxy.user.firstName, 'New Parent', 'Should get firstName from parent (updated)');
-                    t.is(proxy.user.lastName, 'New Child', 'Should get lastName from child (unchanged)');
-                }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            const proxy = createHierarchicalDataProxy(childProvider);
+            if (effectRunCount === 1) {
+                t.is(proxy.appTitle, 'My App', 'Should get appTitle from parent (initial)');
+                t.is(proxy.user.firstName, 'Parent', 'Should get firstName from parent (initial)');
+                t.is(proxy.user.lastName, 'Child', 'Should get lastName from child (initial)');
+            } else if (effectRunCount === 2) {
+                t.is(proxy.appTitle, 'New App Title', 'Should get appTitle from parent (updated)');
+                t.is(proxy.user.firstName, 'Parent', 'Should get firstName from parent (unchanged)');
+                t.is(proxy.user.lastName, 'Child', 'Should get lastName from child (unchanged)');
+            } else if (effectRunCount === 3) {
+                t.is(proxy.appTitle, 'New App Title', 'Should get appTitle from parent (unchanged)');
+                t.is(proxy.user.firstName, 'Parent', 'Should get firstName from parent (unchanged)');
+                t.is(proxy.user.lastName, 'New Child', 'Should get lastName from child (updated)');
+            } else if (effectRunCount === 4) {
+                t.is(proxy.appTitle, 'New App Title', 'Should get appTitle from parent (unchanged)');
+                t.is(proxy.user.firstName, 'New Parent', 'Should get firstName from parent (updated)');
+                t.is(proxy.user.lastName, 'New Child', 'Should get lastName from child (unchanged)');
             }
         });
 
@@ -178,13 +167,11 @@ StartTest(t => {
         const provider = Neo.create(MockStateProvider, {data: {foo: 'bar'}});
         let effectRunCount = 0;
 
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                const proxy = createHierarchicalDataProxy(provider);
-                t.is(proxy.nonExistent, null, 'Should return null for non-existent property');
-                t.is(proxy.foo, 'bar', 'Should still get existing data');
-            }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            const proxy = createHierarchicalDataProxy(provider);
+            t.is(proxy.nonExistent, null, 'Should return null for non-existent property');
+            t.is(proxy.foo, 'bar', 'Should still get existing data');
         });
 
         t.is(effectRunCount, 1, 'Effect should run once initially');

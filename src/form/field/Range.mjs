@@ -31,11 +31,13 @@ class Range extends Number {
         /**
          * True shows a clear trigger in case the field has a non empty value.
          * @member {Boolean} clearable=false
+         * @reactive
          */
         clearable: false,
         /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='range'
+         * @reactive
          */
         inputType: 'range',
         /**
@@ -45,6 +47,7 @@ class Range extends Number {
         showResultInLabel: false,
         /**
          * @member {Array} tickmarks_=[]
+         * @reactive
          */
         tickmarks_: [],
         /**

@@ -13,10 +13,12 @@ class GridContainer extends BaseGridContainer {
         className: 'Colors.view.GridContainer',
         /**
          * @member {Number|null} amountColumns_=null
+         * @reactive
          */
         amountColumns_: null,
         /**
          * @member {Number|null} amountRows_=null
+         * @reactive
          */
         amountRows_: null,
         /**
@@ -29,6 +31,7 @@ class GridContainer extends BaseGridContainer {
         },
         /**
          * @member {String[]} cls=['colors-grid-container']
+         * @reactive
          */
         cls: ['colors-grid-container']
     }

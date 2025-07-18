@@ -32,6 +32,7 @@ class Container extends BaseContainer {
         /**
          * You can use null to not render any items initially
          * @member {Number|null} activeIndex_=0
+         * @reactive
          */
         activeIndex_: 0,
         /**
@@ -60,11 +61,13 @@ class Container extends BaseContainer {
         headerToolbar: null,
         /**
          * @member {Object|null} layout=null
+         * @reactive
          */
         layout: null,
         /**
          * True to not apply a background effect to the tab header container
          * @member {Boolean} plain_=true
+         * @reactive
          */
         plain_: true,
         /*
@@ -77,6 +80,7 @@ class Container extends BaseContainer {
          * true enables sorting tabs via drag&drop.
          * The config gets passed to the header toolbar
          * @member {Boolean} sortable_=false
+         * @reactive
          */
         sortable_: false,
         /**
@@ -96,6 +100,7 @@ class Container extends BaseContainer {
          * The position of the tab header toolbar.
          * Valid values are top, right, bottom, left.
          * @member {String} tabBarPosition_='top'
+         * @reactive
          */
         tabBarPosition_: 'top',
         /**
@@ -105,6 +110,7 @@ class Container extends BaseContainer {
         tabContainerCls: 'neo-tab-container',
         /**
          * @member {Boolean} useActiveTabIndicator_=true
+         * @reactive
          */
         useActiveTabIndicator_: true
     }

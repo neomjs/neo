@@ -41,6 +41,7 @@ class DeltaUpdates extends Base {
         /**
          * @member {Boolean} renderCountDeltas_=false
          * @protected
+         * @reactive
          */
         renderCountDeltas_: false,
         /**

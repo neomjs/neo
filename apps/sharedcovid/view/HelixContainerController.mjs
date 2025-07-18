@@ -14,6 +14,7 @@ class HelixContainerController extends ComponentController {
         /**
          * @member {Neo.component.Helix|null} helix_=null
          * @protected
+         * @reactive
          */
         helix_: null
     }

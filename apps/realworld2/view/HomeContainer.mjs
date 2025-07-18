@@ -20,6 +20,7 @@ class HomeContainer extends Container {
         baseCls: ['rw2-home-container', 'neo-container'],
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout: {
             ntype: 'vbox',

@@ -33,16 +33,19 @@ class Toolbar extends Container {
         baseCls: ['neo-toolbar'],
         /**
          * @member {String|null} dock_=null
+         * @reactive
          */
         dock_: null,
         /**
          * @member {Object} itemDefaults={ntype:'button'}
+         * @reactive
          */
         itemDefaults: {
             ntype: 'button'
         },
         /**
          * @member {Object} layout={ntype:'flexbox',align:'center',direction: 'row', pack:'start'}
+         * @reactive
          */
         layout: {
             ntype    : 'flexbox',
@@ -52,6 +55,7 @@ class Toolbar extends Container {
         },
         /**
          * @member {Boolean} sortable_=false
+         * @reactive
          */
         sortable_: false,
         /**

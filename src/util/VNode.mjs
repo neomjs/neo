@@ -168,7 +168,13 @@ class VNode extends Base {
      */
     static getVnode(vnode) {
         if (vnode.componentId) {
-            vnode = ComponentManager.get(vnode.componentId).vnode
+            const component = ComponentManager.get(vnode.componentId);
+
+            if (!component) {
+                throw new Error(`util.VNode.getVnode: Component not found for id: ${vnode.componentId}`)
+            }
+
+            vnode = component.vnode
         }
 
         return vnode

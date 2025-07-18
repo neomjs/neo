@@ -14,13 +14,26 @@ import {isDescriptor} from './ConfigSymbols.mjs';
  */
 class Config {
     /**
-     * A Set to store callback functions that subscribe to changes in this config's value.
+     * Stores all subscriptions for this Config instance.
+     * The data structure is a Map where:
+     * - The key is the ID of the subscription owner (e.g., a component's `id`).
+     * - The value is another Map (the subscriberMap).
+     *
+     * The nested subscriberMap is structured as:
+     * - The key is the callback function (`fn`).
+     * - The value is a Set of scopes (`scopeSet`).
+     *
+     * This nested structure `Map<string, Map<function, Set<scope>>>` is intentionally chosen
+     * to robustly handle the edge case where the same function is subscribed multiple times
+     * with different scopes, all under the same owner ID. It ensures that each
+     * `fn`-`scope` combination is unique and that cleanup is precise.
+     * @member {Object} #subscribers={}
      * @private
      */
     #subscribers = {}
     /**
      * The internal value of the config property.
-     * @member #value
+     * @member {*} #value
      * @private
      */
     #value
@@ -67,7 +80,7 @@ class Config {
     get() {
         // Registers this Config instance as a dependency with the currently active Effect,
         // enabling automatic re-execution when this Config's value changes.
-        EffectManager.getActiveEffect()?.addDependency(this);
+        EffectManager.addDependency(this);
         return this.#value
     }
 
@@ -75,52 +88,56 @@ class Config {
      * Initializes the `Config` instance using a descriptor object.
      * Extracts `clone`, `mergeStrategy` and `isEqual` from the descriptor.
      * The internal `#value` is NOT set by this method.
-     * @param {Object}   descriptor                       - The descriptor object for the config.
-     * @param {any}      descriptor.value                 - The default value for the config (not set by this method).
+     * @param {Object}    descriptor                      - The descriptor object for the config.
      * @param {string}   [descriptor.clone='deep']        - The clone strategy for set.
      * @param {string}   [descriptor.cloneOnGet]          - The clone strategy for get. Defaults to 'shallow' if clone is 'deep' or 'shallow', and 'none' if clone is 'none'.
-     * @param {string}   [descriptor.merge='deep']        - The merge strategy.
      * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
+     * @param {string}   [descriptor.merge='deep']        - The merge strategy.
+     * @param {any}       descriptor.value                - The default value for the config (not set by this method).
      */
     initDescriptor({clone, cloneOnGet, isEqual, merge}) {
         let me = this;
 
         if (clone && clone !== me.clone) {
             Object.defineProperty(me, 'clone', {
-                value: clone, writable: true, configurable: true, enumerable: true
+                configurable: true, enumerable: true, value: clone, writable: true
             })
         }
 
         if (cloneOnGet && cloneOnGet !== me.cloneOnGet) {
             Object.defineProperty(me, 'cloneOnGet', {
-                value: cloneOnGet, writable: true, configurable: true, enumerable: true
+                configurable: true, enumerable: true, value: cloneOnGet, writable: true
             })
         }
 
         if (isEqual && isEqual !== me.isEqual) {
             Object.defineProperty(me, 'isEqual', {
-                value: isEqual, writable: true, configurable: true, enumerable: true
+                configurable: true, enumerable: true, value: isEqual, writable: true
             })
         }
 
         if (merge && merge !== me.mergeStrategy) {
             Object.defineProperty(me, 'mergeStrategy', {
-                value: merge, writable: true, configurable: true, enumerable: true
+                configurable: true, enumerable: true, value: merge, writable: true
             })
         }
     }
 
     /**
      * Notifies all subscribed callbacks about a change in the config's value.
+     * It iterates through the nested subscriber structure to ensure each callback
+     * is executed with its intended scope.
      * @param {any} newValue - The new value of the config.
      * @param {any} oldValue - The old value of the config.
      */
     notify(newValue, oldValue) {
         for (const id in this.#subscribers) {
             if (this.#subscribers.hasOwnProperty(id)) {
-                const subscriberSet = this.#subscribers[id];
-                for (const callback of subscriberSet) {
-                    callback(newValue, oldValue)
+                const subscriberMap = this.#subscribers[id];
+                for (const [fn, scopeSet] of subscriberMap) {
+                    for (const scope of scopeSet) {
+                        fn.call(scope || null, newValue, oldValue)
+                    }
                 }
             }
         }
@@ -164,12 +181,13 @@ class Config {
     /**
      * Subscribes a callback function to changes in this config's value.
      * The callback will be invoked with `(newValue, oldValue)` whenever the config changes.
-     * @param {Object} options      - An object containing the subscription details.
-     * @param {String} options.id   - The ID of the subscription owner (e.g., a Neo.core.Base instance's id).
-     * @param {Function} options.fn - The callback function.
+     * @param {Object}   options        - An object containing the subscription details.
+     * @param {String}   options.id     - The ID of the subscription owner (e.g., a Neo.core.Base instance's id).
+     * @param {Function} options.fn     - The callback function.
+     * @param {Object}  [options.scope] - The scope to execute the callback in.
      * @returns {Function} A cleanup function to unsubscribe the callback.
      */
-    subscribe({id, fn}) {
+    subscribe({id, fn, scope}) {
         if (typeof id !== 'string' || id.length === 0 || typeof fn !== 'function') {
             throw new Error([
                 'Config.subscribe: options must be an object with a non-empty string `id` ',
@@ -179,18 +197,36 @@ class Config {
 
         const me = this;
 
+        // Get or create the top-level Map for the subscription owner.
         if (!me.#subscribers[id]) {
-            me.#subscribers[id] = new Set()
+            me.#subscribers[id] = new Map()
         }
 
-        me.#subscribers[id].add(fn);
+        const subscriberMap = me.#subscribers[id];
 
+        // Get or create the Set of scopes for the specific callback function.
+        if (!subscriberMap.has(fn)) {
+            subscriberMap.set(fn, new Set())
+        }
+
+        const scopeSet = subscriberMap.get(fn);
+        scopeSet.add(scope);
+
+        // The returned cleanup function is precise. It removes only the specific
+        // scope for the function, and cleans up the parent data structures
+        // (the Set and the Maps) only if they become empty.
         return () => {
-            const subscriberSet = me.#subscribers[id];
-            if (subscriberSet) {
-                subscriberSet.delete(fn);
-                if (subscriberSet.size === 0) {
-                    delete me.#subscribers[id]
+            const currentSubscriberMap = me.#subscribers[id];
+            if (currentSubscriberMap) {
+                const currentScopeSet = currentSubscriberMap.get(fn);
+                if (currentScopeSet) {
+                    currentScopeSet.delete(scope);
+                    if (currentScopeSet.size === 0) {
+                        currentSubscriberMap.delete(fn);
+                        if (currentSubscriberMap.size === 0) {
+                            delete me.#subscribers[id]
+                        }
+                    }
                 }
             }
         }
@@ -198,33 +234,10 @@ class Config {
 }
 
 Object.defineProperties(Config.prototype, {
-    clone: {
-        value: 'deep',
-        writable: false,
-        configurable: true,
-        enumerable: false
-    },
-    cloneOnGet: {
-        value: null,
-        writable: false,
-        configurable: true,
-        enumerable: false
-    },
-    isEqual: {
-        value: Neo.isEqual,
-        writable: false,
-        configurable: true,
-        enumerable: false
-    },
-    mergeStrategy: {
-        value: 'replace',
-        writable: false,
-        configurable: true,
-        enumerable: false
-    }
+    clone        : {configurable: true, enumerable: false, value: 'deep',      writable: false},
+    cloneOnGet   : {configurable: true, enumerable: false, value: null,        writable: false},
+    isEqual      : {configurable: true, enumerable: false, value: Neo.isEqual, writable: false},
+    mergeStrategy: {configurable: true, enumerable: false, value: 'replace',   writable: false}
 });
 
-const ns = Neo.ns('Neo.core', true);
-ns.Config = Config;
-
-export default Config;
+export default Neo.gatekeep(Config, 'Neo.core.Config');

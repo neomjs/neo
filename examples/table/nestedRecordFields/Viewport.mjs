@@ -16,6 +16,7 @@ class Viewport extends BaseViewport {
         className: 'Neo.examples.table.nestedRecordFields.Viewport',
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
          */
         stateProvider: ViewportStateProvider,
         /**

@@ -71,8 +71,9 @@ class VNode {
         });
 
         if (isVText) {
-            // XSS Security: a pure text node is not supposed to contain HTML
-            me.textContent = StringUtil.escapeHtml(hasInnerHtml ? config.innerHTML : textContent)
+            // A vtext node represents a pure text node. It should not be created from an innerHTML property.
+            // For XSS Security, we escape the content when using the string-based renderer.
+            me.textContent = Neo.config.useDomApiRenderer ? textContent : StringUtil.escapeHtml(textContent);
         } else {
             Object.assign(me, {
                 attributes: config.attributes || {},
@@ -135,7 +136,4 @@ function normalizeClassName(classNameInput) {
     return [...new Set(normalizedClasses)]
 }
 
-const ns = Neo.ns('Neo.vdom', true);
-ns.VNode = VNode;
-
-export default VNode;
+export default Neo.gatekeep(VNode, 'Neo.vdom.VNode');

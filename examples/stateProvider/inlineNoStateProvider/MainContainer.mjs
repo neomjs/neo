@@ -16,6 +16,7 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.stateProvider.inlineNoStateProvider.MainContainer',
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**

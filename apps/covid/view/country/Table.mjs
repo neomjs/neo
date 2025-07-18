@@ -104,10 +104,12 @@ class Table extends Container {
         }],
         /**
          * @member {String|null} country_=null
+         * @reactive
          */
         country_: null,
         /**
          * @member {Neo.data.Store} store=CountryStore
+         * @reactive
          */
         store: CountryStore
     }

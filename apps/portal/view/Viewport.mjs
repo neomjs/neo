@@ -26,10 +26,12 @@ class Viewport extends BaseViewport {
         className: 'Portal.view.Viewport',
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
@@ -57,15 +59,18 @@ class Viewport extends BaseViewport {
         }],
         /**
          * @member {Boolean} monitorSize=true
+         * @reactive
          */
         monitorSize: true,
         /**
          * Values are: large, medium, small, xSmall
          * @member {String|null} size_=null
+         * @reactive
          */
         size_: null,
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
          */
         stateProvider: ViewportStateProvider
     }

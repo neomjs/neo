@@ -19,10 +19,12 @@ class HeaderContainer extends Container {
         baseCls: ['covid-header-container'],
         /**
          * @member {Number} height=70
+         * @reactive
          */
         height: 120,
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**

@@ -35,10 +35,12 @@ class EffectButton extends Component {
         ntype: 'effect-button',
         /**
          * @member {String} badgePosition_='top-right'
+         * @reactive
          */
         badgePosition_: 'top-right',
         /**
          * @member {String|null} badgeText_=null
+         * @reactive
          */
         badgeText_: null,
         /**
@@ -47,6 +49,7 @@ class EffectButton extends Component {
         baseCls: ['neo-button'],
         /**
          * @member {String[]} cls=[]
+         * @reactive
          */
         cls: [],
         /**
@@ -58,6 +61,7 @@ class EffectButton extends Component {
          * Shortcut for domListeners={click:handler}
          * A string based value assumes that the handlerFn lives inside a controller.Component
          * @member {Function|String|null} handler_=null
+         * @reactive
          */
         handler_: null,
         /**
@@ -70,17 +74,20 @@ class EffectButton extends Component {
         /**
          * The CSS class to use for an icon, e.g. 'fa fa-home'
          * @member {String|null} [iconCls_=null]
+         * @reactive
          */
         iconCls_: null,
         /**
          * The color to use for an icon, e.g. '#ff0000' [optional]
          * @member {String|null} iconColor_=null
+         * @reactive
          */
         iconColor_: null,
         /**
          * The position of the icon in case iconCls has a value.
          * Valid values are: 'top', 'right', 'bottom', 'left'
          * @member {String} iconPosition_='left'
+         * @reactive
          */
         iconPosition_: 'left',
         /**
@@ -89,11 +96,13 @@ class EffectButton extends Component {
          * Or a configuration object which adds custom configuration to the menu to be
          * created and includes an `items` property to define the menu items.
          * @member {Object|Object[]|null} menu_=null
+         * @reactive
          */
         menu_: null,
         /**
          * The pressed state of the Button
          * @member {Boolean} pressed_=false
+         * @reactive
          */
         pressed_: false,
         /**
@@ -101,25 +110,30 @@ class EffectButton extends Component {
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} route_=null
+         * @reactive
          */
         route_: null,
         /**
          * @member {String} tag='button'
+         * @reactive
          */
         tag: 'button',
         /**
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} url_=null
+         * @reactive
          */
         url_: null,
         /**
          * If url is set, applies the target attribute on the top level vdom node [optional]
          * @member {String} urlTarget_='_blank'
+         * @reactive
          */
         urlTarget_: '_blank',
         /**
          * True adds an expanding circle on click
          * @member {Boolean} useRippleEffect_=true
+         * @reactive
          */
         useRippleEffect_: true
     }
@@ -160,11 +174,11 @@ class EffectButton extends Component {
      * @protected
      */
     createVdomEffect() {
-        return new Effect({fn: () => {
+        return new Effect(() => {
             // The effect's only job is to get the config and trigger an update.
             this._vdom = this.getVdomConfig();
             this.update();
-        }});
+        })
     }
 
     /**

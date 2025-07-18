@@ -14,10 +14,12 @@ class Features extends BaseContainer {
         className: 'Portal.view.home.parts.Features',
         /**
          * @member {String[]} cls=['portal-home-features']
+         * @reactive
          */
         cls: ['portal-home-features'],
         /**
          * @member {Object|String} layout='grid'
+         * @reactive
          */
         layout: 'grid',
         /**

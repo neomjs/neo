@@ -19,6 +19,7 @@ class DateTrigger extends Picker {
         ntype: 'trigger-date',
         /**
          * @member {String|null} iconCls='fa fa-calendar-alt'
+         * @reactive
          */
         iconCls: 'fa fa-calendar-alt'
     }

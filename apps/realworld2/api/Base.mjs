@@ -25,6 +25,7 @@ class Base extends CoreBase {
         defaultHeaders: null,
         /**
          * @member {Boolean} isReady=false
+         * @reactive
          */
         isReady: false,
         /**

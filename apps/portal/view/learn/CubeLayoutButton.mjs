@@ -13,6 +13,7 @@ class CubeLayoutButton extends Button {
         className: 'Portal.view.learn.CubeLayoutButton',
         /**
          * @member {String|null} activeLayout_=null
+         * @reactive
          */
         activeLayout_: null,
     }

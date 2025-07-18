@@ -20,6 +20,7 @@ class TagListComponent extends Component {
         className: 'RealWorld.view.article.TagListComponent',
         /**
          * @member {String|null} activeTag_
+         * @reactive
          */
         activeTag_: null,
         /**
@@ -28,6 +29,7 @@ class TagListComponent extends Component {
         baseCls: ['col-md-3'],
         /**
          * @member {String[]} tags_=[]
+         * @reactive
          */
         tags_: [],
         /**

@@ -20,11 +20,13 @@ class Form extends Base {
         /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
+         * @reactive
          */
         containerCls: 'neo-layout-form',
         /**
          * flex css allows gap. This adds it to the component style
          * @member {String} gap_=null
+         * @reactive
          */
         gap_: null
     }

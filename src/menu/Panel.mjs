@@ -25,6 +25,7 @@ class Panel extends BasePanel {
         /**
          * @member {Neo.menu.List} list_=List
          * @protected
+         * @reactive
          */
         list_: List,
         /**
@@ -35,12 +36,14 @@ class Panel extends BasePanel {
         /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} listItems_=null
+         * @reactive
          */
         listItems_: null,
         /**
          * The distance in px between a menu and a child menu
          * See: https://github.com/neomjs/neo/issues/2569
          * @member {Number} subMenuGap_=0
+         * @reactive
          */
         subMenuGap_: 0
     }

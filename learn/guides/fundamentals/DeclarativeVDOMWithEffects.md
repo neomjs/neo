@@ -1,10 +1,12 @@
-### A New Approach: Declarative VDOM with Effects
+# Declarative VDOM with Effects
+
+## A New Approach: Declarative VDOM with Effects
 
 Neo.mjs v10 introduces a powerful new declarative pattern for defining a component's internal Virtual DOM (VDOM), serving as an alternative to the traditional imperative hook-based system. This approach, which leverages the new `Neo.core.Effect` class, allows developers to define a component's entire VDOM structure in a single, reactive function, similar to the `render()` method in React.
 
 This guide will walk you through the new pattern, compare it to the classic approach, and explain when to use each.
 
-### The Classic Pattern: Imperative Hooks
+## The Classic Pattern: Imperative Hooks
 
 Let's look at the traditional way a component like `Neo.button.Base` defines and updates its VDOM.
 
@@ -61,7 +63,7 @@ afterSetPressed(value, oldValue) {
 *   **High Cognitive Load:** To understand the component's full rendering logic, a developer must find and read multiple, separate methods.
 *   **Error-Prone:** Forgetting to implement a hook for a new config is a common source of bugs.
 
-### The New Pattern: Declarative VDOM with `Effect`
+## The New Pattern: Declarative VDOM with `Effect`
 
 The new `EffectButton` PoC demonstrates a more modern, declarative approach.
 
@@ -71,11 +73,11 @@ Instead of fragmented hooks, the entire VDOM is generated within a `Neo.core.Eff
 ```javascript readonly
 // button.Effect - The "Template Method"
 createVdomEffect() {
-    return new Effect({fn: () => {
+    return new Effect(() => {
         // The effect's only job is to get the config and trigger an update.
         this._vdom = this.getVdomConfig();
         this.update();
-    }});
+    });
 }
 
 // The main VDOM builder
@@ -113,7 +115,7 @@ getVdomChildren() {
 }
 ```
 
-### The Power of Inheritance
+## The Power of Inheritance
 
 A key challenge with a single render function is extensibility. The new pattern solves this by using a "Template Method" design. The main effect calls smaller, overridable builder methods.
 
@@ -148,7 +150,7 @@ class EffectTabButton extends EffectButton {
 }
 ```
 
-### When to Use Each Pattern: A Hybrid Approach
+## When to Use Each Pattern: A Hybrid Approach
 
 Neo.mjs v10 does not force you to choose one pattern over the other. Instead, it empowers you to use the right tool for the job.
 
@@ -161,6 +163,6 @@ Neo.mjs v10 does not force you to choose one pattern over the other. Instead, it
 *   You are building a highly complex, performance-critical component (e.g., a virtualized data grid or a canvas-based chart).
 *   You need to perform surgical, hand-tuned VDOM manipulations for maximum performance, bypassing a full recalculation.
 
-### Conclusion
+## Conclusion
 
 The new declarative VDOM pattern is a major leap forward for component development in Neo.mjs. It provides a more modern, readable, and robust way to build components, while the classic imperative pattern remains a powerful tool for fine-grained performance optimization. By understanding both, you can build sophisticated, high-performance applications with an exceptional developer experience.

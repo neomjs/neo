@@ -19,6 +19,7 @@ class MainContainer extends Viewport {
         layout: {ntype: 'fit'},
         /**
          * @member {Object|Neo.state.Provider} stateProvider=MainContainerStateProvider
+         * @reactive
          */
         stateProvider: MainContainerStateProvider,
         /**

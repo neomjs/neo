@@ -1,3 +1,5 @@
+# Setup
+
 Setting up Neo.mjs is pretty easy &mdash; all you have to do is confirm that you have some required
 software then follow a single npx script.
 
@@ -5,9 +7,8 @@ software then follow a single npx script.
 
 Before you get started, Neo.mjs requires that you have a few of things installed: 
 
-- npm (see <a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm" target="_blank">https://docs.npmjs.com/downloading-and-installing-node-js-and-npm</a>)
+- npm & nodejs (see <a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm" target="_blank">https://docs.npmjs.com/downloading-and-installing-node-js-and-npm</a>)
 - npx (see <a href="https://www.npmjs.com/package/npx" target="_blank">https://www.npmjs.com/package/npx</a>)
-- node (see <a href="https://nodejs.org/en/download" target="_blank">https://nodejs.org/en/download</a>)
 
 ## Installation
 

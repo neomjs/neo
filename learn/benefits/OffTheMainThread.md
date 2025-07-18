@@ -1,3 +1,5 @@
+# Off the Main Thread
+
 ## How many Cores are on a Computer or Smartphone?
 In case you are using a Mac, you can click on the top-left Apple Icon,
 then on "About this Mac" and it will show you something like:

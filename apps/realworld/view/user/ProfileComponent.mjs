@@ -16,6 +16,7 @@ class ProfileComponent extends Component {
         className: 'RealWorld.view.user.ProfileComponent',
         /**
          * @member {Object[]|null} articlePreviews_=null
+         * @reactive
          */
         articlePreviews_: null,
         /**
@@ -24,22 +25,27 @@ class ProfileComponent extends Component {
         baseCls: ['profile-page'],
         /**
          * @member {String|null} bio_=null
+         * @reactive
          */
         bio_: null,
         /**
          * @member {Number} countArticles_=5
+         * @reactive
          */
         countArticles_: 5,
         /**
          * @member {Boolean|null} following_=null
+         * @reactive
          */
         following_: null,
         /**
          * @member {String|null} image_=null
+         * @reactive
          */
         image_: null,
         /**
          * @member {Boolean} myProfile_=false
+         * @reactive
          */
         myProfile_: false,
         /**
@@ -48,6 +54,7 @@ class ProfileComponent extends Component {
         previewComponents: [],
         /**
          * @member {String|null} username_=null
+         * @reactive
          */
         username_: null,
         /**

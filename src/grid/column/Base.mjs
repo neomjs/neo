@@ -22,6 +22,7 @@ class Column extends Base {
         parent: null,
         /**
          * @member {Function|String|null} renderer_='cellRenderer'
+         * @reactive
          */
         renderer_: 'cellRenderer',
         /**
@@ -38,6 +39,7 @@ class Column extends Base {
         type: 'column',
         /**
          * @member {Number|null} windowId_=null
+         * @reactive
          */
         windowId_: null
     }

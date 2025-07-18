@@ -29,6 +29,7 @@ class ViewportController extends Controller {
         ntype: 'viewport-controller',
         /**
          * @member {Number|null} activeIndex_=null
+         * @reactive
          */
         activeIndex_: null,
         /**
@@ -37,6 +38,7 @@ class ViewportController extends Controller {
         defaultHash: '/home',
         /**
          * @member {String} mainContentLayout_='card'
+         * @reactive
          */
         mainContentLayout_: 'card',
         /**
@@ -56,6 +58,7 @@ class ViewportController extends Controller {
         /**
          * Values are: large, medium, small, xSmall
          * @member {String|null} size_=null
+         * @reactive
          */
         size_: null
     }
@@ -316,8 +319,11 @@ class ViewportController extends Controller {
 
                 // enable "fast clicking" on main nav items => do not replace a cube layout with a new instance of cube
                 if (container.layout.ntype !== 'layout-cube') {
-                    container.layout = {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true};
-                    await me.timeout(200);
+                    container.setSilent({
+                        layout: {ntype: 'cube', activeIndex, fitContainer: true, hideInactiveCardsOnDestroy: true}
+                    });
+                    await container.promiseUpdate();
+                    await me.timeout(50);
                 }
 
                 container.layout.activeIndex = index;

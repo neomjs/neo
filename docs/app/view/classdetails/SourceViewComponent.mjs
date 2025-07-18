@@ -19,11 +19,13 @@ class SourceViewComponent extends Component {
         /**
          * @member {Boolean} isHighlighted_=false
          * @protected
+         * @reactive
          */
         isHighlighted_: false,
         /**
          * @member {Number|null} line_=null
          * @protected
+         * @reactive
          */
         line_: null,
         /**

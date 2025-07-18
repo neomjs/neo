@@ -14,6 +14,7 @@ class DemoDialog extends Dialog {
         className: 'SharedDialog.view.DemoDialog',
         /**
          * @member {String} title='Drag me across Windows!'
+         * @reactive
          */
         title: 'Drag me across Windows!',
         /**
@@ -26,6 +27,7 @@ class DemoDialog extends Dialog {
         },
         /**
          * @member {Object} itemDefaults={labelWidth:70}
+         * @reactive
          */
         itemDefaults: {
             flex      : 'none',

@@ -30,6 +30,7 @@ class Email extends Text {
         errorTextValidEmail: 'Not a valid email address',
         /**
          * @member {String} inputType='email'
+         * @reactive
          */
         inputType: 'email'
     }

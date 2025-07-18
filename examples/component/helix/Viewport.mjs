@@ -28,6 +28,7 @@ class Viewport extends BaseViewport {
         className: 'Neo.examples.component.helix.Viewport',
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
@@ -40,10 +41,12 @@ class Viewport extends BaseViewport {
         helixConfig: null,
         /**
          * @member {Object|null} layout={ntype: 'hbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Boolean} showGitHubStarButton_=true
+         * @reactive
          */
         showGitHubStarButton_: true,
         /**

@@ -1,3 +1,5 @@
+# Shared Bindable Data (State Providers)
+
 While Components can manage their own state using the Class Config System,
 you want to use VMs as soon as you want to share data properties with multiple child Components.
 
@@ -7,6 +9,60 @@ Rules of thumb:
 3. We want to define shared state data properties as low inside the component tree as possible.
 
 Other libraries or frameworks often call state providers "Stores".
+
+## How Reactivity Works: The Effects-Based System
+
+Neo.mjs State Providers implement a powerful effects-based reactivity system,
+which automatically tracks dependencies and re-evaluates computations when
+their underlying data changes. This system is built around two core concepts:
+
+### 1. The `Neo.core.Effect` Class
+
+At the heart of the reactivity is the `Neo.core.Effect` class. An `Effect`
+is a mechanism that encapsulates a function (its "effect function") and
+automatically re-runs this function whenever any of the reactive data
+properties it accesses change.
+
+*   **Implicit Dependency Tracking:** When your effect function (e.g., a formula
+    or a binding formatter) reads a reactive data property (e.g., `data.user.firstName`),
+    the `Effect` automatically "subscribes" to changes in that property.
+*   **Automatic Re-evaluation:** If `data.user.firstName` changes, the `Effect`
+    detects this and automatically re-executes its effect function, ensuring
+    that any dependent computations or UI updates are performed.
+
+### 2. The Hierarchical Data Proxy
+
+When you access data within a State Provider (e.g., in a `bind` configuration
+or a `formula`), you are interacting with a special `Proxy` object. This proxy
+is created by `Neo.state.createHierarchicalDataProxy` and provides a unified
+view of data across the entire State Provider hierarchy (current provider and
+all its parents).
+
+*   **Seamless Data Access:** You can access any data property, whether it lives
+    in the current State Provider or a parent, using simple dot notation (e.g.,
+    `data.myProperty` or `data.user.address.street`).
+*   **Enabling Dependency Tracking:** This proxy works in conjunction with
+    `Neo.core.Effect` to enable implicit dependency tracking. When an `Effect`
+    reads a property through this proxy, the proxy notifies the `Effect` about
+    the access, allowing the `Effect` to register that property as a dependency.
+
+### How Bindings and Formulas Utilize Effects
+
+*   **Bindings (`bind` config):** When you define a `bind` configuration for a
+    component (e.g., `bind: {text: data => data.hello}`), Neo.mjs creates an
+    `Effect`. The effect function is your formatter (`data => data.hello`).
+    Whenever `data.hello` changes, the `Effect` re-runs, re-evaluates the
+    formatter, and updates the component's `text` config.
+
+*   **Formulas (`formulas` config):** These are effect-based computed properties. Each formula function is wrapped in an `Effect`. When the
+    formula accesses data (e.g., `data.a + data.b`), the `Effect` tracks `data.a`
+    and `data.b` as dependencies. If either changes, the `Effect` re-runs the
+    formula, and its computed result is automatically updated in the State Provider's
+    data.
+
+This effects-based system significantly reduces boilerplate, making state
+management intuitive and efficient by handling dependency tracking and updates
+automatically.
 
 ## Inline State Providers
 ### Direct Bindings
@@ -111,9 +167,9 @@ Inside the Container are 3 Labels which bind their `text` config to a combinatio
 
 We are showcasing 3 different ways how you can define your binding (resulting in the same output).
 
-In case any of the bound data props changes, all bound Configs will check for an update.
+In case any of the bound data props changes, the underlying `Effect` for that binding will re-evaluate, and all bound Configs will update.
 
-Important: The Config setter will only trigger in case there is a real change for the bound output.
+Important: The Config setter will only trigger in case there is a real change for the bound output, ensuring efficient updates.
 
 We also added 2 Buttons to change the value of each data prop, so that we can see that the bound Label texts
 update right away.
@@ -252,17 +308,82 @@ which contains the nested props `firstname` and `lastname`.
 We can bind to these nested props like before:</br>
 `bind: {text: data => data.user.firstname + ' ' + data.user.lastname}`
 
-Any change of a nested data prop will directly get reflected into the bound components.
+Any change of a nested data prop will directly trigger the associated `Effect` and get reflected into the bound components.
 
 We can update a nested data prop with passing its path:</br>
 `data => data.component.setState({'user.lastname': 'Rahder'})`
 
 Or we can directly pass the object containing the change(s):</br>
-`data => data.component.setState({user: {firstname: 'Max'}})`
+`data => data.component.setState({user: {firstname: 'Max'}})`</br>
+**Hint:** This will not override left out nested data props (lastname in this case).</br>
+**Hint:** This is the recommended way for bulk state changes.
 
-Hint: This will not override left out nested data props (lastname in this case).
+***You can also directly change state data***
+
+`data => data.component.setStateProvider().data.user.firstname = 'Max'`
+
+Shorthand syntax:</br>
+`data => data.component.data.user.firstname = 'Max'`
+
+### Formulas in Action
+
+```javascript live-preview
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'Guides.vmFormula.MainView',
+        stateProvider: {
+            data: {
+                price   : 10,
+                quantity: 2
+            },
+            formulas: {
+                total          : data => data.price * data.quantity,
+                discountedTotal: data => data.total * 0.9 // 10% discount
+            }
+        },
+        itemDefaults: {
+            module: Label,
+            style : {margin: '.5em 1em'}
+        },
+        items: [{
+            bind: {text: data => `Price: ${data.price}`}
+        }, {
+            bind: {text: data => `Quantity: ${data.quantity}`}
+        }, {
+            bind: {text: data => `Total: ${data.total}`}
+        }, {
+            bind: {text: data => `Discounted Total (10% off): ${data.discountedTotal.toFixed(2)}`}
+        }, {
+            module : Button,
+            handler: event => event.component.getStateProvider().data.price++,
+            text   : 'Increase Price'
+        }, {
+            module : Button,
+            // Shorthand syntax. Less descriptive, but works fine too.
+            handler: event => event.component.data.quantity++,
+            text   : 'Increase Quantity'
+        }],
+        layout: {ntype: 'vbox', align: 'start'}
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+This example demonstrates how formulas automatically react to changes in their dependencies.
+
+* We define `price` and `quantity` in the `data` config.
+  The `total` formula computes `data.price * data.quantity`.
+  The `discountedTotal` formula then computes `data.total * 0.9`.
+
+* When you click the "Increase Price" or "Increase Quantity" buttons, you'll observe that
+  `Total` and `Discounted Total` labels update automatically, showcasing the
+  effect-based reactivity of formulas.
 
 ### Dialog connecting to a Container
+
 ```javascript live-preview
 import Controller from '../controller/Component.mjs';
 import Dialog     from '../dialog/Base.mjs';
@@ -383,9 +504,11 @@ MainView = Neo.setupClass(MainView);
 ```
 
 ## Class based State Providers
+
 When your stateProviders contain many data props or need custom logic, you can easily move them into their own classes.
 
 ### Direct Bindings
+
 ```javascript live-preview
 import Button        from '../button/Base.mjs';
 import Container     from '../container/Base.mjs';
@@ -498,15 +621,10 @@ class MainViewStateProvider extends StateProvider {
     static config = {
         className: 'Guides.vm7.MainViewStateProvider',
         
-        data: {
-            myStoreCount: 0
-        },
-        
         stores: {
             // Define a store using a class reference
             mySharedStore: {
-                module   : MyDataStore,
-                listeners: {countChange: 'onMyStoreCountChange'}
+                module   : MyDataStore
             },
             // Define another store using an inline configuration
             anotherStore: {
@@ -523,10 +641,6 @@ class MainViewStateProvider extends StateProvider {
                 ]
             }
         }
-    }
-
-    onMyStoreCountChange(data) {
-        this.data.myStoreCount = data.value // Reactive
     }
 }
 MainViewStateProvider = Neo.setupClass(MainViewStateProvider);
@@ -557,7 +671,7 @@ class MainView extends Container {
                 module: Label,
                 style : {margin: 'auto'},
                 bind: {
-                    text: data => `Count: ${data.myStoreCount}`
+                    text: data => `Count: ${data.stores.mySharedStore.count}`
                 }
             }, {
                 module: Button,

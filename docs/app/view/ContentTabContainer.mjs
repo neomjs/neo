@@ -35,6 +35,7 @@ class ContentTabContainer extends Container {
         },
         /**
          * @member {Array} items=[//...]]
+         * @reactive
          */
         items: [{
             ntype: 'component',
@@ -48,6 +49,7 @@ class ContentTabContainer extends Container {
         }],
         /**
          * @member {Boolean} sortable=true
+         * @reactive
          */
         sortable: true
     }

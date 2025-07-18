@@ -24,6 +24,7 @@ class Helix extends BaseHelix {
         /**
          * The radius of the Helix in px
          * @member {Number} radius=2500
+         * @reactive
          */
         radius: 2500,
         /**

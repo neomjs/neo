@@ -1,5 +1,6 @@
-As you read in the <a href="#/learn/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
+# Custom Events
 
+As you read in the <a href="#/learn/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
 
 ```javascript live-preview
 import Container from '../container/Base.mjs';

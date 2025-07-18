@@ -13,14 +13,17 @@ class Colors extends FeatureSection {
         className: 'Portal.view.home.parts.Colors',
         /**
          * @member {String[]} cls=['portal-home-parts-colors']
+         * @reactive
          */
         cls: ['portal-home-parts-colors'],
         /**
          * @member {String} headline='Amazing Potential'
+         * @reactive
          */
         headline: 'Amazing Potential',
         /**
          * @member {String} learnMoreRoute='https://itnext.io/sharing-real-time-websocket-data-across-multiple-browser-windows-4e0538dd7563?source=friends_link&sk=9efb3e4f38c82fb3e04899c61bb5fcb8'
+         * @reactive
          */
         learnMoreRoute: 'https://itnext.io/sharing-real-time-websocket-data-across-multiple-browser-windows-4e0538dd7563?source=friends_link&sk=9efb3e4f38c82fb3e04899c61bb5fcb8',
         /**
@@ -48,6 +51,7 @@ class Colors extends FeatureSection {
         ].join(''),
         /**
          * @member {String} subHeadline='Socket Data'
+         * @reactive
          */
         subHeadline: 'Shared Socket Data'
     }

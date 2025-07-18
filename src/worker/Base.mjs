@@ -9,6 +9,8 @@ import RemoteMethodAccess    from './mixin/RemoteMethodAccess.mjs';
  * The abstract base class for e.g. the App, Data & VDom worker
  * @class Neo.worker.Base
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
+ * @mixes Neo.worker.mixin.RemoteMethodAccess
  * @abstract
  */
 class Worker extends Base {

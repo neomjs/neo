@@ -34,10 +34,12 @@ class ContentComponent extends Component {
         },
         /**
          * @member {Object} record_=null
+         * @reactive
          */
         record_: null,
         /**
          * @member {String} tag='article'
+         * @reactive
          */
         tag: 'article'
     }
@@ -173,9 +175,8 @@ class ContentComponent extends Component {
             baseConfigs = {appName, autoMount: true, autoRender: true, parentComponent: me, windowId};
             data        = await fetch(path);
             content     = await data.text();
-            // Update content sections (modifies markdown content with h2/h3 tags and IDs)
+            // Update content sections (modifies markdown content with h1/h2/h3 tags and IDs)
             content = me.updateContentSectionsStore(content);
-            content = `<h1 class='neo-h1'>${record.name}</h1>\n${content}`;
             // Initialize maps for custom components and live previews
             neoComponents = {};
             neoDivs       = {};
@@ -342,14 +343,19 @@ class ContentComponent extends Component {
         contentArray.forEach((line, index) => {
             tag = null;
 
-            if (line.startsWith('##') && line.charAt(2) !== '#') {
+            if (line.startsWith('#') && line.charAt(1) !== '#') {
+                line = line.substring(1).trim();
+                tag  = 'h1'
+            }
+
+            else if (line.startsWith('##') && line.charAt(2) !== '#') {
                 line = line.substring(2).trim();
-                tag  = 'h2';
+                tag  = 'h2'
             }
 
             else if (line.startsWith('###') && line.charAt(3) !== '#') {
                 line = line.substring(3).trim();
-                tag  = 'h3';
+                tag  = 'h3'
             }
 
             if (tag) {

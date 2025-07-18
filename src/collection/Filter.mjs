@@ -4,6 +4,7 @@ import Observable from '../core/Observable.mjs';
 /**
  * @class Neo.collection.Filter
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
 class Filter extends Base {
     /**
@@ -38,11 +39,13 @@ class Filter extends Base {
         /**
          * Setting disabled to true will exclude this filter from the collection filtering logic
          * @member {Boolean} disabled_=false
+         * @reactive
          */
         disabled_: false,
         /**
          * Provide a custom filtering function which has a higher priority than property, operator & value
          * @member {Function|null} filterBy_=null
+         * @reactive
          */
         filterBy_: null,
         /**
@@ -54,6 +57,7 @@ class Filter extends Base {
          * Set this flag to true before starting bulk updates (e.g. changing property & value)
          * to prevent multiple change events
          * @member {Boolean} isUpdating_=false
+         * @reactive
          */
         isUpdating_: false,
         /**
@@ -83,6 +87,7 @@ class Filter extends Base {
         /**
          * The property to filter by (use the combination of property, operator & value)
          * @member {String} property_='id'
+         * @reactive
          */
         property_: 'id',
         /**
@@ -93,6 +98,7 @@ class Filter extends Base {
         /**
          * The value to filter by (use the combination of property, operator & value)
          * @member {String} value_=null
+         * @reactive
          */
         value_: null
     }

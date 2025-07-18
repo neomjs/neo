@@ -14,10 +14,12 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.core.config.MainContainer',
         /**
          * @member {Number|null} a_=null
+         * @reactive
          */
         a_: null,
         /**
          * @member {Number|null} b_=null
+         * @reactive
          */
         b_: null,
         /**

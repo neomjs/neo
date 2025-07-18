@@ -58,7 +58,26 @@ class Base {
      */
     static overwrittenMethods = {}
     /**
-     * Configs will get merged throughout the class hierarchy
+     * Defines the default configuration properties for the class. These configurations are
+     * merged throughout the class hierarchy and can be overridden at the instance level.
+     *
+     * There are two main types of configs:
+     *
+     * 1.  **Reactive Configs:** Property names ending with a trailing underscore (e.g., `myConfig_`).
+     *     The framework automatically generates a public getter and setter, removing the underscore
+     *     from the property name (e.g., `this.myConfig`). This system enables powerful, optional
+     *     lifecycle hooks that are called automatically if they are implemented on the class:
+     *     - `beforeGetMyConfig(value)`: Executed before the getter returns. Can be used to dynamically modify the returned value.
+     *     - `beforeSetMyConfig(newValue, oldValue)`: Executed before a new value is set. Can be used for validation or transformation. Returning `undefined` from this hook will cancel the update.
+     *     - `afterSetMyConfig(newValue, oldValue)`: Executed after a new value has been successfully set. Ideal for triggering side effects.
+     *
+     * 2.  **Non-Reactive (Prototype-based) Configs:** Property names without a trailing underscore.
+     *     These are applied directly to the class's **prototype** during the `Neo.setupClass`
+     *     process. This is highly memory-efficient as the value is shared across all instances.
+     *     It also allows for powerful, application-wide modifications of default behaviors
+     *     by using the `Neo.overwrites` mechanism, which modifies these prototype values at
+     *     load time.
+     *
      * @returns {Object} config
      */
     static config = {
@@ -83,6 +102,7 @@ class Base {
         /**
          * The unique component id
          * @member {String|null} id_=null
+         * @reactive
          */
         id_: null,
         /**
@@ -104,6 +124,7 @@ class Base {
          * Effects can observe this config to clean themselves up.
          * @member {Boolean} isDestroying_=false
          * @protected
+         * @reactive
          */
         isDestroying_: false,
         /**
@@ -112,6 +133,7 @@ class Base {
          * Since not all classes use the Observable mixin, Neo will not fire an event.
          * method body.
          * @member {Boolean} isReady_=false
+         * @reactive
          */
         isReady_: false,
         /**
@@ -133,6 +155,7 @@ class Base {
          *
          * @member {Object|null} remote_=null
          * @protected
+         * @reactive
          */
         remote_: null
     }
@@ -290,9 +313,38 @@ class Base {
     }
 
     /**
-     * Applying overwrites and adding overwrittenMethods to the class constructors
-     * @param {Object} cfg
+     * This static method is called by `Neo.setupClass()` during the class creation process.
+     * It allows for modifying a class's default prototype-based configs from outside the
+     * class hierarchy, which is a powerful way to avoid boilerplate code.
+     *
+     * It looks for a matching entry in the global `Neo.overwrites` object based on the
+     * class's `className`. If found, it merges the properties from the overwrite object
+     * into the class's static `config`. This provides a powerful mechanism for theming
+     * or applying application-wide customizations to framework or library classes without
+     * needing to extend them.
+     *
+     * @example
+     * // Imagine you have hundreds of buttons in your app, and you want all of them
+     * // to have `labelPosition: 'top'` instead of the default `'left'`. 
+     * // Instead of configuring each instance, you can define an overwrite.
+     * 
+     * // inside an Overwrites.mjs file loaded by your app:
+     * Neo.overwrites = {
+     *     Neo: {
+     *         button: {
+     *             Base: {
+     *                 labelPosition: 'top'
+     *             }
+     *         }
+     *     }
+     * };
+     * 
+     * // Now, every `Neo.button.Base` (and any class that extends it) will have this
+     * // new default value on its prototype.
+     *
+     * @param {Object} cfg The static `config` object of the class being processed.
      * @protected
+     * @static
      */
     static applyOverwrites(cfg) {
         let overwrites = Neo.ns(cfg.className, false, Neo.overwrites),

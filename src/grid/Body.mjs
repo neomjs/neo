@@ -23,21 +23,25 @@ class GridBody extends Component {
         ntype: 'grid-body',
         /**
          * @member {Boolean} animatedRowSorting_=false
+         * @reactive
          */
         animatedRowSorting_: false,
         /**
          * Internal flag. Gets calculated when mounting the grid.Container
          * @member {Number} availableHeight_=0
+         * @reactive
          */
         availableHeight_: 0,
         /**
          * Internal flag. Gets calculated when changing the availableHeight config
          * @member {Number} availableRows_=0
+         * @reactive
          */
         availableRows_: 0,
         /**
          * Internal flag. Gets calculated after mounting grid.Body rows
          * @member {Number} availableWidth_=0
+         * @reactive
          */
         availableWidth_: 0,
         /**
@@ -49,12 +53,14 @@ class GridBody extends Component {
          * The number of columns (cells) to paint before the first and after the last visible column,
          * to enhance the scrolling performance
          * @member {Number} bufferColumnRange_=0
+         * @reactive
          */
         bufferColumnRange_: 0,
         /**
          * The number of rows to paint before the first and after the last visible row,
          * to enhance the scrolling performance
          * @member {Number} bufferRowRange_=3
+         * @reactive
          */
         bufferRowRange_: 3,
         /**
@@ -65,19 +71,23 @@ class GridBody extends Component {
         /**
          * Internal flag. Gets calculated after mounting grid.Body rows
          * @member {Number} containerWidth_=0
+         * @reactive
          */
         containerWidth_: 0,
         /**
          * @member {Neo.collection.Base|null} columnPositions_=null
          * @protected
+         * @reactive
          */
         columnPositions_: null,
         /**
          * @member {Boolean} highlightModifiedCells_=false
+         * @reactive
          */
         highlightModifiedCells_: false,
         /**
          * @member {Boolean} isScrolling_=false
+         * @reactive
          */
         isScrolling_: false,
         /**
@@ -89,6 +99,7 @@ class GridBody extends Component {
          * Stores the indexes of the first & last mounted columns, including bufferColumnRange
          * @member {Number[]} mountedColumns_=[0,0]
          * @protected
+         * @reactive
          */
         mountedColumns_: [0, 0],
         /**
@@ -104,25 +115,30 @@ class GridBody extends Component {
         pluginAnimateRowsConfig: null,
         /**
          * @member {String} role='rowgroup'
+         * @reactive
          */
         role: 'rowgroup',
         /**
          * Number in px
          * @member {Number} rowHeight_=0
+         * @reactive
          */
         rowHeight_: 0,
         /**
          * @member {Number} scrollLeft_=0
          * @protected
+         * @reactive
          */
         scrollLeft_: 0,
         /**
          * @member {Number} scrollTop_=0
          * @protected
+         * @reactive
          */
         scrollTop_: 0,
         /**
          * @member {Neo.selection.Model} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
@@ -131,10 +147,12 @@ class GridBody extends Component {
         selectedRecordField: 'annotations.selected',
         /**
          * @member {Number} startIndex_=0
+         * @reactive
          */
         startIndex_: 0,
         /**
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
@@ -151,6 +169,7 @@ class GridBody extends Component {
         visibleRows: [0, 0],
         /**
          * @member {String[]} wrapperCls=['neo-grid-body-wrapper']
+         * @reactive
          */
         wrapperCls: ['neo-grid-body-wrapper'],
         /**
@@ -1126,7 +1145,7 @@ class GridBody extends Component {
      */
     updateScrollHeight(silent=false) {
         let me           = this,
-            countRecords = me.store.getCount(),
+            countRecords = me.store?.getCount() || 0,
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {

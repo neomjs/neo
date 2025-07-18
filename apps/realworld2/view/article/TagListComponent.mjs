@@ -20,6 +20,7 @@ class TagListComponent extends Component {
         className: 'RealWorld2.view.article.TagListComponent',
         /**
          * @member {String|null} activeTag_
+         * @reactive
          */
         activeTag_: null,
         /**
@@ -28,6 +29,7 @@ class TagListComponent extends Component {
         baseCls: ['rw2-taglist-component'],
         /**
          * @member {String[]} tags_=[]
+         * @reactive
          */
         tags_: [],
         /**

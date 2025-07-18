@@ -35,6 +35,7 @@ class Container extends Component {
          * Default configuration for child items within this container.
          * This config uses a descriptor to enable deep merging with instance based itemDefaults.
          * @member {Object} itemDefaults_={[isDescriptor]: true, merge: 'deep', value: null}
+         * @reactive
          */
         itemDefaults_: {
             [isDescriptor]: true,
@@ -91,6 +92,7 @@ class Container extends Component {
          *         MyRedButton            // you can drop imported modules directly into the items array
          *     ]
          * });
+         * @reactive
          */
         items_: {
             [isDescriptor]: true,
@@ -104,6 +106,7 @@ class Container extends Component {
          * Meaning: onConstructed() is the latest life-cycle point.
          * You can use layout: 'base', in case you do not need a layout at all.
          * @member {Object|String|null} layout_={ntype: 'vbox', align: 'stretch'}
+         * @reactive
          */
         layout_: {
             ntype: 'vbox',
@@ -349,13 +352,14 @@ class Container extends Component {
 
                     // Convenience logic, especially for moving components into different browser windows:
                     // A component might rely on references & handler methods inside the previous controller realm
-                    if (!item.controller && !me.getController() && parent.getController()) {
+                    // todo: We need ?. until functional.component.Base supports controllers
+                    if (!item.controller && !me.getController() && parent.getController?.()) {
                         item.controller = {parent: parent.getController()}
                     }
                 }
 
                 item.set(config);
-                item.getStateProvider()?.createBindings(item);
+                item.getStateProvider?.()?.createBindings(item);
                 break
             }
 
@@ -437,7 +441,7 @@ class Container extends Component {
 
         // We need to add items into the vdom
         me.updateDepth = -1;
-        me.update();
+        me.isConstructed && me.update();
 
         me.fire('itemsCreated', {id: me.id, items})
     }

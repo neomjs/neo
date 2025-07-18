@@ -18,6 +18,7 @@ class Search extends Picker {
         ntype: 'trigger-search',
         /**
          * @member {String|null} iconCls='fas fa-magnifying-glass'
+         * @reactive
          */
         iconCls: 'fas fa-magnifying-glass'
     }

@@ -22,6 +22,7 @@ class List extends Component {
         ntype: 'list',
         /**
          * @member {Boolean} animate_=false
+         * @reactive
          */
         animate_: false,
         /**
@@ -41,6 +42,7 @@ class List extends Component {
         disabledField: 'disabled',
         /**
          * @member {Boolean} disableSelection_=false
+         * @reactive
          */
         disableSelection_: false,
         /**
@@ -49,6 +51,7 @@ class List extends Component {
         displayField: 'name',
         /**
          * @member {Boolean} draggable_=false
+         * @reactive
          */
         draggable_: false,
         /**
@@ -63,12 +66,14 @@ class List extends Component {
          * Keeps track of the focussed item index and allows bindings and programmatic changes.
          * You can either pass the index or the related record
          * @member {Number|Object|null} focusIndex_=null
+         * @reactive
          */
         focusIndex_: null,
         /**
          * In case we are using list item headers and want to bind list item indexes to e.g. a card layout
          * for e.g. a sidenav, this config comes in handy.
          * @member {Number|null} headerlessSelectedIndex_=null
+         * @reactive
          */
         headerlessSelectedIndex_: null,
         /**
@@ -82,6 +87,7 @@ class List extends Component {
         /**
          * Defaults to px
          * @member {Number|null} itemHeight_=null
+         * @reactive
          */
         itemHeight_: null,
         /**
@@ -92,6 +98,7 @@ class List extends Component {
         /**
          * Defaults to px
          * @member {Number|null} itemWidth_=null
+         * @reactive
          */
         itemWidth_: null,
         /**
@@ -117,11 +124,13 @@ class List extends Component {
         /**
          * Keeps track of the selected item index and allows bindings and programmatic changes
          * @member {Number|null} selectedIndex_=null
+         * @reactive
          */
         selectedIndex_: null,
         /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
@@ -136,21 +145,25 @@ class List extends Component {
         silentSelect: false,
         /**
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**
          * True will add a checkbox in front of each list item
          * @member {Boolean} stacked_=true
+         * @reactive
          */
         useCheckBoxes_: false,
         /**
          * Setting this config to true will switch to dl, dt & dd tags instead of using ul & li.
          * Use the {Boolean} model field isHeader.
          * @member {Boolean} useHeaders_=false
+         * @reactive
          */
         useHeaders_: false,
         /**
          * @member {Boolean} useWrapperNode_=false
+         * @reactive
          */
         useWrapperNode_: false,
         /**

@@ -14,6 +14,7 @@ class ContentSections extends Store {
         className: 'Portal.store.ContentSections',
         /**
          * @member {Neo.data.Model} model=ContentSectionModel
+         * @reactive
          */
         model: ContentSectionModel
     }

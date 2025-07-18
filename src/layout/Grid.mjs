@@ -20,6 +20,7 @@ class Grid extends Base {
         /**
          * @member {String|null} containerCls='neo-layout-fit'
          * @protected
+         * @reactive
          */
         containerCls: 'neo-layout-grid'
     }

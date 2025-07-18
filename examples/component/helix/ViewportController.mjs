@@ -14,6 +14,7 @@ class ViewportController extends Controller {
         /**
          * @member {Neo.component.Helix|null} helix_=null
          * @protected
+         * @reactive
          */
         helix_: null
     }

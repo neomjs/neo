@@ -18,6 +18,7 @@ class Store extends BaseStore {
         keyProperty: 'country',
         /**
          * @member {Neo.data.Model} model=Model
+         * @reactive
          */
         model: Model,
         /**

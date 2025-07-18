@@ -36,6 +36,7 @@ class TableBody extends Component {
         containerId: null,
         /**
          * @member {Boolean} highlightModifiedCells_=false
+         * @reactive
          */
         highlightModifiedCells_: false,
         /**
@@ -49,6 +50,7 @@ class TableBody extends Component {
         recordVnodeMap: {},
         /**
          * @member {Neo.selection.Model} selectionModel_=null
+         * @reactive
          */
         selectionModel_: null,
         /**
@@ -57,6 +59,7 @@ class TableBody extends Component {
         selectedRecordField: 'annotations.selected',
         /**
          * @member {Neo.data.Store|null} store_=null
+         * @reactive
          */
         store_: null,
         /**

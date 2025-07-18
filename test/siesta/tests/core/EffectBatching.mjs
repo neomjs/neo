@@ -19,13 +19,11 @@ StartTest(t => {
         let effectRunCount = 0;
         let sum = 0;
 
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                // Access all props to make them dependencies
-                sum = instance.configA + instance.configB + instance.configC;
-                t.pass(`Effect ran. Sum: ${sum}`);
-            }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            // Access all props to make them dependencies
+            sum = instance.configA + instance.configB + instance.configC;
+            t.pass(`Effect ran. Sum: ${sum}`);
         });
 
         t.is(effectRunCount, 1, 'Effect ran once on initial creation');
@@ -108,12 +106,10 @@ StartTest(t => {
         let effectValue = '';
 
         // Effect depends only on configB
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                effectValue = instance.configB;
-                t.pass(`Effect ran. configB: ${effectValue}`);
-            }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            effectValue = instance.configB;
+            t.pass(`Effect ran. configB: ${effectValue}`);
         });
 
         t.is(effectRunCount, 1, 'Effect ran once on initial creation');
@@ -158,12 +154,10 @@ StartTest(t => {
         let effectValue = '';
 
         // Effect depends only on configC
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                effectValue = instance.configC;
-                t.pass(`Effect ran. configC: ${effectValue}`);
-            }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            effectValue = instance.configC;
+            t.pass(`Effect ran. configC: ${effectValue}`);
         });
 
         t.is(effectRunCount, 1, 'Effect ran once on initial creation');
@@ -216,21 +210,17 @@ StartTest(t => {
         let effectCValue = '';
 
         // Effect for configB (changed by afterSet)
-        const effectB = new Effect({
-            fn: () => {
-                effectBRunCount++;
-                effectBValue = instance.configB;
-                t.pass(`EffectB ran. configB: ${effectBValue}`);
-            }
+        const effectB = new Effect(() => {
+            effectBRunCount++;
+            effectBValue = instance.configB;
+            t.pass(`EffectB ran. configB: ${effectBValue}`);
         });
 
         // Effect for configC (changed by beforeSet)
-        const effectC = new Effect({
-            fn: () => {
-                effectCRunCount++;
-                effectCValue = instance.configC;
-                t.pass(`EffectC ran. configC: ${effectCValue}`);
-            }
+        const effectC = new Effect(() => {
+            effectCRunCount++;
+            effectCValue = instance.configC;
+            t.pass(`EffectC ran. configC: ${effectCValue}`);
         });
 
         t.is(effectBRunCount, 1, 'EffectB ran once on initial creation');
@@ -292,12 +282,10 @@ StartTest(t => {
         let effectValue = '';
 
         // Single Effect depends on both configB and configC
-        const effect = new Effect({
-            fn: () => {
-                effectRunCount++;
-                effectValue = `${instance.configB} | ${instance.configC}`;
-                t.pass(`Effect ran. Combined: ${effectValue}`);
-            }
+        const effect = new Effect(() => {
+            effectRunCount++;
+            effectValue = `${instance.configB} | ${instance.configC}`;
+            t.pass(`Effect ran. Combined: ${effectValue}`);
         });
 
         t.is(effectRunCount, 1, 'Effect ran once on initial creation');

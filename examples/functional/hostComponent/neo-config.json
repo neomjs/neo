@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/functional/hostComponent/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

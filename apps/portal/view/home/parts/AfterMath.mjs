@@ -14,10 +14,12 @@ class AfterMath extends BaseContainer {
         className: 'Portal.view.home.parts.AfterMath',
         /**
          * @member {String[]} cls=['portal-home-aftermath']
+         * @reactive
          */
         cls: ['portal-home-aftermath'],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch',pack:'center'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
         /**

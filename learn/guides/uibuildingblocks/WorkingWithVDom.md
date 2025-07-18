@@ -1,3 +1,5 @@
+# Working with VDom
+
 ## A Comprehensive Guide to Custom Component Development
 
 **Target Audience**: Developers building custom Neo.mjs components who need to work directly with the VDom layer for performance optimization, complex animations, or advanced UI patterns.

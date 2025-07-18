@@ -14,10 +14,12 @@ class References extends BaseContainer {
         className: 'Portal.view.home.parts.References',
         /**
          * @member {String} cls='portal-references'
+         * @reactive
          */
         cls: 'portal-references',
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch',pack:'center'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
         /**

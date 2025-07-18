@@ -15,10 +15,12 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.grid.bigData.MainContainer',
         /**
          * @member {String[]} cls=['neo-examples-bigdata-maincontainer']
+         * @reactive
          */
         cls: ['neo-examples-bigdata-maincontainer'],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**

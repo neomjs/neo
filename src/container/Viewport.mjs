@@ -35,6 +35,7 @@ class Viewport extends Container {
          * true applies a main.addon.ResizeObserver and fires a custom resize event
          * which other instances can subscribe to.
          * @member {Boolean} monitorSize_=false
+         * @reactive
          */
         monitorSize_: false
     }

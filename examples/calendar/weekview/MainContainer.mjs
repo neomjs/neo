@@ -16,6 +16,7 @@ class MainContainer extends Viewport {
         /**
          * Value for the container.Base layout_ config
          * @member {Object} layout={ntype: 'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'},
         /**
@@ -25,6 +26,7 @@ class MainContainer extends Viewport {
          * 1. Extend Neo.calendar.view.week.Component and add the configs and view model there.
          * 2. Just drop them into a parent view.
          * @member {Neo.calendar.view.MainContainerStateProvider} stateProvider=MainContainerStateProvider
+         * @reactive
          */
         stateProvider: {
             module: MainContainerStateProvider,
@@ -36,6 +38,7 @@ class MainContainer extends Viewport {
          * Config options for Neo.calendar.store.Calendars.
          * The calendar view model relies on it.
          * @member {Object} calendarStoreConfig_
+         * @reactive
          */
         calendarStoreConfig_: {
             autoLoad: true,
@@ -45,6 +48,7 @@ class MainContainer extends Viewport {
          * Config options for Neo.calendar.store.Events.
          * The calendar view model relies on it.
          * @member {Object} eventStoreConfig_
+         * @reactive
          */
         eventStoreConfig_: {
             autoLoad: true,

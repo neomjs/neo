@@ -17,6 +17,7 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.toolbar.paging.view.MainContainer',
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
+         * @reactive
          */
         controller: MainContainerController,
         /**
@@ -89,10 +90,12 @@ class MainContainer extends Viewport {
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
+         * @reactive
          */
         stateProvider: MainContainerStateProvider,
         /**

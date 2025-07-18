@@ -14,6 +14,7 @@ class CommentComponent extends Component {
         className: 'RealWorld.view.article.CommentComponent',
         /**
          * @member {Object|null} author_=null
+         * @reactive
          */
         author_: null,
         /**
@@ -22,6 +23,7 @@ class CommentComponent extends Component {
         baseCls: ['card'],
         /**
          * @member {String|null} body_=null
+         * @reactive
          */
         body_: null,
         /**
@@ -30,6 +32,7 @@ class CommentComponent extends Component {
         commentId: null,
         /**
          * @member {String|null} createdAt_=null
+         * @reactive
          */
         createdAt_: null,
         /**

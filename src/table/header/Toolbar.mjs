@@ -22,26 +22,31 @@ class Toolbar extends BaseToolbar {
         baseCls: ['neo-table-header-toolbar'],
         /**
          * @member {Boolean} draggable_=true
+         * @reactive
          */
         draggable_: true,
         /**
          * @member {String} layout='base'
+         * @reactive
          */
         layout: 'base',
         /**
          * @member {Object} itemDefaults={ntype : 'table-header-button'}
+         * @reactive
          */
         itemDefaults: {
             ntype: 'table-header-button'
         },
         /**
          * @member {Boolean} showHeaderFilters_=false
+         * @reactive
          */
         showHeaderFilters_: false,
         /**
          * Convenience shortcut to pass sortable to all toolbar items.
          * If set to true, header clicks will sort the matching column (ASC, DESC, null)
          * @member {Boolean} sortable=true
+         * @reactive
          */
         sortable: true,
         /**

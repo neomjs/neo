@@ -23,6 +23,7 @@ class Helper extends Base {
          * Remote method access for other workers
          * @member {Object} remote={app:['create','update']}
          * @protected
+         * @reactive
          */
         remote: {
             app: [
@@ -47,19 +48,21 @@ class Helper extends Base {
      * @protected
      */
     compareAttributes({deltas, oldVnode, vnode, vnodeMap}) {
-        // Do not compare attributes for component references
-        if (oldVnode.componentId && (oldVnode.id === vnode.id || oldVnode.componentId === vnode.id)) {
-            return deltas
+        // If either vnode is a component placeholder (indicated by the presence of componentId),
+        // we must not compare element attributes.
+        if (vnode.componentId || oldVnode.componentId) {
+            return deltas;
         }
 
-        let attributes, delta, value, keys, styles, add, remove;
+        let delta = {},
+            attributes, value, keys, styles, add, remove;
 
-        if (vnode.vtype === 'text' && vnode.innerHTML !== oldVnode.innerHTML) {
+        if (vnode.vtype === 'text' && vnode.textContent !== oldVnode.textContent) {
             deltas.default.push({
                 action  : 'updateVtext',
                 id      : vnode.id,
                 parentId: vnodeMap.get(vnode.id).parentNode.id,
-                value   : vnode.innerHTML
+                value   : vnode.textContent
             })
         } else {
             keys = Object.keys(vnode);
@@ -77,7 +80,6 @@ class Helper extends Base {
             });
 
             keys.forEach(prop => {
-                delta = {};
                 value = vnode[prop];
 
                 switch (prop) {
@@ -143,12 +145,12 @@ class Helper extends Base {
                         }
                         break
                 }
+            });
 
-                if (Object.keys(delta).length > 0) {
-                    delta.id = vnode.id;
-                    deltas.default.push(delta)
-                }
-            })
+            if (Object.keys(delta).length > 0) {
+                delta.id = vnode.id;
+                deltas.default.push(delta)
+            }
         }
 
         return deltas
@@ -200,12 +202,11 @@ class Helper extends Base {
      */
     createDeltas(config) {
         let {deltas={default: [], remove: []}, oldVnode, vnode} = config,
-            oldVnodeId = oldVnode?.id || oldVnode?.componentId,
-            vnodeId    = vnode?.id;
+            vnodeId = vnode?.id;
 
         // Edge case: setting `removeDom: true` on a top-level vdom node
-        if (!vnode && oldVnodeId) {
-            deltas.remove.push({action: 'removeNode', id: oldVnodeId});
+        if (!vnode && (oldVnode?.id || oldVnode?.componentId)) {
+            deltas.remove.push({action: 'removeNode', id: oldVnode.id || oldVnode.componentId});
             return deltas
         }
 
@@ -213,8 +214,10 @@ class Helper extends Base {
             return deltas
         }
 
-        if (vnodeId !== oldVnodeId && vnode.componentId !== oldVnode.componentId) {
-            throw new Error(`createDeltas() must get called for the same node. ${vnodeId}, ${oldVnodeId}`);
+        // The top-level nodes passed to createDeltas must be the same logical node. The VdomLifecycle
+        // mixin ensures symmetric trees, so IDs and types (component vs element) must match.
+        if (vnode.id !== oldVnode.id || vnode.componentId !== oldVnode.componentId) {
+            throw new Error(`createDeltas() must be called for the same node. new: {id: ${vnode.id}, cId: ${vnode.componentId}}, old: {id: ${oldVnode.id}, cId: ${oldVnode.componentId}}`);
         }
 
         let me            = this,
@@ -243,11 +246,19 @@ class Helper extends Base {
                 break
             }
 
-            // Same node, continue recursively
+            // A "match" requires nodes to be of the same type (placeholder or element) and have
+            // the same identifier. The VdomLifecycle mixin ensures that both the old (vnode)
+            // and new (vdom) trees are expanded to the same symmetric depth before diffing.
             if (childNode && oldChildNode && (
-                childNode.id === oldChildNode.id ||
-                (childNode.componentId && childNode.componentId === oldChildNode.componentId))
-            ) {
+                // Case 1: Both nodes are elements with the same ID
+                (!childNode.componentId && !oldChildNode.componentId && childNode.id === oldChildNode.id) ||
+                // Case 2: Both nodes are placeholders for the same component
+                (childNode.componentId && childNode.componentId === oldChildNode.componentId)
+            )) {
+                if (childNode.componentId === 'neo-ignore') {
+                    continue
+                }
+
                 me.createDeltas({deltas, oldVnode: oldChildNode, oldVnodeMap, vnode: childNode, vnodeMap});
                 continue
             }
@@ -334,7 +345,7 @@ class Helper extends Base {
 
                         newValue = [];
 
-                        value.forEach(item => {
+                        value.filter(Boolean).forEach(item => {
                             if (item.removeDom !== true) {
                                 delete item.removeDom; // could be false
                                 potentialNode = me.createVnode(item);
@@ -371,6 +382,7 @@ class Helper extends Base {
                     case 'componentId':
                     case 'id':
                     case 'static':
+                    case 'vtype':
                         node[key] = value;
                         break
                     case 'style':

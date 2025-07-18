@@ -1,3 +1,4 @@
+# Config System Deep Dive
 
 **Pre-requisite:** It is highly recommended to study [The Unified Class Config System](#/learn/benefits.ConfigSystem)
 first to understand the foundational concepts and benefits.

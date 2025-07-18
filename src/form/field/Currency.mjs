@@ -18,10 +18,12 @@ class Currency extends Number {
         ntype: 'currencyfield',
         /**
          * @member {Number} maxValue=1000000
+         * @reactive
          */
         maxValue: 1000000,
         /**
          * @member {Number} stepSize=0.01
+         * @reactive
          */
         stepSize: 0.01
     }

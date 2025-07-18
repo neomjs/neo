@@ -1,0 +1,16 @@
+.email-compose-view {
+    align-items     : stretch;
+    background-color: #323232;
+    border          : 1px solid #ccc;
+    box-shadow      : 0 4px 8px rgba(0,0,0,0.1);
+    display         : flex;
+    flex-direction  : column;
+    justify-content : center;
+    left            : 50%;
+    padding         : 20px;
+    position        : absolute;
+    top             : 50%;
+    transform       : translate(-50%, -50%);
+    width           : 600px;
+    z-index         : 1000
+}

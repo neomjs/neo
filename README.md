@@ -84,9 +84,6 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 * **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved.
   No more wasteful re-creations – just surgical, efficient updates.
 
-* **Reactive State Management**: Built-in reactivity ensures dynamic, efficient updates between components and state providers,
-  all handled off the main thread.
-
 * **Reactive State Management**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
   Components declare their data needs via a concise `bind` config. These `bind` functions act as powerful inline formulas, allowing
   Components to automatically react to changes and combine data from multiple state providers within the component hierarchy.
