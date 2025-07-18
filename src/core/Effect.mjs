@@ -89,6 +89,8 @@ class Effect {
         me.isRunning = new Config(false);
 
         // The subscriber(s) must be added *before* the first run is triggered.
+        // This is critical for consumers like functional components, which need to process
+        // the initial VDOM synchronously within the constructor lifecycle.
         if (subscriber) {
             // A concise way to handle both single and array subscribers.
             [].concat(subscriber).forEach(sub => me.isRunning.subscribe(sub))
