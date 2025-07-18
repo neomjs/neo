@@ -45,7 +45,7 @@ class Component extends BaseComponent {
             endTime             : data => data.endTime,
             eventBorder         : data => data.events.border,
             eventStore          : 'stores.events',
-            intlFormat_time     : data => data.intlFormat_time,
+            intlFormat_time     : data => data.timeFormatter,
             locale              : data => data.locale,
             minimumEventDuration: data => data.minimumEventDuration,
             showWeekends        : data => data.showWeekends,

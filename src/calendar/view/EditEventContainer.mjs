@@ -26,7 +26,7 @@ class EditEventContainer extends FormContainer {
          */
         bind: {
             endTime             : data => data.endTime,
-            intlFormat_time     : data => data.intlFormat_time,
+            intlFormat_time     : data => data.timeFormatter,
             minimumEventDuration: data => data.minimumEventDuration,
             startTime           : data => data.startTime
         },
