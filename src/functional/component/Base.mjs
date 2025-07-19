@@ -243,6 +243,36 @@ class FunctionalBase extends Base {
     }
 
     /**
+     * A lifecycle hook that runs after a state change has been detected but before the
+     * VDOM update is dispatched. It provides a dedicated place for logic that needs to
+     * execute before rendering, such as calculating derived data or caching values.
+     *
+     * You can prevent the VDOM update by returning `false` from this method. This is
+     * useful for advanced cases where you might want to manually trigger a different
+     * update after modifying other component configs.
+     *
+     * **IMPORTANT**: Do not change the value of any config that is used as a dependency
+     * within the `createVdom` method from inside this hook, as it will cause an
+     * infinite update loop. This hook is for one-way data flow, not for triggering
+     * cascading reactive changes.
+     *
+     * @returns {Boolean|undefined} Return `false` to cancel the upcoming VDOM update.
+     * @example
+     * beforeUpdate() {
+     *     // Perform an expensive calculation and cache the result on the instance
+     *     this.processedData = this.processRawData(this.rawData);
+     *
+     *     // Example of conditionally cancelling an update
+     *     if (this.processedData.length === 0 && this.vdom.cn?.length === 0) {
+     *         return false; // Don't re-render if there's nothing to show
+     *     }
+     * }
+     */
+    beforeUpdate() {
+        // This method can be overridden by subclasses
+    }
+
+    /**
      * Override this method in your functional component to return its VDOM structure.
      * This method will be automatically re-executed when any of the component's configs change.
      * @param {Neo.functional.component.Base} config - Mental model: while it contains the instance, it makes it clear to access configs
@@ -382,7 +412,9 @@ class FunctionalBase extends Base {
                     root.id = me.id
                 }
 
-                me.updateVdom();
+                if (me.beforeUpdate() !== false) {
+                    me.updateVdom()
+                }
 
                 // Update DOM event listeners based on the new render
                 if (me.mounted) {
