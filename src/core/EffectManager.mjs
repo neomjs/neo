@@ -135,7 +135,7 @@ export default Neo.gatekeep(EffectManager, 'Neo.core.EffectManager', () => {
      * @function Neo.batch
      * @param {Function} fn The function to execute.
      */
-    Neo.batch = (fn) => {
+    Neo.batch = function(fn) {
         EffectManager.pause();
         try {
             fn()
