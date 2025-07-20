@@ -8,7 +8,6 @@ import VDomUtil        from '../../../src/util/VDom.mjs';
 
 // tests are designed for this rendering mode
 Neo.config.useDomApiRenderer = false;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: false})
 
 let deltas, output, tmp, vdom, vnode;
 

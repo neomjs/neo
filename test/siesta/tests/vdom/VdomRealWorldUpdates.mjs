@@ -11,7 +11,6 @@ Neo.config.unitTestMode = true;
 Neo.config.allowVdomUpdatesInTests = true;
 // This ensures that the VdomHelper uses the correct renderer for the assertions.
 Neo.config.useDomApiRenderer = true;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: true});
 
 // Create a mock application context, as the component lifecycle requires it for updates.
 const appName = 'VdomRealWorldTestApp';

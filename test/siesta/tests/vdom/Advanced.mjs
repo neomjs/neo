@@ -5,7 +5,6 @@ import VdomHelper      from '../../../../src/vdom/Helper.mjs';
 
 // tests are designed for this rendering mode
 Neo.config.useDomApiRenderer = false;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: false})
 
 let deltas, output, vdom, vnode;
 

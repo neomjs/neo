@@ -10,7 +10,6 @@ let deltas, output, vdom, vnode;
 
 // tests are designed for this rendering mode
 Neo.config.useDomApiRenderer = false;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: false})
 
 StartTest(t => {
     t.it('Week view: Infinite Scrolling', t => {

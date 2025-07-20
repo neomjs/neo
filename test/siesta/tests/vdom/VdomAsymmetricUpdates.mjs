@@ -10,7 +10,6 @@ import VDomUtil           from '../../../../src/util/VDom.mjs';
 
 // IMPORTANT: Test with the new standard renderer
 Neo.config.useDomApiRenderer = true;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: true});
 
 /**
  * Creates a mock component object for testing.
