@@ -1,6 +1,7 @@
-import Neo        from '../../../../../src/Neo.mjs';
-import * as core  from '../../../../../src/core/_export.mjs';
-import VdomHelper from '../../../../../src/vdom/Helper.mjs';
+import Neo             from '../../../../../src/Neo.mjs';
+import * as core       from '../../../../../src/core/_export.mjs';
+import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 
 // tests are designed for this rendering mode
 Neo.config.useDomApiRenderer = false;

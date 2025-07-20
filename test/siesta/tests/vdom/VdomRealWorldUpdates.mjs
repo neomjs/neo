@@ -1,8 +1,9 @@
-import Neo        from '../../../../src/Neo.mjs';
-import * as core  from '../../../../src/core/_export.mjs';
-import Component  from '../../../../src/component/Base.mjs';
-import Container  from '../../../../src/container/Base.mjs';
-import VdomHelper from '../../../../src/vdom/Helper.mjs';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 // IMPORTANT: This test file uses real components and expects them to render.
 // We need to enable unitTestMode for isolation, but also allow VDOM updates.
