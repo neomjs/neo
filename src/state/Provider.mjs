@@ -2,7 +2,7 @@ import Base                          from '../core/Base.mjs';
 import ClassSystemUtil               from '../util/ClassSystem.mjs';
 import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
-import EffectBatchManager            from '../core/EffectBatchManager.mjs';
+import EffectManager                 from '../core/EffectManager.mjs';
 import Observable                    from '../core/Observable.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
@@ -632,9 +632,12 @@ class Provider extends Base {
      * @param {*} value
      */
     setData(key, value) {
-        EffectBatchManager.startBatch();
-        this.internalSetData(key, value, this);
-        EffectBatchManager.endBatch()
+        EffectManager.pause();
+        try {
+            this.internalSetData(key, value, this)
+        } finally {
+            EffectManager.resume()
+        }
     }
 
     /**
@@ -648,9 +651,12 @@ class Provider extends Base {
      * @param {*} value
      */
     setDataAtSameLevel(key, value) {
-        EffectBatchManager.startBatch();
-        this.internalSetData(key, value);
-        EffectBatchManager.endBatch()
+        EffectManager.pause();
+        try {
+            this.internalSetData(key, value)
+        } finally {
+            EffectManager.resume()
+        }
     }
 }
 

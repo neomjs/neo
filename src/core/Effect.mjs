@@ -1,7 +1,6 @@
-import Config             from './Config.mjs';
-import EffectManager      from './EffectManager.mjs';
-import EffectBatchManager from './EffectBatchManager.mjs';
-import IdGenerator        from './IdGenerator.mjs';
+import Config        from './Config.mjs';
+import EffectManager from './EffectManager.mjs';
+import IdGenerator   from './IdGenerator.mjs';
 
 /**
  * Creates a reactive effect that automatically tracks its dependencies and re-runs when any of them change.
@@ -73,8 +72,6 @@ class Effect {
     constructor(fn, options={}) {
         const me = this;
 
-        // This single statement handles both (fn, options) and ({...}) signatures
-        // by normalizing them into a single object that we can destructure.
         const {
               fn: effectFn,
               componentId,
@@ -88,16 +85,10 @@ class Effect {
 
         me.isRunning = new Config(false);
 
-        // The subscriber(s) must be added *before* the first run is triggered.
-        // This is critical for consumers like functional components, which need to process
-        // the initial VDOM synchronously within the constructor lifecycle.
         if (subscriber) {
-            // A concise way to handle both single and array subscribers.
             [].concat(subscriber).forEach(sub => me.isRunning.subscribe(sub))
         }
 
-        // If lazy, just store the function without running it.
-        // Otherwise, use the setter to trigger the initial run.
         if (lazy) {
             me._fn = effectFn
         } else {
@@ -117,41 +108,53 @@ class Effect {
     }
 
     /**
-     * Executes the effect function, tracking its dependencies.
-     * This is called automatically on creation and whenever a dependency changes.
-     * The dynamic re-tracking ensures the effect always reflects its current dependencies,
-     * even if the logic within `fn` changes conditionally.
+     * Executes the effect function, re-evaluating its dependencies.
+     * If the EffectManager is paused (e.g., inside a batch), it queues itself to be run later.
      * @protected
      */
     run() {
         const me = this;
 
-        EffectManager.pause(); // Pause dependency tracking for isRunning.get()
-        if (me.isDestroyed || me.isRunning.get()) {
-            EffectManager.resume(); // Resume if we return early
+        if (me.isDestroyed) {
             return
         }
 
-        if (EffectBatchManager.isBatchActive()) {
-            EffectBatchManager.queueEffect(me);
+        // Check if already running without creating a dependency on `isRunning`.
+        EffectManager.pauseTracking();
+        const isRunning = me.isRunning.get();
+        EffectManager.resumeTracking();
+
+        if (isRunning) {
             return
         }
 
+        // If the manager is globally paused for batching, queue this effect and stop.
+        if (EffectManager.isPaused()) {
+            EffectManager.queue(me);
+            return
+        }
+
+        // Set `isRunning` to true without creating a dependency.
+        EffectManager.pauseTracking();
         me.isRunning.set(true);
+        EffectManager.resumeTracking();
 
+        // Clear old dependencies and set this as the active effect.
         me.dependencies.forEach(cleanup => cleanup());
         me.dependencies.clear();
-
         EffectManager.push(me);
-        EffectManager.resume();
 
         try {
+            // Execute the function, which will collect new dependencies.
             me.fn()
         } finally {
+            // Clean up after the run.
             EffectManager.pop();
-            EffectManager.pause(); // Pause dependency tracking for isRunning.set(false)
+
+            // Set `isRunning` to false without creating a dependency.
+            EffectManager.pauseTracking();
             me.isRunning.set(false);
-            EffectManager.resume() // Resume after isRunning.set(false)
+            EffectManager.resumeTracking()
         }
     }
 
@@ -163,7 +166,6 @@ class Effect {
     addDependency(config) {
         const me = this;
 
-        // Only add if not already a dependency. Map uses strict equality (===) for object keys.
         if (!me.dependencies.has(config)) {
             const cleanup = config.subscribe({
                 id: me.id,
@@ -175,11 +177,7 @@ class Effect {
     }
 }
 
-Neo.core ??= {};
-
-if (!Neo.core.Effect) {
-    Neo.core.Effect = Effect;
-
+export default Neo.gatekeep(Effect, 'Neo.core.Effect', () => {
     /**
      * Factory shortcut to create a new Neo.core.Effect instance.
      * @function Neo.effect
@@ -188,6 +186,4 @@ if (!Neo.core.Effect) {
      * @returns {Neo.core.Effect}
      */
     Neo.effect = (fn, options) => new Effect(fn, options)
-}
-
-export default Neo.core.Effect;
+});

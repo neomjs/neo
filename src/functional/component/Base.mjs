@@ -514,17 +514,24 @@ class FunctionalBase extends Base {
     set(values={}, silent=false) {
         let me = this;
 
-        me.silentVdomUpdate = true;
-
-        super.set(values);
-
-        me.silentVdomUpdate = false;
+        me.setSilent(values);
 
         if (silent || !me.needsVdomUpdate) {
             return Promise.resolve()
         }
 
         return me.promiseUpdate()
+    }
+
+    /**
+     * A silent version of set(), which does not trigger a vdom update at the end.
+     * Useful for batching multiple config changes.
+     * @param {Object} values={}
+     */
+    setSilent(values={}) {
+        this.silentVdomUpdate = true;
+        super.set(values);
+        this.silentVdomUpdate = false
     }
 }
 

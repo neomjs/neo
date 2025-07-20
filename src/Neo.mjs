@@ -372,59 +372,61 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                     const config = this.getConfig(key);
                     if (!config) return;
 
-                    let me                   = this,
-                        oldValue             = config.get(), // Get the old value from the Config instance
-                        {EffectBatchManager} = Neo.core,
-                        isNewBatch           = !EffectBatchManager?.isBatchActive();
+                    let me              = this,
+                        oldValue        = config.get(), // Get the old value from the Config instance
+                        {EffectManager} = Neo.core,
+                        isNewBatch      = !EffectManager?.isPaused();
 
                     // If a config change is not triggered via `core.Base#set()`, honor changes inside hooks.
-                    isNewBatch && EffectBatchManager?.startBatch();
+                    isNewBatch && EffectManager?.pause();
 
-                    // 1. Prevent infinite loops:
-                    // Immediately remove the pending value from the configSymbol to prevent a getter from
-                    // recursively re-triggering this setter.
-                    delete me[configSymbol][key];
+                    try {
+                        // 1. Prevent infinite loops:
+                        // Immediately remove the pending value from the configSymbol to prevent a getter from
+                        // recursively re-triggering this setter.
+                        delete me[configSymbol][key];
 
-                    switch (config.clone) {
-                        case 'deep':
-                            value = Neo.clone(value, true, true);
-                            break;
-                        case 'shallow':
-                            value = Neo.clone(value, false, true);
-                            break;
-                    }
-
-                    // 2. Create a temporary state for beforeSet hooks:
-                    // Set the new value directly on the private backing property. This allows any beforeSet
-                    // hook to access the new value of this and other configs within the same `set()` call.
-                    me[_key] = value;
-
-                    if (typeof me[beforeSet] === 'function') {
-                        value = me[beforeSet](value, oldValue);
-
-                        // If they don't return a value, that means no change
-                        if (value === undefined) {
-                            // Restore the original value if the update is canceled.
-                            me[_key] = oldValue;
-                            isNewBatch && EffectBatchManager?.endBatch();
-                            return
+                        switch (config.clone) {
+                            case 'deep':
+                                value = Neo.clone(value, true, true);
+                                break;
+                            case 'shallow':
+                                value = Neo.clone(value, false, true);
+                                break;
                         }
+
+                        // 2. Create a temporary state for beforeSet hooks:
+                        // Set the new value directly on the private backing property. This allows any beforeSet
+                        // hook to access the new value of this and other configs within the same `set()` call.
+                        me[_key] = value;
+
+                        if (typeof me[beforeSet] === 'function') {
+                            value = me[beforeSet](value, oldValue);
+
+                            // If they don't return a value, that means no change
+                            if (value === undefined) {
+                                // Restore the original value if the update is canceled.
+                                me[_key] = oldValue;
+                                return
+                            }
+                        }
+
+                        // 3. Restore state for change detection:
+                        // Revert the private backing property to its original value. This is crucial for the
+                        // `config.set()` method to correctly detect if the value has actually changed.
+                        me[_key] = oldValue;
+
+                        // 4. Finalize the change:
+                        // The config.set() method performs the final check and, if the value changed,
+                        // triggers afterSet hooks and notifies subscribers.
+                        if (config.set(value)) {
+                            me[afterSet]?.(value, oldValue);
+                            me.afterSetConfig?.(key, value, oldValue)
+                        }
+                    } finally {
+                        // End the batch only if this setter started it.
+                        isNewBatch && EffectManager?.resume()
                     }
-
-                    // 3. Restore state for change detection:
-                    // Revert the private backing property to its original value. This is crucial for the
-                    // `config.set()` method to correctly detect if the value has actually changed.
-                    me[_key] = oldValue;
-
-                    // 4. Finalize the change:
-                    // The config.set() method performs the final check and, if the value changed,
-                    // triggers afterSet hooks and notifies subscribers.
-                    if (config.set(value)) {
-                        me[afterSet]?.(value, oldValue);
-                        me.afterSetConfig?.(key, value, oldValue)
-                    }
-
-                    isNewBatch && EffectBatchManager?.endBatch()
                 }
             };
 
