@@ -87,6 +87,13 @@ class FunctionalBase extends Base {
     #nextChildComponents = null
 
     /**
+     * Convenience shortcut to access the App this component belongs to
+     * @returns {Neo.controller.Application|null}
+     */
+    get app() {
+        return Neo.apps[this.appName] || null
+    }
+    /**
      * A Promise that resolves when the component is mounted to the DOM.
      * This provides a convenient way to wait for the component to be fully
      * available and interactive before executing subsequent logic.
