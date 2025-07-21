@@ -400,7 +400,12 @@ class VDom extends Base {
 
             if (childNodes) {
                 cn  = childNodes.map(item => VDom.getVdom(item));
-                cn  = cn.filter(item => item.removeDom !== true);
+                // The vnode.childNodes array is already filtered by the worker.
+                // We must filter the component's vdom.cn array identically to ensure
+                // both arrays are structurally aligned for the sync loop.
+                // The boolean check `item &&` is critical to remove falsy values
+                // from conditional rendering and prevent runtime errors.
+                cn  = cn.filter(item => item && item.removeDom !== true);
                 i   = 0;
                 len = cn?.length || 0;
 
