@@ -391,9 +391,11 @@ class VDom extends Base {
                     vdom.id = vnode.id
                 }
             } else {
-                // we only want to change vdom ids in case there is not already an own id
-                // (think of adding & removing nodes in parallel)
-                if (!vdom.id && vnode.id) {
+                // We only want to add an ID if the vdom node does not already have one.
+                // This preserves developer-provided IDs while allowing the framework
+                // to assign IDs to nodes that need them for reconciliation.
+                // Also think of adding and removing nodes in parallel.
+                if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
                     vdom.id = vnode.id
                 }
             }
