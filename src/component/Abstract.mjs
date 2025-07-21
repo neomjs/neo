@@ -82,17 +82,6 @@ class Abstract extends Base {
     }
 
     /**
-     * Apply component based listeners
-     * @member {Object} listeners={}
-     */
-    get listeners() {
-        return this._listeners || {}
-    }
-    set listeners(value) {
-        this._listeners = value
-    }
-
-    /**
      * A Promise that resolves when the component is mounted to the DOM.
      * This provides a convenient way to wait for the component to be fully
      * available and interactive before executing subsequent logic.

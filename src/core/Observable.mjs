@@ -19,10 +19,21 @@ class Observable extends Base {
          */
         ntype: 'mixin-observable',
         /**
-         * @member {Boolean} mixin=true
-         * @protected
+         * An object where keys are event names and values are handler functions or config objects.
+         * @member {Object|null} listeners_=null
+         * @example
+         * listeners: {
+         *     myEvent: 'onMyEvent',
+         *     otherEvent: {
+         *         fn: 'onOtherEvent',
+         *         delay: 100,
+         *         once: true
+         *     },
+         *     scope: this
+         * }
+         * @reactive
          */
-        mixin: true
+        listeners_: {}
     }
 
     /**
