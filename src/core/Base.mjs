@@ -234,8 +234,6 @@ class Base {
         me.id = config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
 
-        me.getStaticConfig('observable') && me.initObservable(config);
-
         // assign class field values prior to configs
         config = me.setFields(config);
 
