@@ -79,6 +79,12 @@ project.plan(
         items: [
             'tests/functional/Button.mjs'
         ]
+    },
+    {
+        group: 'classic',
+        items: [
+            'tests/classic/Button.mjs'
+        ]
     }
 );
 
