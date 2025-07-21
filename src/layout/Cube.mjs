@@ -114,11 +114,15 @@ class Cube extends Card {
 
         me.nestVdom();
 
-        container.mounted && container.update();
-
-        me.timeout(50).then(() => {
-            container.addCls('neo-animate')
+        me.observeConfig(container, 'mounted', value => {
+            value && container.addCls('neo-animate')
         })
+
+        if (container.mounted) {
+            container.promiseUpdate().then(() => {
+                container.addCls('neo-animate')
+            })
+        }
     }
 
     /**
