@@ -412,6 +412,11 @@ class FunctionalBase extends Base {
                     root.id = me.id
                 }
 
+                // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
+                // This is crucial for functional components where the vdom is recreated on every render,
+                // ensuring the diffing algorithm can track nodes correctly.
+                me.syncVdomIds();
+
                 if (me.beforeUpdate() !== false) {
                     me.updateVdom()
                 }
