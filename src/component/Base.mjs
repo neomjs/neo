@@ -1,14 +1,11 @@
-import Base             from '../core/Base.mjs';
+import Abstract         from './Abstract.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import DomEvents        from '../mixin/DomEvents.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
-import Observable       from '../core/Observable.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
-import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
@@ -24,12 +21,9 @@ const
 /**
  * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
- * @extends Neo.core.Base
- * @mixes Neo.component.mixin.DomEvents
- * @mixes Neo.core.Observable
- * @mixes Neo.component.mixin.VdomLifecycle
+ * @extends Neo.component.Abstract
  */
-class Component extends Base {
+class Component extends Abstract {
     /**
      * Valid values for hideMode
      * @member {String[]} hideModes=['removeDom','visibility']
@@ -64,12 +58,6 @@ class Component extends Base {
             }
         },
         /**
-         * The name of the App this component belongs to
-         * @member {String|null} appName_=null
-         * @reactive
-         */
-        appName_: null,
-        /**
          * CSS selectors to apply to the root level node of this component
          * @member {String[]} baseCls=[]
          */
@@ -86,13 +74,6 @@ class Component extends Base {
          * @member {Object|null} bind=null
          */
         bind: null,
-        /**
-         * Custom CSS selectors to apply to the root level node of this component
-         * You can override baseCls to remove default selectors.
-         * @member {String[]} cls_=null
-         * @reactive
-         */
-        cls_: null,
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
@@ -114,12 +95,6 @@ class Component extends Base {
          * @reactive
          */
         data_: null,
-        /**
-         * Disabled components will get the neo-disabled cls applied and won't receive DOM events
-         * @member {Boolean} disabled_=false
-         * @reactive
-         */
-        disabled_: false,
         /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
@@ -215,10 +190,6 @@ class Component extends Base {
          */
         minWidth_: null,
         /**
-         * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
-         */
-        mixins: [DomEvents, Observable, VdomLifecycle],
-        /**
          * Override specific stateProvider data properties.
          * This will merge the content.
          * @member {Object|null} modelData=null
@@ -233,12 +204,6 @@ class Component extends Base {
          * @reactive
          */
         parentComponent_: null,
-        /**
-         * The parent component id or document.body
-         * @member {String} parentId_='document.body'
-         * @reactive
-         */
-        parentId_: 'document.body',
         /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
@@ -338,12 +303,6 @@ class Component extends Base {
          */
         width_: null,
         /**
-         * The custom windowIs (timestamp) this component belongs to
-         * @member {Number|null} windowId_=null
-         * @reactive
-         */
-        windowId_: null,
-        /**
          * @member {String[]|null} wrapperCls_=null
          * @reactive
          */
@@ -366,73 +325,10 @@ class Component extends Base {
     }
 
     /**
-     * Internal flag which will get set to true while a component is waiting for its mountedPromise
-     * @member {Boolean} isAwaitingMount=false
-     * @protected
-     */
-    isAwaitingMount = false
-
-    /**
-     * Convenience shortcut to access the App this component belongs to
-     * @returns {Neo.controller.Application|null}
-     */
-    get app() {
-        return Neo.apps[this.appName] || null
-    }
-
-    /**
      * Returns true if this Component is fully visible, that is it is not hidden and has no hidden ancestors
      */
     get isVisible() {
         return this.mounted && !this.hidden && (!this.parent || this.parent.isVisible);
-    }
-
-    /**
-     * Apply component based listeners
-     * @member {Object} listeners={}
-     */
-    get listeners() {
-        return this._listeners || {}
-    }
-    set listeners(value) {
-        this._listeners = value
-    }
-
-    /**
-     * A Promise that resolves when the component is mounted to the DOM.
-     * This provides a convenient way to wait for the component to be fully
-     * available and interactive before executing subsequent logic.
-     *
-     * It also handles unmounting by resetting the promise, so it can be safely
-     * awaited again if the component is remounted.
-     * @returns {Promise<Neo.component.Base>}
-     */
-    get mountedPromise() {
-        let me = this;
-
-        if (!me._mountedPromise) {
-            me._mountedPromise = new Promise(resolve => {
-                if (me.mounted) {
-                    // If already mounted, resolve immediately.
-                    resolve(me)
-                } else {
-                    // Otherwise, store the resolver to be called by afterSetMounted.
-                    me.mountedPromiseResolve = resolve
-                }
-            })
-        }
-
-        return this._mountedPromise
-    }
-
-    /**
-     * Convenience method to access the parent component
-     * @returns {Neo.component.Base|null}
-     */
-    get parent() {
-        let me = this;
-
-        return me.parentComponent || (me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId))
     }
 
     /**
@@ -655,10 +551,7 @@ class Component extends Base {
      */
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
-        this.changeVdomRootKey('id', value);
-
-        oldValue && ComponentManager.unregister(oldValue);
-        value    && ComponentManager.register(this)
+        this.changeVdomRootKey('id', value)
     }
 
     /**
@@ -746,31 +639,24 @@ class Component extends Base {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (oldValue !== undefined) {
-            let me             = this,
-                {id, windowId} = me;
+            let me = this;
 
             if (value) { // mount
                 me.hasBeenMounted = true;
-
-                me.initDomEvents();
 
                 if (me.floating) {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
-                    me.focus(id, true)
+                    me.focus(me.id, true)
                 }
-
-                me.mountedPromiseResolve?.(this);
-                delete me.mountedPromiseResolve;
 
                 me.fire('mounted', me.id);
             } else { // unmount
-                me.revertFocus();
-
-                // The promise needs to get reset, in case the component gets remounted.
-                delete me._mountedPromise;
+                me.revertFocus()
             }
         }
     }
@@ -987,21 +873,12 @@ class Component extends Base {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        let me         = this,
-            controller = me.controller;
+        super.afterSetWindowId(value, oldValue);
 
-        if (value) {
-            currentWorker.insertThemeFiles(value, me.__proto__);
+        let controller = this.controller;
 
-            if (controller) {
-                controller.windowId = value
-            }
-        }
-
-        // If a component gets moved into a different window, an update cycle might still be running.
-        // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
-        if (oldValue) {
-            me.isVdomUpdating = false
+        if (controller) {
+            controller.windowId = value
         }
     }
 
@@ -1377,8 +1254,6 @@ class Component extends Base {
 
         me.revertFocus();
 
-        me.removeDomEvents();
-
         me.controller = null; // triggers destroy()
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
@@ -1399,8 +1274,6 @@ class Component extends Base {
                 parent[silent ? '_vdom' : 'vdom'] = parentVdom
             }
         }
-
-        ComponentManager.unregister(me);
 
         super.destroy();
 
@@ -1890,42 +1763,6 @@ class Component extends Base {
         if (this.containsFocus && relatedTarget) {
             Neo.getComponent(relatedTarget.id)?.focus()
         }
-    }
-
-    /**
-     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
-     * @param {Object} values={}
-     * @param {Boolean} silent=false
-     * @returns {Promise<*>}
-     */
-    set(values={}, silent=false) {
-        const
-            me        = this,
-            wasHidden = me.hidden;
-
-        me.setSilent(values);
-
-        if (!silent && me.needsVdomUpdate) {
-            if (wasHidden && !me.hidden) {
-                me.show();
-                return Promise.resolve()
-            }
-
-            return me.promiseUpdate()
-        }
-
-        return Promise.resolve()
-    }
-
-    /**
-     * A silent version of set(), which does not trigger a vdom update at the end.
-     * Useful for batching multiple config changes.
-     * @param {Object} values={}
-     */
-    setSilent(values={}) {
-        this.silentVdomUpdate = true;
-        super.set(values);
-        this.silentVdomUpdate = false
     }
 
     /**
