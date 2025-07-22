@@ -16,13 +16,13 @@ The next level is to **stop managing the main thread and start avoiding it**. Th
 
 This isn't just a theory. **This is Neo.mjs v10.** Your application logic, state management, and rendering calculations run in a dedicated worker thread out of the box. The main thread is left to do what it does best: respond instantly to the user. The result is an application that is fluid and responsive by design, not by painstaking optimization.
 
-### Strategy 2: Demand Surgical Updates, Not Just Virtual Ones
+### Strategy 2: Turn Your DOM Representation into a Strategic Advantage
 
-The Virtual DOM was a brilliant innovation, but we now spend half our time fighting it, using memoization to prevent the VDOM from doing too much work. The tool that was meant to help has become part of the problem.
+Lately, the Virtual DOM has gotten a bad rap. Frameworks have gained popularity by ditching it entirely, claiming it's unnecessary overhead. And in a single-threaded world, where your application has direct access to the DOM, they have a point.
 
-The next level is to evolve beyond simple diffing. The future is about minimizing not just the DOM manipulation, but the *diffing work itself*. 
+But this argument collapses the moment you step off the main thread. For a multi-threaded framework, a DOM representation isn't a choice—it's a **necessity**. It's the essential, lightweight blueprint that allows the application worker to command the main thread with surgical precision.
 
-This is why we built an **Asymmetric VDOM Update** engine in Neo.mjs v10. When multiple parts of your UI change at once, we don't re-render the entire tree. We create a single, surgical payload that contains only the parts that changed and tells the renderer to ignore everything else. It's the difference between renovating a whole building and just remodeling the one room that needs it. This is how you achieve maximum performance without the mental overhead.
+So, our goal was never to *eliminate* the VDOM. It was to perfect it. That’s why we built an **Asymmetric VDOM Update** engine. When multiple parts of your UI change, we create a single, surgical payload that describes only the changes and tells the renderer to ignore everything else. We've turned a simple necessity into a hyper-optimized strategic advantage.
 
 ### Strategy 3: Unify Reactivity, Don't Choose Sides
 
