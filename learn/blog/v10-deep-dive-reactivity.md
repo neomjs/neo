@@ -8,7 +8,7 @@ Welcome to the first deep dive into the architecture of Neo.mjs v10. In this art
 that makes the old problems obsolete: the new **Effect-Based Reactivity System**. This isn't just a new feature; it's a
 new reality for how you can write and reason about your application's state and rendering logic.
 
-## Act I: The Legacy - Reactivity is Not New to Neo.mjs
+## Act I: A Powerful Foundation, Reimagined
 
 Unlike many frameworks, Neo.mjs has *always* had a reactive config system. Since its earliest versions, you could take a
 component instance and change its properties directly, and the UI would update automatically.
@@ -19,10 +19,17 @@ const myButton = Neo.get('my-button');
 myButton.text = 'Click me now!'; // The button's text in the DOM updates
 ```
 
-This was powered by a robust system of prototype-based getters and setters with `afterSet` hooks. It was simple,
-effective, and already a step beyond the prop-based immutability of frameworks like React. But for v10, we asked a
-simple question: what if we could take this convenience and put a super-charged,
-universally observable engine underneath it?
+This has always been powered by a robust system of prototype-based getters and setters.
+For any reactive **Named Config** (e.g., `text_`), the framework provides three optional lifecycle hooks that you can
+implement to hook into its lifecycle:
+
+*   `beforeGetText(value)`: Run just before a value is read.
+*   `beforeSetText(value, oldValue)`: Run before a new value is set, allowing for validation or transformation.
+*   `afterSetText(value, oldValue)`: Run after a value has been successfully changed, perfect for triggering side effects.
+
+This powerful, hook-based API was a core strength, offering fine-grained control that was already a step beyond the
+prop-based immutability of other frameworks. For v10, we didn't replace this system—we super-charged it. We asked:
+what if we could keep this elegant API and put a new, universally observable engine underneath it?
 
 ## Act II: The v10 Upgrade - Introducing the Atomic Engine
 
@@ -123,15 +130,28 @@ frustrating parts of modern frontend development. It delivers a developer experi
 and incredibly powerful, resolving the long-standing conflict between mutability and predictability.
 
 **1. Your State is Mutable by Design.**
-In Neo.mjs, you are encouraged to work with state in the most natural way possible: direct mutation. There are no
-immutable data structures to learn, no spread operators to remember, and no `setState(prev => ...)` gymnastics.
-You treat your component and its VDOM as living, mutable objects.
+In Neo.mjs, you are encouraged to work with state in the most natural way possible: direct mutation. The framework
+provides several powerful methods to apply these mutations, from changing single properties to batching multiple updates
+atomically, or even decoupling state changes from the render cycle entirely.
 
 ```javascript
-// This is not just allowed, it's the recommended way.
+// The recommended way is to mutate a component's public configs.
+// The component's internal logic (e.g., an afterSet hook) directly mutates the vdom object, outside any effects.
+// This triggers an asynchronous update cycle.
 myComponent.text = 'New Title';
-myComponent.vdom.cn.push({ tag: 'p', text: 'New paragraph' });
-myComponent.update(); // Trigger the update process
+
+// For multiple changes, batch them with .set() for efficiency.
+await myComponent.set({
+    iconCls: 'fa fa-rocket',
+    text   : 'Launch'
+});
+
+// Change multiple configs without triggering an update cycle:
+myComponent.setSilent({
+    iconCls: 'fa fa-cogs',
+    text   : 'Settings'
+});
+// This is a powerful way to e.g. then update its parent, and trigger an aggregated update cycle for both
 ```
 
 **2. The Update Process is Immutable by Default.**
