@@ -4,7 +4,7 @@ If you're a frontend developer in 2025, you're a master of adaptation. You've na
 
 For a decade, the single-threaded model of frameworks like React has been "good enough." But "good enough" is no longer good enough. The demands of modern UIs—and the imminent arrival of AI as a core part of our development process—require a new foundation.
 
-This is not another article about a new hook or a minor performance trick. This is a manifesto for a new set of architectural strategies. It's a deconstruction of the compromises we've learned to accept, and a presentation of a more robust, more performant, and more intelligent way to build for the future. These strategies are not predictions; they are implemented, battle-tested, and available today.
+This is not another article about a new hook or a minor performance trick. This is the announcement of **Neo.mjs v10**, a release built on a new set of architectural strategies. It's a deconstruction of the compromises we've learned to accept, and a presentation of a more robust, more performant, and more intelligent way to build for the future.
 
 ---
 
@@ -24,14 +24,9 @@ These are not solutions; they are patches. They are admissions that the core arc
 
 The only real solution is to stop managing the main thread and start avoiding it. The most performant applications of the future will be those that embrace concurrency by design, moving the application's heavy lifting into a separate thread where it is architecturally impossible for it to interfere with the user experience.
 
-#### The Neo.mjs Reveal: A Multi-Threaded Reality
+#### What's New in v10: A Unified, Multi-Threaded Foundation
 
-This isn't a theory. In Neo.mjs v10, your application runs in a dedicated worker thread out of the box.
-*   **The App Worker:** Your component instances, state, and business logic live here. This is where your application *thinks*.
-*   **The VDom Worker:** The computationally expensive VDOM diffing happens here. This is where the UI changes are *calculated*.
-*   **The Main Thread:** Is left with one primary job: applying the calculated DOM patches and responding instantly to the user. This is where the UI is *painted*.
-
-This architectural separation means your application is fluid by design, not by painstaking, component-level optimization. The communication between these threads is handled by the framework's `RemoteMethodAccess` layer, making it feel seamless. You write code in your App Worker component, and it just works, without you ever having to think about `postMessage`.
+While Neo.mjs has always been multi-threaded, v10 solidifies this architecture into a cohesive, unified whole. We've introduced a new abstract base class, **`Neo.component.Abstract`**, and a common **`VdomLifecycle`** mixin. This ensures that both our classic, class-based components and our new functional components share the exact same robust, multi-threaded foundation. This isn't a feature you turn on; it's the bedrock of the entire framework. Your application logic runs in a worker. Period.
 
 ---
 
@@ -39,31 +34,15 @@ This architectural separation means your application is fluid by design, not by 
 
 #### The Mess of 2025: The VDOM Debate and the "Memoization Tax"
 
-The Virtual DOM has become a battleground. On one side, frameworks like SolidJS claim it's unnecessary overhead, and in a single-threaded world, they have a point. On the other side, React's implementation forces us to pay a heavy "memoization tax."
-
-Consider a simple React component that passes a function to a child. To prevent the child from re-rendering every time the parent does, you must wrap the function in `useCallback`. To prevent an object from being recreated, you must wrap it in `useMemo`. To prevent the component itself from re-rendering, you must wrap it in `React.memo`. A single component can become a web of memoization hooks, each with its own dependency array that must be manually maintained—a notorious source of bugs.
-
-This entire debate misses the point. For a multi-threaded framework, a DOM representation isn't a choice—it's a **necessity**. It's the essential, lightweight blueprint that allows the application worker to command the main thread. The question is not *whether* to have a VDOM, but how *intelligent* that VDOM system can be.
+The Virtual DOM has become a battleground. In the React world, we are forced to pay a heavy "memoization tax" (`useCallback`, `useMemo`, `React.memo`) to prevent a cascade of unnecessary re-renders. This entire debate misses the point. For a multi-threaded framework, a DOM representation isn't a choice—it's a **necessity**. It's the essential blueprint that allows the application worker to command the main thread. The question is not *whether* to have a VDOM, but how *intelligent* that VDOM system can be.
 
 #### The 2026 Strategy: From Brute-Force Diffing to Surgical Blueprints
 
-The future is not about eliminating the VDOM; it's about perfecting it. It's about creating a rendering engine that is so precise that memoization becomes an obsolete concept. It's about having a system that can translate state changes into the most minimal, most efficient update payload possible.
+The future is not about eliminating the VDOM; it's about perfecting it. It's about creating a rendering engine so precise that memoization becomes an obsolete concept. Furthermore, as AI becomes a co-developer, we need a rendering engine that thinks in structured data, not markup. AIs are masters of JSON but struggle to generate flawless, complex JSX.
 
-#### The Neo.mjs Reveal: Asymmetric VDOM Updates
+#### What's New in v10: The Asymmetric VDOM Update Engine
 
-That’s why we built an **Asymmetric VDOM Update** engine. When multiple parts of your UI change, we don't re-render the whole tree. We create a single, surgical payload that describes only the changes and tells the renderer to ignore everything else.
-
-```json
-// An AI can easily generate this blueprint.
-{
-  "id": "parent-container",
-  "cn": [
-    { "id": "child-one", "text": "New Content" },
-    { "componentId": "neo-ignore" } // Skip rendering this entire subtree
-  ]
-}
-```
-Furthermore, because our components are just JavaScript objects, they can be perfectly represented as JSON. This makes them the ideal target for an AI co-developer. An AI can easily generate and manipulate a structured JSON blueprint, but it struggles to generate flawless, complex JSX. We've turned a simple necessity into a hyper-optimized strategic advantage for the AI era.
+The centerpiece of our v10 performance strategy is the brand new **Asymmetric VDOM Update Engine**. This is a complete rewrite of our rendering pipeline. When multiple parts of your UI change, we don't re-render the whole tree. We create a single, surgical JSON payload that describes only the changes and tells the renderer to ignore everything else. This is hyper-efficiency by design, and it makes our framework the ideal target for AIs to build UIs for.
 
 ---
 
@@ -71,47 +50,36 @@ Furthermore, because our components are just JavaScript objects, they can be per
 
 #### The Mess of 2025: "Lift State Up" and the Limits of Signals
 
-In React, we have two tools for state: `useState` for internal state, and `props` for external data. This leads to the clunky "lift state up" pattern. To make a child component configurable, the parent must own the state and pass it down, along with a callback to update it. This breaks the child's encapsulation and burdens the parent.
-
-The rise of signals seems to offer a solution. By creating global, observable state, any component can subscribe to changes. This is powerful, but it can lead to a web of implicit, hard-to-trace dependencies. It solves "prop drilling" but often at the cost of architectural clarity. It doesn't provide a clear, discoverable contract for what a component can and should be configured with.
+In React, the clunky "lift state up" pattern breaks encapsulation. The rise of signals offers a solution but can lead to a web of implicit, hard-to-trace dependencies. Neither provides a clear, discoverable contract for what a component can and should be configured with.
 
 #### The 2026 Strategy: A Clear Distinction Between Private State and Public API
 
-The future is a system that provides a clear distinction between a component's **private, encapsulated state** and its **public, configurable API**. A component should be able to manage its own state by default, but also allow consumers to declaratively override that state at instantiation, without the boilerplate of lifting state up.
+The future is a system that provides a clear distinction between a component's **private, encapsulated state** and its **public, configurable API**. A component should manage its own state by default, but also allow consumers to declaratively override that state at instantiation.
 
-#### The Neo.mjs Reveal: Named vs. Anonymous Configs
+#### What's New in v10: Functional Components & Two-Tier Reactivity
 
-This is why we architected our components with **Named vs. Anonymous Configs**.
+v10 introduces a new paradigm for building UIs: **Functional Components**. This new model, powered by `defineComponent` and `useConfig`, is where the **Named vs. Anonymous Config** pattern shines. It's a direct result of the new **Two-Tier Reactivity** system, also new in v10, which underpins every component with a powerful, declarative Effect engine.
 
-*   **Anonymous Configs (`useConfig`):** This is your `useState`. It's for truly private, internal state. It's simple, hook-based, and perfectly encapsulated.
+*   **Anonymous Configs (`useConfig`):** This is your `useState` for truly private state.
+*   **Named Configs (e.g., `sortBy_`):** This is the evolution of `props`—a publicly declared, reactive, and configurable part of your component's API.
 
-*   **Named Configs (e.g., `sortBy_`):** This is the evolution of `props`. It's a publicly declared part of your component's API, defined in a static `config` object. It has a default value, but the parent can provide a new one on instantiation. Crucially, it's still a fully reactive piece of state.
+---
 
-```javascript
-// A conceptual DataGrid component
-export default defineComponent({
-    config: {
-        // PUBLIC API: A parent can configure this.
-        sortBy_: 'lastName',
-        pageSize_: 20
-    },
-    createVdom(config) {
-        // PRIVATE STATE: The parent doesn't know or care about this.
-        const [isLoading, setIsLoading] = useConfig(false);
+### The v10 Revolution: A Summary of What's New
 
-        // The component uses both public and private state.
-        // ... logic to display data sorted by config.sortBy ...
-    }
-});
-```
+This is the biggest leap forward in the history of Neo.mjs. Here are the highlights of the v10 release:
 
-This model provides the best of both worlds: the encapsulation of internal state with the declarative, discoverable, and reactive control of an external API. For an AI, this is a game-changer. It can understand and generate a configuration for a component without needing to understand its internal implementation.
+*   **A New Functional Component Model:** A complete, hook-based (`defineComponent`, `useConfig`) paradigm for building UIs with a modern, familiar API.
+*   **The Two-Tier Reactivity System:** A new, declarative `Effect` engine now powers all reactivity, providing automatic dependency tracking while maintaining backward compatibility with our classic, imperative hooks.
+*   **The Asymmetric VDOM Update Engine:** A groundbreaking rewrite of our rendering pipeline for hyper-performant, surgical DOM updates.
+*   **A Unified Component Lifecycle:** The new `Neo.component.Abstract` base class and `VdomLifecycle` mixin ensure architectural consistency across both classic and functional components.
+*   **JSON Blueprint-First Architecture:** Our rendering engine's native understanding of JSON makes it the ideal target for the next generation of AI-driven development.
 
 ---
 
 ### Conclusion: The Framework For and By AI
 
-These strategies are not isolated features. They are pillars of a single, cohesive architecture designed for the next era of software development. Neo.mjs is uniquely positioned as both:
+These strategies are not isolated features. They are pillars of a single, cohesive architecture designed for the next era of software development. Neo.mjs v10 is uniquely positioned as both:
 
 1.  The ideal platform for building the complex, multi-window UIs needed to **interact with AI**.
 2.  The perfect target for **AIs to build UIs for**, thanks to its native understanding of JSON blueprints and its clear, configurable component APIs.
