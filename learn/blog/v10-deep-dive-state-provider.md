@@ -78,6 +78,19 @@ const provider = myComponent.getStateProvider();
 
 // This one line is all it takes to trigger a reactive update.
 provider.data.user.firstname = 'Max';
+
+// Does not overwrite the lastname
+provider.setData({user: {firstname: 'Robert'}})
+
+// You can update multiple properties at once. Thanks to automatic batching,
+// this results in only a single UI update cycle.
+provider.setData({user: {firstname: 'John', lastname: 'Doe'}})
+
+// Alternative Syntax:
+provider.setData({
+    'user.firstname': 'John',
+    'user.lastname' : 'Doe'
+});
 ```
 
 There are no special setter functions to call, no reducers to write. You just change the data, and the UI updates.
@@ -98,7 +111,8 @@ The beautiful API above is powered by a sophisticated proxy created by `Neo.stat
 When you interact with `provider.data`, you're not touching a plain object; you're interacting with an intelligent agent
 that works with Neo's `EffectManager`.
 
-You can see the full implementation in [state/createHierarchicalDataProxy.mjs](../../src/state/createHierarchicalDataProxy.mjs)
+You can see the full implementation in
+**[src/state/createHierarchicalDataProxy.mjs](../../src/state/createHierarchicalDataProxy.mjs)**.
 
 Here’s how it works:
 
@@ -154,7 +168,7 @@ t.it('State Provider should trigger parent effects when a leaf node changes (bub
     t.is(effectRunCount, 2, 'Effect should re-run after changing a leaf property');
 });
 ```
-This behavior is made possible by the `internalSetData` method in [state/Provider.mjs](../../src/state/Provider.mjs).
+This behavior is made possible by the `internalSetData` method in **[state/Provider.mjs](../../src/state/Provider.mjs)**.
 When you set `'user.age'`, the provider doesn't just update that one value. It then "bubbles up," creating a new `user`
 object reference that incorporates the change: `{...oldUser, age: 31}`. This new object reference is what the reactivity
 system detects, ensuring that any component bound to `user` updates correctly.

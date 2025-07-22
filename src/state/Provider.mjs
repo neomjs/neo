@@ -474,22 +474,22 @@ class Provider extends Base {
     internalSetData(key, value, originStateProvider) {
         const me = this;
 
-        // If the value is a Neo.data.Record, treat it as an atomic value
-        // and set it directly without further recursive processing of its properties.
-        if (Neo.isRecord(value)) {
-            const
-                ownerDetails   = me.getOwnerOfDataProperty(key),
-                targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
-
-            me.#setConfigValue(targetProvider, key, value, null);
-            return
-        }
-
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originStateProvider)
             });
             return
+        }
+
+        // Now 'key' is a string path.
+        // If 'value' is a plain object, we need to drill down further.
+        // If the value is a Neo.data.Record, treat it as an atomic value => it will not enter this block.
+        if (Neo.typeOf(value) === 'Object') {
+            Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                const fullPath = `${key}.${nestedKey}`;
+                me.internalSetData(fullPath, nestedValue, originStateProvider);
+            });
+            return // We've delegated the setting to deeper paths.
         }
 
         const
@@ -522,7 +522,11 @@ class Provider extends Base {
                     break // Stop if parent is not an object
                 }
             } else {
-                break // Stop if parent config does not exist
+                // If the parent config doesn't exist, we need to create it to support bubbling.
+                // This is crucial for creating new nested data structures at runtime.
+                const newParentValue = {[leafKey]: latestValue};
+                me.#setConfigValue(targetProvider, path, newParentValue);
+                latestValue = newParentValue
             }
         }
     }
@@ -586,8 +590,8 @@ class Provider extends Base {
 
     /**
      * @param {Neo.component.Base} component
-     * @param {String} configName
-     * @param {String} storeName
+     * @param {String}             configName
+     * @param {String}             storeName
      */
     resolveStore(component, configName, storeName) {
         let store = this.getStore(storeName);
@@ -602,9 +606,9 @@ class Provider extends Base {
      * This method creates a new Config instance if one doesn't exist for the given path,
      * or updates an existing one. It also triggers binding effects and calls onDataPropertyChange.
      * @param {Neo.state.Provider} provider The StateProvider instance owning the config.
-     * @param {String} path The full path of the data property (e.g., 'user.firstname').
-     * @param {*} newValue The new value to set.
-     * @param {*} oldVal The old value (optional, used for initial setup).
+     * @param {String}             path     The full path of the data property (e.g., 'user.firstname').
+     * @param {*}                  newValue The new value to set.
+     * @param {*}                 [oldVal]  The old value (optional, used for initial setup).
      * @private
      */
     #setConfigValue(provider, path, newValue, oldVal) {
@@ -633,7 +637,7 @@ class Provider extends Base {
      * are run only once.
      *
      * @param {Object|String} key
-     * @param {*} value
+     * @param {*}             value
      */
     setData(key, value) {
         EffectManager.pause();
@@ -652,7 +656,7 @@ class Provider extends Base {
      * are run only once.
      *
      * @param {Object|String} key
-     * @param {*} value
+     * @param {*}             value
      */
     setDataAtSameLevel(key, value) {
         EffectManager.pause();
