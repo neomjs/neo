@@ -246,9 +246,11 @@ However, the process of updating the actual DOM is **asynchronous**. It has to b
 change to a reactive config kicks off the "triangular worker communication":
 
 1.  **App Worker → VDOM Worker:** The App Worker sends a snapshot of the component's `vdom` and previous `vnode` to the VDOM Worker.
-2.  **VDOM Worker → Main Thread:** The VDOM Worker calculates the minimal set of changes (deltas) and sends them to the Main Thread.
-3.  **Main Thread → App Worker:** The Main Thread applies the deltas to the real DOM and then notifies the App Worker
-    that the update is complete, resolving any promises associated with the update.
+2.  **VDOM Worker → Main Thread:** The VDOM Worker creates the new `vnode` tree. calculates the minimal set of changes
+    (the `deltas`). It sends both to the Main Thread.
+3.  **Main Thread → App Worker:** The Main Thread applies the `deltas` to the real DOM. It then sends the new `vnode`
+     back to the App Worker, which assigns it to the component (`myComponent.vnode = newVnode`) and resolves any promises
+     associated with the update cycle.
 
 #### The Immutable Snapshot: The Key to the Paradox
 
