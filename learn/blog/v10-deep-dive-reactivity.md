@@ -126,7 +126,16 @@ If any of those dependencies change in the future, the `Effect` automatically re
 
 This is the central singleton that makes the magic happen. The `EffectManager` keeps track of which `Effect` is currently running. When a `Config` instance is read, it asks the `EffectManager`, "Who is watching me right now?" and adds the current `Effect` to its list of subscribers.
 
-Crucially, the `EffectManager` also provides the ability to batch updates (`Neo.batch`). This ensures that if you change ten different `Config` values in a single, synchronous operation, all dependent `Effect`s will only run *once* at the very end, with the final, consistent state.
+### The Next Level: Synchronous Execution & Atomic Batching
+
+This is where the Neo.mjs reactivity model takes a significant leap beyond other frameworks. Most modern frameworks (like React and Vue) use asynchronous, deferred updates. When you change state, they schedule effects to run later, in the "next tick." This is a clever way to batch updates and prevent UI "glitching," but it comes at the cost of predictability.
+
+Neo.mjs achieves the best of both worlds:
+
+1.  **Atomic Batching:** The `EffectManager` provides the ability to pause and resume effect execution. High-level APIs like `set()` or `setData()` use this under the hood. They pause the manager, make multiple state changes, and then resume it.
+2.  **Synchronous Execution:** When the manager is resumed, all queued effects are run **immediately and synchronously** within the same turn of the event loop.
+
+This means you get the performance benefits of batching without the mental overhead of asynchronous logic. When a method like `myComponent.set({ ... })` finishes, you can be absolutely certain that all dependent parts of your application state are fully consistent. There is no "waiting for the next tick." This predictable, synchronous-after-batching model makes complex state interactions easier to reason about, debug, and test.
 
 ### Tying It All Together
 
