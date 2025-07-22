@@ -1391,13 +1391,19 @@ class Text extends Field {
     onInputValueChange(data) {
         let me         = this,
             oldValue   = me.value,
-            inputValue = data.value,
-            vnode      = VNodeUtil.find(me.vnode, {nodeName: 'input'});
+            inputValue = data.value;
 
-        if (vnode) {
-            // Update the current state (modified DOM by the user) to enable the delta-updates logic.
+        // Find the VNode for the real input element within the component's vnode tree.
+        const {vnode: inputVNode} = VNodeUtil.find(me.vnode, {nodeName: 'input'}) || {};
+
+        if (inputVNode) {
+            // This is the critical synchronization step. The user's input has changed the
+            // real DOM on the Main Thread. We must manually update our "last known state"
+            // (this.vnode) to match this reality *before* the next diffing cycle runs.
+            // This prevents the framework from sending a redundant delta update that could
+            // overwrite the user's input or cause cursor jumps.
             // Required e.g. for validation -> revert a wrong user input
-            vnode.vnode.attributes.value = inputValue
+            inputVNode.attributes.value = inputValue
         }
 
         if (Neo.isString(inputValue)) {
