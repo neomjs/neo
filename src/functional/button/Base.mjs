@@ -160,7 +160,7 @@ class Button extends FunctionalBase {
         const me = this,
               {
                   badgePosition, badgeText, cls, editRoute, iconCls, iconColor, iconPosition,
-                  id, pressed, ripples, route, style, tag, text, url, urlTarget, useRippleEffect
+                  pressed, ripples, route, style, tag, text, url, urlTarget, useRippleEffect
               }  = config;
 
         const vdomCls = [...me.baseCls, ...cls || []];
@@ -314,7 +314,8 @@ class Button extends FunctionalBase {
      * @protected
      */
     beforeSetBadgePosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'badgePosition', Button.badgePositions)
+        // Using `this.constructor.badgePositions` is superior to `Button.badgePositions` for future class extensions
+        return this.beforeSetEnumValue(value, oldValue, 'badgePosition', this.constructor.badgePositions)
     }
 
     /**
@@ -339,7 +340,8 @@ class Button extends FunctionalBase {
      * @protected
      */
     beforeSetIconPosition(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'iconPosition', Button.iconPositions)
+        // Using `this.constructor.iconPositions` is superior to `Button.iconPositions` for future class extensions
+        return this.beforeSetEnumValue(value, oldValue, 'iconPosition', this.constructor.iconPositions)
     }
 
     /**
