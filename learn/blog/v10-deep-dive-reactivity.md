@@ -102,3 +102,39 @@ This "Tale of Two States" is more than just a new API; it's a solution to fundam
 3.  **It is performant by default:** Because the reactivity is automatic and precise, the entire ecosystem of manual memoization (`useMemo`, `useCallback`, `React.memo`) is rendered obsolete. You get optimal performance out-of-the-box, without the boilerplate and without the bugs.
 
 This is the new reality of reactivity in Neo.mjs v10. It's a system designed for clarity, power, and performance, allowing you to fall in love with building, not fighting, your components.
+
+---
+
+## Under the Hood: The Atomic Engine
+
+For those who want to go deeper, let's look at the core primitives that make this all possible. The entire v10 reactivity system is built on a foundation of three simple, powerful classes.
+
+### `Neo.core.Config`: The Observable Box
+[[Source]](https://github.com/neomjs/neo/blob/dev/src/core/Config.mjs)
+
+At the very bottom of the stack is `Neo.core.Config`. You can think of this as an "observable box." It's a lightweight container that holds a single value. Its only jobs are to hold that value and to notify a list of subscribers whenever the value changes. It knows nothing about components, the DOM, or anything else.
+
+### `Neo.core.Effect`: The Reactive Function
+[[Source]](https://github.com/neomjs/neo/blob/dev/src/core/Effect.mjs)
+
+An `Effect` is a function that automatically tracks its dependencies. When you create an `Effect`, you give it a function to run. As that function runs, any `Neo.core.Config` instance whose value it reads will automatically register itself as a dependency of that `Effect`.
+
+If any of those dependencies change in the future, the `Effect` automatically re-runs its function. It's a self-managing subscription that forms the basis of all reactivity in the framework.
+
+### `Neo.core.EffectManager`: The Orchestrator
+[[Source]](https://github.com/neomjs/neo/blob/dev/src/core/EffectManager.mjs)
+
+This is the central singleton that makes the magic happen. The `EffectManager` keeps track of which `Effect` is currently running. When a `Config` instance is read, it asks the `EffectManager`, "Who is watching me right now?" and adds the current `Effect` to its list of subscribers.
+
+Crucially, the `EffectManager` also provides the ability to batch updates (`Neo.batch`). This ensures that if you change ten different `Config` values in a single, synchronous operation, all dependent `Effect`s will only run *once* at the very end, with the final, consistent state.
+
+### Tying It All Together
+
+When you define a component, the framework connects these pieces for you:
+
+1.  Every reactive config (both **Named** like `greeting_` and **Anonymous** via `useConfig`) is backed by its own `Neo.core.Config` instance.
+2.  Your entire `createVdom` function is wrapped in a single, master `Neo.core.Effect`.
+3.  When `createVdom` runs, it reads from various `Config` instances, and the `EffectManager` ensures they are all registered as dependencies of the master `Effect`.
+4.  When any of those configs change, the master `Effect` re-runs, your `createVdom` is executed again, and the UI updates.
+
+This elegant, layered architecture is what provides the power and performance of the v10 reactivity system, delivering a developer experience that is both simple on the surface and incredibly robust underneath.
