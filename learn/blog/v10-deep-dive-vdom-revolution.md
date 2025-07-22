@@ -103,23 +103,30 @@ performance, security, and flexibility.
 The other half of the revolution happens before an update is even sent. It’s about creating the smartest, most minimal
 blueprint possible.
 
-In v9, Neo.mjs already had **Scoped VDOM Updates**. A parent could update itself while treating its children as simple
-placeholders. But this was an "all or nothing" switch for any given level.
+In v9, Neo.mjs already had a powerful solution for this: **Scoped VDOM Updates**. Using an `updateDepth` config, a parent
+container could intelligently send its own VDOM changes to the worker while treating its children as simple placeholders.
+This prevented wasteful VDOM diffing on child components that weren't part of the update.
 
-Consider a toolbar with ten buttons. If the toolbar and just one button needed to update, the v9 model wasn't ideal.
-This is the exact challenge that **v10's Asymmetric Blueprints** solve.
+However, this had a limitation. The `updateDepth` was an "all or nothing" switch for any given level of the component tree.
+Consider a toolbar with ten buttons. If the toolbar's own structure needed to change *and* just one of those ten buttons
+also needed to update, the v9 model wasn't ideal.
 
-The new `VDomUpdate` manager and `TreeBuilder` utility work together to create a hyper-intelligent payload.
-For our toolbar example, the blueprint would include:
+This is the exact challenge that **v10's Asymmetric Blueprints** were designed to solve.
+
+The new `VDomUpdate` manager and `TreeBuilder` utility work together to create a far more intelligent update payload.
+When the toolbar and one button need to change, the manager calculates the precise scope. The `TreeBuilder` then generates
+a partial VDOM blueprint that includes:
 1.  The full VDOM for the toolbar itself.
 2.  The full VDOM for the *one* button that is changing.
 3.  Lightweight `{componentId: 'neo-ignore'}` placeholders for the other nine buttons.
 
-The VDOM worker receives this pruned blueprint and, upon seeing `neo-ignore`, skips diffing that entire branch.
-It’s the ultimate optimization: instead of sending the blueprint for a skyscraper to fix a window, we send the floor
-plan for the lobby *and* the specific blueprint for that one window, ignoring everything else. This architecture
-perfectly mirrors the kind of high-level, semantic instruction you would give an LLM ⇒ "update only this part of the UI"
-and the framework executes it with maximum efficiency.
+The VDOM worker receives this highly optimized, asymmetric blueprint. When it sees a `neo-ignore` node, it completely
+skips diffing that entire branch of the UI.
+
+It’s the ultimate optimization: instead of sending the entire blueprint for a skyscraper just to fix a window,
+we now send the floor plan for the lobby *and* the specific blueprint for that one window on the 50th floor,
+ignoring everything else in between. As a developer, you don't do anything to enable this. You simply change state,
+and the framework automatically creates the most efficient update possible.
 
 ---
 
