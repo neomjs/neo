@@ -498,7 +498,11 @@ class Provider extends Base {
 
         me.#setConfigValue(targetProvider, key, value, null);
 
-        // Bubble up the change to parent configs to trigger their effects
+        // This is the "reactivity bubbling" logic. When a leaf property like 'user.name' changes,
+        // we must also trigger effects that depend on the parent object 'user'. We do this by
+        // creating a new object reference for each parent in the path. The spread syntax
+        // `{ ...oldParentValue, [leafKey]: latestValue }` is key, as it creates a new
+        // object, which the reactivity system detects as a change.
         let path        = key,
             latestValue = value;
 
