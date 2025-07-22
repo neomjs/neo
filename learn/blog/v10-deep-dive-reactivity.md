@@ -5,10 +5,12 @@ against the main thread, the tedious "memoization tax," and the architectural ni
 These are not isolated issues; they are symptoms of a foundational problem in how mainstream frameworks handle reactivity.
 
 Welcome to the first deep dive into the architecture of Neo.mjs v10. In this article, we're going to dissect the engine
-that makes the old problems obsolete: the new **Effect-Based Reactivity System**. This isn't just a new feature; it's a
-new reality for how you can write and reason about your application's state and rendering logic.
+that makes the old problems obsolete: **The Two-Tier Reactivity System**. This is a revolutionary approach that
+seamlessly unifies two powerful paradigms—a classic "push" system and a modern "pull" system—into one elegant
+developer experience. This isn't just a new feature; it's a new reality for how you can write and reason about your
+application's state and rendering logic.
 
-## Act I: A Powerful Foundation, Reimagined
+## Act I: Tier 1 - The Classic "Push" System
 
 Unlike many frameworks, Neo.mjs has *always* had a reactive config system. Since its earliest versions, you could take a
 component instance and change its properties directly, and the UI would update automatically.
@@ -27,24 +29,42 @@ implement to hook into its lifecycle:
 *   `beforeSetText(value, oldValue)`: Run before a new value is set, allowing for validation or transformation.
 *   `afterSetText(value, oldValue)`: Run after a value has been successfully changed, perfect for triggering side effects.
 
-This powerful, hook-based API was a core strength, offering fine-grained control that was already a step beyond the
-prop-based immutability of other frameworks. For v10, we didn't replace this system—we super-charged it. We asked:
-what if we could keep this elegant API and put a new, universally observable engine underneath it?
+This powerful, hook-based API is an imperative, **"push-based"** system. Think of it like a **manual phone tree**: when a
+config changes, your `afterSet` hook is responsible for explicitly "calling" all the other parts of the component
+that need to know about the change. It offers precise, granular control, but it means you are manually managing the
+dependency graph.
 
-## Act II: The v10 Upgrade - Introducing the Atomic Engine
+For v10, we didn't replace this system—we super-charged it. We asked: what if we could add a second, fully automatic
+tier to this foundation?
 
-The v10 release completely rebuilt the engine that powers this system. We introduced a set of core primitives
-(`Neo.core.Config`, `Neo.core.Effect`, `Neo.core.EffectManager`) that form a new, hyper-performant reactive foundation.
+## Act II: Tier 2 - The Modern "Pull" System
 
-Now, when you define a config with a trailing underscore (e.g., `text_`), the framework automatically wires it into this
-new engine. The simple, direct API (`myButton.text = '...'`) remains the same, but it's now triggering a system of
-"Config Atoms." Every config property is now an observable, atomic unit of state that can be tracked by reactive effects.
+The v10 release introduces the second tier: a declarative, **"pull-based"** system. Think of it like a **subscription
+service**: you "subscribe" to a piece of state simply by reading it. When that state changes, the framework automatically
+notifies all subscribers. You no longer manage the dependency graph—the framework does it for you.
+
+This is powered by a new set of core primitives (`Neo.core.Config`, `Neo.core.Effect`, `Neo.core.EffectManager`)
+that form a hyper-performant reactive foundation.
+
+The true genius of this Two-Tier system is how they are seamlessly bridged together. Think of it like a **universal
+power adapter**: you use a simple, familiar plug (`myButton.text = '...'`), and the adapter transparently handles
+powering both systems at once.
+
+When you define a config with a trailing underscore (e.g., `text_`), the generated setter becomes this adapter. It
+simultaneously:
+
+1.  **Powers Tier 2 ("Pull"):** It updates the underlying `Neo.core.Config` atom, automatically triggering any dependent effects.
+2.  **Powers Tier 1 ("Push"):** It calls the classic `afterSetText()` hook, allowing for explicit, imperative logic.
+
+This means every config property is now an observable, atomic unit of state that works with both paradigms, giving you
+the best of both worlds without any extra effort.
 
 This upgrade set the stage for a revolutionary new way to think about component state.
 
 ## Act III: The Breakthrough - A Tale of Two States
 
-With this new atomic engine in place, we could design a functional component model that solves one of the biggest
+The true power of the **Two-Tier Reactivity System** is not just that the two tiers exist, but how they work together.
+With this unified engine in place, we could design a functional component model that solves one of the biggest
 architectural challenges in modern UI development: the ambiguity between a component's public API and its private state.
 
 This is best explained with a simple component:
