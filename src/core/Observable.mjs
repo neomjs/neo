@@ -315,7 +315,7 @@ class Observable extends Base {
             }
 
             Object.entries(name).forEach(([key, value]) => {
-                listeners = me.listeners[key] || [];
+                listeners = me[eventMapSymbol][key] || [];
                 i         = 0;
                 len       = listeners.length;
 
