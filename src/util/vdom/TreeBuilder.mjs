@@ -33,11 +33,13 @@ class TreeBuilder extends Base {
      * @private
      */
     #buildTree(node, depth, mergedChildIds, childKey) {
-        if (!Neo.isObject(node)) {
+        // We can not use Neo.isObject() here, since inside unit-test scenarios, we will import vdom.Helper into main threads.
+        // Inside this scenario, Neo.isObject() returns false for VNode instances
+        if (typeof node !== 'object' || node === null) {
             return node
         }
 
-        let output = {...node};
+        let output = {...node}; // Shallow copy
 
         if (node[childKey]) {
             output[childKey] = [];
