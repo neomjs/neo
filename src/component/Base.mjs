@@ -11,12 +11,10 @@ import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 const
-    addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
-    closestController   = Symbol.for('closestController'),
-    closestProvider     = Symbol.for('closestProvider'),
-    {currentWorker}     = Neo,
-    lengthRE            = /^\d+\w+$/,
-    twoWayBindingSymbol = Symbol.for('twoWayBinding');
+    addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
+    closestController = Symbol.for('closestController'),
+    {currentWorker}   = Neo,
+    lengthRE          = /^\d+\w+$/;
 
 /**
  * Base class for all Components which have a DOM representation
@@ -63,18 +61,6 @@ class Component extends Abstract {
          */
         baseCls: [],
         /**
-         * Bind configs to state.Provider data properties.
-         * Example for a button.Base:
-         * @example
-         * bind: {
-         *     iconCls: data => `fa fa-{$data.icon}`,
-         *     text   : data => data.foo.bar
-         * }
-         * @see https://github.com/neomjs/neo/blob/dev/examples/stateProvider
-         * @member {Object|null} bind=null
-         */
-        bind: null,
-        /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
@@ -87,14 +73,6 @@ class Component extends Abstract {
          * @reactive
          */
         controller_: null,
-        /**
-         * Convenience shortcut to access the data config of the closest state.Provider.
-         * Read only.
-         * @member {Object} data_=null
-         * @protected
-         * @reactive
-         */
-        data_: null,
         /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
@@ -190,21 +168,6 @@ class Component extends Abstract {
          */
         minWidth_: null,
         /**
-         * Override specific stateProvider data properties.
-         * This will merge the content.
-         * @member {Object|null} modelData=null
-         */
-        modelData: null,
-        /**
-         * If the parentId does not match a neo component id, you can manually set this value for finding
-         * view controllers or state providers.
-         * Use case: manually dropping components into a vdom structure
-         * @member {Neo.component.Base|null} parentComponent_=null
-         * @protected
-         * @reactive
-         */
-        parentComponent_: null,
-        /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
          * @protected
@@ -241,12 +204,6 @@ class Component extends Abstract {
          * @reactive
          */
         scrollable_: false,
-        /**
-         * Optionally add a state.Provider to share state data with child components
-         * @member {Object|null} stateProvider_=null
-         * @reactive
-         */
-        stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
          * @member {Object} style={[isDescriptor]: true, merge: 'shallow', value: null}
@@ -435,30 +392,6 @@ class Component extends Abstract {
         }
 
         me.update()
-    }
-
-    /**
-     * Triggered after any config got changed
-     * @param {String} key
-     * @param {*} value
-     * @param {*} oldValue
-     * @protected
-     */
-    afterSetConfig(key, value, oldValue) {
-        let me = this;
-
-        if (Neo.isUsingStateProviders && me[twoWayBindingSymbol]) {
-            // When a component config is updated by its state provider, this flag is set to the config's key.
-            // This prevents circular updates in two-way data bindings by skipping the push back to the state provider.
-            if (me._skipTwoWayPush === key) {
-                return;
-            }
-            let binding = me.bind?.[key];
-
-            if (binding?.twoWay) {
-                this.getStateProvider()?.setData(binding.key, value)
-            }
-        }
     }
 
     /**
@@ -743,16 +676,6 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered after the stateProvider config got changed
-     * @param {Neo.state.Provider} value
-     * @param {Object|Neo.state.Provider|null} oldValue
-     * @protected
-     */
-    afterSetStateProvider(value, oldValue) {
-        value?.createBindings(this)
-    }
-
-    /**
      * Triggered after the style config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -963,16 +886,6 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered when accessing the data config
-     * Convenience shortcut which is expensive to use, since it will generate a merged parent state providers data map.
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetData(value) {
-        return this.getStateProvider().getHierarchyData()
-    }
-
-    /**
      * Triggered when accessing the style config
      * @param {Object} value
      * @protected
@@ -1133,31 +1046,6 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered before the stateProvider config gets changed.
-     * Creates a state.Provider instance if needed.
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @returns {Neo.state.Provider}
-     * @protected
-     */
-    beforeSetStateProvider(value, oldValue) {
-        oldValue?.destroy();
-
-        if (value) {
-            let me            = this,
-                defaultValues = {component: me};
-
-            if (me.modelData) {
-                defaultValues.data = me.modelData
-            }
-
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
-        }
-
-        return null
-    }
-
-    /**
      * Triggered before the updateDepth config gets changed.
      * @param {Number} value
      * @param {Number} oldValue
@@ -1258,8 +1146,6 @@ class Component extends Abstract {
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
-        me.stateProvider = null; // triggers destroy()
-
         me.plugins?.forEach(plugin => {
             plugin.destroy()
         });
@@ -1313,35 +1199,6 @@ class Component extends Abstract {
         }
 
         return result
-    }
-
-    /**
-     * Find an instance stored inside a config via optionally passing a ntype.
-     * Returns this[configName] or the closest parent component with a match.
-     * Used by getController() & getStateProvider()
-     * @param {String} configName
-     * @param {String} [ntype]
-     * @returns {Neo.core.Base|null}
-     */
-    getConfigInstanceByNtype(configName, ntype) {
-        let me                = this,
-            config            = me[configName],
-            {parentComponent} = me;
-
-        if (config && (!ntype || ntype === config.ntype)) {
-            return config
-        }
-
-        if (!parentComponent && me.parentId) {
-            parentComponent = me.parent || Neo.get(me.parentId);
-        }
-
-        if (parentComponent) {
-            // todo: We need ?. until functional.component.Base supports controllers
-            return parentComponent.getConfigInstanceByNtype?.(configName, ntype)
-        }
-
-        return null
     }
 
     /**
@@ -1438,45 +1295,6 @@ class Component extends Abstract {
     }
 
     /**
-     * Convenience shortcut
-     * @param args
-     * @returns {*}
-     */
-    getState(...args) {
-        return this.getStateProvider().getData(...args)
-    }
-
-    /**
-     * Returns this.stateProvider or the closest parent stateProvider
-     * @param {String} [ntype]
-     * @returns {Neo.state.Provider|null}
-     */
-    getStateProvider(ntype) {
-        if (!Neo.isUsingStateProviders) {
-            return null
-        }
-
-        let me = this,
-            provider;
-
-        if (!ntype) {
-            provider = me[closestProvider];
-
-            if (provider) {
-                return provider
-            }
-        }
-
-        provider = me.getConfigInstanceByNtype('stateProvider', ntype);
-
-        if (!ntype) {
-            me[closestProvider] = provider
-        }
-
-        return provider
-    }
-
-    /**
      * Walks up the vdom tree and returns the closest theme found
      * @returns {String}
      */
@@ -1548,14 +1366,6 @@ class Component extends Abstract {
      */
     init() {
         this.autoRender && this.render()
-    }
-
-    /**
-     * @param args
-     */
-    initConfig(...args) {
-        super.initConfig(...args);
-        this.getStateProvider()?.createBindings(this)
     }
 
     /**
@@ -1667,12 +1477,11 @@ class Component extends Abstract {
      *
      */
     onConstructed() {
-        super.onConstructed()
+        super.onConstructed();
 
         let me = this;
 
         me.keys?.register(me);
-        me.getStateProvider()?.createBindings(me)
     }
 
     /**
@@ -1763,14 +1572,6 @@ class Component extends Abstract {
         if (this.containsFocus && relatedTarget) {
             Neo.getComponent(relatedTarget.id)?.focus()
         }
-    }
-
-    /**
-     * Convenience shortcut
-     * @param args
-     */
-    setState(...args) {
-        this.getStateProvider().setData(...args)
     }
 
     /**

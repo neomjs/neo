@@ -66,7 +66,7 @@ class FunctionalBase extends Abstract {
             fn: () => {
                 me[hookIndexSymbol]        = 0;
                 me[pendingDomEventsSymbol] = []; // Clear pending events for new render
-                me[vdomToApplySymbol]      = me.createVdom(me, me.data)
+                me[vdomToApplySymbol]      = me.createVdom(me)
             },
             componentId: me.id,
             subscriber : {
@@ -170,11 +170,11 @@ class FunctionalBase extends Abstract {
     /**
      * Override this method in your functional component to return its VDOM structure.
      * This method will be automatically re-executed when any of the component's configs change.
+     * To access data from a state provider, use `config.data`.
      * @param {Neo.functional.component.Base} config - Mental model: while it contains the instance, it makes it clear to access configs
-     * @param {Object}                        data   - Convenience shortcut for accessing `state.Provider` data
      * @returns {Object} The VDOM structure for the component.
      */
-    createVdom(config, data) {
+    createVdom(config) {
         // This method should be overridden by subclasses
         return {}
     }
