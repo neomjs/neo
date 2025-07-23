@@ -137,14 +137,11 @@ This isn't an advanced optimization strategy; it's a tedious, mandatory chore. I
 creativity. We spend a significant portion of our development cycle simply preventing the framework from doing unnecessary
 work, a task that the framework should be doing for us.
 
-While the syntax for these functional components might feel familiar, it's important to understand that this familiarity is
-just the tip of the iceberg. Neo.mjs functional components are built on a fundamentally different architecture: they run
-entirely within a dedicated Web Worker, completely off the browser's main thread. This architectural choice is what truly
-liberates you from the 'memoization tax' and enables a level of performance and predictability impossible in single-threaded
-frameworks. The `useConfig` hook, for instance, isn't just a `useState` clone; it's powered by Neo.mjs's advanced two-tier
-reactivity system, which automatically tracks dependencies and ensures surgical updates without any manual intervention.
-This is just one example of how Neo.mjs 'meets developers where they are' with familiar patterns, but then takes them far
-beyond the limitations of traditional frontend development.
+One of the core goals for Neo.mjs v10 was to 'meet developers where they are,' making the framework more approachable
+with familiar patterns.
+
+While the syntax for these functional components might feel familiar, it's crucial to understand that this familiarity
+is just the tip of the iceberg. There is a LOT more to it.
 
 ### The State Management Labyrinth
 
@@ -204,7 +201,7 @@ The only real solution is to **escape the main thread entirely.**
 This is the architectural epiphany that powers **Neo.mjs**. It’s a framework built on a simple, powerful idea: your
 application should not live on the main thread. It should live in a Web Worker.
 
-By moving the entire application—the component tree, the state management, the business logic—into a dedicated App Worker,
+By moving the entire application—the component tree, the state management, and the business logic—into a dedicated App Worker,
 we liberate the main thread to do what it does best: paint pixels. The result is a level of performance and responsiveness
 that single-threaded frameworks can only dream of.
 
