@@ -302,3 +302,59 @@ It's time to fall in love with frontend again.
 3. [Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./v10-deep-dive-functional-components.md)
 4. [Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
 5. [Deep Dive: The State Provider Revolution](./v10-deep-dive-state-provider.md)
+
+---
+
+## A Personal Note from the Author
+
+Neo.mjs is one of Europe's biggest Open Source Projects, following the MIT license.</br>
+Meaning: The entire code base, as well as all demo apps and examples, are free to use.
+
+To put the magnitude of the project in numbers:
+
+**Number of files:**
+* `/src` 303
+* `/apps` 260
+* `/examples` 471
+* `/test` 48
+* `/resources` 420
+
+We are talking about **22,000+** commits inside the ecosystem, and **5000+** closed tickets.
+**770** passing unit tests.
+
+While the Blog Post Series goes deep into the heart of the v10 core changes, they are barely touching the surface
+of the entire project. We are talking about a `Buffered Grid` on AG Grid level, Multi-Window IDEs directly included
+inside the Neo.mjs Website, a fully functional `Calendar` app, a vast component library, and more.
+
+While Neo.mjs made it into the Top5 of "The most exciting use of technology in 2021" of the OS Awards Program,
+it is fair to say that the framework is an underdog. Maybe the most underrated framework in the history of
+frontend development.
+
+I encourage you to take a deeper dive into the code base and examples. You will find countless hidden gems, and
+concepts which would have been worth patents.
+
+Neo.mjs is an Enabler. Using it can give developers wings, and push companies literally years ahead of the competition.
+
+My belief in Neo.mjs's transformative potential led me to dedicate myself fully to its development, stepping away from a
+"Custom Software Engineering Senior Manager" role to bring this vision to life. While the open-source landscape presents
+challenges, we are actively seeking partners and sponsors who share our vision and want to accelerate the future of web development.
+
+There are several exciting enhancements on the horizon for v11+:
+* A Neo.mjs middleware (SEO support, critical rendering paths, backend-connectors, Websocket connections to clients)
+* A multi-window LLM UI
+* A new design and theming system
+* `Template Literls` support, for those who really want it
+* A new version of the Docs App
+* A lot more Learning Section Content
+
+___
+
+Neo.mjs is at a pivotal moment, poised for its next phase of growth. Your engagement is crucial to shaping its future and
+accelerating its impact. Use your chance to influence the project roadmap, let us know what you would love to see next,
+e.g. via opening feature requests. Most importantly, you can help to increase the visibility, to allow the right
+people to find the project. Even with something as simple as a mention on social media.
+
+A huge "Thank you!", to everyone who was involved with reviewing v10 items.
+
+Best regards & happy coding,</br>
+Tobias
