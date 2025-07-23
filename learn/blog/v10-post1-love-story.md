@@ -31,13 +31,15 @@ layout engine, and a millisecond-responsive event handler—all at the same time
 
 The result is a constant, low-grade war for milliseconds. Every developer knows the feeling in their gut: the janky
 scroll as a list virtualizer struggles to keep up; the button that feels "stuck" because a complex component is rendering;
-the entire UI freezing during a heavy data calculation. This isn't just a technical failure;
-it's a breach of trust with the user. Every stutter and freeze erodes their confidence in our creations.
+the entire UI freezing during a heavy data calculation.
+
+This isn't just a technical failure; it's a breach of trust with the user. Every stutter and freeze erodes their confidence in our creations.
 
 ### Death by a Thousand Optimizations
 
 To compensate for this architectural flaw, we've been given a toolbox of manual overrides. In the React world, this is
 the "memoization tax." In other frameworks, it might be manual change detection strategies or complex observable setups.
+
 The result is the same: you, the developer, are forced to write extra code to prevent the framework from doing unnecessary work.
 
 This tax is most obvious when looking at a "performant" component side-by-side with one that is performant by design.
@@ -84,9 +86,8 @@ const App = () => {
 <td>
 
 ```javascript
-import {defineComponent, useConfig} from 'neo.mjs/src/functional/defineComponent.mjs';
+import {defineComponent, useConfig} from 'neo.mjs/src/functional/_export.mjs';
 
-// The child component
 const MyComponent = defineComponent({
     // The user config is passed in from the parent
     createVdom({user}) {
@@ -96,7 +97,6 @@ const MyComponent = defineComponent({
     }
 });
 
-// The parent component
 export default defineComponent({
     createVdom() {
         const [count, setCount] = useConfig(0);
@@ -126,13 +126,25 @@ export default defineComponent({
 At first glance, the Neo.mjs syntax might seem more verbose than JSX. That's a deliberate design choice.
 Instead of a custom syntax that requires transpilation, Neo.mjs uses plain, structured JavaScript objects to define the UI.
 This makes the code more explicit, eliminates a build step, and creates a blueprint that is incredibly easy for LMMs/AIs
-to read and manipulate. Because the core is pure JavaScript, it also opens the door for optional, more familiar syntaxes
-based on Template Literals in the future, should the community desire it. The real story, however, isn't the syntax, but
-the outcome: the elimination of the memoization tax.
+to read and manipulate.
+
+Because the core is pure JavaScript, it also opens the door for optional, more familiar syntaxes
+based on [Template Literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals) in the
+future, should the community desire it. The real story, however, isn't the syntax, but the outcome:
+the elimination of the memoization tax.
 
 This isn't an advanced optimization strategy; it's a tedious, mandatory chore. It's a tax on our time and a cage for our
 creativity. We spend a significant portion of our development cycle simply preventing the framework from doing unnecessary
 work, a task that the framework should be doing for us.
+
+While the syntax for these functional components might feel familiar, it's important to understand that this familiarity is
+just the tip of the iceberg. Neo.mjs functional components are built on a fundamentally different architecture: they run
+entirely within a dedicated Web Worker, completely off the browser's main thread. This architectural choice is what truly
+liberates you from the 'memoization tax' and enables a level of performance and predictability impossible in single-threaded
+frameworks. The `useConfig` hook, for instance, isn't just a `useState` clone; it's powered by Neo.mjs's advanced two-tier
+reactivity system, which automatically tracks dependencies and ensures surgical updates without any manual intervention.
+This is just one example of how Neo.mjs 'meets developers where they are' with familiar patterns, but then takes them far
+beyond the limitations of traditional frontend development.
 
 ### The State Management Labyrinth
 
@@ -142,7 +154,9 @@ conditional logic, and real-time validation.
 
 How do we even begin to build this in a single-threaded world?
 
-The state management alone is a paralyzing choice. Do we use hundreds of local state hooks and create a component tree
+The state management alone is a paralyzing choice.
+
+Do we use hundreds of local state hooks and create a component tree
 so riddled with props-drilling that it becomes unmanageable? Or do we build a monolithic state object in a global store,
 only to find that every keystroke triggers a performance-killing update across the entire application?
 
@@ -164,6 +178,7 @@ been faster. SSR is a brilliant strategy for delivering *content*.
 But it is a poor strategy for building *applications*.
 
 The promise of SSR quickly becomes a mirage when confronted with the applications we truly want to build.
+
 How do you build a multi-window IDE, where a user can drag a component from one screen to another,
 when the server's job is to send you static HTML? How do you manage the persistent, real-time state of a financial trading
 dashboard when every update requires a round trip to a serverless function?
@@ -216,7 +231,9 @@ Interacting with powerful AI models requires more than a simple chat window. It 
 IDE-like environment where a user can write a prompt in one window, see the AI's reasoning in a second, view the
 generated code in a third, and see a live preview in a fourth.
 
-This is impossible with traditional frameworks. But it's native to Neo.mjs. Its multi-threaded, multi-window architecture
+This is impossible with traditional frameworks.
+
+But it's native to Neo.mjs. Its multi-threaded, multi-window architecture
 is the perfect foundation for building the complex, data-intensive UIs that the AI era demands.
 
 ### The Framework BY AI: Speaking the Right Language
