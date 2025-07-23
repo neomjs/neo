@@ -12,6 +12,8 @@ our tools than building the ambitious applications we dream of.
 This isn’t just a story about the pain of frontend development. It’s a story about a false choice we’ve been forced into
 a choice between two flawed paradigms that are holding us back from building the future.
 
+*(Part 1 of 5 in the v10 blog series. Details at the bottom.)*
+
 ---
 
 ## Part 1: The Client-Side Heartbreak - A War on a Single Front
@@ -295,8 +297,8 @@ It's time to fall in love with frontend again.
 
 ## The Neo.mjs v10 Blog Post Series
 
-1.  **A Frontend Love Story** (This article)
-2.  [Deep Dive: The Two-Tier Reactivity System](./v10-deep-dive-reactivity.md)
-3.  [Deep Dive: A New Breed of Functional Components](./v10-deep-dive-functional-components.md)
-4.  [Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
-5.  [Deep Dive: The State Provider Revolution](./v10-deep-dive-state-provider.md)
+1. A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow
+2. [Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./v10-deep-dive-reactivity.md)
+3. [Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./v10-deep-dive-functional-components.md)
+4. [Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
+5. [Deep Dive: The State Provider Revolution](./v10-deep-dive-state-provider.md)

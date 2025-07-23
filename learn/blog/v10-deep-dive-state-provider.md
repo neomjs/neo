@@ -1,5 +1,3 @@
-*(Part 5 of 5 in the v10 blog series)*
-
 # Deep Dive: The State Provider Revolution
 
 **Subtitle: How Neo.mjs Delivers Intuitive State Management Without the Performance Tax**
@@ -7,6 +5,8 @@
 In our "Three-Act Revolution" series, we've explored the high-level concepts of Neo.mjs v10. Now, it's time to dive deep
 into the technology that powers **Act I: The Reactivity Revolution**. We'll explore the new `state.Provider`, a system
 designed to solve one of the most persistent challenges in application development: managing shared state.
+
+*(Part 5 of 5 in the v10 blog series. Details at the bottom.)*
 
 ### 1. The Problem: Prop-Drilling and the "Context Tax"
 
@@ -423,4 +423,10 @@ This is what a ground-up reactive system enables, and it's a cornerstone of the 
 
 ---
 
-[<-- Previous: Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
+## The Neo.mjs v10 Blog Post Series
+
+1. [A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./v10-post1-love-story.md)
+2. [Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./v10-deep-dive-reactivity.md)
+3. [Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./v10-deep-dive-functional-components.md)
+4. [Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
+5. Deep Dive: The State Provider Revolution

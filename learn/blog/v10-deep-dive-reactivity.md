@@ -1,5 +1,3 @@
-*(Part 2 of 5 in the v10 blog series)*
-
 # Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity
 
 In the main article of our series, we explored the "heartbreak" of modern frontend development: the constant battle
@@ -11,6 +9,8 @@ that makes the old problems obsolete: **The Two-Tier Reactivity System**. This i
 seamlessly unifies two powerful paradigms—a classic "push" system and a modern "pull" system—into one elegant
 developer experience. This isn't just a new feature; it's a new reality for how you can write and reason about your
 application's state and rendering logic.
+
+*(Part 2 of 5 in the v10 blog series. Details at the bottom.)*
 
 ## Act I: Tier 1 - The Classic "Push" System
 
@@ -346,5 +346,10 @@ doesn't just simplify your code — it makes entirely new patterns of developmen
 
 ---
 
-[<-- Previous: A Frontend Love Story](./v10-post1-love-story.md)  
-[Next: A New Breed of Functional Components -->](./v10-deep-dive-functional-components.md)
+## The Neo.mjs v10 Blog Post Series
+
+1. [A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./v10-post1-love-story.md)
+2. Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity
+3. [Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./v10-deep-dive-functional-components.md)
+4. [Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
+5. [Deep Dive: The State Provider Revolution](./v10-deep-dive-state-provider.md)
