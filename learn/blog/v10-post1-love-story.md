@@ -247,6 +247,12 @@ blueprint is an order of magnitude simpler, faster, and more reliable than an AI
 `DomApiRenderer` then takes this simple blueprint and translates it into hyper-performant, secure DOM operations.
 The AI doesn't need to know *how* to build the UI; it just needs to describe *what* the UI is.
 
+Beyond the architectural innovations, a significant effort has been invested in making the Neo.mjs codebase inherently
+understandable for AI. Through countless dedicated sessions, we've meticulously added intent-driven comments to core
+files (like `src/core/Config.mjs`), ensuring that when Large Language Models are pointed to relevant source code, they
+can easily grasp the underlying logic and design. This commitment to AI-readability is a testament to Neo.mjs truly
+being a 'Framework For and By AI,' designed for the future of collaborative development.
+
 ---
 
 ## Your Invitation to a New Way of Building
