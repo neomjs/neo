@@ -390,6 +390,10 @@ console.log('Service created. isReady:', service.isReady); // Logs: Service crea
 // initAsync will automatically be called by the framework after construction
 ```
 
+
+
+
+
 ### 3. Intelligent Remote Method Interception
 
 The framework's `RemoteMethodAccess` mixin is aware of this `isReady` state. When a remote call arrives for a main
@@ -416,6 +420,70 @@ elegant and automatic feature of the core reactivity system.
 The developer in the App Worker is completely shielded from this complexity. They simply call a method, and the framework
 guarantees it will be executed correctly and in the right order. There are no manual loading flags, no race conditions,
 and no complex queueing logic to write.
+
+```javascript readonly
+// Example: Intelligent Remote Method Interception (Simplified)
+
+// --- Main Thread Addon ---
+// This addon runs on the Main Thread and simulates loading a heavy library.
+import AddonBase from 'neo.mjs/src/main/addon/Base.mjs';
+
+class MyHeavyLibraryAddon extends AddonBase {
+    static config = {
+        className: 'Neo.main.addon.HeavyLibraryAddon',
+        // List methods that should be intercepted if the addon is not ready.
+        // The base class's onInterceptRemotes() will cache these calls.
+        interceptRemotes: ['loadResource', 'processData'],
+        // Expose the methods to the App Worker.
+        remotes: {
+            app: ['loadResource', 'processData']
+        }
+    }
+
+    // Subclasses must implement loadFiles() to load external resources.
+    // This method is awaited by initAsync().
+    async loadFiles() {
+        console.log('Addon: Simulating heavy library/resource loading...');
+        await this.timeout(1500); // Simulate async work
+        console.log('Addon: Heavy library/resource loaded.');
+    }
+
+    // Remote methods that can be called from the App Worker.
+    loadResource(url) {
+        console.log('Addon: Executing loadResource for:', url);
+        return `Resource from ${url} loaded!`;
+    }
+
+    processData(data) {
+        console.log('Addon: Executing processData with:', data);
+        return `Data processed: ${JSON.stringify(data)}`;
+    }
+
+    // The afterSetIsReady method (from AddonBase) will automatically
+    // process any queued remote calls once this.isReady becomes true.
+}
+
+// --- Simulation of App Worker making calls to Main Thread Addon ---
+(async () => {
+    console.log('--- Simulation Start ---');
+
+    // These calls are made before the addon's initAsync (and thus loadFiles) completes.
+    // They will be intercepted and queued by the addon.Base logic.
+    console.log('Simulating App Worker call: loadResource (before addon ready)');
+    const result1Promise = Neo.main.addon.HeavyLibraryAddon.loadResource('/api/data/resource1');
+
+    console.log('Simulating App Worker call: processData (before addon ready)');
+    const result2Promise = Neo.main.addon.HeavyLibraryAddon.processData({ value: 42, type: 'example' });
+
+    // The promises will resolve once the addon becomes ready and processes the queued calls.
+    const [result1, result2] = await Promise.all([result1Promise, result2Promise]);
+
+    console.log('Result from loadResource:', result1);
+    console.log('Result from processData:',  result2);
+
+    console.log('--- Simulation End ---');
+})();
+```
 
 This is the ultimate expression of the Neo.mjs philosophy: using the core reactivity engine not just to render UIs, but
 to orchestrate the entire application's asynchronous state and logic. It's the final proof that a robust reactive foundation
