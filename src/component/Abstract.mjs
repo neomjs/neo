@@ -365,14 +365,6 @@ class Abstract extends Base {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-        this.getStateProvider()?.createBindings(this)
-    }
-
-    /**
      * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
      * @param {Object} values={}
      * @param {Boolean} silent=false
