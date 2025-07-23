@@ -330,7 +330,7 @@ It's time to fall in love with frontend again.
 
 ## A Personal Note from the Author
 
-Neo.mjs is one of Europe's biggest Open Source Projects, following the MIT license.</br>
+Neo.mjs is one of Europe's biggest Open Source Projects, using the MIT license.</br>
 Meaning: The entire code base, as well as all demo apps and examples, are **free to use**.
 
 To put the magnitude of the project in numbers:

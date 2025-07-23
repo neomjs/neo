@@ -259,7 +259,7 @@ subscription that forms the basis of all reactivity in the framework.
 ```javascript readonly
 // Example: Neo.core.Effect - The Reactive Function
 import Effect from 'neo.mjs/src/core/Effect.mjs';
-import Config from 'neo.mjs/src/core/Config.mjs'; // Assuming Config is imported or available
+import Config from 'neo.mjs/src/core/Config.mjs';
 
 let effectRunCount = 0;
 const myConfig = new Config('initial value'); // Re-using myConfig from previous example
@@ -273,9 +273,6 @@ console.log('Initial effect run count:', effectRunCount); // Logs: Initial effec
 
 myConfig.set('new value'); // Console will log: Effect ran. Current config value: new value
 console.log('After set, effect run count:', effectRunCount); // Logs: After set, effect run count: 2
-
-myConfig.set('another value'); // Console will log: Effect ran. Current config value: another value
-console.log('After another set, effect run count:', effectRunCount); // Logs: After another set, effect run count: 3
 ```
 
 ### `Neo.core.EffectManager`: The Orchestrator
