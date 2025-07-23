@@ -12,6 +12,8 @@ application's state and rendering logic.
 
 *(Part 2 of 5 in the v10 blog series. Details at the bottom.)*
 
+---
+
 ## Act I: Tier 1 - The Classic "Push" System
 
 Unlike many frameworks, Neo.mjs has *always* had a reactive config system. Since its earliest versions, you could take a
@@ -35,6 +37,30 @@ This powerful, hook-based API is an imperative, **"push-based"** system. Think o
 config changes, your `afterSet` hook is responsible for explicitly "calling" all the other parts of the component
 that need to know about the change. It offers precise, granular control, but it means you are manually managing the
 dependency graph.
+
+```javascript readonly
+// Example: Implementing an afterSet hook
+import Base from 'neo.mjs/src/core/Base.mjs';
+
+class MyComponent extends Base {
+    static config = {
+        className: 'My.AfterSetExample',
+        // A reactive config with a trailing underscore
+        message_: 'Hello'
+    }
+
+    // This hook automatically runs after 'message' is set
+    afterSetMessage(value, oldValue) {
+        console.log(`Message changed from "${oldValue}" to "${value}"`);
+        // Manually update a dependent property or trigger a UI update
+        this.someOtherProperty = `Processed: ${value.toUpperCase()}`;
+    }
+}
+
+const myInstance = Neo.create(MyComponent);
+myInstance.message = 'World'; // Console will log: Message changed from "Hello" to "World"
+console.log(myInstance.someOtherProperty); // Logs: Processed: WORLD
+```
 
 For v10, we didn't replace this system—we super-charged it. We asked: what if we could add a second, fully automatic
 tier to this foundation?
@@ -213,6 +239,13 @@ At the very bottom of the stack is `Neo.core.Config`. You can think of this as a
 container that holds a single value. Its only jobs are to hold that value and to notify a list of subscribers whenever
 the value changes. It knows nothing about components, the DOM, or anything else.
 
+```javascript readonly
+// Example: Neo.core.Config - The Observable Box
+import Config from 'neo.mjs/src/core/Config.mjs';
+
+const myConfig = new Config('initial value');
+```
+
 ### `Neo.core.Effect`: The Reactive Function
 [[Source]](https://github.com/neomjs/neo/blob/dev/src/core/Effect.mjs)
 
@@ -222,6 +255,28 @@ a dependency of that `Effect`.
 
 If any of those dependencies change in the future, the `Effect` automatically re-runs its function. It's a self-managing
 subscription that forms the basis of all reactivity in the framework.
+
+```javascript readonly
+// Example: Neo.core.Effect - The Reactive Function
+import Effect from 'neo.mjs/src/core/Effect.mjs';
+import Config from 'neo.mjs/src/core/Config.mjs'; // Assuming Config is imported or available
+
+let effectRunCount = 0;
+const myConfig = new Config('initial value'); // Re-using myConfig from previous example
+
+const myEffect = new Effect(() => {
+    effectRunCount++;
+    console.log('Effect ran. Current config value:', myConfig.get());
+});
+
+console.log('Initial effect run count:', effectRunCount); // Logs: Initial effect run count: 1
+
+myConfig.set('new value'); // Console will log: Effect ran. Current config value: new value
+console.log('After set, effect run count:', effectRunCount); // Logs: After set, effect run count: 2
+
+myConfig.set('another value'); // Console will log: Effect ran. Current config value: another value
+console.log('After another set, effect run count:', effectRunCount); // Logs: After another set, effect run count: 3
+```
 
 ### `Neo.core.EffectManager`: The Orchestrator
 [[Source]](https://github.com/neomjs/neo/blob/dev/src/core/EffectManager.mjs)
@@ -312,6 +367,28 @@ Every class in Neo.mjs now has a two-phase initialization process. The `construc
 synchronously. It is then followed by `initAsync()`, an `async` method designed for long-running tasks.
 The framework provides a reactive `isReady_` config that automatically flips to `true` only after the `initAsync()`
 promise resolves.
+
+```javascript readonly
+// Example: Two-Phase, Async-Aware Lifecycle (initAsync)
+import Base from 'neo.mjs/src/core/Base.mjs';
+
+class MyAsyncService extends Base {
+    static config = {
+        className: 'My.AsyncService',
+        // isReady_ is automatically managed by the framework
+    }
+
+    async initAsync() {
+        console.log('initAsync started. isReady:', this.isReady); // Logs: initAsync started. isReady: false
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async work
+        console.log('initAsync finished. isReady:', this.isReady); // Logs: initAsync finished. isReady: true
+    }
+}
+
+const service = Neo.create(MyAsyncService);
+console.log('Service created. isReady:', service.isReady); // Logs: Service created. isReady: false
+// initAsync will automatically be called by the framework after construction
+```
 
 ### 3. Intelligent Remote Method Interception
 

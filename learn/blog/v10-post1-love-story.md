@@ -35,7 +35,8 @@ The result is a constant, low-grade war for milliseconds. Every developer knows 
 scroll as a list virtualizer struggles to keep up; the button that feels "stuck" because a complex component is rendering;
 the entire UI freezing during a heavy data calculation.
 
-This isn't just a technical failure; it's a breach of trust with the user. Every stutter and freeze erodes their confidence in our creations.
+This isn't just a technical failure; it's a breach of trust with the user. Every stutter and freeze erodes their confidence
+in our creations.
 
 ### Death by a Thousand Optimizations
 
@@ -60,27 +61,27 @@ import {useState, useMemo} from 'react';
 
 // A typical "optimized" React component
 const MyComponent = React.memo(({ user }) => {
-  // This will only log when the component *actually* re-renders
-  console.log('Rendering MyComponent');
-  return <div>{user.name}</div>;
+    // This will only log when the component *actually* re-renders
+    console.log('Rendering MyComponent');
+    return <div>{user.name}</div>;
 });
 
 const App = () => {
-  const [count, setCount] = useState(0);
+    const [count, setCount] = useState(0);
 
-  // We must wrap this in useMemo...
-  const user = useMemo(() => ({ name: 'John Doe' }), []);
+    // We must wrap this in useMemo...
+    const user = useMemo(() => ({ name: 'John Doe' }), []);
 
-  // ...to prevent MyComponent from re-rendering
-  // every time the App's state changes.
-  return (
-    <div>
-      <button onClick={() => setCount(c => c + 1)}>
-        App Clicks: {count}
-      </button>
-      <MyComponent user={user} />
-    </div>
-  );
+    // ...to prevent MyComponent from re-rendering
+    // every time the App's state changes.
+    return (
+        <div>
+            <button onClick={() => setCount(c => c + 1)}>
+                App Clicks: {count}
+            </button>
+            <MyComponent user={user} />
+        </div>
+    );
 };
 ```
 
@@ -163,6 +164,12 @@ We reach for heroic third-party libraries—each a brilliant solution to a probl
 be this hard in the first place. The simple act of building a form, a fundamental building block of the web, has become
 an architectural nightmare.
 
+In Neo.mjs, forms are powerful, self-contained state managers. Each `FormContainer` inherently manages the data for its
+fields, building a hierarchical data object based on field `name` attributes. This simplifies data collection, validation,
+and even supports complex nested structures and lazy-loaded sections **without requiring an external state provider**.
+While forms can seamlessly integrate with the framework's state providers for broader application-level data sharing,
+their core functionality for managing form data is self-sufficient.
+
 ---
 
 ## Part 2: The Server-Side Mirage - A Different Kind of Heartbreak
@@ -200,7 +207,7 @@ application is architected.
 
 The only real solution is to **escape the main thread entirely.**
 
-This is the architectural epiphany that powers **Neo.mjs**. It’s a framework built on a simple, powerful idea: your
+This is the architectural epiphany that powers Neo.mjs. It’s a framework built on a simple, powerful idea: your
 application should not live on the main thread. It should live in a Web Worker.
 
 By moving the entire application—the component tree, the state management, and the business logic—into a dedicated App Worker,
@@ -324,7 +331,7 @@ It's time to fall in love with frontend again.
 ## A Personal Note from the Author
 
 Neo.mjs is one of Europe's biggest Open Source Projects, following the MIT license.</br>
-Meaning: The entire code base, as well as all demo apps and examples, are free to use.
+Meaning: The entire code base, as well as all demo apps and examples, are **free to use**.
 
 To put the magnitude of the project in numbers:
 
@@ -363,14 +370,14 @@ There are several exciting enhancements on the horizon for v11+:
 * A new version of the Docs App
 * A lot more Learning Section Content
 
-___
+---
 
 Neo.mjs is at a pivotal moment, poised for its next phase of growth. Your engagement is crucial to shaping its future and
 accelerating its impact. Use your chance to influence the project roadmap, let us know what you would love to see next,
 e.g. via opening feature requests. Most importantly, you can help to increase the visibility, to allow the right
 people to find the project. Even with something as simple as a mention on social media.
 
-A huge "Thank you!", to everyone who was involved with reviewing v10 items.
+A huge **"Thank you!"**, to everyone who was involved with reviewing v10 items.
 
 Best regards & happy coding,</br>
 Tobias
