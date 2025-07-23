@@ -1,6 +1,6 @@
 # A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow
 
-If you’re a frontend developer in 2025, you are a survivor. You’ve mastered a craft that exists in a state of constant, churning evolution. You embraced the power of declarative UIs, celebrated the elegance of hooks, and learned to build entire worlds inside a browser tab. It was, for a time, a kind of honeymoon. We were in love with what we could create.
+If you’re a frontend developer in 2025, you are a survivor. You’ve mastered a craft that exists in a state of constant, churning evolution. You embraced the power of declarative UIs, celebrated the elegance of modern component models, and learned to build entire worlds inside a browser tab. It was, for a time, a kind of honeymoon. We were in love with what we could create.
 
 But honeymoons end. And for many of us, the love story has become strained. The passion is still there, but it’s buried under layers of accumulated complexity, performance anxiety, and the nagging feeling that we’re spending more time fighting our tools than building the ambitious applications we dream of.
 
@@ -20,13 +20,81 @@ Mainstream frameworks do the opposite. They treat the main thread like a frantic
 
 The result is a constant, low-grade war for milliseconds. Every developer knows the feeling in their gut: the janky scroll as a list virtualizer struggles to keep up; the button that feels "stuck" because a complex component is rendering; the entire UI freezing during a heavy data calculation. This isn't just a technical failure; it's a breach of trust with the user. Every stutter and freeze erodes their confidence in our creations.
 
-### Death by a Thousand Memos
+### Death by a Thousand Optimizations
 
-To compensate for this architectural flaw, we've been given a toolbox of manual overrides. In the React world, a state change in one component triggers a brute-force cascade of re-renders down the tree. This is inefficient by default, and the responsibility to fix it is, once again, ours.
+To compensate for this architectural flaw, we've been given a toolbox of manual overrides. In the React world, this is the "memoization tax." In other frameworks, it might be manual change detection strategies or complex observable setups. The result is the same: you, the developer, are forced to write extra code to prevent the framework from doing unnecessary work.
 
-So, we pay the "memoization tax."
+This tax is most obvious when looking at a "performant" component side-by-side with one that is performant by design.
 
-We wrap our components in `React.memo`. We wrap our functions in `useCallback`. We wrap our objects in `useMemo`. We become experts in the arcane art of the dependency array, a fragile contract with the framework that is a fertile ground for bugs, stale closures, and endless debates in code reviews.
+<center>
+<table>
+<tr>
+<th>A "Performant" React Component</th>
+<th>The Neo.mjs Equivalent</th>
+</tr>
+<tr>
+<td>
+
+```javascript
+// A typical "optimized" React component
+const MyComponent = React.memo(({ onButtonClick, user }) => {
+  console.log('Rendering MyComponent');
+  return <button onClick={onButtonClick}>{user.name}</button>;
+});
+
+const App = () => {
+  const [count, setCount] = useState(0);
+
+  // We must wrap this in useCallback...
+  const handleClick = useCallback(() => {
+    console.log('Button clicked!');
+  }, []);
+
+  // ...and wrap this in useMemo...
+  const user = useMemo(() => ({ name: 'John Doe' }), []);
+
+  // ...to prevent MyComponent from re-rendering
+  // every time the App's state changes.
+  return (
+    <div>
+      <button onClick={() => setCount(c => c + 1)}>
+        App Clicks: {count}
+      </button>
+      <MyComponent onButtonClick={handleClick} user={user} />
+    </div>
+  );
+};
+```
+
+</td>
+<td>
+
+```javascript
+import {defineComponent, useConfig, useEvent} from 'neo.mjs';
+
+export default defineComponent({
+    // The component's public API (like props)
+    config: {
+        className: 'My.Component',
+        user: {name: 'John Doe'}
+    },
+    // The function that creates the VDOM
+    createVdom(config) {
+        // An event listener
+        useEvent('click', () => console.log('Button clicked!'));
+
+        return {
+            tag: 'button',
+            text: config.user.name
+        }
+    }
+});
+```
+
+</td>
+</tr>
+</table>
+</center>
 
 This isn't an advanced optimization strategy; it's a tedious, mandatory chore. It's a tax on our time and a cage for our creativity. We spend a significant portion of our development cycle simply preventing the framework from doing unnecessary work, a task that the framework should be doing for us.
 
@@ -36,15 +104,15 @@ Nowhere is this pain more acute than when building a truly complex, stateful UI.
 
 How do we even begin to build this in a single-threaded world?
 
-The state management alone is a paralyzing choice. Do we use hundreds of `useState` hooks and create a component tree so riddled with props-drilling that it becomes unmanageable? Or do we build a monolithic state object in Redux or Zustand, only to find that every keystroke triggers a performance-killing update across the entire application?
+The state management alone is a paralyzing choice. Do we use hundreds of local state hooks and create a component tree so riddled with props-drilling that it becomes unmanageable? Or do we build a monolithic state object in a global store, only to find that every keystroke triggers a performance-killing update across the entire application?
 
-We reach for heroic third-party libraries—React Hook Form, Formik—each a brilliant solution to a problem that, if we're being honest, shouldn't be this hard in the first place. The simple act of building a form, a fundamental building block of the web, has become an architectural nightmare.
+We reach for heroic third-party libraries—each a brilliant solution to a problem that, if we're being honest, shouldn't be this hard in the first place. The simple act of building a form, a fundamental building block of the web, has become an architectural nightmare.
 
 ---
 
 ## Part 2: The Server-Side Mirage - A Different Kind of Heartbreak
 
-The industry saw this pain and offered a solution: "The client is too slow! Let's move rendering to the server with Server-Side Rendering (SSR)." Frameworks like Next.js promised to solve our problems by delivering fast-loading, pre-rendered HTML.
+The industry saw this pain and offered a solution: "The client is too slow! Let's move rendering to the server with Server-Side Rendering (SSR)." Frameworks like Next.js and SvelteKit promised to solve our problems by delivering fast-loading, pre-rendered HTML.
 
 And for a certain class of website, it was a revelation. Blogs, marketing sites, and e-commerce storefronts have never been faster. SSR is a brilliant strategy for delivering *content*.
 
@@ -64,7 +132,7 @@ We've been trapped in a false choice: a client-side app that's a nightmare to sc
 
 The entire client vs. server debate is a distraction. The answer isn't about *where* you render, but *how* your entire application is architected.
 
-The only real solution is to escape the main thread entirely.
+The only real solution is to **escape the main thread entirely.**
 
 This is the architectural epiphany that powers **Neo.mjs**. It’s a framework built on a simple, powerful idea: your application should not live on the main thread. It should live in a Web Worker.
 
@@ -90,7 +158,7 @@ This is impossible with traditional frameworks. But it's native to Neo.mjs. Its 
 
 ### The Framework BY AI: Speaking the Right Language
 
-AIs are now writing frontend code. But we are asking them to write JSX—a mix of HTML and JavaScript that is verbose, error-prone, and fundamentally human-centric.
+AIs are now writing frontend code. But we are asking them to write JSX or other template syntaxes—a mix of HTML and JavaScript that is verbose, error-prone, and fundamentally human-centric.
 
 AIs don't think in JSX. They think in structured data. They think in JSON.
 
@@ -98,15 +166,28 @@ Neo.mjs is built on the language of AI. It uses **declarative JSON blueprints** 
 
 ---
 
-## Part 5: An Introduction, Finally - Neo.mjs v10
+## Your Invitation to a New Way of Building
 
 This brings us to today. **Neo.mjs v10 is not an upgrade—it's a new operating system for the web.** It is the culmination of years of architectural pioneering, refined into a cohesive and powerful whole. It is the realization of the "third way."
 
-V10 is built on a "Three-Act Revolution":
+We've rebuilt our core, created a new functional component model, and revolutionized our rendering engine. But you don't have to take our word for it. We invite you to explore for yourself.
 
-1.  **A Revolution in Reactivity:** We created a powerful, observable state system from the ground up. This new Effect-based core eliminates the need for manual memoization and makes state management effortless and intuitive.
-2.  **A Revolution in Rendering:** We built a new Asymmetric VDOM Update engine that uses JSON blueprints to perform surgical, atomic DOM operations. It's secure, incredibly fast, and speaks the native language of AI.
-3.  **A Revolution in Developer Experience:** We created a new Functional Component model that is the ultimate expression of this new architecture—a simple, elegant, and powerful way to build the next generation of user interfaces.
+### Choose Your Own Adventure:
+
+*   **I'm skeptical. Show me the code.**
+    Dive into our collection of 100+ live, interactive examples. See the code, edit it in real-time, and witness the performance for yourself. No setup required.
+    <br>
+    **[=> Explore the Examples Portal](https://neomjs.github.io/neo/examples/sitemap/index.html)**
+
+*   **I'm intrigued. How does it actually work?**
+    This article is the first in a five-part series that goes deep into the architecture of v10. Start with our deep dive on the new reactivity system that makes manual optimizations a thing of the past.
+    <br>
+    **[=> Next Article: Deep Dive into the Two-Tier Reactivity System](./v10-deep-dive-reactivity.md)**
+
+*   **I'm ready to build. What's the "Hello World"?**
+    Our `create-app` script will have you running your first multi-threaded application in under a minute. Experience the difference firsthand.
+    <br>
+    `npx neo-app@latest`
 
 ---
 
@@ -116,15 +197,9 @@ For too long, we have accepted the limitations of our tools. We have patched the
 
 Neo.mjs v10 is an invitation to rediscover that passion. It's a framework built on the belief that you shouldn't have to choose between performance and interactivity, between a powerful developer experience and an ambitious user experience.
 
-It's time to stop fighting the main thread. It's time to stop paying the memoization tax. It's time to start building the applications of the future.
+It's time to stop fighting the main thread. It's time to stop paying the performance tax. It's time to start building the applications of the future.
 
 It's time to fall in love with frontend again.
-
-**Explore the v10 masterpiece, a full email client built with the new functional component model:** [Link to Email App Demo]
-
-**Dive into the examples and see the performance for yourself:** [Link to Examples Portal]
-
-**Start building your first Neo.mjs app in minutes:** `npx neo-app@latest`
 
 ---
 
