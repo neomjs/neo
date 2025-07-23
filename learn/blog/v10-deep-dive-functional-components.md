@@ -1,3 +1,5 @@
+*(Part 3 of 5 in the v10 blog series)*
+
 # Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World
 
 If you're a seasoned React developer, you've mastered the art of hooks. You know how to build complex, stateful UIs with
@@ -279,3 +281,8 @@ deep dive on the **Two-Tier Reactivity System**.
 
 Next, we will look at how this architecture revolutionizes the very way we render UIs with the Asymmetric VDOM
 and JSON Blueprints.
+
+---
+
+[<-- Previous: Deep Dive: The Two-Tier Reactivity System](./v10-deep-dive-reactivity.md)  
+[Next: Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering -->](./v10-deep-dive-vdom-revolution.md)

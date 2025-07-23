@@ -1,3 +1,5 @@
+*(Part 2 of 5 in the v10 blog series)*
+
 # Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity
 
 In the main article of our series, we explored the "heartbreak" of modern frontend development: the constant battle
@@ -341,3 +343,8 @@ and no complex queueing logic to write.
 This is the ultimate expression of the Neo.mjs philosophy: using the core reactivity engine not just to render UIs, but
 to orchestrate the entire application's asynchronous state and logic. It's the final proof that a robust reactive foundation
 doesn't just simplify your code — it makes entirely new patterns of development possible.
+
+---
+
+[<-- Previous: A Frontend Love Story](./v10-post1-love-story.md)  
+[Next: A New Breed of Functional Components -->](./v10-deep-dive-functional-components.md)

@@ -1,3 +1,5 @@
+*(Part 4 of 5 in the v10 blog series)*
+
 # Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering
 
 In our previous deep dives, we've established the "why" and the "what" of Neo.mjs v10. We've seen how the
@@ -179,3 +181,8 @@ This is what it means to build a framework not just for the web of today, but fo
 
 In our final article, we'll bring all three revolutions—Reactivity, Functional Components, and the VDOM—together and
 invite you to fall in love with frontend development all over again.
+
+---
+
+[<-- Previous: Deep Dive: A New Breed of Functional Components](./v10-deep-dive-functional-components.md)  
+[Next: Deep Dive: The State Provider Revolution -->](./v10-deep-dive-state-provider.md)

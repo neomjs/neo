@@ -1,3 +1,5 @@
+*(Part 5 of 5 in the v10 blog series)*
+
 # Deep Dive: The State Provider Revolution
 
 **Subtitle: How Neo.mjs Delivers Intuitive State Management Without the Performance Tax**
@@ -67,6 +69,8 @@ provider.setData({
     'user.lastname' : 'Doe'
 });
 ```
+
+Let's see this in action. The following live example demonstrates how a component can bind to and modify state from a provider.
 
 ```javascript live-preview
 import Button    from 'neo.mjs/src/button/Base.mjs';
@@ -416,3 +420,7 @@ philosophy. By building on a foundation of true, fine-grained reactivity, it del
     expect, removing hidden gotchas and making state management a reliable and enjoyable process.
 
 This is what a ground-up reactive system enables, and it's a cornerstone of the developer experience in Neo.mjs v10.
+
+---
+
+[<-- Previous: Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
