@@ -169,7 +169,75 @@ MainView = Neo.setupClass(MainView);
 When you edit the text fields, the `setState` call updates the base `user` data. The `Effect` system detects this,
 automatically re-runs the `fullName` formula, and updates the welcome label.
 
-### 4. Hierarchical by Design: Nested Providers That Just Work
+### 4. Formulas Across Hierarchies
+
+The true power of the hierarchical system is revealed when formulas in a child provider can seamlessly use data from a
+parent. This allows you to create powerful, scoped calculations that still react to global application state.
+
+```javascript live-preview
+import Button    from 'neo.mjs/src/button/Base.mjs';
+import Container from 'neo.mjs/src/container/Base.mjs';
+import Label     from 'neo.mjs/src/component/Label.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'My.StateProvider.Example4',
+        layout: {ntype: 'vbox', align: 'stretch', padding: '10px'},
+        // 1. Parent provider with a global tax rate
+        stateProvider: {
+            data: {
+                taxRate: 0.19
+            }
+        },
+        items: [{
+            module: Label,
+            bind: { text: data => `Global Tax Rate: ${data.taxRate * 100}%` }
+        }, {
+            module: Button,
+            text: 'Change Tax Rate',
+            handler() {
+                this.setState({taxRate: Math.random().toFixed(2)});
+            },
+            style: {marginBottom: '10px'}
+        }, {
+            module: Container,
+            // 2. Child provider with a local price
+            stateProvider: {
+                data: {
+                    price: 100
+                },
+                formulas: {
+                    // 3. This formula uses data from BOTH providers
+                    totalPrice: data => data.price * (1 + data.taxRate)
+                }
+            },
+            style: {padding: '10px'},
+            layout: {ntype: 'vbox', align: 'start'},
+            items: [{
+                module: Label,
+                bind: { text: data => `Local Price: €${data.price.toFixed(2)}` }
+            }, {
+                module: Label,
+                bind: { text: data => `Total (inc. Tax): €${data.totalPrice.toFixed(2)}` },
+                style: {fontWeight: 'bold', marginTop: '10px'}
+            }, {
+                module: Button,
+                text: 'Change Price',
+                handler() {
+                    this.setState({price: Math.floor(Math.random() * 100) + 50});
+                },
+                style: {marginTop: '10px'}
+            }]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+In this example, the child provider's `totalPrice` formula depends on its own local `price` and the parent's `taxRate`.
+Clicking either button triggers the correct reactive update, and the total price is always in sync. This demonstrates
+the effortless composition of state across different parts of your application.
+
+### 5. Hierarchical by Design: Nested Providers That Just Work
 
 The v10 provider was engineered to handle different scopes of state with an intelligent hierarchical model. A child
 component can seamlessly access data from its own provider as well as any parent provider.
@@ -193,7 +261,6 @@ class MainView extends Container {
             stateProvider: {
                 data: { user: 'Alice' }
             },
-            border: true,
             style: {padding: '10px', marginTop: '10px'},
             items: [{
                 module: Label,
