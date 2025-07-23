@@ -50,7 +50,7 @@ The true genius of this Two-Tier system is how they are seamlessly bridged toget
 power adapter**: you use a simple, familiar plug (`myButton.text = '...'`), and the adapter transparently handles
 powering both systems at once.
 
-When you define a config with a trailing underscore (e.g., `text_`), the generated setter becomes this adapter. It
+When you define a a config with a trailing underscore (e.g., `text_`), the generated setter becomes this adapter. It
 simultaneously:
 
 1.  **Powers Tier 2 ("Pull"):** It updates the underlying `Neo.core.Config` atom, automatically triggering any dependent effects.
@@ -283,3 +283,61 @@ When you define a component, the framework connects these pieces for you:
 
 This elegant, layered architecture is what provides the power and performance of the v10 reactivity system, delivering a
 developer experience that is both simple on the surface and incredibly robust underneath.
+
+---
+
+## Architectural Proof: The Asynchronous Lifecycle
+
+The Two-Tier Reactivity system isn't just for managing the state inside a single component. Its true power is revealed
+when it's used to solve complex, application-wide architectural challenges. The most potent example of this is how
+Neo.mjs v10 handles the "lazy-load paradox."
+
+This is enabled by three fundamental v10 features: enhanced mixins, an async-aware lifecycle, and intelligent remote
+method interception.
+
+### 1. Enhanced Mixins: True Modules of State and Behavior
+
+This is a core tenet of the Neo.mjs philosophy: **architectural depth enables surface-level simplicity.**
+
+For v10, we revolutionized how our class system handles **mixins**. Previously, they could only copy methods. Now, they
+can also carry their own `configs`, elevating them into truly self-contained modules of both state and behavior. This
+allows us to encapsulate complex logic (e.g., for rendering or remote communication) into single, reusable modules that
+can be cleanly applied to any class.
+
+### 2. A Two-Phase, Async-Aware Lifecycle (`initAsync`)
+
+Every class in Neo.mjs now has a two-phase initialization process. The `construct()` method runs instantly and
+synchronously. It is then followed by `initAsync()`, an `async` method designed for long-running tasks.
+The framework provides a reactive `isReady_` config that automatically flips to `true` only after the `initAsync()`
+promise resolves.
+
+### 3. Intelligent Remote Method Interception
+
+The framework's `RemoteMethodAccess` mixin is aware of this `isReady` state. When a remote call arrives for a main
+thread addon that is not yet ready, it doesn't fail. Instead, it **intercepts the call**.
+
+Let's walk through a practical example: using a powerful, but large, third-party charting library like AmCharts on the
+main thread.
+
+*   Loading it upfront is bad for performance; it blocks the initial application load.
+*   Lazy-loading it creates a classic race condition: what happens if your App Worker sends a command to create a chart
+    *before* the AmCharts library has finished downloading and initializing?
+
+In a traditional framework, this would require complex, manual state management. In Neo.mjs, the solution is an
+elegant and automatic feature of the core reactivity system.
+
+1.  An `AmChart` wrapper component in the App Worker is mounted and sends a remote command: `Neo.main.addon.AmCharts.create(...)`.
+2.  On the main thread, the `AmCharts` addon receives the call. It checks its own `isReady` state, which is `false`.
+3.  Instead of executing the `create` method, it **caches the request** in an internal queue.
+4.  Crucially, it **immediately triggers its own `initAsync()` process**, which begins downloading the AmCharts library files.
+5.  Once the files are loaded, `initAsync()` resolves, and the addon's `isReady` flag flips to `true`.
+6.  The `afterSetIsReady()` hook—a standard feature of the reactivity system—automatically fires, processes the queue of
+    cached calls, and finally creates the chart.
+
+The developer in the App Worker is completely shielded from this complexity. They simply call a method, and the framework
+guarantees it will be executed correctly and in the right order. There are no manual loading flags, no race conditions,
+and no complex queueing logic to write.
+
+This is the ultimate expression of the Neo.mjs philosophy: using the core reactivity engine not just to render UIs, but
+to orchestrate the entire application's asynchronous state and logic. It's the final proof that a robust reactive foundation
+doesn't just simplify your code — it makes entirely new patterns of development possible.

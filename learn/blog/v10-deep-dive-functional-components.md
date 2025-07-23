@@ -109,8 +109,6 @@ const App = () => {
 };
 ```
 
-This manual, defensive coding is a mandatory chore to achieve good performance.
-
 **The Neo.mjs Solution: Surgical Effects, Not Brute-Force Renders**
 
 Our `createVdom` method is a surgical `Effect`. It automatically and precisely tracks every piece of reactive state it reads.
@@ -173,6 +171,90 @@ complex applications that are not primarily focused on static content.
 
 ---
 
+### The "WOW" Effect: Building a Real Application
+
+The simple counter example is a great start, but the true power of functional components is revealed when you build a
+complete, interactive application. Let's build a slightly more advanced "Task List" application to demonstrate how all
+the pieces come together.
+
+This example will showcase:
+- **Component Composition:** Using a class-based `List` component within our functional view.
+- **State Management:** Tracking the currently selected task.
+- **Conditional Rendering:** Displaying task details only when a task is selected.
+- **Event Handling:** Updating state based on events from a child component.
+
+Here is the complete, interactive example.
+
+```javascript live-preview
+import {defineComponent, useConfig} from 'neo.mjs';
+import List from 'neo.mjs/src/list/Base.mjs';
+import Store from 'neo.mjs/src/data/Store.mjs';
+
+// 1. Define a simple data Store for our list
+const TaskStore = Neo.create(Store, {
+    data: [
+        {id: 1, title: 'Build a better component model', description: 'Re-imagine what a component can be when freed from the main thread.'},
+        {id: 2, title: 'Create a new reactivity system', description: 'Design a two-tier system that is both powerful and intuitive.'},
+        {id: 3, title: 'Revolutionize the VDOM',         description: 'Build an asymmetric, off-thread VDOM engine for maximum performance.'}
+    ]
+});
+
+// 2. Define our main application view
+export default defineComponent({
+    config: {
+        className: 'My.TaskListApp',
+        layout: {ntype: 'hbox', align: 'stretch'}
+    },
+    createVdom() {
+        // 3. Manage the selected task with useConfig
+        const [selectedTask, setSelectedTask] = useConfig(null);
+
+        const onSelectionChange = ({value}) => {
+            // 4. Update our state when the list selection changes
+            setSelectedTask(TaskStore.get(value[0]));
+        };
+
+        const paneStyle = {
+            border : '1px solid #c0c0c0',
+            margin : '10px',
+            padding: '10px'
+        };
+
+        return {
+            cn: [{
+                // 5. The List Component
+                module   : List,
+                store    : TaskStore,
+                width    : 250,
+                style    : paneStyle,
+                listeners: {
+                    selectionChange: onSelectionChange
+                }
+            }, {
+                // 6. The Details Pane (with conditional rendering)
+                flex: 1,
+                style: paneStyle,
+                cn: selectedTask ? [
+                    {tag: 'h2', text: selectedTask.title},
+                    {tag: 'p',  text: selectedTask.description}
+                ] : [{
+                    tag  : 'div',
+                    style: {color: '#888'},
+                    text : 'Please select a task to see the details.'
+                }]
+            }]
+        }
+    }
+});
+```
+
+This single `defineComponent` call creates a fully-featured application. Notice how the `createVdom` function is a pure,
+declarative representation of the UI. When the `selectedTask` state changes, the framework surgically re-renders only
+the details pane. This is the power of the new component model in action: complex, stateful, and performant applications
+with beautifully simple code.
+
+---
+
 ### The AI Connection: The Inevitable Next Step
 
 This blueprint-first, surgically reactive, and mutable-by-default model isn't just better for you; it's the architecture
@@ -190,70 +272,10 @@ more performant by default but also simpler, more intuitive, and ready for the A
 
 This is what it feels like to stop paying the performance tax and start building again.
 
-In our previous deep dive, we explored the **Two-Tier Reactivity System** that powers this entire model.
-Next, we will look at how this architecture revolutionizes the very way we render UIs with the Asymmetric VDOM
-and JSON Blueprints.
-
-### Under the Hood: Simple by Design
-
-The `defineComponent` object looks deceptively simple. You might wonder: how does it get its power? How does it know how
-to render, update, and manage its lifecycle without any boilerplate?
-
-This is a core tenet of the Neo.mjs philosophy: **architectural depth enables surface-level simplicity.**
-
 The clean, hook-based API for functional components is possible because it stands on the shoulders of a robust, modular,
 and deeply integrated class system. We've engineered the framework's core to handle the complex machinery of reactivity
-and lifecycle management automatically.
+and lifecycle management automatically. To learn more about the powerful engine that makes this all possible, see our
+deep dive on the **Two-Tier Reactivity System**.
 
-For v10, this included a quiet revolution in how our class system handles **mixins**, elevating them into truly
-self-contained modules of both state and behavior. This allows us to encapsulate all the complex logic for rendering
-(`isVdomUpdating_`, `mounted_`, etc.) into a single, reusable module.
-
-When you use `defineComponent`, the framework automatically endows your component with these capabilities.
-You get the simple, elegant API *because* the complex machinery is so well-encapsulated and handled for you.
-You don't need to see the engine to trust the car.
-
-### Architectural Proof: The Asynchronous Lifecycle
-
-The Two-Tier Reactivity system isn't just for managing the state inside a single component. Its true power is revealed
-when it's used to solve complex, application-wide architectural challenges. The most potent example of this is how
-Neo.mjs v10 handles the "lazy-load paradox."
-
-Imagine you want to use a powerful, but large, third-party library on the main thread—a charting library like AmCharts,
-a rich text editor, or a complex mapping tool.
-
-*   Loading it upfront is bad for performance; it blocks the initial application load.
-*   Lazy-loading it creates a classic race condition: what happens if your App Worker sends a command to create a chart
-    *before* the AmCharts library has finished downloading and initializing?
-
-In a traditional framework, this would require complex, manual state management, loading flags, and event listeners to
-queue and replay actions. In Neo.mjs, the solution is an elegant and automatic feature of the core reactivity system.
-
-This is enabled by two fundamental v10 features:
-
-1.  **A Two-Phase, Async-Aware Lifecycle (`initAsync`)**
-    Every class in Neo.mjs now has a two-phase initialization process. The `construct()` method runs instantly and
-    synchronously. It is then followed by `initAsync()`, an `async` method designed for long-running tasks.
-    The framework provides a reactive `isReady_` config that automatically flips to `true` only after the `initAsync()` promise resolves.
-
-2.  **Intelligent Remote Method Interception**
-    The framework's `RemoteMethodAccess` mixin is aware of this `isReady` state. When a remote call arrives for a main
-    thread addon that is not yet ready, it doesn't fail. Instead, it **intercepts the call**.
-
-Let's walk through the AmCharts example:
-
-1.  An `AmChart` wrapper component in the App Worker is mounted and sends a remote command: `Neo.main.addon.AmCharts.create(...)`.
-2.  On the main thread, the `AmCharts` addon receives the call. It checks its own `isReady` state, which is `false`.
-3.  Instead of executing the `create` method, it **caches the request** in an internal queue.
-4.  Crucially, it **immediately triggers its own `initAsync()` process**, which begins downloading the AmCharts library files.
-5.  Once the files are loaded, `initAsync()` resolves, and the addon's `isReady` flag flips to `true`.
-6.  The `afterSetIsReady()` hook—a standard feature of the reactivity system—automatically fires, processes the queue of
-    cached calls, and finally creates the chart.
-
-The developer in the App Worker is completely shielded from this complexity. They simply call a method, and the framework
-guarantees it will be executed correctly and in the right order. There are no manual loading flags, no race conditions,
-and no complex queueing logic to write.
-
-This is the ultimate expression of the Neo.mjs philosophy: using the core reactivity engine not just to render UIs, but
-to orchestrate the entire application's asynchronous state and logic. It's the final proof that a robust reactive foundation
-doesn't just simplify your code — it makes entirely new patterns of development possible.
+Next, we will look at how this architecture revolutionizes the very way we render UIs with the Asymmetric VDOM
+and JSON Blueprints.
