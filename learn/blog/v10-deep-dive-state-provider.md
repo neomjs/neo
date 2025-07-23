@@ -1,4 +1,4 @@
-# Act I Deep Dive: The State Provider Revolution
+# Deep Dive: The State Provider Revolution
 
 **Subtitle: How Neo.mjs Delivers Intuitive State Management Without the Performance Tax**
 
@@ -41,62 +41,202 @@ This new foundation is what makes the modern `state.Provider` so powerful. It do
 it *knows* them. When a binding function runs, `core.Effect` observes every reactive property you access—no matter where
 it lives—and builds a precise dependency graph in real-time.
 
-The result is an API that is not only more powerful but also simpler and more intuitive.
+The result is an API that is not only more powerful but also simpler and more intuitive, especially when it comes to
+changing state. The provider does what you would expect, automatically handling complex scenarios like deep merging.
 
-```javascript
-// A component with a state provider
-import Container from '../container/Base.mjs';
-import Label     from '../component/Label.mjs';
+```javascript live-preview
+import Button    from 'neo.mjs/src/button/Base.mjs';
+import Container from 'neo.mjs/src/container/Base.mjs';
+import Label     from 'neo.mjs/src/component/Label.mjs';
 
 class MainView extends Container {
     static config = {
+        className: 'My.StateProvider.Example1',
         stateProvider: {
             data: {
                 user: {
-                    firstname: 'Tobias',
-                    lastname : 'Uhlig'
+                    firstName: 'Tobias',
+                    lastName : 'Uhlig'
                 }
             }
         },
+        layout: {ntype: 'vbox', align: 'start'},
         items: [{
             module: Label,
             bind: {
-                // Bind the label's text to the user's full name
-                text: data => `${data.user.firstname} ${data.user.lastname}`
+                text: data => `User: ${data.user.firstName} ${data.user.lastName}`
+            },
+            style: {marginBottom: '10px'}
+        }, {
+            module: Button,
+            text: 'Change First Name',
+            handler() {
+                // This performs a DEEP MERGE, not an overwrite.
+                // The 'lastName' property will be preserved.
+                this.setState({
+                    user: { firstName: 'John' }
+                });
+            }
+        }, {
+            module: Button,
+            text: 'Change Last Name (Path-based)',
+            style: {marginTop: '10px'},
+            handler() {
+                // You can also set a value using its path.
+                this.setState({'user.lastName': 'Doe'});
             }
         }]
     }
 }
+MainView = Neo.setupClass(MainView);
 ```
+Notice the "Change First Name" button. It calls `setState` with an object that only contains `firstName`. The v10 provider
+is smart enough to perform a deep merge, updating `firstName` while leaving `lastName` untouched. This prevents accidental
+data loss and makes state updates safe and predictable by default.
 
-Where the magic truly begins is in how you *change* that data. Thanks to the new deep, proxy-based reactivity system,
-you can modify state with plain JavaScript assignments. It's as simple as it gets:
+### 3. The Power of Formulas: Derived State Made Easy
 
-```javascript
-// Get the provider and change the data directly
-const provider = myComponent.getStateProvider();
+Because the provider is built on `Neo.core.Effect`, creating computed properties ("formulas") is a native, first-class
+feature. You define them in a separate `formulas` config, and the provider automatically keeps them updated.
 
-// This one line is all it takes to trigger a reactive update.
-provider.data.user.firstname = 'Max';
+```javascript live-preview
+import Container from 'neo.mjs/src/container/Base.mjs';
+import Label from 'neo.mjs/src/component/Label.mjs';
+import TextField from 'neo.mjs/src/form/field/Text.mjs';
 
-// Does not overwrite the lastname
-provider.setData({user: {firstname: 'Robert'}})
+class MainView extends Container {
+    static config = {
+        className: 'My.StateProvider.Example2',
+        layout: {ntype: 'vbox', align: 'stretch'},
+        stateProvider: {
+            data: {
+                user: {
+                    firstName: 'Tobias',
+                    lastName : 'Uhlig'
+                }
+            },
+            formulas: {
+                fullName: data => `${data.user.firstName} ${data.user.lastName}`
+            }
+        },
+        items: [{
+            module: Label,
+            bind: { text: data => `Welcome, ${data.fullName}!` },
+            style: {marginBottom: '10px'}
+        }, {
+            module: TextField,
+            labelText: 'First Name',
+            bind: { value: data => data.user.firstName },
+            listeners: {
+                change: function({value}) { this.setState({'user.firstName': value}) }
+            }
+        }, {
+            module: TextField,
+            labelText: 'Last Name',
+            bind: { value: data => data.user.lastName },
+            listeners: {
+                change: function({value}) { this.setState({'user.lastName': value}) }
+            }
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+When you edit the text fields, the `setState` call updates the base `user` data. The `Effect` system detects this,
+automatically re-runs the `fullName` formula, and updates the welcome label.
 
-// You can update multiple properties at once. Thanks to automatic batching,
-// this results in only a single UI update cycle.
-provider.setData({user: {firstname: 'John', lastname: 'Doe'}})
+### 4. Hierarchical by Design: Nested Providers That Just Work
 
-// Alternative Syntax:
-provider.setData({
-    'user.firstname': 'John',
-    'user.lastname' : 'Doe'
+The v10 provider was engineered to handle different scopes of state with an intelligent hierarchical model. A child
+component can seamlessly access data from its own provider as well as any parent provider.
+
+```javascript live-preview
+import Container from 'neo.mjs/src/container/Base.mjs';
+import Label from 'neo.mjs/src/component/Label.mjs';
+
+class MainView extends Container {
+    static config = {
+        className: 'My.StateProvider.Example3',
+        stateProvider: {
+            data: { theme: 'dark' }
+        },
+        layout: {ntype: 'vbox', align: 'stretch', padding: '10px'},
+        items: [{
+            module: Label,
+            bind: { text: data => `Global Theme: ${data.theme}` }
+        }, {
+            module: Container,
+            stateProvider: {
+                data: { user: 'Alice' }
+            },
+            border: true,
+            style: {padding: '10px', marginTop: '10px'},
+            items: [{
+                module: Label,
+                bind: {
+                    text: data => `Local User: ${data.user} (Theme: ${data.theme})`
+                }
+            }]
+        }]
+    }
+}
+MainView = Neo.setupClass(MainView);
+```
+The nested component can access both `user` from its local provider and `theme` from the parent provider without any
+extra configuration.
+
+### 5. The Final Piece: State Providers in Functional Components
+
+Thanks to the v10 refactoring, state providers are now a first-class citizen in functional components. You can define a
+provider and bind to its data with the same power and simplicity as in class-based components.
+
+```javascript live-preview
+import {defineComponent} from 'neo.mjs';
+import Label from 'neo.mjs/src/component/Label.mjs';
+import TextField from 'neo.mjs/src/form/field/Text.mjs';
+
+export default defineComponent({
+    stateProvider: {
+        data: {
+            user: {
+                firstName: 'Jane',
+                lastName : 'Doe'
+            }
+        },
+        formulas: {
+            fullName: data => `${data.user.firstName} ${data.user.lastName}`
+        }
+    },
+    createVdom(config) {
+        return {
+            layout: {ntype: 'vbox', align: 'stretch'},
+            items: [{
+                module: Label,
+                bind: { text: data => `Welcome, ${config.data.fullName}!` },
+                style: {marginBottom: '10px'}
+            }, {
+                module: TextField,
+                labelText: 'First Name',
+                bind: { value: data => config.data.user.firstName },
+                listeners: {
+                    change: ({value}) => config.setState({'user.firstName': value})
+                }
+            }, {
+                module: TextField,
+                labelText: 'Last Name',
+                bind: { value: data => config.data.user.lastName },
+                listeners: {
+                    change: ({value}) => config.setState({'user.lastName': value})
+                }
+            }]
+        }
+    }
 });
 ```
+This example demonstrates the full power of the new architecture: a functional component with its own reactive data,
+computed properties, and two-way bindings, all with clean, declarative code.
 
-There are no special setter functions to call, no reducers to write. You just change the data, and the UI updates.
-This clean, direct developer experience is the "what." Now, let's look at the "how."
-
-### 3. From Theory to Practice: The Comprehensive Guide
+### 6. From Theory to Practice: The Comprehensive Guide
 
 The examples above show the clean, intuitive API. For a complete, hands-on exploration with dozens of live-preview
 examples covering everything from nested providers and formulas to advanced store management, we encourage you to
@@ -105,7 +245,7 @@ this system possible.
 
 **[Read the Full State Providers Guide Here](../guides/datahandling/StateProviders.md)**
 
-### 4. Under the Hood Part 1: The Proxy's Magic
+### 7. Under the Hood Part 1: The Proxy's Magic
 
 The beautiful API above is powered by a sophisticated proxy created by `Neo.state.createHierarchicalDataProxy`.
 When you interact with `provider.data`, you're not touching a plain object; you're interacting with an intelligent agent
@@ -125,7 +265,7 @@ Here’s how it works:
 
 This proxy is the bridge between a simple developer experience and a powerful, fine-grained reactive engine.
 
-### 5. Under the Hood Part 2: The "Reactivity Bubbling" Killer Feature
+### 8. Under the Hood Part 2: The "Reactivity Bubbling" Killer Feature
 
 This is where the Neo.mjs `state.Provider` truly shines and solves the "Context Tax." Consider this critical question:
 
