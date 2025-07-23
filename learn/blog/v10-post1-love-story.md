@@ -254,16 +254,26 @@ The AI doesn't need to know *how* to build the UI; it just needs to describe *wh
 This brings us to today. **Neo.mjs v10 is not an upgrade—it's a new operating system for the web.** It is the culmination
 of years of architectural pioneering, refined into a cohesive and powerful whole. It is the realization of the "third way."
 
+**Quick Project Overview**
+
+Neo.mjs is a pioneering multi-threaded JavaScript framework that redefines web development. Leveraging an Off-Main-Thread
+(OMT) architecture, it delivers unparalleled performance and scalability for complex applications, enabling desktop-class
+multi-window experiences with advanced features like shared state and component persistence, and a zero-builds development
+workflow. Its unified class config system provides a consistent, declarative approach to building UIs, managing data, and
+orchestrating application logic, ensuring linear scalability even for the most intricate projects.
+
+---
+
 We've rebuilt our core, created a new functional component model, and revolutionized our rendering engine. But you don't
 have to take our word for it. We invite you to explore for yourself.
 
 ### Choose Your Own Adventure:
 
 *   **I'm skeptical. Show me the code.**
-    Dive into our collection of 100+ live, interactive examples. See the code, edit it in real-time, and witness the
-    performance for yourself. No setup required.
+    Dive into our collection of 74 live, interactive examples. See the code, edit it in real-time, and witness the
+    performance for yourself. No setup required. Many more demo apps can get navigated to from here.
     <br>
-    **[=> Explore the Examples Portal](https://neomjs.github.io/neo/examples/sitemap/index.html)**
+    **[=> Explore the Examples Portal](https://neomjs.com/dist/esm/apps/portal/#/home)**
 
 *   **I'm intrigued. How does it actually work?**
     This article is the first in a five-part series that goes deep into the architecture of v10. Start with our deep
@@ -315,7 +325,7 @@ To put the magnitude of the project in numbers:
 **Number of files:**
 * `/src` 303
 * `/apps` 260
-* `/examples` 471
+* `/examples` 471 (105 executable example apps)
 * `/test` 48
 * `/resources` 420
 
