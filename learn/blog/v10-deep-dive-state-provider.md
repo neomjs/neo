@@ -44,6 +44,30 @@ it lives—and builds a precise dependency graph in real-time.
 The result is an API that is not only more powerful but also simpler and more intuitive, especially when it comes to
 changing state. The provider does what you would expect, automatically handling complex scenarios like deep merging.
 
+Where the magic truly begins is in how you *change* that data. Thanks to the new deep, proxy-based reactivity system,
+you can modify state with plain JavaScript assignments. It's as simple as it gets:
+
+```javascript readonly
+// Get the provider and change the data directly
+const provider = myComponent.getStateProvider();
+
+// This one line is all it takes to trigger a reactive update.
+provider.data.user.firstname = 'Max';
+
+// Does not overwrite the lastname
+provider.setData({user: {firstname: 'Robert'}})
+
+// You can update multiple properties at once. Thanks to automatic batching,
+// this results in only a single UI update cycle.
+provider.setData({user: {firstname: 'John', lastname: 'Doe'}})
+
+// Alternative Syntax:
+provider.setData({
+    'user.firstname': 'John',
+    'user.lastname' : 'Doe'
+});
+```
+
 ```javascript live-preview
 import Button    from 'neo.mjs/src/button/Base.mjs';
 import Container from 'neo.mjs/src/container/Base.mjs';
