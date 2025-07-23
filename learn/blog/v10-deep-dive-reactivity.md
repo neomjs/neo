@@ -379,20 +379,30 @@ class MyAsyncService extends Base {
     }
 
     async initAsync() {
-        console.log('initAsync started. isReady:', this.isReady); // Logs: initAsync started. isReady: false
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate async work
-        console.log('initAsync finished. isReady:', this.isReady); // Logs: initAsync finished. isReady: true
+        await super.initAsync(); // Mandatory: Await the parent's initAsync
+        console.log('initAsync started. Simulating async work...');
+        await this.timeout(1000); // Simulate async work
+        console.log('initAsync finished.');
+        // isReady will flip to true *after* this promise resolves,
+        // triggering afterSetIsReady()
+    }
+
+    // This hook is called by the framework when isReady_ changes
+    afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue); // Call super if it exists
+        if (value === true) {
+            console.log('MyAsyncService is now ready!');
+        }
     }
 }
 
 const service = Neo.create(MyAsyncService);
-console.log('Service created. isReady:', service.isReady); // Logs: Service created. isReady: false
-// initAsync will automatically be called by the framework after construction
+console.log('Service created. isReady (initial):', service.isReady); // Logs: Service created. isReady (initial): false
+// Console will then log:
+// initAsync started. Simulating async work...
+// initAsync finished.
+// MyAsyncService is now ready!
 ```
-
-
-
-
 
 ### 3. Intelligent Remote Method Interception
 
@@ -484,6 +494,21 @@ class MyHeavyLibraryAddon extends AddonBase {
     console.log('--- Simulation End ---');
 })();
 ```
+
+**Explanation of this example's relevance:**
+This snippet demonstrates how Neo.mjs handles remote method calls to Main Thread addons that might not be immediately ready.
+
+* `MyHeavyLibraryAddon` (Main Thread Addon):
+    * Extends AddonBase, inheriting the core logic for initAsync, isReady_, onInterceptRemotes, and afterSetIsReady.
+    * Defines interceptRemotes to specify which methods should be queued if the addon isn't ready.
+    * Implements loadFiles() to simulate the asynchronous loading of external resources (e.g., a large third-party library).
+    * Exposes loadResource and processData as remote methods that can be called from the App Worker.
+* Simulation of App Worker Calls:
+    * Shows how an App Worker component would make calls to the Main Thread addon using Neo.main.addon.AddonClassName.methodName().
+    * These calls are made before the MyHeavyLibraryAddon has completed its initAsync (and loadFiles).
+    * The AddonBase's onInterceptRemotes automatically intercepts these calls, queues them, and returns a promise that will resolve later.
+    * Once MyHeavyLibraryAddon finishes its initAsync (simulated by loadFiles completing), its isReady_ config flips to true.
+    * The AddonBase's afterSetIsReady then automatically processes the queued calls, resolving the original promises.
 
 This is the ultimate expression of the Neo.mjs philosophy: using the core reactivity engine not just to render UIs, but
 to orchestrate the entire application's asynchronous state and logic. It's the final proof that a robust reactive foundation
