@@ -103,16 +103,18 @@ class List extends BaseList {
 
     /**
      * @param {Object} record
+     * @param {Number} index
      */
-    createItemContent(record) {
-        let me = this;
+    createItemContent(record, index) {
+        let me         = this,
+            imageStyle = index < 4 ? me.getBackgroundImageStyle(record) : null;
 
         return [
             {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['neo-multi-window'], data: {neoTooltip: 'Multi Window Demo'}, removeDom: !record.sharedWorkers, cn: [
                     {cls: ['far', 'fa-window-restore']}
                 ]},
-                {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`},
+                {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`, style: imageStyle},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...me.createLink(record)},
                     {cls: ['neo-top-20'], cn: [
@@ -178,6 +180,22 @@ class List extends BaseList {
     }
 
     /**
+     * @param record
+     * @returns {{backgroundImage: string}}
+     */
+    getBackgroundImageStyle(record) {
+        return {
+            backgroundImage: [
+                `url('${this.imageBasePath}/${record.image}'),`,
+                'linear-gradient(',
+                'var(--portal-examples-list-gradient-start),',
+                'var(--portal-examples-list-gradient-end)',
+                ')'
+            ].join('')
+        }
+    }
+
+    /**
      * @returns {Object}
      */
     getVdomRoot() {
@@ -209,12 +227,12 @@ class List extends BaseList {
      * @param {Object} data
      */
     onIntersect(data) {
-        let me                     = this,
-            {imageBasePath, store} = me,
-            record                 = store.get(parseInt(data.data.recordId)),
-            i                      = store.indexOf(record),
-            len                    = Math.min(i + me.preloadImages, store.getCount()),
-            needsUpdate            = false,
+        let me          = this,
+            {store}     = me,
+            record      = store.get(parseInt(data.data.recordId)),
+            i           = store.indexOf(record),
+            len         = Math.min(i + me.preloadImages, store.getCount()),
+            needsUpdate = false,
             node;
 
         for (; i < len; i++) {
@@ -222,16 +240,7 @@ class List extends BaseList {
 
             if (!node.style) {
                 needsUpdate = true;
-
-                node.style = {
-                    backgroundImage: [
-                        `url('${imageBasePath}/${record.image}'),`,
-                        'linear-gradient(',
-                            'var(--portal-examples-list-gradient-start),',
-                            'var(--portal-examples-list-gradient-end)',
-                        ')'
-                    ].join('')
-                }
+                node.style = me.getBackgroundImageStyle(record)
             }
         }
 
