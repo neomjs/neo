@@ -1,6 +1,6 @@
 {
     "name"           : "neo.mjs",
-    "version"        : "10.0.0",
+    "version"        : "10.0.1",
     "description"    : "Neo.mjs: The multi-threaded UI framework for building ultra-fast, desktop-like web applications with uncompromised responsiveness, inherent security, and a transpilation-free dev mode.",
     "type"           : "module",
     "repository"     : {
