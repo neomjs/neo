@@ -63,6 +63,24 @@ large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundame
    common in other frameworks.
 
 </br></br>
+## 🚀 Inside v10: A New Era of Frontend Architecture
+
+The v10 release marks a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. We've rebuilt the engine to provide an even more powerful and intuitive developer experience, making it simpler than ever to build complex, performant applications.
+
+To understand the depth of these changes and the philosophy behind them, we've published a five-part blog series that dives deep into the architecture of v10:
+
+1.  **[A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./learn/blog/v10-post1-love-story.md)**
+    *   *An introduction to the core problems in modern frontend development and the architectural vision of Neo.mjs.*
+2.  **[Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./learn/blog/v10-deep-dive-reactivity.md)**
+    *   *Explore the powerful two-tier reactivity system that makes the "memoization tax" a thing of the past.*
+3.  **[Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./learn/blog/v10-deep-dive-functional-components.md)**
+    *   *Discover how functional components in a multi-threaded world eliminate the trade-offs of traditional hooks.*
+4.  **[Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./learn/blog/v10-deep-dive-vdom-revolution.md)**
+    *   *Learn how our off-thread VDOM engine uses simple JSON blueprints for maximum performance and security.*
+5.  **[Deep Dive: The State Provider Revolution](./learn/blog/v10-deep-dive-state-provider.md)**
+    *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
+
+</br></br>
 ## 📦 Batteries Included: A Comprehensive Component Library
 
 While other frameworks provide just the view layer, Neo.mjs delivers a complete, natively integrated ecosystem. You'll find a rich
