@@ -25,17 +25,6 @@ class RemoteMethodAccess extends Base {
     }
 
     /**
-     * @param {Object} source
-     * @param {Object} target
-     */
-    assignPort(source, target) {
-        if (source) {
-            const {appName, port, windowId} = source;
-            Object.assign(target, {appName, port, windowId})
-        }
-    }
-
-    /**
      * @param {Object} remote
      * @param method
      * @returns {function(*=, *=): Promise<any>}

@@ -1,6 +1,30 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Jul 24, 2025",
+    "id"          : 66,
+    "image"       : "FrontendReactivityRevolution.png",
+    "name"        : "Frontend Reactivity Revolution: Named vs. Anonymous State",
+    "provider"    : "Medium",
+    "publisher"   : "ITNEXT",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/frontend-reactivity-revolution-named-vs-anonymous-state-5428c1aa17b5?source=friends_link&sk=8391d8f6b8e18f68d37ac90129f355ff"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Jul 24, 2025",
+    "id"          : 65,
+    "image"       : "a_frontend_love_story.png",
+    "name"        : "A Frontend Love Story",
+    "provider"    : "Medium",
+    "publisher"   : "ITNEXT",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/a-frontend-love-story-111e6eeea8a6?source=friends_link&sk=da33ff064e874dde2d215570fa580d00"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Jun 02, 2025",
     "id"          : 64,
     "image"       : "json-blueprints.png",
