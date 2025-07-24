@@ -1,10 +1,6 @@
-import Base             from '../../core/Base.mjs';
-import ComponentManager from '../../manager/Component.mjs';
-import DomEvents        from '../../mixin/DomEvents.mjs';
-import Effect           from '../../core/Effect.mjs';
-import NeoArray         from '../../util/Array.mjs';
-import Observable       from '../../core/Observable.mjs';
-import VdomLifecycle    from '../../mixin/VdomLifecycle.mjs';
+import Abstract from '../../component/Abstract.mjs';
+import Effect   from '../../core/Effect.mjs';
+import NeoArray from '../../util/Array.mjs';
 
 const
     activeDomListenersSymbol = Symbol.for('activeDomListeners'),
@@ -15,12 +11,9 @@ const
 
 /**
  * @class Neo.functional.component.Base
- * @extends Neo.core.Base
- * @mixes Neo.component.mixin.DomEvents
- * @mixes Neo.core.Observable
- * @mixes Neo.component.mixin.VdomLifecycle
+ * @extends Neo.component.Abstract
  */
-class FunctionalBase extends Base {
+class FunctionalBase extends Abstract {
     static config = {
         /**
          * @member {String} className='Neo.functional.component.Base'
@@ -33,39 +26,10 @@ class FunctionalBase extends Base {
          */
         ntype: 'functional-component',
         /**
-         * Custom CSS selectors to apply to the root level node of this component
-         * @member {String[]} cls=null
-         * @reactive
-         */
-        cls: null,
-        /**
-         * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
-         */
-        mixins: [DomEvents, Observable, VdomLifecycle],
-        /**
-         * True after the component render() method was called. Also fires the rendered event.
-         * @member {Boolean} mounted_=false
-         * @protected
-         * @reactive
-         */
-        mounted_: false,
-        /**
-         * @member {String|null} parentId_=null
-         * @protected
-         * @reactive
-         */
-        parentId_: null,
-        /**
          * The vdom markup for this component.
          * @member {Object} vdom={}
          */
-        vdom: {},
-        /**
-         * The custom windowIs (timestamp) this component belongs to
-         * @member {Number|null} windowId_=null
-         * @reactive
-         */
-        windowId_: null
+        vdom: {}
     }
 
     /**
@@ -74,52 +38,11 @@ class FunctionalBase extends Base {
      */
     childComponents = null
     /**
-     * Internal flag which will get set to true while a component is waiting for its mountedPromise
-     * @member {Boolean} isAwaitingMount=false
-     * @protected
-     */
-    isAwaitingMount = false
-    /**
      * Internal Map to store the next set of components after the createVdom() Effect has run.
      * @member {Map|null} nextChildComponents=null
      * @private
      */
     #nextChildComponents = null
-
-    /**
-     * A Promise that resolves when the component is mounted to the DOM.
-     * This provides a convenient way to wait for the component to be fully
-     * available and interactive before executing subsequent logic.
-     *
-     * It also handles unmounting by resetting the promise, so it can be safely
-     * awaited again if the component is remounted.
-     * @returns {Promise<Neo.component.Base>}
-     */
-    get mountedPromise() {
-        let me = this;
-
-        if (!me._mountedPromise) {
-            me._mountedPromise = new Promise(resolve => {
-                if (me.mounted) {
-                    resolve(me);
-                } else {
-                    me.mountedPromiseResolve = resolve
-                }
-            })
-        }
-
-        return me._mountedPromise
-    }
-
-    /**
-     * Convenience method to access the parent component
-     * @returns {Neo.component.Base|null}
-     */
-    get parent() {
-        let me = this;
-
-        return me.parentComponent || (me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId))
-    }
 
     /**
      * @param {Object} config
@@ -143,7 +66,7 @@ class FunctionalBase extends Base {
             fn: () => {
                 me[hookIndexSymbol]        = 0;
                 me[pendingDomEventsSymbol] = []; // Clear pending events for new render
-                me[vdomToApplySymbol]      = me.createVdom(me, me.data)
+                me[vdomToApplySymbol]      = me.createVdom(me)
             },
             componentId: me.id,
             subscriber : {
@@ -155,38 +78,20 @@ class FunctionalBase extends Base {
     }
 
     /**
-     * Triggered after the id config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetId(value, oldValue) {
-        super.afterSetId(value, oldValue);
-
-        oldValue && ComponentManager.unregister(oldValue);
-        value    && ComponentManager.register(this)
-    }
-
-    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (oldValue !== undefined) {
             const me = this;
 
             if (value) { // mount
-                me.initDomEvents();
-
                 // Initial registration of DOM event listeners when component mounts
                 me.applyPendingDomListeners();
-
-                me.mountedPromiseResolve?.(this);
-                delete me.mountedPromiseResolve
-            } else { // unmount
-                delete me._mountedPromise
             }
         }
     }
@@ -198,21 +103,11 @@ class FunctionalBase extends Base {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        const me = this;
+        super.afterSetWindowId(value, oldValue);
 
-        if (value) {
-            Neo.currentWorker.insertThemeFiles(value, me.__proto__)
-        }
-
-        me.childComponents?.forEach(childData => {
+        this.childComponents?.forEach(childData => {
             childData.instance.windowId = value
         })
-
-        // If a component gets moved into a different window, an update cycle might still be running.
-        // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
-        if (oldValue) {
-            me.isVdomUpdating = false
-        }
     }
 
     /**
@@ -243,13 +138,43 @@ class FunctionalBase extends Base {
     }
 
     /**
+     * A lifecycle hook that runs after a state change has been detected but before the
+     * VDOM update is dispatched. It provides a dedicated place for logic that needs to
+     * execute before rendering, such as calculating derived data or caching values.
+     *
+     * You can prevent the VDOM update by returning `false` from this method. This is
+     * useful for advanced cases where you might want to manually trigger a different
+     * update after modifying other component configs.
+     *
+     * **IMPORTANT**: Do not change the value of any config that is used as a dependency
+     * within the `createVdom` method from inside this hook, as it will cause an
+     * infinite update loop. This hook is for one-way data flow, not for triggering
+     * cascading reactive changes.
+     *
+     * @returns {Boolean|undefined} Return `false` to cancel the upcoming VDOM update.
+     * @example
+     * beforeUpdate() {
+     *     // Perform an expensive calculation and cache the result on the instance
+     *     this.processedData = this.processRawData(this.rawData);
+     *
+     *     // Example of conditionally cancelling an update
+     *     if (this.processedData.length === 0 && this.vdom.cn?.length === 0) {
+     *         return false; // Don't re-render if there's nothing to show
+     *     }
+     * }
+     */
+    beforeUpdate() {
+        // This method can be overridden by subclasses
+    }
+
+    /**
      * Override this method in your functional component to return its VDOM structure.
      * This method will be automatically re-executed when any of the component's configs change.
+     * To access data from a state provider, use `config.data`.
      * @param {Neo.functional.component.Base} config - Mental model: while it contains the instance, it makes it clear to access configs
-     * @param {Object}                        data   - Convenience shortcut for accessing `state.Provider` data
      * @returns {Object} The VDOM structure for the component.
      */
-    createVdom(config, data) {
+    createVdom(config) {
         // This method should be overridden by subclasses
         return {}
     }
@@ -268,12 +193,8 @@ class FunctionalBase extends Base {
         });
         me.childComponents?.clear();
 
-        me.removeDomEvents();
-
         // Remove any pending DOM event listeners that might not have been mounted
         me[pendingDomEventsSymbol] = null;
-
-        ComponentManager.unregister(me);
 
         super.destroy()
     }
@@ -382,7 +303,14 @@ class FunctionalBase extends Base {
                     root.id = me.id
                 }
 
-                me.updateVdom();
+                // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
+                // This is crucial for functional components where the vdom is recreated on every render,
+                // ensuring the diffing algorithm can track nodes correctly.
+                me.syncVdomIds();
+
+                if (me.beforeUpdate() !== false) {
+                    me.updateVdom()
+                }
 
                 // Update DOM event listeners based on the new render
                 if (me.mounted) {
@@ -471,28 +399,6 @@ class FunctionalBase extends Base {
         }
 
         return vdomTree
-    }
-
-    /**
-     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
-     * @param {Object} values={}
-     * @param {Boolean} silent=false
-     * @returns {Promise<*>}
-     */
-    set(values={}, silent=false) {
-        let me = this;
-
-        me.silentVdomUpdate = true;
-
-        super.set(values);
-
-        me.silentVdomUpdate = false;
-
-        if (silent || !me.needsVdomUpdate) {
-            return Promise.resolve()
-        }
-
-        return me.promiseUpdate()
     }
 }
 

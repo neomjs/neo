@@ -1,35 +1,27 @@
-import Base             from '../core/Base.mjs';
+import Abstract         from './Abstract.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import DomEvents        from '../mixin/DomEvents.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
-import Observable       from '../core/Observable.mjs';
 import Rectangle        from '../util/Rectangle.mjs';
 import Style            from '../util/Style.mjs';
-import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 const
-    addUnits            = value => value == null ? value : isNaN(value) ? value : `${value}px`,
-    closestController   = Symbol.for('closestController'),
-    closestProvider     = Symbol.for('closestProvider'),
-    {currentWorker}     = Neo,
-    lengthRE            = /^\d+\w+$/,
-    twoWayBindingSymbol = Symbol.for('twoWayBinding');
+    addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
+    closestController = Symbol.for('closestController'),
+    {currentWorker}   = Neo,
+    lengthRE          = /^\d+\w+$/;
 
 /**
  * Base class for all Components which have a DOM representation
  * @class Neo.component.Base
- * @extends Neo.core.Base
- * @mixes Neo.component.mixin.DomEvents
- * @mixes Neo.core.Observable
- * @mixes Neo.component.mixin.VdomLifecycle
+ * @extends Neo.component.Abstract
  */
-class Component extends Base {
+class Component extends Abstract {
     /**
      * Valid values for hideMode
      * @member {String[]} hideModes=['removeDom','visibility']
@@ -64,35 +56,10 @@ class Component extends Base {
             }
         },
         /**
-         * The name of the App this component belongs to
-         * @member {String|null} appName_=null
-         * @reactive
-         */
-        appName_: null,
-        /**
          * CSS selectors to apply to the root level node of this component
          * @member {String[]} baseCls=[]
          */
         baseCls: [],
-        /**
-         * Bind configs to state.Provider data properties.
-         * Example for a button.Base:
-         * @example
-         * bind: {
-         *     iconCls: data => `fa fa-{$data.icon}`,
-         *     text   : data => data.foo.bar
-         * }
-         * @see https://github.com/neomjs/neo/blob/dev/examples/stateProvider
-         * @member {Object|null} bind=null
-         */
-        bind: null,
-        /**
-         * Custom CSS selectors to apply to the root level node of this component
-         * You can override baseCls to remove default selectors.
-         * @member {String[]} cls_=null
-         * @reactive
-         */
-        cls_: null,
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
@@ -106,20 +73,6 @@ class Component extends Base {
          * @reactive
          */
         controller_: null,
-        /**
-         * Convenience shortcut to access the data config of the closest state.Provider.
-         * Read only.
-         * @member {Object} data_=null
-         * @protected
-         * @reactive
-         */
-        data_: null,
-        /**
-         * Disabled components will get the neo-disabled cls applied and won't receive DOM events
-         * @member {Boolean} disabled_=false
-         * @reactive
-         */
-        disabled_: false,
         /**
          * Set this config to true to dynamically import a DropZone module & create an instance
          * @member {Boolean} droppable_=false
@@ -215,31 +168,6 @@ class Component extends Base {
          */
         minWidth_: null,
         /**
-         * @member {Neo.core.Base[]} mixins=[DomEvents, Observable, VdomLifecycle]
-         */
-        mixins: [DomEvents, Observable, VdomLifecycle],
-        /**
-         * Override specific stateProvider data properties.
-         * This will merge the content.
-         * @member {Object|null} modelData=null
-         */
-        modelData: null,
-        /**
-         * If the parentId does not match a neo component id, you can manually set this value for finding
-         * view controllers or state providers.
-         * Use case: manually dropping components into a vdom structure
-         * @member {Neo.component.Base|null} parentComponent_=null
-         * @protected
-         * @reactive
-         */
-        parentComponent_: null,
-        /**
-         * The parent component id or document.body
-         * @member {String} parentId_='document.body'
-         * @reactive
-         */
-        parentId_: 'document.body',
-        /**
          * Array of Plugin Modules and / or config objects
          * @member {Array|null} plugins_=null
          * @protected
@@ -276,12 +204,6 @@ class Component extends Base {
          * @reactive
          */
         scrollable_: false,
-        /**
-         * Optionally add a state.Provider to share state data with child components
-         * @member {Object|null} stateProvider_=null
-         * @reactive
-         */
-        stateProvider_: null,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
          * @member {Object} style={[isDescriptor]: true, merge: 'shallow', value: null}
@@ -338,12 +260,6 @@ class Component extends Base {
          */
         width_: null,
         /**
-         * The custom windowIs (timestamp) this component belongs to
-         * @member {Number|null} windowId_=null
-         * @reactive
-         */
-        windowId_: null,
-        /**
          * @member {String[]|null} wrapperCls_=null
          * @reactive
          */
@@ -366,73 +282,10 @@ class Component extends Base {
     }
 
     /**
-     * Internal flag which will get set to true while a component is waiting for its mountedPromise
-     * @member {Boolean} isAwaitingMount=false
-     * @protected
-     */
-    isAwaitingMount = false
-
-    /**
-     * Convenience shortcut to access the App this component belongs to
-     * @returns {Neo.controller.Application|null}
-     */
-    get app() {
-        return Neo.apps[this.appName] || null
-    }
-
-    /**
      * Returns true if this Component is fully visible, that is it is not hidden and has no hidden ancestors
      */
     get isVisible() {
         return this.mounted && !this.hidden && (!this.parent || this.parent.isVisible);
-    }
-
-    /**
-     * Apply component based listeners
-     * @member {Object} listeners={}
-     */
-    get listeners() {
-        return this._listeners || {}
-    }
-    set listeners(value) {
-        this._listeners = value
-    }
-
-    /**
-     * A Promise that resolves when the component is mounted to the DOM.
-     * This provides a convenient way to wait for the component to be fully
-     * available and interactive before executing subsequent logic.
-     *
-     * It also handles unmounting by resetting the promise, so it can be safely
-     * awaited again if the component is remounted.
-     * @returns {Promise<Neo.component.Base>}
-     */
-    get mountedPromise() {
-        let me = this;
-
-        if (!me._mountedPromise) {
-            me._mountedPromise = new Promise(resolve => {
-                if (me.mounted) {
-                    // If already mounted, resolve immediately.
-                    resolve(me)
-                } else {
-                    // Otherwise, store the resolver to be called by afterSetMounted.
-                    me.mountedPromiseResolve = resolve
-                }
-            })
-        }
-
-        return this._mountedPromise
-    }
-
-    /**
-     * Convenience method to access the parent component
-     * @returns {Neo.component.Base|null}
-     */
-    get parent() {
-        let me = this;
-
-        return me.parentComponent || (me.parentId === 'document.body' ? null : Neo.getComponent(me.parentId))
     }
 
     /**
@@ -542,30 +395,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggered after any config got changed
-     * @param {String} key
-     * @param {*} value
-     * @param {*} oldValue
-     * @protected
-     */
-    afterSetConfig(key, value, oldValue) {
-        let me = this;
-
-        if (Neo.isUsingStateProviders && me[twoWayBindingSymbol]) {
-            // When a component config is updated by its state provider, this flag is set to the config's key.
-            // This prevents circular updates in two-way data bindings by skipping the push back to the state provider.
-            if (me._skipTwoWayPush === key) {
-                return;
-            }
-            let binding = me.bind?.[key];
-
-            if (binding?.twoWay) {
-                this.getStateProvider()?.setData(binding.key, value)
-            }
-        }
-    }
-
-    /**
      * Triggered after the disabled config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -655,10 +484,7 @@ class Component extends Base {
      */
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
-        this.changeVdomRootKey('id', value);
-
-        oldValue && ComponentManager.unregister(oldValue);
-        value    && ComponentManager.register(this)
+        this.changeVdomRootKey('id', value)
     }
 
     /**
@@ -746,31 +572,24 @@ class Component extends Base {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (oldValue !== undefined) {
-            let me             = this,
-                {id, windowId} = me;
+            let me = this;
 
             if (value) { // mount
                 me.hasBeenMounted = true;
-
-                me.initDomEvents();
 
                 if (me.floating) {
                     me.alignTo();
 
                     // Focus will be pushed into the first input field or other focusable item
-                    me.focus(id, true)
+                    me.focus(me.id, true)
                 }
-
-                me.mountedPromiseResolve?.(this);
-                delete me.mountedPromiseResolve;
 
                 me.fire('mounted', me.id);
             } else { // unmount
-                me.revertFocus();
-
-                // The promise needs to get reset, in case the component gets remounted.
-                delete me._mountedPromise;
+                me.revertFocus()
             }
         }
     }
@@ -854,16 +673,6 @@ class Component extends Base {
                 me.removeCls('neo-scrollable')
             }
         }
-    }
-
-    /**
-     * Triggered after the stateProvider config got changed
-     * @param {Neo.state.Provider} value
-     * @param {Object|Neo.state.Provider|null} oldValue
-     * @protected
-     */
-    afterSetStateProvider(value, oldValue) {
-        value?.createBindings(this)
     }
 
     /**
@@ -987,21 +796,12 @@ class Component extends Base {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        let me         = this,
-            controller = me.controller;
+        super.afterSetWindowId(value, oldValue);
 
-        if (value) {
-            currentWorker.insertThemeFiles(value, me.__proto__);
+        let controller = this.controller;
 
-            if (controller) {
-                controller.windowId = value
-            }
-        }
-
-        // If a component gets moved into a different window, an update cycle might still be running.
-        // Since the update might no longer get mapped, we want to re-enable this instance for future updates.
-        if (oldValue) {
-            me.isVdomUpdating = false
+        if (controller) {
+            controller.windowId = value
         }
     }
 
@@ -1083,16 +883,6 @@ class Component extends Base {
      */
     beforeGetCls(value) {
         return value ? [...value] : []
-    }
-
-    /**
-     * Triggered when accessing the data config
-     * Convenience shortcut which is expensive to use, since it will generate a merged parent state providers data map.
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetData(value) {
-        return this.getStateProvider().getHierarchyData()
     }
 
     /**
@@ -1256,31 +1046,6 @@ class Component extends Base {
     }
 
     /**
-     * Triggered before the stateProvider config gets changed.
-     * Creates a state.Provider instance if needed.
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @returns {Neo.state.Provider}
-     * @protected
-     */
-    beforeSetStateProvider(value, oldValue) {
-        oldValue?.destroy();
-
-        if (value) {
-            let me            = this,
-                defaultValues = {component: me};
-
-            if (me.modelData) {
-                defaultValues.data = me.modelData
-            }
-
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.state.Provider', defaultValues)
-        }
-
-        return null
-    }
-
-    /**
      * Triggered before the updateDepth config gets changed.
      * @param {Number} value
      * @param {Number} oldValue
@@ -1377,13 +1142,9 @@ class Component extends Base {
 
         me.revertFocus();
 
-        me.removeDomEvents();
-
         me.controller = null; // triggers destroy()
 
         me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
-
-        me.stateProvider = null; // triggers destroy()
 
         me.plugins?.forEach(plugin => {
             plugin.destroy()
@@ -1399,8 +1160,6 @@ class Component extends Base {
                 parent[silent ? '_vdom' : 'vdom'] = parentVdom
             }
         }
-
-        ComponentManager.unregister(me);
 
         super.destroy();
 
@@ -1440,35 +1199,6 @@ class Component extends Base {
         }
 
         return result
-    }
-
-    /**
-     * Find an instance stored inside a config via optionally passing a ntype.
-     * Returns this[configName] or the closest parent component with a match.
-     * Used by getController() & getStateProvider()
-     * @param {String} configName
-     * @param {String} [ntype]
-     * @returns {Neo.core.Base|null}
-     */
-    getConfigInstanceByNtype(configName, ntype) {
-        let me                = this,
-            config            = me[configName],
-            {parentComponent} = me;
-
-        if (config && (!ntype || ntype === config.ntype)) {
-            return config
-        }
-
-        if (!parentComponent && me.parentId) {
-            parentComponent = me.parent || Neo.get(me.parentId);
-        }
-
-        if (parentComponent) {
-            // todo: We need ?. until functional.component.Base supports controllers
-            return parentComponent.getConfigInstanceByNtype?.(configName, ntype)
-        }
-
-        return null
     }
 
     /**
@@ -1565,45 +1295,6 @@ class Component extends Base {
     }
 
     /**
-     * Convenience shortcut
-     * @param args
-     * @returns {*}
-     */
-    getState(...args) {
-        return this.getStateProvider().getData(...args)
-    }
-
-    /**
-     * Returns this.stateProvider or the closest parent stateProvider
-     * @param {String} [ntype]
-     * @returns {Neo.state.Provider|null}
-     */
-    getStateProvider(ntype) {
-        if (!Neo.isUsingStateProviders) {
-            return null
-        }
-
-        let me = this,
-            provider;
-
-        if (!ntype) {
-            provider = me[closestProvider];
-
-            if (provider) {
-                return provider
-            }
-        }
-
-        provider = me.getConfigInstanceByNtype('stateProvider', ntype);
-
-        if (!ntype) {
-            me[closestProvider] = provider
-        }
-
-        return provider
-    }
-
-    /**
      * Walks up the vdom tree and returns the closest theme found
      * @returns {String}
      */
@@ -1675,14 +1366,6 @@ class Component extends Base {
      */
     init() {
         this.autoRender && this.render()
-    }
-
-    /**
-     * @param args
-     */
-    initConfig(...args) {
-        super.initConfig(...args);
-        this.getStateProvider()?.createBindings(this)
     }
 
     /**
@@ -1794,12 +1477,11 @@ class Component extends Base {
      *
      */
     onConstructed() {
-        super.onConstructed()
+        super.onConstructed();
 
         let me = this;
 
         me.keys?.register(me);
-        me.getStateProvider()?.createBindings(me)
     }
 
     /**
@@ -1890,50 +1572,6 @@ class Component extends Base {
         if (this.containsFocus && relatedTarget) {
             Neo.getComponent(relatedTarget.id)?.focus()
         }
-    }
-
-    /**
-     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
-     * @param {Object} values={}
-     * @param {Boolean} silent=false
-     * @returns {Promise<*>}
-     */
-    set(values={}, silent=false) {
-        const
-            me        = this,
-            wasHidden = me.hidden;
-
-        me.setSilent(values);
-
-        if (!silent && me.needsVdomUpdate) {
-            if (wasHidden && !me.hidden) {
-                me.show();
-                return Promise.resolve()
-            }
-
-            return me.promiseUpdate()
-        }
-
-        return Promise.resolve()
-    }
-
-    /**
-     * A silent version of set(), which does not trigger a vdom update at the end.
-     * Useful for batching multiple config changes.
-     * @param {Object} values={}
-     */
-    setSilent(values={}) {
-        this.silentVdomUpdate = true;
-        super.set(values);
-        this.silentVdomUpdate = false
-    }
-
-    /**
-     * Convenience shortcut
-     * @param args
-     */
-    setState(...args) {
-        this.getStateProvider().setData(...args)
     }
 
     /**

@@ -1,15 +1,15 @@
-import Neo              from '../../../../src/Neo.mjs';
-import * as core        from '../../../../src/core/_export.mjs';
-import ComponentManager from '../../../../src/manager/Component.mjs';
-import TreeBuilder      from '../../../../src/util/vdom/TreeBuilder.mjs';
-import VDomUpdate       from '../../../../src/manager/VDomUpdate.mjs';
-import VdomLifecycle    from '../../../../src/mixin/VdomLifecycle.mjs';
-import VdomHelper       from '../../../../src/vdom/Helper.mjs';
-import VDomUtil         from '../../../../src/util/VDom.mjs';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import ComponentManager   from '../../../../src/manager/Component.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import TreeBuilder        from '../../../../src/util/vdom/TreeBuilder.mjs';
+import VDomUpdate         from '../../../../src/manager/VDomUpdate.mjs';
+import VdomLifecycle      from '../../../../src/mixin/VdomLifecycle.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+import VDomUtil           from '../../../../src/util/VDom.mjs';
 
 // IMPORTANT: Test with the new standard renderer
 Neo.config.useDomApiRenderer = true;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: true});
 
 /**
  * Creates a mock component object for testing.

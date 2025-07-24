@@ -1,6 +1,15 @@
 import Base              from './Base.mjs';
 import NeoArray          from '../util/Array.mjs';
+import {isDescriptor}    from '../core/ConfigSymbols.mjs';
 import {resolveCallback} from '../util/Function.mjs';
+
+/**
+ * A unique, non-enumerable key for the internal event map.
+ * Using a Symbol prevents property name collisions on the consuming class instance,
+ * providing a robust way to manage private state within a mixin.
+ * @type {Symbol}
+ */
+const eventMapSymbol = Symbol('eventMap');
 
 /**
  * @class Neo.core.Observable
@@ -19,11 +28,34 @@ class Observable extends Base {
          */
         ntype: 'mixin-observable',
         /**
-         * @member {Boolean} mixin=true
-         * @protected
+         * A declarative way to assign event listeners to an instance upon creation.
+         * The framework processes this config and calls `on()` to populate the
+         * internal event registry. This config should not be manipulated directly after
+         * instantiation; use `on()` and `un()` instead.
+         * @member {Object|null} listeners_
+         * @example
+         * listeners: {
+         *     myEvent: 'onMyEvent',
+         *     otherEvent: {
+         *         fn: 'onOtherEvent',
+         *         delay: 100,
+         *         once: true
+         *     },
+         *     scope: this
+         * }
+         * @reactive
          */
-        mixin: true
+        listeners_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {}
+        }
     }
+
+    /**
+     * @member {Object} [eventMapSymbol]
+     * @private
+     */
 
     /**
      * @param {Object|String} name
@@ -101,6 +133,12 @@ class Observable extends Base {
         }
 
         if (!nameObject) {
+            // LAZY INITIALIZATION: The key to a robust mixin.
+            // This ensures the private internal listener store exists on the instance.
+            // `eventMapSymbol` is the *actual* registry of handler arrays, and is
+            // intentionally separate from the public `listeners_` config.
+            me[eventMapSymbol] ??= {};
+
             eventConfig = {fn: listener, id: eventId || Neo.getId('event')};
 
             if (data)      {eventConfig.data   = data}
@@ -108,7 +146,7 @@ class Observable extends Base {
             if (once)      {eventConfig.once   = once}
             if (scope)     {eventConfig.scope  = scope}
 
-            if (existing = me.listeners?.[name]) {
+            if ((existing = me[eventMapSymbol][name])) {
                 existing.forEach(cfg => {
                     if (cfg.id === eventId || (cfg.fn === listener && cfg.scope === scope)) {
                         console.error('Duplicate event handler attached:', name, me)
@@ -123,13 +161,32 @@ class Observable extends Base {
                     existing.push(eventConfig)
                 }
             } else {
-                me.listeners[name] = [eventConfig]
+                me[eventMapSymbol][name] = [eventConfig] // Use the private eventMapSymbol registry
             }
 
             return eventConfig.id
         }
 
         return null
+    }
+
+    /**
+     * This hook is the bridge between the declarative `listeners_` config and the
+     * imperative `on()`/`un()` methods. It's called automatically by the framework
+     * whenever the `listeners` config property is changed.
+     * @param {Object} value The new listeners object
+     * @param {Object} oldValue The old listeners object
+     * @protected
+     */
+    afterSetListeners(value, oldValue) {
+        // Unregister any listeners from the old config object
+        if (oldValue && Object.keys(oldValue).length > 0) {
+            this.un(oldValue)
+        }
+        // Register all listeners from the new config object
+        if (value && Object.keys(value).length > 0) {
+            this.on(value)
+        }
     }
 
     /**
@@ -164,7 +221,7 @@ class Observable extends Base {
     fire(name) {
         let me        = this,
             args      = [].slice.call(arguments, 1),
-            listeners = me.listeners,
+            listeners = me[eventMapSymbol], // Always use the private, structured registry for firing events.
             delay, handler, handlers, i, len;
 
         if (listeners && listeners[name]) {
@@ -200,50 +257,6 @@ class Observable extends Base {
                     }
                 }
             }
-        }
-    }
-
-    /**
-     * @param {Object} config
-     */
-    initObservable(config) {
-        let me = this,
-            proto = me.__proto__,
-            ctor  = proto.constructor,
-            listeners;
-
-        if (config.listeners) {
-            me.listeners = config.listeners;
-            delete config.listeners
-        }
-
-        listeners = me.listeners;
-
-        me.listeners = {};
-
-        if (listeners) {
-            if (Neo.isObject(listeners)) {
-                listeners = {...listeners}
-            }
-
-            me.addListener(listeners);
-        }
-
-        while (proto?.constructor.isClass) {
-            ctor = proto.constructor;
-
-            if (ctor.observable && !ctor.listeners) {
-                Object.assign(ctor, {
-                    addListener   : me.addListener,
-                    fire          : me.fire,
-                    listeners     : {},
-                    on            : me.on,
-                    removeListener: me.removeListener,
-                    un            : me.un
-                })
-            }
-
-            proto = proto.__proto__
         }
     }
 
@@ -287,6 +300,9 @@ class Observable extends Base {
         let me = this,
             i, len, listener, listeners, match;
 
+        // LAZY INITIALIZATION: Ensure the internal listener store exists.
+        me[eventMapSymbol] ??= {};
+
         if (Neo.isFunction(eventId)) {
             me.removeListener({[name]: eventId, scope});
             return
@@ -299,7 +315,7 @@ class Observable extends Base {
             }
 
             Object.entries(name).forEach(([key, value]) => {
-                listeners = me.listeners[key] || [];
+                listeners = me[eventMapSymbol][key] || [];
                 i         = 0;
                 len       = listeners.length;
 
@@ -314,9 +330,9 @@ class Observable extends Base {
                         break
                     }
                 }
-            });
+            })
         } else if (Neo.isString(eventId)) {
-            listeners = me.listeners[name];
+            listeners = me[eventMapSymbol][name];
             match     = false;
 
             listeners.forEach((eventConfig, idx) => {
@@ -330,18 +346,6 @@ class Observable extends Base {
             }
         }
     }
-
-    // removeAllListeners: function(name) {
-
-    // },
-
-    // suspendListeners: function(queue) {
-
-    // },
-
-    // resumeListeners: function() {
-
-    // }
 
     /**
      * Alias for removeListener

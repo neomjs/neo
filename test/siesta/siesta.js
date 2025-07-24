@@ -70,9 +70,21 @@ project.plan(
                 'tests/vdom/table/Container.mjs'
             ]
         },
-        'tests/vdom/Advanced.mjs',
-        'tests/vdom/VdomAsymmetricUpdates.mjs',
-        'tests/vdom/VdomRealWorldUpdates.mjs']
+            'tests/vdom/Advanced.mjs',
+            'tests/vdom/VdomAsymmetricUpdates.mjs',
+            'tests/vdom/VdomRealWorldUpdates.mjs']
+    },
+    {
+        group: 'functional',
+        items: [
+            'tests/functional/Button.mjs'
+        ]
+    },
+    {
+        group: 'classic',
+        items: [
+            'tests/classic/Button.mjs'
+        ]
     }
 );
 

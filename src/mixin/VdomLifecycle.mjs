@@ -440,6 +440,7 @@ class VdomLifecycle extends Base {
      * - you pass true for the mount param
      * - or the autoMount config is set to true
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
     async render(mount) {
         let me                            = this,
@@ -486,7 +487,9 @@ class VdomLifecycle extends Base {
 
             autoMount && !useVdomWorker && me.mount();
 
-            me.resolveVdomUpdate()
+            me.resolveVdomUpdate();
+
+            return data
         }
     }
 

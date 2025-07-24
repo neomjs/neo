@@ -1,23 +1,24 @@
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
-import Effect             from '../../../../src/core/Effect.mjs';
-import EffectBatchManager from '../../../../src/core/EffectBatchManager.mjs';
+import Neo           from '../../../../src/Neo.mjs';
+import * as core     from '../../../../src/core/_export.mjs';
+import Effect        from '../../../../src/core/Effect.mjs';
+import EffectManager from '../../../../src/core/EffectManager.mjs';
 
 class TestComponent extends core.Base {
     static config = {
         className: 'Neo.Test.EffectBatchingComponent',
-        configA_: 0,
-        configB_: 0,
-        configC_: 0
+        configA_ : 0,
+        configB_ : 0,
+        configC_ : 0
     }
 }
+
 Neo.setupClass(TestComponent);
 
 StartTest(t => {
     t.it('Effects should be batched during core.Base#set() operations', t => {
-        const instance = Neo.create(TestComponent);
+        const instance     = Neo.create(TestComponent);
         let effectRunCount = 0;
-        let sum = 0;
+        let sum            = 0;
 
         const effect = new Effect(() => {
             effectRunCount++;
@@ -47,7 +48,7 @@ StartTest(t => {
         t.is(instance.configC, 3, 'configC should be updated');
 
         // Test individual property change outside a batch
-        effectRunCount = 0;
+        effectRunCount   = 0;
         instance.configA = 10;
         t.is(effectRunCount, 1, 'Effect should run immediately for individual property change outside a batch');
         t.is(sum, 10 + 2 + 3, 'Sum should be 10 + 2 + 3 = 15 after individual configA change');
@@ -58,8 +59,8 @@ StartTest(t => {
         // Update all configs to their previous values (no change)
         instance.set({
             configA: 10,
-            configB:  2,
-            configC:  3
+            configB: 2,
+            configC: 3
         });
 
         t.is(effectRunCount, 0, 'Effect should not run.');
@@ -68,28 +69,28 @@ StartTest(t => {
         instance.destroy();
     });
 
-    t.it('EffectBatchManager should correctly manage batch state', t => {
-        t.is(EffectBatchManager.isBatchActive(), false, 'Batch should not be active initially');
+    t.it('EffectManager should correctly manage batch state via pause() and resume()', t => {
+        t.is(EffectManager.isPaused(), false, 'Batch should not be active initially');
 
-        EffectBatchManager.startBatch();
-        t.is(EffectBatchManager.isBatchActive(), true, 'Batch should be active after startBatch()');
+        EffectManager.pause();
+        t.is(EffectManager.isPaused(), true, 'Batch should be active after pause()');
 
-        EffectBatchManager.startBatch(); // Nested batch
-        t.is(EffectBatchManager.isBatchActive(), true, 'Batch should still be active for nested batch');
+        EffectManager.pause(); // Nested batch
+        t.is(EffectManager.isPaused(), true, 'Batch should still be active for nested pause()');
 
-        EffectBatchManager.endBatch();
-        t.is(EffectBatchManager.isBatchActive(), true, 'Batch should still be active after inner endBatch()');
+        EffectManager.resume();
+        t.is(EffectManager.isPaused(), true, 'Batch should still be active after inner resume()');
 
-        EffectBatchManager.endBatch();
-        t.is(EffectBatchManager.isBatchActive(), false, 'Batch should not be active after all endBatch() calls');
+        EffectManager.resume();
+        t.is(EffectManager.isPaused(), false, 'Batch should not be active after all resume() calls');
     });
 
     t.it('Effect should run when a dependency is changed inside an afterSet hook', t => {
         class IndirectDependencyComponent extends core.Base {
             static config = {
                 className: 'Neo.Test.IndirectDependencyComponent',
-                configA_: 'initialA',
-                configB_: 'initialB'
+                configA_ : 'initialA',
+                configB_ : 'initialB'
             }
 
             afterSetConfigA(newValue, oldValue) {
@@ -99,11 +100,12 @@ StartTest(t => {
                 }
             }
         }
+
         Neo.setupClass(IndirectDependencyComponent);
 
-        const instance = Neo.create(IndirectDependencyComponent);
+        const instance     = Neo.create(IndirectDependencyComponent);
         let effectRunCount = 0;
-        let effectValue = '';
+        let effectValue    = '';
 
         // Effect depends only on configB
         const effect = new Effect(() => {
@@ -135,8 +137,8 @@ StartTest(t => {
         class BeforeSetDependencyComponent extends core.Base {
             static config = {
                 className: 'Neo.Test.BeforeSetDependencyComponent',
-                configA_: 'initialA',
-                configC_: 'initialC' // configC will be changed by beforeSetConfigA
+                configA_ : 'initialA',
+                configC_ : 'initialC' // configC will be changed by beforeSetConfigA
             }
 
             beforeSetConfigA(newValue, oldValue) {
@@ -147,11 +149,12 @@ StartTest(t => {
                 return newValue; // Important: return newValue to allow configA to be set
             }
         }
+
         Neo.setupClass(BeforeSetDependencyComponent);
 
-        const instance = Neo.create(BeforeSetDependencyComponent);
+        const instance     = Neo.create(BeforeSetDependencyComponent);
         let effectRunCount = 0;
-        let effectValue = '';
+        let effectValue    = '';
 
         // Effect depends only on configC
         const effect = new Effect(() => {
@@ -183,9 +186,9 @@ StartTest(t => {
         class CombinedDependencyComponent extends core.Base {
             static config = {
                 className: 'Neo.Test.CombinedDependencyComponent',
-                configA_: 'initialA',
-                configB_: 'initialB', // Changed by afterSet
-                configC_: 'initialC'  // Changed by beforeSet
+                configA_ : 'initialA',
+                configB_ : 'initialB', // Changed by afterSet
+                configC_ : 'initialC'  // Changed by beforeSet
             }
 
             beforeSetConfigA(newValue, oldValue) {
@@ -201,13 +204,14 @@ StartTest(t => {
                 }
             }
         }
+
         Neo.setupClass(CombinedDependencyComponent);
 
-        const instance = Neo.create(CombinedDependencyComponent);
+        const instance      = Neo.create(CombinedDependencyComponent);
         let effectBRunCount = 0;
         let effectCRunCount = 0;
-        let effectBValue = '';
-        let effectCValue = '';
+        let effectBValue    = '';
+        let effectCValue    = '';
 
         // Effect for configB (changed by afterSet)
         const effectB = new Effect(() => {
@@ -257,9 +261,9 @@ StartTest(t => {
         class SingleEffectCombinedDependencyComponent extends core.Base {
             static config = {
                 className: 'Neo.Test.SingleEffectCombinedDependencyComponent',
-                configA_: 'initialA',
-                configB_: 'initialB', // Changed by afterSet
-                configC_: 'initialC'  // Changed by beforeSet
+                configA_ : 'initialA',
+                configB_ : 'initialB', // Changed by afterSet
+                configC_ : 'initialC'  // Changed by beforeSet
             }
 
             beforeSetConfigA(newValue, oldValue) {
@@ -275,11 +279,12 @@ StartTest(t => {
                 }
             }
         }
+
         Neo.setupClass(SingleEffectCombinedDependencyComponent);
 
-        const instance = Neo.create(SingleEffectCombinedDependencyComponent);
+        const instance     = Neo.create(SingleEffectCombinedDependencyComponent);
         let effectRunCount = 0;
-        let effectValue = '';
+        let effectValue    = '';
 
         // Single Effect depends on both configB and configC
         const effect = new Effect(() => {

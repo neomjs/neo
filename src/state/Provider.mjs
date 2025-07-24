@@ -2,7 +2,7 @@ import Base                          from '../core/Base.mjs';
 import ClassSystemUtil               from '../util/ClassSystem.mjs';
 import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
-import EffectBatchManager            from '../core/EffectBatchManager.mjs';
+import EffectManager                 from '../core/EffectManager.mjs';
 import Observable                    from '../core/Observable.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
@@ -474,22 +474,22 @@ class Provider extends Base {
     internalSetData(key, value, originStateProvider) {
         const me = this;
 
-        // If the value is a Neo.data.Record, treat it as an atomic value
-        // and set it directly without further recursive processing of its properties.
-        if (Neo.isRecord(value)) {
-            const
-                ownerDetails   = me.getOwnerOfDataProperty(key),
-                targetProvider = ownerDetails ? ownerDetails.owner : (originStateProvider || me);
-
-            me.#setConfigValue(targetProvider, key, value, null);
-            return
-        }
-
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originStateProvider)
             });
             return
+        }
+
+        // Now 'key' is a string path.
+        // If 'value' is a plain object, we need to drill down further.
+        // If the value is a Neo.data.Record, treat it as an atomic value => it will not enter this block.
+        if (Neo.typeOf(value) === 'Object') {
+            Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+                const fullPath = `${key}.${nestedKey}`;
+                me.internalSetData(fullPath, nestedValue, originStateProvider);
+            });
+            return // We've delegated the setting to deeper paths.
         }
 
         const
@@ -498,7 +498,11 @@ class Provider extends Base {
 
         me.#setConfigValue(targetProvider, key, value, null);
 
-        // Bubble up the change to parent configs to trigger their effects
+        // This is the "reactivity bubbling" logic. When a leaf property like 'user.name' changes,
+        // we must also trigger effects that depend on the parent object 'user'. We do this by
+        // creating a new object reference for each parent in the path. The spread syntax
+        // `{ ...oldParentValue, [leafKey]: latestValue }` is key, as it creates a new
+        // object, which the reactivity system detects as a change.
         let path        = key,
             latestValue = value;
 
@@ -518,7 +522,11 @@ class Provider extends Base {
                     break // Stop if parent is not an object
                 }
             } else {
-                break // Stop if parent config does not exist
+                // If the parent config doesn't exist, we need to create it to support bubbling.
+                // This is crucial for creating new nested data structures at runtime.
+                const newParentValue = {[leafKey]: latestValue};
+                me.#setConfigValue(targetProvider, path, newParentValue);
+                latestValue = newParentValue
             }
         }
     }
@@ -582,8 +590,8 @@ class Provider extends Base {
 
     /**
      * @param {Neo.component.Base} component
-     * @param {String} configName
-     * @param {String} storeName
+     * @param {String}             configName
+     * @param {String}             storeName
      */
     resolveStore(component, configName, storeName) {
         let store = this.getStore(storeName);
@@ -598,9 +606,9 @@ class Provider extends Base {
      * This method creates a new Config instance if one doesn't exist for the given path,
      * or updates an existing one. It also triggers binding effects and calls onDataPropertyChange.
      * @param {Neo.state.Provider} provider The StateProvider instance owning the config.
-     * @param {String} path The full path of the data property (e.g., 'user.firstname').
-     * @param {*} newValue The new value to set.
-     * @param {*} oldVal The old value (optional, used for initial setup).
+     * @param {String}             path     The full path of the data property (e.g., 'user.firstname').
+     * @param {*}                  newValue The new value to set.
+     * @param {*}                 [oldVal]  The old value (optional, used for initial setup).
      * @private
      */
     #setConfigValue(provider, path, newValue, oldVal) {
@@ -629,12 +637,15 @@ class Provider extends Base {
      * are run only once.
      *
      * @param {Object|String} key
-     * @param {*} value
+     * @param {*}             value
      */
     setData(key, value) {
-        EffectBatchManager.startBatch();
-        this.internalSetData(key, value, this);
-        EffectBatchManager.endBatch()
+        EffectManager.pause();
+        try {
+            this.internalSetData(key, value, this)
+        } finally {
+            EffectManager.resume()
+        }
     }
 
     /**
@@ -645,12 +656,15 @@ class Provider extends Base {
      * are run only once.
      *
      * @param {Object|String} key
-     * @param {*} value
+     * @param {*}             value
      */
     setDataAtSameLevel(key, value) {
-        EffectBatchManager.startBatch();
-        this.internalSetData(key, value);
-        EffectBatchManager.endBatch()
+        EffectManager.pause();
+        try {
+            this.internalSetData(key, value)
+        } finally {
+            EffectManager.resume()
+        }
     }
 }
 

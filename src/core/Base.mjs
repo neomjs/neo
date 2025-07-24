@@ -4,7 +4,8 @@ import Util                                                     from '../core/Ut
 import Config                                                   from './Config.mjs';
 import {isDescriptor}                                           from './ConfigSymbols.mjs';
 import IdGenerator                                              from './IdGenerator.mjs';
-import EffectBatchManager                                       from './EffectBatchManager.mjs';
+import EffectManager                                            from './EffectManager.mjs';
+
 
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
@@ -233,8 +234,6 @@ class Base {
         me.id = config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
 
-        me.getStaticConfig('observable') && me.initObservable(config);
-
         // assign class field values prior to configs
         config = me.setFields(config);
 
@@ -325,9 +324,9 @@ class Base {
      *
      * @example
      * // Imagine you have hundreds of buttons in your app, and you want all of them
-     * // to have `labelPosition: 'top'` instead of the default `'left'`. 
+     * // to have `labelPosition: 'top'` instead of the default `'left'`.
      * // Instead of configuring each instance, you can define an overwrite.
-     * 
+     *
      * // inside an Overwrites.mjs file loaded by your app:
      * Neo.overwrites = {
      *     Neo: {
@@ -338,7 +337,7 @@ class Base {
      *         }
      *     }
      * };
-     * 
+     *
      * // Now, every `Neo.button.Base` (and any class that extends it) will have this
      * // new default value on its prototype.
      *
@@ -826,40 +825,42 @@ class Base {
         let me                = this,
             classFieldsViaSet = {};
 
-        // Start batching for effects
-        EffectBatchManager.startBatch();
+        // Prevent Effects from running for bulk changes
+        EffectManager.pause();
 
-        values = me.setFields(values);
+        try {
+            values = me.setFields(values);
 
-        // If the initial config processing is still running,
-        // finish this one first before dropping new values into the configSymbol.
-        // See: https://github.com/neomjs/neo/issues/2201
-        if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
-            me.processConfigs()
-        }
-
-        // Store class fields which are defined via get() & set() and ensure they won't get added to the config symbol.
-        Object.entries(values).forEach(([key, value]) => {
-            if (!me.isConfig(key)) {
-                classFieldsViaSet[key] = value;
-                delete values[key]
+            // If the initial config processing is still running,
+            // finish this one first before dropping new values into the configSymbol.
+            // See: https://github.com/neomjs/neo/issues/2201
+            if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
+                me.processConfigs()
             }
-        })
 
-        // Add reactive configs to the configSymbol
-        Object.assign(me[configSymbol], values);
+            // Store class fields which are defined via get() & set() and ensure they won't get added to the config symbol.
+            Object.entries(values).forEach(([key, value]) => {
+                if (!me.isConfig(key)) {
+                    classFieldsViaSet[key] = value;
+                    delete values[key]
+                }
+            })
 
-        // Process class fields which are defined via get() & set() => now they can access the latest values
-        // for reactive and non-reactive configs, as well as class fields defined with values.
-        Object.entries(classFieldsViaSet).forEach(([key, value]) => {
-            me[key] = value
-        })
+            // Add reactive configs to the configSymbol
+            Object.assign(me[configSymbol], values);
 
-        // Process reactive configs
-        me.processConfigs(true);
+            // Process class fields which are defined via get() & set() => now they can access the latest values
+            // for reactive and non-reactive configs, as well as class fields defined with values.
+            Object.entries(classFieldsViaSet).forEach(([key, value]) => {
+                me[key] = value
+            })
 
-        // End batching for effects
-        EffectBatchManager.endBatch();
+            // Process reactive configs
+            me.processConfigs(true);
+        } finally {
+            // Trigger the skipped Effect, if needed
+            EffectManager.resume()
+        }
     }
 
     /**

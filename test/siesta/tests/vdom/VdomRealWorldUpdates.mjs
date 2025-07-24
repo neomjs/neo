@@ -1,8 +1,9 @@
-import Neo        from '../../../../src/Neo.mjs';
-import * as core  from '../../../../src/core/_export.mjs';
-import Component  from '../../../../src/component/Base.mjs';
-import Container  from '../../../../src/container/Base.mjs';
-import VdomHelper from '../../../../src/vdom/Helper.mjs';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 // IMPORTANT: This test file uses real components and expects them to render.
 // We need to enable unitTestMode for isolation, but also allow VDOM updates.
@@ -10,7 +11,6 @@ Neo.config.unitTestMode = true;
 Neo.config.allowVdomUpdatesInTests = true;
 // This ensures that the VdomHelper uses the correct renderer for the assertions.
 Neo.config.useDomApiRenderer = true;
-VdomHelper.onNeoConfigChange({useDomApiRenderer: true});
 
 // Create a mock application context, as the component lifecycle requires it for updates.
 const appName = 'VdomRealWorldTestApp';

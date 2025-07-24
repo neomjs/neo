@@ -1,6 +1,10 @@
-import Neo        from '../../../../src/Neo.mjs';
-import * as core  from '../../../../src/core/_export.mjs';
-import VdomHelper from '../../../../src/vdom/Helper.mjs';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import StringFromVnode from '../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../src/vdom/Helper.mjs';
+
+// tests are designed for this rendering mode
+Neo.config.useDomApiRenderer = false;
 
 let deltas, output, vdom, vnode;
 
@@ -30,7 +34,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -136,7 +140,7 @@ StartTest(t => {
             {id: 'neo-column-2', cls: ['foo4'], cn: []}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -246,7 +250,7 @@ StartTest(t => {
             {id: 'neo-component-6'}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-container-1', cn: [
@@ -342,9 +346,11 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        const result = vnode = VdomHelper.create({vdom});
+        const outerHTML = result.outerHTML;
+        vnode = result.vnode;
 
-        t.is(vnode.outerHTML.includes('static'), false, 'The generated DOM does not include "static"');
+        t.is(outerHTML.includes('static'), false, 'The generated DOM does not include "static"');
         t.isDeeplyStrict(vnode.static, undefined, 'Top-level VNode did not get the static attribute');
         t.isDeeplyStrict(vnode.childNodes[0].static, true, 'First VNode childNode got the static attribute');
 

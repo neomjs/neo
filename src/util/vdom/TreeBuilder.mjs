@@ -24,40 +24,43 @@ class TreeBuilder extends Base {
     }
 
     /**
-     * Copies a given vdom tree and replaces child component references with the vdom of their matching components
-     * @param {Object} vdom
-     * @param {Number} [depth=-1]
-     *     The component replacement depth.
-     *     -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
-     * @param {Set<String>|null} [mergedChildIds=null] A set of component IDs to selectively expand.
+     * Private helper to recursively build a tree, abstracting the child node key.
+     * @param {Object} node The vdom or vnode to process.
+     * @param {Number} depth The current recursion depth.
+     * @param {Set<String>|null} mergedChildIds A set of component IDs to selectively expand.
+     * @param {String} childKey The property name for child nodes ('cn' or 'childNodes').
      * @returns {Object}
+     * @private
      */
-    getVdomTree(vdom, depth = -1, mergedChildIds = null) {
-        if (!Neo.isObject(vdom)) {
-            return vdom
+    #buildTree(node, depth, mergedChildIds, childKey) {
+        // We can not use Neo.isObject() here, since inside unit-test scenarios, we will import vdom.Helper into main threads.
+        // Inside this scenario, Neo.isObject() returns false for VNode instances
+        if (typeof node !== 'object' || node === null) {
+            return node
         }
 
-        let output = {...vdom}; // Shallow copy
+        let output = {...node}; // Shallow copy
 
-        if (vdom.cn) {
-            output.cn = [];
+        if (node[childKey]) {
+            output[childKey] = [];
 
-            vdom.cn.forEach(item => {
+            node[childKey].forEach(item => {
                 let currentItem = item,
                     childDepth;
 
                 if (currentItem.componentId) {
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        output.cn.push({componentId: 'neo-ignore', id: item.id || item.componentId});
-                        // Stop processing this branch
-                        return
+                        output[childKey].push({componentId: 'neo-ignore', id: item.id || item.componentId});
+                        return // Stop processing this branch
                     }
                     // Expand the branch if it's part of a merged update, or if the depth requires it
                     else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
                         const component = ComponentManager.get(currentItem.componentId);
-                        if (component?.vdom) {
-                            currentItem = component.vdom
+                        // Use the correct tree type based on the childKey
+                        const componentTree = childKey === 'cn' ? component?.vdom : component?.vnode;
+                        if (componentTree) {
+                            currentItem = componentTree
                         }
                     }
                 }
@@ -68,61 +71,34 @@ class TreeBuilder extends Base {
                     childDepth = depth
                 }
 
-                output.cn.push(this.getVdomTree(currentItem, childDepth, mergedChildIds))
+                output[childKey].push(this.#buildTree(currentItem, childDepth, mergedChildIds, childKey))
             })
         }
 
         return output
     }
 
+
     /**
-     * Copies a given vnode tree and replaces child component references with the vnode of their matching components
-     * @param {Object} vnode
+     * Copies a given vdom tree and replaces child component references with their vdom.
+     * @param {Object} vdom
      * @param {Number} [depth=-1]
-     *     The component replacement depth.
-     *     -1 will parse the full tree, 1 top level only, 2 include children, 3 include grandchildren
-     * @param {Set<String>|null} [mergedChildIds=null] A set of component IDs to selectively expand.
+     * @param {Set<String>|null} [mergedChildIds=null]
      * @returns {Object}
      */
-    getVnodeTree(vnode, depth = -1, mergedChildIds = null) {
-        let output = {...vnode}; // Shallow copy
+    getVdomTree(vdom, depth=-1, mergedChildIds=null) {
+        return this.#buildTree(vdom, depth, mergedChildIds, 'cn')
+    }
 
-        if (vnode.childNodes) {
-            output.childNodes = [];
-
-            vnode.childNodes.forEach(item => {
-                let currentItem = item,
-                    childDepth, component;
-
-                if (currentItem.componentId) {
-                    // Prune the branch only if we are at the boundary AND the child is not part of a merged update
-                    if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        output.childNodes.push({componentId: 'neo-ignore', id: item.id || item.componentId});
-                        // Stop processing this branch
-                        return
-                    }
-                    // Expand the branch if it's part of a merged update, or if the depth requires it
-                    else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
-                        component = ComponentManager.get(currentItem.componentId);
-
-                        // Keep references in case there is no vnode (e.g. component not mounted yet)
-                        if (component?.vnode) {
-                            currentItem = component.vnode
-                        }
-                    }
-                }
-
-                if (item.componentId) {
-                    childDepth = (depth === -1) ? -1 : Math.max(0, depth - 1)
-                } else {
-                    childDepth = depth
-                }
-
-                output.childNodes.push(this.getVnodeTree(currentItem, childDepth, mergedChildIds))
-            })
-        }
-
-        return output
+    /**
+     * Copies a given vnode tree and replaces child component references with their vnode.
+     * @param {Object} vnode
+     * @param {Number} [depth=-1]
+     * @param {Set<String>|null} [mergedChildIds=null]
+     * @returns {Object}
+     */
+    getVnodeTree(vnode, depth=-1, mergedChildIds=null) {
+        return this.#buildTree(vnode, depth, mergedChildIds, 'childNodes')
     }
 }
 

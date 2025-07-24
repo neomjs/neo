@@ -10,12 +10,18 @@ class RemoteMethodAccess extends Base {
          * @member {String} className='Neo.worker.mixin.RemoteMethodAccess'
          * @protected
          */
-        className: 'Neo.worker.mixin.RemoteMethodAccess',
-        /**
-         * @member {Boolean} mixin=true
-         * @protected
-         */
-        mixin: true
+        className: 'Neo.worker.mixin.RemoteMethodAccess'
+    }
+
+    /**
+     * @param {Object} source
+     * @param {Object} target
+     */
+    assignPort(source, target) {
+        if (source) {
+            const {appName, port, windowId} = source;
+            Object.assign(target, {appName, port, windowId})
+        }
     }
 
     /**

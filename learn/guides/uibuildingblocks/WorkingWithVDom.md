@@ -29,7 +29,7 @@ Neo.mjs VDom nodes are plain JavaScript objects that represent DOM elements.
     cn       : [],                   // Child nodes array (exclusive with html/text)
     vtype    : 'vnode',              // VNode type: 'vnode', 'text', 'root'
     static   : false,                // Exclude from delta updates (optimization)
-    removeDom: false,                // Hide/show element
+    removeDom: false,                // The recommended way to conditionally render nodes. true removes the element from the DOM while preserving the VDOM structure.
     data     : {custom: 'value'},    // data-* attributes
     // Standard HTML attributes
     disabled: true,
@@ -378,7 +378,31 @@ class DataList extends Component {
 }
 ```
 
-### 3. Complex VDom Transformations (e.g., 3D Animations)
+### 3. Best Practice: Conditional Rendering via `removeDom`
+
+For conditionally showing or hiding elements, the recommended and most robust pattern in Neo.mjs is to use the `removeDom`
+property. This approach ensures **structural integrity** of your VDom tree, which is critical for performance and stability.
+
+By keeping a static VDom structure and toggling the `removeDom` flag, you allow the framework's diffing engine to work
+most efficiently. It can rely on the stable index of each child node, resulting in minimal and correct deltas. This also
+ensures that internal framework features which traverse the VDOM tree (like `syncVdomIds`) function predictably.
+
+#### The Anti-Pattern: Modifying the `cn` Array
+
+Avoid dynamically adding or removing objects from the `cn` array. While it might seem intuitive to build the array based
+on conditions, it leads to a structurally unstable VDom, unless items have their explicitly defined id.
+
+This anti-pattern is problematic because:
+1. It changes the length and indexes of the cn array between renders.
+2. It confuses the diffing algorithm, which can lead to a "delta storm"—a cascade of inefficient and incorrect
+  `removeNode`, `insertNode`, and `moveNode` operations instead of a single, simple update.
+3. It forces the developer to manually add stable ids to all sibling nodes to help the diffing algorithm keep its bearings,
+   which is an extra, error-prone step.
+4. It breaks the contract of a stable VDOM structure, which can interfere with internal framework optimizations.
+
+Always prefer the `removeDom` flag for predictable, performant, and robust components.
+
+### 4. Complex VDom Transformations (e.g., 3D Animations)
 
 For sophisticated UI patterns like 3D visualizations or complex dynamic layouts, you might imperatively calculate and apply VDom properties or even use `Neo.applyDeltas()` for maximum performance.
 

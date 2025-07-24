@@ -69,6 +69,65 @@ StartTest(t => {
         component.destroy();
     });
 
+    t.it('setData with a nested object should deep-merge and bubble reactivity', t => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {
+                    user: {
+                        firstname: 'John',
+                        lastname : 'Doe'
+                    }
+                }
+            }
+        });
+
+        const provider = component.getStateProvider();
+        let effectRunCount = 0;
+
+        provider.createBinding(component.id, 'user', data => {
+            effectRunCount++;
+            return data.user;
+        });
+
+        t.is(effectRunCount, 1, 'Effect ran initially');
+        t.isDeeply(proxyToObject(component.user), { firstname: 'John', lastname: 'Doe' }, 'Initial user object is correct');
+
+        // ACTION: Set data with a nested object. This should MERGE, not replace.
+        provider.setData({
+            user: { firstname: 'Jane' }
+        });
+
+        // ASSERT: The object was merged, and the old 'lastname' property is preserved.
+        t.is(effectRunCount, 2, 'Effect re-ran after setting the branch node');
+
+        const updatedUser = proxyToObject(component.user);
+        t.isDeeply(updatedUser, { firstname: 'Jane', lastname: 'Doe' }, 'User object should be deep-merged');
+        t.is(updatedUser.lastname, 'Doe', 'The "lastname" property should be preserved after merge');
+
+        // For contrast, let's show the path-based "bubbling" behavior which has the same outcome.
+        // First, reset the state.
+        provider.setData({
+            user: {
+                firstname: 'John',
+                lastname: 'Doe'
+            }
+        });
+        t.is(effectRunCount, 3, 'Effect ran after resetting state');
+
+        // ACTION: Set a leaf node using a path string.
+        provider.setData({
+            'user.firstname': 'Robert'
+        });
+
+        // ASSERT: The object was updated via bubbling, preserving the 'lastname' property.
+        t.is(effectRunCount, 4, 'Effect re-ran after setting a leaf node via path');
+        const mergedUser = proxyToObject(component.user);
+        t.isDeeply(mergedUser, { firstname: 'Robert', lastname: 'Doe' }, 'Path-based set should merge/preserve other properties');
+        t.is(mergedUser.lastname, 'Doe', 'The "lastname" property should be preserved');
+
+        component.destroy();
+    });
+
     t.it('Formulas should react to leaf node changes via bubbling', t => {
         let effectRunCount = 0;
 

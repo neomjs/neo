@@ -1,6 +1,10 @@
-import Neo        from '../../../../../src/Neo.mjs';
-import * as core  from '../../../../../src/core/_export.mjs';
-import VdomHelper from '../../../../../src/vdom/Helper.mjs';
+import Neo             from '../../../../../src/Neo.mjs';
+import * as core       from '../../../../../src/core/_export.mjs';
+import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
+
+// tests are designed for this rendering mode
+Neo.config.useDomApiRenderer = false;
 
 let oldVdom, oldVnode, vdom;
 
@@ -16,7 +20,7 @@ StartTest(t => {
             {id: 'neo-component-6'}
         ]};
 
-        let oldVnode = VdomHelper.create(oldVdom);
+        let oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
         vdom =
         {id: 'neo-container-1', cn: [
@@ -67,7 +71,7 @@ StartTest(t => {
             ]}
         ]};
 
-        oldVnode = VdomHelper.create(oldVdom);
+        oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
         vdom =
         {id: 'neo-container-1', cn: [
@@ -105,7 +109,7 @@ StartTest(t => {
             {id: 'neo-component-6'}
         ]};
 
-        oldVnode = VdomHelper.create(oldVdom);
+        oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
         vdom =
         {id: 'neo-container-1', cn: [
@@ -158,7 +162,7 @@ StartTest(t => {
             ]}
         ]};
 
-        oldVnode = VdomHelper.create(oldVdom);
+        oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
         vdom =
         {id: 'neo-container-1', cn: [

@@ -1,6 +1,10 @@
-import Neo        from '../../../../../src/Neo.mjs';
-import * as core  from '../../../../../src/core/_export.mjs';
-import VdomHelper from '../../../../../src/vdom/Helper.mjs';
+import Neo             from '../../../../../src/Neo.mjs';
+import * as core       from '../../../../../src/core/_export.mjs';
+import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
+
+// tests are designed for this rendering mode
+Neo.config.useDomApiRenderer = false;
 
 let deltas, output, vdom, vnode;
 
@@ -17,7 +21,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-table-container-1', cn: [
@@ -75,7 +79,7 @@ StartTest(t => {
             ]}
         ]};
 
-        vnode = VdomHelper.create(vdom);
+        vnode = VdomHelper.create({vdom}).vnode;
 
         vdom =
         {id: 'neo-wrapper-1', cn: [

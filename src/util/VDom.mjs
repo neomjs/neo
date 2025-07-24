@@ -391,16 +391,23 @@ class VDom extends Base {
                     vdom.id = vnode.id
                 }
             } else {
-                // we only want to change vdom ids in case there is not already an own id
-                // (think of adding & removing nodes in parallel)
-                if (!vdom.id && vnode.id) {
+                // We only want to add an ID if the vdom node does not already have one.
+                // This preserves developer-provided IDs while allowing the framework
+                // to assign IDs to nodes that need them for reconciliation.
+                // Also think of adding and removing nodes in parallel.
+                if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
                     vdom.id = vnode.id
                 }
             }
 
             if (childNodes) {
                 cn  = childNodes.map(item => VDom.getVdom(item));
-                cn  = cn.filter(item => item.removeDom !== true);
+                // The vnode.childNodes array is already filtered by the worker.
+                // We must filter the component's vdom.cn array identically to ensure
+                // both arrays are structurally aligned for the sync loop.
+                // The boolean check `item &&` is critical to remove falsy values
+                // from conditional rendering and prevent runtime errors.
+                cn  = cn.filter(item => item && item.removeDom !== true);
                 i   = 0;
                 len = cn?.length || 0;
 
