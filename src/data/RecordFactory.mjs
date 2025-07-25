@@ -32,7 +32,7 @@ class RecordFactory extends Base {
     }
 
     /**
-     * Assigns model based default values to a data object
+     * Assigns model-based default values to a data object
      * @param {Object}         data
      * @param {Neo.data.Model} model
      * @returns {Object}
@@ -40,11 +40,13 @@ class RecordFactory extends Base {
     assignDefaultValues(data, model) {
         model.fieldsMap.forEach((field, fieldName) => {
             if (Object.hasOwn(field, 'defaultValue')) {
+                const defaultValue = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue;
+
                 // We could always use Neo.assignToNs() => the check is just for improving the performance
                 if (model.hasNestedFields) {
-                    Neo.assignToNs(fieldName, field.defaultValue, data, false)
+                    Neo.assignToNs(fieldName, defaultValue, data, false)
                 } else if (data[fieldName] === undefined) {
-                    data[fieldName] = field.defaultValue
+                    data[fieldName] = defaultValue
                 }
             }
         });
