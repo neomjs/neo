@@ -63,6 +63,24 @@ large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundame
    common in other frameworks.
 
 </br></br>
+## 🚀 Inside v10: A New Era of Frontend Architecture
+
+The v10 release marks a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. We've rebuilt the engine to provide an even more powerful and intuitive developer experience, making it simpler than ever to build complex, performant applications.
+
+To understand the depth of these changes and the philosophy behind them, we've published a five-part blog series that dives deep into the architecture of v10:
+
+1.  **[A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./learn/blog/v10-post1-love-story.md)**
+    *   *An introduction to the core problems in modern frontend development and the architectural vision of Neo.mjs.*
+2.  **[Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./learn/blog/v10-deep-dive-reactivity.md)**
+    *   *Explore the powerful two-tier reactivity system that makes the "memoization tax" a thing of the past.*
+3.  **[Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./learn/blog/v10-deep-dive-functional-components.md)**
+    *   *Discover how functional components in a multi-threaded world eliminate the trade-offs of traditional hooks.*
+4.  **[Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./learn/blog/v10-deep-dive-vdom-revolution.md)**
+    *   *Learn how our off-thread VDOM engine uses simple JSON blueprints for maximum performance and security.*
+5.  **[Deep Dive: The State Provider Revolution](./learn/blog/v10-deep-dive-state-provider.md)**
+    *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
+
+</br></br>
 ## 📦 Batteries Included: A Comprehensive Component Library
 
 While other frameworks provide just the view layer, Neo.mjs delivers a complete, natively integrated ecosystem. You'll find a rich
@@ -83,6 +101,8 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 
 * **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved.
   No more wasteful re-creations – just surgical, efficient updates.
+
+* **New in v10: Functional Components & A Modern Hook System**: Embrace a modern, hook-based development style with `defineComponent`, `useConfig`, and `useEvent`. This new paradigm, built on top of our robust class system, offers a familiar and intuitive way to build components while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, it's free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
 
 * **Reactive State Management**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
   Components declare their data needs via a concise `bind` config. These `bind` functions act as powerful inline formulas, allowing
@@ -116,6 +136,10 @@ That’s Neo.mjs in action — solving problems others can’t touch.
   tree across workers, live-modify component configurations directly in the browser console, and observe real-time UI updates,
   all without complex tooling setup.
 
+* **Asymmetric VDOM & JSON Blueprints**: Instead of a complex, class-based VNode tree, your application logic deals with simple, serializable JSON objects. These blueprints are sent to a dedicated VDOM worker for high-performance diffing, ensuring your main thread is never blocked by rendering calculations. This architecture is not only faster but also inherently more secure and easier for AI tools to generate and manipulate.
+
+* **Async-Aware Component Lifecycle**: With the `initAsync()` lifecycle method, components can handle asynchronous setup (like fetching data or lazy-loading modules) *before* they are considered "ready." This eliminates entire classes of race conditions and UI flicker, allowing you to build complex, data-dependent components with confidence.
+
 <p align="center">
   <img src="./resources/images/workers-focus.svg" alt="Neo.mjs Worker Architecture Diagram - Shows Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend connections.">
 </p>
@@ -123,20 +147,19 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 *Diagram: A high-level overview of Neo.mjs's multi-threaded architecture (Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend). Optional workers fade in on hover on neomjs.com.*
 
 </br></br>
-## 🔍 Neo.mjs vs. The Rest: Key Differentiators
-Wondering how Neo.mjs stacks up against React, Angular, or Vue.js? Here’s the breakdown:
+## 🔍 Architectural Deep Dive: Neo.mjs vs. Main-Thread Frameworks
+The true power of Neo.mjs lies in its foundational architectural choices, which solve problems that other frameworks can only mitigate. Here’s a more detailed breakdown:
 
-| Feature                   | Neo.mjs                                        | React / Angular / Vue.js                            |
-| :------------------------ | :--------------------------------------------- | :------------------------------------------ |
-| **UI Responsiveness** | **Guaranteed smooth**: Heavy tasks off-main-thread; main thread free for UI. | **Prone to jank**: Main thread handles all logic + UI, easily blocked. |
-| **Multithreading** | Native OMT architecture for core app logic, VDom, data, & graphics. | Single-threaded by default; requires complex workarounds (e.g., Web Workers for *specific* tasks). |
-| **Dev Mode Experience** | **No transpilation, instant reloads**: Native ES Modules directly in browser. | Build tools (Webpack, Babel) required for dev; slower reloads. |
-| **Component Persistence** | State survives DOM changes; instances move across windows. | Full re-renders common; state often lost on unmount unless managed externally. |
-| **Security** | Direct DOM API, inherently XSS-resistant by design. | Relies heavily on careful string sanitization; higher XSS risk if not diligent. |
-| **Multi-Window Apps** | Seamless, browser-native multi-window support. | Complex to achieve; hacky or unsupported natively. |
-| **Bundle Size** | Zero runtime dependencies for lean apps.       | Can be large with many third-party dependencies. |
+| Feature | Neo.mjs Approach | Typical Main-Thread Framework Approach (React, Vue, Angular) | The Neo.mjs Advantage |
+| :--- | :--- | :--- | :--- |
+| **Core Architecture** | **Multi-Threaded by Design**: App logic, VDOM diffing, and rendering are split across a dedicated App Worker, VDOM Worker, and the Main Thread. | **Single-Threaded**: All application logic, state management, rendering, and user interactions compete for the same Main Thread resources. | **Guaranteed UI Responsiveness**. By isolating expensive computations, Neo.mjs ensures the main thread is always free to respond to user input, eliminating UI jank and freezes at an architectural level. |
+| **Reactivity Model** | **Direct & Granular Hybrid**: A powerful two-tier system combines imperative "push" (`afterSet`) and declarative "pull" (`Effect`) reactivity. | **React**: Inverted model (the entire component function re-runs). **Vue/Angular**: Highly optimized, direct "pull" model. | **Performant by Default**. Eliminates the "memoization tax" (`useMemo`, etc.) required in React. More powerful than pure pull systems for orchestrating complex business logic. |
+| **Component Lifecycle** | **Stable & Persistent**: Instances are created once and persist through UI changes. Features a rich lifecycle with `construct`, `initAsync`, and `afterSetMounted`. | **React**: Ephemeral (functional components are re-executed on every render). **Vue/Angular**: More stable, but lack pre-ready async hooks for complex setup. | **Robust & Predictable**. `initAsync` solves async setup (data fetching, module loading) *before* the first render, preventing UI flicker. Persistence enables complex stateful apps and multi-window operations. |
+| **State Management** | **Surgical Subscriptions**: The integrated `StateProvider` allows components to subscribe *only* to the precise state slices they need, completely bypassing intermediate components. | **React**: Context API re-renders all consumers by default, requiring manual optimization. **Vue/Angular**: Optimized state managers (Pinia, NgRx) are still bound by the main thread. | **Scalable & Decoupled**. More performant for global state changes by default. Architecturally cleaner, avoiding props drilling and the performance traps of React's Context. |
+| **DOM Updates** | **Asymmetric & Off-Thread**: Simple, serializable JSON objects (blueprints) are sent to the VDOM worker for diffing. The Main Thread only receives and applies minimal, pre-calculated patches. | VDOM diffing and DOM manipulation are computationally expensive tasks that occur on the main thread, directly competing with user interactions. | **Faster, More Secure, and AI-Friendly**. Off-thread diffing is faster. Using direct DOM APIs instead of `innerHTML` is more secure. Simple JSON blueprints are trivial for AI to generate and manipulate. |
+| **Dev Experience** | **Zero-Builds Development**: Native ES Modules run directly in the browser. No transpilation or bundling is needed for development. | **Build-Heavy**: Relies on tools like Vite, Webpack, or the Angular CLI, which add complexity, require source maps, and introduce delays. | **Unparalleled Simplicity & Debugging Clarity**. What you write is what you debug. Instant feedback and the absence of complex build toolchains lead to a faster, more intuitive workflow. |
 
-**Neo.mjs Edge**: True multithreading, a no-build development mode, and a scalable, secure architecture combine to deliver a framework that's faster to build with and fundamentally faster and more stable to run.
+**The Bottom Line**: Where other frameworks optimize operations on the main thread, Neo.mjs moves them off the main thread entirely. This fundamental difference results in a framework that is not just faster, but architecturally more scalable, robust, and resilient to complexity.
 
 </br></br>
 ## ⚙️ Declarative Class Configuration: Build Faster, Maintain Easier

@@ -28,21 +28,21 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   Communication between workers and the Main Thread happens via asynchronous message passing.
     *   **Benefit:** This architecture keeps the Main Thread almost entirely free and responsive, preventing UI freezes even during heavy computations or complex application logic. It inherently leverages multi-core CPUs for parallel processing, leading to superior UI responsiveness and performance under heavy load.
 
-### 2. Rendering Mechanism & Change Detection
+### 2. Rendering & Reactivity: A Hybrid, Off-Thread Approach
 
-*   **Angular: Template-Based & Zone.js/Ivy Change Detection**
-    *   Angular uses templates (HTML with Angular-specific syntax) to define UI. These templates are compiled into renderable instructions.
-    *   **Change Detection:** Angular traditionally relies on Zone.js to monkey-patch asynchronous browser APIs, detecting when data changes and triggering a change detection cycle. The Ivy renderer further optimizes this by compiling templates into more efficient instructions.
-    *   **VDOM:** Angular does not use a traditional Virtual DOM in the same way React does. Its Ivy renderer directly updates the DOM based on detected changes.
-    *   **Performance Consideration (Two-Way Binding & Direct DOM Access):** Angular's two-way data binding, while convenient, inherently ties the application's data model directly to the DOM. This often leads to frequent DOM read/write operations. Since **DOM read/write access is significantly slower (often 20x or more) compared to pure JavaScript logic**, this can cause performance bottlenecks and UI jank in complex applications with many bindings, as each change detection cycle can trigger a cascade of expensive DOM manipulations on the Main Thread.
-    *   **DOM Pollution:** Angular often adds numerous internal `data-set` attributes to the real DOM for its own tracking and debugging purposes. While functional, this can lead to a less clean and more verbose DOM structure.
-    *   **Immutability Considerations:** While Angular doesn't enforce immutability, performance optimizations like `OnPush` change detection often benefit significantly from immutable data patterns. This can introduce a cognitive burden for developers to manage data immutably for optimal performance.
+*   **Angular: Main-Thread Rendering & Zone.js Change Detection**
+    *   Angular uses templates compiled into renderable instructions. Its change detection relies on **Zone.js** to monkey-patch asynchronous APIs, which broadly detects when an application's state *might* have changed.
+    *   This triggers a change detection cycle on the main thread. While highly optimized, this can still be a bottleneck, and developers often need to manually implement the `OnPush` strategy to improve performance.
 
-*   **Neo.mjs: Off-Thread, Scoped VDOM & Atomic Insertion**
-    *   Neo.mjs uses a Virtual DOM defined by plain JavaScript objects. The diffing process happens in a VDom Worker, keeping the Main Thread free.
+*   **Neo.mjs: Off-Thread Rendering & A Two-Tier Reactivity System**
+    *   Neo.mjs uses a Virtual DOM defined by plain JavaScript objects, with the entire diffing process happening in a dedicated **VDom Worker**. This keeps the main thread free from heavy rendering calculations.
     *   **Scoped VDOM (Encapsulation & Performance):** Neo.mjs's VDOM is **scoped by default**. When a parent component renders, its children are represented by simple `{componentId: '...'}` placeholders. This provides two key advantages: 1) **Performance:** A parent's update never processes the complex VDOM of its children, keeping update payloads extremely small. 2) **Encapsulation:** It is architecturally impossible for a parent to accidentally manipulate a child's internal VDOM structure, enforcing clear ownership.
     *   **Atomic Insertion:** For insertions, the Main Thread receives a VNode structure and uses `DomApiRenderer` to **build the entire new DOM subtree in memory**, completely detached from the live document. This fully constructed fragment is then inserted into the live DOM in a **single, atomic operation**.
-    *   **Fine-Grained Reactivity vs. Zone.js:** Instead of Angular's Zone.js, which broadly detects changes, Neo.mjs uses a precise, `Effect`-based system. When a piece of state (`config`) changes, only the `createVdom` functions that *directly depend* on that state are re-executed, ensuring optimal performance by default.
+    *   **Two-Tier Reactivity vs. Zone.js:** Instead of Zone.js's broad detection, Neo.mjs uses a precise, two-tier system:
+        1.  **Classic Components (Imperative "Push"):** For the 100+ components in the core library, changes to reactive configs trigger `afterSet` hooks. These hooks perform surgical, imperative updates directly to the component's VDOM.
+        2.  **Functional Components (Declarative "Pull"):** For modern functional components, the `createVdom` function is wrapped in an `Effect`. When its dependencies change, only this function is re-executed to generate a new VDOM structure.
+
+    This hybrid system provides the architectural robustness needed for a massive component library and the modern developer experience of functional components, all while being performant by default.
 
 ### 3. Component Model & State Management
 
@@ -55,19 +55,16 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   This functional approach uses hooks like `useConfig()` for state, providing a clean, declarative way to build UI while benefiting from Neo.mjs's underlying fine-grained reactivity.
     *   **State Management:** Features integrated state providers and a unified config system for managing and sharing bindable data across the component tree, often simplifying cross-component communication compared to traditional DI or prop passing.
 
-### 4. Build Process & Development Workflow
+### 4. Developer Experience: Prescriptive Tooling vs. Unparalleled Flexibility
 
-*   **Angular: Comprehensive CLI & Mandatory Build Process**
-    *   Angular relies heavily on its CLI for scaffolding, development, and building. It has a mandatory and often complex build process (Webpack, TypeScript compilation, Ahead-of-Time (AOT) compilation) even for development.
-    *   **Implication:** This leads to slower development server startup times, requires source maps for debugging transpiled and bundled code, and can introduce debugging challenges due to the abstraction layer between the source code and what runs in the browser. For Angular, a build step is an inherent part of the development workflow.
+*   **Angular: The "Straightjacket" - A Prescriptive, Build-Heavy Workflow**
+    *   Angular is famous for its highly opinionated and prescriptive nature. It dictates specific patterns (e.g., NgModules, decorators, strict DI) and relies heavily on its CLI for a mandatory and often complex build process (Webpack, TypeScript compilation, AOT compilation), even for development.
+    *   **Implication:** This leads to slower development server startup times, requires source maps for debugging, and can introduce a steep learning curve. While this rigidity can enforce consistency, it often limits flexibility and makes it challenging to deviate from "the Angular way."
 
-*   **Neo.mjs: The Revolutionary Zero Builds Development Mode**
-    *   Neo.mjs champions a **"zero builds" instant development mode** as its primary workflow. This means developers create and debug their applications entirely within this instant environment, leveraging native ES Modules, ES6 classes, and dynamic imports directly in the browser.
-    *   **Benefit:** This offers unparalleled speed and debugging clarity. Code changes are reflected instantly without any compilation step. Developers work directly with the real code in the browser's dev tools, eliminating the need for source maps and vastly simplifying debugging. This is a fundamental departure from the build-centric development paradigm of Angular and most other modern frameworks.
-    *   **Deployment Flexibility:** While development is zero-builds, Neo.mjs provides optimized build environments for deployment:
-        *   **`dist/esm`:** Deploys as native ES Modules, preserving the dev mode's file structure for efficient modular loading in modern browsers.
-        *   **`dist/production`:** Generates highly optimized, thread-specific bundles using Webpack for maximum compatibility and minification.
-        *   **Dynamic Module Loading:** Neo.mjs uniquely supports dynamically loading code-based modules (even with arbitrary `import` statements) from different environments at runtime, a powerful feature for plugin architectures or user-generated code that most other frameworks struggle with due to their static build graphs.
+*   **Neo.mjs: "Structured Freedom" - A Zero-Builds, Direct Workflow**
+    *   Neo.mjs champions a **"zero builds" instant development mode**. Developers work directly with native ES Modules in the browser, eliminating the need for transpilation or bundling during development.
+    *   **Benefit:** This offers unparalleled speed and debugging clarity. Code changes are reflected instantly. Developers work directly with the real code in the browser's dev tools, eliminating the need for source maps and vastly simplifying debugging.
+    *   While Neo.mjs provides a robust architecture, it offers significant flexibility within that structure (e.g., plain JS for VDOM, choice of functional or class components), allowing developers more freedom without sacrificing consistency.
 
 ### Other Considerations:
 
@@ -78,13 +75,12 @@ This is where the two frameworks diverge significantly, each offering unique tra
 *   **Ecosystem & Maturity:** Angular has a large, mature ecosystem backed by Google. Neo.mjs has a smaller but dedicated community, with a focus on framework-level solutions and integrated features.
 *   **Dependency Management (Batteries Included):** Angular projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts. Neo.mjs, in contrast, is a "batteries included" framework. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework, significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
 
-## Conclusion: Why Neo.mjs Offers Significant Technical Advantages Over Angular
+## Conclusion: Why Neo.mjs Offers a More Modern and Flexible Architecture
 
-While Angular is a powerful and widely adopted framework, Neo.mjs offers fundamental architectural advantages that can lead to superior technical performance and responsiveness, particularly in demanding applications:
+While Angular is a powerful and widely adopted framework, Neo.mjs offers fundamental architectural advantages that can lead to superior technical performance, responsiveness, and a more streamlined developer experience.
 
 *   **Unblocked Main Thread & Inherent Performance:** Neo.mjs's unique worker-based architecture fundamentally shifts application logic off the Main Thread. This ensures the UI remains fluid and responsive, even during heavy computations, leading to inherently higher performance ceilings without the need for extensive manual optimizations.
-*   **Optimized & Precise DOM Updates:** Through off-Main-Thread VDOM diffing, sophisticated batching, and surgical direct DOM API updates, Neo.mjs achieves highly efficient and smooth visual updates, precisely targeting changes and avoiding unnecessary re-renders, often more granularly than Angular's zone-based change detection.
-*   **Linear Effort for Complexity:** Unlike frameworks where effort can grow exponentially with application complexity, Neo.mjs's unified config system, predictable component lifecycle, and modular design enable a more linear relationship between complexity and development effort, leading to faster development cycles and lower maintenance costs in the long run.
-*   **Streamlined Development Workflow:** The "zero builds" development mode and native ES Module approach offer a significantly faster and more transparent development experience compared to Angular's mandatory build process.
+*   **More Precise and Efficient Reactivity:** By using a surgical, effect-based system instead of broad, zone-based change detection, Neo.mjs is more performant by default and requires less manual tuning from the developer.
+*   **Superior Developer Experience:** The "zero builds" development mode offers a significantly faster, simpler, and more transparent development workflow compared to Angular's mandatory and complex build process.
 
-The choice between them depends on the specific application's needs. For applications where guaranteed Main Thread responsiveness, high performance under load, leveraging multi-core processing, and a streamlined development workflow are paramount, Neo.mjs presents a compelling and technically superior alternative.
+The choice between them depends on the specific application's needs. For teams heavily invested in the Angular ecosystem, it remains a robust choice. However, for applications where guaranteed Main Thread responsiveness, high performance under load, and a modern, flexible development workflow are paramount, Neo.mjs presents a compelling and technically superior alternative.

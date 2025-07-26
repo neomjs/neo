@@ -87,11 +87,11 @@ class Abstract extends Base {
          */
         parentComponent_: null,
         /**
-         * @member {String|null} parentId_=null
-         * @protected
+         * The parent component id or document.body
+         * @member {String} parentId_='document.body'
          * @reactive
          */
-        parentId_: null,
+        parentId_: 'document.body',
         /**
          * Optionally add a state.Provider to share state data with child components
          * @member {Object|null} stateProvider_=null

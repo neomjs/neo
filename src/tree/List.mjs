@@ -64,9 +64,9 @@ class Tree extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
-        ]}
+            {cn: [
+                    {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
+                ]}
     }
 
     /**
@@ -188,12 +188,15 @@ class Tree extends Base {
             {folderCls, itemCls} = me,
             cls                  = [itemCls],
             contentCls           = [itemCls + '-content'],
+            keyProperty          = me.getKeyProperty(),
             itemVdom;
 
         if (record.iconCls) {
-            contentCls.push(
-                Array.isArray(record.iconCls) ? record.iconCls : record.iconCls.split(' ')
-            )
+            if (Array.isArray(record.iconCls)) {
+                contentCls.push(...record.iconCls)
+            } else {
+                contentCls.push(record.iconCls)
+            }
         }
 
         if (record.isLeaf) {
@@ -209,7 +212,7 @@ class Tree extends Base {
         itemVdom = {
             tag: 'li',
             cls,
-            id : me.getItemId(record.id),
+            id : me.getItemId(record[keyProperty]),
             cn : [{
                 tag  : 'span',
                 cls  : contentCls,
@@ -416,16 +419,17 @@ class Tree extends Base {
      * @param {Object} data
      */
     onItemClick(node, data) {
-        let me      = this,
-            {items} = me.store,
-            i       = 0,
-            len     = items.length,
-            path    = data.path.map(e => e.id),
+        let me          = this,
+            {items}     = me.store,
+            i           = 0,
+            len         = items.length,
+            keyProperty = me.getKeyProperty(),
+            path        = data.path.map(e => e.id),
             item, record, tmpItem, vnodeId;
 
         for (; i < len; i++) {
             tmpItem = items[i];
-            vnodeId = me.getItemId(tmpItem.id);
+            vnodeId = me.getItemId(tmpItem[keyProperty]);
 
             if (path.includes(vnodeId)) {
                 record = tmpItem;

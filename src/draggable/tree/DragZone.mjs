@@ -73,7 +73,7 @@ class DragZone extends BaseDragZone {
         let {owner} = this;
 
         if (!(this.leafNodesOnly && !record.isLeaf)) {
-            return owner.getVdomChild(owner.getItemId(record.id), owner.vdom)
+            return owner.getVdomChild(owner.getItemId(record[owner.getKeyProperty()]), owner.vdom)
         }
 
         return null

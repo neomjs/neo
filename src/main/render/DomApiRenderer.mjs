@@ -53,7 +53,7 @@ const DomApiRenderer = {
             // Apply Attributes
             Object.entries(vnode.attributes).forEach(([key, value]) => {
                 if (voidAttributes.has(key)) {
-                    domNode[key] = (value === 'true' || value === true)
+                    domNode.toggleAttribute(key, value === 'true' || value === true)
                 } else if (key === 'value') {
                     domNode.value = value
                 } else if (value !== null && value !== undefined) {

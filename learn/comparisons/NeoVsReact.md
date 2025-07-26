@@ -43,31 +43,98 @@ This is where the two frameworks diverge significantly, each offering unique tra
         1.  **Performance:** A parent's update never processes the complex VDOM of its children, keeping update payloads extremely small and efficient.
         2.  **Encapsulation:** It is architecturally impossible for a parent to accidentally reach into and manipulate a child's internal VDOM structure. This enforces clear ownership and prevents a wide class of bugs.
 
-### 3. Component Execution Model: Precision vs. Brute Force
+### 3. Reactivity & Execution Model: The 'Inverted' Paradigm vs. Direct Granularity
 
-*   **React: Cascading Re-Renders & The `memo` Tax**
-    *   When a component's state changes, React re-executes the entire component function. This is just the beginning. By default, it then triggers a cascading re-render of **all its child components**, regardless of whether their own props have changed.
-    *   This brute-force approach creates a significant performance problem known as "unnecessary re-renders." To fight this, developers are forced to pay the `memo` tax: wrapping components in `React.memo()`, manually memoizing functions with `useCallback()`, and objects with `useMemo()`. This adds significant boilerplate, increases complexity, and is a notorious source of bugs, including stale closures and incorrect dependency arrays. This manual optimization becomes a core, and often frustrating, part of the development process.
+*   **React: The Inverted Reactivity Model & The `memo` Tax**
+    *   React's model is "inverted" because the **entire component function is the unit of reactivity**. When a state change occurs, React re-executes the entire function. This brute-force approach then triggers a cascading re-render of **all its child components**, regardless of whether their own props have changed.
+    *   This creates a significant performance problem known as "unnecessary re-renders." To fight this, developers are forced to pay the `memo` tax: wrapping components in `React.memo()`, manually memoizing functions with `useCallback()`, and objects with `useMemo()`. This adds significant boilerplate, increases complexity, and is a notorious source of bugs.
 
-*   **Neo.mjs: Surgical Effects & Automatic Efficiency**
-    *   Neo.mjs's model is fundamentally more efficient and intelligent. A component's `createVdom` method is wrapped in a `Neo.core.Effect`. This effect automatically and dynamically tracks its dependencies—the specific `config` values it reads.
+    ```javascript
+    // A typical "optimized" React component, demonstrating the memoization tax
+    const MyComponent = React.memo(({ onButtonClick, user }) => {
+      // This component is wrapped in React.memo to prevent re-renders
+      return <button onClick={onButtonClick}>{user.name}</button>;
+    });
+
+    const App = () => {
+      const [count, setCount] = useState(0);
+
+      // We must wrap this in useCallback to prevent MyComponent from re-rendering
+      const handleClick = useCallback(() => { /* ... */ }, []);
+
+      // We must wrap this in useMemo to ensure the object reference is stable
+      const user = useMemo(() => ({ name: 'John Doe' }), []);
+
+      return (
+        <div>
+          <button onClick={() => setCount(c => c + 1)}>App Clicks: {count}</button>
+          <MyComponent onButtonClick={handleClick} user={user} />
+        </div>
+      );
+    };
+    ```
+
+*   **Neo.mjs: Direct & Granular Reactivity (Performant by Default)**
+    *   Neo.mjs's model is fundamentally more efficient. The **individual config property is the unit of reactivity**.
     *   When a config value changes, only the specific `createVdom` effects that depend on that *exact* piece of state are queued for re-execution. There are no cascading re-renders. If a parent's `createVdom` re-runs, but the configs passed to a child have not changed, the child component's `createVdom` function is **never executed**.
-    *   **Benefit (Zero Manual Optimization):** This fine-grained reactivity completely eliminates the need for manual memoization (`memo`, `useCallback`, `useMemo`). The framework handles dependency tracking automatically and precisely, delivering optimal performance out-of-the-box without the boilerplate and complexity inherent in React. This also sidesteps entire classes of bugs like stale closures, as dependencies are discovered fresh on every run, without requiring manual dependency arrays.
+    *   **Benefit (Zero Manual Optimization):** This fine-grained reactivity completely eliminates the need for manual memoization. The framework is performant by design.
 
-*   **State Management & The End of Props Drilling:** React often relies on its Context API or third-party state management libraries to avoid "props drilling." However, this often introduces performance issues, as any change to a context value re-renders all consuming components by default. Neo.mjs's architecture makes props drilling an obsolete anti-pattern. A deeply nested component can subscribe directly to the precise piece of state it needs from a `StateProvider` via an `Effect`. This creates a direct, performant link between the state and the component that needs it, completely bypassing all intermediate components. This results in a cleaner, more decoupled, and more performant architecture by default.
+    ```javascript
+    // The Neo.mjs equivalent, performant by default without manual optimization
+    import {defineComponent, useConfig} from 'neo.mjs/src/functional/_export.mjs';
 
-### 4. Scaling Complexity: Linear Effort vs. Exponential Overhead
+    const MyComponent = defineComponent({
+        // The user config is passed in from the parent
+        createVdom({user}) {
+            // This will only log when the component *actually* re-renders
+            console.log('Rendering MyComponent');
+            return {tag: 'div', text: user.name};
+        }
+    });
 
-A key differentiator between the frameworks is how they handle growing application complexity.
+    export default defineComponent({
+        createVdom() {
+            const [count, setCount] = useConfig(0);
 
-*   **React: Exponential Complexity in Large Applications**
-    *   Consider a complex dashboard with a global state (e.g., a user profile in a Context). When a single value in that state changes (e.g., the user's name), React's default behavior is to re-render **every single component** that consumes that context.
-    *   To prevent the entire UI from lagging, developers must manually optimize each consuming component. This involves wrapping components in `React.memo` and using selector-like functions with `useMemo` to extract only the needed data. As the application grows, the number of these manual optimizations grows, leading to an exponential increase in boilerplate and performance-tuning effort. The burden is on the developer to constantly fight the framework's default behavior.
+            // No useMemo needed. useConfig provides a stable reference for the user object.
+            const [user] = useConfig({name: 'John Doe'});
 
-*   **Neo.mjs: Built-in Efficiency and Linear Effort**
-    *   Neo.mjs's architecture is designed to handle this scenario effortlessly. Multiple state changes are automatically batched into a single, de-duplicated update cycle via the `EffectBatchManager`.
-    *   In the same complex dashboard scenario, if a value in a global `StateProvider` changes, only the `createVdom` effects in components that *directly depend on that specific value* will re-run. All other components remain untouched, with **zero manual optimization required from the developer**.
-    *   This leads to a **linear relationship between complexity and effort**. As you add more components, you don't need to add more performance optimizations. The framework's core design ensures that updates are always surgical and efficient, allowing developers to focus on features instead of fighting the rendering engine. This is a direct result of the sophisticated, multi-layered batching and aggregation built into the framework's core.
+            return {
+                cn: [{
+                    tag: 'button',
+                    onclick: () => setCount(prev => prev + 1),
+                    text: `App Clicks: ${count}`
+                }, {
+                    module: MyComponent,
+                    // Pass the stable user object to the child.
+                    // MyComponent will not re-render when `count` changes.
+                    user
+                }]
+            }
+        }
+    });
+    ```
+
+### 4. Component Lifecycle: Ephemeral vs. Stable
+
+*   **React: Ephemeral Components**
+    *   In React, a functional component is not a persistent instance but an ephemeral function that is re-executed on every render. This conflates the concepts of component definition, rendering, and lifecycle management into a single, repeatedly-run block of code.
+    *   Side effects and lifecycle events are managed with hooks like `useEffect`, which run *after* the render has committed to the screen. This can lead to UI flicker (e.g., render a loading state, then fetch data, then re-render the final state) and requires careful management of dependency arrays to prevent infinite loops or stale closures.
+
+*   **Neo.mjs: Stable & Persistent Instances**
+    *   In Neo.mjs, both class-based and functional components are **stable, persistent instances** that are created once. This "stable chassis" provides a robust and predictable lifecycle that is separate from the render logic.
+    *   **`construct()` / `init()`**: These run only once when the instance is created, providing a clear place for one-time setup.
+    *   **`initAsync()`**: This powerful hook runs *after* construction but *before* the component is considered "ready." It allows for asynchronous setup (like data fetching or lazy-loading modules) to complete *before* the first render, eliminating UI flicker and race conditions at an architectural level.
+    *   **`afterSetMounted()`**: This hook fires every time the component is physically mounted or unmounted from the DOM, providing a reliable way to manage DOM-specific event listeners or integrations. This persistence allows components to be moved between containers or even browser windows without being destroyed.
+
+### 5. State Management: Context API vs. Surgical State Providers
+
+*   **React: The Context Problem**
+    *   React's primary built-in solution for avoiding "props drilling" is the Context API. However, it has a major performance drawback: when a context value changes, **every single component** that consumes that context re-renders by default, even if it only cares about a small, unchanged part of the context value. This forces developers back into the world of manual memoization to prevent performance degradation.
+
+*   **Neo.mjs: The State Provider Solution**
+    *   Neo.mjs's architecture makes props drilling an obsolete anti-pattern. The integrated `state.Provider` allows a deeply nested component to subscribe *only* to the precise slice of state it needs via its `bind` config or a `useConfig` hook.
+    *   This creates a direct, performant, and surgical link between the state and the component that needs it, completely bypassing all intermediate components. It is more akin to a selector in a dedicated state management library, but it's a native, architectural feature of the framework.
 
 ### Other Considerations:
 
@@ -76,12 +143,9 @@ A key differentiator between the frameworks is how they handle growing applicati
     *   **`dist/esm`:** Deploys as native ES Modules, preserving the dev mode's file structure for efficient modular loading in modern browsers.
     *   **`dist/production`:** Generates highly optimized, thread-specific bundles using Webpack for maximum compatibility and minification.
     *   **`dist/development`:** A bundled but unminified environment for debugging production-specific issues or for TypeScript preference, serving as a bridge to traditional build-based workflows.
-    *   **Dynamic Module Loading:** Neo.mjs uniquely supports dynamically loading code-based modules (even with arbitrary `import` statements) from different environments at runtime, a powerful feature for plugin architectures or user-generated code that most other frameworks struggle with.
 
 *   **JSX vs. Plain Objects:** React uses JSX (requiring a build step for UI definition). Neo.mjs uses plain JavaScript objects for VDOM (no JSX compilation needed for VDOM definition).
-*   **Side Effects:** Both frameworks advocate for managing side effects outside the pure render function. React uses `useEffect`. Neo.mjs uses separate `Neo.core.Effect` instances or dedicated hooks for side effects.
 *   **Ecosystem & Maturity:** React has a massive, mature ecosystem with abundant libraries, tools, and community support. Neo.mjs has a smaller but dedicated community, with a focus on framework-level solutions and integrated features.
-*   **Learning Curve:** React's initial learning curve can be gentle, but mastering its performance optimizations (memoization, context, custom hooks) can be complex. Neo.mjs has a steeper initial learning curve due to its worker-based architecture, but once understood, it offers inherent performance benefits.
 *   **Dependency Management (Batteries Included):** React projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts, a common pain point often referred to as "dependency hell." Neo.mjs, in contrast, is a "batteries included" framework. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
 
 ## Conclusion: Why Neo.mjs Offers Significant Technical Advantages Over React
@@ -89,7 +153,7 @@ A key differentiator between the frameworks is how they handle growing applicati
 For applications where guaranteed Main Thread responsiveness, high performance under load, leveraging multi-core processing, and long-term maintainability are paramount, Neo.mjs presents a compelling and technically superior alternative.
 
 *   **Unblocked Main Thread & Inherent Performance:** Neo.mjs's unique worker-based architecture fundamentally shifts application logic off the Main Thread. This ensures the UI remains fluid and responsive even during heavy computations, leading to inherently higher performance ceilings without the need for extensive manual optimizations common in React.
-*   **Optimized & Precise DOM Updates:** Through off-Main-Thread VDOM diffing, sophisticated batching, and surgical direct DOM API updates, Neo.mjs achieves highly efficient and smooth visual updates, precisely targeting changes and avoiding unnecessary re-renders.
-*   **Linear Effort for Complexity:** Unlike frameworks where effort can grow exponentially with application complexity, Neo.mjs's unified config system, predictable component lifecycle, and modular design enable a more linear relationship between complexity and development effort, leading to faster development cycles and lower maintenance costs in the long run.
+*   **Architecturally Superior Reactivity:** By avoiding React's "inverted reactivity model," Neo.mjs eliminates the need for manual memoization, resulting in cleaner code, fewer bugs, and a more intuitive developer experience.
+*   **Robust Lifecycle for Complex Apps:** The stable component lifecycle, especially with `initAsync`, provides an architectural solution for asynchronous challenges that React can only handle with post-render side effects, often leading to a less optimal user experience.
 
-The choice between them depends on the specific application's needs. For applications where guaranteed Main Thread responsiveness, high performance under load, leveraging multi-core processing, and long-term maintainability are paramount, Neo.mjs presents a compelling and technically superior alternative.
+The choice between them depends on the specific application's needs. For simple websites or applications where the development team is already heavily invested in the React ecosystem, React remains a viable choice. For applications where performance, scalability, and long-term maintainability are critical, Neo.mjs offers a fundamentally more robust and powerful architecture.
