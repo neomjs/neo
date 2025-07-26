@@ -48,28 +48,28 @@ $text-color      : #bbb;
     --button-use-gradients                      : true;
 
     // {module: Button, ui: --ghost}
-    --button-ghost-background-color             : var(--button-text-color);
+    --button-ghost-background-color             : transparent;
     --button-ghost-background-color-active      : #373a3c;
     --button-ghost-background-color-disabled    : inherit;
-    --button-ghost-background-color-hover       : var(--button-text-color);
+    --button-ghost-background-color-hover       : transparent;
     --button-ghost-background-image             : none;
     --button-ghost-badge-background-color       : var(--button-badge-color);
     --button-ghost-badge-color                  : var(--button-badge-background-color);
-    --button-ghost-border                       : 1px #{$border-style} var(--button-background-color);
+    --button-ghost-border                       : none;
     --button-ghost-border-active                : 1px #{$border-style} #282828;
     --button-ghost-border-disabled              : inherit;
-    --button-ghost-border-hover                 : 1px #{$border-style} #282828;
+    --button-ghost-border-hover                 : 1px #{$border-style} #64B5F6;
     --button-ghost-border-pressed               : 1px #{$border-style} #5d83a7;
-    --button-ghost-glyph-color                  : var(--button-background-color);
-    --button-ghost-glyph-color-active           : var(--button-background-color);
+    --button-ghost-glyph-color                  : var(--button-text-color);
+    --button-ghost-glyph-color-active           : var(--button-text-color);
     --button-ghost-glyph-color-disabled         : inherit;
-    --button-ghost-glyph-color-hover            : var(--button-background-color);
+    --button-ghost-glyph-color-hover            : var(--button-text-color);
     --button-ghost-opacity-disabled             : var(--neo-disabled-opacity);
     --button-ghost-ripple-background-color      : inherit;
-    --button-ghost-text-color                   : var(--button-background-color);
-    --button-ghost-text-color-active            : var(--button-background-color);
+    --button-ghost-text-color                   : var(--button-text-color);
+    --button-ghost-text-color-active            : var(--button-text-color);
     --button-ghost-text-color-disabled          : inherit;
-    --button-ghost-text-color-hover             : var(--button-background-color);
+    --button-ghost-text-color-hover             : var(--button-text-color);
 
     // {module: Button, ui: --secondary}
     --button-secondary-background-color         : var(--button-text-color);
