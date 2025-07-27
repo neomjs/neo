@@ -158,6 +158,14 @@ class Model extends Base {
     }
 
     /**
+     * Important for mapping listeners to view controllers
+     * @returns {Neo.controller.Component|null}
+     */
+    getController() {
+        return this.view.getController()
+    }
+
+    /**
      * @returns {Array} this.items
      */
     getSelection() {
