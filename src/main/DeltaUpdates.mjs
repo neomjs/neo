@@ -370,10 +370,6 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = DomAccess.getElementOrBody(delta.id);
 
-        if (!node) {
-            console.log('node not found', delta.id);
-        }
-
         if (node) {
             Object.entries(delta).forEach(([prop, value]) => {
                 switch (prop) {
