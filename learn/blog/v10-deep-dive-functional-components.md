@@ -144,10 +144,6 @@ To signal that a state change has occurred, many frameworks require developers t
 nested object, you have to meticulously reconstruct the object path, creating new references for every level. While this
 makes the change detection algorithm simpler for the framework, it offloads significant cognitive burden onto the developer.
 
-**The React Way:** To change a nested object in React state, you have to meticulously reconstruct the object path with
-spread syntax (`...`), creating new references for every level. This is required to signal to React's diffing algorithm
-that something has changed.
-
 ```javascript
 // The familiar immutable update dance
 setState(prevState => ({
@@ -199,9 +195,13 @@ complete, interactive application. Let's build a slightly more advanced "Task Li
 the pieces come together.
 
 This example will showcase:
-- **Full Interoperability:** How functional components seamlessly integrate with traditional OOP components.
-  You can drop functional components into OOP containers, and as shown here, directly embed OOP components within
-  the declarative VDOM of a functional component.
+- **Full Interoperability:** Neo.mjs embraces both functional and class-based (OOP) component paradigms as first-class
+  citizens, offering unparalleled flexibility. For developers familiar with the functional style, our functional
+  components provide a natural and intuitive starting point within Neo.mjs, allowing them to leverage a familiar approach.
+  Regardless of your preferred paradigm, you can seamlessly integrate functional components into traditional OOP containers,
+  and conversely, directly embed class-based components within the declarative VDOM of a functional component.
+  This architectural strength empowers developers to choose the most appropriate style for each part of their application,
+  or combine them as needed, without compromise.
 - **Component Composition:** Using a class-based `List` component within our functional view.
 - **State Management:** Tracking the currently selected task.
 - **Conditional Rendering:** Displaying task details only when a task is selected.
