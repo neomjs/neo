@@ -51,7 +51,7 @@ class TreeBuilder extends Base {
                 if (currentItem.componentId) {
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        output[childKey].push({componentId: 'neo-ignore', id: item.id || item.componentId});
+                        output[childKey].push({...currentItem, neoIgnore: true});
                         return // Stop processing this branch
                     }
                     // Expand the branch if it's part of a merged update, or if the depth requires it

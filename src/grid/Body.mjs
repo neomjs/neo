@@ -954,7 +954,7 @@ class GridBody extends Component {
     /**
      * @param {Object}         data
      * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
-     * @param {Neo.data.Model} data.model The model instance of the changed record
+     * @param {Neo.data.Model} data.model  The model instance of the changed record
      * @param {Object}         data.record
      */
     onStoreRecordChange({fields, record}) {

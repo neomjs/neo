@@ -412,7 +412,7 @@ class Collection extends Base {
      * Removes all items and clears the map
      */
     clear() {
-        this.splice(0, this.getCount())
+        this.splice(0, this.count)
     }
 
     /**
@@ -429,7 +429,7 @@ class Collection extends Base {
     clearSilent() {
         let me = this;
 
-        me._items.splice(0, me.getCount());
+        me._items.splice(0, me.count);
         me.map.clear()
     }
 
@@ -817,10 +817,10 @@ class Collection extends Base {
      * @param {Object} fn.item The current collection item
      * @param {Object} scope=this The scope in which the passed function gets executed
      * @param {Number} start=0 The start index
-     * @param {Number} end=this.getCount() The end index (up to, last value excluded)
+     * @param {Number} end=this.count The end index (up to, last value excluded)
      * @returns {Array} Returns an empty Array in case no items are found
      */
-    findBy(fn, scope=this, start=0, end=this.getCount()) {
+    findBy(fn, scope=this, start=0, end=this.count) {
         let me    = this,
             items = [],
             i     = start;
@@ -1041,7 +1041,7 @@ class Collection extends Base {
      * @returns {Object}
      */
     last() {
-        return this._items[this.getCount() -1]
+        return this._items[this.count -1]
     }
 
     /**
@@ -1102,7 +1102,7 @@ class Collection extends Base {
      * @returns {Object} The removed element from the collection; undefined if the collection is empty.
      */
     pop() {
-        let mutation = this.splice(this.getCount() -1, 1);
+        let mutation = this.splice(this.count -1, 1);
         return mutation.removedItems[0]
     }
 
@@ -1122,7 +1122,7 @@ class Collection extends Base {
      */
     remove(key) {
         this.splice(0, Array.isArray(key) ? key : [key]);
-        return this.getCount()
+        return this.count
     }
 
     /**
@@ -1132,7 +1132,7 @@ class Collection extends Base {
      */
     removeAt(index) {
         this.splice(index, 1);
-        return this.getCount()
+        return this.count
     }
 
     /**
@@ -1310,7 +1310,7 @@ class Collection extends Base {
      */
     unshift(item) {
         this.splice(0, 0, item);
-        return this.getCount()
+        return this.count
     }
 }
 

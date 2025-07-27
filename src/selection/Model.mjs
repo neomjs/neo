@@ -158,6 +158,14 @@ class Model extends Base {
     }
 
     /**
+     * Important for mapping listeners to view controllers
+     * @returns {Neo.controller.Component|null}
+     */
+    getController() {
+        return this.view.getController()
+    }
+
+    /**
      * @returns {Array} this.items
      */
     getSelection() {
@@ -226,8 +234,9 @@ class Model extends Base {
             items = [items]
         }
 
-        let me     = this,
-            {view} = me;
+        let me      = this,
+            {view}  = me,
+            records = [...items]; // Potential records
 
         // We hold vdom ids for now, so all incoming selections must be converted.
         items = items.map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
@@ -256,6 +265,7 @@ class Model extends Base {
             view.onSelect?.(items);
 
             me.fire('selectionChange', {
+                records,
                 selection: itemCollection
             })
         }

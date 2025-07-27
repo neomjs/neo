@@ -255,7 +255,8 @@ class Helper extends Base {
                 // Case 2: Both nodes are placeholders for the same component
                 (childNode.componentId && childNode.componentId === oldChildNode.componentId)
             )) {
-                if (childNode.componentId === 'neo-ignore') {
+                if (childNode.neoIgnore) {
+                    delete childNode.neoIgnore;
                     continue
                 }
 
