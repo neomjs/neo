@@ -1051,16 +1051,21 @@ class Collection extends Base {
      */
     move(fromIndex, toIndex) {
         if (fromIndex === toIndex) {
-            return
+            return;
         }
 
-        let {items} = this;
+        let items = this._items;
 
         if (fromIndex >= items.length) {
             fromIndex = items.length - 1
         }
 
-        items.splice(toIndex, 0, items.splice(fromIndex, 1)[0])
+        // The splice operations are intentionally separated.
+        // Using the common one-liner `items.splice(toIndex, 0, items.splice(fromIndex, 1)[0])`
+        // can lead to unpredictable side effects, as the inner splice can alter the array
+        // before the outer splice's index is resolved. This two-step approach is safer.
+        const item = items.splice(fromIndex, 1)[0];
+        items.splice(toIndex, 0, item)
     }
 
     /**

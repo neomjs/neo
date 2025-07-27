@@ -275,4 +275,50 @@ StartTest(t => {
             {id: 'e'}
         ], 'collection.getRange()');
     });
+
+    t.it('Move collection items', t => {
+        let moveCollection = Neo.create(Collection, {
+            items: [
+                {id: 'a'},
+                {id: 'b'},
+                {id: 'c'},
+                {id: 'd'},
+                {id: 'e'}
+            ]
+        });
+
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}], 'Initial order');
+
+        // Move item forward
+        moveCollection.move(1, 2);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'c'}, {id: 'b'}, {id: 'd'}, {id: 'e'}], 'Move item forward (1 -> 2)');
+
+        // Swap adjacent items (backward)
+        moveCollection.move(2, 1);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}], 'Swap adjacent items back (2 -> 1)');
+
+        // Move item backward
+        moveCollection.move(3, 1);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'd'}, {id: 'b'}, {id: 'c'}, {id: 'e'}], 'Move item backward (3 -> 1)');
+
+        // Move item forward
+        moveCollection.move(1, 3);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}], 'Move item forward (1 -> 3)');
+
+        // Swap adjacent items (forward)
+        moveCollection.move(0, 1);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'b'}, {id: 'a'}, {id: 'c'}, {id: 'd'}, {id: 'e'}], 'Swap adjacent items (0 -> 1)');
+
+        // Swap adjacent items (backward)
+        moveCollection.move(1, 0);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}], 'Swap adjacent items back (1 -> 0)');
+
+        // Move to end
+        moveCollection.move(0, 4);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}, {id: 'a'}], 'Move to end (0 -> 4)');
+
+        // Move to start
+        moveCollection.move(4, 0);
+        t.isDeeplyStrict(moveCollection.getRange(), [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}], 'Move to start (4 -> 0)');
+    });
 });
