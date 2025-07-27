@@ -273,7 +273,7 @@ simpler and more intuitive.
 This is what it feels like to stop paying the performance tax and start building again.
 
 The clean, hook-based API for functional components is possible because it stands on the shoulders of a robust, modular,
-and deeply integrated class system. To learn more about the powerful engine that makes this all possible, see our deep
+and deeply integrated class config system. To learn more about the powerful engine that makes this all possible, see our deep
 dive on the **Two-Tier Reactivity System**.
 
 Next, we will look at how this architecture revolutionizes the very way we render UIs with the Asymmetric VDOM and JSON Blueprints.
