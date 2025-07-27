@@ -62,6 +62,10 @@ In Neo.mjs, the architecture is fundamentally different:
 1.  **Your Application Logic (including your component's `createVdom` function) runs in a dedicated App Worker.**
 2.  **The VDOM diffing happens in a separate VDom Worker.**
 3.  **The Main Thread is left with one primary job: applying the calculated DOM patches.**
+    While this process leverages browser primitives like `requestAnimationFrame` for optimal visual synchronization,
+    it's crucial to understand that *only* the final, highly optimized DOM updates occur here. Your application logic
+    and VDOM calculations are entirely offloaded to workers, preventing main thread contention and ensuring a consistently
+    smooth user experience.
 
 This isn't just a minor difference; it's a paradigm shift. Your component code is decoupled from the rendering engine,
 which allows for a level of performance and predictability that is architecturally impossible on the main thread.
@@ -90,6 +94,14 @@ queued for re-execution.**
 
 There are no cascading re-renders. If a parent's `createVdom` re-runs, but the configs passed to a child have not changed,
 the child component's `createVdom` function is **never executed**.
+
+This efficiency extends to child components. On the first execution cycle, when a child component is encountered in the VDOM,
+Neo.mjs creates a new instance of that child component. In all subsequent renders, if the child component is still present,
+Neo.mjs *retains* the existing instance. Instead of re-executing the child's `createVdom` or re-creating its entire VDOM,
+Neo.mjs employs a sophisticated `diffAndSet()` mechanism. This process surgically compares the new configuration (props)
+intended for the child with its last applied configuration. Only if actual changes are detected are the corresponding
+`set()` methods invoked on the child component's instance. This triggers a highly localized, scoped VDOM update within
+that child, ensuring that only the truly affected parts of the UI are re-rendered, even for deeply nested components.
 
 To prove this, consider this example:
 ```javascript
@@ -187,6 +199,9 @@ complete, interactive application. Let's build a slightly more advanced "Task Li
 the pieces come together.
 
 This example will showcase:
+- **Full Interoperability:** How functional components seamlessly integrate with traditional OOP components.
+  You can drop functional components into OOP containers, and as shown here, directly embed OOP components within
+  the declarative VDOM of a functional component.
 - **Component Composition:** Using a class-based `List` component within our functional view.
 - **State Management:** Tracking the currently selected task.
 - **Conditional Rendering:** Displaying task details only when a task is selected.
