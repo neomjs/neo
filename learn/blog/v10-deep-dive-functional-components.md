@@ -1,5 +1,7 @@
 # Designing Functional Components for a Multi-Threaded World
 
+## Say Goodbye to Manual Memoization: How a New Architecture Makes Performance a Feature, Not a Chore.
+
 Functional components have become a standard for building UIs, but they often come with a hidden cost: a constant, manual
 effort to manage performance. We've learned to fight unnecessary re-renders with memoization hooks and complex dependency
 arrays. But what if these weren't fundamental trade-offs? What if they were symptoms of an architecture that binds our UI
@@ -130,7 +132,25 @@ To signal that a state change has occurred, many frameworks require developers t
 nested object, you have to meticulously reconstruct the object path, creating new references for every level. While this
 makes the change detection algorithm simpler for the framework, it offloads significant cognitive burden onto the developer.
 
-**The Neo.mjs Solution: Mutability for You, Immutability for the Machine**
+**The React Way:** To change a nested object in React state, you have to meticulously reconstruct the object path with
+spread syntax (`...`), creating new references for every level. This is required to signal to React's diffing algorithm
+that something has changed.
+
+```javascript
+// The familiar immutable update dance
+setState(prevState => ({
+  ...prevState,
+  deeply: {
+    ...prevState.deeply,
+    nested: {
+      ...prevState.deeply.nested,
+      property: 'new value'
+    }
+  }
+}));
+```
+
+**The Neo.mjs Solution:** Mutability for You, Immutability for the Machine
 
 We believe the developer should not carry this cognitive load. In Neo.mjs, you can just mutate the state directly.
 It's simple and intuitive.
