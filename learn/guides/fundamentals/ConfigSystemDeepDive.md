@@ -247,7 +247,7 @@ the auto-generated setters of reactive configs and the `set()` method of `Neo.co
 
 When you change a config on any component (class-based or functional):
 
-```javascript
+```javascript readonly
 myComponent.myConfig = 'new value';
 // or
 myComponent.set({myConfig: 'new value'});
