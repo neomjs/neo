@@ -226,8 +226,7 @@ const TaskStore = Neo.create(Store, {
 // 2. Define our main application view
 export default defineComponent({
     config: {
-        className: 'My.TaskListApp',
-        layout: {ntype: 'hbox', align: 'stretch'}
+        className: 'My.TaskListApp'
     },
     createVdom() {
         // 3. Manage the selected task with useConfig
