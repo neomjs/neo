@@ -63,7 +63,7 @@ class AccordionTree extends TreeList {
          *
          * @example
          *     module: AccordionTree,
-         *     bind  : {selection: {twoWay: true, value: data => data.selection}}
+         *     bind  : {selection: {key: 'selection', twoWay: true}}
          *
          *     ntype: 'component',
          *     bind : {html: data => data.selection[0].name}

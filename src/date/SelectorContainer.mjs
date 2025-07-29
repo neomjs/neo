@@ -33,8 +33,8 @@ class SelectorContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            intlFormatDay: {twoWay: true, value: data => data.intlFormatDay},
-            weekStartDay : {twoWay: true, value: data => data.weekStartDay}
+            intlFormatDay: {key: 'intlFormatDay', twoWay: true},
+            weekStartDay : {key: 'weekStartDay',  twoWay: true}
         },
         /**
          * Date object created on the value config
