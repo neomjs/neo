@@ -21,7 +21,7 @@ class CountryGallery extends Gallery {
          * @member {Object} bind
          */
         bind: {
-            country: {twoWay: true, value: data => data.country}
+            country: {key: 'country', twoWay: true}
         },
         /**
          * @member {String|null} country_=null
