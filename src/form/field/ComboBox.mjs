@@ -237,10 +237,9 @@ class ComboBox extends Picker {
             let selectionModel = me.list?.selectionModel;
 
             if (value) {
-                oldValue && selectionModel?.deselect(oldValue);
                 selectionModel?.select(value)
             } else {
-                selectionModel.deselectAll()
+                selectionModel?.deselectAll()
             }
         }
     }
