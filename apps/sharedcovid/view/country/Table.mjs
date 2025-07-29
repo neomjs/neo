@@ -24,6 +24,16 @@ class Table extends Container {
             country: {twoWay: true, value: data => data.country}
         },
         /**
+         * @member {String|null} country_=null
+         * @reactive
+         */
+        country_: null,
+        /**
+         * @member {Neo.data.Store} store=CountryStore
+         * @reactive
+         */
+        store: CountryStore,
+        /**
          * Default configs for each column
          * @member {Object} columnDefaults
          */
@@ -101,17 +111,7 @@ class Table extends Container {
         }, {
             dataField: 'testsPerOneMillion',
             text     : 'Tests / 1M'
-        }],
-        /**
-         * @member {String|null} country_=null
-         * @reactive
-         */
-        country_: null,
-        /**
-         * @member {Neo.data.Store} store=CountryStore
-         * @reactive
-         */
-        store: CountryStore
+        }]
     }
 
     /**
@@ -123,20 +123,20 @@ class Table extends Container {
     afterSetCountry(value, oldValue) {
         if (oldValue !== undefined) {
             let me               = this,
-                {view}           = me,
-                {selectionModel} = view,
+                {body}           = me,
+                {selectionModel} = body,
                 id;
 
             if (value) {
-                id = `${me.view.id}__tr__${value}`; // the store can not be loaded on the first selection
+                id = `${body.id}__tr__${value}`; // The store might not be loaded on the first selection
 
                 if (!selectionModel.isSelected(id)) {
                     selectionModel.select(id);
 
-                    me.mounted && Neo.main.DomAccess.scrollToTableRow({id: id});
+                    me.mounted && Neo.main.DomAccess.scrollToTableRow({id: id})
                 }
             } else {
-                selectionModel.deselectAll();
+                selectionModel.deselectAll()
             }
         }
     }
@@ -146,7 +146,7 @@ class Table extends Container {
      * @param {String[]} items
      */
     onDeselect(items) {
-        this.country = null;
+        this.country = null
     }
 
     /**
@@ -159,12 +159,12 @@ class Table extends Container {
 
         if (me.store.getCount() > 0) {
             if (item) {
-                item = me.view.getRecordByRowId(item)?.country;
+                item = me.body.getRecordByRowId(item)?.country
             }
 
             // in case getRecordByRowId() has no match, the initial row creation will include the selection
             if (item) {
-                me.country = item;
+                me.country = item
             }
         }
     }

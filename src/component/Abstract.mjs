@@ -175,7 +175,7 @@ class Abstract extends Base {
             let binding = me.bind?.[key];
 
             if (binding?.twoWay) {
-                this.getStateProvider()?.setData(binding.key, value)
+                this.getStateProvider()?.setData(key, value)
             }
         }
     }
