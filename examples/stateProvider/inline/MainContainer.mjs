@@ -88,7 +88,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: {twoWay: true, value: data => data.button1Text}
+                    value: {key: 'button1Text', twoWay: true}
                 }
             }, {
                 module    : TextField,

@@ -113,7 +113,7 @@ class MainContainer extends ConfigurationViewport {
             items : [{
                 module: AccordionTree,
 
-                bind: {selection: {twoWay: true, value: data => data.selection}},
+                bind: {selection: {key: 'selection', twoWay: true}},
 
                 store: store,
 
