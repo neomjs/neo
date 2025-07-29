@@ -613,11 +613,12 @@ class Provider extends Base {
      */
     #setConfigValue(provider, path, newValue, oldVal) {
         let currentConfig = provider.getDataConfig(path),
+            hasChange     = true,
             oldValue      = oldVal;
 
         if (currentConfig) {
-            oldValue = currentConfig.get();
-            currentConfig.set(newValue);
+            oldValue  = currentConfig.get();
+            hasChange = currentConfig.set(newValue)
         } else {
             currentConfig = new Config(newValue);
             provider.#dataConfigs[path] = currentConfig;
@@ -625,8 +626,10 @@ class Provider extends Base {
             provider.#bindingEffects.forEach(effect => effect.run())
         }
 
-        // Notify subscribers of the data property change.
-        provider.onDataPropertyChange(path, newValue, oldValue)
+        if (hasChange) {
+            // Notify subscribers of the data property change.
+            provider.onDataPropertyChange(path, newValue, oldValue)
+        }
     }
 
     /**
