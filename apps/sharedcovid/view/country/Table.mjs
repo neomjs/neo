@@ -62,7 +62,7 @@ class Table extends Container {
             text                : 'Country',
             width               : 200,
 
-            renderer: function(data) {
+            renderer(data) {
                 return {
                     cls : ['neo-country-column', 'neo-table-cell'],
                     html: [
@@ -70,7 +70,7 @@ class Table extends Container {
                             '<img style="height:20px; margin-right:10px; width:20px;" src="' + Util.getCountryFlagUrl(data.value) + '">' + data.value,
                         '</div>'
                     ].join('')
-                };
+                }
             }
         }, {
             dataField: 'cases',
