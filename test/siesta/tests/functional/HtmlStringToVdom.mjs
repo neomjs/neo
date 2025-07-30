@@ -43,7 +43,7 @@ StartTest(t => {
             cls: 'foo bar',
             style: {
                 color: 'red',
-                'font-size': '16px'
+                fontSize: '16px'
             }
         });
     });

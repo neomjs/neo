@@ -148,7 +148,7 @@ class HtmlStringToVdom extends Base {
                     if (attrName === 'class') {
                         attrName = 'cls';
                     } else if (attrName === 'style') {
-                        vdom.style = this.parseStyle(attrValue);
+                        vdom.style = Neo.createStyleObject(attrValue);
                         continue;
                     }
                     vdom[attrName] = attrValue;
@@ -172,23 +172,6 @@ class HtmlStringToVdom extends Base {
         }
 
         return null; // Should not happen for valid HTML
-    }
-
-    /**
-     * Parses a style attribute string into an object.
-     * @param {String} styleString The style string (e.g., "color: red; font-size: 16px").
-     * @returns {Object} The style object.
-     * @private
-     */
-    parseStyle(styleString) {
-        const style = {};
-        styleString.split(';').forEach(declaration => {
-            if (declaration.trim() !== '') {
-                const [property, value] = declaration.split(':');
-                style[property.trim()] = value.trim();
-            }
-        });
-        return style;
     }
 }
 
