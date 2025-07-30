@@ -1,6 +1,7 @@
-import Abstract from '../../component/Abstract.mjs';
-import Effect   from '../../core/Effect.mjs';
-import NeoArray from '../../util/Array.mjs';
+import Abstract         from '../../component/Abstract.mjs';
+import Effect           from '../../core/Effect.mjs';
+import NeoArray         from '../../util/Array.mjs';
+import {isHtmlTemplate} from '../util/html.mjs';
 
 const
     activeDomListenersSymbol = Symbol.for('activeDomListeners'),
@@ -44,6 +45,11 @@ class FunctionalBase extends Abstract {
      * @member {Map|null} childComponents=null
      */
     childComponents = null
+    /**
+     * @member {Neo.functional.util.HtmlTemplateProcessor|null} htmlTemplateProcessor=null
+     * @private
+     */
+    htmlTemplateProcessor = null
     /**
      * Internal Map to store the next set of components after the createVdom() Effect has run.
      * @member {Map|null} nextChildComponents=null
@@ -110,9 +116,9 @@ class FunctionalBase extends Abstract {
      * @protected
      */
     afterSetEnableHtmlTemplates_(value, oldValue) {
-        if (value && !this.htmlParser) {
-            import('../util/html.mjs').then(module => {
-                this.htmlParser = module.default;
+        if (value && !this.htmlTemplateProcessor) {
+            import('../util/HtmlTemplateProcessor.mjs').then(module => {
+                this.htmlTemplateProcessor = Neo.create(module.default);
             });
         }
     }
@@ -186,6 +192,89 @@ class FunctionalBase extends Abstract {
      */
     beforeUpdate() {
         // This method can be overridden by subclasses
+    }
+
+    /**
+     * This method is called by the HtmlTemplateProcessor after the async parsing is complete.
+     * It then continues the component update lifecycle.
+     * @param {Object} parsedVdom The VDOM object received from the parser addon.
+     * @protected
+     */
+    continueUpdateWithVdom(parsedVdom) {
+        const me = this;
+
+        // Create a new map for components instantiated in this render cycle
+        me.#nextChildComponents = new Map();
+
+        // Process the newVdom to instantiate components
+        // The parentId for these components will be the functional component's id
+        const processedVdom = me.processVdomForComponents(parsedVdom, me.id);
+
+        // Destroy components that are no longer present in the new VDOM
+        if (me.childComponents?.size > 0) {
+            [...me.childComponents].forEach(([key, childData]) => {
+                if (!me.#nextChildComponents.has(key)) {
+                    me.childComponents.delete(key);
+                    childData.instance.destroy()
+                }
+            })
+        }
+
+        // If this component created other classic or functional components,
+        // include their full vdom into the next update cycle.
+        const oldKeys = me.childComponents ? new Set(me.childComponents.keys()) : new Set();
+        let hasNewChildren = false;
+
+        for (const newKey of me.#nextChildComponents.keys()) {
+            if (!oldKeys.has(newKey)) {
+                hasNewChildren = true;
+                break
+            }
+        }
+
+        if (hasNewChildren) {
+            // When new child components are created, we need to send their full VDOM
+            // to the vdom-worker, so they can get rendered.
+            // Subsequent updates will be granular via diffAndSet() => set() on the child.
+            me.updateDepth = -1;
+        }
+
+        // Update the main map of instantiated components
+        me.childComponents = me.#nextChildComponents;
+
+        // Clear the old vdom properties
+        for (const key in me.vdom) {
+            delete me.vdom[key]
+        }
+
+        // Assign the new properties
+        Object.assign(me.vdom, processedVdom); // Use processedVdom here
+
+        me[vdomToApplySymbol] = null;
+
+        const root = me.getVdomRoot();
+
+        if (me.cls) {
+            root.cls = NeoArray.union(me.cls, root.cls)
+        }
+
+        if (me.id) {
+            root.id = me.id
+        }
+
+        // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
+        // This is crucial for functional components where the vdom is recreated on every render,
+        // ensuring the diffing algorithm can track nodes correctly.
+        me.syncVdomIds();
+
+        if (me.beforeUpdate() !== false) {
+            me.updateVdom()
+        }
+
+        // Update DOM event listeners based on the new render
+        if (me.mounted) {
+            me.applyPendingDomListeners()
+        }
     }
 
     /**
@@ -270,78 +359,18 @@ class FunctionalBase extends Abstract {
                   newVdom = me[vdomToApplySymbol];
 
             if (newVdom) {
-                // Create a new map for components instantiated in this render cycle
-                me.#nextChildComponents = new Map();
-
-                // Process the newVdom to instantiate components
-                // The parentId for these components will be the functional component's id
-                const processedVdom = me.processVdomForComponents(newVdom, me.id);
-
-                // Destroy components that are no longer present in the new VDOM
-                if (me.childComponents?.size > 0) {
-                    [...me.childComponents].forEach(([key, childData]) => {
-                        if (!me.#nextChildComponents.has(key)) {
-                            me.childComponents.delete(key);
-                            childData.instance.destroy()
-                        }
-                    })
-                }
-
-                // If this component created other classic or functional components,
-                // include their full vdom into the next update cycle.
-                const oldKeys = me.childComponents ? new Set(me.childComponents.keys()) : new Set();
-                let hasNewChildren = false;
-
-                for (const newKey of me.#nextChildComponents.keys()) {
-                    if (!oldKeys.has(newKey)) {
-                        hasNewChildren = true;
-                        break
+                // If the result is an HtmlTemplate, hand it off to the processor
+                if (newVdom[isHtmlTemplate]) {
+                    if (me.htmlTemplateProcessor) {
+                        me.htmlTemplateProcessor.process(newVdom, me);
+                    } else {
+                        console.error('enableHtmlTemplates is true, but HtmlTemplateProcessor is not available.');
                     }
+                    return; // Stop execution, the processor will call back
                 }
 
-                if (hasNewChildren) {
-                    // When new child components are created, we need to send their full VDOM
-                    // to the vdom-worker, so they can get rendered.
-                    // Subsequent updates will be granular via diffAndSet() => set() on the child.
-                    me.updateDepth = -1;
-                }
-
-                // Update the main map of instantiated components
-                me.childComponents = me.#nextChildComponents;
-
-                // Clear the old vdom properties
-                for (const key in me.vdom) {
-                    delete me.vdom[key]
-                }
-
-                // Assign the new properties
-                Object.assign(me.vdom, processedVdom); // Use processedVdom here
-
-                me[vdomToApplySymbol] = null;
-
-                const root = me.getVdomRoot();
-
-                if (me.cls) {
-                    root.cls = NeoArray.union(me.cls, root.cls)
-                }
-
-                if (me.id) {
-                    root.id = me.id
-                }
-
-                // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
-                // This is crucial for functional components where the vdom is recreated on every render,
-                // ensuring the diffing algorithm can track nodes correctly.
-                me.syncVdomIds();
-
-                if (me.beforeUpdate() !== false) {
-                    me.updateVdom()
-                }
-
-                // Update DOM event listeners based on the new render
-                if (me.mounted) {
-                    me.applyPendingDomListeners()
-                }
+                // Continue with the standard JSON-based VDOM update
+                me.continueUpdateWithVdom(newVdom);
             }
         }
     }

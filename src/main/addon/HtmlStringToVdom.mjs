@@ -47,9 +47,9 @@ class HtmlStringToVdom extends Base {
      * @param {String}          [opts.type=text/html]
      * @param {String}           opts.value
      * @param {Array}           [opts.values] Dynamic values to replace placeholders
-     * @returns {Object|Object[]} The vdom object or array of vdom objects
+     * @returns {Promise<Object|Object[]>} The vdom object or array of vdom objects
      */
-    createVdom(opts) {
+    async createVdom(opts) {
         let arrayParam = true;
 
         if (!Array.isArray(opts)) {

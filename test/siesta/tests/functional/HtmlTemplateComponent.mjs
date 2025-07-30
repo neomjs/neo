@@ -1,9 +1,11 @@
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
-import FunctionalBase     from '../../../../src/functional/component/Base.mjs';
-import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
-import VdomHelper         from '../../../../src/vdom/Helper.mjs';
-import html               from '../../../../src/functional/util/html.mjs';
+import Neo                   from '../../../../src/Neo.mjs';
+import * as core             from '../../../../src/core/_export.mjs';
+import FunctionalBase        from '../../../../src/functional/component/Base.mjs';
+import DomApiVnodeCreator    from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import HtmlStringToVdom      from '../../../../src/main/addon/HtmlStringToVdom.mjs';
+import HtmlTemplateProcessor from '../../../../src/functional/util/HtmlTemplateProcessor.mjs';
+import VdomHelper            from '../../../../src/vdom/Helper.mjs';
+import {html}                from '../../../../src/functional/util/html.mjs';
 
 // IMPORTANT: This test file uses real components and expects them to render.
 // We need to enable unitTestMode for isolation, but also allow VDOM updates.
@@ -11,6 +13,11 @@ Neo.config.unitTestMode = true;
 Neo.config.allowVdomUpdatesInTests = true;
 // This ensures that the VdomHelper uses the correct renderer for the assertions.
 Neo.config.useDomApiRenderer = true;
+
+// Since the test environment is the main thread, we need to manually create
+// the addon that would normally live there.
+const ns = Neo.ns('Neo.main.addon', true);
+ns['HtmlStringToVdom'] = Neo.create(HtmlStringToVdom);
 
 // Create a mock application context, as the component lifecycle requires it for updates.
 const appName = 'HtmlTemplateTest';
@@ -47,46 +54,60 @@ TestComponent = Neo.setupClass(TestComponent);
 
 
 StartTest(t => {
-    let component, vnode;
+    let component;
 
     t.beforeEach(async t => {
         component = Neo.create(TestComponent, {
             appName,
             id: 'my-test-component'
         });
-
-        ({vnode} = await component.render());
+        // The initial render() call is synchronous and returns the HtmlTemplate object.
+        // The actual VDOM is built asynchronously after this.
+        component.render();
         component.mounted = true; // Manually mount to enable updates in the test env
     });
 
     t.afterEach(t => {
         component?.destroy();
         component = null;
-        vnode     = null;
     });
 
-    t.it('should create initial vnode correctly using html template', async t => {
-        t.expect(vnode.nodeName).toBe('div');
-        t.expect(vnode.id).toBe('my-test-component'); // The component's own ID
-        t.expect(vnode.childNodes.length).toBe(2);
+    t.it('should create initial vdom correctly using html template', async t => {
+        // Wait for the async VDOM update to complete
+        await t.waitFor(() => Object.keys(component.vdom).length > 0);
 
-        const pNode = vnode.childNodes[0];
-        t.expect(pNode.nodeName).toBe('p');
-        t.expect(pNode.id).toContain('neo-vnode-'); // Expecting a generated ID
-        t.expect(pNode.textContent).toBe('Hello from Template!');
+        const vdom = component.vdom;
 
-        const spanNode = vnode.childNodes[1];
-        t.expect(spanNode.nodeName).toBe('span');
-        t.expect(spanNode.id).toContain('neo-vnode-'); // Expecting a generated ID
-        t.expect(spanNode.textContent).toBe('Another element');
+        t.expect(vdom.id).toBe('my-test-component'); // The component's own ID
+        t.expect(vdom.tag).toBe('div');
+        t.expect(vdom.cn.length).toBe(2);
+
+        const pNode = vdom.cn[0];
+        t.expect(pNode.tag).toBe('p');
+        t.expect(pNode.cn[0]).toBe('Hello from Template!');
+
+        const spanNode = vdom.cn[1];
+        t.expect(spanNode.tag).toBe('span');
+        t.expect(spanNode.cn[0]).toBe('Another element');
     });
 
-    t.it('should update vnode when reactive config changes', async t => {
-        // Update the component to get the updated vnode
-        const opts = await component.set({testText: 'Updated Text!'});
-        vnode = opts.vnode;
+    t.it('should update vdom when reactive config changes', async t => {
+        // Wait for the initial render to finish
+        await t.waitFor(() => Object.keys(component.vdom).length > 0);
 
-        const pNode = vnode.childNodes[0];
-        t.expect(pNode.textContent).toBe('Updated Text!');
+        const initialVdom = {...component.vdom};
+
+        // Update the component
+        component.testText = 'Updated Text!';
+
+        // Wait for the async VDOM update to complete after the change
+        await t.waitFor(() => component.vdom.cn[0].cn[0] === 'Updated Text!');
+
+        const updatedVdom = component.vdom;
+
+        t.expect(updatedVdom.cn[0].cn[0]).toBe('Updated Text!');
+        // Ensure the rest of the VDOM structure remains the same
+        t.expect(updatedVdom.tag).toBe(initialVdom.tag);
+        t.expect(updatedVdom.cn.length).toBe(initialVdom.cn.length);
     });
 });
