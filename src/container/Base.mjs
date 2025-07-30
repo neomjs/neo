@@ -671,10 +671,17 @@ class Container extends Component {
      *
      */
     onConstructed() {
-        let me = this;
+        let me           = this,
+            layoutConfig = me.layout;
+
+        // If the layout is a config object (not an instance), deep clone it
+        // to prevent prototype pollution.
+        if (layoutConfig && !(layoutConfig instanceof LayoutBase)) {
+            layoutConfig = Neo.clone(layoutConfig, true)
+        }
 
         // in case the Container does not have a layout config, the setter won't trigger
-        me._layout = me.createLayout(me.layout);
+        me._layout = me.createLayout(layoutConfig);
         me._layout?.applyRenderAttributes();
 
         super.onConstructed();
