@@ -109,7 +109,10 @@ class Button extends Component {
         route_: null,
         /**
          * The text displayed on the button [optional]
-         * @member {String|null} text=null
+         * You can either pass a string, or a vdom cn array.
+         * @example
+         *  text: [{tag: 'span', style: {color: '#bbbbbb'}, text: '●'}, {vtype: 'text', text: ' Cases'}]
+         * @member {Object[]|String|null} text=null
          * @reactive
          */
         text: null,
@@ -378,8 +381,8 @@ class Button extends Component {
 
     /**
      * Triggered after the text config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {Object[]|String|null} value
+     * @param {Object[]|String|null} oldValue
      * @protected
      */
     afterSetText(value, oldValue) {
@@ -393,7 +396,13 @@ class Button extends Component {
         textNode.removeDom = isEmpty;
 
         if (!isEmpty) {
-            textNode.text = value
+            if (Neo.isArray(value)) {
+                textNode.cn = value;
+                delete textNode.text
+            } else {
+                textNode.text = value;
+                delete textNode.cn
+            }
         }
 
         me.update()
