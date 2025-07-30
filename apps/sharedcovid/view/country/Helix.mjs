@@ -21,7 +21,7 @@ class CountryHelix extends Helix {
          * @member {Object} bind
          */
         bind: {
-            country: {twoWay: true, value: data => data.country}
+            country: {key: 'country', twoWay: true}
         },
         /**
          * @member {String|null} country_=null

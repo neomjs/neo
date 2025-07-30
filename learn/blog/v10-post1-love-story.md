@@ -322,9 +322,9 @@ It's time to fall in love with frontend again.
 
 1. A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow
 2. [Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./v10-deep-dive-reactivity.md)
-3. [Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./v10-deep-dive-functional-components.md)
-4. [Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./v10-deep-dive-vdom-revolution.md)
-5. [Deep Dive: The State Provider Revolution](./v10-deep-dive-state-provider.md)
+3. [Designing Functional Components for a Multi-Threaded World](./v10-deep-dive-functional-components.md)
+4. [The VDOM Revolution: How We Render UIs from a Web Worker](./v10-deep-dive-vdom-revolution.md)
+5. [Designing a State Manager for Performance: A Deep Dive into Hierarchical Reactivity](./v10-deep-dive-state-provider.md)
 
 ---
 

@@ -21,6 +21,13 @@ class FunctionalBase extends Abstract {
          */
         className: 'Neo.functional.component.Base',
         /**
+         * @member {Boolean} enableHtmlTemplates_=false
+         * @reactive
+         * Set this to true to enable using tagged template literals for VDOM creation
+         * via the render() method. This will lazy load the html parser.
+         */
+        enableHtmlTemplates_: false,
+        /**
          * @member {String} ntype='functional-component'
          * @protected
          */
@@ -93,6 +100,20 @@ class FunctionalBase extends Abstract {
                 // Initial registration of DOM event listeners when component mounts
                 me.applyPendingDomListeners();
             }
+        }
+    }
+
+    /**
+     * Triggered after the enableHtmlTemplates config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEnableHtmlTemplates_(value, oldValue) {
+        if (value && !this.htmlParser) {
+            import('../util/html.mjs').then(module => {
+                this.htmlParser = module.default;
+            });
         }
     }
 
@@ -175,6 +196,11 @@ class FunctionalBase extends Abstract {
      * @returns {Object} The VDOM structure for the component.
      */
     createVdom(config) {
+        const me = this;
+
+        if (me.enableHtmlTemplates && typeof me.createTemplateVdom === 'function') {
+            return me.createTemplateVdom(config)
+        }
         // This method should be overridden by subclasses
         return {}
     }

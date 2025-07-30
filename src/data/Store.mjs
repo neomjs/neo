@@ -170,7 +170,9 @@ class Store extends Base {
 
                 me.isLoading = false;
 
-                me.add(value)
+                me.add(value);
+
+                me.isLoaded = true
             }
         }
     }
@@ -386,6 +388,7 @@ class Store extends Base {
                 if (response.success) {
                     me.totalCount = response.totalCount;
                     me.data       = Neo.ns(me.responseRoot, false, response); // fires the load event
+                    me.isLoaded   = true;
 
                     return me.data
                 }
@@ -401,6 +404,8 @@ class Store extends Base {
                 if (data) {
                     me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
                 }
+
+                me.isLoaded = true;
 
                 return data?.json || null
             } catch(err) {
@@ -446,8 +451,8 @@ class Store extends Base {
 
         // Being constructed does not mean that related afterSetStore() methods got executed
         // => break the sync flow to ensure potential listeners got applied
-        me.timeout(1).then(() => {
-            if (me.getCount() > 0) {
+        Promise.resolve().then(() => {
+            if (me.isLoaded) {
                 me.fire('load', me.items)
             } else if (me.autoLoad) {
                 me.load()

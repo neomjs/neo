@@ -4,13 +4,22 @@
 first to understand the foundational concepts and benefits.
 
 The Neo.mjs class configuration system is a cornerstone of the framework, providing a powerful, declarative, and
-reactive way to manage the state of your components and classes. Its internal mechanics are deeply intertwined with
-the instance lifecycle, ensuring predictable and consistent behavior. This guide will take you on a deep dive into
-how it achieves its remarkable consistency and power.
+reactive way to manage the state of your components and classes. With the introduction of functional components in v10,
+this system has evolved into a sophisticated, two-tier reactivity model that combines the robustness of a classic
+"push" system with the fine-grained efficiency of a modern "pull" system.
 
-## 1. Core Concepts Recap
+This guide will take you on a deep dive into how this hybrid system works, giving you the knowledge to build highly
+performant and maintainable applications.
 
-At its heart, the config system is built on a few key principles:
+## Tier 1: The Classic "Push" System
+
+The original reactivity model in Neo.mjs is a "push" system. It's imperative, meaning that when you change a value,
+the system actively "pushes" that change through a series of predefined lifecycle hooks. This system remains a core
+part of v10 and is the foundation for class-based components.
+
+### 1. Core Concepts Recap
+
+At its heart, the push system is built on a few key principles:
 
 *   **`static config` Block:** All configurable properties of a class are declared in a `static config = {}` block.
     This provides a single, clear source of truth for a class's API.
@@ -26,13 +35,13 @@ At its heart, the config system is built on a few key principles:
     automatically runs whenever a specific config property changes, ensuring your UI and application state are always
     in sync.
 
-## 2. The Internal Mechanics: `set()`, `processConfigs()`, and `configSymbol`
+### 2. The Internal Mechanics: `set()`, `processConfigs()`, and `configSymbol`
 
 To truly understand how Neo.mjs handles complex scenarios like simultaneous updates and inter-dependencies, we must
 look at the internal machinery: the `set()` and `processConfigs()` methods in `Neo.core.Base`, and the special
 `configSymbol` object.
 
-### The `set()` Method: Your Gateway to Updates
+#### The `set()` Method: Your Gateway to Updates
 
 The `set()` method is the public interface for changing one or more config properties at once. When you call
 `this.set({a: 1, b: 2})`, you kick off a carefully orchestrated sequence.
@@ -68,7 +77,7 @@ Here’s the breakdown:
     from `configSymbol` to the actual instance properties. The `true` argument (`forceAssign`) is crucial, as we'll
     see next.
 
-### The `processConfigs()` Method: The Heart of the Operation
+#### The `processConfigs()` Method: The Heart of the Operation
 
 This internal method iteratively processes the configs stored in `configSymbol`. It's designed as a recursive
 function to handle the dynamic nature of config processing, where one `afterSet` might trigger another `set()`.
@@ -108,7 +117,7 @@ processConfigs(forceAssign=false) {
     has been invoked. This is vital to prevent reprocessing and to mark the config as handled.
 *   **Recursion (E):** The method calls itself to process the next item in `configSymbol` until it's empty.
 
-## 3. Solving the "Circular Reference" Problem
+### 3. Solving the "Circular Reference" Problem
 
 What happens when two `afterSet` methods depend on each other's properties?
 
@@ -174,10 +183,98 @@ Here's the sequence:
 operation. This guarantees that all `afterSet` handlers, regardless of their execution order, operate on the most
 current and consistent state of all config properties involved in that operation.
 
-## 4. In-depth Example: A Reactive `MainContainer`
+## Tier 2: The Declarative "Pull" System (v10+)
+
+With the introduction of functional components, Neo.mjs now includes a "pull" reactivity system. This system is
+declarative and optimized for fine-grained updates, making it ideal for modern, state-driven UI development. Instead
+of "pushing" changes through hooks, the system "pulls" data as needed, automatically tracking dependencies and
+re-running computations only when necessary.
+
+This tier is powered by three key classes: `Neo.core.Config`, `Neo.core.Effect`, and `EffectManager`.
+
+### 1. `Neo.core.Config`: The Atomic Unit of State
+
+A `Neo.core.Config` instance is a lightweight wrapper around a single, reactive piece of data. Think of it as an
+"atom" of state.
+
+*   **Value Storage:** It holds the current value of a config property.
+*   **Subscription Management:** It maintains a list of subscribers (effects or other logic) that depend on its value.
+*   **Dependency Tracking:** When its `get()` method is called within a reactive context (an "effect"), it registers
+    itself as a dependency of that effect.
+*   **Notification:** When its `set()` method is called and the value changes, it notifies all its subscribers,
+    triggering them to re-run.
+
+### 2. `Neo.core.Effect`: The Reactive Computation
+
+An `Neo.core.Effect` represents a reactive computation—a function that depends on one or more `Config` atoms.
+
+*   **Wrapping a Function:** It wraps a function (e.g., a component's rendering logic).
+*   **Automatic Dependency Tracking:** When the effect runs, it automatically detects which `Config` atoms are `get()`
+    inside its function. It then subscribes to them.
+*   **Automatic Re-execution:** If any of its dependencies change (i.e., their `set()` method is called), the effect's
+    function is automatically re-executed, ensuring the computation is always up-to-date.
+
+### 3. `EffectManager`: The Global Coordinator
+
+The `EffectManager` is a singleton that orchestrates the entire pull system.
+
+*   **Effect Stack:** It maintains a stack of currently running effects. This is how a `Config` atom knows which effect
+    to register itself with when its `get()` method is called.
+*   **Batching:** It provides `Neo.batch()`, a crucial optimization function. It allows the system to pause effect
+    re-runs, perform multiple state changes, and then resume, running all affected effects only once at the end. This
+    prevents "glitches" and unnecessary intermediate computations.
+
+### 4. `createVdom` as a Master Effect
+
+In a functional component, the `createVdom()` method is the perfect example of an effect in action.
+
+*   **The `vdomEffect`:** When a functional component is constructed, the framework automatically wraps its `createVdom()`
+    method in a `Neo.core.Effect`.
+*   **Reading is Subscribing:** When your `createVdom()` function runs, every component config you access (e.g.,
+    `config.text`, `config.items`) is a call to that config's underlying `Neo.core.Config` atom's `get()` method.
+    This automatically subscribes the `vdomEffect` to those configs.
+*   **Automatic UI Updates:** If any of those configs change later, they notify the `vdomEffect`. The effect then
+    re-runs your `createVdom()` function, generating a new virtual DOM based on the new state. The framework then
+    efficiently diffs this new VDOM with the old one and applies the minimal necessary changes to the actual DOM.
+
+This is the essence of declarative, state-driven UI. You declare what the UI should look like for a given state, and
+the framework handles the "how" and "when" of updating it.
+
+## The Bridge: How "Push" and "Pull" Work Together
+
+The true power of the v10 config system is how these two tiers are seamlessly integrated. This bridge is forged in
+the auto-generated setters of reactive configs and the `set()` method of `Neo.core.Base`.
+
+When you change a config on any component (class-based or functional):
+
+```javascript readonly
+myComponent.myConfig = 'new value';
+// or
+myComponent.set({myConfig: 'new value'});
+```
+
+Here's what happens under the hood:
+
+1.  **Batching Begins:** The `set()` method in `Neo.core.Base` immediately calls `EffectManager.pause()`. This tells
+    the "pull" system to queue up any effects that get triggered but not to run them yet.
+2.  **The Setter is Called:** The auto-generated setter for `myConfig` is invoked. This setter is the heart of the
+    bridge. It performs two critical actions:
+    *   **Pull System Update:** It retrieves the `Neo.core.Config` instance for `myConfig` (using `this.getConfig('myConfig')`)
+      and calls its `set()` method with the new value. This updates the reactive atom and queues any dependent effects
+      (like a functional component's `vdomEffect`).
+    *   **Push System Update:** It proceeds with the classic "push" system logic, adding the new value to the
+      `configSymbol` staging area and eventually calling the `afterSetMyConfig()` hook.
+3.  **Batching Ends:** After the `set()` method in `core.Base` has finished processing all configs in the batch, its
+    `finally` block calls `EffectManager.resume()`. This tells the `EffectManager` to run all the unique effects that
+    were queued during the operation, ensuring that the UI and other reactive computations update exactly once.
+
+This elegant integration means you get the best of both worlds: the predictable, hook-based logic of the push system
+and the automatic, fine-grained reactivity of the pull system, all working in harmony.
+
+## In-depth Example: A Reactive `MainContainer`
 
 Let's analyze a practical example to see these concepts in action. The `Neo.examples.core.config.MainContainer`
-demonstrates how to build a reactive UI declaratively.
+demonstrates how to build a reactive UI declaratively using the classic "push" system.
 
 **The Goal:** Create a container with two labels. The text of each label is calculated based on the values of two
 config properties, `a` and `b`. A button allows the user to change `a` and `b` simultaneously.
@@ -259,23 +356,26 @@ class MainContainer extends Viewport {
     *   `afterSetB` runs. It calculates `label2.text` as `value (10) + this.a (reads 10 from _a) = 20`.
     *   **New State:** `label1` shows "20", `label2` shows "20".
 
-This example vividly demonstrates the dynamic and reactive nature of the system, where a single declarative state
-change automatically propagates through the component logic.
+This example vividly demonstrates the dynamic and reactive nature of the "push" system, where a single declarative state
+change automatically propagates through the component logic via `afterSet` hooks.
 
-## 5. Best Practices
+## Best Practices for the Hybrid System
 
-*   **Embrace Declarativity:** Define your entire UI structure inside `static config` whenever possible. This improves
-    readability and maintainability.
+*   **Embrace Declarativity:** For functional components, define your UI structure inside `createVdom`. Trust the
+    reactive system to handle updates. For class-based components, define your entire UI structure inside `static config`
+    whenever possible. This improves readability and maintainability.
 *   **Use the `_` Suffix Wisely:** Only add the trailing underscore to configs that need `afterSet`, `beforeSet` or
   `beforeGet` based logic. For simple value properties, omit it to avoid unnecessary overhead.
 *   **Keep `afterSet` Handlers Pure:** An `afterSet` handler should ideally only react to the change of its own
     property and update other parts of the application. Avoid triggering complex chains of `set()` calls from within
     an `afterSet` if possible.
 *   **Batch Updates with `set()`:** When you need to change multiple properties at once, always use a single
-    `set({a: 1, b: 2})` call. This is more efficient and ensures consistency, as demonstrated above.
+    `set({a: 1, b: 2})` call. This is more efficient and ensures consistency across both reactivity systems.
 *   **Use `onConstructed` for Post-Construction Logic:** Use the `onConstructed` lifecycle method to perform any setup
     that depends on the instance's initial configuration being fully processed. This is the ideal place for logic that
     requires all configs to be set and potentially other instances to be created (if set-driven).
+*   **Understand Your Dependencies:** Be mindful of which configs you access inside `createVdom` and other effects, as
+    this determines when they will re-run.
 
 By understanding these internal mechanics and following best practices, you can leverage the full power of Neo.mjs's
-class config system to build highly complex, reactive, and maintainable applications with confidence.
+hybrid config system to build highly complex, reactive, and maintainable applications with confidence.

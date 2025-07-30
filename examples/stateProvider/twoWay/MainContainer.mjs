@@ -49,7 +49,7 @@ class MainContainer extends Viewport {
             width     : 300,
 
             bind: {
-                value: {twoWay: true, value: data => data.user.details.firstname}
+                value: {key: 'user.details.firstname', twoWay: true}
             },
         }, {
             module    : TextField,
@@ -59,7 +59,7 @@ class MainContainer extends Viewport {
             width     : 300,
 
             bind: {
-                value: {twoWay: true, value: data => data.user.details.lastname}
+                value: {key: 'user.details.lastname', twoWay: true}
             },
         }],
         /**

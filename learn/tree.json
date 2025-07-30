@@ -64,6 +64,7 @@
         {"name": "Rock Scissors Paper",                                "parentId": "Tutorials",                                           "id": "tutorials/RSP", "hidden": true},
         {"name": "Earthquakes",                                        "parentId": "Tutorials",                                           "id": "tutorials/Earthquakes"},
         {"name": "Todo List",                                          "parentId": "Tutorials",                                           "id": "tutorials/TodoList"},
+        {"name": "Creating a Functional Button",                       "parentId": "Tutorials",                                           "id": "tutorials/CreatingAFunctionalButton"},
     {"name": "JavaScript Classes",                                     "parentId": null,                                 "isLeaf": false, "id": "JavaScript",  "collapsed": true},
         {"name": "Classes, Properties, and Methods",                   "parentId": "JavaScript",                                          "id": "javascript/Classes"},
         {"name": "Overriding Methods",                                 "parentId": "JavaScript",                                          "id": "javascript/Overrides"},

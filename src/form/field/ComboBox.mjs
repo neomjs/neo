@@ -178,7 +178,7 @@ class ComboBox extends Picker {
      */
     afterSetStore(value, oldValue) {
         let me = this,
-            filters, val;
+            filters;
 
         if (value) {
             if (me.useFilter) {
@@ -198,14 +198,7 @@ class ComboBox extends Picker {
                 me.list.store = value
             }
 
-            value.on('load', me.onStoreLoad, me);
-
-            if (me.value) {
-                val = me.value;
-
-                me._value = null; // silent reset to trigger a change event
-                me.value  = val
-            }
+            value.on('load', me.onStoreLoad, me)
         }
     }
 
@@ -237,10 +230,9 @@ class ComboBox extends Picker {
             let selectionModel = me.list?.selectionModel;
 
             if (value) {
-                oldValue && selectionModel?.deselect(oldValue);
                 selectionModel?.select(value)
             } else {
-                selectionModel.deselectAll()
+                selectionModel?.deselectAll()
             }
         }
     }
@@ -342,7 +334,7 @@ class ComboBox extends Picker {
         }
 
         // we can only match record ids or display values in case the store is loaded
-        if (store.getCount() > 0) {
+        if (store.isLoaded) {
             record = store.isFiltered() ? store.allItems.get(value) : store.get(value);
 
             if (record) {
@@ -460,12 +452,10 @@ class ComboBox extends Picker {
      * @param {*} oldValue
      * @override
      */
-    async fireChangeEvent(value, oldValue) {
+    fireChangeEvent(value, oldValue) {
         let me            = this,
             FormContainer = Neo.form?.Container,
             params        = {component: me, oldValue, value};
-
-        await me.timeout(30);
 
         me.fire('change', params);
 

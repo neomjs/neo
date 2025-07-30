@@ -186,6 +186,62 @@ StartTest(t => {
         component.destroy();
     });
 
+    t.it('Two-way binding should handle nested data properties', t => {
+        let userEffectRuns = 0;
+
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {
+                    user: {
+                        name: 'initial'
+                    }
+                }
+            },
+            bind: {
+                testConfig: { key: 'user.name', twoWay: true },
+                // Add a separate binding to the parent object to test reactivity bubbling
+                userObject: 'user'
+            }
+        });
+        const provider = component.getStateProvider();
+
+        // Effect to monitor changes on the parent 'user' object
+        const userEffect = new Neo.core.Effect(() => {
+            userEffectRuns++;
+            return provider.getData('user');
+        });
+
+        t.is(userEffectRuns, 1, 'User effect should run once initially');
+        t.is(component.testConfig, 'initial', 'Component config should be initialized from nested state provider property');
+        t.is(provider.getData('user.name'), 'initial', 'State provider data should be correct initially');
+
+        // 1. Update component config => should update provider state
+        component.testConfig = 'updated from component';
+
+        t.is(provider.getData('user.name'), 'updated from component', 'Nested state provider data should update from component config change');
+        t.is(userEffectRuns, 2, 'User effect should run again after nested property change (bubbling)');
+
+        // 2. Update provider state => should update component config
+        provider.setData('user.name', 'updated from provider');
+
+        t.is(component.testConfig, 'updated from provider', 'Component config should update from nested state provider data change');
+        t.is(userEffectRuns, 3, 'User effect should run again after direct state change');
+
+        // 3. Verify the parent object reference has changed
+        const initialUserObject = component.userObject;
+        provider.setData('user.name', 'another update');
+        const newUserObject = component.userObject;
+
+        t.is(component.testConfig, 'another update', 'Component config updated again');
+        t.is(provider.getData('user.name'), 'another update', 'Provider data updated again');
+        t.is(userEffectRuns, 4, 'User effect should run again');
+        t.isNot(newUserObject, initialUserObject, 'Parent user object reference should change to trigger reactivity');
+        t.is(newUserObject.name, 'another update', 'New user object has the correct name property');
+
+        userEffect.destroy();
+        component.destroy();
+    });
+
     t.it('Formulas should calculate correctly and react to dependencies', t => {
         const component = Neo.create(MockComponent, {
             stateProvider: {

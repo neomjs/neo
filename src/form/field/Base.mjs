@@ -1,3 +1,4 @@
+import { createSequence } from '../../util/Function.mjs';
 import Component        from '../../component/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
 import NeoArray         from '../../util/Array.mjs';
@@ -98,6 +99,19 @@ class Field extends Component {
     path = null
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        createSequence(me, 'afterSetValue', (value, oldValue) => {
+            oldValue !== undefined && me.fireChangeEvent(value, oldValue)
+        }, me)
+    }
+
+    /**
      * Triggered after the name isTouched got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -137,7 +151,7 @@ class Field extends Component {
      * @param {*} oldValue
      */
     afterSetValue(value, oldValue) {
-        oldValue !== undefined && this.fireChangeEvent(value, oldValue)
+
     }
 
     /**

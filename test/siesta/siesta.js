@@ -45,11 +45,18 @@ project.plan(
         ]
     },
     {
+        group: 'form',
+        items: [
+            'tests/form/field/AfterSetValueSequence.mjs'
+        ]
+    },
+    {
         group: 'state',
         items: [
             'tests/state/createHierarchicalDataProxy.mjs',
             'tests/state/Provider.mjs',
-            'tests/state/ProviderNestedDataConfigs.mjs'
+            'tests/state/ProviderNestedDataConfigs.mjs',
+            'tests/state/FeedbackLoop.mjs',
         ]
     },
     'tests/CollectionBase.mjs',

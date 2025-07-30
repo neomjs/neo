@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Jul 28, 2025",
+    "id"          : 67,
+    "image"       : "DesigningFunctionalComponents.png",
+    "name"        : "Designing Functional Components for a Multi-Threaded WorldDesigning Functional Components for a Multi-Threaded World",
+    "provider"    : "Medium",
+    "publisher"   : "ITNEXT",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/designing-functional-components-for-a-multi-threaded-world-22f27119509a?source=friends_link&sk=5434dd074a70c23a9ce0e8c78a98fed8"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Jul 24, 2025",
     "id"          : 66,
     "image"       : "FrontendReactivityRevolution.png",
