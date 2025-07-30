@@ -452,12 +452,10 @@ class ComboBox extends Picker {
      * @param {*} oldValue
      * @override
      */
-    async fireChangeEvent(value, oldValue) {
+    fireChangeEvent(value, oldValue) {
         let me            = this,
             FormContainer = Neo.form?.Container,
             params        = {component: me, oldValue, value};
-
-        await me.timeout(30);
 
         me.fire('change', params);
 

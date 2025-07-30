@@ -9,6 +9,20 @@ import TabContainer   from '../../../src/tab/Container.mjs';
  * @extends Neo.container.Base
  */
 class ControlsContainer extends Container {
+    /**
+     * We need to add a 1-frame delay here. Rationale: the change events trigger huge computational logic.
+     * We need to ensure that a ComboBox list selection first updates the field input value node,
+     * and then continues with the grid update, to maintain a great UX.
+     * @member {Object} delayable
+     * @static
+     */
+    static delayable = {
+        onAmountColumnsChange    : {type: 'buffer', timer: 30},
+        onAmountRowsChange       : {type: 'buffer', timer: 30},
+        onBufferColumnRangeChange: {type: 'buffer', timer: 30},
+        onBufferRowRangeChange   : {type: 'buffer', timer: 30}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.examples.grid.bigData.ControlsContainer'
