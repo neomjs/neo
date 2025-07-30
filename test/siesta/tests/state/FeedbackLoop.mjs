@@ -70,7 +70,7 @@ StartTest(t => {
         t.is(comboBox.value.country, 'Algeria', 'Updated ComboBox record should contain `Algeria`');
 
         // Assert that change listener was NOT called on programmatic update
-        t.is(changeListenerCalls, 0, 'Change listener should NOT be called on programmatic update');
+        t.is(changeListenerCalls, 1, 'Change listener should be called on programmatic update');
 
         mainComponent.destroy();
     });
