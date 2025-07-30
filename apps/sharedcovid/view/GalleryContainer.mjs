@@ -187,7 +187,7 @@ class GalleryContainer extends Container {
                 }]
             }, {
                 module: BoxLabel,
-                text  : [
+                html  : [
                     '<b>Navigation Concept</b>',
                     '<p>You can use the Arrow Keys to walk through the items.</p>'
                 ].join('')
