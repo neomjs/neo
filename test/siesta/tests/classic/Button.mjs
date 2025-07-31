@@ -15,10 +15,10 @@ Neo.config.useDomApiRenderer = true;
 const appName = 'ClassicButtonTest';
 Neo.apps = Neo.apps || {};
 Neo.apps[appName] = {
-    name     : appName,
-    fire     : Neo.emptyFn,
-    isMounted: () => true,
-    rendering: false
+    name             : appName,
+    fire             : Neo.emptyFn,
+    isMounted        : () => true,
+    vnodeInitialising: false
 };
 
 StartTest(t => {

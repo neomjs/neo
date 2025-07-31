@@ -24,9 +24,9 @@ const appName = 'HtmlTemplateTest';
 Neo.apps = Neo.apps || {};
 Neo.apps[appName] = {
     name     : appName,
-    fire     : Neo.emptyFn,
-    isMounted: () => true,
-    rendering: false
+    fire             : Neo.emptyFn,
+    isMounted        : () => true,
+    vnodeInitialising: false
 };
 
 /**
