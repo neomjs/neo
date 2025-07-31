@@ -20,6 +20,15 @@ For production builds, this penalty is removed, as the templates are pre-compile
 -   **Prefer JSON VDOM for complex views:** For highly dynamic, data-driven, or programmatically generated views (like complex grids or dashboards), the native JSON VDOM approach is often clearer and more performant.
 -   **Embrace JavaScript for Logic:** Do not look for template-specific directives like `n-if` or `n-for`. All conditional logic and looping should be handled with standard JavaScript inside your `createVdom` method, before the `html` tag is even used.
 
+## For Developers Coming from JSX (e.g., React)
+
+You may be accustomed to writing component tags directly, like `<Button>`. In neo.mjs, the equivalent is `<${Button}>`. This small difference is intentional and unlocks significant architectural benefits.
+
+-   **JSX Requires a Compiler:** JSX is not standard JavaScript. It must be compiled into `React.createElement(Button, ...)` calls. The simplicity of `<Button>` is an abstraction provided by a mandatory build step.
+-   **neo.mjs Templates are Native JavaScript:** The `html`...`` syntax is a standard JavaScript feature called a "tagged template literal." It runs directly in the browser without a build step in development. The `<${Button}>` syntax is the native JavaScript way to pass the actual `Button` component constructor (the variable) into the template function.
+
+This approach means you are not learning a special template language; you are using the full power of JavaScript itself for all your view logic, including conditionals and loops, which is a core design principle of the framework.
+
 ## Basic Usage
 
 To use this feature, import the `html` tag from `neo.mjs/src/functional/util/html.mjs` and use it to wrap your template string.
@@ -69,7 +78,7 @@ const vdom = html`<${Button} text="Click Me" />`;
 
 #### Fallback: Global Namespace
 
-If a tag name is written as a literal string in `PascalCase` or with dots (e.g., `Neo.button.Base`), the processor will attempt to resolve it from the global `Neo` namespace. This should be used sparingly.
+If a tag name is written as a literal string in `PascalCase` or with dots (e.g., `Neo.button.Base` or `MyApp.view.MyButton`), the processor will attempt to resolve it from the global namespace using the `Neo.ns()` utility. This should be used sparingly, as the interpolation method is more explicit and less prone to issues with name collisions or refactoring.
 
 ```javascript
 const vdom = html`<Neo.button.Base text="Global Button" />`;
