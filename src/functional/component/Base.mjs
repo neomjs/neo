@@ -91,6 +91,21 @@ class FunctionalBase extends Abstract {
     }
 
     /**
+     * Triggered after the isReady config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsReady(value, oldValue) {
+        const me = this;
+
+        if (value && me.missedReadyState) {
+            me.vdomEffect.run();
+            delete me.missedReadyState
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -105,25 +120,6 @@ class FunctionalBase extends Abstract {
             if (value) { // mount
                 // Initial registration of DOM event listeners when component mounts
                 me.applyPendingDomListeners();
-            }
-        }
-    }
-
-    /**
-     * Triggered after the enableHtmlTemplates config got changed.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetEnableHtmlTemplates(value, oldValue) {
-        if (value && !this.htmlTemplateProcessor) {
-            // Required for unit testing
-            if (Neo.ns('Neo.functional.util.HtmlTemplateProcessor')) {
-                this.htmlTemplateProcessor = Neo.functional.util.HtmlTemplateProcessor
-            } else {
-                import('../util/HtmlTemplateProcessor.mjs').then(module => {
-                    this.htmlTemplateProcessor = module.default
-                })
             }
         }
     }
@@ -352,6 +348,23 @@ class FunctionalBase extends Abstract {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        if (this.enableHtmlTemplates) {
+            // Required for unit testing
+            if (Neo.ns('Neo.functional.util.HtmlTemplateProcessor')) {
+                this.htmlTemplateProcessor = Neo.functional.util.HtmlTemplateProcessor
+            } else {
+                const module = await import('../util/HtmlTemplateProcessor.mjs');
+                this.htmlTemplateProcessor = module.default
+            }
+        }
+    }
+
+    /**
      * This handler runs when the effect's `isRunning` state changes.
      * It runs outside the effect's tracking scope, preventing feedback loops.
      * @param {Boolean} value
@@ -369,7 +382,11 @@ class FunctionalBase extends Abstract {
                     if (me.htmlTemplateProcessor) {
                         me.htmlTemplateProcessor.process(newVdom, me);
                     } else {
-                        console.error('enableHtmlTemplates is true, but HtmlTemplateProcessor is not available.');
+                        me.missedReadyState = true;
+                        // By calling this with an empty object, we ensure that the parent container
+                        // renders a placeholder DOM node for this component, which we can then
+                        // populate later once the template processor is ready.
+                        me.continueUpdateWithVdom({});
                     }
                     return; // Stop execution, the processor will call back
                 }

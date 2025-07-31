@@ -1,6 +1,6 @@
 # Using HTML Templates for VDOM
 
-This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This feature provides an intuitive and familiar alternative to the traditional JSON-based VDOM approach, especially for developers coming from other modern web frameworks.
+This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This feature provides an intuitive and familiar alternative to the traditional JSON-based VDOM approach, especially for developers coming from other traditional, single-threaded frameworks.
 
 ## The "Why": An Alternative, Not a Replacement
 
