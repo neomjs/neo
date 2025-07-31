@@ -355,7 +355,7 @@ class DataList extends Component {
         this.update();   // Trigger VDom reconciliation
     }
 
-    // Automatically re-render list when 'data' config changes
+    // Automatically update list VDom when 'data' config changes
     afterSetData(value, oldValue) {
         if (value) { // Only create items if data is set
             this.createListItems();
