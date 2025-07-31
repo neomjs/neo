@@ -165,4 +165,26 @@ StartTest(t => {
 
         parentComponent.destroy();
     });
+
+    t.it('should handle camelCase attributes correctly', async t => {
+        const parentComponent = Neo.create(TestComponentWithChildren, {
+            appName,
+            id: 'my-parent-component',
+            childText: 'Custom Text for camelCase'
+        });
+
+        parentComponent.render();
+        parentComponent.mounted = true;
+
+        await t.waitFor(() => parentComponent.childComponents.get('child-comp'));
+
+        const childInstance = parentComponent.childComponents.get('child-comp').instance;
+
+        await t.waitFor(() => childInstance.vdom.cn?.[0]?.text === 'Custom Text for camelCase');
+
+        t.expect(childInstance.testText).toBe('Custom Text for camelCase');
+        t.expect(childInstance.vdom.cn[0].text).toBe('Custom Text for camelCase');
+
+        parentComponent.destroy();
+    });
 });

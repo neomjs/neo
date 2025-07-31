@@ -128,7 +128,7 @@ class HtmlTemplateProcessor extends Base {
 
         for (let i = 0; i < template.strings.length; i++) {
             let str = template.strings[i];
-            const attrMatch = str.match(/\s+([a-zA-Z][^=]*)=$/);
+            const attrMatch = str.match(/\s+([a-zA-Z][^=]*)\s*=\s*"?$/);
             if (attrMatch) {
                 attributeNames.push(attrMatch[1]);
             }
