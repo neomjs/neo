@@ -107,7 +107,7 @@ StartTest(t => {
             appName,
             id: 'my-test-component'
         });
-        // The initial render() call is synchronous and returns the HtmlTemplate object.
+        // The initial initVnode() call is synchronous and returns the HtmlTemplate object.
         // The actual VDOM is built asynchronously after this.
         component.initVnode();
         component.mounted = true; // Manually mount to enable updates in the test env
@@ -163,7 +163,7 @@ StartTest(t => {
             id: 'my-parent-component'
         });
 
-        parentComponent.render();
+        parentComponent.initVnode();
         parentComponent.mounted = true;
 
         const parentVdom = parentComponent.vdom;
@@ -198,7 +198,7 @@ StartTest(t => {
             childText: 'Custom Text for camelCase'
         });
 
-        parentComponent.render();
+        parentComponent.initVnode();
         parentComponent.mounted = true;
 
         await t.waitFor(() => parentComponent.childComponents.get('child-comp'));
@@ -219,7 +219,7 @@ StartTest(t => {
             id: 'my-conditional-component'
         });
 
-        conditionalComponent.render();
+        conditionalComponent.initVnode();
         conditionalComponent.mounted = true;
 
         // 1. Initial state: details should NOT be rendered

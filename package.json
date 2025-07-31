@@ -29,6 +29,7 @@
         "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test": "echo \"Error: no test specified\" && exit 1",
+        "build-single-file": "node ./buildScripts/buildSingleFile.mjs",
         "watch-themes": "node ./buildScripts/watchThemes.mjs"
     },
     "keywords": [
@@ -80,6 +81,8 @@
     "homepage": "https://neomjs.com/",
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^7.0.0",
+        "acorn": "^8.15.0",
+        "astring": "^1.9.0",
         "autoprefixer": "^10.4.21",
         "chalk": "^5.4.1",
         "clean-webpack-plugin": "^4.0.0",

@@ -182,4 +182,40 @@ Ensured that falsy values (e.g., `false`, `null`, `undefined`) in template inter
 **Description:**
 To improve the developer experience for those familiar with React, a major refactoring was undertaken. The framework's core `render()` method was renamed to `initVnode()` to more accurately reflect its purpose of creating the initial VNode and mounting the component. This freed up the `render` name, allowing `createTemplateVdom()` to be renamed to `render()`, providing a more intuitive and familiar API for functional components using HTML templates. This change also included renaming the `rendered` property to `vnodeInitialized`, the `autoRender` config to `autoInitVnode`, and the `rendering` flag to `isVnodeInitializing` to maintain semantic consistency throughout the framework.
 
+### 15. Create a Robust VDOM-to-String Serializer
+
+**Status: To Do**
+
+**Description:**
+The `JSON.stringify` + regex method for generating the VDOM string during the build process is flawed. It incorrectly handles object keys that are not valid JavaScript identifiers (e.g., `data-foo`) and produces non-idiomatic code (quoted keys). A dedicated serializer is required for correctness and code quality.
+
+**Implementation Details:**
+- **Tool:** A new, custom utility module.
+- **Location:** `buildScripts/util/vdomToString.mjs`.
+- **Method:**
+    1. The utility will export a `vdomToString(vdom)` function that recursively traverses the VDOM object.
+    2. It will check if each object key is a valid JavaScript identifier.
+    3. Valid identifiers will be written to the output string without quotes (e.g., `tag:`).
+    4. Invalid identifiers (e.g., `data-foo`) will be correctly wrapped in single quotes (e.g., `'data-foo':`).
+    5. It will handle the build-time placeholders for runtime expressions, outputting them as raw, unquoted code.
+    6. This new utility will completely replace the `JSON.stringify` and subsequent regex calls in the build scripts.
+
+### 16. Refactor Build-Time Parser to be AST-Based for Robustness
+
+**Status: To Do**
+
+**Description:**
+The current build-time approach, which uses regular expressions to find and replace templates, has proven to be brittle and incorrect. It cannot handle nested `html` templates and can be easily fooled by JSDoc comments or strings that happen to contain the `html`` sequence, leading to build failures. To ensure correctness and consistency with the runtime environment, the build process must be refactored to use a proper JavaScript parser.
+
+**Implementation Details:**
+- **Tools:** `acorn` (to parse JS into an Abstract Syntax Tree) and `astring` (to generate JS code from the AST).
+- **Method:**
+    1. In the build script, for each `.mjs` file, use `acorn` to parse the entire file content into an AST.
+    2. Traverse the AST, specifically looking for `TaggedTemplateExpression` nodes where the `tag` is an `Identifier` with the name `html`.
+    3. Process these template nodes recursively (post-order traversal) to correctly handle nested templates from the inside out.
+    4. The logic from `HtmlTemplateProcessorLogic` will be used to convert the template into its VDOM object representation.
+    5. The original `TaggedTemplateExpression` node in the AST will be replaced with a new AST node representing the generated VDOM object (using an object-to-AST converter).
+    6. Finally, use `astring` to generate the final, correct JavaScript code from the modified AST.
+    7. This new, robust process will replace the fragile regex-based `replace` loop.
+
 
