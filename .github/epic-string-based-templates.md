@@ -34,21 +34,33 @@ For production builds, parsing HTML strings in the main thread is inefficient. I
     3. Convert the `parse5` AST into the final Neo.mjs VDOM JSON format.
     4. Replace the original template literal in the source code with the generated JSON object.
 
-### 3. Alternative Dev Mode: In-Worker Parsing with `parse5`
+### 3. Bundle `parse5` for Browser Compatibility
+
+**Description:**
+To adhere to the framework's "zero builds" development principle, the `parse5` library cannot be imported directly from `node_modules` at runtime. A build step is required to convert it into a browser-compatible ES module. This bundled file will be checked into the `dist` directory and imported by the `HtmlTemplateProcessor`.
+
+**Implementation Details:**
+- **Tool:** `esbuild`
+- **Source:** `node_modules/parse5/dist/index.js`
+- **Output:** `dist/parse5.mjs`
+- **Script:** Create a new build script `buildScripts/bundleParse5.mjs` and an associated npm script `bundle-parse5` to perform the bundling and minification.
+- **Outcome:** The `HtmlTemplateProcessor` will be updated to import `../../../dist/parse5.mjs`.
+
+### 4. Alternative Dev Mode: In-Worker Parsing with `parse5`
 
 **Description:**
 As an alternative to the main thread addon, we will evaluate using `parse5` directly within the App worker for dev mode. This approach avoids the complexities and potential race conditions of an asynchronous worker roundtrip for parsing. While it introduces a ~176KB dependency to the dev build, this cost may be acceptable for the significant gain in architectural simplicity and rendering predictability.
 
 **Implementation Details:**
-- **Tool:** `parse5`
+- **Tool:** `parse5` (via the bundled `dist/parse5.mjs`)
 - **Method:**
-    1. Create a new `HtmlTemplateProcessor` utility inside the app worker (`src/util/HtmlTemplateProcessor.mjs` or similar).
+    1. Create a new `HtmlTemplateProcessor` utility inside the app worker (`src/functional/util/HtmlTemplateProcessor.mjs`).
     2. This processor will be lazy-loaded when a component first uses an HTML template.
-    3. The processor will use `parse5` to synchronously convert the template string into a Neo.mjs VDOM JSON structure.
+    3. The processor will use the bundled `parse5` to synchronously convert the template string into a Neo.mjs VDOM JSON structure.
     4. The component's lifecycle (`continueUpdateWithVdom` for functional, a new hook for class-based) will then proceed synchronously with the parsed VDOM.
     5. The existing main thread addon (`Neo.main.addon.HtmlStringToVdom`) and its tests will be kept for comparison and potential future use cases.
 
-### 4. Template Syntax Specification
+### 5. Template Syntax Specification
 
 **Description:**
 Define a clear and comprehensive specification for the template syntax. This document will serve as the blueprint for the parser implementation and as the primary reference for developers using this feature.
@@ -68,7 +80,7 @@ Define a clear and comprehensive specification for the template syntax. This doc
 - **Complex Configs:** Document the recommended approach for handling deeply nested JSON configs, advocating for passing them as interpolated objects to maintain template clarity (e.g., `columns="${gridColumns}"`).
 - **DOM Events (Out of Scope):** Explicitly state that inline DOM event handlers (e.g., `onClick="..."`) are not supported. The framework's global, delegated event system (`domListeners` config or `useEvent()` hook) remains the sole, recommended approach for handling DOM events. This maintains performance and architectural consistency.
 
-### 5. Parser: Interpolation and Data Type Handling
+### 6. Parser: Interpolation and Data Type Handling
 
 **Description:**
 Enhance the `parse5` processor to correctly handle the mapping of interpolated values from the tagged template literal to their corresponding VDOM properties, respecting their original data types.
@@ -78,7 +90,7 @@ Enhance the `parse5` processor to correctly handle the mapping of interpolated v
 - When an attribute value is a placeholder for an interpolated value (e.g., `renderer="$[0]"`, where `$[0]` maps to the first expression), the parser must assign the raw expression value (the function object) to the VDOM config, not the placeholder string.
 - Implement logic to correctly handle and assign functions, objects, arrays, and other non-string data types to the appropriate VDOM properties.
 
-### 6. Parser: Component vs. HTML Tag Recognition
+### 7. Parser: Component vs. HTML Tag Recognition
 
 **Description:**
 Implement the logic within the `parse5` processor to differentiate between standard HTML tags and neo.mjs component tags based on the convention defined in the Syntax Specification.
