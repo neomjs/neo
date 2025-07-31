@@ -66,7 +66,7 @@ As an alternative to the main thread addon, we will evaluate using `parse5` dire
 
 ### 5. Template Syntax Specification
 
-**Status: In Progress**
+**Status: Done**
 
 **Description:**
 Define a clear and comprehensive specification for the template syntax. This document will serve as the blueprint for the parser implementation and as the primary reference for developers using this feature.

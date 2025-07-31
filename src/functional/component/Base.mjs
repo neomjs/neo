@@ -118,8 +118,8 @@ class FunctionalBase extends Abstract {
     afterSetEnableHtmlTemplates_(value, oldValue) {
         if (value && !this.htmlTemplateProcessor) {
             import('../util/HtmlTemplateProcessor.mjs').then(module => {
-                this.htmlTemplateProcessor = Neo.create(module.default);
-            });
+                this.htmlTemplateProcessor = module.default
+            })
         }
     }
 

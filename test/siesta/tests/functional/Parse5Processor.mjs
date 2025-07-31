@@ -75,14 +75,23 @@ StartTest(async t => {
         });
     });
 
-    t.it('should handle component tags (PascalCase)', async t => {
-        const scope = {Button};
-        const template = html`<Button text="Click Me"></Button>`;
-        await processor.process(template, mockComponent, scope);
+    t.it('should handle component tags via interpolation (lexical scope)', async t => {
+        const template = html`<${Button} text="Click Me"/>`;
+        await processor.process(template, mockComponent);
 
         t.expect(parsedVdomResult).toEqual({
             module: Button,
             text: 'Click Me'
+        });
+    });
+
+    t.it('should handle component tags via global namespace string', async t => {
+        const template = html`<Neo.button.Base text="Global Click"/>`;
+        await processor.process(template, mockComponent);
+
+        t.expect(parsedVdomResult).toEqual({
+            module: Button,
+            text: 'Global Click'
         });
     });
 });

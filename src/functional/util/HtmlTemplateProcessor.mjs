@@ -46,45 +46,54 @@ class HtmlTemplateProcessor extends Base {
      * @param {Object} node The parse5 AST node
      * @param {Array<*>} values The array of interpolated values
      * @param {String} originalString The original template string
-     * @param {Object} scope A map of component constructors
      * @returns {Object|String|null}
      */
-    convertNodeToVdom(node, values, originalString, scope) {
-        const placeholderRegex = /__DYNAMIC_VALUE_(\d+)__/;
+    convertNodeToVdom(node, values, originalString) {
+        const placeholderRegex = /__DYNAMIC_VALUE_(\d+)__/g;
 
         // 1. Handle text nodes
         if (node.nodeName === '#text') {
             const text = node.value.trim();
             if (!text) return null;
 
-            const match = text.match(placeholderRegex);
+            const match = text.match(/^__DYNAMIC_VALUE_(\d+)__$/);
             if (match) {
-                if (text === match[0]) {
-                    return values[parseInt(match[1], 10)];
-                }
-                return {ntype: 'vdomtext', text: text.replace(placeholderRegex, (m, i) => values[parseInt(i, 10)])};
+                return values[parseInt(match[1], 10)];
             }
 
-            return {ntype: 'vdomtext', text};
+            const replacedText = text.replace(placeholderRegex, (m, i) => values[parseInt(i, 10)]);
+            return {ntype: 'vdomtext', text: replacedText};
         }
 
         // 2. Handle element nodes
-        if (node.nodeName && node.sourceCodeLocation) {
+        if (node.nodeName && node.sourceCodeLocation?.startTag) {
             const vdom = {};
-            const startTag = originalString.substring(node.sourceCodeLocation.startTag.startOffset, node.sourceCodeLocation.startTag.endOffset);
-            const tagName = startTag.match(/<([\w\.]+)/)[1];
+            const tagName = node.tagName; // this is always lowercase
 
-            if (scope[tagName]) {
-                vdom.module = scope[tagName];
+            if (tagName.startsWith('neo-dyn-')) {
+                const index = parseInt(tagName.split('-')[2], 10);
+                vdom.module = values[index];
             } else {
-                vdom.tag = tagName.toLowerCase();
+                const startTagStr = originalString.substring(node.sourceCodeLocation.startTag.startOffset, node.sourceCodeLocation.startTag.endOffset);
+                const originalTagName = startTagStr.match(/<([\w\.]+)/)[1];
+
+                if (originalTagName[0] === originalTagName[0].toUpperCase()) {
+                    const resolvedModule = Neo.ns(originalTagName, false);
+                    if (resolvedModule) {
+                        vdom.module = resolvedModule;
+                    } else {
+                        throw new Error(`Could not resolve component tag <${originalTagName}> from global namespace.`);
+                    }
+                } else {
+                    vdom.tag = originalTagName;
+                }
             }
 
             // Attributes
             if (node.attrs) {
                 node.attrs.forEach(attr => {
-                    const match = attr.value.match(placeholderRegex);
-                    if (match && attr.value === match[0]) {
+                    const match = attr.value.match(/^__DYNAMIC_VALUE_(\d+)__$/);
+                    if (match) {
                         vdom[attr.name] = values[parseInt(match[1], 10)];
                     } else {
                         vdom[attr.name] = attr.value.replace(placeholderRegex, (m, i) => values[parseInt(i, 10)]);
@@ -94,7 +103,7 @@ class HtmlTemplateProcessor extends Base {
 
             // Children
             if (node.childNodes && node.childNodes.length > 0) {
-                vdom.cn = node.childNodes.map(child => this.convertNodeToVdom(child, values, originalString, scope)).filter(Boolean);
+                vdom.cn = node.childNodes.map(child => this.convertNodeToVdom(child, values, originalString)).filter(Boolean);
             }
 
             return vdom;
@@ -108,15 +117,14 @@ class HtmlTemplateProcessor extends Base {
      * @param {Object} ast parse5 AST
      * @param {Array<*>} values Interpolated values
      * @param {String} originalString The original template string
-     * @param {Object} scope A map of component constructors
      * @returns {Object} Neo.mjs VDOM
      */
-    convertAstToVdom(ast, values, originalString, scope) {
+    convertAstToVdom(ast, values, originalString) {
         if (!ast.childNodes || ast.childNodes.length === 0) {
             return {};
         }
 
-        const children = ast.childNodes.map(child => this.convertNodeToVdom(child, values, originalString, scope)).filter(Boolean);
+        const children = ast.childNodes.map(child => this.convertNodeToVdom(child, values, originalString)).filter(Boolean);
 
         if (children.length === 1) {
             return children[0];
@@ -144,15 +152,19 @@ class HtmlTemplateProcessor extends Base {
                 if (value instanceof HtmlTemplate) {
                     // If the value is another template, recurse
                     const nested = this.flattenTemplate(value);
-                    // Adjust indices for the nested values
-                    const nestedString = nested.flatString.replace(/__DYNAMIC_VALUE_(\d+)__/g, (match, index) => {
-                        return `__DYNAMIC_VALUE_${parseInt(index, 10) + flatValues.length}__`;
+                    const nestedString = nested.flatString.replace(/(__DYNAMIC_VALUE_|neo-dyn-)(\d+)__/g, (match, p1, p2) => {
+                        return `${p1}${parseInt(p2, 10) + flatValues.length}`;
                     });
                     flatString += nestedString;
                     flatValues.push(...nested.flatValues);
                 } else {
-                    // Otherwise, add the value and a placeholder
-                    flatString += `__DYNAMIC_VALUE_${flatValues.length}__`;
+                    const trimmed = template.strings[i].trim();
+                    // Check if the placeholder is for a tag name
+                    if (trimmed.endsWith('<') || trimmed.endsWith('</')) {
+                        flatString += `neo-dyn-${flatValues.length}`;
+                    } else {
+                        flatString += `__DYNAMIC_VALUE_${flatValues.length}__`;
+                    }
                     flatValues.push(value);
                 }
             }
@@ -178,9 +190,8 @@ class HtmlTemplateProcessor extends Base {
      * calls back to the component to continue the update process.
      * @param {Neo.functional.util.HtmlTemplate} template The root template object
      * @param {Neo.functional.component.Base} component The component instance
-     * @param {Object} [scope] A map of component constructors available in the template's scope
      */
-    async process(template, component, scope = {}) {
+    async process(template, component) {
         if (!this.parse5Loaded) {
             await this.loadParse5();
         }
@@ -190,7 +201,7 @@ class HtmlTemplateProcessor extends Base {
 
         const ast = me.parse5.parseFragment(flatString, {sourceCodeLocationInfo: true});
 
-        const parsedVdom = me.convertAstToVdom(ast, flatValues, flatString, scope);
+        const parsedVdom = me.convertAstToVdom(ast, flatValues, flatString);
 
         // The component update can continue synchronously after the await
         component.continueUpdateWithVdom(parsedVdom);
