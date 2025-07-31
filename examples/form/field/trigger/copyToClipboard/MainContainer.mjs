@@ -106,7 +106,6 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(TextField, {
-            autoRender : false,
             clearable  : true,
             showOnHover: true,
             labelText  : 'Label',

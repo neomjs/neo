@@ -126,7 +126,7 @@ class List extends ComponentList {
             });
 
             if (!mounted) {
-                editCalendarContainer.render(true)
+                editCalendarContainer.initVnode(true)
             } else {
                 editCalendarContainer.afterSetMounted(true, false)
             }

@@ -194,7 +194,7 @@ const DefaultConfig = {
     unitTestMode: false,
     /**
      * When unitTestMode is true, this flag can be enabled to allow VDOM-related
-     * operations like render() and update() to proceed. This is useful for integration-style
+     * operations like initVnode() and update() to proceed. This is useful for integration-style
      * tests that need to verify component lifecycle and DOM output.
      * @default false
      * @memberOf! module:Neo

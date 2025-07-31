@@ -65,7 +65,7 @@ StartTest(t => {
         t.is(buttonId, 'neo-button-1');
 
         await t.waitForSelector('.neo-button');
-        t.diag('Button got rendered.');
+        t.diag('Button got vnodeInitialized.');
 
         t.diag('Child update before parent update');
         Neo.worker.App.setConfigs({id: buttonId,  text  : 'world'});

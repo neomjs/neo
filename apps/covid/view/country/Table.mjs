@@ -67,7 +67,7 @@ class Table extends Container {
                     cls : ['neo-country-column', 'neo-table-cell'],
                     html: [
                         '<div style="display: flex; align-items: center">',
-                        '<img style="height:20px; margin-right:10px; width:20px;" src="' + Util.getCountryFlagUrl(data.value) + '">' + data.value,
+                            '<img style="height:20px; margin-right:10px; width:20px;" src="' + Util.getCountryFlagUrl(data.value) + '">' + data.value,
                         '</div>'
                     ].join('')
                 }

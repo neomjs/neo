@@ -47,15 +47,15 @@ class Application extends Base {
          */
         parentId: 'document.body',
         /**
-         * @member {Boolean} rendered=false
+         * @member {Boolean} vnodeInitialising=false
          * @protected
          */
-        rendered: false,
+        vnodeInitialising: false,
         /**
-         * @member {Boolean} rendering=false
+         * @member {Boolean} vnodeInitialized=false
          * @protected
          */
-        rendering: false,
+        vnodeInitialized: false,
         /**
          * @member {Number|null} windowId=null
          */
@@ -101,7 +101,7 @@ class Application extends Base {
             // short delay to ensure changes from onHashChange() got applied
             await me.timeout(Neo.config.hash ? 200 : 10);
 
-            await value.render(true)
+            await value.initVnode(true)
         }
     }
 

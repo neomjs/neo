@@ -62,10 +62,10 @@ class Base extends CoreBase {
                 me.afterConstructed()
             })
         } else {
-            if (Neo.apps['RealWorld'].rendered) {
+            if (Neo.apps['RealWorld'].vnodeInitialized) {
                 me.onAppRendered()
             } else {
-                Neo.apps['RealWorld'].on('render',me.onAppRendered, me)
+                Neo.apps['RealWorld'].on('vnodeInitialized',me.onAppRendered, me)
             }
         }
     }

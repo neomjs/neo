@@ -130,7 +130,7 @@ class AccordionTree extends TreeList {
 
         me[!value ? 'addCls' : 'removeCls']('root-not-collapsible');
 
-        if (me.rendered && value === false) {
+        if (me.vnodeInitialized && value === false) {
             let {store} = me;
 
             store.items.forEach(record => {
@@ -391,7 +391,7 @@ class AccordionTree extends TreeList {
 
         me.clear(false);
 
-        if (!me.mounted && me.rendering) {
+        if (!me.mounted && me.isVnodeInitializing) {
             me.on('mounted', () => {
                 me.createItems(null, me.getListItemsRoot(), 0);
                 me.update()

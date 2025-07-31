@@ -30,7 +30,7 @@ class Container extends BaseContainer {
          */
         ntype: 'tab-container',
         /**
-         * You can use null to not render any items initially
+         * You can use null to not mount any items initially
          * @member {Number|null} activeIndex_=0
          * @reactive
          */
@@ -197,7 +197,7 @@ class Container extends BaseContainer {
         NeoArray.add(cls, 'neo-' + value);
         me.setSilent({cls});
 
-        if (me.rendered) {
+        if (me.vnodeInitialized) {
             me.layout.setSilent(me.getLayoutConfig());
             me.getTabBar().setSilent({dock: value});
             me.getTabStrip().setSilent({cls: ['neo-tab-strip',  'neo-dock-' + value]});

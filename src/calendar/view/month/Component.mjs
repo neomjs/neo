@@ -601,7 +601,7 @@ class Component extends BaseComponent {
                 style
             });
 
-            editEventContainer.render(true)
+            editEventContainer.initVnode(true)
         }
     }
 

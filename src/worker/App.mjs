@@ -97,13 +97,13 @@ class App extends Base {
      * Remote method to use inside main threads for creating neo based class instances.
      * Be aware that you can only pass configs which can get converted into pure JSON.
      *
-     * Rendering a component into the document.body
+     * Mounting a component into the document.body
      * @example:
      *     Neo.worker.App.createNeoInstance({
-     *         ntype     : 'button',
-     *         autoMount : true,
-     *         autoRender: true
-     *         text      : 'Hi Nige!'
+     *         ntype        : 'button',
+     *         autoInitVnode: true,
+     *         autoMount    : true,
+     *         text         : 'Hi Nige!'
      *     }).then(id => console.log(id))
      *
      * Inserting a component into a container
@@ -150,8 +150,8 @@ class App extends Base {
             }
         } else {
             // default parentId='document.body' => we want it to get shown
-            config.autoMount  = true;
-            config.autoRender = true;
+            config.autoInitVnode = true;
+            config.autoMount     = true;
 
             instance = Neo[config.ntype ? 'ntype' : 'create'](config)
         }

@@ -704,7 +704,7 @@ class Component extends BaseComponent {
 
             Object.assign(style, {left: `${eventNode.rect.width + 15}px`, top: eventVdom.style.top});
             editEventContainer.setSilent({parentId: path[1].id, record, style});
-            editEventContainer.render(true)
+            editEventContainer.initVnode(true)
         }
     }
 

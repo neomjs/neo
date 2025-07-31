@@ -175,4 +175,11 @@ To showcase the new feature and provide a practical learning resource, create a 
 **Description:**
 Ensured that falsy values (e.g., `false`, `null`, `undefined`) in template interpolations do not render any output, which is the correct and expected behavior for conditional rendering. Added a new test case to `test/siesta/tests/functional/HtmlTemplateComponent.mjs` to verify this functionality by toggling a conditional element and asserting its presence and absence in the VDOM.
 
+### 14. Refactor `render` to `initVnode` and `createTemplateVdom` to `render`
+
+**Status: Done**
+
+**Description:**
+To improve the developer experience for those familiar with React, a major refactoring was undertaken. The framework's core `render()` method was renamed to `initVnode()` to more accurately reflect its purpose of creating the initial VNode and mounting the component. This freed up the `render` name, allowing `createTemplateVdom()` to be renamed to `render()`, providing a more intuitive and familiar API for functional components using HTML templates. This change also included renaming the `rendered` property to `vnodeInitialized`, the `autoRender` config to `autoInitVnode`, and the `rendering` flag to `isVnodeInitializing` to maintain semantic consistency throughout the framework.
+
 

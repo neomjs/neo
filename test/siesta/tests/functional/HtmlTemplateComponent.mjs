@@ -109,7 +109,7 @@ StartTest(t => {
         });
         // The initial render() call is synchronous and returns the HtmlTemplate object.
         // The actual VDOM is built asynchronously after this.
-        component.render();
+        component.initVnode();
         component.mounted = true; // Manually mount to enable updates in the test env
     });
 

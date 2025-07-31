@@ -288,8 +288,8 @@ class FunctionalBase extends Abstract {
     createVdom(config) {
         const me = this;
 
-        if (me.enableHtmlTemplates && typeof me.createTemplateVdom === 'function') {
-            return me.createTemplateVdom(config)
+        if (me.enableHtmlTemplates && typeof me.render === 'function') {
+            return me.render(config)
         }
         // This method should be overridden by subclasses
         return {}

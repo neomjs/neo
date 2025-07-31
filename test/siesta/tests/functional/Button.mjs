@@ -35,7 +35,7 @@ StartTest(t => {
             text   : 'Click me'
         });
 
-        ({vnode} = await button.render());
+        ({vnode} = await button.initVnode());
         button.mounted = true; // Manually mount to enable updates in the test env
     });
 

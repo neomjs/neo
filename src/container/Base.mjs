@@ -102,7 +102,7 @@ class Container extends Component {
             value         : []
         },
         /**
-         * It is crucial to define a layout before the container does get rendered.
+         * It is crucial to define a layout before the container does get vdomInitialized.
          * Meaning: onConstructed() is the latest life-cycle point.
          * You can use layout: 'base', in case you do not need a layout at all.
          * @member {Object|String|null} layout_={ntype: 'vbox', align: 'stretch'}
@@ -161,7 +161,7 @@ class Container extends Component {
     afterSetLayout(value, oldValue) {
         let me = this;
 
-        if (me.rendered) {
+        if (me.vnodeInitialized) {
             oldValue?.removeRenderAttributes();
             value?.applyRenderAttributes();
 
@@ -213,12 +213,12 @@ class Container extends Component {
     }
 
     /**
-     * Triggered after the rendering config got changed
+     * Triggered after the vnodeInitializing config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetRendering(value, oldValue) {
+    afterSetIsVnodeInitializing(value, oldValue) {
         if (oldValue !== undefined) {
             let {items} = this,
                 i       = 0,
@@ -226,7 +226,7 @@ class Container extends Component {
 
             for (; i < len; i++) {
                 if (!items[i].vdom.removeDom) {
-                    items[i].rendering = value
+                    items[i].isVnodeInitializing = value
                 }
             }
         }

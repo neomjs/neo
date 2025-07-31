@@ -24,7 +24,7 @@ export default defineComponent({
         jobTitle_: 'Neo.mjs Developer'
     },
 
-    createTemplateVdom(config) {
+    render(config) {
         const [isActive, setIsActive] = useConfig(true);
 
         useEvent('click', () => setIsActive(prev => !prev));

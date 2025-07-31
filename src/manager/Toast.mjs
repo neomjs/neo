@@ -157,7 +157,7 @@ class Toast extends Manager {
      * @param {Neo.component.Toast} toast
      */
     showToast(toast) {
-        toast.render(true);
+        toast.initVnode(true);
 
         let me = this;
 

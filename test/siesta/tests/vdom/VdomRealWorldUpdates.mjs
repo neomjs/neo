@@ -107,7 +107,7 @@ StartTest(t => {
             ]
         });
 
-        await parent.render();
+        await parent.initVnode();
         child      = parent.items[1]; // TestParent inserts a component at index 0
         grandchild = child.items[0];
         parent.mounted = true;

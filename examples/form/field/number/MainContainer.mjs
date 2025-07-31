@@ -114,7 +114,6 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(NumberField, {
-            autoRender          : false,
             clearToOriginalValue: true,
             labelText           : 'Label',
             labelWidth          : 70,
