@@ -36,6 +36,8 @@ For production builds, parsing HTML strings in the main thread is inefficient. I
 
 ### 3. Bundle `parse5` for Browser Compatibility
 
+**Status: Done**
+
 **Description:**
 To adhere to the framework's "zero builds" development principle, the `parse5` library cannot be imported directly from `node_modules` at runtime. A build step is required to convert it into a browser-compatible ES module. This bundled file will be checked into the `dist` directory and imported by the `HtmlTemplateProcessor`.
 
@@ -47,6 +49,8 @@ To adhere to the framework's "zero builds" development principle, the `parse5` l
 - **Outcome:** The `HtmlTemplateProcessor` will be updated to import `../../../dist/parse5.mjs`.
 
 ### 4. Alternative Dev Mode: In-Worker Parsing with `parse5`
+
+**Status: Done**
 
 **Description:**
 As an alternative to the main thread addon, we will evaluate using `parse5` directly within the App worker for dev mode. This approach avoids the complexities and potential race conditions of an asynchronous worker roundtrip for parsing. While it introduces a ~176KB dependency to the dev build, this cost may be acceptable for the significant gain in architectural simplicity and rendering predictability.
@@ -61,6 +65,8 @@ As an alternative to the main thread addon, we will evaluate using `parse5` dire
     5. The existing main thread addon (`Neo.main.addon.HtmlStringToVdom`) and its tests will be kept for comparison and potential future use cases.
 
 ### 5. Template Syntax Specification
+
+**Status: In Progress**
 
 **Description:**
 Define a clear and comprehensive specification for the template syntax. This document will serve as the blueprint for the parser implementation and as the primary reference for developers using this feature.
@@ -82,6 +88,8 @@ Define a clear and comprehensive specification for the template syntax. This doc
 
 ### 6. Parser: Interpolation and Data Type Handling
 
+**Status: Done**
+
 **Description:**
 Enhance the `parse5` processor to correctly handle the mapping of interpolated values from the tagged template literal to their corresponding VDOM properties, respecting their original data types.
 
@@ -92,6 +100,8 @@ Enhance the `parse5` processor to correctly handle the mapping of interpolated v
 
 ### 7. Parser: Component vs. HTML Tag Recognition
 
+**Status: Done**
+
 **Description:**
 Implement the logic within the `parse5` processor to differentiate between standard HTML tags and neo.mjs component tags based on the convention defined in the Syntax Specification.
 
@@ -100,5 +110,19 @@ Implement the logic within the `parse5` processor to differentiate between stand
 - If the tag name follows the component convention (e.g., starts with a capital letter), generate a VDOM object with a `module` or `className` property pointing to the corresponding component class.
 - If it's a standard HTML tag, generate a standard VDOM object with a `tag` property.
 - A mechanism will be needed to resolve the string name (e.g., "GridContainer") to the actual class constructor (`GridContainer`) at runtime. This may involve a component registry or passing a scope object to the template processor.
+
+### 8. Component Resolution Strategy
+
+**Status: To Do**
+
+**Description:**
+Define the official strategy for how component tags in templates are resolved to their corresponding class constructors. This is critical for developer experience and code clarity.
+
+**Options:**
+1.  **Explicit Import & Scope (React/JSX style):** This is the recommended approach. Developers must import the component constructors they intend to use and pass them to the template processor via the `scope` object. The tag name in the template must match the imported variable name. This is explicit, lexically scoped, and easy for developers and static analysis tools to follow.
+2.  **Dynamic Import via ClassName:** As an alternative or enhancement, the processor could recognize fully qualified neo.mjs class names (e.g., `<Neo.button.Base>`) and dynamically import the corresponding module. This offers more flexibility but is less explicit and could lead to unexpected side effects or performance issues if not used carefully.
+
+**Decision:**
+The final decision will be documented in the `Template Syntax Specification`.
 
 
