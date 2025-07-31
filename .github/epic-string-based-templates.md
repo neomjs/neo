@@ -113,16 +113,14 @@ Implement the logic within the `parse5` processor to differentiate between stand
 
 ### 8. Component Resolution Strategy
 
-**Status: To Do**
+**Status: Done**
 
 **Description:**
-Define the official strategy for how component tags in templates are resolved to their corresponding class constructors. This is critical for developer experience and code clarity.
+Define the official strategy for how component tags in templates are resolved to their corresponding class constructors. This is critical for developer experience and code clarity. The strategy prioritizes explicit imports while allowing a fallback to the global namespace, all while maintaining synchronous parsing.
 
-**Options:**
-1.  **Explicit Import & Scope (React/JSX style):** This is the recommended approach. Developers must import the component constructors they intend to use and pass them to the template processor via the `scope` object. The tag name in the template must match the imported variable name. This is explicit, lexically scoped, and easy for developers and static analysis tools to follow.
-2.  **Dynamic Import via ClassName:** As an alternative or enhancement, the processor could recognize fully qualified neo.mjs class names (e.g., `<Neo.button.Base>`) and dynamically import the corresponding module. This offers more flexibility but is less explicit and could lead to unexpected side effects or performance issues if not used carefully.
-
-**Decision:**
-The final decision will be documented in the `Template Syntax Specification`.
+**Resolution Order:**
+1.  **Lexical Scope via Interpolation (Primary):** The recommended method is to pass the imported component constructor directly as the tag name using template interpolation: `<${Button} />`. The processor will identify the interpolated value and use the constructor directly.
+2.  **Global Namespace Fallback:** If the tag is a literal string (e.g., `<Neo.button.Base>`), the processor will attempt to resolve it using `Neo.ns()`. If a valid class constructor is found in the global namespace, it will be used.
+3.  **Error:** If a tag that appears to be a component (PascalCase) cannot be resolved through either of the above methods, the processor will throw an error.
 
 
