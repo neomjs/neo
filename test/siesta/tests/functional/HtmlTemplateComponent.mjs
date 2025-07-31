@@ -74,6 +74,30 @@ class TestComponentWithChildren extends FunctionalBase {
 
 TestComponentWithChildren = Neo.setupClass(TestComponentWithChildren);
 
+/**
+ * @class TestConditionalComponent
+ * @extends Neo.functional.component.Base
+ */
+class TestConditionalComponent extends FunctionalBase {
+    static config = {
+        className          : 'TestConditionalComponent',
+        enableHtmlTemplates: true,
+        showDetails_       : false,
+        detailsText_       : 'Here are the details!'
+    }
+
+    createTemplateVdom(config) {
+        return html`
+            <div id="conditional-div">
+                <h1>Title</h1>
+                ${config.showDetails && html`<p id="details-p">${config.detailsText}</p>`}
+            </div>
+        `;
+    }
+}
+
+TestConditionalComponent = Neo.setupClass(TestConditionalComponent);
+
 
 StartTest(t => {
     let component;
@@ -187,5 +211,48 @@ StartTest(t => {
         t.expect(childInstance.vdom.cn[0].text).toBe('Custom Text for camelCase');
 
         parentComponent.destroy();
+    });
+
+    t.it('should handle conditional rendering correctly', async t => {
+        const conditionalComponent = Neo.create(TestConditionalComponent, {
+            appName,
+            id: 'my-conditional-component'
+        });
+
+        conditionalComponent.render();
+        conditionalComponent.mounted = true;
+
+        // 1. Initial state: details should NOT be rendered
+        await t.waitFor(() => conditionalComponent.vdom?.cn);
+
+        let vdom = conditionalComponent.vdom;
+        t.expect(vdom.cn.length).toBe(1); // Only the h1
+        t.expect(vdom.cn[0].tag).toBe('h1');
+        t.expect(vdom.cn.find(n => n && n.id === 'details-p')).toBeFalsy('Details <p> should not exist initially');
+
+        // 2. Update state: show the details
+        conditionalComponent.showDetails = true;
+
+        // 3. Wait for update and assert new state
+        await t.waitFor(() => conditionalComponent.vdom.cn.length > 1);
+
+        vdom = conditionalComponent.vdom;
+        t.expect(vdom.cn.length).toBe(2); // h1 and the new p
+        const detailsNode = vdom.cn.find(n => n.id === 'details-p');
+        t.ok(detailsNode, 'Details <p> should now exist');
+        t.expect(detailsNode.tag).toBe('p');
+        t.expect(detailsNode.text).toBe('Here are the details!');
+
+        // 4. Update state again: hide the details
+        conditionalComponent.showDetails = false;
+
+        // 5. Wait for update and assert final state
+        await t.waitFor(() => conditionalComponent.vdom.cn.length === 1);
+
+        vdom = conditionalComponent.vdom;
+        t.expect(vdom.cn.length).toBe(1); // Back to just the h1
+        t.expect(vdom.cn.find(n => n && n.id === 'details-p')).toBeFalsy('Details <p> should be removed');
+
+        conditionalComponent.destroy();
     });
 });

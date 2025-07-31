@@ -168,4 +168,11 @@ After the feature is functionally complete and well-tested, refactor the new mod
 **Description:**
 To showcase the new feature and provide a practical learning resource, create a new, simple example application that is built using a functional component with a string-based template. This will serve as a clear, working demonstration for developers.
 
+### 13. Fix Conditional Rendering and Add Tests
+
+**Status: Done**
+
+**Description:**
+Ensured that falsy values (e.g., `false`, `null`, `undefined`) in template interpolations do not render any output, which is the correct and expected behavior for conditional rendering. Added a new test case to `test/siesta/tests/functional/HtmlTemplateComponent.mjs` to verify this functionality by toggling a conditional element and asserting its presence and absence in the VDOM.
+
 

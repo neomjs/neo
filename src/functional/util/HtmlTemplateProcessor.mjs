@@ -146,7 +146,9 @@ class HtmlTemplateProcessor extends Base {
                     flatString += nestedString;
                     flatValues.push(...nested.flatValues);
                     attributeNames.push(...nested.attributeNames);
-                } else {
+                }
+                // Check for false, null & undefined values
+                else if (value !== false && value != null) {
                     if (template.strings[i].trim().endsWith('<') || template.strings[i].trim().endsWith('</')) {
                         flatString += `neotag${flatValues.length}`;
                     } else {
