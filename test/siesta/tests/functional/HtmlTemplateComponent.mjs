@@ -52,6 +52,29 @@ class TestComponent extends FunctionalBase {
 
 TestComponent = Neo.setupClass(TestComponent);
 
+/**
+ * @class TestComponentWithChildren
+ * @extends Neo.functional.component.Base
+ */
+class TestComponentWithChildren extends FunctionalBase {
+    static config = {
+        className          : 'TestComponentWithChildren',
+        enableHtmlTemplates: true,
+        childText_         : 'Inner Content'
+    }
+
+    createTemplateVdom(config) {
+        return html`
+            <div id="parent-div">
+                <${TestComponent} id="child-comp" testText="${config.childText}" />
+            </div>
+        `;
+    }
+}
+
+TestComponentWithChildren = Neo.setupClass(TestComponentWithChildren);
+
+
 
 StartTest(t => {
     let component;
@@ -84,11 +107,11 @@ StartTest(t => {
 
         const pNode = vdom.cn[0];
         t.expect(pNode.tag).toBe('p');
-        t.expect(pNode.cn[0]).toBe('Hello from Template!');
+        t.expect(pNode.text).toBe('Hello from Template!');
 
         const spanNode = vdom.cn[1];
         t.expect(spanNode.tag).toBe('span');
-        t.expect(spanNode.cn[0]).toBe('Another element');
+        t.expect(spanNode.text).toBe('Another element');
     });
 
     t.it('should update vdom when reactive config changes', async t => {
@@ -101,13 +124,45 @@ StartTest(t => {
         component.testText = 'Updated Text!';
 
         // Wait for the async VDOM update to complete after the change
-        await t.waitFor(() => component.vdom.cn[0].cn[0] === 'Updated Text!');
+        await t.waitFor(() => component.vdom.cn[0].text === 'Updated Text!');
 
         const updatedVdom = component.vdom;
 
-        t.expect(updatedVdom.cn[0].cn[0]).toBe('Updated Text!');
+        t.expect(updatedVdom.cn[0].text).toBe('Updated Text!');
         // Ensure the rest of the VDOM structure remains the same
         t.expect(updatedVdom.tag).toBe(initialVdom.tag);
         t.expect(updatedVdom.cn.length).toBe(initialVdom.cn.length);
+    });
+
+    t.it('should handle nested components defined in a template', t => {
+        const parentComponent = Neo.create(TestComponentWithChildren, {
+            appName,
+            id: 'my-parent-component'
+        });
+
+        parentComponent.render();
+        parentComponent.mounted = true;
+
+        const parentVdom = parentComponent.vdom;
+        t.expect(parentVdom.id).toBe('my-parent-component');
+        t.expect(parentVdom.tag).toBe('div');
+
+        // 1. Check that the parent's VDOM contains the correct reference
+        const childVdomRef = parentVdom.cn[0];
+        t.expect(childVdomRef.componentId).toBe('child-comp');
+
+        // 2. Get the child instance and check its properties
+        const childInstance = parentComponent.childComponents.get('child-comp').instance;
+
+        t.is(childInstance.constructor, TestComponent, 'Child instance should be an instance of TestComponent');
+
+        t.expect(childInstance.testText).toBe('Inner Content');
+
+        // 3. Check the child's own VDOM directly
+        const childVdom = childInstance.vdom;
+        t.expect(childVdom.tag).toBe('div');
+        t.expect(childVdom.text).toBe('Inner Content');
+
+        parentComponent.destroy();
     });
 });

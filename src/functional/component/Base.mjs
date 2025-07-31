@@ -115,11 +115,16 @@ class FunctionalBase extends Abstract {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetEnableHtmlTemplates_(value, oldValue) {
+    afterSetEnableHtmlTemplates(value, oldValue) {
         if (value && !this.htmlTemplateProcessor) {
-            import('../util/HtmlTemplateProcessor.mjs').then(module => {
-                this.htmlTemplateProcessor = module.default
-            })
+            // Required for unit testing
+            if (Neo.ns('Neo.functional.util.HtmlTemplateProcessor')) {
+                this.htmlTemplateProcessor = Neo.functional.util.HtmlTemplateProcessor
+            } else {
+                import('../util/HtmlTemplateProcessor.mjs').then(module => {
+                    this.htmlTemplateProcessor = module.default
+                })
+            }
         }
     }
 
@@ -396,7 +401,7 @@ class FunctionalBase extends Abstract {
         const me = this;
 
         // Check if it's a component definition (functional or classic)
-        if (vdomTree.className || vdomTree.module || vdomTree.ntype) {
+        if (vdomTree.className || vdomTree.module || (vdomTree.ntype && vdomTree.ntype !== 'vdomtext')) {
             // Components are reconciled based on their `id` property in the VDOM definition.
             // If no `id` is provided, a new instance will be created on every render.
             const componentKey = vdomTree.id;
@@ -421,7 +426,7 @@ class FunctionalBase extends Abstract {
 
             if (!childData) {
                 me.childComponents ??= new Map();
-
+console.log(Neo.clone(vdomTree, true));
                 // Instantiate the component
                 instance = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
                     ...vdomTree,

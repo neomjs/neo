@@ -123,4 +123,64 @@ Define the official strategy for how component tags in templates are resolved to
 2.  **Global Namespace Fallback:** If the tag is a literal string (e.g., `<Neo.button.Base>`), the processor will attempt to resolve it using `Neo.ns()`. If a valid class constructor is found in the global namespace, it will be used.
 3.  **Error:** If a tag that appears to be a component (PascalCase) cannot be resolved through either of the above methods, the processor will throw an error.
 
+### 9. Enhance Learning Content
+
+**Status: To Do**
+
+**Description:**
+Create a comprehensive guide to explain the purpose and trade-offs of using HTML templates. The current syntax-only file is insufficient for developers to make an informed decision. This new content should clearly position templates as an alternative to the core JSON VDOM, aimed at developers familiar with string-based syntaxes.
+
+**Implementation Details:**
+- **Location:** Enhance the existing file: `learn/guides/uibuildingblocks/HtmlTemplates.md`.
+- **Key Points to Cover:**
+    - **The "Why":** Explain that this feature is an alternative, not a replacement, for JSON VDOM, designed to lower the barrier to entry for developers from other framework backgrounds.
+    - **The Trade-Offs:** Clearly state that using this feature in development mode requires loading the `parse5` library (~176KB), which has a performance cost compared to the zero-dependency JSON VDOM approach.
+    - **Positioning:** Frame it as a "beginner-friendly" or "transitional" option that helps developers get started quickly, while encouraging them to explore the power and performance of the native JSON VDOM as they become more familiar with the framework.
+    - **Best Practices:** Provide clear examples of when to use templates and when JSON VDOM might be a better choice (e.g., for highly dynamic or programmatically generated views).
+
+### 10. Expand Test Coverage with Real Components
+
+**Status: To Do**
+
+**Description:**
+While the mock component tests are a good start, we need to ensure the template processor works correctly in real-world scenarios with actual functional components and their lifecycle. This involves creating more complex integration tests.
+
+**Implementation Details:**
+- **Location:** Create new test files or enhance `test/siesta/tests/functional/HtmlTemplateComponent.mjs`.
+- **Scenarios to Test:**
+    - Components with nested children defined in the template.
+    - Components that use reactive configs passed in via attributes.
+    - Templates that include a mix of standard HTML tags and multiple, different neo.mjs components.
+    - Edge cases with complex interpolation in attributes and text nodes.
+    - Ensure the entire component lifecycle (mount, update, destroy) works as expected when the VDOM is generated from a template.
+
+### 11. Code Quality Refinement
+
+**Status: To Do**
+
+**Description:**
+After the feature is functionally complete and well-tested, refactor the new modules (`HtmlTemplateProcessor`, etc.) to meet the high code quality standards of the neo.mjs framework. This includes adding comprehensive JSDoc comments, ensuring adherence to coding guidelines, and optimizing for clarity and performance.
+
+### 12. Create a Real-World Example
+
+**Status: To Do**
+
+**Description:**
+To showcase the new feature and provide a practical learning resource, create a new, simple example application that is built using a functional component with a string-based template. This will serve as a clear, working demonstration for developers.
+
+### 13. Enhance Learning Content
+
+**Status: To Do**
+
+**Description:**
+Create a comprehensive guide to explain the purpose and trade-offs of using HTML templates. The current syntax-only file is insufficient for developers to make an informed decision. This new content should clearly position templates as an alternative to the core JSON VDOM, aimed at developers familiar with string-based syntaxes.
+
+**Implementation Details:**
+- **Location:** Enhance the existing file: `learn/guides/uibuildingblocks/HtmlTemplates.md`.
+- **Key Points to Cover:**
+    - **The "Why":** Explain that this feature is an alternative, not a replacement, for JSON VDOM, designed to lower the barrier to entry for developers from other framework backgrounds.
+    - **The Trade-Offs:** Clearly state that using this feature in development mode requires loading the `parse5` library (~176KB), which has a performance cost compared to the zero-dependency JSON VDOM approach.
+    - **Positioning:** Frame it as a "beginner-friendly" or "transitional" option that helps developers get started quickly, while encouraging them to explore the power and performance of the native JSON VDOM as they become more familiar with the framework.
+    - **Best Practices:** Provide clear examples of when to use templates and when JSON VDOM might be a better choice (e.g., for highly dynamic or programmatically generated views).
+
 

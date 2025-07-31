@@ -6,16 +6,7 @@ import {html}                from '../../../../src/functional/util/html.mjs';
 
 const processor = HtmlTemplateProcessor;
 
-// We need to ensure parse5 is loaded before tests run
-const forceLoad = async () => {
-    if (!processor.parse5Loaded) {
-        await processor.loadParse5();
-    }
-};
-
 StartTest(async t => {
-    await forceLoad();
-
     let parsedVdomResult;
     const mockComponent = {
         continueUpdateWithVdom: vdom => {
@@ -31,10 +22,7 @@ StartTest(async t => {
             tag: 'div',
             cn: [{
                 tag: 'p',
-                cn: [{
-                    ntype: 'vdomtext',
-                    text: 'Hello'
-                }]
+                text: 'Hello'
             }]
         });
     });
@@ -46,10 +34,7 @@ StartTest(async t => {
 
         t.expect(parsedVdomResult).toEqual({
             tag: 'p',
-            cn: [{
-                ntype: 'vdomtext',
-                text: 'Hello Neo'
-            }]
+            text: 'Hello Neo'
         });
     });
 
