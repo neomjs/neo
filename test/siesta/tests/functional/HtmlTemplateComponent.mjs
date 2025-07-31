@@ -75,7 +75,6 @@ class TestComponentWithChildren extends FunctionalBase {
 TestComponentWithChildren = Neo.setupClass(TestComponentWithChildren);
 
 
-
 StartTest(t => {
     let component;
 
@@ -160,8 +159,10 @@ StartTest(t => {
 
         // 3. Check the child's own VDOM directly
         const childVdom = childInstance.vdom;
+
         t.expect(childVdom.tag).toBe('div');
-        t.expect(childVdom.text).toBe('Inner Content');
+        t.expect(childVdom.cn[0].tag).toBe('p');
+        t.expect(childVdom.cn[0].text).toBe('Inner Content');
 
         parentComponent.destroy();
     });

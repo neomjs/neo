@@ -426,7 +426,7 @@ class FunctionalBase extends Abstract {
 
             if (!childData) {
                 me.childComponents ??= new Map();
-console.log(Neo.clone(vdomTree, true));
+
                 // Instantiate the component
                 instance = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
                     ...vdomTree,
