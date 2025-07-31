@@ -24,6 +24,13 @@ class MainContainer extends ConfigurationViewport {
             listeners : {change: me.onConfigChange.bind(me, 'greeting')},
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.greeting
+        }, {
+            module    : TextField,
+            clearable : true,
+            labelText : 'jobTitle',
+            listeners : {change: me.onConfigChange.bind(me, 'jobTitle')},
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.jobTitle
         }]
     }
 

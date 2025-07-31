@@ -163,7 +163,7 @@ After the feature is functionally complete and well-tested, refactor the new mod
 
 ### 12. Create a Real-World Example
 
-**Status: To Do**
+**Status: Done**
 
 **Description:**
 To showcase the new feature and provide a practical learning resource, create a new, simple example application that is built using a functional component with a string-based template. This will serve as a clear, working demonstration for developers.
