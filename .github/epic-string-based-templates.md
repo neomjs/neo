@@ -66,13 +66,13 @@ As an alternative to the main thread addon, we will evaluate using `parse5` dire
 
 ### 5. Template Syntax Specification
 
-**Status: Done**
+**Status: To Do**
 
 **Description:**
 Define a clear and comprehensive specification for the template syntax. This document will serve as the blueprint for the parser implementation and as the primary reference for developers using this feature.
 
 **Implementation Details:**
-- Create a new markdown file: `docs/templates/Syntax.md`.
+- Create a new markdown file: `learn/guides/uibuildingblocks/HtmlTemplates.md`.
 - **Conventions:**
     - **Component vs. HTML:** Define the convention for distinguishing neo.mjs components from standard HTML tags (e.g., PascalCase for components: `<MyComponent>`, lowercase for HTML: `<div>`).
     - **Attribute Mapping:** Specify how template attributes map to VDOM config properties (e.g., `class` to `cls`, `style` to `style`).
@@ -167,20 +167,5 @@ After the feature is functionally complete and well-tested, refactor the new mod
 
 **Description:**
 To showcase the new feature and provide a practical learning resource, create a new, simple example application that is built using a functional component with a string-based template. This will serve as a clear, working demonstration for developers.
-
-### 13. Enhance Learning Content
-
-**Status: To Do**
-
-**Description:**
-Create a comprehensive guide to explain the purpose and trade-offs of using HTML templates. The current syntax-only file is insufficient for developers to make an informed decision. This new content should clearly position templates as an alternative to the core JSON VDOM, aimed at developers familiar with string-based syntaxes.
-
-**Implementation Details:**
-- **Location:** Enhance the existing file: `learn/guides/uibuildingblocks/HtmlTemplates.md`.
-- **Key Points to Cover:**
-    - **The "Why":** Explain that this feature is an alternative, not a replacement, for JSON VDOM, designed to lower the barrier to entry for developers from other framework backgrounds.
-    - **The Trade-Offs:** Clearly state that using this feature in development mode requires loading the `parse5` library (~176KB), which has a performance cost compared to the zero-dependency JSON VDOM approach.
-    - **Positioning:** Frame it as a "beginner-friendly" or "transitional" option that helps developers get started quickly, while encouraging them to explore the power and performance of the native JSON VDOM as they become more familiar with the framework.
-    - **Best Practices:** Provide clear examples of when to use templates and when JSON VDOM might be a better choice (e.g., for highly dynamic or programmatically generated views).
 
 

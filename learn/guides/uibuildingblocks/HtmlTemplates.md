@@ -1,6 +1,24 @@
-# HTML Template Syntax
+# Using HTML Templates for VDOM
 
-This document outlines the syntax for using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This feature provides an intuitive and familiar alternative to the traditional JSON-based VDOM approach.
+This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This feature provides an intuitive and familiar alternative to the traditional JSON-based VDOM approach, especially for developers coming from other modern web frameworks.
+
+## The "Why": An Alternative, Not a Replacement
+
+The core of neo.mjs is built on a highly efficient, JSON-based VDOM structure. This approach is powerful and performant, as it requires zero parsing or transformation at runtime.
+
+However, we recognize that many developers are accustomed to writing UI with an HTML-like syntax. HTML templates are offered as a **beginner-friendly and transitional option** to lower the barrier to entry. They allow you to get started quickly, leveraging familiar patterns, while you learn the more advanced capabilities of the framework.
+
+## The Trade-Off: Performance in Development
+
+Using this feature comes with a clear trade-off. To enable live parsing of HTML templates in your browser during development, the framework must load the `parse5` library. This adds **~176KB (minified)** to your application's initial download size in development mode.
+
+For production builds, this penalty is removed, as the templates are pre-compiled into the standard JSON VDOM format.
+
+## Best Practices
+
+-   **Use for simpler components:** Templates are excellent for components with relatively static structures, such as informational dialogs, buttons, or basic forms.
+-   **Prefer JSON VDOM for complex views:** For highly dynamic, data-driven, or programmatically generated views (like complex grids or dashboards), the native JSON VDOM approach is often clearer and more performant.
+-   **Embrace JavaScript for Logic:** Do not look for template-specific directives like `n-if` or `n-for`. All conditional logic and looping should be handled with standard JavaScript inside your `createVdom` method, before the `html` tag is even used.
 
 ## Basic Usage
 
@@ -57,7 +75,7 @@ If a tag name is written as a literal string in `PascalCase` or with dots (e.g.,
 const vdom = html`<Neo.button.Base text="Global Button" />`;
 ```
 
-## Attributes
+## Attributes and Configs
 
 Attributes are used to pass configuration values to both HTML tags and components.
 
@@ -103,6 +121,59 @@ const vdom = html`
     <${Grid} columns="${gridColumns}" />
 `;
 ```
+
+## Dynamic and Conditional Rendering
+
+Unlike other frameworks, neo.mjs templates do not have special directives for logic. Instead, you use the full power of JavaScript to build your dynamic UI *before* it goes into the template.
+
+### Conditional Rendering
+
+Use standard JavaScript constructs like `if/else` statements, ternary operators, or `&&` for conditional rendering.
+
+```javascript
+// Using a ternary operator
+const content = isVisible
+    ? html`<p>Now you see me.</p>`
+    : html`<small>Now you don't.</small>`;
+
+const vdom = html`
+    <div>
+        <h1>Conditional Content</h1>
+        ${content}
+    </div>
+`;
+
+// Using short-circuiting (&&)
+const vdom2 = html`
+    <div>
+        <h2>Admin Section</h2>
+        ${isAdmin && html`<p>Welcome, Admin!</p>`}
+    </div>
+`;
+```
+
+### Rendering Lists
+
+Use the standard `Array.prototype.map()` method to transform an array of data into an array of VDOM nodes.
+
+```javascript
+const items = [
+    { id: 1, name: 'First Item' },
+    { id: 2, name: 'Second Item' }
+];
+
+const listItems = items.map(item => html`
+    <li id="${item.id}">${item.name}</li>
+`);
+
+const vdom = html`
+    <ul>
+        ${listItems}
+    </ul>
+`;
+```
+
+**IMPORTANT:** When rendering lists, always provide a unique `id` attribute to each element in the list. This is crucial for the VDOM diffing algorithm to efficiently update, reorder, or remove items.
 
 ## DOM Events (Out of Scope)
 
