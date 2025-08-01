@@ -1,148 +1,204 @@
-import fs                   from 'fs-extra';
-import path                 from 'path';
+import {generate} from 'astring';
+import fs from 'fs-extra';
+import path from 'path';
+import * as acorn from 'acorn';
 import * as Terser from 'terser';
-import { processHtmlTemplateLiteral } from './util/templateBuildProcessor.mjs';
-import { vdomToString } from './util/vdomToString.mjs';
-import {minifyHtml}         from './util/minifyHtml.mjs';
+import {minifyHtml} from './util/minifyHtml.mjs';
+import {processHtmlTemplateLiteral} from './util/templateBuildProcessor.mjs';
+
+// A simple JSON to AST converter (inspired by buildESModules.mjs)
+function jsonToAst(json) {
+    if (json === null) {
+        return {type: 'Literal', value: null};
+    }
+    switch (typeof json) {
+        case 'string':
+            const exprMatch = json.match(/##__NEO_EXPR__(.*)##__NEO_EXPR__##/);
+            if (exprMatch) {
+                try {
+                    const body = acorn.parse(exprMatch[1], {ecmaVersion: 'latest'}).body;
+                    if (body.length > 0 && body[0].type === 'ExpressionStatement') {
+                        return body[0].expression;
+                    }
+                } catch (e) {
+                    console.error(`Failed to parse expression: ${exprMatch[1]}`, e);
+                    return {type: 'Literal', value: json};
+                }
+            }
+            return {type: 'Literal', value: json};
+        case 'number':
+        case 'boolean':
+            return {type: 'Literal', value: json};
+        case 'object':
+            if (Array.isArray(json)) {
+                return {
+                    type: 'ArrayExpression',
+                    elements: json.map(jsonToAst)
+                };
+            }
+            const properties = Object.entries(json).map(([key, value]) => {
+                const keyNode = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)
+                    ? {type: 'Identifier', name: key}
+                    : {type: 'Literal', value: key};
+                return {
+                    type: 'Property',
+                    key: keyNode,
+                    value: jsonToAst(value),
+                    kind: 'init',
+                    computed: keyNode.type === 'Literal'
+                };
+            });
+            return {type: 'ObjectExpression', properties};
+        default:
+            return {type: 'Literal', value: null}; // for undefined, function, etc.
+    }
+}
+
 
 const
-    outputBasePath   = 'dist/esm/',
-    // Regex to find import statements with 'node_modules' in the path
-    // It captures the entire import statement (excluding the leading 'import') and the path itself.
-    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["\'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
-    root             = path.resolve(),
-    requireJson      = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
-    packageJson      = requireJson(path.join(root, 'package.json')),
-    insideNeo        = packageJson.name.includes('neo.mjs'),
-    startDate        = new Date();
+    outputBasePath = 'dist/esm/',
+    regexImport = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    root = path.resolve(),
+    requireJson = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
+    packageJson = requireJson(path.join(root, 'package.json')),
+    insideNeo = packageJson.name.includes('neo.mjs'),
+    startDate = new Date();
 
-/**
- * @param {String} match
- * @param {String} p1 will be "import {marked}    from " (or similar, including the 'import' keyword and everything up to the first quote)
- * @param {String} p2 will be the quote character (', ", or `)
- * @param {String} p3 will be the original path string (e.g., '../../../../node_modules/marked/lib/marked.esm.js')
- * @returns {String}
- */
 function adjustImportPathHandler(match, p1, p2, p3) {
     let newPath;
 
     if (p3.includes('/node_modules/neo.mjs/')) {
         newPath = p3.replace('/node_modules/neo.mjs/', '/')
     } else {
-        newPath = '../../' + p3; // Prepend 2 levels up
+        newPath = '../../' + p3;
     }
 
-    // Reconstruct the import statement with the new path
     return p1 + p2 + newPath + p2
 }
 
-/**
- * @param {String} content
- * @param {String} outputPath
- * @returns {Promise<void>}
- */
 async function minifyFile(content, outputPath) {
     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
 
     try {
-        // Minify JSON files
         if (outputPath.endsWith('.json')) {
             const jsonContent = JSON.parse(content);
-
             if (outputPath.endsWith('neo-config.json')) {
                 Object.assign(jsonContent, {
-                    basePath      : '../../' + jsonContent.basePath,
-                    environment   : 'dist/esm',
-                    mainPath      : './Main.mjs',
+                    basePath: '../../' + jsonContent.basePath,
+                    environment: 'dist/esm',
+                    mainPath: './Main.mjs',
                     workerBasePath: jsonContent.basePath + 'src/worker/'
                 });
-
                 if (!insideNeo) {
                     jsonContent.appPath = jsonContent.appPath.substring(6)
                 }
             }
-
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
             console.log(`Minified JSON: ${outputPath}`)
-        }
-        // Minify HTML files
-        else if (outputPath.endsWith('.html')) {
+        } else if (outputPath.endsWith('.html')) {
             const minifiedContent = await minifyHtml(content);
-
             fs.writeFileSync(outputPath, minifiedContent);
             console.log(`Minified HTML: ${outputPath}`)
-        }
-        // Minify JS files
-        else if (outputPath.endsWith('.mjs')) {
+        } else if (outputPath.endsWith('.mjs')) {
             let adjustedContent = content.replace(regexImport, adjustImportPathHandler);
 
-            const htmlTemplateRegex = /html(`[\s\S]*?`)/g;
-            const replacements = [];
+            // AST-based processing for html templates
+            const ast = acorn.parse(adjustedContent, {ecmaVersion: 'latest', sourceType: 'module'});
 
-            // Find all matches and store their promises
-            let match;
-            while ((match = htmlTemplateRegex.exec(adjustedContent)) !== null) {
-                const templateLiteral = match[1]; // This is the full template literal: `...`
-                const templateContent = templateLiteral.substring(1, templateLiteral.length - 1); // Remove backticks
-
-                // Split the templateContent into strings and expressions
-                const parts = templateContent.split(/(\${[\s\S]*?})/g); // Split by ${...} expressions
-
-                const strings = [];
-                const expressionCodeStrings = [];
-                const componentNameMap = {};
-
-                // The first part is always a string
-                strings.push(parts[0]);
-
-                for (let i = 1; i < parts.length; i += 2) {
-                    const exprPart = parts[i];
-                    const stringPart = parts[i + 1] || '';
-
-                    const exprCode = exprPart.substring(2, exprPart.length - 1); // Remove ${ and }
-                    expressionCodeStrings.push(exprCode);
-
-                    // Heuristic: If the expression is a single PascalCase identifier, assume it's a component name
-                    if (/^[A-Z][a-zA-Z0-9]*$/.test(exprCode.trim())) {
-                        componentNameMap[exprCode.trim()] = { __neo_component_name__: exprCode.trim() };
+            function addParentLinks(node, parent) {
+                if (!node || typeof node !== 'object') return;
+                node.parent = parent;
+                for (const key in node) {
+                    if (key === 'parent') continue;
+                    const child = node[key];
+                    if (Array.isArray(child)) {
+                        child.forEach(c => addParentLinks(c, node));
+                    } else {
+                        addParentLinks(child, node);
                     }
-
-                    strings.push(stringPart);
                 }
+            }
+            addParentLinks(ast, null);
 
-                // Store the promise and the original match to replace later
-                replacements.push({
-                    original: `html${templateLiteral}`,
-                    promise: processHtmlTemplateLiteral(strings, expressionCodeStrings, componentNameMap)
+            const nodesToProcess = [];
+            function walk(node) {
+                if (!node) return;
+                nodesToProcess.push(node);
+                Object.entries(node).forEach(([key, value]) => {
+                    if (key === 'parent') return;
+                    if (Array.isArray(value)) {
+                        value.forEach(child => walk(child));
+                    } else if (typeof value === 'object' && value !== null) {
+                        walk(value);
+                    }
                 });
             }
+            walk(ast);
 
-            // Await all replacements
-            const resolvedReplacements = await Promise.all(replacements.map(r => r.promise));
+            let hasChanges = false;
+            const templatePromises = [];
 
-            // Perform the actual string replacement synchronously
-            let currentContent = adjustedContent;
-            for (let i = 0; i < replacements.length; i++) {
-                // Use our new robust serializer
-                const finalVdomString = vdomToString(resolvedReplacements[i]);
+            for (const node of nodesToProcess) {
+                if (node.type === 'TaggedTemplateExpression' && node.tag.type === 'Identifier' && node.tag.name === 'html') {
+                    hasChanges = true;
 
-                // Create a regex from the original match string, escaping special characters
-                const regexToReplace = new RegExp(replacements[i].original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-                currentContent = currentContent.replace(regexToReplace, finalVdomString);
+                    let current = node;
+                    while (current.parent) {
+                        // Handle class methods: class MyClass { render() { ... } }
+                        if (current.parent.type === 'MethodDefinition' && current.parent.key.name === 'render') {
+                            current.parent.key.name = 'createVdom';
+                            console.log('Renamed render() method to createVdom()');
+                            break;
+                        }
+                        // Handle object properties: { render: function() { ... } } or { render() { ... } }
+                        if (current.parent.type === 'Property' && current.parent.key.name === 'render') {
+                            current.parent.key.name = 'createVdom';
+                            console.log('Renamed render property to createVdom()');
+                            break;
+                        }
+                        current = current.parent;
+                    }
+
+                    const templateLiteral = node.quasi;
+                    const strings = templateLiteral.quasis.map(q => q.value.cooked);
+                    const expressionCodeStrings = templateLiteral.expressions.map(expr => adjustedContent.substring(expr.start, expr.end));
+
+                    const componentNameMap = {};
+                    expressionCodeStrings.forEach(exprCode => {
+                        if (/^[A-Z][a-zA-Z0-9]*$/.test(exprCode.trim())) {
+                            componentNameMap[exprCode.trim()] = {__neo_component_name__: exprCode.trim()};
+                        }
+                    });
+
+                    const promise = processHtmlTemplateLiteral(strings, expressionCodeStrings, componentNameMap)
+                        .then(vdom => {
+                            const vdomAst = jsonToAst(vdom);
+                            for (const key in node.parent) {
+                                if (node.parent[key] === node) {
+                                    node.parent[key] = vdomAst;
+                                    break;
+                                } else if (Array.isArray(node.parent[key])) {
+                                    const index = node.parent[key].indexOf(node);
+                                    if (index > -1) {
+                                        node.parent[key][index] = vdomAst;
+                                        break;
+                                    }
+                                }
+                            }
+                        });
+
+                    templatePromises.push(promise);
+                }
             }
 
-            console.log('--- Content before Terser.minify ---');
-            console.log(currentContent);
-            console.log('------------------------------------');
+            await Promise.all(templatePromises);
+
+            let currentContent = hasChanges ? generate(ast) : adjustedContent;
 
             const result = await Terser.minify(currentContent, {
                 module: true,
-                compress: {
-                    dead_code: true
-                },
-                mangle: {
-                    toplevel: true
-                }
+                compress: {dead_code: true},
+                mangle: {toplevel: true}
             });
 
             fs.writeFileSync(outputPath, result.code);
