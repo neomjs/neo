@@ -20,7 +20,7 @@ const
     regexNested          = /(__DYNAMIC_VALUE_|neotag)(\d+)/g,
     regexOriginalTagName = /<([\w\.]+)/;
 
-function convertNodeToVdom(node, values, originalString, attributeNames, options) {
+function convertNodeToVdom(node, values, originalString, attributeNames, options, parseState) {
     // 1. Handle text nodes: Convert text content, re-inserting any dynamic values.
     if (node.nodeName === '#text') {
         let text = node.value;
@@ -91,12 +91,10 @@ function convertNodeToVdom(node, values, originalString, attributeNames, options
             }
         }
 
-        let attrNameIndex = 0;
-
         node.attrs?.forEach(attr => {
             const match = attr.value.match(regexDynamicValue);
             if (match) {
-                const attrName = attributeNames[attrNameIndex++] || attr.name;
+                const attrName = attributeNames[parseState.attrNameIndex++] || attr.name;
                 vdom[attrName] = values[parseInt(match[1], 10)]
             } else {
                 vdom[attr.name] = attr.value.replace(regexDynamicValueG, (m, i) => values[parseInt(i, 10)])
@@ -104,7 +102,7 @@ function convertNodeToVdom(node, values, originalString, attributeNames, options
         });
 
         if (node.childNodes?.length > 0) {
-            vdom.cn = node.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNames, options)).filter(Boolean);
+            vdom.cn = node.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNames, options, parseState)).filter(Boolean);
 
             if (vdom.cn.length === 1 && vdom.cn[0].vtype === 'text') {
                 vdom.text = vdom.cn[0].text;
@@ -118,12 +116,12 @@ function convertNodeToVdom(node, values, originalString, attributeNames, options
     return null
 }
 
-function convertAstToVdom(ast, values, originalString, attributeNames, options) {
+function convertAstToVdom(ast, values, originalString, attributeNames, options, parseState) {
     if (!ast.childNodes || ast.childNodes.length < 1) {
         return {}
     }
 
-    const children = ast.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNames, options)).filter(Boolean);
+    const children = ast.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNames, options, parseState)).filter(Boolean);
 
     if (children.length === 1) {
         return children[0]
@@ -208,7 +206,8 @@ export async function processHtmlTemplateLiteral(strings, expressionCodeStrings,
 
     const { flatString, flatValues, attributeNames } = flattenTemplate(htmlTemplateInstance);
     const ast = parse5.parseFragment(flatString, { sourceCodeLocationInfo: true });
-    const parsedVdom = convertAstToVdom(ast, flatValues, flatString, attributeNames, { trimWhitespace: true });
+    const parseState = { attrNameIndex: 0 };
+    const parsedVdom = convertAstToVdom(ast, flatValues, flatString, attributeNames, { trimWhitespace: true }, parseState);
 
     return parsedVdom;
 }

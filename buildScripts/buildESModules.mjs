@@ -32,6 +32,9 @@ function jsonToAst(json) {
         case 'boolean':
             return { type: 'Literal', value: json };
         case 'object':
+            if (json.__neo_component_name__) {
+                return { type: 'Identifier', name: json.__neo_component_name__ };
+            }
             if (Array.isArray(json)) {
                 return {
                     type: 'ArrayExpression',
