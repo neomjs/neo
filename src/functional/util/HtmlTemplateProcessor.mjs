@@ -49,10 +49,10 @@ class HtmlTemplateProcessor extends Base {
     /**
      * Recursively converts a single parse5 AST node into a Neo.mjs VDOM node.
      * This is the heart of the transformation process.
-     * @param {Object} node The parse5 AST node
-     * @param {Array<*>} values The array of interpolated values from the flattened template
-     * @param {String} originalString The flattened template string
-     * @param {Object} attributeNameMap A map of dynamic value indices to original, case-sensitive attribute names
+     * @param {Object}   node             The parse5 AST node
+     * @param {Array<*>} values           The array of interpolated values from the flattened template
+     * @param {String}   originalString   The flattened template string
+     * @param {Object}   attributeNameMap A map of dynamic value indices to original, case-sensitive attribute names
      * @returns {Object|String|null} A VDOM node, a text string, or null if the node is empty
      */
     convertNodeToVdom(node, values, originalString, attributeNameMap) {
@@ -137,10 +137,10 @@ class HtmlTemplateProcessor extends Base {
 
     /**
      * Kicks off the AST to VDOM conversion for the entire template.
-     * @param {Object} ast The root parse5 AST
-     * @param {Array<*>} values Interpolated values
-     * @param {String} originalString The flattened template string
-     * @param {Object} attributeNameMap The original attribute names with mixed case, mapped by dynamic value index
+     * @param {Object}   ast              The root parse5 AST
+     * @param {Array<*>} values           Interpolated values
+     * @param {String}   originalString   The flattened template string
+     * @param {Object}   attributeNameMap The original attribute names with mixed case, mapped by dynamic value index
      * @returns {Object} The final Neo.mjs VDOM
      */
     convertAstToVdom(ast, values, originalString, attributeNameMap) {
@@ -225,8 +225,8 @@ class HtmlTemplateProcessor extends Base {
      * The main entry point for processing a template.
      * It orchestrates the flattening, parsing, and VDOM conversion, and then passes the result
      * back to the component to continue its update lifecycle.
-     * @param {Neo.functional.util.HtmlTemplate} template The root template object
-     * @param {Neo.functional.component.Base} component The component instance
+     * @param {Neo.functional.util.HtmlTemplate} template  The root template object
+     * @param {Neo.functional.component.Base}    component The component instance
      */
     process(template, component) {
         const
