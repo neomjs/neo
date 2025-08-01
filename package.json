@@ -15,7 +15,7 @@
         "add-reactive-tags": "node ./buildScripts/addReactiveTags.mjs",
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
-        "build-es-modules": "node ./buildScripts/buildESModules.mjs",
+        "build-dist-esm": "node ./buildScripts/buildESModules.mjs",
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "bundle-parse5": "node ./buildScripts/bundleParse5.mjs",

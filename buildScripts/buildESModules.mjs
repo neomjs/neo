@@ -5,7 +5,6 @@ import * as acorn           from 'acorn';
 import * as Terser          from 'terser';
 import {minifyHtml}         from './util/minifyHtml.mjs';
 import { processHtmlTemplateLiteral } from './util/templateBuildProcessor.mjs';
-import { vdomToString }     from './util/vdomToString.mjs';
 
 // A simple JSON to AST converter
 function jsonToAst(json) {
@@ -59,7 +58,7 @@ function jsonToAst(json) {
 
 const
     outputBasePath   = 'dist/esm/',
-    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["\'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
     root             = path.resolve(),
     requireJson      = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson      = requireJson(path.join(root, 'package.json')),
@@ -122,14 +121,15 @@ async function minifyDirectory(inputDir, outputDir) {
 
 async function minifyFile(content, outputPath) {
     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+
     try {
         if (outputPath.endsWith('.json')) {
             const jsonContent = JSON.parse(content);
             if (outputPath.endsWith('neo-config.json')) {
                 Object.assign(jsonContent, {
-                    basePath      : '../../' + jsonContent.basePath,
-                    environment   : 'dist/esm',
-                    mainPath      : './Main.mjs',
+                    basePath: '../../' + jsonContent.basePath,
+                    environment: 'dist/esm',
+                    mainPath: './Main.mjs',
                     workerBasePath: jsonContent.basePath + 'src/worker/'
                 });
                 if (!insideNeo) {
@@ -148,55 +148,100 @@ async function minifyFile(content, outputPath) {
             // AST-based processing for html templates
             const ast = acorn.parse(adjustedContent, {ecmaVersion: 'latest', sourceType: 'module'});
 
-            // Simple post-order traversal
+            function addParentLinks(node, parent) {
+                if (!node || typeof node !== 'object') return;
+                node.parent = parent;
+                for (const key in node) {
+                    if (key === 'parent') continue;
+                    const child = node[key];
+                    if (Array.isArray(child)) {
+                        child.forEach(c => addParentLinks(c, node));
+                    } else {
+                        addParentLinks(child, node);
+                    }
+                }
+            }
+            addParentLinks(ast, null);
+
             const nodesToProcess = [];
-            function walk(node, parent, key, index) {
+            function walk(node) {
                 if (!node) return;
+                nodesToProcess.push(node);
                 Object.entries(node).forEach(([key, value]) => {
+                    if (key === 'parent') return;
                     if (Array.isArray(value)) {
-                        value.forEach((child, i) => walk(child, node, key, i));
+                        value.forEach(child => walk(child));
                     } else if (typeof value === 'object' && value !== null) {
-                        walk(value, node, key);
+                        walk(value);
                     }
                 });
-                nodesToProcess.push({node, parent, key, index});
             }
             walk(ast);
 
             let hasChanges = false;
-            for (const {node, parent, key, index} of nodesToProcess) {
+            const templatePromises = [];
+
+            for (const node of nodesToProcess) {
                 if (node.type === 'TaggedTemplateExpression' && node.tag.type === 'Identifier' && node.tag.name === 'html') {
+                    hasChanges = true;
+
+                    let current = node;
+                    while (current.parent) {
+                        // Handle class methods: class MyClass { render() { ... } }
+                        if (current.parent.type === 'MethodDefinition' && current.parent.key.name === 'render') {
+                            current.parent.key.name = 'createVdom';
+                            console.log(`Renamed render() to createVdom() in ${outputPath}`);
+                            break;
+                        }
+                        // Handle object properties: { render: function() { ... } } or { render() { ... } }
+                        if (current.parent.type === 'Property' && current.parent.key.name === 'render') {
+                            current.parent.key.name = 'createVdom';
+                            console.log(`Renamed render property to createVdom() in ${outputPath}`);
+                            break;
+                        }
+                        current = current.parent;
+                    }
+
                     const templateLiteral = node.quasi;
                     const strings = templateLiteral.quasis.map(q => q.value.cooked);
                     const expressionCodeStrings = templateLiteral.expressions.map(expr => adjustedContent.substring(expr.start, expr.end));
-                    
+
                     const componentNameMap = {};
                     expressionCodeStrings.forEach(exprCode => {
                         if (/^[A-Z][a-zA-Z0-9]*$/.test(exprCode.trim())) {
-                            componentNameMap[exprCode.trim()] = { __neo_component_name__: exprCode.trim() };
+                            componentNameMap[exprCode.trim()] = {__neo_component_name__: exprCode.trim()};
                         }
                     });
 
-                    const vdom = await processHtmlTemplateLiteral(strings, expressionCodeStrings, componentNameMap);
-                    const vdomAst = jsonToAst(vdom);
+                    const promise = processHtmlTemplateLiteral(strings, expressionCodeStrings, componentNameMap)
+                        .then(vdom => {
+                            const vdomAst = jsonToAst(vdom);
+                            for (const key in node.parent) {
+                                if (node.parent[key] === node) {
+                                    node.parent[key] = vdomAst;
+                                    break;
+                                } else if (Array.isArray(node.parent[key])) {
+                                    const index = node.parent[key].indexOf(node);
+                                    if (index > -1) {
+                                        node.parent[key][index] = vdomAst;
+                                        break;
+                                    }
+                                }
+                            }
+                        });
 
-                    if (parent) {
-                        if (index !== undefined) {
-                            parent[key][index] = vdomAst;
-                        } else {
-                            parent[key] = vdomAst;
-                        }
-                        hasChanges = true;
-                    }
+                    templatePromises.push(promise);
                 }
             }
+
+            await Promise.all(templatePromises);
 
             let currentContent = hasChanges ? generate(ast) : adjustedContent;
 
             const result = await Terser.minify(currentContent, {
                 module: true,
-                compress: { dead_code: true },
-                mangle: { toplevel: true }
+                compress: {dead_code: true},
+                mangle: {toplevel: true}
             });
 
             fs.writeFileSync(outputPath, result.code);
