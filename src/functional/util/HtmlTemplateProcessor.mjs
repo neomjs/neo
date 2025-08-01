@@ -168,8 +168,8 @@ class HtmlTemplateProcessor extends Base {
     flattenTemplate(template) {
         let flatString = '';
         const
-            flatValues     = [],
-            attributeNameMap = {}; // Change this to an object
+            flatValues       = [],
+            attributeNameMap = {};
 
         for (let i = 0; i < template.strings.length; i++) {
             let str = template.strings[i];
