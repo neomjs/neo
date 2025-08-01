@@ -435,3 +435,65 @@ This task will replace the existing template processing logic in `buildScripts/b
 -   The `buildESModules.mjs` script is updated to use the full AST transformation pipeline described above.
 -   The final `dist/esm` output for components with `html` templates is syntactically correct and functionally equivalent to the client-side parsed version.
 -   All previous edge cases (conditional rendering, mixed static/dynamic text, self-closing tags) are handled correctly.
+
+UPDATE on 23:
+
+// Helper to create a context for vm
+function createVmContext(scope) {
+    const context = vm.createContext(scope);
+    return context;
+}
+
+// Helper to evaluate code in a given context
+function evaluateInContext(code, context) {
+    try {
+        return vm.runInContext(code, context);
+    } catch (e) {
+        console.error('Error evaluating code in VM:', e);
+       return null;
+    }
+}
+
+This is a great starting point. The existing buildESModules.mjs already has a full AST pipeline: it uses acorn to parse, walks the
+tree, finds html templates, and has a jsonToAst function to convert the processed VDOM back into an AST node.
+
+However, the core processing logic in buildScripts/util/templateBuildProcessor.mjs is flawed for build-time execution. It uses
+vm.runInContext to evaluate the template expressions. This is fundamentally incorrect for the build script because it cannot (and
+should not) know the runtime values of variables like showDetails or isActive. This approach will fail for any component with
+state-dependent logic.
+
+The goal is to preserve the expressions, not evaluate them.
+
+Here is the new plan, which refines sub-task #23 with the knowledge of the existing code:
+
+1. Remove `vm` from `templateBuildProcessor.mjs`: The entire vm.runInContext logic is wrong for this use case and must be removed. The
+   processor should work with the raw expression strings directly.
+
+2. Refactor `processHtmlTemplateLiteral`:
+  * It will accept strings and expressionCodeStrings as it does now.
+  * Instead of evaluating expressionCodeStrings, it will wrap them in the ##__NEO_EXPR__...## placeholder format.
+  * It will then call a new version of flattenTemplate that works with these placeholders.
+
+3. Refactor `flattenTemplate`:
+  * This function needs to correctly handle nested templates. When it encounters a value that is another template (which will already
+    be a VDOM object at build time, thanks to post-order traversal), it needs to embed that object directly.
+  * For conditional expressions like showDetails && detailsTemplate, it must preserve the entire expression as a single placeholder:
+    ##__NEO_EXPR__showDetails && detailsTemplate##__NEO_EXPR__##.
+
+4. Refactor `convertNodeToVdom` (in the build processor):
+  * This is the most critical part. When it encounters a text node in the parse5 AST that is a placeholder for an expression (e.g.,
+    the result of ${showDetails && detailsTemplate}), it must not wrap it in a VDOM text node. Instead, it should return the raw
+    placeholder string itself (##__NEO_EXPR__...##). This raw placeholder will then be placed directly into the cn array of its
+    parent VDOM node.
+
+5. Enhance `jsonToAst` (in `buildESModules.mjs`):
+  * The existing function is a good starting point. It already handles the ##__NEO_EXPR__...## placeholder by parsing the inner
+    content with acorn. This is correct.
+  * It needs to be robust enough to handle all valid JavaScript expressions that might appear inside a template.
+
+6. Fix Post-Order Traversal in `buildESModules.mjs`:
+  * The current implementation walks the tree and collects all nodes, then processes them. This is not a true post-order traversal. A
+    proper recursive, post-order traversal is needed to ensure nested templates are processed before their parents.
+
+I will now begin implementing these changes. I'll start by modifying buildScripts/buildESModules.mjs to implement a correct post-order
+traversal and then refactor the processor logic.

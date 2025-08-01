@@ -13,14 +13,14 @@ function jsonToAst(json) {
     }
     switch (typeof json) {
         case 'string':
-            const exprMatch = json.match(/##__NEO_EXPR__(.*)##__NEO_EXPR__##/);
+            // Check if the string is a placeholder for a raw JavaScript expression
+            const exprMatch = json.match(/^##__NEO_EXPR__(.*)##__NEO_EXPR__##$/s);
             if (exprMatch) {
                 // This is a raw expression, parse it as a standalone expression
                 try {
-                    const body = acorn.parse(exprMatch[1], {ecmaVersion: 'latest'}).body;
-                    if (body.length > 0 && body[0].type === 'ExpressionStatement') {
-                        return body[0].expression;
-                    }
+                    // Use acorn.parseExpressionAt to handle complex expressions correctly
+                    const expressionNode = acorn.parseExpressionAt(exprMatch[1], 0, {ecmaVersion: 'latest'});
+                    return expressionNode;
                 } catch (e) {
                     console.error(`Failed to parse expression: ${exprMatch[1]}`, e);
                     // Fallback to literal string if parsing fails
@@ -32,6 +32,7 @@ function jsonToAst(json) {
         case 'boolean':
             return { type: 'Literal', value: json };
         case 'object':
+            // Placeholder for a component constructor (e.g., <${Button}>)
             if (json.__neo_component_name__) {
                 return { type: 'Identifier', name: json.__neo_component_name__ };
             }
@@ -41,6 +42,7 @@ function jsonToAst(json) {
                     elements: json.map(jsonToAst)
                 };
             }
+            // Default object to ObjectExpression conversion
             const properties = Object.entries(json).map(([key, value]) => {
                 const keyNode = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)
                     ? { type: 'Identifier', name: key }
@@ -55,13 +57,14 @@ function jsonToAst(json) {
             });
             return { type: 'ObjectExpression', properties };
         default:
-            return { type: 'Literal', value: null }; // for undefined, function, etc.
+            // for undefined, function, etc.
+            return { type: 'Literal', value: null };
     }
 }
 
 const
     outputBasePath   = 'dist/esm/',
-    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["\'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
     root             = path.resolve(),
     requireJson      = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson      = requireJson(path.join(root, 'package.json')),
@@ -151,6 +154,23 @@ async function minifyFile(content, outputPath) {
             // AST-based processing for html templates
             const ast = acorn.parse(adjustedContent, {ecmaVersion: 'latest', sourceType: 'module'});
 
+            // True post-order traversal to handle nested templates correctly
+            function postOrderWalk(node, visitor) {
+                if (!node) return;
+
+                Object.entries(node).forEach(([key, value]) => {
+                    if (key === 'parent') return;
+                    if (Array.isArray(value)) {
+                        value.forEach(child => postOrderWalk(child, visitor));
+                    } else if (typeof value === 'object' && value !== null) {
+                        postOrderWalk(value, visitor);
+                    }
+                });
+
+                visitor(node);
+            }
+
+            // Add parent pointers for easier AST manipulation
             function addParentLinks(node, parent) {
                 if (!node || typeof node !== 'object') return;
                 node.parent = parent;
@@ -166,78 +186,56 @@ async function minifyFile(content, outputPath) {
             }
             addParentLinks(ast, null);
 
-            const nodesToProcess = [];
-            function walk(node) {
-                if (!node) return;
-                nodesToProcess.push(node);
-                Object.entries(node).forEach(([key, value]) => {
-                    if (key === 'parent') return;
-                    if (Array.isArray(value)) {
-                        value.forEach(child => walk(child));
-                    } else if (typeof value === 'object' && value !== null) {
-                        walk(value);
-                    }
-                });
-            }
-            walk(ast);
-
             let hasChanges = false;
-            const templatePromises = [];
 
-            for (const node of nodesToProcess) {
+            postOrderWalk(ast, (node) => {
                 if (node.type === 'TaggedTemplateExpression' && node.tag.type === 'Identifier' && node.tag.name === 'html') {
                     hasChanges = true;
 
+                    // Rename render to createVdom if applicable
                     let current = node;
                     while (current.parent) {
-                        // Handle class methods: class MyClass { render() { ... } }
-                        if (current.parent.type === 'MethodDefinition' && current.parent.key.name === 'render') {
-                            current.parent.key.name = 'createVdom';
-                            console.log(`Renamed render() to createVdom() in ${outputPath}`);
+                        const parent = current.parent;
+                        if (parent.type === 'MethodDefinition' && parent.key.name === 'render') {
+                            parent.key.name = 'createVdom';
                             break;
                         }
-                        // Handle object properties: { render: function() { ... } } or { render() { ... } }
-                        if (current.parent.type === 'Property' && current.parent.key.name === 'render') {
-                            current.parent.key.name = 'createVdom';
-                            console.log(`Renamed render property to createVdom() in ${outputPath}`);
+                        if (parent.type === 'Property' && parent.key.name === 'render') {
+                            parent.key.name = 'createVdom';
                             break;
                         }
-                        current = current.parent;
+                        current = parent;
                     }
 
                     const templateLiteral = node.quasi;
                     const strings = templateLiteral.quasis.map(q => q.value.cooked);
-                    const expressionCodeStrings = templateLiteral.expressions.map(expr => adjustedContent.substring(expr.start, expr.end));
+                    
+                    // Instead of re-generating expression strings, pass the AST nodes directly
+                    const expressionNodes = templateLiteral.expressions;
 
-                    const componentNameMap = {};
-                    expressionCodeStrings.forEach(exprCode => {
-                        if (/^[A-Z][a-zA-Z0-9]*$/.test(exprCode.trim())) {
-                            componentNameMap[exprCode.trim()] = {__neo_component_name__: exprCode.trim()};
+                    // The processor now returns a serializable VDOM object
+                    const vdom = processHtmlTemplateLiteral(strings, expressionNodes, adjustedContent);
+                    
+                    // Convert the VDOM object into an AST ObjectExpression
+                    const vdomAst = jsonToAst(vdom);
+
+                    // Replace the original TaggedTemplateExpression node with the new VDOM AST
+                    const parent = node.parent;
+                    for (const key in parent) {
+                        if (parent[key] === node) {
+                            parent[key] = vdomAst;
+                            return;
                         }
-                    });
-
-                    const promise = processHtmlTemplateLiteral(strings, expressionCodeStrings, componentNameMap)
-                        .then(vdom => {
-                            const vdomAst = jsonToAst(vdom);
-                            for (const key in node.parent) {
-                                if (node.parent[key] === node) {
-                                    node.parent[key] = vdomAst;
-                                    break;
-                                } else if (Array.isArray(node.parent[key])) {
-                                    const index = node.parent[key].indexOf(node);
-                                    if (index > -1) {
-                                        node.parent[key][index] = vdomAst;
-                                        break;
-                                    }
-                                }
+                        if (Array.isArray(parent[key])) {
+                            const index = parent[key].indexOf(node);
+                            if (index > -1) {
+                                parent[key][index] = vdomAst;
+                                return;
                             }
-                        });
-
-                    templatePromises.push(promise);
+                        }
+                    }
                 }
-            }
-
-            await Promise.all(templatePromises);
+            });
 
             let currentContent = hasChanges ? generate(ast) : adjustedContent;
 
