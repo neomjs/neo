@@ -14,11 +14,12 @@ import * as core from '../../src/core/_export.mjs';
 // *******************************************************************
 
 const
-    regexAttribute       = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/,
-    regexDynamicValue    = /^__DYNAMIC_VALUE_(\d+)__$/,
-    regexDynamicValueG   = /__DYNAMIC_VALUE_(\d+)__/g,
-    regexNested          = /(__DYNAMIC_VALUE_|neotag)(\d+)/g,
-    regexOriginalTagName = /<([\w\.]+)/;
+    regexAttribute            = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/,
+    regexDynamicValue         = /^__DYNAMIC_VALUE_(\d+)__$/,
+    regexDynamicValueG        = /__DYNAMIC_VALUE_(\d+)__/g,
+    regexNested               = /(__DYNAMIC_VALUE_|neotag)(\d+)/g,
+    regexOriginalTagName      = /<([\w\.]+)/,
+    selfClosingComponentRegex = /<((?:[A-Z][\w\.]*)|(?:neotag\d+))([^>]*?)\/>/g;
 
 function convertNodeToVdom(node, values, originalString, attributeNames, options, parseState) {
     // 1. Handle text nodes: Convert text content, re-inserting any dynamic values.
@@ -45,7 +46,7 @@ function convertNodeToVdom(node, values, originalString, attributeNames, options
         if (parts.length === 1 && parts[0].match(/^__DYNAMIC_VALUE_\d+__$/)) {
             const index = parseInt(parts[0].match(/\d+/)[0], 10);
             const value = values[index];
-            return {vtype: 'text', text: value};
+            return value;
         }
 
         const expressionParts = parts.map(part => {
@@ -205,9 +206,10 @@ export async function processHtmlTemplateLiteral(strings, expressionCodeStrings,
     const htmlTemplateInstance = new HtmlTemplate(strings, values);
 
     const { flatString, flatValues, attributeNames } = flattenTemplate(htmlTemplateInstance);
-    const ast = parse5.parseFragment(flatString, { sourceCodeLocationInfo: true });
+    const stringWithClosingTags = flatString.replace(selfClosingComponentRegex, '<$1$2></$1>');
+    const ast = parse5.parseFragment(stringWithClosingTags, { sourceCodeLocationInfo: true });
     const parseState = { attrNameIndex: 0 };
-    const parsedVdom = convertAstToVdom(ast, flatValues, flatString, attributeNames, { trimWhitespace: true }, parseState);
+    const parsedVdom = convertAstToVdom(ast, flatValues, stringWithClosingTags, attributeNames, { trimWhitespace: true }, parseState);
 
     return parsedVdom;
 }
