@@ -66,6 +66,11 @@ class FunctionalBase extends Abstract {
         let me   = this,
             opts = {configurable: true, enumerable: false, writable: true};
 
+        // The build process will replace `render()` with `createVdom()`.
+        if (Neo.config.environment === 'development') {
+            me.enableHtmlTemplates = false
+        }
+
         Object.defineProperties(me, {
             [activeDomListenersSymbol]: {...opts, value: []},
             [hookIndexSymbol]         : {...opts, value: 0},
@@ -349,7 +354,7 @@ class FunctionalBase extends Abstract {
     async initAsync() {
         await super.initAsync();
 
-        if (this.enableHtmlTemplates) {
+        if (this.enableHtmlTemplates && Neo.config.environment === 'development') {
             if (!Neo.ns('Neo.functional.util.HtmlTemplateProcessor')) {
                 const module = await import('../util/HtmlTemplateProcessor.mjs');
                 this.htmlTemplateProcessor = module.default
