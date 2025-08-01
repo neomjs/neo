@@ -8,15 +8,17 @@ import * as parse5    from '../../../dist/parse5.mjs';
 const
     // Finds an attribute name right before an interpolated value (e.g., `... testText="${...}"`)
     // This is crucial for preserving the original mixed-case spelling of attributes.
-    regexAttribute       = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/,
+    regexAttribute            = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/,
     // Finds a placeholder for a dynamic value that is the entire attribute value.
-    regexDynamicValue    = /^__DYNAMIC_VALUE_(\d+)__$/,
+    regexDynamicValue         = /^__DYNAMIC_VALUE_(\d+)__$/,
     // Finds all dynamic value placeholders within a string (globally).
-    regexDynamicValueG   = /__DYNAMIC_VALUE_(\d+)__/g,
+    regexDynamicValueG        = /__DYNAMIC_VALUE_(\d+)__/g,
     // Finds placeholders for nested templates or dynamic component tags to re-index them.
-    regexNested          = /(__DYNAMIC_VALUE_|neotag)(\d+)/g,
+    regexNested               = /(__DYNAMIC_VALUE_|neotag)(\d+)/g,
     // Extracts the original tag name from its source code string to preserve case sensitivity.
-    regexOriginalTagName = /<([\w\.]+)/;
+    regexOriginalTagName      = /<([\w\.]+)/,
+    // parse5 cannot handle self-closing tags, this regex will add closing tags for all custom components
+    selfClosingComponentRegex = /<((?:[A-Z][\w\.]*)|(?:neotag\d+))([^>]*?)\/>/g;
 
 /**
  * A singleton class responsible for processing HtmlTemplate objects.
@@ -230,8 +232,9 @@ class HtmlTemplateProcessor extends Base {
         const
             me                                         = this,
             {flatString, flatValues, attributeNameMap} = me.flattenTemplate(template), // Change variable name
-            ast                                        = parse5.parseFragment(flatString, {sourceCodeLocationInfo: true}),
-            parsedVdom                                 = me.convertAstToVdom(ast, flatValues, flatString, attributeNameMap); // Pass the map
+            stringWithClosingTags                      = flatString.replace(selfClosingComponentRegex, '<$1$2></$1>'),
+            ast                                        = parse5.parseFragment(stringWithClosingTags, {sourceCodeLocationInfo: true}),
+            parsedVdom                                 = me.convertAstToVdom(ast, flatValues, stringWithClosingTags, attributeNameMap); // Pass the map
 
         component.continueUpdateWithVdom(parsedVdom)
     }
