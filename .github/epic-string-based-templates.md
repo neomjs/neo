@@ -17,9 +17,9 @@ For development mode, we need an addon that can parse these HTML string template
 **Implementation Details:**
 - **Name:** `Neo.main.addon.HtmlStringToVdom`
 - **Method:**
-    1. Use the native `DOMParser` to convert the HTML string into a standard DOM tree.
-    2. Traverse the generated DOM tree and map it to a JSON structure that matches the Neo.mjs VDOM format.
-    3. Ensure that any embedded logic or dynamic values from the template literal are correctly placed within the resulting VDOM for later processing by the framework.
+  1. Use the native `DOMParser` to convert the HTML string into a standard DOM tree.
+  2. Traverse the generated DOM tree and map it to a JSON structure that matches the Neo.mjs VDOM format.
+  3. Ensure that any embedded logic or dynamic values from the template literal are correctly placed within the resulting VDOM for later processing by the framework.
 
 ### 2. Production Mode: Build-Time Parsing with `parse5`
 
@@ -29,10 +29,10 @@ For production builds, parsing HTML strings in the main thread is inefficient. I
 **Implementation Details:**
 - **Tool:** `parse5` (minified size: ~176KB). This is a robust and spec-compliant HTML parser.
 - **Method:**
-    1. During the build process, use a regular expression to identify the tagged template literals (e.g., `html`...``).
-    2. For each match, use `parse5` to parse the string content into an abstract syntax tree (AST).
-    3. Convert the `parse5` AST into the final Neo.mjs VDOM JSON format.
-    4. Replace the original template literal in the source code with the generated JSON object.
+  1. During the build process, use a regular expression to identify the tagged template literals (e.g., `html`...``).
+  2. For each match, use `parse5` to parse the string content into an abstract syntax tree (AST).
+  3. Convert the `parse5` AST into the final Neo.mjs VDOM JSON format.
+  4. Replace the original template literal in the source code with the generated JSON object.
 
 ### 3. Bundle `parse5` for Browser Compatibility
 
@@ -58,11 +58,11 @@ As an alternative to the main thread addon, we will evaluate using `parse5` dire
 **Implementation Details:**
 - **Tool:** `parse5` (via the bundled `dist/parse5.mjs`)
 - **Method:**
-    1. Create a new `HtmlTemplateProcessor` utility inside the app worker (`src/functional/util/HtmlTemplateProcessor.mjs`).
-    2. This processor will be lazy-loaded when a component first uses an HTML template.
-    3. The processor will use the bundled `parse5` to synchronously convert the template string into a Neo.mjs VDOM JSON structure.
-    4. The component's lifecycle (`continueUpdateWithVdom` for functional, a new hook for class-based) will then proceed synchronously with the parsed VDOM.
-    5. The existing main thread addon (`Neo.main.addon.HtmlStringToVdom`) and its tests will be kept for comparison and potential future use cases.
+  1. Create a new `HtmlTemplateProcessor` utility inside the app worker (`src/functional/util/HtmlTemplateProcessor.mjs`).
+  2. This processor will be lazy-loaded when a component first uses an HTML template.
+  3. The processor will use the bundled `parse5` to synchronously convert the template string into a Neo.mjs VDOM JSON structure.
+  4. The component's lifecycle (`continueUpdateWithVdom` for functional, a new hook for class-based) will then proceed synchronously with the parsed VDOM.
+  5. The existing main thread addon (`Neo.main.addon.HtmlStringToVdom`) and its tests will be kept for comparison and potential future use cases.
 
 ### 5. Template Syntax Specification
 
@@ -74,15 +74,15 @@ Define a clear and comprehensive specification for the template syntax. This doc
 **Implementation Details:**
 - Create a new markdown file: `learn/guides/uibuildingblocks/HtmlTemplates.md`.
 - **Conventions:**
-    - **Component vs. HTML:** Define the convention for distinguishing neo.mjs components from standard HTML tags (e.g., PascalCase for components: `<MyComponent>`, lowercase for HTML: `<div>`).
-    - **Attribute Mapping:** Specify how template attributes map to VDOM config properties (e.g., `class` to `cls`, `style` to `style`).
+  - **Component vs. HTML:** Define the convention for distinguishing neo.mjs components from standard HTML tags (e.g., PascalCase for components: `<MyComponent>`, lowercase for HTML: `<div>`).
+  - **Attribute Mapping:** Specify how template attributes map to VDOM config properties (e.g., `class` to `cls`, `style` to `style`).
 - **Data Types:**
-    - **Primitives:** How string, number, and boolean attributes are handled.
-    - **Objects & Arrays:** The syntax for passing object literals and arrays directly as attributes (e.g., `style="${{color: 'red'}}"`, `items="${['a', 'b']}"`).
-    - **Functions:** How to pass non-DOM-event handlers and other function references (e.g., `renderer="${this.myRenderer}"`).
+  - **Primitives:** How string, number, and boolean attributes are handled.
+  - **Objects & Arrays:** The syntax for passing object literals and arrays directly as attributes (e.g., `style="${{color: 'red'}}"`, `items="${['a', 'b']}"`).
+  - **Functions:** How to pass non-DOM-event handlers and other function references (e.g., `renderer="${this.myRenderer}"`).
 - **Directives:**
-    - **Conditionals:** A mechanism for conditional rendering (e.g., an `n-if` attribute: `<div n-if="${isVisble}">...</div>`).
-    - **Loops:** A mechanism for rendering lists from arrays (e.g., an `n-for` attribute: `<li n-for="${item} of ${items}">${item.name}</li>`).
+  - **Conditionals:** A mechanism for conditional rendering (e.g., an `n-if` attribute: `<div n-if="${isVisble}">...</div>`).
+  - **Loops:** A mechanism for rendering lists from arrays (e.g., an `n-for` attribute: `<li n-for="${item} of ${items}">${item.name}</li>`).
 - **Complex Configs:** Document the recommended approach for handling deeply nested JSON configs, advocating for passing them as interpolated objects to maintain template clarity (e.g., `columns="${gridColumns}"`).
 - **DOM Events (Out of Scope):** Explicitly state that inline DOM event handlers (e.g., `onClick="..."`) are not supported. The framework's global, delegated event system (`domListeners` config or `useEvent()` hook) remains the sole, recommended approach for handling DOM events. This maintains performance and architectural consistency.
 
@@ -133,10 +133,10 @@ Create a comprehensive guide to explain the purpose and trade-offs of using HTML
 **Implementation Details:**
 - **Location:** Enhance the existing file: `learn/guides/uibuildingblocks/HtmlTemplates.md`.
 - **Key Points to Cover:**
-    - **The "Why":** Explain that this feature is an alternative, not a replacement, for JSON VDOM, designed to lower the barrier to entry for developers from other framework backgrounds.
-    - **The Trade-Offs:** Clearly state that using this feature in development mode requires loading the `parse5` library (~176KB), which has a performance cost compared to the zero-dependency JSON VDOM approach.
-    - **Positioning:** Frame it as a "beginner-friendly" or "transitional" option that helps developers get started quickly, while encouraging them to explore the power and performance of the native JSON VDOM as they become more familiar with the framework.
-    - **Best Practices:** Provide clear examples of when to use templates and when JSON VDOM might be a better choice (e.g., for highly dynamic or programmatically generated views).
+  - **The "Why":** Explain that this feature is an alternative, not a replacement, for JSON VDOM, designed to lower the barrier to entry for developers from other framework backgrounds.
+  - **The Trade-Offs:** Clearly state that using this feature in development mode requires loading the `parse5` library (~176KB), which has a performance cost compared to the zero-dependency JSON VDOM approach.
+  - **Positioning:** Frame it as a "beginner-friendly" or "transitional" option that helps developers get started quickly, while encouraging them to explore the power and performance of the native JSON VDOM as they become more familiar with the framework.
+  - **Best Practices:** Provide clear examples of when to use templates and when JSON VDOM might be a better choice (e.g., for highly dynamic or programmatically generated views).
 
 ### 10. Expand Test Coverage with Real Components
 
@@ -148,11 +148,11 @@ While the mock component tests are a good start, we need to ensure the template 
 **Implementation Details:**
 - **Location:** Create new test files or enhance `test/siesta/tests/functional/HtmlTemplateComponent.mjs`.
 - **Scenarios to Test:**
-    - Components with nested children defined in the template.
-    - Components that use reactive configs passed in via attributes.
-    - Templates that include a mix of standard HTML tags and multiple, different neo.mjs components.
-    - Edge cases with complex interpolation in attributes and text nodes.
-    - Ensure the entire component lifecycle (mount, update, destroy) works as expected when the VDOM is generated from a template.
+  - Components with nested children defined in the template.
+  - Components that use reactive configs passed in via attributes.
+  - Templates that include a mix of standard HTML tags and multiple, different neo.mjs components.
+  - Edge cases with complex interpolation in attributes and text nodes.
+  - Ensure the entire component lifecycle (mount, update, destroy) works as expected when the VDOM is generated from a template.
 
 ### 11. Code Quality Refinement
 
@@ -193,12 +193,12 @@ The `JSON.stringify` + regex method for generating the VDOM string during the bu
 - **Tool:** A new, custom utility module.
 - **Location:** `buildScripts/util/vdomToString.mjs`.
 - **Method:**
-    1. The utility will export a `vdomToString(vdom)` function that recursively traverses the VDOM object.
-    2. It will check if each object key is a valid JavaScript identifier.
-    3. Valid identifiers will be written to the output string without quotes (e.g., `tag:`).
-    4. Invalid identifiers (e.g., `data-foo`) will be correctly wrapped in single quotes (e.g., `'data-foo':`).
-    5. It will handle the build-time placeholders for runtime expressions, outputting them as raw, unquoted code.
-    6. This new utility will completely replace the `JSON.stringify` and subsequent regex calls in the build scripts.
+  1. The utility will export a `vdomToString(vdom)` function that recursively traverses the VDOM object.
+  2. It will check if each object key is a valid JavaScript identifier.
+  3. Valid identifiers will be written to the output string without quotes (e.g., `tag:`).
+  4. Invalid identifiers (e.g., `data-foo`) will be correctly wrapped in single quotes (e.g., `'data-foo':`).
+  5. It will handle the build-time placeholders for runtime expressions, outputting them as raw, unquoted code.
+  6. This new utility will completely replace the `JSON.stringify` and subsequent regex calls in the build scripts.
 
 ### 16. Refactor Build-Time Parser to be AST-Based for Robustness
 
@@ -210,13 +210,13 @@ The current build-time approach, which uses regular expressions to find and repl
 **Implementation Details:**
 - **Tools:** `acorn` (to parse JS into an Abstract Syntax Tree) and `astring` (to generate JS code from the AST).
 - **Method:**
-    1. In the build script, for each `.mjs` file, use `acorn` to parse the entire file content into an AST.
-    2. Traverse the AST, specifically looking for `TaggedTemplateExpression` nodes where the `tag` is an `Identifier` with the name `html`.
-    3. Process these template nodes recursively (post-order traversal) to correctly handle nested templates from the inside out.
-    4. The logic from `HtmlTemplateProcessorLogic` will be used to convert the template into its VDOM object representation.
-    5. The original `TaggedTemplateExpression` node in the AST will be replaced with a new AST node representing the generated VDOM object (using an object-to-AST converter).
-    6. Finally, use `astring` to generate the final, correct JavaScript code from the modified AST.
-    7. This new, robust process will replace the fragile regex-based `replace` loop.
+  1. In the build script, for each `.mjs` file, use `acorn` to parse the entire file content into an AST.
+  2. Traverse the AST, specifically looking for `TaggedTemplateExpression` nodes where the `tag` is an `Identifier` with the name `html`.
+  3. Process these template nodes recursively (post-order traversal) to correctly handle nested templates from the inside out.
+  4. The logic from `HtmlTemplateProcessorLogic` will be used to convert the template into its VDOM object representation.
+  5. The original `TaggedTemplateExpression` node in the AST will be replaced with a new AST node representing the generated VDOM object (using an object-to-AST converter).
+  6. Finally, use `astring` to generate the final, correct JavaScript code from the modified AST.
+  7. This new, robust process will replace the fragile regex-based `replace` loop.
 
 ---
 
@@ -347,9 +347,9 @@ The `parse5` library, while robust for HTML, does not correctly parse self-closi
 
 1.  **Identify the Issue:** Confirmed that `parse5` fails to create a proper AST for templates containing self-closing custom component tags.
 2.  **Implement Regex Pre-processing:**
-    -   A new regular expression (`selfClosingComponentRegex`) was added to `HtmlTemplateProcessor.mjs`.
-    -   This regex specifically finds component tags (identified by starting with a capital letter or being a `neotag` placeholder) that are self-closed (`/>`).
-    -   Before passing the template string to `parse5`, a `replace()` call uses this regex to convert the self-closing tag into a standard tag with an explicit closing tag (e.g., `<MyComponent />` becomes `<MyComponent></MyComponent>`).
+  -   A new regular expression (`selfClosingComponentRegex`) was added to `HtmlTemplateProcessor.mjs`.
+  -   This regex specifically finds component tags (identified by starting with a capital letter or being a `neotag` placeholder) that are self-closed (`/>`).
+  -   Before passing the template string to `parse5`, a `replace()` call uses this regex to convert the self-closing tag into a standard tag with an explicit closing tag (e.g., `<MyComponent />` becomes `<MyComponent></MyComponent>`).
 3.  **Ensure Specificity:** The regex is carefully crafted to *not* affect standard HTML void elements (like `<br>`, `<img>`), ensuring correct HTML parsing is preserved.
 4.  **Cleanup:** Removed unused imports for `acorn` and `astring` from `HtmlTemplateProcessor.mjs` as they were no longer needed.
 
@@ -378,9 +378,9 @@ The build-time parser was wrapping raw JavaScript expressions (like `showDetails
 
 1.  **Identify the Bug:** Pinpointed the difference in logic between the client-side and build-time `convertNodeToVdom` functions. The build-time version was too aggressive in wrapping dynamic placeholders in text nodes.
 2.  **Modify `convertNodeToVdom`:**
-    -   The logic in `buildScripts/util/templateBuildProcessor.mjs` was changed.
-    -   When the parser encounters a text node that consists *only* of a single dynamic value placeholder (e.g., `${showDetails && detailsTemplate}`), it now returns the raw placeholder value itself (e.g., `##__NEO_EXPR__showDetails && detailsTemplate##__NEO_EXPR__##`).
-    -   This ensures the raw expression is inserted directly into the `cn` (children) array of the VDOM, allowing it to be properly evaluated at runtime.
+  -   The logic in `buildScripts/util/templateBuildProcessor.mjs` was changed.
+  -   When the parser encounters a text node that consists *only* of a single dynamic value placeholder (e.g., `${showDetails && detailsTemplate}`), it now returns the raw placeholder value itself (e.g., `##__NEO_EXPR__showDetails && detailsTemplate##__NEO_EXPR__##`).
+  -   This ensures the raw expression is inserted directly into the `cn` (children) array of the VDOM, allowing it to be properly evaluated at runtime.
 3.  **Align with Client-Side Behavior:** This change brings the build-time parser's output in line with the correct behavior of the client-side parser, ensuring consistency between development and production environments.
 
 #### 4. Definition of Done
@@ -388,3 +388,50 @@ The build-time parser was wrapping raw JavaScript expressions (like `showDetails
 -   The build-time parser now correctly handles conditionally rendered nested `html` templates.
 -   Expressions that resolve to a template or a falsy value are correctly represented in the final VDOM.
 -   The build output for components using this pattern is now functionally correct and matches the client-side rendering logic.
+
+### 23. Finalize Build-Time AST Transformation
+
+**Status:** To Do
+
+#### 1. Summary
+
+This ticket addresses the final, robust implementation of the build-time HTML-to-VDOM conversion. Previous attempts using regex and incomplete AST patching have proven to be brittle. This task will implement a full, proper AST transformation pipeline to ensure correctness and handle all edge cases, including nested templates, complex expressions, and conditional rendering.
+
+#### 2. Rationale
+
+The core problem is that the build process must reliably convert an `html` tagged template literal into a standard JavaScript object (the VDOM) within the source code itself. The process must correctly handle interpolated expressions, converting them into valid AST nodes that can be integrated back into the main file's AST. The previous failures were due to improper string manipulation and parsing, leading to syntax errors. A full AST-based approach is the only way to guarantee a syntactically correct and robust transformation.
+
+#### 3. Scope & Implementation Plan
+
+This task will replace the existing template processing logic in `buildScripts/buildESModules.mjs` with the following, more robust pipeline:
+
+1.  **Parse to AST:** For each input file, use `acorn` to parse the entire source code into a complete Abstract Syntax Tree (AST). Add parent pointers to each node during a walk for easier tree manipulation.
+
+2.  **Post-Order Traversal:** Traverse the AST in post-order (children first). This is critical for correctly handling nested `html` templates, as it ensures the innermost templates are processed and replaced before their parents.
+
+3.  **Identify `html` Templates:** During the traversal, identify all `TaggedTemplateExpression` nodes whose tag is an `Identifier` with the name `html`.
+
+4.  **Process Template to JSON VDOM:** For each identified template node:
+  *   Extract the raw strings and the source code of the interpolated expressions.
+  *   Use the existing `buildScripts/util/templateBuildProcessor.mjs` to convert this into a serializable JSON VDOM object. This utility is already effective at this specific step, creating placeholders like `##__NEO_EXPR__...##` for dynamic parts.
+
+5.  **Convert JSON VDOM to AST Node:** This is the most critical step. Create a new, robust `jsonToAst` function inside `buildScripts/buildESModules.mjs` that recursively converts the JSON VDOM object from the previous step into a valid `acorn` AST `ObjectExpression` node. This function will:
+  *   Correctly handle primitives (string, number, boolean) by creating `Literal` nodes.
+  *   Correctly handle arrays by creating `ArrayExpression` nodes.
+  *   When it encounters a string that is a placeholder (e.g., `##__NEO_EXPR__(...)##__NEO_EXPR__##`), it will extract the inner expression string, parse *only that expression* with `acorn.parse()`, and insert the resulting `Expression` node directly into the AST. This avoids all previous syntax errors.
+  *   When it encounters a component placeholder (`{__neo_component_name__: 'MyComponent'}`), it will create an `Identifier` node.
+
+6.  **Replace Node in Main AST:** Replace the original `TaggedTemplateExpression` node in the main AST with the newly generated `ObjectExpression` node from the previous step.
+
+7.  **Rename `render` method:** As part of the same traversal, if a processed `html` template was inside a method definition or object property named `render`, rename that key to `createVdom`.
+
+8.  **Generate Final Code:** After the traversal and all replacements are complete, use `astring` to generate the final, correct, and human-readable JavaScript code from the modified AST.
+
+9.  **Minify:** Pass the generated code to `Terser` for final minification.
+
+#### 4. Definition of Done
+
+-   The build process no longer produces any parsing or syntax errors related to template conversion.
+-   The `buildESModules.mjs` script is updated to use the full AST transformation pipeline described above.
+-   The final `dist/esm` output for components with `html` templates is syntactically correct and functionally equivalent to the client-side parsed version.
+-   All previous edge cases (conditional rendering, mixed static/dynamic text, self-closing tags) are handled correctly.
