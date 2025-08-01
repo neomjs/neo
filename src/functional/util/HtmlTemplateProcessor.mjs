@@ -218,7 +218,7 @@ class HtmlTemplateProcessor extends Base {
             }
         }
 
-        return {flatString, flatValues, attributeNameMap}; // Return the map
+        return {flatString, flatValues, attributeNameMap};
     }
 
     /**
@@ -234,7 +234,7 @@ class HtmlTemplateProcessor extends Base {
             {flatString, flatValues, attributeNameMap} = me.flattenTemplate(template), // Change variable name
             stringWithClosingTags                      = flatString.replace(selfClosingComponentRegex, '<$1$2></$1>'),
             ast                                        = parse5.parseFragment(stringWithClosingTags, {sourceCodeLocationInfo: true}),
-            parsedVdom                                 = me.convertAstToVdom(ast, flatValues, stringWithClosingTags, attributeNameMap); // Pass the map
+            parsedVdom                                 = me.convertAstToVdom(ast, flatValues, stringWithClosingTags, attributeNameMap);
 
         component.continueUpdateWithVdom(parsedVdom)
     }
