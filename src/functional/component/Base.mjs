@@ -411,7 +411,7 @@ class FunctionalBase extends Abstract {
         const me = this;
 
         // Check if it's a component definition (functional or classic)
-        if (vdomTree.className || vdomTree.module || (vdomTree.ntype && vdomTree.ntype !== 'vdomtext')) {
+        if (vdomTree.className || vdomTree.module || vdomTree.ntype) {
             // Components are reconciled based on their `id` property in the VDOM definition.
             // If no `id` is provided, a new instance will be created on every render.
             const componentKey = vdomTree.id;
