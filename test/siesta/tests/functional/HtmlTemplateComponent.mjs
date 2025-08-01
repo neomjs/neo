@@ -1,9 +1,9 @@
 import Neo                   from '../../../../src/Neo.mjs';
 import * as core             from '../../../../src/core/_export.mjs';
+import HtmlTemplateProcessor from '../../../../src/functional/util/HtmlTemplateProcessor.mjs';
 import FunctionalBase        from '../../../../src/functional/component/Base.mjs';
 import DomApiVnodeCreator    from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import HtmlStringToVdom      from '../../../../src/main/addon/HtmlStringToVdom.mjs';
-import HtmlTemplateProcessor from '../../../../src/functional/util/HtmlTemplateProcessor.mjs';
 import VdomHelper            from '../../../../src/vdom/Helper.mjs';
 import {html}                from '../../../../src/functional/util/html.mjs';
 
@@ -14,16 +14,11 @@ Neo.config.allowVdomUpdatesInTests = true;
 // This ensures that the VdomHelper uses the correct renderer for the assertions.
 Neo.config.useDomApiRenderer = true;
 
-// Since the test environment is the main thread, we need to manually create
-// the addon that would normally live there.
-const ns = Neo.ns('Neo.main.addon', true);
-ns['HtmlStringToVdom'] = Neo.create(HtmlStringToVdom);
-
 // Create a mock application context, as the component lifecycle requires it for updates.
 const appName = 'HtmlTemplateTest';
 Neo.apps = Neo.apps || {};
 Neo.apps[appName] = {
-    name     : appName,
+    name             : appName,
     fire             : Neo.emptyFn,
     isMounted        : () => true,
     vnodeInitialising: false
@@ -40,7 +35,7 @@ class TestComponent extends FunctionalBase {
         testText_          : 'Hello from Template!'
     }
 
-    createTemplateVdom(config) {
+    render(config) {
         return html`
             <div id="my-template-div">
                 <p>${config.testText}</p>
@@ -63,7 +58,7 @@ class TestComponentWithChildren extends FunctionalBase {
         childText_         : 'Inner Content'
     }
 
-    createTemplateVdom(config) {
+    render(config) {
         return html`
             <div id="parent-div">
                 <${TestComponent} id="child-comp" testText="${config.childText}" />
@@ -86,7 +81,7 @@ class TestConditionalComponent extends FunctionalBase {
         detailsText_       : 'Here are the details!'
     }
 
-    createTemplateVdom(config) {
+    render(config) {
         return html`
             <div id="conditional-div">
                 <h1>Title</h1>

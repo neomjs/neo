@@ -49,7 +49,7 @@ class FunctionalBase extends Abstract {
      * @member {Neo.functional.util.HtmlTemplateProcessor|null} htmlTemplateProcessor=null
      * @private
      */
-    htmlTemplateProcessor = null
+    htmlTemplateProcessor = Neo.ns('Neo.functional.util.HtmlTemplateProcessor')
     /**
      * Internal Map to store the next set of components after the createVdom() Effect has run.
      * @member {Map|null} nextChildComponents=null
@@ -114,13 +114,9 @@ class FunctionalBase extends Abstract {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (oldValue !== undefined) {
-            const me = this;
-
-            if (value) { // mount
-                // Initial registration of DOM event listeners when component mounts
-                me.applyPendingDomListeners();
-            }
+        if (value && oldValue !== undefined) {
+            // Initial registration of DOM event listeners when component mounts
+            this.applyPendingDomListeners()
         }
     }
 
@@ -209,10 +205,7 @@ class FunctionalBase extends Abstract {
 
         // Process the newVdom to instantiate components
         // The parentId for these components will be the functional component's id
-        let processedVdom = me.processVdomForComponents(parsedVdom, me.id);
-
-        // Evaluate any runtime expressions within the VDOM
-        processedVdom = me._evaluateVdomRuntimeExpressions(processedVdom, me);
+        const processedVdom = me.processVdomForComponents(parsedVdom, me.id);
 
         // Destroy components that are no longer present in the new VDOM
         if (me.childComponents?.size > 0) {
@@ -294,7 +287,7 @@ class FunctionalBase extends Abstract {
         if (me.enableHtmlTemplates && typeof me.render === 'function') {
             return me.render(config)
         }
-        // This method should be overridden by subclasses
+
         return {}
     }
 
@@ -357,10 +350,7 @@ class FunctionalBase extends Abstract {
         await super.initAsync();
 
         if (this.enableHtmlTemplates) {
-            // Required for unit testing
-            if (Neo.ns('Neo.functional.util.HtmlTemplateProcessor')) {
-                this.htmlTemplateProcessor = Neo.functional.util.HtmlTemplateProcessor
-            } else {
+            if (!Neo.ns('Neo.functional.util.HtmlTemplateProcessor')) {
                 const module = await import('../util/HtmlTemplateProcessor.mjs');
                 this.htmlTemplateProcessor = module.default
             }
@@ -383,19 +373,19 @@ class FunctionalBase extends Abstract {
                 // If the result is an HtmlTemplate, hand it off to the processor
                 if (newVdom[isHtmlTemplate]) {
                     if (me.htmlTemplateProcessor) {
-                        me.htmlTemplateProcessor.process(newVdom, me);
+                        me.htmlTemplateProcessor.process(newVdom, me)
                     } else {
                         me.missedReadyState = true;
                         // By calling this with an empty object, we ensure that the parent container
                         // renders a placeholder DOM node for this component, which we can then
                         // populate later once the template processor is ready.
-                        me.continueUpdateWithVdom({});
+                        me.continueUpdateWithVdom({})
                     }
-                    return; // Stop execution, the processor will call back
+                    return // Stop execution, the processor will call back
                 }
 
                 // Continue with the standard JSON-based VDOM update
-                me.continueUpdateWithVdom(newVdom);
+                me.continueUpdateWithVdom(newVdom)
             }
         }
     }
@@ -409,60 +399,76 @@ class FunctionalBase extends Abstract {
      * @private
      */
     processVdomForComponents(vdomTree, parentId, parentIndex) {
-        // ... existing code ...
-    }
-
-    /**
-     * Recursively evaluates runtime expressions within a VDOM tree.
-     * @param {Object} vdom The VDOM node to process.
-     * @param {Neo.functional.component.Base} componentInstance The functional component instance (for context).
-     * @returns {Object} The VDOM node with runtime expressions evaluated.
-     * @private
-     */
-    _evaluateVdomRuntimeExpressions(vdom, componentInstance) {
-        if (!vdom || typeof vdom !== 'object') {
-            return vdom;
+        if (!vdomTree) {
+            return vdomTree
         }
 
-        // Handle properties of the current VDOM node
-        for (const key in vdom) {
-            if (key.endsWith('_runtimeExpr')) {
-                const originalKey = key.substring(0, key.length - '_runtimeExpr'.length);
-                const exprString = vdom[key];
+        // If it's already a component reference, no need to process further
+        if (vdomTree.componentId) {
+            return vdomTree
+        }
 
-                try {
-                    // Create a function from the expression string and immediately call it
-                    // with the componentInstance as 'this' context.
-                    // This allows access to config, useConfig state, etc.
-                    const evaluatedValue = new Function('return ' + exprString).call(componentInstance);
-                    vdom[originalKey] = evaluatedValue;
-                } catch (e) {
-                    console.error(`Error evaluating runtime expression "${exprString}" for component ${componentInstance.id}:`, e);
-                    vdom[originalKey] = undefined; // Or some other fallback
-                }
-                delete vdom[key]; // Remove the runtime expression placeholder
+        const me = this;
+
+        // Check if it's a component definition (functional or classic)
+        if (vdomTree.className || vdomTree.module || (vdomTree.ntype && vdomTree.ntype !== 'vdomtext')) {
+            // Components are reconciled based on their `id` property in the VDOM definition.
+            // If no `id` is provided, a new instance will be created on every render.
+            const componentKey = vdomTree.id;
+
+            if (!componentKey) {
+                console.error([
+                        'Component definition in functional component VDOM is missing an "id". For stable reconciliation, ',
+                        'especially in dynamic lists, provide a unique "id" property.'
+                    ].join(''),
+                    vdomTree
+                )
             }
+
+            let childData = me.childComponents?.get(componentKey),
+                newConfig = {...vdomTree}, // Shallow copy
+                instance;
+
+            delete newConfig.className;
+            delete newConfig.id;
+            delete newConfig.module;
+            delete newConfig.ntype;
+
+            if (!childData) {
+                me.childComponents ??= new Map();
+
+                // Instantiate the component
+                instance = Neo[(vdomTree.className || vdomTree.module) ? 'create' : 'ntype']({
+                    ...vdomTree,
+                    parentId,
+                    parentIndex,
+                    windowId: me.windowId
+                });
+            } else {
+                instance = childData.instance;
+
+                // Recursively diff and set configs
+                this.diffAndSet(instance, newConfig, childData.lastConfig);
+            }
+
+            // Add to the new map for tracking in this render cycle
+            me.#nextChildComponents.set(componentKey, {
+                instance,
+                lastConfig: newConfig
+            });
+
+            // Replace the definition with a reference using the component's own method
+            return instance.createVdomReference();
         }
 
         // Recursively process children
-        if (vdom.cn && Array.isArray(vdom.cn)) {
-            vdom.cn = vdom.cn.map(child => this._evaluateVdomRuntimeExpressions(child, componentInstance));
+        if (vdomTree.cn && Array.isArray(vdomTree.cn)) {
+            vdomTree.cn = vdomTree.cn.map((child, index) =>
+                me.processVdomForComponents(child, parentId, index)
+            )
         }
 
-        // Handle text nodes that might have a _runtimeExpr
-        if (vdom.vtype === 'text' && vdom._runtimeExpr !== undefined) {
-            const exprString = vdom._runtimeExpr;
-            try {
-                const evaluatedValue = new Function('return ' + exprString).call(componentInstance);
-                vdom.text = evaluatedValue;
-            } catch (e) {
-                console.error(`Error evaluating text runtime expression "${exprString}" for component ${componentInstance.id}:`, e);
-                vdom.text = ''; // Fallback for text
-            }
-            delete vdom._runtimeExpr;
-        }
-
-        return vdom;
+        return vdomTree
     }
 }
 
