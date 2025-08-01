@@ -67,7 +67,7 @@ class FunctionalBase extends Abstract {
             opts = {configurable: true, enumerable: false, writable: true};
 
         // The build process will replace `render()` with `createVdom()`.
-        if (Neo.config.environment === 'development') {
+        if (Neo.config.environment !== 'development') {
             me.enableHtmlTemplates = false
         }
 
