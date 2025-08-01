@@ -50,10 +50,10 @@ class HtmlTemplateProcessor extends Base {
      * @param {Object} node The parse5 AST node
      * @param {Array<*>} values The array of interpolated values from the flattened template
      * @param {String} originalString The flattened template string
-     * @param {Array<string>} attributeNames An array of original, case-sensitive attribute names
+     * @param {Object} attributeNameMap A map of dynamic value indices to original, case-sensitive attribute names
      * @returns {Object|String|null} A VDOM node, a text string, or null if the node is empty
      */
-    convertNodeToVdom(node, values, originalString, attributeNames) {
+    convertNodeToVdom(node, values, originalString, attributeNameMap) {
         // 1. Handle text nodes: Convert text content, re-inserting any dynamic values.
         if (node.nodeName === '#text') {
             const text = node.value.trim();
@@ -100,15 +100,15 @@ class HtmlTemplateProcessor extends Base {
             }
 
             // Re-construct attributes, re-inserting dynamic values and preserving original case.
-            let attrNameIndex = 0;
-
             node.attrs?.forEach(attr => {
                 const match = attr.value.match(regexDynamicValue);
                 // If the entire attribute is a dynamic value, we can directly assign the rich data type (object, array, function).
                 if (match) {
-                    // parse5 also lowercases attribute names. We use our pre-collected `attributeNames` array to restore the original casing.
-                    const attrName = attributeNames[attrNameIndex++] || attr.name;
-                    vdom[attrName] = values[parseInt(match[1], 10)]
+                    const
+                        dynamicValueIndex = parseInt(match[1], 10),
+                        attrName          = attributeNameMap[dynamicValueIndex] || attr.name; // Use the map
+
+                    vdom[attrName] = values[dynamicValueIndex]
                 } else {
                     // If the attribute is a mix of strings and dynamic values, we must coerce everything to a string.
                     vdom[attr.name] = attr.value.replace(regexDynamicValueG, (m, i) => values[parseInt(i, 10)])
@@ -117,7 +117,7 @@ class HtmlTemplateProcessor extends Base {
 
             // Recursively process child nodes.
             if (node.childNodes?.length > 0) {
-                vdom.cn = node.childNodes.map(child => this.convertNodeToVdom(child, values, originalString, attributeNames)).filter(Boolean);
+                vdom.cn = node.childNodes.map(child => this.convertNodeToVdom(child, values, originalString, attributeNameMap)).filter(Boolean);
 
                 // Optimization: If a node has only one child and it's a text node, we can simplify the VDOM
                 // by moving the text content directly into the parent's `text` property.
@@ -138,15 +138,15 @@ class HtmlTemplateProcessor extends Base {
      * @param {Object} ast The root parse5 AST
      * @param {Array<*>} values Interpolated values
      * @param {String} originalString The flattened template string
-     * @param {Array<string>} attributeNames The original attribute names with mixed case
+     * @param {Object} attributeNameMap The original attribute names with mixed case, mapped by dynamic value index
      * @returns {Object} The final Neo.mjs VDOM
      */
-    convertAstToVdom(ast, values, originalString, attributeNames) {
+    convertAstToVdom(ast, values, originalString, attributeNameMap) {
         if (!ast.childNodes || ast.childNodes.length < 1) {
             return {}
         }
 
-        const children = ast.childNodes.map(child => this.convertNodeToVdom(child, values, originalString, attributeNames)).filter(Boolean);
+        const children = ast.childNodes.map(child => this.convertNodeToVdom(child, values, originalString, attributeNameMap)).filter(Boolean);
 
         // If the template has only one root node, we return it directly.
         // Otherwise, we return a fragment-like object with children in a `cn` array.
@@ -161,57 +161,62 @@ class HtmlTemplateProcessor extends Base {
      * Flattens a potentially nested HtmlTemplate object into a single string and a corresponding array of values.
      * This is a necessary pre-processing step before parsing with parse5, which only accepts a single string.
      * @param {Neo.functional.util.HtmlTemplate} template The root template object
-     * @returns {{flatString: string, flatValues: Array<*>, attributeNames: Array<string>}}
+     * @returns {{flatString: string, flatValues: Array<*>, attributeNameMap: Object}}
      */
     flattenTemplate(template) {
         let flatString = '';
         const
             flatValues     = [],
-            attributeNames = [];
+            attributeNameMap = {}; // Change this to an object
 
         for (let i = 0; i < template.strings.length; i++) {
             let str = template.strings[i];
-            // We capture attribute names just before a dynamic value to preserve their original case,
-            // as parse5 will lowercase them.
-            const attrMatch = str.match(regexAttribute);
-            if (attrMatch) {
-                attributeNames.push(attrMatch[1])
-            }
-
             flatString += str;
 
             if (i < template.values.length) {
-                const value = template.values[i];
+                const
+                    value     = template.values[i],
+                    attrMatch = str.match(regexAttribute);
 
                 // If a value is another HtmlTemplate, we recursively flatten it and merge the results.
                 if (value instanceof HtmlTemplate) {
                     const nested = this.flattenTemplate(value);
                     // The indices of the nested template's values need to be shifted to avoid collisions.
                     const nestedString = nested.flatString.replace(regexNested, (match, p1, p2) => {
-                        return `${p1}${parseInt(p2, 10) + flatValues.length}`
+                        const
+                            oldIndex = parseInt(p2, 10),
+                            newIndex = oldIndex + flatValues.length;
+                        // Adjust keys in nested.attributeNameMap before merging
+                        if (nested.attributeNameMap[oldIndex]) {
+                            attributeNameMap[newIndex] = nested.attributeNameMap[oldIndex]
+                        }
+                        return `${p1}${newIndex}`
                     });
 
                     flatString += nestedString;
-                    flatValues.push(...nested.flatValues);
-                    attributeNames.push(...nested.attributeNames)
+                    flatValues.push(...nested.flatValues)
+                    // No need to push nested.attributeNames, as we merged the map above
                 }
-                    // Falsy values like false, null, and undefined should not be rendered.
+                // Falsy values like false, null, and undefined should not be rendered.
                 // This is crucial for enabling conditional rendering with `&&`.
                 else if (value !== false && value != null) {
                     // If a dynamic value is a component constructor, we replace it with a special `neotag` placeholder.
                     if (template.strings[i].trim().endsWith('<') || template.strings[i].trim().endsWith('</')) {
                         flatString += `neotag${flatValues.length}`
                     } else {
-                        // Otherwise, we use a standard dynamic value placeholder.
                         flatString += `__DYNAMIC_VALUE_${flatValues.length}__`
                     }
 
-                    flatValues.push(value)
+                    flatValues.push(value);
+                    if (attrMatch) {
+                        // Store attribute name by its dynamic value index
+                        attributeNameMap[flatValues.length - 1] = attrMatch[1]
+                    }
                 }
             }
         }
 
-        return {flatString, flatValues, attributeNames}
+        return {flatString, flatValues, attributeNameMap}; // Return the map
     }
 
     /**
@@ -223,10 +228,10 @@ class HtmlTemplateProcessor extends Base {
      */
     process(template, component) {
         const
-            me                                       = this,
-            {flatString, flatValues, attributeNames} = me.flattenTemplate(template),
-            ast                                      = parse5.parseFragment(flatString, {sourceCodeLocationInfo: true}),
-            parsedVdom                               = me.convertAstToVdom(ast, flatValues, flatString, attributeNames);
+            me                                         = this,
+            {flatString, flatValues, attributeNameMap} = me.flattenTemplate(template), // Change variable name
+            ast                                        = parse5.parseFragment(flatString, {sourceCodeLocationInfo: true}),
+            parsedVdom                                 = me.convertAstToVdom(ast, flatValues, flatString, attributeNameMap); // Pass the map
 
         component.continueUpdateWithVdom(parsedVdom)
     }
