@@ -497,3 +497,126 @@ Here is the new plan, which refines sub-task #23 with the knowledge of the exist
 
 I will now begin implementing these changes. I'll start by modifying buildScripts/buildESModules.mjs to implement a correct post-order
 traversal and then refactor the processor logic.
+
+---
+
+### 24. Create a Reusable, AST-Based Build-Time Processor
+
+**Status:** To Do
+
+#### 1. Summary
+
+Refactor the entire build-time template transformation pipeline out of `buildScripts/buildESModules.mjs` and into a new, self-contained, reusable utility module.
+
+#### 2. Rationale
+
+Currently, the logic for finding and transforming `html` templates is tightly coupled to the `buildESModules.mjs` script. To support template transformation in other build environments (like the Webpack-based `dist/dev` and `dist/production`), this logic must be extracted. Creating a single, reusable processor ensures consistency, reduces code duplication, and makes the build system more modular and maintainable.
+
+#### 3. Scope & Implementation Plan
+
+1.  **Create New Utility:** Create a new file at `buildScripts/util/astTemplateProcessor.mjs`.
+2.  **Move Core Logic:**
+    *   Move the `jsonToAst` function from `buildESModules.mjs` into the new utility.
+    *   Create and export a primary function, e.g., `processFileContent(fileContent)`.
+    *   This function will encapsulate the entire transformation pipeline:
+        *   Parsing the input string with `acorn`.
+        *   Performing the post-order traversal to find `html` templates.
+        *   Calling `processHtmlTemplateLiteral()` from `templateBuildProcessor.mjs` to get the VDOM object.
+        *   Using the moved `jsonToAst` to convert the VDOM object back into an AST node.
+        *   Replacing the original template node in the main AST.
+        *   Generating the final, transformed code string with `astring`.
+3.  **Refactor `buildESModules.mjs`:**
+    *   Remove the moved logic (`jsonToAst`, the traversal, etc.).
+    *   Import the new `processFileContent` function from `astTemplateProcessor.mjs`.
+    *   In the `minifyFile` function, call `processFileContent()` to transform the file's content before passing it to Terser.
+
+#### 4. Definition of Done
+
+-   The new `buildScripts/util/astTemplateProcessor.mjs` module exists and contains the full transformation logic.
+-   `buildESModules.mjs` is simplified and correctly uses the new reusable utility.
+-   Running `npm run build-dist-esm` produces the exact same correct output as it does now, confirming the refactoring was successful.
+
+---
+
+### 25. Optimize Build Process with a Pre-emptive Regex Check
+
+**Status:** To Do
+
+#### 1. Summary
+
+Before running the full, expensive AST parsing pipeline on a file, perform a quick regular expression check to see if the file likely contains an `html` template.
+
+#### 2. Rationale
+
+The current process parses every single `.mjs` file with `acorn`, which is computationally expensive. The vast majority of files in the project do not use `html` templates. By adding a quick pre-check, we can skip the entire AST transformation process for most files, significantly speeding up the overall build time.
+
+#### 3. Scope & Implementation Plan
+
+1.  **Define Regex:** Create a simple, fast regex (e.g., `/html\s*`/`) to detect the presence of a tagged template literal.
+2.  **Implement Check:** In `buildESModules.mjs`, inside the `minifyFile` function, add a conditional check:
+    *   `if (regex.test(content)) { ... }`
+3.  **Conditional Processing:** Only if the regex test passes, call the `processFileContent()` function from the new `astTemplateProcessor`. If it fails, the content can be passed directly to the next step (Terser minification).
+
+#### 4. Definition of Done
+
+-   The regex check is implemented in `buildESModules.mjs`.
+-   Files that do not contain `html` templates are no longer processed by the `astTemplateProcessor`.
+-   Files that *do* contain `html` templates are still transformed correctly.
+-   The overall build time is measurably reduced.
+
+---
+
+### 26. Integrate Template Processing into `dist/development` Build
+
+**Status:** To Do
+
+#### 1. Summary
+
+Use the new reusable `astTemplateProcessor` to enable build-time `html` template transformation for the `dist/development` Webpack environment.
+
+#### 2. Rationale
+
+To ensure feature parity and a consistent developer experience, `html` templates must be correctly processed in the `dist/development` environment. This allows developers who use this environment (e.g., for TypeScript or specific debugging scenarios) to use the template syntax.
+
+#### 3. Scope & Implementation Plan
+
+1.  **Create Webpack Loader:** Create a custom Webpack loader (e.g., `buildScripts/webpack/loader/template-loader.mjs`).
+2.  **Implement Loader Logic:**
+    *   The loader will receive the file content.
+    *   It will perform the same pre-emptive regex check from sub-task #25.
+    *   If the check passes, it will import and call the `processFileContent()` function from `astTemplateProcessor.mjs`.
+    *   It will return the transformed code (or the original code if the check fails) to the Webpack compilation chain.
+3.  **Configure Webpack:** Update the Webpack configuration for `dist/development` to use this new loader for all `.mjs` files.
+
+#### 4. Definition of Done
+
+-   The custom Webpack loader is created and functional.
+-   The `dist/development` build process correctly transforms `html` templates into VDOM objects.
+-   Applications running in `dist/development` mode render components using `html` templates correctly.
+
+---
+
+### 27. Integrate Template Processing into `dist/production` Build
+
+**Status:** To Do
+
+#### 1. Summary
+
+Use the new reusable `astTemplateProcessor` to enable build-time `html` template transformation for the `dist/production` Webpack environment.
+
+#### 2. Rationale
+
+This is the final step to ensure `html` templates are a fully supported, production-ready feature. The transformation must be applied to the `dist/production` build to gain the performance benefits of pre-compilation in the most optimized deployment environment.
+
+#### 3. Scope & Implementation Plan
+
+1.  **Reuse Webpack Loader:** The same custom Webpack loader created for sub-task #26 can be used.
+2.  **Configure Webpack:** Update the Webpack configuration for `dist/production` to apply the `template-loader.mjs` to all `.mjs` files before they are passed to other loaders like Babel or Terser.
+
+#### 4. Definition of Done
+
+-   The `dist/production` build process correctly transforms `html` templates into VDOM objects.
+-   The final, minified production bundles contain optimized VDOM, not raw `html` template strings.
+-   Applications running in `dist/production` mode render components using `html` templates correctly.
+
+---
