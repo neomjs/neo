@@ -391,7 +391,7 @@ The build-time parser was wrapping raw JavaScript expressions (like `showDetails
 
 ### 23. Finalize Build-Time AST Transformation
 
-**Status:** To Do
+**Status:** Done
 
 #### 1. Summary
 
