@@ -1,55 +1,76 @@
 # neo.mjs: Getting Started Guide
-The following guide is intended to get this repository running locally.<br>
-In case you want to create a neo.mjs App, you have 3 different options:
 
-1. Use <a href="https://github.com/neomjs/create-app">npx neo-app</a>
-2. Fork the <a href="https://github.com/neomjs/workspace">neo.mjs workspace</a>
-3. Follow this guide (Step 6 creates a new App inside neo/apps)
+This guide covers two main paths for working with neo.mjs:
+1.  **Creating your own application**: The recommended approach for all developers building apps with the framework.
+2.  **Contributing to the framework**: For those who want to contribute code directly to the neo.mjs core.
 
-## Get this repository running locally
-1. Clone this repo to your system to get the project files
-   ```sh
-   git clone https://github.com/neomjs/neo.git
-   ```
+---
 
-2. Open the checked out top level folder inside your terminal
-   ```sh
-   cd neo
-   ```
+## 1. Creating your own application (Recommended)
+For most use cases, creating a dedicated workspace with `npx neo-app` is the best way to start. This script scaffolds a new project, automatically installs dependencies, runs the initial build, and can even start the development server for you.
 
-3. Install the required node modules
-   ```sh
-   npm install
-   ```
+A workspace provides the same structure as the main neo.mjs repository, but includes the framework as an NPM dependency, making it easier to manage.
 
-4. Run all relevant build scripts at once
-   ```sh
-   npm run build-all
-   ```
+### Create a Workspace
+1.  Open your terminal and navigate to the directory where you want to create your project.
+2.  Run the following command:
+    ```sh
+    npx neo-app@latest
+    ```
+3.  Follow the interactive prompts. The script will guide you through setting up your workspace and creating your first application.
 
-(See the <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/README.md">Command-Line Interface</a> for further details.)
+This single command handles the entire setup process, allowing you to start developing immediately.
 
-5. Make sure to use a local WebServer!
-   * Use a local webserver of your choice (E.g. Webstorm)
-   * OR `npm run server-start` 
-     1. A browser tab showing your app opens automatically.
-     2. You can also manually access it: http://localhost:8080/
+---
 
-   (JS module imports can not work on the local file system (security).)
-   
-6. Optional: `npm run create-app`
+## 2. Contributing to the framework or running examples
+If you want to contribute to the development of neo.mjs itself, or if you want to run the many demo applications and examples included in the main repository, you will need to set up the core repository locally. The examples are not included in workspaces created with `npx neo-app`.
 
-#### You can run the examples & docs app **without** any JS build directly in Chromium (Chrome, Edge) or Safari Tech Preview:  
-> localhost/neo/docs/
->
-> localhost/neo/examples/component/helix/
+### Fork and Clone the Repository
+1.  **Fork the repository**: First, create a fork of the `neomjs/neo` repository on GitHub to your own account.
+2.  **Clone your fork**: Clone your forked repository to your local machine.
+    ```sh
+    git clone https://github.com/YOUR_USERNAME/neo.git
+    ```
 
-### You can run the dist version examples like this:
-These versions also work in Firefox & Safari
+### Local Setup
+1.  Navigate into the cloned repository folder:
+    ```sh
+    cd neo
+    ```
+2.  Install the required node modules:
+    ```sh
+    npm install
+    ```
+3.  Run all relevant build scripts at once:
+    ```sh
+    npm run build-all
+    ```
+    (See the <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/README.md">Command-Line Interface</a> for further details.)
 
-> localhost/neo/dist/development/examples/component/helix/
->
-> localhost/neo/dist/production/examples/component/helix/
+### Running the Examples
+1.  **Start the web server**:
+    ```sh
+    npm run server-start
+    ```
+    A browser tab will open automatically. You can also manually access it at `http://localhost:8080/`. A local web server is required because modern browser security policies prevent JavaScript modules from loading directly from the local file system.
+
+2.  **Explore the apps**:
+    *   **Development Mode**: You can run the docs and examples apps **without** any JS build directly in all major browsers (Chrome, Edge, Firefox, Safari).
+        > http://localhost:8080/neo/docs/
+        >
+        > http://localhost:8080/neo/examples/
+    *   **Distribution Versions**: These versions also work in all major browsers and represent the built state of the examples.
+        > http://localhost:8080/neo/dist/development/examples/
+        >
+        > http://localhost:8080/neo/dist/production/examples/
+
+---
+
+## Dive Deeper with Learning Resources
+Once you have your environment set up, you can dive deeper into the concepts and architecture of the framework. The learning resources provide a structured path to mastering neo.mjs.
+
+**[Explore the Learning Resources](../learn/README.md)**
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>

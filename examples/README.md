@@ -1,7 +1,7 @@
 # Client Requirements
 
 Running the examples locally works fine in all environments inside all major browsers at this point:
-Chromium, Safari & Firefox
+Chrome, Edge, Firefox & Safari
 
 
 # Local Web-Server Requirements
