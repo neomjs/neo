@@ -210,11 +210,10 @@ async function minifyFile(content, outputPath) {
                     const templateLiteral = node.quasi;
                     const strings = templateLiteral.quasis.map(q => q.value.cooked);
                     
-                    // Instead of re-generating expression strings, pass the AST nodes directly
-                    const expressionNodes = templateLiteral.expressions;
+                    const expressionCodeStrings = templateLiteral.expressions.map(exprNode => generate(exprNode));
 
                     // The processor now returns a serializable VDOM object
-                    const vdom = processHtmlTemplateLiteral(strings, expressionNodes, adjustedContent);
+                    const vdom = processHtmlTemplateLiteral(strings, expressionCodeStrings);
                     
                     // Convert the VDOM object into an AST ObjectExpression
                     const vdomAst = jsonToAst(vdom);

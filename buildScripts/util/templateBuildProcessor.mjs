@@ -1,27 +1,29 @@
-import fs from 'fs';
-import path from 'path';
-import vm from 'vm';
-
 import { HtmlTemplate } from '../../src/functional/util/html.mjs';
 import * as parse5 from '../../dist/parse5.mjs'; // parse5 is bundled and available
-
-// Import Neo and core modules directly. Neo.mjs initializes globalThis.Neo.
-import Neo from '../../src/Neo.mjs';
-import * as core from '../../src/core/_export.mjs';
 
 // *******************************************************************
 // Logic moved from src/functional/util/HtmlTemplateProcessorLogic.mjs
 // *******************************************************************
 
 const
-    regexAttribute            = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/,
-    regexDynamicValue         = /^__DYNAMIC_VALUE_(\d+)__$/,
+    regexAttribute            = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/, 
+    regexDynamicValue         = /^__DYNAMIC_VALUE_(\d+)__$/, 
     regexDynamicValueG        = /__DYNAMIC_VALUE_(\d+)__/g,
     regexNested               = /(__DYNAMIC_VALUE_|neotag)(\d+)/g,
     regexOriginalTagName      = /<([\w\.]+)/,
-    selfClosingComponentRegex = /<((?:[A-Z][\w\.]*)|(?:neotag\d+))([^>]*?)\/>/g;
+    selfClosingComponentRegex = /<((?:[A-Z][\w\.]*)|(?:neotag\d+))([^>]*?)\/\>/g,
+    // For escaping strings to be used inside a template literal
+    regexEscapeBackslashes    = /\\/g,
+    regexEscapeBackticks      = /`/g,
+    regexEscapeDollarBrackets = /\${/g;
 
-function convertNodeToVdom(node, values, originalString, attributeNames, options, parseState) {
+function escapeStringForTemplateLiteral(str) {
+    return str.replace(regexEscapeBackslashes, '\\')
+              .replace(regexEscapeBackticks, '\`')
+              .replace(regexEscapeDollarBrackets, '\${');
+}
+
+function convertNodeToVdom(node, values, originalString, attributeNameMap, options, parseState) {
     // 1. Handle text nodes: Convert text content, re-inserting any dynamic values.
     if (node.nodeName === '#text') {
         let text = node.value;
@@ -32,117 +34,147 @@ function convertNodeToVdom(node, values, originalString, attributeNames, options
 
         if (text === '') return null;
 
-        if (!options?.trimWhitespace && text.trim() === '') {
-            return null;
+        // This is the crucial part for conditional rendering (e.g., `${condition && template}`).
+        // If a text node is just a single dynamic value, return the raw placeholder.
+        const singleDynamicMatch = text.match(/^__DYNAMIC_VALUE_(\d+)__$/);
+        if (singleDynamicMatch) {
+            const index = parseInt(singleDynamicMatch[1], 10);
+            return values[index]; // Return the raw '##__NEO_EXPR__...##' placeholder
         }
 
+        // If the text node is a mix of strings and dynamic values, create a template literal expression.
         const regex = /(__DYNAMIC_VALUE_\d+__)/g;
         const parts = text.split(regex).filter(p => p);
 
-        if (parts.length === 1 && !parts[0].match(regex)) {
-            return {vtype: 'text', text: parts[0]};
-        }
-
-        if (parts.length === 1 && parts[0].match(/^__DYNAMIC_VALUE_\d+__$/)) {
-            const index = parseInt(parts[0].match(/\d+/)[0], 10);
-            const value = values[index];
-            return value;
-        }
-
-        const expressionParts = parts.map(part => {
-            const match = part.match(/__DYNAMIC_VALUE_(\d+)__/);
-            if (match) {
-                const index = parseInt(match[1], 10);
-                const value = values[index];
-                const exprMatch = typeof value === 'string' && value.match(/##__NEO_EXPR__(.*)##__NEO_EXPR__##/);
-                if (exprMatch) {
-                    return `\${${exprMatch[1]}}`;
-                } else {
-                    return `\${${JSON.stringify(value)}}`;
+        if (parts.length > 1) {
+            const expressionParts = parts.map(part => {
+                const match = part.match(/__DYNAMIC_VALUE_(\d+)__/);
+                if (match) {
+                    const index = parseInt(match[1], 10);
+                    const value = values[index]; // This is the '##__NEO_EXPR__...' string
+                    const exprMatch = value.match(/##__NEO_EXPR__(.*)##__NEO_EXPR__##/s);
+                    if (exprMatch) {
+                        return `\${exprMatch[1]}`;
+                    }
                 }
-            }
-            return part.replace(/\\/g, '\\\\').replace(/`/g, '\`').replace(/\${/g, '\\${');
-        });
+                return escapeStringForTemplateLiteral(part);
+            });
+            const finalExpression = `\`${expressionParts.join('')}\`
+`;
+            return { vtype: 'text', text: `##__NEO_EXPR__${finalExpression}##__NEO_EXPR__##` };
+        }
 
-        const finalExpression = `\`${expressionParts.join('')}\``;
-
-        return {vtype: 'text', text: `##__NEO_EXPR__${finalExpression}##__NEO_EXPR__##`};
+        // It's a simple static text node
+        return { vtype: 'text', text };
     }
 
     // 2. Handle element nodes
     if (node.nodeName && node.sourceCodeLocation?.startTag) {
-        const
-            vdom    = {},
-            tagName = node.tagName;
+        const vdom = {};
+        const tagName = node.tagName;
 
         if (tagName.startsWith('neotag')) {
             const index = parseInt(tagName.replace('neotag', ''), 10);
-            vdom.module = values[index]
+            vdom.module = values[index];
         } else {
-            const
-                {startTag}      = node.sourceCodeLocation,
-                startTagStr     = originalString.substring(startTag.startOffset, startTag.endOffset),
-                originalTagName = startTagStr.match(regexOriginalTagName)[1];
-
-            if (originalTagName[0] === originalTagName[0].toUpperCase()) {
-                // For build-time processing, create a placeholder instead of resolving the namespace
-                vdom.module = { __neo_component_name__: originalTagName };
+            const { startTag } = node.sourceCodeLocation;
+            const startTagStr = originalString.substring(startTag.startOffset, startTag.endOffset);
+            const originalTagNameMatch = startTagStr.match(regexOriginalTagName);
+            if (originalTagNameMatch) {
+                const originalTagName = originalTagNameMatch[1];
+                if (originalTagName[0] === originalTagName[0].toUpperCase()) {
+                    vdom.module = { __neo_component_name__: originalTagName };
+                } else {
+                    vdom.tag = originalTagName;
+                }
             } else {
-                vdom.tag = originalTagName
+                vdom.tag = tagName;
             }
         }
 
         node.attrs?.forEach(attr => {
             const match = attr.value.match(regexDynamicValue);
             if (match) {
-                const attrName = attributeNames[parseState.attrNameIndex++] || attr.name;
-                vdom[attrName] = values[parseInt(match[1], 10)]
+                const dynamicValueIndex = parseInt(match[1], 10);
+                // Use the map to get the correct, original attribute name
+                const attrName = attributeNameMap[dynamicValueIndex] || attr.name;
+                vdom[attrName] = values[dynamicValueIndex];
             } else {
-                vdom[attr.name] = attr.value.replace(regexDynamicValueG, (m, i) => values[parseInt(i, 10)])
+                // For attributes with mixed content, we need to reconstruct the expression
+                let hasDynamicPart = false;
+                const valueParts = attr.value.split(regexDynamicValueG).map(part => {
+                    if (part.match(/^\d+$/)) {
+                        const index = parseInt(part, 10);
+                        if (values[index]) {
+                            hasDynamicPart = true;
+                            const value = values[index];
+                            const exprMatch = value.match(/##__NEO_EXPR__(.*)##__NEO_EXPR__##/s);
+                            return exprMatch ? `\${exprMatch[1]}` : JSON.stringify(value);
+                        }
+                    }
+                    return escapeStringForTemplateLiteral(part);
+                });
+
+                if (hasDynamicPart) {
+                    const finalExpression = `\`${valueParts.join('')}\`
+`;
+                    vdom[attr.name] = `##__NEO_EXPR__${finalExpression}##__NEO_EXPR__##`;
+                } else {
+                    vdom[attr.name] = attr.value;
+                }
             }
         });
 
         if (node.childNodes?.length > 0) {
-            vdom.cn = node.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNames, options, parseState)).filter(Boolean);
-
-            if (vdom.cn.length === 1 && vdom.cn[0].vtype === 'text') {
-                vdom.text = vdom.cn[0].text;
-                delete vdom.cn
+            const children = node.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNameMap, options, parseState)).filter(Boolean);
+            if (children.length > 0) {
+                // Optimization: If a node has only one child, check if it's a text node
+                // (either static or a dynamic expression) and simplify the VDOM accordingly.
+                if (children.length === 1) {
+                    const child = children[0];
+                    if (child.vtype === 'text') {
+                        vdom.text = child.text;
+                    } else if (typeof child === 'string' && child.startsWith('##__NEO_EXPR__')) {
+                        // This is a dynamic text node, assign the expression to the text property
+                        vdom.text = child;
+                    } else {
+                        vdom.cn = children;
+                    }
+                } else {
+                    vdom.cn = children;
+                }
             }
         }
 
-        return vdom
+        return vdom;
     }
 
-    return null
+    return null;
 }
 
-function convertAstToVdom(ast, values, originalString, attributeNames, options, parseState) {
+
+function convertAstToVdom(ast, values, originalString, attributeNameMap, options, parseState) {
     if (!ast.childNodes || ast.childNodes.length < 1) {
-        return {}
+        return {};
     }
 
-    const children = ast.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNames, options, parseState)).filter(Boolean);
+    const children = ast.childNodes.map(child => convertNodeToVdom(child, values, originalString, attributeNameMap, options, parseState)).filter(Boolean);
 
     if (children.length === 1) {
-        return children[0]
+        return children[0];
     }
 
-    return {cn: children}
+    return { cn: children };
 }
 
-function flattenTemplate(template) {
+function flattenTemplate(template, parentValues, parentAttributeMap) {
     let flatString = '';
-    const
-        flatValues     = [],
-        attributeNames = [];
+    const flatValues = parentValues || [];
+    const attributeNameMap = parentAttributeMap || {};
 
     for (let i = 0; i < template.strings.length; i++) {
         let str = template.strings[i];
         const attrMatch = str.match(regexAttribute);
-        if (attrMatch) {
-            attributeNames.push(attrMatch[1])
-        }
 
         flatString += str;
 
@@ -150,66 +182,52 @@ function flattenTemplate(template) {
             const value = template.values[i];
 
             if (value instanceof HtmlTemplate) {
-                const nested = flattenTemplate(value);
+                // For nested templates, we need to adjust the dynamic value indices
+                const nestedStartIndex = flatValues.length;
+                const nested = flattenTemplate(value, flatValues, attributeNameMap);
                 const nestedString = nested.flatString.replace(regexNested, (match, p1, p2) => {
-                    return `${p1}${parseInt(p2, 10) + flatValues.length}`
+                    return `${p1}${parseInt(p2, 10) + nestedStartIndex}`;
                 });
-
                 flatString += nestedString;
-                flatValues.push(...nested.flatValues);
-                attributeNames.push(...nested.attributeNames)
-            }
-            else if (value !== false && value != null) {
-                if (template.strings[i].trim().endsWith('<') || template.strings[i].trim().endsWith('</')) {
-                    flatString += `neotag${flatValues.length}`
-                } else {
-                    flatString += `__DYNAMIC_VALUE_${flatValues.length}__`
+                // flatValues and attributeNameMap are already updated by the recursive call
+            } else if (value !== false && value != null) {
+                const currentIndex = flatValues.length;
+                if (attrMatch) {
+                    attributeNameMap[currentIndex] = attrMatch[1];
                 }
 
-                flatValues.push(value)
+                if (template.strings[i].trim().endsWith('<') || template.strings[i].trim().endsWith('</')) {
+                    flatString += `neotag${currentIndex}`;
+                } else {
+                    flatString += `__DYNAMIC_VALUE_${currentIndex}__`;
+                }
+                flatValues.push(value);
             }
         }
     }
 
-    return {flatString, flatValues, attributeNames}
+    return { flatString, flatValues, attributeNameMap };
 }
 
 /**
  * Processes a single HTML tagged template literal at build time.
- * It evaluates the dynamic expressions and then uses the internal logic
+ * It preserves the dynamic expressions and then uses the internal logic
  * to convert the template into a JSON VDOM.
- * @param {Array<string>} strings The static string parts of the template literal.
- * @param {Array<string>} expressionCodeStrings The JavaScript code strings for the dynamic parts.
- * @param {Object} componentNameMap A map of component names (e.g., 'Button') to their placeholder objects.
- * @returns {Promise<Object>} A promise that resolves to the resulting JSON VDOM object.
+ * @param {string[]} strings The static string parts of the template literal.
+ * @param {string[]} expressionCodeStrings The JavaScript code strings for the dynamic parts.
+ * @returns {Object} The resulting JSON VDOM object.
  */
-export async function processHtmlTemplateLiteral(strings, expressionCodeStrings, componentNameMap = {}) {
-    const values = [];
-
-    const context = vm.createContext({
-        Neo: Neo,
-        Math: Math,
-        JSON: JSON,
-        console: console,
-        ...componentNameMap,
-    });
-
-    for (const exprCode of expressionCodeStrings) {
-        try {
-            const evaluatedValue = await vm.runInContext(`(async () => { return ${exprCode} })();`, context);
-            values.push(evaluatedValue);
-        } catch (e) {
-            values.push(`##__NEO_EXPR__${exprCode}##__NEO_EXPR__##`);
-        }
-    }
+export function processHtmlTemplateLiteral(strings, expressionCodeStrings) {
+    // Instead of evaluating, wrap expressions in placeholders
+    const values = expressionCodeStrings.map(exprCode => `##__NEO_EXPR__${exprCode}##__NEO_EXPR__##`);
 
     const htmlTemplateInstance = new HtmlTemplate(strings, values);
 
-    const { flatString, flatValues, attributeNames } = flattenTemplate(htmlTemplateInstance);
+    const { flatString, flatValues, attributeNameMap } = flattenTemplate(htmlTemplateInstance);
     const stringWithClosingTags = flatString.replace(selfClosingComponentRegex, '<$1$2></$1>');
     const ast = parse5.parseFragment(stringWithClosingTags, { sourceCodeLocationInfo: true });
-    const parseState = { attrNameIndex: 0 };
-    const parsedVdom = convertAstToVdom(ast, flatValues, stringWithClosingTags, attributeNames, { trimWhitespace: true }, parseState);
+    const parseState = { attrNameIndex: 0 }; // This might be obsolete now with the map
+    const parsedVdom = convertAstToVdom(ast, flatValues, stringWithClosingTags, attributeNameMap, { trimWhitespace: true }, parseState);
 
     return parsedVdom;
 }
