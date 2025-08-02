@@ -1,5 +1,5 @@
 import { HtmlTemplate } from '../../src/functional/util/html.mjs';
-import * as parse5 from '../../dist/parse5.mjs'; // parse5 is bundled and available
+import * as parse5      from '../../dist/parse5.mjs'; // parse5 is bundled and available
 
 /**
  * This script contains the core logic for Neo.mjs's build-time processing of HTML tagged template literals.
@@ -32,7 +32,7 @@ const
      * Finds an attribute name right before an interpolated value (e.g., `... style=${...}`).
      * This is crucial for preserving the original mixed-case spelling of attributes when they are dynamic.
      */
-    regexAttribute            = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/, 
+    regexAttribute            = /\s+([a-zA-Z][^=]*)\s*=\s*"?$/,
     /**
      * @private
      * @const {RegExp} regexDynamicValue
