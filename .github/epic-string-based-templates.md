@@ -11,15 +11,9 @@ An early proof-of-concept (PoC) already exists in the following files:
 
 ### 1. Dev Mode: Main Thread Addon for Live Parsing
 
-**Description:**
-For development mode, we need an addon that can parse these HTML string templates on the fly within the browser. This allows for rapid development and testing without requiring a build step after every change.
+**Status:** Dropped
 
-**Implementation Details:**
-- **Name:** `Neo.main.addon.HtmlStringToVdom`
-- **Method:**
-  1. Use the native `DOMParser` to convert the HTML string into a standard DOM tree.
-  2. Traverse the generated DOM tree and map it to a JSON structure that matches the Neo.mjs VDOM format.
-  3. Ensure that any embedded logic or dynamic values from the template literal are correctly placed within the resulting VDOM for later processing by the framework.
+**Reason:** This approach was superseded by the in-worker parsing strategy (Sub-Task 4). The main thread addon would require an inefficient and slow worker roundtrip for parsing, while the in-worker approach is synchronous and significantly more performant for the zero-builds development mode. The addon and its related tests have been deleted to simplify the codebase.
 
 ### 2. Production Mode: Build-Time Parsing with `parse5`
 
