@@ -3,7 +3,6 @@ import * as core             from '../../../../src/core/_export.mjs';
 import HtmlTemplateProcessor from '../../../../src/functional/util/HtmlTemplateProcessor.mjs';
 import FunctionalBase        from '../../../../src/functional/component/Base.mjs';
 import DomApiVnodeCreator    from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
-import HtmlStringToVdom      from '../../../../src/main/addon/HtmlStringToVdom.mjs';
 import VdomHelper            from '../../../../src/vdom/Helper.mjs';
 import {html}                from '../../../../src/functional/util/html.mjs';
 
