@@ -161,8 +161,6 @@ class Toast extends Manager {
 
         let me = this;
 
-        let me = this;
-
         // increase total of displayed toasts for a position
         me.running[toast.position].unshift(toast.id);
 
