@@ -29,7 +29,6 @@
         "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test": "echo \"Error: no test specified\" && exit 1",
-        "build-single-file": "node ./buildScripts/buildSingleFile.mjs",
         "watch-themes": "node ./buildScripts/watchThemes.mjs"
     },
     "keywords": [
