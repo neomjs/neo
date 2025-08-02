@@ -394,7 +394,7 @@ class List extends BaseList {
 
         if (me.activeSubMenu !== subMenu) {
             me.activeSubMenu = subMenu;
-            subMenu.render(true)
+            subMenu.initVnode(true)
         }
     }
 

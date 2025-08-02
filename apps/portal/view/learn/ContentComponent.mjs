@@ -172,7 +172,7 @@ class ContentComponent extends Component {
         path += `${pagesFolder + record.id.replaceAll('.', '/')}.md`;
 
         if (record.isLeaf && path) {
-            baseConfigs = {appName, autoMount: true, autoRender: true, parentComponent: me, windowId};
+            baseConfigs = {appName, autoInitVnode: true, autoMount: true, parentComponent: me, windowId};
             data        = await fetch(path);
             content     = await data.text();
             // Update content sections (modifies markdown content with h1/h2/h3 tags and IDs)

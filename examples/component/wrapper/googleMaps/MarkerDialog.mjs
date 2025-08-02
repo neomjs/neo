@@ -71,8 +71,8 @@ class MarkerDialog extends DialogBase {
         return `${day}. ${month} <b>${year}</b> ${hour}:${minute}`
     }
 
-    async onRender(data, automount) {
-        super.onRender(data, automount)
+    async onInitVnode(data, automount) {
+        super.onInitVnode(data, automount)
 
         let me = this;
 

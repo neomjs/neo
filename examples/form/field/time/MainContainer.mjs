@@ -136,7 +136,6 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(TimeField, {
-            autoRender   : false,
             clearable    : true,
             labelPosition: 'inline',
             labelText    : 'Pick a time',

@@ -39,13 +39,13 @@ class Dialog extends Panel {
          */
         animateTargetId_: null,
         /**
+         * @member {Boolean} autoInitVnode=true
+         */
+        autoInitVnode: true,
+        /**
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
-        /**
-         * @member {Boolean} autoRender=true
-         */
-        autoRender: true,
         /**
          * @member {Boolean} autoShow=true
          */
@@ -173,7 +173,7 @@ class Dialog extends Panel {
      */
     afterSetAnimateTargetId(value, oldValue) {
         this.autoMount  = !value;
-        this.autoRender = !value
+        this.autoInitVnode = !value
     }
 
     /**
@@ -784,7 +784,7 @@ class Dialog extends Panel {
             me.animateShow()
         } else {
             if (!me.mounted) {
-                me.render(true)
+                me.initVnode(true)
             }
 
             me.fire('show')

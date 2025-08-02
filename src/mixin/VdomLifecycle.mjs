@@ -21,20 +21,17 @@ class VdomLifecycle extends Base {
          */
         className: 'Neo.mixin.VdomLifecycle',
         /**
+         * True automatically initializes the vnode of a component after being created inside the init call.
+         * Use this for the top level component of your app.
+         * @member {Boolean} autoInitVnode=false
+         */
+        autoInitVnode: false,
+        /**
          * True automatically mounts a component after being rendered.
          * Use this for the top level component of your app.
          * @member {Boolean} autoMount=false
-         * @tutorial 02_ClassSystem
          */
         autoMount: false,
-        /**
-         * True automatically renders a component after being created inside the init call.
-         * Use this for the top level component of your app.
-         * @member {Boolean} autoRender=false
-         * @see {@link Neo.component.Base#init init}
-         * @tutorial 02_ClassSystem
-         */
-        autoRender: false,
         /**
          * Internal flag for vdom changes after a component got unmounted
          * (delta updates can no longer get applied & a new render call is required before re-mounting)
@@ -51,6 +48,13 @@ class VdomLifecycle extends Base {
          */
         isVdomUpdating_: false,
         /**
+         * True in case the component is initializing the vnode
+         * @member {Boolean} isVnodeInitializing_=false
+         * @protected
+         * @reactive
+         */
+        isVnodeInitializing_: false,
+        /**
          * True in case the component is mounted to the DOM
          * @member {Boolean} mounted_=false
          * @protected
@@ -64,13 +68,6 @@ class VdomLifecycle extends Base {
          * @reactive
          */
         needsVdomUpdate_: false,
-        /**
-         * True in case the component is rendering the vnode
-         * @member {Boolean} rendering_=false
-         * @protected
-         * @reactive
-         */
-        rendering_: false,
         /**
          * Set this to true for bulk updates. Ensure to set it back to false afterwards.
          * Internally the value will get saved as a number to ensure that child methods won't stop the silent mode too early.
@@ -89,7 +86,7 @@ class VdomLifecycle extends Base {
          */
         updateDepth_: 1,
         /**
-         * The component vnode tree. Available after the component got rendered.
+         * The component vnode tree. Available after the component got vnodeInitialized.
          * @member {Object} vnode_=={[isDescriptor]: true, value: null, isEqual: (a, b) => a === b,}
          * @protected
          * @reactive
@@ -313,6 +310,64 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Creates the vnode tree for this component and mounts the component in case
+     * - you pass true for the mount param
+     * - or the autoMount config is set to true
+     * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
+     */
+    async initVnode(mount) {
+        let me                            = this,
+            autoMount                     = mount || me.autoMount,
+            {app}                         = me,
+            {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
+
+        if (unitTestMode && !allowVdomUpdatesInTests) return;
+
+        // Verify that the critical rendering path => CSS files for the new tree is in place
+        if (!unitTestMode && autoMount && currentWorker.countLoadingThemeFiles !== 0) {
+            currentWorker.on('themeFilesLoaded', function() {
+                !me.mounted && me.initVnode(mount)
+            }, me, {once: true});
+
+            return
+        }
+
+        me.isVnodeInitializing = true;
+
+        if (!app.vnodeInitialized) {
+            app.isVnodeInitializing = true
+        }
+
+        if (me.vdom) {
+            me.isVdomUpdating = true;
+
+            delete me.vdom.removeDom;
+
+            me._needsVdomUpdate = false;
+            me.afterSetNeedsVdomUpdate?.(false, true);
+
+            const data = await Promise.resolve(Neo.vdom.Helper.create({
+                appName    : me.appName,
+                autoMount,
+                parentId   : autoMount ? me.getMountedParentId()    : undefined,
+                parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
+                vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
+                windowId   : me.windowId
+            }));
+
+            me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
+            me.isVdomUpdating = false;
+
+            autoMount && !useVdomWorker && me.mount();
+
+            me.resolveVdomUpdate();
+
+            return data
+        }
+    }
+
+    /**
      * Checks for vdom updates inside the parent chain and if found.
      * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId
@@ -377,23 +432,23 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Gets called from the render() promise success handler
+     * Gets called from the initVnode() promise success handler
      * @param {Object} vnode
      * @param {Boolean} autoMount Mount the DOM after the vnode got created
      * @protected
      */
-    onRender(vnode, autoMount) {
+    onInitVnode(vnode, autoMount) {
         let me    = this,
             {app} = me;
 
-        me.rendering = false;
+        me.isVnodeInitializing = false;
 
-        // if app is a check to see if the Component got destroyed while rendering => before onRender got triggered
+        // if app is a check to see if the Component got destroyed while vnodeInitialising => before onInitVnode got triggered
         if (app) {
-            if (!app.rendered) {
-                app.rendering = false;
-                app.rendered = true;
-                app.fire('render')
+            if (!app.vnodeInitialized) {
+                app.isVnodeInitializing = false;
+                app.vnodeInitialized = true;
+                app.fire('vnodeInitialized')
             }
 
             me.vnode = vnode;
@@ -407,12 +462,12 @@ class VdomLifecycle extends Base {
                 child = Neo.getComponent(childIds[i]);
 
                 if (child) {
-                    child.rendered = true
+                    child.vnodeInitialized = true
                 }
             }
 
-            me._rendered = true; // silent update
-            me.fire('rendered', me.id);
+            me._vnodeInitialized = true; // silent update
+            me.fire('vnodeInitialized', me.id);
 
             if (autoMount) {
                 me.mounted = true;
@@ -433,64 +488,6 @@ class VdomLifecycle extends Base {
         return new Promise((resolve, reject) => {
             this.updateVdom(resolve, reject)
         })
-    }
-
-    /**
-     * Creates the vnode tree for this component and mounts the component in case
-     * - you pass true for the mount param
-     * - or the autoMount config is set to true
-     * @param {Boolean} [mount] Mount the DOM after the vnode got created
-     * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
-     */
-    async render(mount) {
-        let me                            = this,
-            autoMount                     = mount || me.autoMount,
-            {app}                         = me,
-            {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
-
-        if (unitTestMode && !allowVdomUpdatesInTests) return;
-
-        // Verify that the critical rendering path => CSS files for the new tree is in place
-        if (!unitTestMode && autoMount && currentWorker.countLoadingThemeFiles !== 0) {
-            currentWorker.on('themeFilesLoaded', function() {
-                !me.mounted && me.render(mount)
-            }, me, {once: true});
-
-            return
-        }
-
-        me.rendering = true;
-
-        if (!app.rendered) {
-            app.rendering = true
-        }
-
-        if (me.vdom) {
-            me.isVdomUpdating = true;
-
-            delete me.vdom.removeDom;
-
-            me._needsVdomUpdate = false;
-            me.afterSetNeedsVdomUpdate?.(false, true);
-
-            const data = await Promise.resolve(Neo.vdom.Helper.create({
-                appName    : me.appName,
-                autoMount,
-                parentId   : autoMount ? me.getMountedParentId()    : undefined,
-                parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
-                vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
-                windowId   : me.windowId
-            }));
-
-            me.onRender(data.vnode, useVdomWorker ? autoMount : false);
-            me.isVdomUpdating = false;
-
-            autoMount && !useVdomWorker && me.mount();
-
-            me.resolveVdomUpdate();
-
-            return data
-        }
     }
 
     /**
@@ -529,7 +526,7 @@ class VdomLifecycle extends Base {
     /**
      * In case a component receives a new vnode, we want to do:
      * - sync the vdom ids
-     * - setting rendered to true for child components
+     * - setting vnodeInitialized to true for child components
      * - updating the parent component to ensure that the vnode tree stays persistent
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
@@ -571,9 +568,9 @@ class VdomLifecycle extends Base {
                 // silent update
                 component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
-                if (!component.rendered) {
-                    component._rendered = true;
-                    component.fire('rendered', component.id)
+                if (!component.vnodeInitialized) {
+                    component._vnodeInitialized = true;
+                    component.fire('vnodeInitialized', component.id)
                 }
 
                 component.mounted = true

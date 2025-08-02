@@ -299,7 +299,7 @@ class MainContainerController extends ComponentController {
         if (view) {
             NeoArray.add(me.connectedApps, name);
 
-            Neo.apps[name].on('render', () => {
+            Neo.apps[name].on('vnodeInitialized', () => {
                 me.timeout(100).then(() => {
                     me.getMainView(name).add(view)
                 })

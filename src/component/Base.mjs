@@ -88,7 +88,7 @@ class Component extends Abstract {
          */
         dropZoneConfig: null,
         /**
-         * True to render this component into the viewport outside of the document flow
+         * True to mount this component into the viewport outside of the document flow
          * @member {Boolean} floating
          */
         floating: false,
@@ -254,6 +254,12 @@ class Component extends Abstract {
          */
         ui_: null,
         /**
+         * True after the component initVnode() method was called. Also fires the vnodeInitialized event.
+         * @member {Boolean} vnodeInitialized=false
+         * @protected
+         */
+        vnodeInitialized: false,
+        /**
          * Shortcut for style.width, defaults to px
          * @member {Number|String|null} width_=null
          * @reactive
@@ -289,24 +295,6 @@ class Component extends Abstract {
     }
 
     /**
-     * True after the component render() method was called. Also fires the rendered event.
-     * @member {Boolean} rendered=false
-     * @protected
-     */
-    get rendered() {
-        return this._rendered || false
-    }
-    set rendered(value) {
-        let me = this;
-
-        me._rendered = value;
-
-        if (value === true) {
-            me.fire('rendered', me.id)
-        }
-    }
-
-    /**
      * The setter will handle vdom updates automatically
      * @member {Object} vdom=this._vdom
      */
@@ -315,6 +303,24 @@ class Component extends Abstract {
     }
     set vdom(value) {
         this.afterSetVdom(value, value)
+    }
+
+    /**
+     * True after the component vnodeInitialized() method was called. Also fires the vnodeInitialized event.
+     * @member {Boolean} vnodeInitialized=false
+     * @protected
+     */
+    get vnodeInitialized() {
+        return this._vnodeInitialized || false
+    }
+    set vnodeInitialized(value) {
+        let me = this;
+
+        me._vnodeInitialized = value;
+
+        if (value === true) {
+            me.fire('vnodeInitialized', me.id)
+        }
     }
 
     /**
@@ -1365,7 +1371,7 @@ class Component extends Abstract {
      *
      */
     init() {
-        this.autoRender && this.render()
+        this.autoInitVnode && this.initVnode()
     }
 
     /**
@@ -1426,21 +1432,21 @@ class Component extends Abstract {
     }
 
     /**
-     * Can get called after the component got rendered. See the autoMount config as well.
+     * Can get called after the component got vnodeInitialized. See the autoMount config as well.
      */
     async mount() {
         let me = this,
             child, childIds;
 
         if (!me.vnode) {
-            throw new Error('Component vnode must be generated before mounting, use Component.render()');
+            throw new Error('Component vnode must be generated before mounting, use Component.initVnode()');
         }
 
         // In case the component was already mounted, got unmounted and received vdom changes afterwards,
-        // a new render() call is mandatory since delta updates could not get applied.
+        // a new initVnode() call is mandatory since delta updates could not get applied.
         // We need to clear the hasUnmountedVdomChanges state for all child components
         if (me.hasUnmountedVdomChanges) {
-            // todo: the hasUnmountedVdomChanges flag changes should happen on render
+            // todo: the hasUnmountedVdomChanges flag changes should happen on initVnode
             me.hasUnmountedVdomChanges = false;
 
             childIds = ComponentManager.getChildIds(me.vnode);
@@ -1454,7 +1460,7 @@ class Component extends Abstract {
             });
             // end todo
 
-            me.render(true)
+            me.initVnode(true)
         } else {
             await currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
@@ -1591,7 +1597,7 @@ class Component extends Abstract {
                 me.parent.updateDepth = 2;
                 me.parent.update()
             } else {
-                !me.mounted && me.render(true)
+                !me.mounted && me.initVnode(true)
             }
         } else {
             let style = me.style;
@@ -1659,7 +1665,7 @@ class Component extends Abstract {
      * In case you are sure a DOMRect exists, use getDomRect()
      * Otherwise you can wait for it using this method.
      * @example:
-     *     await this.render(true);
+     *     await this.initVnode(true);
      *     await this.waitForDomRect();
      * @param {Object}          opts
      * @param {String}          opts.appName=this.appName

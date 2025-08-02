@@ -16,10 +16,10 @@ Neo.config.useDomApiRenderer = true;
 const appName = 'VdomRealWorldTestApp';
 Neo.apps = Neo.apps || {};
 Neo.apps[appName] = {
-    name     : appName,
-    fire     : Neo.emptyFn,
-    isMounted: () => true,
-    rendering: false
+    name             : appName,
+    fire             : Neo.emptyFn,
+    isMounted        : () => true,
+    vnodeInitialising: false
 };
 
 class TestGrandchild extends Component {
@@ -107,7 +107,7 @@ StartTest(t => {
             ]
         });
 
-        await parent.render();
+        await parent.initVnode();
         child      = parent.items[1]; // TestParent inserts a component at index 0
         grandchild = child.items[0];
         parent.mounted = true;

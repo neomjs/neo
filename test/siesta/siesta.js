@@ -84,6 +84,8 @@ project.plan(
     {
         group: 'functional',
         items: [
+            'tests/functional/HtmlTemplateComponent.mjs',
+            'tests/functional/Parse5Processor.mjs',
             'tests/functional/Button.mjs'
         ]
     },

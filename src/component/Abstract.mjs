@@ -71,7 +71,7 @@ class Abstract extends Base {
          */
         modelData: null,
         /**
-         * True after the component render() method was called. Also fires the rendered event.
+         * True after the component initVnode() method was called. Also fires the rendered event.
          * @member {Boolean} mounted_=false
          * @protected
          * @reactive

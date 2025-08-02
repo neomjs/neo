@@ -1,75 +1,32 @@
-import { rawDimensionTags, voidAttributes, voidElements } from '../../vdom/domConstants.mjs';
+const isHtmlTemplate = Symbol.for('neo.isHtmlTemplate');
 
 /**
+ * A container for the result of an `html` tagged template literal.
+ * It holds the static strings and the dynamic values of the template.
+ * @class Neo.functional.util.HtmlTemplate
+ */
+class HtmlTemplate {
+    /**
+     * @param {Array<String>} strings The static parts of the template
+     * @param {Array<*>} values The dynamic values of the template
+     */
+    constructor(strings, values) {
+        this.strings = strings;
+        this.values  = values;
+        this[isHtmlTemplate] = true;
+    }
+}
+
+/**
+ * A tagged template literal function that creates an `HtmlTemplate` instance.
+ * This function does not perform any parsing or string concatenation itself.
+ * It simply captures the template's parts for later processing.
  * @param {Array<String>} strings
  * @param {Array<*>} values
- * @returns {Object} A VDomNodeConfig object.
+ * @returns {Neo.functional.util.HtmlTemplate} An instance of HtmlTemplate
  */
 const html = (strings, ...values) => {
-    let fullString = '';
-    for (let i = 0; i < strings.length; i++) {
-        fullString += strings[i];
-        if (i < values.length) {
-            // Use a unique placeholder for dynamic values
-            fullString += `__DYNAMIC_VALUE_${i}__`;
-        }
-    }
-
-    // Very basic parsing: find the first tag and its content
-    const tagRegex = /<(\w+)([^>]*)>([\s\S]*?)<\/\1>/;
-    const match = fullString.match(tagRegex);
-
-    if (!match) {
-        // If no matching tag, return a simple text node or empty div
-        return { tag: 'div', text: fullString.replace(/__DYNAMIC_VALUE_\d+__/g, (m) => {
-            const index = parseInt(m.match(/\d+/)[0]);
-            return values[index];
-        }) };
-    }
-
-    const rootTag = match[1];
-    const attributesString = match[2];
-    let innerContent = match[3];
-
-    const vdomNode = {
-        tag: rootTag,
-        cn: []
-    };
-
-    // Parse attributes (very basic: only id for now)
-    const idMatch = attributesString.match(/id="([^"]+)"/);
-    if (idMatch) {
-        vdomNode.id = idMatch[1];
-    }
-
-    // Replace dynamic placeholders with actual values in innerContent
-    innerContent = innerContent.replace(/__DYNAMIC_VALUE_(\d+)__/g, (m, index) => {
-        return values[parseInt(index)];
-    });
-
-    // For the current test case, we know it's <p> and <span>
-    // This is still not a generic parser, but a step towards it.
-    const pSpanRegex = /<p>([\s\S]*?)<\/p>\s*<span>([\s\S]*?)<\/span>/;
-    const pSpanMatch = innerContent.match(pSpanRegex);
-
-    if (pSpanMatch) {
-        vdomNode.cn.push({
-            tag: 'p',
-            text: pSpanMatch[1]
-        });
-        vdomNode.cn.push({
-            tag: 'span',
-            text: pSpanMatch[2]
-        });
-    } else {
-        // Fallback for simpler cases or if the regex doesn't match
-        vdomNode.cn.push({
-            tag: 'div', // Default child tag
-            text: innerContent // Treat as plain text for now
-        });
-    }
-
-    return vdomNode;
+    return new HtmlTemplate(strings, values);
 };
 
-export default html;
+export { html, isHtmlTemplate, HtmlTemplate };

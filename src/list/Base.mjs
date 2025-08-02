@@ -235,7 +235,7 @@ class List extends Component {
      * @protected
      */
     afterSetDisableSelection(value, oldValue) {
-        value && this.rendered && this.selectionModel?.deselectAll()
+        value && this.vnodeInitialized && this.selectionModel?.deselectAll()
     }
 
     /**
@@ -796,7 +796,7 @@ class List extends Component {
     onStoreLoad() {
         let me = this;
 
-        if (!me.mounted && me.rendering) {
+        if (!me.mounted && me.isVnodeInitializing) {
             me.on('mounted', () => {
                 me.createItems()
             }, me, {once: true});

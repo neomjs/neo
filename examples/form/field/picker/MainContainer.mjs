@@ -110,7 +110,6 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(PickerField, {
-            autoRender          : false,
             clearToOriginalValue: true,
             labelText           : 'Label',
             labelWidth          : 70,

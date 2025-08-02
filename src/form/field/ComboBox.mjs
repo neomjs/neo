@@ -209,7 +209,7 @@ class ComboBox extends Picker {
      * @protected
      */
     afterSetTypeAhead(value, oldValue) {
-        this.rendered && this.updateTypeAhead()
+        this.vnodeInitialized && this.updateTypeAhead()
     }
 
     /**

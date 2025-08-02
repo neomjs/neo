@@ -118,7 +118,6 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(EmailField, {
-            autoRender: false,
             clearable : true,
             labelText : 'Label',
             labelWidth: 70,

@@ -1,7 +1,7 @@
 # Neo.mjs Application Bootstrap Process
 
 This guide explains how Neo.mjs applications start, initialize, and come to life - from the initial HTML file to your
-first rendered component.
+first mounted component.
 
 ## Overview
 
@@ -322,7 +322,7 @@ The component instantiation process:
 3. Event listeners are attached via the framework's event system
 4. Data bindings are established for reactive updates
 
-### 9. VDom Generation and Initial Render
+### 9. VDom Generation and Initial VNode Initialization
 
 Once the component tree is built:
 

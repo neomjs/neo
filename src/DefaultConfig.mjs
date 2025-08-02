@@ -194,7 +194,7 @@ const DefaultConfig = {
     unitTestMode: false,
     /**
      * When unitTestMode is true, this flag can be enabled to allow VDOM-related
-     * operations like render() and update() to proceed. This is useful for integration-style
+     * operations like initVnode() and update() to proceed. This is useful for integration-style
      * tests that need to verify component lifecycle and DOM output.
      * @default false
      * @memberOf! module:Neo
@@ -299,12 +299,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '10.2.1'
+     * @default '10.3.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '10.2.1'
+    version: '10.3.0'
 };
 
 Object.assign(DefaultConfig, {

@@ -347,7 +347,7 @@ class Tooltip extends Container {
             me.addTimeout('dismiss', me.hide.bind(me), me.dismissDelay, data)
         }
 
-        !me.mounted && me.render(true)
+        !me.mounted && me.initVnode(true)
     }
 
     /**

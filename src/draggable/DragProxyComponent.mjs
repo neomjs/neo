@@ -17,13 +17,13 @@ class DragProxyComponent extends Base {
          */
         ntype: 'dragproxy',
         /**
+         * @member {Boolean} autoInitVnode=true
+         */
+        autoInitVnode: true,
+        /**
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
-        /**
-         * @member {Boolean} autoRender=true
-         */
-        autoRender: true,
         /**
          * @member {String[]} baseCls=['neo-dragproxy']
          */

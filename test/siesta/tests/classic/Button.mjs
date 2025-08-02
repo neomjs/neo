@@ -15,10 +15,10 @@ Neo.config.useDomApiRenderer = true;
 const appName = 'ClassicButtonTest';
 Neo.apps = Neo.apps || {};
 Neo.apps[appName] = {
-    name     : appName,
-    fire     : Neo.emptyFn,
-    isMounted: () => true,
-    rendering: false
+    name             : appName,
+    fire             : Neo.emptyFn,
+    isMounted        : () => true,
+    vnodeInitialising: false
 };
 
 StartTest(t => {
@@ -35,7 +35,7 @@ StartTest(t => {
             text   : 'Click me'
         });
 
-        ({vnode} = await button.render());
+        ({vnode} = await button.initVnode());
         button.mounted = true; // Manually mount to enable updates in the test env
     });
 

@@ -178,13 +178,11 @@ Pros:
 (no source-maps needed, no webpack interferences etc.)
 2. Browsers can cache JS modules and native packaging is in development
 3. Your code base is modular
+4. The development mode runs in all major browsers (Chrome, Edge, Firefox, Safari)
 
 Cons:
 1. neo.mjs is not using TypeScript (you could do it for your own app code, in case you want to use a build process)
-2. Firefox does not support JS modules inside workers yet, so the development mode only runs in Chromium (Chrome & Edge),
-as well as Safari. Mozilla is actively working on it.
-Of course the dist (dev&prod) versions do run fine in Firefox as well.
-3. Several npm dependencies can not easily get used, since they do not use a correct ES6 import syntax (e.g. missing file names)
+2. Several npm dependencies can not easily get used, since they do not use a correct ES6 import syntax (e.g. missing file names)
 
 ## No string based pseudo XML templates
 One example from the <a href="https://reactjs.org/">React Website</a>:

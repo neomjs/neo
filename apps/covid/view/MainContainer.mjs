@@ -30,7 +30,7 @@ class MainContainer extends Viewport {
          */
         items: [HeaderContainer, {
             module     : TabContainer,
-            activeIndex: null, // render no items initially
+            activeIndex: null, // mount no items initially
             flex       : 1,
             reference  : 'tab-container',
             sortable   : true,

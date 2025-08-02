@@ -43,6 +43,8 @@
             {"name": "Layouts",                                        "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Layouts"},
             {"name": "Custom Components",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/CustomComponents"},
             {"name": "Working with VDom",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/WorkingWithVDom"},
+            {"name": "HTML Templates",                                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/HtmlTemplates"},
+            {"name": "Under the Hood: HTML Templates",                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/HtmlTemplatesUnderTheHood"},
         {"name": "Data Handling",                                      "parentId": "guides",                             "isLeaf": false, "id": "guides/datahandling", "collapsed": true},
             {"name": "Collections",                                    "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Collections"},
             {"name": "Records",                                        "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Records"},

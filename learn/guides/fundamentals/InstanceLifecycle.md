@@ -8,7 +8,7 @@ This guide will walk you through the entire lifecycle, which can be broken down 
 
 1.  **Synchronous Creation**: The initial, synchronous setup of the instance and its configuration.
 2.  **Asynchronous Initialization**: An optional phase for asynchronous tasks like data fetching.
-3.  **Mounting & Unmounting**: The dynamic phase where a component is rendered into the DOM, and potentially unmounted
+3.  **Mounting & Unmounting**: The dynamic phase where a component is initialized and mounted into the DOM, and potentially unmounted
     and re-mounted.
 4.  **Destruction**: The final cleanup phase.
 
@@ -29,7 +29,7 @@ instance. Always let the framework handle instantiation.
 
 When the framework creates a new instance, it executes a sequence of synchronous methods. This initial phase is
 responsible for setting up the instance's basic configuration and state. **At this stage, the component has not been
-rendered to the DOM.**
+mounted to the DOM.**
 
 The synchronous lifecycle methods are called in the following order:
 
@@ -43,7 +43,7 @@ The synchronous lifecycle methods are called in the following order:
 
 3.  **`onConstructed()`**: This hook is called immediately after `construct()` has finished. It's the ideal place to
     perform any setup that depends on the initial configuration. **Crucially, do not attempt to access the DOM here**,
-    as the component is not yet rendered.
+    as the component is not yet mounted.
 
 4.  **`onAfterConstructed()`**: This hook is called after `onConstructed()`. It provides another opportunity for setup logic.
 
@@ -158,10 +158,10 @@ multiple times, even into different browser windows, all while preserving its in
 ### `mounted`: The DOM-Ready Signal
 
 The `mounted_` config is the key to this phase. It is a boolean flag that indicates whether the component is currently
-rendered in the DOM.
+painted in the DOM.
 
 *   **`afterSetMounted(isMounted, wasMounted)`**: This is the most important hook for DOM interaction. It is called with
-* `true` when the component's VDOM is successfully rendered into the DOM, and with `false` when it is removed.
+* `true` when the component's VDOM is successfully initialized and mounted into the DOM, and with `false` when it is removed.
 
 **This is the only safe and reliable place to perform DOM measurements or manipulations.**
 
