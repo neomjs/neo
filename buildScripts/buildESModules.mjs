@@ -6,7 +6,7 @@ import {processFileContent} from './util/astTemplateProcessor.mjs';
 
 const
     outputBasePath   = 'dist/esm/',
-    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
+    regexImport      = /(import(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g,
     root             = path.resolve(),
     requireJson      = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson      = requireJson(path.join(root, 'package.json')),

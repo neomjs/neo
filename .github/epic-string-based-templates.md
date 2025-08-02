@@ -540,7 +540,7 @@ Currently, the logic for finding and transforming `html` templates is tightly co
 
 ### 25. Optimize Build Process with a Pre-emptive Regex Check
 
-**Status:** To Do
+**Status:** Done
 
 #### 1. Summary
 

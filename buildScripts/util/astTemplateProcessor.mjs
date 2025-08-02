@@ -24,6 +24,8 @@ import {processHtmlTemplateLiteral} from './templateBuildProcessor.mjs';
  * simpler methods like regular expressions.
  */
 
+const regexHtml = /html\s*`/;
+
 /**
  * Converts a serializable VDOM object into a valid Acorn AST `ObjectExpression`.
  * This function is the critical bridge between the intermediate VDOM representation and the
@@ -33,7 +35,7 @@ import {processHtmlTemplateLiteral} from './templateBuildProcessor.mjs';
  * When a placeholder is found, this function extracts the raw expression string and uses
  * `acorn.parseExpressionAt` to parse it into a proper AST node. This ensures that runtime
  * expressions are injected directly into the final AST, preserving them perfectly for
-- * when the code is executed in the browser.
+ * when the code is executed in the browser.
  *
  * @param {object} json The JSON-like VDOM object from the template processor.
  * @returns {object} A valid Acorn AST node representing the VDOM.
@@ -137,11 +139,19 @@ function addParentLinks(node, parent) {
 
 /**
  * The main exported function for this module. It orchestrates the entire transformation.
+ * As an optimization, it first performs a quick regex check to see if a template
+ * likely exists, avoiding the expensive AST parsing for the vast majority of files.
  * @param {string} fileContent The raw source code of the file to process.
  * @returns {{content: string, hasChanges: boolean}} An object containing the transformed
  * code and a flag indicating if any changes were made.
  */
 export function processFileContent(fileContent) {
+    // Optimization: a quick regex check is much faster than parsing every file.
+    // If no `html` template is likely present, we can skip the expensive AST work.
+    if (!regexHtml.test(fileContent)) {
+        return { content: fileContent, hasChanges: false };
+    }
+
     const ast = acorn.parse(fileContent, {ecmaVersion: 'latest', sourceType: 'module'});
     addParentLinks(ast, null);
 
