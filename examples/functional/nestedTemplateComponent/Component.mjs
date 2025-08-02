@@ -31,7 +31,7 @@ export default defineComponent({
     },
 
     render(config) {
-        const [isActive, setIsActive] = useConfig(true);
+        const [isActive, setIsActive]       = useConfig(true);
         const [showDetails, setShowDetails] = useConfig(false);
 
         // This event listener is for the main container to toggle the active state
@@ -39,15 +39,15 @@ export default defineComponent({
             // Stop the event from bubbling up to avoid toggling the active state
             // when the button is clicked. The button has its own handler.
             if (event.target.id === 'details-button') {
-                event.stopPropagation();
+                event.stopPropagation()
             } else {
-                setIsActive(prev => !prev);
+                setIsActive(prev => !prev)
             }
         });
 
         // The idiomatic way to handle a button click is with the handler config.
         const onButtonClick = () => {
-            setShowDetails(prev => !prev);
+            setShowDetails(prev => !prev)
         };
 
         const cardStyle = {
