@@ -162,6 +162,17 @@ export default env => {
             chunkFilename: 'chunks/app/[id].js',
             filename     : filenameConfig.workers.app.output,
             path         : path.resolve(cwd, buildTarget.folder)
+        },
+
+        module: {
+            rules: [
+                {
+                    test: /\.mjs$/,
+                    use: [{
+                        loader: path.resolve(neoPath, 'buildScripts/webpack/loader/template-loader.mjs')
+                    }]
+                }
+            ]
         }
     }
 };

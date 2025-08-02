@@ -568,7 +568,7 @@ The current process parses every single `.mjs` file with `acorn`, which is compu
 
 ### 26. Integrate Template Processing into `dist/development` Build
 
-**Status:** To Do
+**Status:** Done
 
 #### 1. Summary
 
