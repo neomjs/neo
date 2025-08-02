@@ -598,7 +598,7 @@ To ensure feature parity and a consistent developer experience, `html` templates
 
 ### 27. Integrate Template Processing into `dist/production` Build
 
-**Status:** To Do
+**Status:** Done
 
 #### 1. Summary
 
