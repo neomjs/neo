@@ -40,7 +40,7 @@ To parse HTML strings, we need an HTML parser. Neo.mjs uses `parse5`, a robust a
 This is why the parser is **only loaded if a component on the page actually uses an HTML template**. This check happens
 inside the `initAsync` method of `Neo.functional.component.Base`.
 
-```javascript
+```javascript readonly
 // src/functional/component/Base.mjs
 async initAsync() {
     await super.initAsync();
