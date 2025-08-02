@@ -502,7 +502,7 @@ traversal and then refactor the processor logic.
 
 ### 24. Create a Reusable, AST-Based Build-Time Processor
 
-**Status:** To Do
+**Status:** Done
 
 #### 1. Summary
 

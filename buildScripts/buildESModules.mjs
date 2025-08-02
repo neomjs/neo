@@ -1,66 +1,8 @@
-import {generate}           from 'astring';
 import fs                   from 'fs-extra';
 import path                 from 'path';
-import * as acorn           from 'acorn';
 import * as Terser          from 'terser';
 import {minifyHtml}         from './util/minifyHtml.mjs';
-import { processHtmlTemplateLiteral } from './util/templateBuildProcessor.mjs';
-
-// A simple JSON to AST converter
-function jsonToAst(json) {
-    if (json === null) {
-        return { type: 'Literal', value: null };
-    }
-    switch (typeof json) {
-        case 'string':
-            // Check if the string is a placeholder for a raw JavaScript expression
-            const exprMatch = json.match(/^##__NEO_EXPR__(.*)##__NEO_EXPR__##$/s);
-            if (exprMatch) {
-                // This is a raw expression, parse it as a standalone expression
-                try {
-                    // Use acorn.parseExpressionAt to handle complex expressions correctly
-                    const expressionNode = acorn.parseExpressionAt(exprMatch[1], 0, {ecmaVersion: 'latest'});
-                    return expressionNode;
-                } catch (e) {
-                    console.error(`Failed to parse expression: ${exprMatch[1]}`, e);
-                    // Fallback to literal string if parsing fails
-                    return { type: 'Literal', value: json };
-                }
-            }
-            return { type: 'Literal', value: json };
-        case 'number':
-        case 'boolean':
-            return { type: 'Literal', value: json };
-        case 'object':
-            // Placeholder for a component constructor (e.g., <${Button}>)
-            if (json.__neo_component_name__) {
-                return { type: 'Identifier', name: json.__neo_component_name__ };
-            }
-            if (Array.isArray(json)) {
-                return {
-                    type: 'ArrayExpression',
-                    elements: json.map(jsonToAst)
-                };
-            }
-            // Default object to ObjectExpression conversion
-            const properties = Object.entries(json).map(([key, value]) => {
-                const keyNode = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)
-                    ? { type: 'Identifier', name: key }
-                    : { type: 'Literal', value: key };
-                return {
-                    type: 'Property',
-                    key: keyNode,
-                    value: jsonToAst(value),
-                    kind: 'init',
-                    computed: keyNode.type === 'Literal'
-                };
-            });
-            return { type: 'ObjectExpression', properties };
-        default:
-            // for undefined, function, etc.
-            return { type: 'Literal', value: null };
-    }
-}
+import {processFileContent} from './util/astTemplateProcessor.mjs';
 
 const
     outputBasePath   = 'dist/esm/',
@@ -152,99 +94,15 @@ async function minifyFile(content, outputPath) {
             let adjustedContent = content.replace(regexImport, adjustImportPathHandler);
 
             // AST-based processing for html templates
-            const ast = acorn.parse(adjustedContent, {ecmaVersion: 'latest', sourceType: 'module'});
+            const result = processFileContent(adjustedContent);
 
-            // True post-order traversal to handle nested templates correctly
-            function postOrderWalk(node, visitor) {
-                if (!node) return;
-
-                Object.entries(node).forEach(([key, value]) => {
-                    if (key === 'parent') return;
-                    if (Array.isArray(value)) {
-                        value.forEach(child => postOrderWalk(child, visitor));
-                    } else if (typeof value === 'object' && value !== null) {
-                        postOrderWalk(value, visitor);
-                    }
-                });
-
-                visitor(node);
-            }
-
-            // Add parent pointers for easier AST manipulation
-            function addParentLinks(node, parent) {
-                if (!node || typeof node !== 'object') return;
-                node.parent = parent;
-                for (const key in node) {
-                    if (key === 'parent') continue;
-                    const child = node[key];
-                    if (Array.isArray(child)) {
-                        child.forEach(c => addParentLinks(c, node));
-                    } else {
-                        addParentLinks(child, node);
-                    }
-                }
-            }
-            addParentLinks(ast, null);
-
-            let hasChanges = false;
-
-            postOrderWalk(ast, (node) => {
-                if (node.type === 'TaggedTemplateExpression' && node.tag.type === 'Identifier' && node.tag.name === 'html') {
-                    hasChanges = true;
-
-                    // Rename render to createVdom if applicable
-                    let current = node;
-                    while (current.parent) {
-                        const parent = current.parent;
-                        if (parent.type === 'MethodDefinition' && parent.key.name === 'render') {
-                            parent.key.name = 'createVdom';
-                            break;
-                        }
-                        if (parent.type === 'Property' && parent.key.name === 'render') {
-                            parent.key.name = 'createVdom';
-                            break;
-                        }
-                        current = parent;
-                    }
-
-                    const templateLiteral = node.quasi;
-                    const strings = templateLiteral.quasis.map(q => q.value.cooked);
-                    
-                    const expressionCodeStrings = templateLiteral.expressions.map(exprNode => generate(exprNode));
-
-                    // The processor now returns a serializable VDOM object
-                    const vdom = processHtmlTemplateLiteral(strings, expressionCodeStrings);
-                    
-                    // Convert the VDOM object into an AST ObjectExpression
-                    const vdomAst = jsonToAst(vdom);
-
-                    // Replace the original TaggedTemplateExpression node with the new VDOM AST
-                    const parent = node.parent;
-                    for (const key in parent) {
-                        if (parent[key] === node) {
-                            parent[key] = vdomAst;
-                            return;
-                        }
-                        if (Array.isArray(parent[key])) {
-                            const index = parent[key].indexOf(node);
-                            if (index > -1) {
-                                parent[key][index] = vdomAst;
-                                return;
-                            }
-                        }
-                    }
-                }
-            });
-
-            let currentContent = hasChanges ? generate(ast) : adjustedContent;
-
-            const result = await Terser.minify(currentContent, {
+            const minifiedResult = await Terser.minify(result.content, {
                 module: true,
                 compress: {dead_code: true},
                 mangle: {toplevel: true}
             });
 
-            fs.writeFileSync(outputPath, result.code);
+            fs.writeFileSync(outputPath, minifiedResult.code);
             console.log(`Minified JS: ${outputPath}`)
         }
     } catch (e) {
