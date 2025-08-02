@@ -94,7 +94,7 @@ async function minifyFile(content, outputPath) {
             let adjustedContent = content.replace(regexImport, adjustImportPathHandler);
 
             // AST-based processing for html templates
-            const result = processFileContent(adjustedContent);
+            const result = processFileContent(adjustedContent, outputPath);
 
             const minifiedResult = await Terser.minify(result.content, {
                 module: true,

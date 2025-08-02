@@ -142,68 +142,69 @@ function addParentLinks(node, parent) {
  * As an optimization, it first performs a quick regex check to see if a template
  * likely exists, avoiding the expensive AST parsing for the vast majority of files.
  * @param {string} fileContent The raw source code of the file to process.
+ * @param {string} filePath The path to the file, used for logging errors.
  * @returns {{content: string, hasChanges: boolean}} An object containing the transformed
  * code and a flag indicating if any changes were made.
  */
-export function processFileContent(fileContent) {
+export function processFileContent(fileContent, filePath) {
     // Optimization: a quick regex check is much faster than parsing every file.
-    // If no `html` template is likely present, we can skip the expensive AST work.
     if (!regexHtml.test(fileContent)) {
         return { content: fileContent, hasChanges: false };
     }
 
-    const ast = acorn.parse(fileContent, {ecmaVersion: 'latest', sourceType: 'module'});
-    addParentLinks(ast, null);
+    try {
+        const ast = acorn.parse(fileContent, {ecmaVersion: 'latest', sourceType: 'module'});
+        addParentLinks(ast, null);
 
-    let hasChanges = false;
+        let hasChanges = false;
 
-    postOrderWalk(ast, (node) => {
-        if (node.type === 'TaggedTemplateExpression' && node.tag.type === 'Identifier' && node.tag.name === 'html') {
-            hasChanges = true;
+        postOrderWalk(ast, (node) => {
+            if (node.type === 'TaggedTemplateExpression' && node.tag.type === 'Identifier' && node.tag.name === 'html') {
+                hasChanges = true;
 
-            // As a quality-of-life feature, if a template is the return value of a method
-            // named `render`, we automatically rename the method to `createVdom`. This aligns
-            // with the framework's lifecycle methods for VDOM creation.
-            let current = node;
-            while (current.parent) {
-                const parent = current.parent;
-                if ((parent.type === 'MethodDefinition' || parent.type === 'Property') && parent.key.name === 'render') {
-                    parent.key.name = 'createVdom';
-                    break;
+                // As a quality-of-life feature, if a template is the return value of a method
+                // named `render`, we automatically rename the method to `createVdom`.
+                let current = node;
+                while (current.parent) {
+                    const parent = current.parent;
+                    if ((parent.type === 'MethodDefinition' || parent.type === 'Property') && parent.key.name === 'render') {
+                        parent.key.name = 'createVdom';
+                        break;
+                    }
+                    current = parent;
                 }
-                current = parent;
-            }
 
-            const templateLiteral = node.quasi;
-            const strings = templateLiteral.quasis.map(q => q.value.cooked);
-            const expressionCodeStrings = templateLiteral.expressions.map(exprNode => generate(exprNode));
+                const templateLiteral = node.quasi;
+                const strings = templateLiteral.quasis.map(q => q.value.cooked);
+                const expressionCodeStrings = templateLiteral.expressions.map(exprNode => generate(exprNode));
 
-            // Delegate the complex task of parsing the HTML-like syntax to our specialized processor.
-            const vdom = processHtmlTemplateLiteral(strings, expressionCodeStrings);
+                const vdom = processHtmlTemplateLiteral(strings, expressionCodeStrings);
+                const vdomAst = jsonToAst(vdom);
 
-            // Convert the resulting VDOM object back into an AST node.
-            const vdomAst = jsonToAst(vdom);
-
-            // Find the original template node in its parent and replace it with the new VDOM AST.
-            const parent = node.parent;
-            for (const key in parent) {
-                if (parent[key] === node) {
-                    parent[key] = vdomAst;
-                    return;
-                }
-                if (Array.isArray(parent[key])) {
-                    const index = parent[key].indexOf(node);
-                    if (index > -1) {
-                        parent[key][index] = vdomAst;
+                const parent = node.parent;
+                for (const key in parent) {
+                    if (parent[key] === node) {
+                        parent[key] = vdomAst;
                         return;
+                    }
+                    if (Array.isArray(parent[key])) {
+                        const index = parent[key].indexOf(node);
+                        if (index > -1) {
+                            parent[key][index] = vdomAst;
+                            return;
+                        }
                     }
                 }
             }
-        }
-    });
+        });
 
-    return {
-        content: hasChanges ? generate(ast) : fileContent,
-        hasChanges
-    };
+        return {
+            content: hasChanges ? generate(ast) : fileContent,
+            hasChanges
+        };
+    } catch (e) {
+        console.error(`Error processing HTML template in: ${filePath}`);
+        console.error(e);
+        return { content: fileContent, hasChanges: false };
+    }
 }
