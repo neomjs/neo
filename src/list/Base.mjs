@@ -351,7 +351,7 @@ class List extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this)
+        this.vnodeInitialized && value.register(this)
     }
 
     /**

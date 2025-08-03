@@ -348,7 +348,7 @@ class Helix extends Component {
     afterSetMaxItems(value, oldValue) {
         let me = this;
 
-        if (value && me.rendered) {
+        if (value && me.vnodeInitialized) {
             if (oldValue > value) {
                 me.destroyItems(value, oldValue - value)
             } else {
@@ -399,7 +399,7 @@ class Helix extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this)
+        this.vnodeInitialized && value.register(this)
     }
 
     /**
@@ -411,7 +411,7 @@ class Helix extends Component {
     afterSetUrl(value, oldValue) {
         let me = this;
 
-        if (me.rendered) {
+        if (me.vnodeInitialized) {
             me.destroyItems();
             me.loadData()
         }

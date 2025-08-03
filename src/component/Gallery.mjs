@@ -245,7 +245,7 @@ class Gallery extends Component {
     afterSetMaxItems(value, oldValue) {
         let me = this;
 
-        if (value && me.rendered) {
+        if (value && me.vnodeInitialized) {
             if (oldValue > value) {
                 me.destroyItems(value, oldValue - value)
             } else {
@@ -310,7 +310,7 @@ class Gallery extends Component {
                 len  = Math.min(me.maxItems, me.store.items.length),
                 view = me.getItemsRoot();
 
-            if (me.rendered) {
+            if (me.vnodeInitialized) {
                 me.refreshImageReflection();
 
                 me.timeout(50).then(() => {
@@ -338,7 +338,7 @@ class Gallery extends Component {
      */
     afterSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
-        this.rendered && value.register(this)
+        this.vnodeInitialized && value.register(this)
     }
 
     afterSetTranslateX() {this.moveOrigin()}

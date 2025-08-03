@@ -269,7 +269,7 @@ class Dialog extends Panel {
         NeoArray.toggle(me.vdom.cls, 'neo-modal', value);
         me.update();
 
-        me.rendered && me.syncModalMask()
+        me.vnodeInitialized && me.syncModalMask()
     }
 
     /**
@@ -432,7 +432,7 @@ class Dialog extends Panel {
         }
 
         // rendered outside the visible area
-        await me.render(true);
+        await me.initVnode(true);
 
         let [dialogRect, bodyRect] = await me.waitForDomRect({id: [me.id, 'document.body']});
 

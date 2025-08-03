@@ -12,10 +12,10 @@ class BodyContainer extends Container {
          */
         className: 'Neo.tab.BodyContainer',
         /**
-         * @member {String[]} baseCls=['neo-container', 'neo-tab-body-container']
+         * @member {String[]} baseCls=['neo-tab-body-container','neo-container']
          * @protected
          */
-        baseCls: ['neo-container', 'neo-tab-body-container']
+        baseCls: ['neo-tab-body-container', 'neo-container']
     }
 
     /**
