@@ -40,7 +40,7 @@ To parse HTML strings, we need an HTML parser. Neo.mjs uses `parse5`, a robust a
 This is why the parser is **only loaded if a component on the page actually uses an HTML template**. This check happens
 inside the `initAsync` method of `Neo.functional.component.Base`.
 
-```javascript
+```javascript readonly
 // src/functional/component/Base.mjs
 async initAsync() {
     await super.initAsync();
@@ -61,7 +61,7 @@ If `enableHtmlTemplates` is true, the component dynamically imports the `HtmlTem
 
 When a component's `createVdom()` method returns an `HtmlTemplate` object, it's handed off to the `HtmlTemplateProcessor`.
 You can inspect its source code here:
-[src/functional/util/HtmlTemplateProcessor.mjs](../../../../src/functional/util/HtmlTemplateProcessor.mjs).
+[src/functional/util/HtmlTemplateProcessor.mjs](../../../src/functional/util/HtmlTemplateProcessor.mjs).
 
 The processor executes a series of steps to convert the template literal into a VDOM object, which are detailed in the
 expandable section below.
@@ -93,9 +93,9 @@ parsing overhead**. This is accomplished with a powerful build-time AST (Abstrac
 
 This work is handled by two main scripts:
 
--   [buildScripts/util/templateBuildProcessor.mjs](../../../../buildScripts/util/templateBuildProcessor.mjs):
+-   [buildScripts/util/templateBuildProcessor.mjs](../../../buildScripts/util/templateBuildProcessor.mjs):
     Contains the core logic for parsing the template string and converting it to a serializable VDOM object.
--   [buildScripts/util/astTemplateProcessor.mjs](../../../../buildScripts/util/astTemplateProcessor.mjs):
+-   [buildScripts/util/astTemplateProcessor.mjs](../../../buildScripts/util/astTemplateProcessor.mjs):
     Orchestrates the overall process of reading a JS file, finding `html` templates, and replacing them with the final
     VDOM object via AST manipulation.
 
@@ -119,10 +119,10 @@ renames the method to `createVdom`.
 
 This logic is seamlessly integrated into all three of Neo.mjs's production build environments:
 
--   **`dist/esm`:** The [buildScripts/buildESModules.mjs](../../../../buildScripts/buildESModules.mjs) script directly
+-   **`dist/esm`:** The [buildScripts/buildESModules.mjs](../../../buildScripts/buildESModules.mjs) script directly
     invokes the `processFileContent` function from the `astTemplateProcessor` for each JavaScript file before minification.
 -   **`dist/dev` & `dist/prod`:** These environments use Webpack. The transformation is handled by a custom loader:
-    [buildScripts/webpack/loader/template-loader.mjs](../../../../buildScripts/webpack/loader/template-loader.mjs).
+    [buildScripts/webpack/loader/template-loader.mjs](../../../buildScripts/webpack/loader/template-loader.mjs).
     This loader is strategically applied **only to the App worker's build configuration**, an optimization that saves
     build time by not processing code for other workers.
 

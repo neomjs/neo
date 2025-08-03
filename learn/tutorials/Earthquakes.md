@@ -5,6 +5,11 @@ and show the information in two views: a table, and a map.
 
 You'll do this in a series of labs. 
 
+<span style='color: red;'>
+    Important: The labs inside this Tutorial cannot run currently, since the Google Maps API changed
+    and our addon needs adjustments. The chapters still contain valuable input.
+</span>
+
 ## Goals 
 
 What are the goals of this lengthy topic?
@@ -167,7 +172,8 @@ If you look in `neo-config.json` you should see this content. Note the `mainThre
     "mainPath"        : "../node_modules/neo.mjs/src/Main.mjs",
     "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
     "workerBasePath"  : "../../node_modules/neo.mjs/src/worker/"
-}```
+}
+```
 
 You're free to edit `neo-config.json` if you were to change your mind later about the theme or need for other add-ons.
 

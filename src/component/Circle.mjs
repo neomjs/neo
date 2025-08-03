@@ -248,7 +248,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetMaxItems(value, oldValue) {
-        if (oldValue && this.rendered) {
+        if (oldValue && this.vnodeInitialized) {
             let me      = this,
                 frontEl = me.getFrontEl();
 
@@ -289,7 +289,7 @@ class Circle extends Component {
     afterSetItemSize(value, oldValue) {
         let me = this;
 
-        if (oldValue && me.rendered) {
+        if (oldValue && me.vnodeInitialized) {
             !me.collapsed && me.updateOuterCircle(true);
             me.updateItemPositions()
         }
@@ -302,7 +302,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateX(value, oldValue) {
-        oldValue && this.rendered && this.rotate()
+        oldValue && this.vnodeInitialized && this.rotate()
     }
 
     /**
@@ -312,7 +312,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateY(value, oldValue) {
-        oldValue && this.rendered && this.rotate()
+        oldValue && this.vnodeInitialized && this.rotate()
     }
 
     /**
@@ -322,7 +322,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateZ(value, oldValue) {
-        oldValue && this.rendered && this.rotate()
+        oldValue && this.vnodeInitialized && this.rotate()
     }
 
     /**
@@ -344,7 +344,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        this.rendered && value.register(this);
+        this.vnodeInitialized && value.register(this);
     }
 
     /**

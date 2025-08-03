@@ -295,7 +295,7 @@ class Flexbox extends Base {
             {container, prefix} = me,
             {wrapperCls}        = container;
 
-        if (container?.rendered) {
+        if (container?.vnodeInitialized) {
             NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
 
             if (value !== null) {

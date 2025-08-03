@@ -1579,8 +1579,7 @@ class Text extends Field {
     }
 
     /**
-     * Since triggers do not get rendered, assign the relevant props
-     * todo: this could be handled by component.Base
+     * Since triggers do not get vnodeInitialized, assign the relevant props
      */
     updateTriggerVnodes() {
         let me          = this,
@@ -1593,8 +1592,8 @@ class Text extends Field {
 
             trigger && Object.assign(trigger, {
                 vnode,
-                _rendered: true,
-                _mounted : true
+                _mounted         : true,
+                _vnodeInitialized: true
             })
         })
     }
