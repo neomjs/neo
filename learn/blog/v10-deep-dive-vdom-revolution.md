@@ -98,10 +98,10 @@ This approach has profound advantages:
     a far more reliable and constrained task than asking it to generate nuanced HTML.
 *   **Ultimate Control:** It gives you precise, programmatic control over the generated VDOM.
 
-This philosophy is the engine behind our AI-powered **Neo Studio**, which generates these JSON blueprints from natural
-language prompts.
+This philosophy is the engine behind our AI-powered **Neo Studio** (super early spoiler),, which generates these JSON
+blueprints from natural language prompts.
 
-`[Screenshot of the Neo Studio UI, showcasing a generated component from a prompt]`
+![Screenshot of the Neo Studio UI, showcasing a generated component from a prompt](https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/NeoStudio.png "Neo Studio Spoiler")
 
 ### 3. The Onboarding Ramp: Developer-Friendly HTML Templates
 
