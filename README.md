@@ -124,7 +124,8 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 * **Multi-Window & Single-Page Applications (SPAs)***: Beyond traditional SPAs, Neo.mjs excels at complex multi-window applications.
   Its unique architecture, powered by seamless cross-worker communication (enabled by `Neo.worker.mixin.RemoteMethodAccess`) and
   extensible Main Thread addons (`Neo.main.addon.*`), enables truly native-like, persistent experiences across browser windows,
-  all without a native shell.
+  all without a native shell. This is made possible by the same efficient delta-based DOM update engine, which can surgically
+  move and update components across window boundaries with unparalleled performance.
 
 * **No npm Dependency Hell**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling.
   This means smaller bundles, fewer conflicts, and a simpler dependency graph.
