@@ -136,6 +136,21 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   Neo.mjs's architecture makes props drilling an obsolete anti-pattern. The integrated `state.Provider` allows a deeply nested component to subscribe *only* to the precise slice of state it needs via its `bind` config or a `useConfig` hook.
     *   This creates a direct, performant, and surgical link between the state and the component that needs it, completely bypassing all intermediate components. It is more akin to a selector in a dedicated state management library, but it's a native, architectural feature of the framework.
 
+### 6. Component Mobility: Portals vs. True Persistence
+
+A critical architectural difference emerges when dealing with moving components around the UI, especially those with internal state (like a playing `<video>` or a complex third-party widget).
+
+*   **React: The Portal "Trick"**
+    *   React uses `ReactDOM.createPortal()` to solve a common CSS layout problem: rendering a component's DOM subtree in a different physical location in the DOM (e.g., a modal at the end of `<body>`). This is a **rendering trick**.
+    *   The component's logical position in the React tree remains the same, but its DOM is "teleported" elsewhere.
+    *   **The Limitation:** If the component that *defines* the portal is unmounted and remounted in a new location, its state is destroyed. The portal's content is completely recreated from scratch. A playing video would jarringly restart.
+
+*   **Neo.mjs: True Mobility by Design**
+    *   This is not a special feature in Neo.mjs; it is a **natural consequence of the architecture**.
+    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the framework to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the framework's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
+    *   The framework recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
+    *   **The Benefit:** The existing DOM node, with all its internal state, is simply unplugged from its old parent and plugged into the new one. A playing video continues to play, uninterrupted. This enables a level of UI fluidity and state preservation that is architecturally impossible in a single-threaded, ephemeral component model.
+
 ### Other Considerations:
 
 *   **Development & Deployment Environments:** Neo.mjs offers four distinct environments, providing unparalleled flexibility:

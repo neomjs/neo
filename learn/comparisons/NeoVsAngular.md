@@ -66,6 +66,21 @@ This is where the two frameworks diverge significantly, each offering unique tra
     *   **Benefit:** This offers unparalleled speed and debugging clarity. Code changes are reflected instantly. Developers work directly with the real code in the browser's dev tools, eliminating the need for source maps and vastly simplifying debugging.
     *   While Neo.mjs provides a robust architecture, it offers significant flexibility within that structure (e.g., plain JS for VDOM, choice of functional or class components), allowing developers more freedom without sacrificing consistency.
 
+### 5. Component Mobility: Portals vs. True Persistence
+
+A critical architectural difference emerges when dealing with moving components around the UI, especially those with internal state (like a playing `<video>` or a complex third-party widget).
+
+*   **Angular: The CDK Portal**
+    *   Angular uses its Component Dev Kit (CDK) `cdkPortal` and `cdkPortalOutlet` to solve a common CSS layout problem: rendering a component's DOM subtree in a different physical location in the DOM (e.g., a modal at the end of `<body>`). This is a **rendering trick**.
+    *   The component's logical position in the Angular tree remains the same, but its DOM is "teleported" elsewhere.
+    *   **The Limitation:** If the component that *defines* the portal is destroyed (e.g., via `*ngIf`), its state is destroyed. The portal's content is completely recreated from scratch. A playing video would jarringly restart.
+
+*   **Neo.mjs: True Mobility by Design**
+    *   This is not a special feature in Neo.mjs; it is a **natural consequence of the architecture**.
+    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the framework to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the framework's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
+    *   The framework recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
+    *   **The Benefit:** The existing DOM node, with all its internal state, is simply unplugged from its old parent and plugged into the new one. A playing video continues to play, uninterrupted. This enables a level of UI fluidity and state preservation that is architecturally impossible in a single-threaded model where component identity is tied to its place in the template.
+
 ### Other Considerations:
 
 *   **Framework Rigidity vs. Flexible Structure:** Angular is often perceived as a "straightjacket" due to its highly opinionated and prescriptive nature, dictating specific patterns (e.g., NgModules, decorators, strict DI) that can limit flexibility and make it challenging to deviate from "the Angular way." Neo.mjs, while also a comprehensive framework, offers a different kind of opinionation. Its core architectural choices (worker-based, unified config system, `Neo.core.Base` for any class-based entity) provide a robust structure, but within that structure, it offers significant flexibility (e.g., plain JS for VDOM, choice of functional or class components, integrated features reducing external dependencies), allowing developers more freedom without sacrificing consistency.
