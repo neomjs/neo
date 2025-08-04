@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Aug 04, 2025",
+    "id"          : 68,
+    "image"       : "VdomRevolution.png",
+    "name"        : "The Surgical Update: From JSON Blueprints to Flawless UI",
+    "provider"    : "Medium",
+    "publisher"   : "ITNEXT",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/the-surgical-update-from-json-blueprints-to-flawless-ui-fcba31575f44?source=friends_link&sk=d2084a1ed9d5fc512859320895550080"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Jul 28, 2025",
     "id"          : 67,
     "image"       : "DesigningFunctionalComponents.png",
