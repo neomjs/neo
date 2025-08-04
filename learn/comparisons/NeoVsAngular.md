@@ -77,7 +77,7 @@ A critical architectural difference emerges when dealing with moving components 
 
 *   **Neo.mjs: True Mobility by Design**
     *   This is not a special feature in Neo.mjs; it is a **natural consequence of the architecture**.
-    *   Because component instances are stable and persistent, moving a component is a simple data operation—removing its ID from one container's `items` array and adding it to another's.
+    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the framework to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the framework's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
     *   The framework recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
     *   **The Benefit:** The existing DOM node, with all its internal state, is simply unplugged from its old parent and plugged into the new one. A playing video continues to play, uninterrupted. This enables a level of UI fluidity and state preservation that is architecturally impossible in a single-threaded model where component identity is tied to its place in the template.
 
