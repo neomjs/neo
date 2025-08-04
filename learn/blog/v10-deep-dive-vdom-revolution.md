@@ -1,18 +1,39 @@
 # The Surgical Update: From JSON Blueprints to Flawless UI
 
-**A deep dive into our off-thread rendering engine, which uses asymmetric batching and a secure `DomApiRenderer` to eliminate jank at an architectural level.**
+**A deep dive into our off-thread rendering engine, which uses asymmetric batching and a secure `DomApiRenderer` to
+eliminate jank at an architectural level.**
 
-In a world where some frameworks declare the VDOM "pure overhead," we've made a radical bet: we've doubled down on the VDOM and moved it entirely off the main thread. This isn't a defense of the traditional VDOM; it's a redefinition of its purpose.
+In a world where some frameworks declare the VDOM "pure overhead," we've made a radical bet: we've doubled down on the
+VDOM and moved it entirely off the main thread. This isn't a defense of the traditional VDOM;
+it's a redefinition of its purpose.
 
-The debate between VDOM-based and "VDOM-less" frameworks misses the point. Both are fundamentally limited by the same bottleneck: the single main thread where your application logic, state management, and rendering all compete for resources. The result is inevitable—every complex calculation is a potential source of UI jank, and you're forced to write defensive code (`useMemo`, `useCallback`) just to keep your app afloat.
+The debate between VDOM-based and "VDOM-less" frameworks misses the point. Both are fundamentally limited by the same
+bottleneck: the single main thread where your application logic, state management, and rendering all compete for resources.
+The result is inevitable—every complex calculation is a potential source of UI jank.
 
-Neo.mjs solves this by changing the battlefield. For any true off-main-thread architecture, a VDOM isn't a choice—it's a **necessity**. Since a Web Worker cannot directly access the DOM, it needs a serializable, abstract representation of the UI to send to the main thread. That representation *is* a Virtual DOM. We treat it not as a rendering engine, but as the essential **cross-thread communication protocol**.
+The recent introduction of the React Compiler is a brilliant validation of this very problem. By automating memoization,
+the React team acknowledges that managing performance on the main thread is a major burden. But automated memoization is
+still memoization—an extra layer of overhead added to your application, just hidden by a tool. It’s the most advanced
+solution possible for a single-threaded architecture.
 
-This architectural shift is the real revolution. It forces us to answer fascinating new questions: How do you best communicate UI changes between threads? And, most critically, what is the ideal language for describing a UI when it's being built not by a human, but by a machine? The answer is simple, structured data—a language that AI understands natively. This is the foundation for the next generation of applications.
+Neo.mjs offers a different path. Our architecture is designed to make the cost of updates so low that performance
+memoization becomes unnecessary. We don't automate the tax; we eliminate it.
+
+Neo.mjs solves this by changing the battlefield. For any true off-main-thread architecture, a VDOM isn't a choice—it's a
+**necessity**. Since a Web Worker cannot directly access the DOM, it needs a serializable, abstract representation of
+the UI to send to the main thread. That representation *is* a Virtual DOM. We treat it not as a rendering engine, but
+as the essential **cross-thread communication protocol**.
+
+This architectural shift is the real revolution. It forces us to answer fascinating new questions: How do you best
+communicate UI changes between threads? And, most critically, what is the ideal language for describing a UI when it's
+being built not by a human, but by a machine? The answer is simple, structured data—a language that AI understands natively.
+This is the foundation for the next generation of applications.
 
 This article explores the solutions to those problems, focusing on two key concepts:
-1.  **Three Philosophies of UI Definition:** How Neo.mjs offers multiple layers of abstraction for building UIs, from high-level declarative trees to low-level VDOM blueprints.
-2.  **Asymmetric Rendering:** How using different, specialized strategies for creating new UI vs. updating existing UI leads to a more performant and secure system.
+1.  **Three Philosophies of UI Definition:** How Neo.mjs offers multiple layers of abstraction for building UIs, from
+    high-level declarative trees to low-level VDOM blueprints.
+2.  **Asymmetric Rendering:** How using different, specialized strategies for creating new UI vs. updating existing UI
+    leads to a more performant and secure system.
 
 *(Part 4 of 5 in the v10 blog series. Details at the bottom.)*
 
@@ -60,7 +81,9 @@ abstraction and work directly with **JSON Blueprints**. This is the "native lang
 
 The component's `render()` method returns a structured JSON object that describes the VDOM tree.
 
-We've seen this movie before. In the world of APIs, the verbose, heavyweight, and human-readable XML standard was inevitably supplanted by the lighter, simpler, and more machine-friendly JSON. We believe the same evolution is happening for defining complex UIs. While HTML is the language of the document, structured data is the language of the application.
+We've seen this movie before. In the world of APIs, the verbose, heavyweight, and human-readable XML standard was
+inevitably supplanted by the lighter, simpler, and more machine-friendly JSON. We believe the same evolution is happening
+for defining complex UIs. While HTML is the language of the document, structured data is the language of the application.
 
 This approach has profound advantages:
 
@@ -129,9 +152,35 @@ Whenever a new piece of UI needs to be created, the VDOM worker sends an `insert
 initial page load. It applies any time you dynamically add a new component to a container or, in a capability that
 showcases the power of the multi-threaded architecture, move an entire component tree into a **new browser window**.
 
-For all these creation tasks, our pipeline uses the `DomApiRenderer`. This renderer is not only fast but also
-**secure by default**. It never parses HTML strings, instead building the DOM programmatically with safe APIs like
-`document.createElement()` and `element.textContent`. This completely eradicates the risk of XSS attacks that plague `innerHTML`-based rendering. It provides a crucial safety net for UIs where an LLM might generate content or even structure. This zero-trust approach to rendering means that even if a malicious or malformed string were to be injected into a component's data, it is physically incapable of being executed as code in the browser.
+For all these creation tasks, our pipeline uses the [`DomApiRenderer`](../../src/main/render/DomApiRenderer.mjs).
+This renderer is not only fast but also **secure by default**. It never parses HTML strings, instead building the DOM
+programmatically. This completely eradicates the risk of XSS attacks that plague `innerHTML`-based rendering. It provides
+a crucial safety net for UIs where an LLM might generate content or even structure. This zero-trust approach to rendering
+means that even if a malicious or malformed string were to be injected into a component's data, it is physically incapable
+of being executed as code in the browser.
+
+The renderer builds the entire new UI tree on a `DocumentFragment` that is detached from the live DOM, preventing layout
+thrashing. Only when the entire structure is complete is it appended to the document in a single, efficient operation.
+
+```javascript
+// A simplified look at the DomApiRenderer's core logic
+// Note: This runs on the Main Thread
+const createFragment = (vnode) => {
+    const fragment = document.createDocumentFragment();
+
+    // Recursively build the entire tree off-screen
+    vnode.childNodes?.forEach(child => {
+        const el = document.createElement(child.tag);
+        // ... logic for setting attributes, styles, etc.
+        fragment.appendChild(el);
+    });
+
+    return fragment;
+};
+
+// Later, in a single operation:
+parentElement.appendChild(createFragment(vnode));
+```
 
 Enabling this superior rendering engine is as simple as setting a flag in your project's configuration:
 
@@ -143,8 +192,9 @@ Enabling this superior rendering engine is as simple as setting a flag in your p
 ```
 
 But its real genius lies in how it handles complex insertions. The `insertNode` delta does not contain a VNode for the
-*entire* new fragment. Instead, the VDOM worker's `DomApiVnodeCreator` utility generates a **pruned VNode tree**. This
-tree intelligently omits any nodes that are simply being *moved* into the new fragment.
+*entire* new fragment. Instead, the VDOM worker's [`DomApiVnodeCreator`](../../src/vdom/util/DomApiVnodeCreator.mjs)
+utility generates a **pruned VNode tree**.
+This tree intelligently omits any nodes that are simply being *moved* into the new fragment.
 
 This means the renderer only creates DOM elements for truly new nodes. Existing nodes are handled by separate,
 efficient `moveNode` deltas. It's a powerful optimization that prevents the renderer from wastefully creating DOM that
@@ -183,19 +233,92 @@ This is the exact challenge that **v10's Asymmetric Blueprints** were designed t
 sophisticated **pre-processing and negotiation phase** that happens entirely within the App Worker, *before* anything
 is sent to the VDOM worker.
 
-Here's how it works:
-1.  **Negotiation:** When the button needs to update, it doesn't immediately send a request. Instead, its `VdomLifecycle`
-    mixin looks up the component tree and asks, "Is my parent (the toolbar) already planning an update?"
-2.  **Aggregation:** If the toolbar is indeed about to update, the button merges its request into the toolbar's. The
-    `VDomUpdate` manager acts as the central coordinator, tracking these merged requests. This single step dramatically
-    reduces the number of expensive cross-worker messages.
-3.  **Asymmetric Build:** The toolbar, now responsible for its own changes *and* the button's, calls the `TreeBuilder`
-    utility. The `TreeBuilder` constructs a highly specific blueprint: it includes the full VDOM for the toolbar itself,
-    the full VDOM for the *one* button that merged its update, and lightweight `{neoIgnore: true}` placeholders for the
-    other nine buttons.
+Here's how it works, with a more realistic example. Imagine a dashboard container with four cards. A user action causes
+the container's background to change, and simultaneously, the content of the second and fourth cards needs to update.
 
-The VDOM worker receives this pre-optimized, asymmetric blueprint. When it sees a `neo-ignore` node, it completely
-skips diffing that entire branch of the UI.
+**1. Negotiation & Aggregation:**
+The `VDomUpdate` manager is notified of three separate changes: one for the container and one for each of the two cards.
+Instead of sending three separate update requests across the worker boundary (which would be inefficient), it aggregates
+them. It initiates a single update on the top-most component in the hierarchy (the container) and passes the IDs of the
+other changed components (`card-2`, `card-4`) into the `TreeBuilder` via the `mergedChildIds` parameter.
+
+**2. The Asymmetric Build:**
+The [`TreeBuilder`](../../src/util/vdom/TreeBuilder.mjs) is called on the container. It knows it needs to generate the
+container's own VDOM, but instead of expanding all children, it follows a simple rule: "Expand only the children whose
+IDs are in the `mergedChildIds` set. For all others, create a lightweight placeholder."
+
+Here is the power of this approach in action.
+
+**Before: The Container's Own VDOM Blueprint**
+This is the simple structure the container holds before the update. It just references its children.
+```javascript
+// The container's vdom property just lists its children
+{
+    id: 'dashboard-container-1',
+    tag: 'div',
+    cn: [
+        { componentId: 'card-1' },
+        { componentId: 'card-2' },
+        { componentId: 'card-3' },
+        { componentId: 'card-4' }
+    ]
+}
+```
+
+**After: The Optimized Blueprint Sent to the VDOM Worker**
+The `TreeBuilder` produces a highly specific, asymmetric blueprint. It's a mix of detailed VDOM for the changed items
+and placeholders for the unchanged ones.
+
+```javascript
+// The TreeBuilder intelligently expands only what's necessary
+{
+    id: 'dashboard-container-1',
+    tag: 'div',
+    style: { background: '#f0f0f0' }, // The container's own change
+    cn: [
+        // Card 1 is untouched, so it becomes a placeholder
+        { componentId: 'card-1', neoIgnore: true },
+
+        // Card 2 changed, so its full VDOM is included
+        {
+            id: 'card-2',
+            tag: 'section',
+            cn: [
+                { tag: 'h2',   html: 'Card 2 Header' },
+                { tag: 'p',    html: 'This is the NEW updated content.' }
+            ]
+        },
+
+        // Card 3 is untouched
+        { componentId: 'card-3', neoIgnore: true },
+
+        // Card 4 also changed
+        {
+            id: 'card-4',
+            tag: 'section',
+            cn: [
+                { tag: 'h2',   html: 'Card 4 Header' },
+                { tag: 'p',    html: 'Another card with new text.' }
+            ]
+        }
+    ]
+}
+```
+
+**The Result: A Revolution in Efficiency and Correctness**
+
+The VDOM worker receives this pre-optimized blueprint. When it sees a node with `neoIgnore: true`, it **completely skips
+diffing that entire branch of the UI**, saving significant computation time.
+
+But the placeholders serve a second, equally critical purpose: **they preserve the structural integrity of the child
+list**. By keeping the original order and count of siblings intact, they ensure the diffing engine can correctly
+calculate where to insert a new node or move an existing one. Without them, the engine would see a list of two items
+instead of four and incorrectly create deltas to delete the other two cards. The placeholders allow the engine to
+distinguish between a simple update and a structural change, producing a minimal and—most importantly—*accurate* set of
+deltas to send to the main thread.
+
+This is the essence of the Asymmetric VDOM. It's not just about batching updates; it's about creating the smartest,
+most minimal blueprint possible *before* the expensive diffing process even begins.
 
 #### Inside the VDOM Worker: The Diffing Engine
 Once the optimized blueprint arrives at the VDOM worker, the second half of the revolution begins. Here, the plain JSON
@@ -221,11 +344,16 @@ The VDOM Revolution in Neo.mjs isn't just a performance enhancement; it's a para
 what's possible on the web.
 
 By combining the declarative power of **JSON Blueprints** with the intelligent efficiency of **Asymmetric Rendering**,
-we've created an architecture that delivers on the promise of a truly non-blocking UI. For you, the developer, this means you can finally build applications that are:
+we've created an architecture that delivers on the promise of a truly non-blocking UI. For you, the developer,
+this means you can finally build applications that are:
 
--   **Fast by Default:** Blazing-fast initial renders and surgically precise updates keep the UI fluid at all times, without you having to think about it.
--   **Intelligent & Unrestricted:** The multi-threaded design allows for intensive AI logic, complex calculations, or heavy data processing to run in the background without ever freezing the user experience.
--   **Future-Proof & AI-Native:** An engine where AI is not an afterthought, but a first-class citizen. It provides the perfect, secure, and efficient foundation for building applications *with* AI, where LLMs can generate, manipulate, and render complex UIs by speaking their native language: structured data.
+-   **Fast by Default:** Blazing-fast initial renders and surgically precise updates keep the UI fluid at all times,
+    without you having to think about it.
+-   **Intelligent & Unrestricted:** The multi-threaded design allows for intensive AI logic, complex calculations,
+    or heavy data processing to run in the background without ever freezing the user experience.
+-   **Future-Proof & AI-Native:** An engine where AI is not an afterthought, but a first-class citizen.
+    It provides the perfect, secure, and efficient foundation for building applications *with* AI, where LLMs can generate,
+    manipulate, and render complex UIs by speaking their native language: structured data.
 
 This is what it means to build a framework not just for the web of today, but for the applications of tomorrow.
 
