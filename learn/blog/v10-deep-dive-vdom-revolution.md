@@ -159,11 +159,7 @@ initial page load. It applies any time you dynamically add a new component to a 
 showcases the power of the multi-threaded architecture, move an entire component tree into a **new browser window**.
 
 For all these creation tasks, our pipeline uses the [DomApiRenderer](../../src/main/render/DomApiRenderer.mjs).
-This renderer is not only fast but also **secure by default**. It never parses HTML strings, instead building the DOM
-programmatically. This completely eradicates the risk of XSS attacks that plague `innerHTML`-based rendering. It provides
-a crucial safety net for UIs where an LLM might generate content or even structure. This zero-trust approach to rendering
-means that even if a malicious or malformed string were to be injected into a component's data, it is physically incapable
-of being executed as code in the browser.
+This renderer is not only fast but also **secure by default**. It achieves this by treating all content as plain text unless explicitly told otherwise. When processing a VDOM blueprint, it uses the safe `node.textContent` property for any `text` configs. This simple default required a framework-wide effort to ensure our entire component library uses `text` instead of `html`, fundamentally eliminating the risk of XSS attacks that plague `innerHTML`-based rendering. While developers can still use the `html` property at their own risk for trusted content, the framework's secure-by-default posture provides a crucial safety net, especially for UIs where an LLM might generate content or even structure. This zero-trust approach to rendering means that even if a malicious or malformed string were to be injected into a component's data, it is physically incapable of being executed as code in the browser.
 
 The renderer builds the entire new UI tree on a `DocumentFragment` that is detached from the live DOM, preventing layout
 thrashing. Only when the entire structure is complete is it appended to the document in a single, efficient operation.
@@ -298,8 +294,8 @@ and placeholders for the unchanged ones.
             id: 'card-2',
             tag: 'section',
             cn: [
-                { tag: 'h2', html: 'Card 2 Header' },
-                { tag: 'p',  html: 'This is the NEW updated content.' }
+                { tag: 'h2', text: 'Card 2 Header' },
+                { tag: 'p',  text: 'This is the NEW updated content.' }
             ]
         },
 
@@ -311,8 +307,8 @@ and placeholders for the unchanged ones.
             id: 'card-4',
             tag: 'section',
             cn: [
-                { tag: 'h2', html: 'Card 4 Header' },
-                { tag: 'p',  html: 'Another card with new text.' }
+                { tag: 'h2', text: 'Card 4 Header' },
+                { tag: 'p',  text: 'Another card with new text.' }
             ]
         }
     ]
