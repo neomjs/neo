@@ -188,7 +188,8 @@ const createFragment = (vnode) => {
 parentElement.appendChild(createFragment(vnode));
 ```
 
-Enabling this superior rendering engine is as simple as setting a flag in your project's configuration:
+Enabling this superior rendering engine is as simple as setting a flag in your project's configuration
+(Default value in v10):
 
 ```json
 {
