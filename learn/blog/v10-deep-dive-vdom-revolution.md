@@ -158,7 +158,7 @@ Whenever a new piece of UI needs to be created, the VDOM worker sends an `insert
 initial page load. It applies any time you dynamically add a new component to a container or, in a capability that
 showcases the power of the multi-threaded architecture, move an entire component tree into a **new browser window**.
 
-For all these creation tasks, our pipeline uses the [`DomApiRenderer`](../../src/main/render/DomApiRenderer.mjs).
+For all these creation tasks, our pipeline uses the [DomApiRenderer](../../src/main/render/DomApiRenderer.mjs).
 This renderer is not only fast but also **secure by default**. It never parses HTML strings, instead building the DOM
 programmatically. This completely eradicates the risk of XSS attacks that plague `innerHTML`-based rendering. It provides
 a crucial safety net for UIs where an LLM might generate content or even structure. This zero-trust approach to rendering
@@ -206,7 +206,7 @@ part of the UI would destroy the old DOM node and create a new one, causing the 
 beginning. This is because the rendering engine only knows how to create new things, not how to relocate existing ones.
 
 Neo.mjs avoids this entirely. Our architecture understands that the component instance is a persistent entity. When you
-move it, the [`DomApiVnodeCreator`](../../src/vdom/util/DomApiVnodeCreator.mjs) sees that the video component's DOM
+move it, the [DomApiVnodeCreator](../../src/vdom/util/DomApiVnodeCreator.mjs) sees that the video component's DOM
 already exists. Instead of generating a VDOM blueprint to recreate it, it **prunes that entire branch** from the
 `insertNode` delta. The VDOM worker then issues a separate, highly efficient `moveNode` delta.
 
@@ -257,7 +257,7 @@ them. It initiates a single update on the top-most component in the hierarchy (t
 other changed components (`card-2`, `card-4`) into the `TreeBuilder` via the `mergedChildIds` parameter.
 
 **2. The Asymmetric Build:**
-The [`TreeBuilder`](../../src/util/vdom/TreeBuilder.mjs) is called on the container. It knows it needs to generate the
+The [TreeBuilder](../../src/util/vdom/TreeBuilder.mjs) is called on the container. It knows it needs to generate the
 container's own VDOM, but instead of expanding all children, it follows a simple rule: "Expand only the children whose
 IDs are in the `mergedChildIds` set. For all others, create a lightweight placeholder."
 
