@@ -10,8 +10,7 @@ built by a machine, for a machine?
 
 This article explores the solutions to those problems, focusing on two key concepts:
 1.  **JSON Blueprints:** Why using structured data is a more powerful way to define complex UIs than traditional HTML.
-2.  **Asymmetric Rendering:** How using different, specialized strategies for creating new UI vs. updating existing UI
-3. leads to a more performant and secure system.
+2.  **Asymmetric Rendering:** How using different, specialized strategies for creating new UI vs. updating existing UI leads to a more performant and secure system.
 
 *(Part 4 of 5 in the v10 blog series. Details at the bottom.)*
 
@@ -50,7 +49,39 @@ the vision of scaffolding entire applications this way.
 
 `[Screenshot of the Neo Studio UI, showcasing a generated component from a prompt]`
 
-JSON blueprints are the language. Now let's look at the engine that translates them into a live application.
+JSON blueprints are the language. But what about the developer experience? While JSON is the perfect target for an AI,
+developers are often most comfortable with an HTML-like syntax.
+
+This is why the recent v10.3.0 release introduces the best of both worlds.
+
+### The Best of Both Worlds: Developer-Friendly HTML Templates
+
+While JSON is the framework's native tongue, we recognize the universal fluency of HTML. To that end, we've introduced an
+intuitive, HTML-like syntax for defining component VDOMs, built directly on standard JavaScript Tagged Template Literals.
+
+```javascript
+// Inside a component's render() method:
+return html`
+    <div class="my-container">
+        <p>${this.myText}</p>
+        <${Button} text="Click Me" handler="${this.onButtonClick}" />
+    </div>
+`;
+```
+
+Crucially, this is **not JSX**. It's a feature built on our core principle of a **zero-builds development experience**.
+Your code runs directly in the browser without a mandatory build step.
+
+To achieve this without sacrificing performance, we use a dual-mode architecture:
+1.  **Development:** Templates are parsed live in the browser by the lightweight `parse5` library.
+2.  **Production:** A build-time process transforms the templates directly into the same optimized JSON VDOM blueprints
+    discussed above. The parser is completely removed, resulting in zero runtime overhead.
+
+This gives developers a choice: use the raw power of JSON blueprints when generating UIs with AI or other tools, or use
+the familiar comfort of HTML templates for hand-crafting components, all while the same powerful, asymmetric rendering
+engine works its magic under the hood.
+
+Now let's look at that engine.
 
 ---
 
