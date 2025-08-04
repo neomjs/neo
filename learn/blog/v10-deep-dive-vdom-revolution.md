@@ -150,6 +150,7 @@ the DOM in the Main Thread.
 
 On the Main Thread, the `Neo.main.DeltaUpdates` manager acts as a central orchestrator. It receives a stream of commands
 from the VDOM worker and uses the right tool for every job.
+Deltas are pushed into `requestAnimationFrame()`.
 
 #### For Creating New DOM: The `DomApiRenderer`
 
