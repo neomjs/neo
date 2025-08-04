@@ -36,10 +36,11 @@ export default defineComponent({
 
         // This event listener is for the main container to toggle the active state
         useEvent('click', (event) => {
+            console.log(event.component);
             // Stop the event from bubbling up to avoid toggling the active state
             // when the button is clicked. The button has its own handler.
             if (event.target.id === 'details-button') {
-                event.stopPropagation()
+                return false
             } else {
                 setIsActive(prev => !prev)
             }
