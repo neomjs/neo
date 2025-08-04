@@ -193,14 +193,21 @@ Enabling this superior rendering engine is as simple as setting a flag in your p
 }
 ```
 
-But its real genius lies in how it handles complex insertions. The `insertNode` delta does not contain a VNode for the
-*entire* new fragment. Instead, the VDOM worker's [`DomApiVnodeCreator`](../../src/vdom/util/DomApiVnodeCreator.mjs)
-utility generates a **pruned VNode tree**.
-This tree intelligently omits any nodes that are simply being *moved* into the new fragment.
+But its real genius lies in how it handles complex insertions. This isn't just about performance; it's about **preserving
+the state of live DOM nodes**.
 
-This means the renderer only creates DOM elements for truly new nodes. Existing nodes are handled by separate,
-efficient `moveNode` deltas. It's a powerful optimization that prevents the renderer from wastefully creating DOM that
-already exists elsewhere on the page.
+Consider a `<video>` element that is currently playing. In many frameworks, moving that video component to a different
+part of the UI would destroy the old DOM node and create a new one, causing the video to jarringly restart from the
+beginning. This is because the rendering engine only knows how to create new things, not how to relocate existing ones.
+
+Neo.mjs avoids this entirely. Our architecture understands that the component instance is a persistent entity. When you
+move it, the [`DomApiVnodeCreator`](../../src/vdom/util/DomApiVnodeCreator.mjs) sees that the video component's DOM
+already exists. Instead of generating a VDOM blueprint to recreate it, it **prunes that entire branch** from the
+`insertNode` delta. The VDOM worker then issues a separate, highly efficient `moveNode` delta.
+
+The result on the main thread is a single, clean DOM operation: the existing `<video>` element is simply moved to its
+new location, **continuing to play without interruption**. This is the power of the pruned graph: it's an optimization
+that not only boosts performance but preserves the integrity and state of your UI.
 
 #### For Modifying Existing DOM: Surgical Updates
 
