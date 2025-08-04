@@ -58,6 +58,9 @@ abstraction and work directly with **JSON Blueprints**. This is the "native lang
 
 The component's `render()` method returns a structured JSON object that describes the VDOM tree.
 
+We've seen this movie before. In the world of APIs, the verbose, heavyweight XML standard was supplanted by the lighter,
+simpler, and more machine-friendly JSON. We believe the same evolution is inevitable for defining complex UIs.
+
 This approach has profound advantages:
 
 *   **Extreme Data Efficiency:** A JSON blueprint is drastically smaller than its equivalent rendered HTML.
@@ -139,6 +142,14 @@ Enabling this superior rendering engine is as simple as setting a flag in your p
 }
 ```
 
+But its real genius lies in how it handles complex insertions. The `insertNode` delta does not contain a VNode for the
+*entire* new fragment. Instead, the VDOM worker's `DomApiVnodeCreator` utility generates a **pruned VNode tree**. This
+tree intelligently omits any nodes that are simply being *moved* into the new fragment.
+
+This means the renderer only creates DOM elements for truly new nodes. Existing nodes are handled by separate,
+efficient `moveNode` deltas. It's a powerful optimization that prevents the renderer from wastefully creating DOM that
+already exists elsewhere on the page.
+
 #### For Modifying Existing DOM: Surgical Updates
 
 When you change a property on an existing component—like its text, style, or attributes—the VDOM worker sends different
@@ -185,6 +196,17 @@ Here's how it works:
 
 The VDOM worker receives this pre-optimized, asymmetric blueprint. When it sees a `neo-ignore` node, it completely
 skips diffing that entire branch of the UI.
+
+#### Inside the VDOM Worker: The Diffing Engine
+Once the optimized blueprint arrives at the VDOM worker, the second half of the revolution begins. Here, the plain JSON
+blueprint is inflated into a tree of `VNode` instances. This is a key architectural point: the `VNode` is a very
+lightweight wrapper class that exists *only* inside the VDOM worker. It performs no complex logic, but normalizes the
+raw JSON blueprint, ensuring every node has a consistent structure (e.g., an `id` and a `childNodes` array) for the
+diffing engine to process reliably.
+
+The `vdom.Helper` singleton then acts as the core diffing engine. It compares the new `VNode` tree to the previous one
+and, instead of generating HTML, produces an array of **deltas**—highly specific, low-level instructions for the main
+thread to execute.
 
 It’s the ultimate optimization: instead of sending the entire blueprint for a skyscraper just to fix a window,
 we now send the floor plan for the lobby *and* the specific blueprint for that one window on the 50th floor,
