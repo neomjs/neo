@@ -66,7 +66,7 @@ class MyComponent extends Container {
             items : [{module: Button, text: 'Button 1'}]
         }, {
             ntype: 'component',
-            html : 'Content Area'
+            text : 'Content Area'
         }]
     }
 }
@@ -75,6 +75,9 @@ class MyComponent extends Container {
 With this method, you are not thinking about HTML, divs, or even the VDOM. You are describing your application in terms
 of its logical components and their relationships. This is the classic approach for building robust, enterprise-scale
 applications where separation of concerns and maintainability are paramount.
+
+From a Micro-Frontends perspective: The **named** configs here are the contract (API) available from the outside.
+Any run-time value change is reactive and will update the UI.
 
 ### 2. The Functional Way: Direct VDOM Control with JSON Blueprints
 
