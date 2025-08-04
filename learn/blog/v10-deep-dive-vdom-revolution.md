@@ -22,7 +22,9 @@ memoization becomes unnecessary. We don't automate the tax; we eliminate it.
 Neo.mjs solves this by changing the battlefield. For any true off-main-thread architecture, a VDOM isn't a choice—it's a
 **necessity**. Since a Web Worker cannot directly access the DOM, it needs a serializable, abstract representation of
 the UI to send to the main thread. That representation *is* a Virtual DOM. We treat it not as a rendering engine, but
-as the essential **cross-thread communication protocol**.
+as the essential **cross-thread communication protocol**. This same protocol is the foundation for true multi-window
+applications, allowing a single App Worker to seamlessly synchronize the UI across multiple browser windows—a feat
+impossible for single-threaded frameworks.
 
 This architectural shift is the real revolution. It forces us to answer fascinating new questions: How do you best
 communicate UI changes between threads? And, most critically, what is the ideal language for describing a UI when it's
@@ -284,8 +286,8 @@ and placeholders for the unchanged ones.
             id: 'card-2',
             tag: 'section',
             cn: [
-                { tag: 'h2',   html: 'Card 2 Header' },
-                { tag: 'p',    html: 'This is the NEW updated content.' }
+                { tag: 'h2', html: 'Card 2 Header' },
+                { tag: 'p',  html: 'This is the NEW updated content.' }
             ]
         },
 
@@ -297,8 +299,8 @@ and placeholders for the unchanged ones.
             id: 'card-4',
             tag: 'section',
             cn: [
-                { tag: 'h2',   html: 'Card 4 Header' },
-                { tag: 'p',    html: 'Another card with new text.' }
+                { tag: 'h2', html: 'Card 4 Header' },
+                { tag: 'p',  html: 'Another card with new text.' }
             ]
         }
     ]
