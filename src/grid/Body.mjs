@@ -958,40 +958,42 @@ class GridBody extends Component {
      * @param {Object}         data.record
      */
     onStoreRecordChange({fields, record}) {
-        let me               = this,
-            fieldNames       = fields.map(field => field.name),
-            needsUpdate      = false,
-            rowIndex         = me.store.indexOf(record),
-            {selectionModel} = me,
+        let me                            = this,
+            fieldNames                    = fields.map(field => field.name),
+            needsUpdate                   = false,
+            rowIndex                      = me.store.indexOf(record),
+            {mountedRows, selectionModel} = me,
             column, needsCellUpdate, recordId;
 
         if (fieldNames.includes(me.colspanField)) {
             me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
             me.update()
         } else {
-            for (column of me.parent.columns.items) {
-                if (
-                    column instanceof Neo.grid.column.Component &&
-                    Neo.typeOf(column.component === 'Function') &&
-                    !fieldNames.includes(column.dataField)
-                ) {
-                    needsCellUpdate = me.updateCellNode(record, column.dataField);
-                    needsUpdate     = needsUpdate || needsCellUpdate
-                }
-            }
-
-            fields.forEach(field => {
-                if (field.name === me.selectedRecordField) {
-                    if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                        recordId = record[me.store.getKeyProperty()];
-
-                        selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
+            if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
+                for (column of me.parent.columns.items) {
+                    if (
+                        column instanceof Neo.grid.column.Component &&
+                        Neo.typeOf(column.component === 'Function') &&
+                        !fieldNames.includes(column.dataField)
+                    ) {
+                        needsCellUpdate = me.updateCellNode(record, column.dataField);
+                        needsUpdate     = needsUpdate || needsCellUpdate
                     }
-                } else {
-                    needsCellUpdate = me.updateCellNode(record, field.name);
-                    needsUpdate     = needsUpdate || needsCellUpdate
                 }
-            })
+
+                fields.forEach(field => {
+                    if (field.name === me.selectedRecordField) {
+                        if (selectionModel.ntype === 'selection-grid-rowmodel') {
+                            recordId = record[me.store.getKeyProperty()];
+
+                            selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
+                        }
+                    } else {
+                        needsCellUpdate = me.updateCellNode(record, field.name);
+                        needsUpdate     = needsUpdate || needsCellUpdate
+                    }
+                })
+            }
         }
 
         needsUpdate && me.update()
