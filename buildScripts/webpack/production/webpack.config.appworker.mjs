@@ -133,7 +133,7 @@ export default async function(env) {
         await createStartingPoint(key.substr(1), 'apps');
     }
 
-    if (fs.existsSync(path.join(cwd, 'docs'))) {
+    if (fs.existsSync(path.join(cwd, 'docs/app'))) {
         await createStartingPoint('Docs', '');
     }
 
