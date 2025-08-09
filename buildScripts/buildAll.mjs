@@ -150,7 +150,7 @@ if (programOpts.info) {
             }
         }
 
-        if (parsedocs === 'yes') {
+        if (parsedocs === 'yes' && fs.existsSync(path.join(cwd, 'docs/app'))) {
             childProcess = spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }

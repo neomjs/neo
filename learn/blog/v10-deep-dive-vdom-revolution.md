@@ -84,7 +84,7 @@ Any run-time value change is reactive and will update the UI.
 For functional components, or when you need to dynamically generate UI structures, you can drop down a level of
 abstraction and work directly with **JSON Blueprints**. This is the "native language" of the Neo.mjs rendering engine.
 
-The component's `render()` method returns a structured JSON object that describes the VDOM tree.
+The component's `createVdom()` method returns a structured JSON object that describes the VDOM tree.
 
 We've seen this movie before. In the world of APIs, the verbose, heavyweight, and human-readable XML standard was
 inevitably supplanted by the lighter, simpler, and more machine-friendly JSON. We believe the same evolution is happening
