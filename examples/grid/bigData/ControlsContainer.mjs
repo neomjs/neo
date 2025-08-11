@@ -264,9 +264,7 @@ class ControlsContainer extends Container {
             filter: me.updateRowsLabel,
             load  : me.updateRowsLabel,
             scope : me
-        });
-
-        store.getCount() > 0 && me.updateRowsLabel()
+        })
     }
 
     /**
