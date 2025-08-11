@@ -1241,7 +1241,16 @@ class Collection extends Base {
                     // Performance improvement for Safari, see: https://github.com/neomjs/neo/issues/6228
                     me._items = addedItems
                 } else {
-                    items.splice(Neo.isNumber(index) ? index : items.length, 0, ...addedItems)
+                    const finalIndex = Neo.isNumber(index) ? index : items.length;
+
+                    if (addedItems.length > 5000) {
+                        // Manually splice for large arrays to avoid a stack overflow
+                        const beginning = items.slice(0, finalIndex);
+                        const end       = items.slice(finalIndex);
+                        me._items       = beginning.concat(addedItems, end);
+                    } else {
+                        items.splice(finalIndex, 0, ...addedItems)
+                    }
                 }
 
                 if (me.autoSort && me._sorters.length > 0) {
