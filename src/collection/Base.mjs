@@ -1214,10 +1214,19 @@ class Collection extends Base {
                 }
             }
         } else if (removeCountAtIndex && removeCountAtIndex > 0) {
-            removedItems.push(...items.splice(index, removeCountAtIndex));
-            removedItems.forEach(e => {
-                map.delete(e[keyProperty])
-            })
+            // Optimization: If this is a full clear operation, use map.clear()
+            if (index === 0 && removeCountAtIndex === me.count) {
+                removedItems = items;
+                me._items = [];
+                map.clear()
+            } else {
+                removedItems = items.splice(index, removeCountAtIndex);
+
+                // For partial removals, iterate and delete individual items from the map
+                removedItems.forEach(e => {
+                    map.delete(e[keyProperty])
+                })
+            }
         }
 
         if (toAddArray && (len = toAddArray.length) > 0) {
