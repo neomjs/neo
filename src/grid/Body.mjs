@@ -938,6 +938,31 @@ class GridBody extends Component {
     onStoreLoad(data) {
         let me = this;
 
+        /*
+         * Fast path to handle clearing all rows (e.g., store.removeAll()).
+         * A full vdom diff against all existing rows is a performance bottleneck.
+         * This logic bypasses the standard update() cycle by directly clearing the vdom,
+         * vnode cache and the real DOM via textContent.
+         */
+        if (data?.length < 1) {
+            const vdomRoot = me.getVdomRoot();
+
+            // No change, opt out
+            if (vdomRoot.cn.length < 1) {
+                return
+            }
+
+            vdomRoot.cn = [];
+            me.getVnodeRoot().childNodes = [];
+
+            Neo.applyDeltas(me.appName, {
+                id         : vdomRoot.id,
+                textContent: ''
+            });
+
+            return
+        }
+
         me.createViewData();
 
         if (me.mounted) {

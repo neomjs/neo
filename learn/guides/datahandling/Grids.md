@@ -53,7 +53,7 @@ MainView = Neo.setupClass(MainView);
 
 In this example, we create a simple grid with two columns. The `dataField` in each column configuration maps to a
 field in the store's model. You can further customize the grid's behavior and appearance
-by providing `bodyConfig` and `headerToolbarConfig`.
+by providing `body` and `headerToolbarConfig`.
 
 ## Integrating with Stores
 
@@ -556,11 +556,11 @@ const myGrid = Neo.create(GridContainer, {
 
 ### Animated Row Sorting
 
-To animate row sorting, set the `animatedRowSorting` config to `true` on the `Neo.grid.Body` (via `bodyConfig`).
+To animate row sorting, set the `animatedRowSorting` config to `true` on the `Neo.grid.Body` (via `body`).
 
 ```javascript readonly
 const myGrid = Neo.create(GridContainer, {
-    bodyConfig: {
+    body: {
         animatedRowSorting: true
     },
     // ...
@@ -569,7 +569,7 @@ const myGrid = Neo.create(GridContainer, {
 
 ## Selection Models
 
-The grid's selection behavior is controlled by a selection model, which you can configure on the `bodyConfig`.
+The grid's selection behavior is controlled by a selection model, which you can configure on the `body`.
 
 Available selection models in `Neo.selection.grid`:
 - `RowModel`: Selects entire rows.
@@ -582,7 +582,7 @@ import {RowModel} from '../../../src/selection/grid/_export.mjs';
 
 const myGrid = Neo.create(GridContainer, {
     // ...
-    bodyConfig: {
+    body: {
         selectionModel: RowModel
     }
 });
@@ -597,12 +597,12 @@ reducing memory consumption and improving rendering speed.
 You### Optimizing Virtual Rendering
 
 You can fine-tune the virtual rendering behavior with the `bufferRowRange` and `bufferColumnRange` configs in the
-`bodyConfig`. These settings define how many extra rows and columns to render outside the visible area to provide a
+`body`. These settings define how many extra rows and columns to render outside the visible area to provide a
 smoother scrolling experience.
 
 ```javascript readonly
 const myGrid = Neo.create(GridContainer, {
-    bodyConfig: {
+    body: {
         bufferRowRange   : 5, // Render 5 extra rows above and below the visible area
         bufferColumnRange: 2  // Render 2 extra columns to the left and right of the visible area
     },

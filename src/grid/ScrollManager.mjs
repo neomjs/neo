@@ -5,6 +5,17 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class ScrollManager extends Base {
+    /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        onBodyScroll     : {type: 'throttle', timer:  16},
+        onBodyScrollEnd  : {type: 'buffer',   timer: 150},
+        onContainerScroll: {type: 'throttle', timer:  16}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.grid.ScrollManager'
@@ -48,11 +59,6 @@ class ScrollManager extends Base {
      */
     lastTouchY = 0
     /**
-     * @member {Number|null}} scrollTimeoutId=null
-     * @protected
-     */
-    scrollTimeoutId = null
-    /**
      * Flag for identifying the ownership of a touchmove operation
      * @member {'body'|'container'|null} touchMoveOwner=null
      * @protected
@@ -92,13 +98,9 @@ class ScrollManager extends Base {
 
         me.scrollTop = scrollTop;
 
-        me.scrollTimeoutId && clearTimeout(me.scrollTimeoutId);
-
-        me.scrollTimeoutId = setTimeout(() => {
-            body.isScrolling = false
-        }, 100);
-
         body.set({isScrolling: true, scrollTop});
+
+        me.onBodyScrollEnd();
 
         if (touches) {
             if (me.touchMoveOwner !== 'container') {
@@ -121,6 +123,13 @@ class ScrollManager extends Base {
     }
 
     /**
+     * @protected
+     */
+    onBodyScrollEnd() {
+        this.gridBody.isScrolling = false
+    }
+
+    /**
      * @param {Object} data
      * @param {Number} data.scrollLeft
      * @param {Object} data.target
@@ -133,6 +142,9 @@ class ScrollManager extends Base {
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
+            body.isScrolling = true;
+            me.onBodyScrollEnd();
+
             me  .scrollLeft = scrollLeft;
             body.scrollLeft = scrollLeft;
 

@@ -1,0 +1,4 @@
+# Neo.mjs v10.3.4 Release Notes
+
+This patch release enhances the build-all script to only copy generated docs output into dist envs, in case the
+docs app does exist (might not be the case inside custom workspaces).

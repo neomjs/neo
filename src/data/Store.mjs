@@ -139,6 +139,31 @@ class Store extends Base {
      * @returns {Number} the collection count
      */
     add(item) {
+        let items = Array.isArray(item) ? item : [item];
+        const threshold = 1000;
+
+        if (items.length > threshold) {
+            const me    = this,
+                  chunk = items.splice(0, threshold);
+
+            // 1. Add the first chunk. This fires 'mutate' -> 'load' and triggers the initial grid render.
+            super.add(me.createRecord(chunk));
+
+            // 2. Suspend events to prevent the next 'add' from firing 'load'.
+            me.suspendEvents = true;
+
+            // 3. Add the rest of the items silently.
+            super.add(me.createRecord(items));
+
+            // 4. Resume events.
+            me.suspendEvents = false;
+
+            // 5. Manually fire a final 'load' event to update the grid's scrollbar.
+            me.fire('load', me.items);
+
+            return me.count
+        }
+
         return super.add(this.createRecord(item))
     }
 
