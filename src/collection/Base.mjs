@@ -120,12 +120,8 @@ class Collection extends Base {
      * @param config
      */
     construct(config) {
-        super.construct(config);
-
         let me           = this,
             symbolConfig = {enumerable: false, writable: true};
-
-        me.items = me.items || [];
 
         Object.defineProperties(me, {
             [countMutations]  : {...symbolConfig, value: false},
@@ -136,6 +132,10 @@ class Collection extends Base {
             [toRemoveArray]   : {...symbolConfig, value: []},
             [updatingIndex]   : {...symbolConfig, value: 0}
         });
+
+        super.construct(config);
+
+        me.items = me.items || [];
 
         if (me.autoSort && me._sorters.length > 0) {
             me.doSort()
@@ -1237,7 +1237,7 @@ class Collection extends Base {
             }
 
             if (addedItems.length > 0) {
-                if (items.length === 0) {
+                if (!items || items.length === 0) {
                     // Performance improvement for Safari, see: https://github.com/neomjs/neo/issues/6228
                     me._items = addedItems
                 } else {
