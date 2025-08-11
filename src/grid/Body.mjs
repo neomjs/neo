@@ -932,7 +932,9 @@ class GridBody extends Component {
     }
 
     /**
-     * @param {Object[]} data
+     * @param {Object}   data
+     * @param {Object[]} data.items
+     * @param {Number}   [data.total]
      * @protected
      */
     onStoreLoad(data) {
@@ -944,7 +946,7 @@ class GridBody extends Component {
          * This logic bypasses the standard update() cycle by directly clearing the vdom,
          * vnode cache and the real DOM via textContent.
          */
-        if (data?.length < 1) {
+        if (data?.items.length < 1) {
             const vdomRoot = me.getVdomRoot();
 
             // No change, opt out
