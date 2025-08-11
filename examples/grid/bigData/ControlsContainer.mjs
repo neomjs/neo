@@ -17,10 +17,10 @@ class ControlsContainer extends Container {
      * @static
      */
     static delayable = {
-        onAmountColumnsChange    : {type: 'buffer', timer: 30},
-        onAmountRowsChange       : {type: 'buffer', timer: 30},
-        onBufferColumnRangeChange: {type: 'buffer', timer: 30},
-        onBufferRowRangeChange   : {type: 'buffer', timer: 30}
+        onAmountColumnsChange    : {type: 'buffer', timer: 15},
+        onAmountRowsChange       : {type: 'buffer', timer: 15},
+        onBufferColumnRangeChange: {type: 'buffer', timer: 15},
+        onBufferRowRangeChange   : {type: 'buffer', timer: 15}
     }
 
     static config = {
@@ -204,7 +204,7 @@ class ControlsContainer extends Container {
      */
     onAmountColumnsChange(data) {
         if (data.oldValue) {
-            this.grid.isLoading = 'Is Loading';
+            //this.grid.isLoading = 'Is Loading';
             this.grid.amountColumns = parseInt(data.value.id)
         }
     }
@@ -214,7 +214,7 @@ class ControlsContainer extends Container {
      */
     onAmountRowsChange(data) {
         if (data.oldValue) {
-            this.grid.isLoading = 'Is Loading';
+            //this.grid.isLoading = 'Is Loading';
             this.grid.store.amountRows = parseInt(data.value.id)
         }
     }

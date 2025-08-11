@@ -163,7 +163,7 @@ class Store extends Base {
             me.suspendEvents = false;
 
             // 5. Manually fire a final 'load' event to update the grid's scrollbar and notify other listeners.
-            me.fire('load', {items: me.items, total: me.chunkingTotal});
+            me.fire('load', {items: me.items, postChunkLoad: true, total: me.chunkingTotal});
 
             delete me.chunkingTotal;
 
