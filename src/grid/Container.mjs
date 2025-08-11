@@ -565,13 +565,16 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @param {Object[]} data
+     * @param {Object}   data
+     * @param {Object[]} data.items
+     * @param {Number}   [data.total]
      * @protected
      */
     onStoreLoad(data) {
-        let me = this;
+        let me         = this,
+            totalCount = data.total ? data.total : this.store.count;
 
-        me.updateRowCount();
+        me.updateRowCount(totalCount);
 
         if (me.store.sorters?.length < 1) {
             me.removeSortingCss()
@@ -664,13 +667,15 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @param {Boolean} silent=false
+     * @param {Number} [count] The total number of rows in the store. Optional, will use store.count if not provided.
+     * @param {Boolean} [silent=false]
      */
-    updateRowCount(silent=false) {
-        let me = this;
+    updateRowCount(count, silent=false) {
+        let me         = this,
+            finalCount = count ? count : me.store.count;
 
-        this.getVdomRoot()['aria-rowcount'] = me.store.getCount() + 2; // 1 based & the header row counts as well
-        !silent && this.update()
+        me.getVdomRoot()['aria-rowcount'] = finalCount + 2;
+        !silent && me.update()
     }
 }
 

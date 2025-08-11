@@ -100,18 +100,19 @@ class VerticalScrollbar extends Component {
                 filter: me.updateScrollHeight,
                 load  : me.updateScrollHeight,
                 scope : me
-            });
-
-            value.getCount() > 0 && me.updateScrollHeight()
+            })
         }
     }
 
     /**
-     *
+     * @param {Object}   data
+     * @param {Object[]} data.items
+     * @param {Number}   [data.total]
+     * @protected
      */
-    updateScrollHeight() {
+    updateScrollHeight(data) {
         let me           = this,
-            countRecords = me.store.getCount(),
+            countRecords = data.total ? data.total : me.store.count,
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {

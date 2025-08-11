@@ -144,9 +144,13 @@ class Store extends Base {
 
         if (items.length > threshold) {
             const me    = this,
+                  total = me.count + items.length,
                   chunk = items.splice(0, threshold);
 
-            // 1. Add the first chunk. This fires 'mutate' -> 'load' and triggers the initial grid render.
+            me.chunkingTotal = total;
+
+            // 1. Add the first chunk. This fires 'mutate' -> 'load' (via onCollectionMutate)
+            //    and triggers the initial grid render. The 'load' event will contain the final total count.
             super.add(me.createRecord(chunk));
 
             // 2. Suspend events to prevent the next 'add' from firing 'load'.
@@ -158,13 +162,15 @@ class Store extends Base {
             // 4. Resume events.
             me.suspendEvents = false;
 
-            // 5. Manually fire a final 'load' event to update the grid's scrollbar.
-            me.fire('load', me.items);
+            // 5. Manually fire a final 'load' event to update the grid's scrollbar and notify other listeners.
+            me.fire('load', {items: me.items, total: me.chunkingTotal});
 
-            return me.count
+            delete me.chunkingTotal;
+
+            return me.count;
         }
 
-        return super.add(this.createRecord(item))
+        return super.add(this.createRecord(item));
     }
 
     /**
@@ -447,7 +453,11 @@ class Store extends Base {
         let me = this;
 
         if (me.isConstructed && !me.isLoading) {
-            me.fire('load', me.items)
+            if (me.chunkingTotal) {
+                me.fire('load', {items: me.items, total: me.chunkingTotal});
+            } else {
+                me.fire('load', {items: me.items});
+            }
         }
     }
 
@@ -478,7 +488,7 @@ class Store extends Base {
         // => break the sync flow to ensure potential listeners got applied
         Promise.resolve().then(() => {
             if (me.isLoaded) {
-                me.fire('load', me.items)
+                me.fire('load', {items: me.items})
             } else if (me.autoLoad) {
                 me.load()
             }
