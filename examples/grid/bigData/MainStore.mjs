@@ -24,6 +24,7 @@ class MainStore extends Store {
         amountRows_: 1000,
         /**
          * @member {Object[]} filters
+         * @reactive
          */
         filters: [{
             property: 'firstname',
@@ -75,7 +76,11 @@ class MainStore extends Store {
 
             console.log('Start creating records');
 
-            me.data = data;
+            if (me.items?.length > 0) {
+                me.clear()
+            }
+
+            me.add(data);
 
             console.log(`Record creation total time: ${Math.round(performance.now() - start)}ms`)
         }
@@ -94,7 +99,11 @@ class MainStore extends Store {
 
         console.log('Start creating records');
 
-        me.data = data;
+        if (me.items?.length > 0) {
+            me.clear()
+        }
+
+        me.add(data);
 
         console.log(`Record creation total time: ${Math.round(performance.now() - start)}ms`)
     }
