@@ -69,14 +69,14 @@ class ControlsContainer extends Container {
                     labelText : 'Amount Rows',
                     labelWidth: 120,
                     listeners : {change: 'up.onAmountRowsChange'},
-                    store     : ['1000', '5000', '10000', '20000', '50000'],
+                    store     : ['1000', '5000', '10000', '20000', '50000', '100000'],
                     value     : '1000',
                     width     : 200
                 }, {
                     labelText : 'Amount Columns',
                     labelWidth: 145,
                     listeners : {change: 'up.onAmountColumnsChange'},
-                    store     : ['10', '25', '50', '75', '100'],
+                    store     : ['10', '25', '50', '75', '100', '200'],
                     value     : '50',
                     width     : 200
                 }, {
@@ -204,7 +204,7 @@ class ControlsContainer extends Container {
      */
     onAmountColumnsChange(data) {
         if (data.oldValue) {
-            //this.grid.isLoading = 'Is Loading';
+            this.grid.isLoading = 'Is Loading';
             this.grid.amountColumns = parseInt(data.value.id)
         }
     }
@@ -214,7 +214,7 @@ class ControlsContainer extends Container {
      */
     onAmountRowsChange(data) {
         if (data.oldValue) {
-            //this.grid.isLoading = 'Is Loading';
+            this.grid.isLoading = 'Is Loading';
             this.grid.store.amountRows = parseInt(data.value.id)
         }
     }

@@ -695,7 +695,7 @@ class ComboBox extends Picker {
     updateInputValueFromValue(value) {
         let inputValue = null;
 
-        if (Neo.isRecord(value)) {
+        if (Neo.isObject(value) || Neo.isRecord(value)) {
             inputValue = value[this.displayField]
         }
 
