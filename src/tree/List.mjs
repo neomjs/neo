@@ -162,7 +162,7 @@ class Tree extends Base {
             hasMatch = false,
             node;
 
-        me.store.items.forEach(item => {
+        me.store.forEach(item => {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
@@ -303,7 +303,7 @@ class Tree extends Base {
             hasMatch = false,
             node;
 
-        me.store.items.forEach(item => {
+        me.store.forEach(item => {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
@@ -337,7 +337,7 @@ class Tree extends Base {
             value = ''
         }
 
-        me.store.items.forEach(item => {
+        me.store.forEach(item => {
             if (item.parentId === parentId) {
                 directMatch = false;
                 node        = me.getVdomChild(me.getItemId(item.id), me.vdom);

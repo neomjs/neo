@@ -163,7 +163,7 @@ class EditUserDialog extends Dialog {
             me.record.set({annotations: {selected: false}})
         } else {
             // Assuming we want to support a single row selection
-            store.items.forEach(record => {
+            store.forEach(record => {
                 record.set({annotations: {
                     selected: record === me.record ? data.value : false
                 }})

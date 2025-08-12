@@ -29,7 +29,9 @@ class TreeAccordionModel extends TreeModel {
             recordId    = record[view.getKeyProperty()],
             childRecord = null;
 
-        for (const item of view.store.items) {
+        for (let i = 0; i < view.store.count; i++) {
+            const item = view.store.getAt(i);
+
             if (item.parentId === recordId) {
                 childRecord = item;
                 break
@@ -66,7 +68,9 @@ class TreeAccordionModel extends TreeModel {
             nextItemRecord = null,
             previousItemRecord;
 
-        for (let item of store.items) {
+        for (let i = 0; i < store.count; i++) {
+            const item = store.getAt(i);
+
             if (hasFoundNext && item.parentId === parentRecordId) {
                 nextItemRecord = item;
                 break
@@ -255,7 +259,9 @@ class TreeAccordionModel extends TreeModel {
             {store} = view,
             record, rootItemId;
 
-        for (record of store.items) {
+        for (let i = 0; i < store.count; i++) {
+            const record = store.getAt(i);
+
             if (!record.parentId) {
                 rootItemId = view.getItemId(record[view.getKeyProperty()]);
                 break

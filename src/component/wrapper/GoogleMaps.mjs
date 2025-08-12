@@ -287,7 +287,7 @@ class GoogleMaps extends Base {
             windowId
         });
 
-        this.markerStore.items.forEach(item => {
+        this.markerStore.forEach(item => {
             Neo.main.addon.GoogleMaps.addMarker({
                 appName,
                 mapId: id,

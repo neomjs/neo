@@ -33,7 +33,7 @@ class PreviewList extends List {
 
         me.vdom.cn = [];
 
-        me.store.items.forEach(item => {
+        me.store.forEach(item => {
             listItem = Neo.create({
                 module  : PreviewComponent,
                 parentId: me.id,

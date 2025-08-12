@@ -45,7 +45,7 @@ class DragZone extends BaseDragZone {
                 {store} = owner,
                 node;
 
-            store.items.forEach(record => {
+            store.forEach(record => {
                 if (!record.isLeaf) {
                     node = owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
                     node.cls = node.cls || [];

@@ -39,7 +39,7 @@ class MainContainer extends Viewport {
                 handler() {
                     let tabContainer = Neo.getComponent('myTableStoreContainer'),
                         store        = tabContainer.store,
-                        record       = store.items[0];
+                        record       = store.getAt(0);
 
                     record.firstname = record.firstname + '<span style="color:red;"> Foo</span>';
                 }
@@ -61,7 +61,7 @@ class MainContainer extends Viewport {
 
                     for (; j < repeats; j++) {
                         for (i=0; i < countRecords; i++) {
-                            record = store.items[i];
+                            record = store.getAt(i);
 
                             Object.entries(record.toJSON()).forEach(([field, value]) => {
                                 if (field !== 'githubId') {

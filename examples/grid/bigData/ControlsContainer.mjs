@@ -17,10 +17,10 @@ class ControlsContainer extends Container {
      * @static
      */
     static delayable = {
-        onAmountColumnsChange    : {type: 'buffer', timer: 30},
-        onAmountRowsChange       : {type: 'buffer', timer: 30},
-        onBufferColumnRangeChange: {type: 'buffer', timer: 30},
-        onBufferRowRangeChange   : {type: 'buffer', timer: 30}
+        onAmountColumnsChange    : {type: 'buffer', timer: 15},
+        onAmountRowsChange       : {type: 'buffer', timer: 15},
+        onBufferColumnRangeChange: {type: 'buffer', timer: 15},
+        onBufferRowRangeChange   : {type: 'buffer', timer: 15}
     }
 
     static config = {
@@ -69,14 +69,14 @@ class ControlsContainer extends Container {
                     labelText : 'Amount Rows',
                     labelWidth: 120,
                     listeners : {change: 'up.onAmountRowsChange'},
-                    store     : ['1000', '5000', '10000', '20000', '50000'],
+                    store     : ['1000', '5000', '10000', '20000', '50000', '100000'],
                     value     : '1000',
                     width     : 200
                 }, {
                     labelText : 'Amount Columns',
                     labelWidth: 145,
                     listeners : {change: 'up.onAmountColumnsChange'},
-                    store     : ['10', '25', '50', '75', '100'],
+                    store     : ['10', '25', '50', '75', '100', '200'],
                     value     : '50',
                     width     : 200
                 }, {

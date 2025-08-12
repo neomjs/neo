@@ -695,7 +695,7 @@ class ComboBox extends Picker {
     updateInputValueFromValue(value) {
         let inputValue = null;
 
-        if (Neo.isRecord(value)) {
+        if (Neo.isObject(value) || Neo.isRecord(value)) {
             inputValue = value[this.displayField]
         }
 
@@ -745,7 +745,15 @@ class ComboBox extends Picker {
         if (me.typeAhead) {
             if (!me.value && value?.length > 0) {
                 const search = value.toLocaleLowerCase();
-                match = store.items.find(r => r[displayField]?.toLowerCase?.()?.startsWith(search));
+                let match = null;
+
+                for (let i = 0; i < store.count; i++) {
+                    const r = store.getAt(i);
+                    if (r[displayField]?.toLowerCase?.()?.startsWith(search)) {
+                        match = r;
+                        break;
+                    }
+                }
 
                 if (match && inputHintEl) {
                     inputHintEl.value = value + match[displayField].substr(value.length);

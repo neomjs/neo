@@ -182,6 +182,17 @@ class GridBody extends Component {
     }
 
     /**
+     * Internal flag to adopt to store.add() passing an initial chunk.
+     * @member {Number} #initialChunkSize=0
+     */
+    #initialChunkSize = 0
+    /**
+     * Internal flag to adopt to store.add() passing an initial chunk.
+     * @member {Number} #initialChunkSize=0
+     */
+    #initialTotalSize = 0
+
+    /**
      * @member {String[]} selectedCells
      */
     get selectedCells() {
@@ -427,6 +438,11 @@ class GridBody extends Component {
 
         oldValue?.un(listeners);
         value   ?.on(listeners);
+
+        // Clear component instances when the store changes or is replaced
+        if (oldValue) {
+            me.clearComponentColumnMaps();
+        }
     }
 
     /**
@@ -581,6 +597,46 @@ class GridBody extends Component {
     }
 
     /**
+     * Destroys all component instances created by component columns.
+     * @protected
+     */
+    clearComponentColumnMaps() {
+        let me      = this,
+            columns = me.parent.columns.items;
+
+        columns.forEach(column => {
+            if (column instanceof Neo.grid.column.Component) {
+                column.map.forEach(component => {
+                    component.destroy()
+                });
+                column.map.clear()
+            }
+        });
+    }
+
+    /**
+     * Cleans up component instances that are no longer visible or needed.
+     * @protected
+     */
+    cleanupComponentInstances() {
+        let me = this;
+
+        me.parent.columns.items.forEach(column => {
+            if (column instanceof Neo.grid.column.Component) {
+                column.map.forEach((component, id) => {
+                    // Extract rowIndex from component ID (e.g., "grid-body-1-component-950")
+                    const componentRowIndex = parseInt(id.split('-').pop());
+
+                    if (componentRowIndex < me.mountedRows[0] || componentRowIndex > me.mountedRows[1]) {
+                        component.destroy();
+                        column.map.delete(id)
+                    }
+                });
+            }
+        });
+    }
+
+    /**
      * @param {Object} opts
      * @param {Object} opts.record
      * @param {Number} [opts.rowIndex]
@@ -618,7 +674,7 @@ class GridBody extends Component {
 
             style: {
                 height   : me.rowHeight + 'px',
-                transform: `translate(0px, ${rowIndex * me.rowHeight}px)`
+                transform: `translate3d(0px, ${rowIndex * me.rowHeight}px, 0px)`
             }
         };
 
@@ -662,7 +718,7 @@ class GridBody extends Component {
         let me                   = this,
             {mountedRows, store} = me,
             rows                 = [],
-            i;
+            endIndex, i, range;
 
         if (
             store.isLoading                   ||
@@ -674,18 +730,24 @@ class GridBody extends Component {
             return
         }
 
-        // Creates the new start & end indexes
-        me.updateMountedAndVisibleRows();
+        if (me.#initialChunkSize > 0) {
+            endIndex = me.#initialChunkSize;
+            range    = endIndex;
+        } else {
+            // Creates the new start & end indexes
+            me.updateMountedAndVisibleRows();
+            endIndex = mountedRows[1]
+        }
 
-        for (i=mountedRows[0]; i < mountedRows[1]; i++) {
-            rows.push(me.createRow({record: store.items[i], rowIndex: i}))
+        for (i=mountedRows[0]; i < endIndex; i++) {
+            rows.push(me.createRow({record: store.getAt(i), rowIndex: i}))
         }
 
         me.getVdomRoot().cn = rows;
 
         me.parent.isLoading = false;
 
-        me.updateScrollHeight(true); // silent
+        me.updateScrollHeight(true, range); // silent
         !silent && me.update()
     }
 
@@ -694,6 +756,7 @@ class GridBody extends Component {
      */
     destroy(...args) {
         this.store = null; // remove the listeners
+        this.clearComponentColumnMaps(); // Destroy component instances
 
         super.destroy(...args)
     }
@@ -862,7 +925,11 @@ class GridBody extends Component {
     getRowId(rowIndex) {
         let me = this;
 
-        return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
+        if (me.#initialChunkSize > 0) {
+            return `${me.id}__row-${rowIndex}`
+        } else {
+            return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
+        }
     }
 
     /**
@@ -934,10 +1001,11 @@ class GridBody extends Component {
     /**
      * @param {Object}   data
      * @param {Object[]} data.items
+     * @param {Boolean}  [data.postChunkLoad]
      * @param {Number}   [data.total]
      * @protected
      */
-    onStoreLoad(data) {
+    onStoreLoad({items, postChunkLoad, total}) {
         let me = this;
 
         /*
@@ -946,7 +1014,7 @@ class GridBody extends Component {
          * This logic bypasses the standard update() cycle by directly clearing the vdom,
          * vnode cache and the real DOM via textContent.
          */
-        if (data?.items.length < 1) {
+        if (items?.length < 1) {
             const vdomRoot = me.getVdomRoot();
 
             // No change, opt out
@@ -965,9 +1033,19 @@ class GridBody extends Component {
             return
         }
 
-        me.createViewData();
+        // If it's the first chunked load (data.total exists and data.items is a subset of total)
+        // Render the entire chunk for immediate scrollability
+        if (total && items.length < total) {
+            me.#initialChunkSize = items.length;
+            me.#initialTotalSize = total;
+            me.createViewData();
+            me.#initialChunkSize = 0
+            me.#initialTotalSize = 0
+        } else {
+            me.createViewData()
+        }
 
-        if (me.mounted) {
+        if (me.mounted && !postChunkLoad) {
             me.timeout(50).then(() => {
                 Neo.main.DomAccess.scrollTo({
                     direction: 'top',
@@ -975,6 +1053,11 @@ class GridBody extends Component {
                     value    : 0
                 })
             })
+        }
+
+        // Cleanup component instances after chunked load
+        if (postChunkLoad) {
+            me.cleanupComponentInstances()
         }
     }
 
@@ -1174,7 +1257,7 @@ class GridBody extends Component {
      */
     updateScrollHeight(silent=false) {
         let me           = this,
-            countRecords = me.store?.getCount() || 0,
+            countRecords = me.#initialTotalSize || me.store?.count || 0,
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {

@@ -357,7 +357,7 @@ class TableBody extends Component {
             rows                  = [];
 
         for (; i < countRecords; i++) {
-            rows.push(me.createRow({record: store.items[i], rowIndex: i}))
+            rows.push(me.createRow({record: store.getAt(i), rowIndex: i}))
         }
 
         me.vdom.cn = rows;

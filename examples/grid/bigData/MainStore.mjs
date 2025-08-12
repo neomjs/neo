@@ -74,7 +74,7 @@ class MainStore extends Store {
 
             me.model.amountColumns = value;
 
-            console.log('Start creating records');
+            console.log('Start generating data and adding to collection');
 
             if (me.items?.length > 0) {
                 me.clear()
@@ -82,7 +82,7 @@ class MainStore extends Store {
 
             me.add(data);
 
-            console.log(`Record creation total time: ${Math.round(performance.now() - start)}ms`)
+            console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)
         }
     }
 
@@ -97,7 +97,7 @@ class MainStore extends Store {
             data  = me.generateData(value, me.amountColumns),
             start = performance.now();
 
-        console.log('Start creating records');
+        console.log('Start generating data and adding to collection');
 
         if (me.items?.length > 0) {
             me.clear()
@@ -105,7 +105,7 @@ class MainStore extends Store {
 
         me.add(data);
 
-        console.log(`Record creation total time: ${Math.round(performance.now() - start)}ms`)
+        console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)
     }
 
     /**

@@ -35,7 +35,7 @@ class ViewportController extends Controller {
             companiesStore = me.getStore('companies'),
             items          = [];
 
-        companiesStore.items.forEach(record => {
+        companiesStore.forEach(record => {
             items.push({
                 symbol: record.symbol,
                 value : Math.random() * 1000

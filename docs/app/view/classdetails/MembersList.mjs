@@ -128,7 +128,7 @@ class MembersList extends Base {
      * @returns {Object} vdom
      */
     applyConfigsHeader(store, vdom) {
-        if (store.items[0]?.kind === 'member') {
+        if (store.getAt(0)?.kind === 'member') {
             vdom.cn.push({
                 // scrolling placeholder
             }, {
@@ -152,7 +152,7 @@ class MembersList extends Base {
     applyEventsHeader(item, index, store, vdom) {
         if (
             item.kind === 'event' &&
-            store.items[index -1]?.kind !== 'event'
+            store.getAt(index -1)?.kind !== 'event'
         ) {
             vdom.cn.push({
                 // scrolling placeholder
@@ -179,8 +179,8 @@ class MembersList extends Base {
         if (
             item.kind === 'function' &&
             (
-                !store.items[index -1] || (
-                    store.items[index -1]?.kind !== 'function'
+                !store.getAt(index -1) || (
+                    store.getAt(index -1)?.kind !== 'function'
                 )
             )
         ) {
@@ -211,7 +211,7 @@ class MembersList extends Base {
         vdom.cn = [];
         vdom = me.applyConfigsHeader(me.store, vdom);
 
-        me.store.items.forEach((item, index) => {
+        me.store.forEach((item, index) => {
             vdom = me.applyEventsHeader( item, index, me.store, vdom);
             vdom = me.applyMethodsHeader(item, index, me.store, vdom);
 

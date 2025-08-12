@@ -849,7 +849,7 @@ class Collection extends Base {
      * @returns {Object}
      */
     first() {
-        return this._items[0]
+        return this.getAt(0)
     }
 
     /**
@@ -1041,7 +1041,7 @@ class Collection extends Base {
      * @returns {Object}
      */
     last() {
-        return this._items[this.count -1]
+        return this.getAt(this.count -1)
     }
 
     /**
@@ -1172,6 +1172,15 @@ class Collection extends Base {
     }
 
     /**
+     * Executes a provided function once for each array element.
+     * @param {Function} fn The function to execute for each element.
+     * @param {Object} [scope] Value to use as `this` when executing `fn`.
+     */
+    forEach(fn, scope) {
+        this._items.forEach(fn, scope);
+    }
+
+    /**
      * Removes items from and/or adds items to this collection
      * If the toRemoveArray is used, then the index is not used for removing, the entries are found by key and removed from where they are.
      * If index is not passed, toAddArray is appended to the Collection.
@@ -1214,10 +1223,19 @@ class Collection extends Base {
                 }
             }
         } else if (removeCountAtIndex && removeCountAtIndex > 0) {
-            removedItems.push(...items.splice(index, removeCountAtIndex));
-            removedItems.forEach(e => {
-                map.delete(e[keyProperty])
-            })
+            // Optimization: If this is a full clear operation, use map.clear()
+            if (index === 0 && removeCountAtIndex === me.count) {
+                removedItems = items;
+                me._items = [];
+                map.clear()
+            } else {
+                removedItems = items.splice(index, removeCountAtIndex);
+
+                // For partial removals, iterate and delete individual items from the map
+                removedItems.forEach(e => {
+                    map.delete(e[keyProperty])
+                })
+            }
         }
 
         if (toAddArray && (len = toAddArray.length) > 0) {

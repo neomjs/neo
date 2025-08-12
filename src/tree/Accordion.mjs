@@ -133,7 +133,7 @@ class AccordionTree extends TreeList {
         if (me.vnodeInitialized && value === false) {
             let {store} = me;
 
-            store.items.forEach(record => {
+            store.forEach(record => {
                 if (record.parentId === null && !record.isLeaf) {
                     me.expandItem(record)
                 }
@@ -153,7 +153,7 @@ class AccordionTree extends TreeList {
               {store} = me,
               hide    = !value;
 
-        store.items.forEach((record) => {
+        store.forEach(record => {
             const itemId   = me.getItemId(record[me.getKeyProperty()]),
                   vdom     = me.getVdomChild(itemId),
                   itemVdom = VDomUtil.getByFlag(vdom, 'iconCls');

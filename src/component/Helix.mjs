@@ -581,7 +581,7 @@ class Helix extends Component {
             {deltaY, itemAngle, matrix, radius, rotationAngle, translateX, translateY, translateZ, vdom} = me,
             group = me.getItemsRoot(),
             i     = startIndex || 0,
-            len   = Math.min(me.maxItems, me.store.items.length),
+            len   = Math.min(me.maxItems, me.store.count),
             angle, item, matrixItems, transformStyle, vdomItem, c, s, x, y, z;
 
         if (!me.mounted) {
@@ -592,7 +592,7 @@ class Helix extends Component {
             }, me, {once: true})
         } else {
             for (; i < len; i++) {
-                item = me.store.items[i];
+                item = me.store.getAt(i);
 
                 angle = -rotationAngle + i * itemAngle;
 
@@ -952,7 +952,7 @@ class Helix extends Component {
         }
 
         for (; index < len; index++) {
-            item     = me.store.items[index];
+            item     = me.store.getAt(index);
             vdomItem = vdom.cn[0].cn[0].cn[index];
 
             angle = -rotationAngle + index * itemAngle;
@@ -1024,7 +1024,7 @@ class Helix extends Component {
         for (; i < len; i++) {
             deltas.push({
                 action: 'moveNode',
-                id    : me.getItemVnodeId(me.store.items[i][me.keyProperty]),
+                id    : me.getItemVnodeId(me.store.getAt(i)[me.keyProperty]),
                 index : i,
                 parentId
             })
