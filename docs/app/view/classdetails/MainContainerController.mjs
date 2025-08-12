@@ -37,7 +37,7 @@ class MainContainerController extends Component {
             countProtecteds = 0,
             countStatics    = 0;
 
-        store.items.forEach(item => {
+        store.forEach(item => {
             if (item.kind === 'function') {
                 countMethods++
             } else if (item.kind === 'member') {

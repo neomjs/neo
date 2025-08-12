@@ -609,7 +609,7 @@ class List extends Component {
         if (!(me.animate && !me.getPlugin('list-animate'))) {
             vdom.cn = [];
 
-            me.store.items.forEach((item, index) => {
+            me.store.forEach((item, index) => {
                 listItem = me.createItem(item, index);
                 listItem && vdom.cn.push(listItem)
             });

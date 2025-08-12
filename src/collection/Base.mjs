@@ -849,7 +849,7 @@ class Collection extends Base {
      * @returns {Object}
      */
     first() {
-        return this._items[0]
+        return this.getAt(0)
     }
 
     /**
@@ -1041,7 +1041,7 @@ class Collection extends Base {
      * @returns {Object}
      */
     last() {
-        return this._items[this.count -1]
+        return this.getAt(this.count -1)
     }
 
     /**
@@ -1169,6 +1169,15 @@ class Collection extends Base {
      */
     some(...args) {
         return this._items.some(...args)
+    }
+
+    /**
+     * Executes a provided function once for each array element.
+     * @param {Function} fn The function to execute for each element.
+     * @param {Object} [scope] Value to use as `this` when executing `fn`.
+     */
+    forEach(fn, scope) {
+        this._items.forEach(fn, scope);
     }
 
     /**

@@ -71,7 +71,7 @@ class ViewportController extends Component {
 
         // if the main table store is already loaded, the country field renderer had no data
         if (mainStore.getCount() > 0) {
-            mainStore.items.forEach(record => {
+            mainStore.forEach(record => {
                 country = record.country;
 
                 // hack resetting the current value to get a new record change

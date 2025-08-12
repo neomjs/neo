@@ -62,7 +62,7 @@ class DragZone extends BaseDragZone {
             {store} = owner,
             node;
 
-        store.items.forEach((record, index) => {
+        store.forEach((record, index) => {
             node = me.getItemVdom(record, index);
 
             if (node) {

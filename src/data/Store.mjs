@@ -151,13 +151,13 @@ class Store extends Base {
 
             // 1. Add the first chunk. This fires 'mutate' -> 'load' (via onCollectionMutate)
             //    and triggers the initial grid render. The 'load' event will contain the final total count.
-            super.add(me.createRecord(chunk));
+            super.add(chunk); // Pass raw chunk directly
 
             // 2. Suspend events to prevent the next 'add' from firing 'load'.
             me.suspendEvents = true;
 
             // 3. Add the rest of the items silently.
-            super.add(me.createRecord(items));
+            super.add(items); // Pass raw items directly
 
             // 4. Resume events.
             me.suspendEvents = false;
@@ -300,7 +300,7 @@ class Store extends Base {
         if (value) {
             this.isLoading = true;
 
-            value = this.createRecord(value)
+            // value = this.createRecord(value)
         }
 
         return value
@@ -361,6 +361,88 @@ class Store extends Base {
         }
 
         return isArray ? config : config[0]
+    }
+
+    /**
+     * Overrides collection.Base:find() to ensure the returned item(s) are Record instances.
+     * @param {Object|String} property
+     * @param {String|Number} [value] Only required in case the first param is a string
+     * @param {Boolean} returnFirstMatch=false
+     * @returns {Object|Object[]|null}
+     */
+    find(property, value, returnFirstMatch=false) {
+        const result = super.find(property, value, returnFirstMatch);
+
+        if (returnFirstMatch) {
+            return result ? this.get(result[this.keyProperty]) : null;
+        } else {
+            return result.map(item => this.get(item[this.keyProperty]));
+        }
+    }
+
+    /**
+     * Overrides collection.Base:findBy() to ensure the returned item(s) are Record instances.
+     * @param {function} fn The function to run for each item inside the start-end range. Return true for a match.
+     * @param {Object} scope=this The scope in which the passed function gets executed
+     * @param {Number} start=0 The start index
+     * @param {Number} end=this.count The end index (up to, last value excluded)
+     * @returns {Array}
+     */
+    findBy(fn, scope=this, start=0, end=this.count) {
+        const result = super.findBy(fn, scope, start, end);
+        return result.map(item => this.get(item[this.keyProperty]));
+    }
+
+    /**
+     * Overrides collection.Base:forEach() to ensure the iterated item is a Record instance.
+     * @param {Function} fn The function to execute for each record.
+     * @param {Object} [scope] Value to use as `this` when executing `fn`.
+     */
+    forEach(fn, scope) {
+        const me = this;
+        for (let i = 0; i < me.count; i++) {
+            fn.call(scope || me, me.getAt(i), i, me.items);
+        }
+    }
+
+    /**
+     * Overrides collection.Base:get() to ensure the returned item is a Record instance.
+     * @param {Number|String} key
+     * @returns {Object|null}
+     */
+    get(key) {
+        let item = super.get(key); // Get item from Collection.Base (could be raw data)
+
+        if (item && !RecordFactory.isRecord(item)) {
+            const record = RecordFactory.createRecord(this.model, item);
+            // Replace the raw data with the record instance in the collection
+            this.map.set(key, record);
+            const index = this._items.indexOf(item); // Find the index of the raw item
+            if (index !== -1) {
+                this._items[index] = record; // Replace it with the record
+            }
+            return record;
+        }
+        return item; // Already a record or null
+    }
+
+    /**
+     * Overrides collection.Base:getAt() to ensure the returned item is a Record instance.
+     * @param {Number} index
+     * @returns {Object|undefined}
+     */
+    getAt(index) {
+        let item = super.getAt(index); // Get item from Collection.Base (could be raw data)
+
+        if (item && !RecordFactory.isRecord(item)) {
+            const record = RecordFactory.createRecord(this.model, item);
+            // Replace the raw data with the record instance in the collection
+            this._items[index] = record;
+            // Also update the map, as the key might be derived from the item
+            this.map.set(record[this.keyProperty], record);
+            return record;
+        }
+        return item; // Already a record or undefined
     }
 
     /**

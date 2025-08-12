@@ -307,7 +307,7 @@ class Gallery extends Component {
         if (Neo.isBoolean(oldValue)) {
             let me   = this,
                 i    = 0,
-                len  = Math.min(me.maxItems, me.store.items.length),
+                len  = Math.min(me.maxItems, me.store.count),
                 view = me.getItemsRoot();
 
             if (me.vnodeInitialized) {
@@ -424,7 +424,7 @@ class Gallery extends Component {
             vdom             = me.vdom,
             itemsRoot        = me.getItemsRoot(),
             i                = startIndex || 0,
-            len              = Math.min(me.maxItems, me.store.items.length),
+            len              = Math.min(me.maxItems, me.store.count),
             amountColumns, item, vdomItem;
 
         if (orderByRow) {
@@ -432,7 +432,7 @@ class Gallery extends Component {
         }
 
         for (; i < len; i++) {
-            item      = me.store.items[i];
+            item      = me.store.getAt(i);
             vdomItem  = me.createItem(me.itemTpl, item, i);
 
             vdomItem. style = vdomItem.style || {};

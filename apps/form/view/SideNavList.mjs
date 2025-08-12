@@ -84,7 +84,7 @@ class SideNavList extends List {
     onStoreLoad() {
         let maxIndex = -1;
 
-        this.store.items.forEach(record => {
+        this.store.forEach(record => {
             if (!record.isHeader) {
                 maxIndex++
             }
