@@ -674,7 +674,7 @@ class GridBody extends Component {
 
             style: {
                 height   : me.rowHeight + 'px',
-                transform: `translate(0px, ${rowIndex * me.rowHeight}px)`
+                transform: `translate3d(0px, ${rowIndex * me.rowHeight}px, 0px)`
             }
         };
 
