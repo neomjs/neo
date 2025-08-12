@@ -995,7 +995,7 @@ class GridBody extends Component {
      *
      */
     onStoreFilter() {
-        this.onStoreLoad()
+        this.onStoreLoad({items: this.store.items})
     }
 
     /**
