@@ -132,9 +132,14 @@ class Component extends Column {
      */
     getComponentId(rowIndex) {
         let me     = this,
-            {body} = me.parent;
+            {body} = me.parent,
+            store  = body.store; // Access the store from the body
 
-        return `${me.id}-component-${rowIndex % (body.availableRows + 2 * body.bufferRowRange)}`
+        if (store.chunkingTotal) { // Check if chunking is active
+            return `${me.id}-component-${rowIndex}`; // Use rowIndex directly
+        } else {
+            return `${me.id}-component-${rowIndex % (body.availableRows + 2 * body.bufferRowRange)}`
+        }
     }
 }
 

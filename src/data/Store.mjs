@@ -66,6 +66,11 @@ class Store extends Base {
          */
         initialData_: null,
         /**
+         * The initial chunk size for adding large datasets. Set to 0 to disable chunking.
+         * @member {Number} initialChunkSize=0
+         */
+        initialChunkSize: 0,
+        /**
          * @member {Boolean} isGrouped=false
          */
         isGrouped: false,
@@ -140,9 +145,9 @@ class Store extends Base {
      */
     add(item) {
         let items = Array.isArray(item) ? item : [item];
-        const threshold = 1000;
+        const threshold = this.initialChunkSize;
 
-        if (items.length > threshold) {
+        if (threshold > 0 && items.length > threshold) {
             const me    = this,
                   total = me.count + items.length,
                   chunk = items.splice(0, threshold);
@@ -170,7 +175,7 @@ class Store extends Base {
             return me.count;
         }
 
-        return super.add(this.createRecord(item));
+        return super.add(item); // Pass raw item directly
     }
 
     /**
@@ -535,11 +540,7 @@ class Store extends Base {
         let me = this;
 
         if (me.isConstructed && !me.isLoading) {
-            if (me.chunkingTotal) {
-                me.fire('load', {items: me.items, total: me.chunkingTotal});
-            } else {
-                me.fire('load', {items: me.items});
-            }
+            me.fire('load', {items: me.items, total: me.chunkingTotal});
         }
     }
 
