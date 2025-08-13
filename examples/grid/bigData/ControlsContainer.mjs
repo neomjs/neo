@@ -195,6 +195,11 @@ class ControlsContainer extends Container {
         tag: 'aside'
     }
 
+    /**
+     * @member {Boolean} firstFiltering=true
+     */
+    firstFiltering = true
+
     get grid() {
         return this.parent.getItem('grid')
     }
@@ -271,7 +276,15 @@ class ControlsContainer extends Container {
      * @param {Object} data
      */
     onFilterFieldChange(data) {
-        this.grid.store.getFilter(data.component.name).value = data.value
+        let me = this;
+
+        if (me.firstFiltering) {
+            me.firstFiltering = false;
+            me.grid.isLoading = 'Is Loading'
+        }
+
+        me.grid.store.getFilter(data.component.name).value = data.value;
+        me.grid.isLoading = false
     }
 
     /**
