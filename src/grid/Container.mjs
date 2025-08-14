@@ -175,7 +175,7 @@ class GridContainer extends BaseContainer {
         me.vdom.id = me.getWrapperId();
 
         me._columns = me.createColumns(me.columns);
-        me.updateColCount()
+        me.updateColCount();
 
         me.addDomListeners({
             resize: me.onResize,
@@ -585,7 +585,7 @@ class GridContainer extends BaseContainer {
     onStoreLoad(data) {
         let me         = this,
             totalCount = data.total ? data.total : this.store.count;
-
+console.log(data.total, this.store.count);
         me.updateRowCount(totalCount);
 
         if (me.store.sorters?.length < 1) {
@@ -679,13 +679,13 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     *
+     * @param {Boolean} [silent=false]
      */
-    updateColCount() {
+    updateColCount(silent=false) {
         let me = this;
 
         me.getVdomRoot()['aria-colcount'] = me.columns.count;
-        me.update()
+        !silent && me.update()
     }
 
     /**
