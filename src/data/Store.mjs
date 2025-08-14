@@ -144,12 +144,12 @@ class Store extends Base {
      * @returns {Number} the collection count
      */
     add(item) {
-        let items = Array.isArray(item) ? item : [item];
-        const threshold = this.initialChunkSize;
+        let me        = this,
+            items     = Array.isArray(item) ? item : [item],
+            threshold = me.initialChunkSize;
 
         if (threshold > 0 && items.length > threshold) {
-            const me    = this,
-                  total = me.count + items.length,
+            const total = me.count + items.length,
                   chunk = items.splice(0, threshold);
 
             me.chunkingTotal = total;
@@ -175,7 +175,12 @@ class Store extends Base {
             return me.count;
         }
 
-        return super.add(item); // Pass raw item directly
+        const returnValue = super.add(items);
+
+        // If we use add() initially instead of setting `data`, we need to set the loaded flag here.
+        me.isLoaded = true;
+
+        return returnValue; // Pass raw item directly
     }
 
     /**
@@ -206,9 +211,7 @@ class Store extends Base {
 
                 me.isLoading = false;
 
-                me.add(value);
-
-                me.isLoaded = true
+                me.add(value)
             }
         }
     }
