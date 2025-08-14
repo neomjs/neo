@@ -134,7 +134,7 @@ class GridContainer extends BaseContainer {
          */
         _vdom:
         {cls: ['neo-grid-wrapper'], cn: [
-            {'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
+            {'aria-colcount': 0, 'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
         ]}
     }
 
@@ -175,6 +175,7 @@ class GridContainer extends BaseContainer {
         me.vdom.id = me.getWrapperId();
 
         me._columns = me.createColumns(me.columns);
+        me.updateColCount()
 
         me.addDomListeners({
             resize: me.onResize,
@@ -245,6 +246,8 @@ class GridContainer extends BaseContainer {
 
             me.body?.createViewData()
         }
+
+        me.configsApplied && me.updateColCount()
     }
 
     /**
@@ -466,7 +469,8 @@ class GridContainer extends BaseContainer {
 
         return Neo.create(Collection, {
             keyProperty: 'dataField',
-            items      : columns
+            items      : columns,
+            listeners  : {mutate: me.onColumnsMutate, scope: me}
         })
     }
 
@@ -512,6 +516,13 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Object} data
+     */
+    onColumnsMutate(data) {
+        this.updateColCount()
+    }
+
+    /**
      *
      */
     onConstructed() {
@@ -528,6 +539,7 @@ class GridContainer extends BaseContainer {
 
     /**
      * @param {Object} data
+     * @returns {Promise<void>}
      */
     async onResize(data) {
         let me = this;
@@ -664,6 +676,16 @@ class GridContainer extends BaseContainer {
                 windowId : me.windowId
             })
         }
+    }
+
+    /**
+     *
+     */
+    updateColCount() {
+        let me = this;
+
+        me.getVdomRoot()['aria-colcount'] = me.columns.count;
+        me.update()
     }
 
     /**
