@@ -572,7 +572,7 @@ class Store extends Base {
 
         // Being constructed does not mean that related afterSetStore() methods got executed
         // => break the sync flow to ensure potential listeners got applied
-        Promise.resolve().then(() => {console.log(me.isLoaded);
+        Promise.resolve().then(() => {
             if (me.isLoaded) {
                 me.fire('load', {items: me.items})
             } else if (me.autoLoad) {

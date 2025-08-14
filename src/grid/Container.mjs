@@ -585,7 +585,7 @@ class GridContainer extends BaseContainer {
     onStoreLoad(data) {
         let me         = this,
             totalCount = data.total ? data.total : this.store.count;
-console.log(data.total, this.store.count);
+
         me.updateRowCount(totalCount);
 
         if (me.store.sorters?.length < 1) {
