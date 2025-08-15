@@ -696,7 +696,7 @@ class GridContainer extends BaseContainer {
         let me         = this,
             finalCount = count ? count : me.store.count;
 
-        me.getVdomRoot()['aria-rowcount'] = finalCount + 2;
+        me.getVdomRoot()['aria-rowcount'] = finalCount + 1;
         !silent && me.update()
     }
 }
