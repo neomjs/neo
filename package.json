@@ -103,7 +103,7 @@
         "siesta-lite": "5.5.2",
         "terser": "^5.43.1",
         "url": "^0.11.4",
-        "webpack": "^5.101.1",
+        "webpack": "^5.101.2",
         "webpack-cli": "^6.0.1",
         "webpack-dev-server": "^5.2.2",
         "webpack-hook-plugin": "^1.0.7",
