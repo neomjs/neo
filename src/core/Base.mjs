@@ -6,7 +6,6 @@ import {isDescriptor}                                           from './ConfigSy
 import IdGenerator                                              from './IdGenerator.mjs';
 import EffectManager                                            from './EffectManager.mjs';
 
-
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
       isInstance         = Symbol('isInstance');
@@ -234,7 +233,7 @@ class Base {
         me.id = config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
 
-        // assign class field values prior to configs
+        // Assign class field values prior to configs
         config = me.setFields(config);
 
         me.initConfig(config);
@@ -357,7 +356,7 @@ class Base {
                     cls = this.prototype;
 
                     if (cls[item]) {
-                        // add to overwrittenMethods
+                        // Add to overwrittenMethods
                         cls.constructor.overwrittenMethods[item] = cls[item]
                     }
                 }
