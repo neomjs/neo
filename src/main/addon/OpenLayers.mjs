@@ -1,14 +1,16 @@
-import Base       from './Base.mjs';
+import Addon      from './Base.mjs';
 import DomAccess  from '../DomAccess.mjs';
 import DomEvents  from '../DomEvents.mjs';
 import Observable from '../../core/Observable.mjs';
 
 /**
+ * In development: Do not use inside your apps until the implementation is finished.
  * @class Neo.main.addon.OpenLayers
  * @extends Neo.main.addon.Base
  * @mixes Neo.core.Observable
+ * @experimental
  */
-class OpenLayers extends Base {
+class OpenLayers extends Addon {
     /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=true

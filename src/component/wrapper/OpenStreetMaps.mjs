@@ -1,12 +1,14 @@
-import Base            from '../Base.mjs';
+import Component       from '../Base.mjs';
 import ClassSystemUtil from '../../util/ClassSystem.mjs';
 import Store           from '../../data/Store.mjs';
 
 /**
+ * In development: Do not use inside your apps until the implementation is finished.
  * @class Neo.component.wrapper.OpenStreetMaps
  * @extends Neo.component.Base
+ * @experimental
  */
-class OpenStreetMaps extends Base {
+class OpenStreetMaps extends Component {
     static config = {
         /**
          * @member {String} className='Neo.component.wrapper.OpenStreetMaps'
