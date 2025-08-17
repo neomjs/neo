@@ -281,7 +281,7 @@ class Base {
 
         if (value) {
             if (hasManager) {
-                Neo.manager.Instance.register(me);
+                Neo.manager.Instance.register(me)
             } else {
                 Neo.idMap ??= {};
                 Neo.idMap[value] = me
@@ -715,7 +715,7 @@ class Base {
     }
 
     /**
-     * Helper method to replace string based values containing "@config:" with the matching config value
+     * Helper method to replace string-based values containing "@config:" with the matching config value
      * of this instance.
      * @param {Object|Object[]} items
      */
