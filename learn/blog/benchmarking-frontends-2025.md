@@ -148,6 +148,9 @@ This project is more than just a report; it's a high-precision instrument that w
 
 > *Beyond framework authors, we see immense potential for enterprise decision-making. Imagine a consulting firm getting a client request: 'We need to handle 500,000 rows with real-time updates - which stack should we choose?' Today, that's answered with vendor marketing and gut instinct. Tomorrow, it could be answered with AI-generated reports that synthesize objective benchmark data into tailored architectural recommendations. The same precision we're bringing to measurement could revolutionize how teams make framework decisions.*
 
+To better understand the idea of automated AI generated reports, here is an example of how Claude would do it:
+[Neo vs React AG Grid - True Performance Analysis](https://claude.ai/public/artifacts/8b4bc869-e36b-4ba5-9b5b-5af99d45772b)
+
 The path forward requires significant engagement, either through active community contributions or through corporate sponsorship. We believe this project has immense potential to benefit the broader web development community, and your active participation can accelerate its growth and expand its impact. We invite you to join us in shaping the future of frontend performance measurement.
 
 So, the question we pose to the community is: is there an interest for more? If you believe in the need for a better, more honest way to benchmark the modern web, we invite you to get involved.
@@ -162,4 +165,5 @@ The entire project, including all applications, test suites, and results, is pub
 -   **Read our detailed methodology:** [METHODOLOGY.md](https://github.com/neomjs/benchmarks/METHODOLOGY.md)
 -   **Run the benchmarks yourself:** [REPRODUCIBILITY.md](https://github.com/neomjs/benchmarks/REPRODUCIBILITY.md)
 
-Let's work together to define the future of frontend performance measurement.
+Best regards & happy coding,
+Tobias
