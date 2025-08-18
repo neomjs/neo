@@ -1,10 +1,14 @@
-# Benchmarking Frontends in 2025: We Had to Break the Rules to Get It Right
+# Benchmarking Frontends in 2025
+
+We Had to Break the Rules to Get It Right
 
 ## The Two Worlds of Web Performance
 
 For the better part of a decade, the web performance community has rightfully focused on one critical goal: making the initial page load faster. Driven by tools like Google's Lighthouse and the Core Web Vitals (CWV) initiative, we've become experts at optimizing for the "first-impression" web. This is the world of e-commerce, marketing sites, and news articles, where success is measured in milliseconds of Largest Contentful Paint (LCP) and a low Interaction to Next Paint (INP). For this half of the web, these tools are essential and have made the user experience immeasurably better.
 
 But another half of the web has been quietly evolving, operating under a completely different set of pressures. This is the "lived-in" web: the complex, data-intensive applications where users spend their entire workday. Think of real-time trading dashboards, enterprise SaaS platforms, and data science tools. Here, the initial load is a distant memory. True performance is defined by what happens hours into a session: Can the UI handle a stream of 1,000 real-time updates per second without stuttering? Can a data grid ingest and render 100,000 new rows without freezing? Does the entire application grind to a halt during a heavy background calculation?
+
+[Intro Video on YouTube](https://youtu.be/VAaHVG5anh0)
 
 > *A quick note on the authorial voice: You'll see "we" used throughout this article. This isn't a royal "we" or a corporate "we." It's a literal "we," representing the collaborative effort between a human engineer (me, Tobi) and dozens of iterative sessions with Gemini 2.5 Pro, which acted as a pair programmer, critic, and co-author in building this project and its narrative. This benchmark is as much a product of that unique human-AI partnership as it is of the code itself.*
 
