@@ -1,6 +1,6 @@
 # Benchmarking Frontends in 2025
 
-We Had to Break the Rules to Get It Right
+**Stop Measuring Page Loads. Start Measuring Resilience.**
 
 ## The Two Worlds of Web Performance
 
