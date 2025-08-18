@@ -6,7 +6,6 @@ import {isDescriptor}                                           from './ConfigSy
 import IdGenerator                                              from './IdGenerator.mjs';
 import EffectManager                                            from './EffectManager.mjs';
 
-
 const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('forceAssignConfigs'),
       isInstance         = Symbol('isInstance');
@@ -234,7 +233,7 @@ class Base {
         me.id = config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
 
-        // assign class field values prior to configs
+        // Assign class field values prior to configs
         config = me.setFields(config);
 
         me.initConfig(config);
@@ -282,7 +281,7 @@ class Base {
 
         if (value) {
             if (hasManager) {
-                Neo.manager.Instance.register(me);
+                Neo.manager.Instance.register(me)
             } else {
                 Neo.idMap ??= {};
                 Neo.idMap[value] = me
@@ -357,7 +356,7 @@ class Base {
                     cls = this.prototype;
 
                     if (cls[item]) {
-                        // add to overwrittenMethods
+                        // Add to overwrittenMethods
                         cls.constructor.overwrittenMethods[item] = cls[item]
                     }
                 }
@@ -716,7 +715,7 @@ class Base {
     }
 
     /**
-     * Helper method to replace string based values containing "@config:" with the matching config value
+     * Helper method to replace string-based values containing "@config:" with the matching config value
      * of this instance.
      * @param {Object|Object[]} items
      */
