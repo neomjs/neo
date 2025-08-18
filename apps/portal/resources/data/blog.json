@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Aug 18, 2025",
+    "id"          : 69,
+    "image"       : "BenchmarkingFrontends.jpg",
+    "name"        : "Benchmarking Frontends in 2025",
+    "provider"    : "Medium",
+    "publisher"   : "",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://tobiasuhlig.medium.com/benchmarking-frontends-in-2025-f6bbf43b7721?source=friends_link&sk=af0f2c6745a7ca4993bc0ae60ad0ebb4"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Aug 04, 2025",
     "id"          : 68,
     "image"       : "VdomRevolution.png",
