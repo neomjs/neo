@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/component/wrapper/openStreetMaps/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["OpenStreetMaps", "Stylesheet"],
+    "openLayersVersion": "10.6.0"
+}
