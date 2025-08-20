@@ -129,6 +129,12 @@ class OpenStreetMaps extends Base {
                 source: new ol.source.OSM()
             });
 
+            // Create controls array
+            let controls =[];
+            if (data.fullscreenControl) {
+                controls.push(new ol.control.FullScreen());
+            }
+
             // // Create vector source and layer for markers using CDN global object
             // let vectorSource = new ol.source.Vector();
             // let vectorLayer = new ol.layer.Vector({
@@ -142,6 +148,7 @@ class OpenStreetMaps extends Base {
 
             // Create the map using CDN global object
             let map = new ol.Map({
+                controls: controls,
                 target: mapElement,
                 layers: [tileLayer],
                 view: view
