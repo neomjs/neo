@@ -4,7 +4,7 @@ import HeaderToolbar         from './HeaderToolbar.mjs';
 import PieChartComponent     from './PieChartComponent.mjs';
 import GridContainer         from './GridContainer.mjs';
 import Panel                 from '../../../src/container/Panel.mjs';
-import SortZone              from '../../../src/draggable/container/SortZone.mjs';
+import SortZone              from '../../../src/draggable/dashboard/SortZone.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 

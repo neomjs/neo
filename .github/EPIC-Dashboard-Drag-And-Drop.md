@@ -24,6 +24,8 @@ This section outlines the key architectural decisions and strategic insights tha
 
 ## Phase 1: Foundational Sorting
 
+**Tracking Ticket:** [ticket-dashboard-initial-drag-drop.md](./ticket-dashboard-initial-drag-drop.md)
+
 The primary goal of this phase is to implement the core reordering functionality with a standard visual proxy.
 
 1.  **Restructure Viewport:**
