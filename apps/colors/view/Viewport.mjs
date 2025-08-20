@@ -3,6 +3,8 @@ import BarChartComponent     from './BarChartComponent.mjs';
 import HeaderToolbar         from './HeaderToolbar.mjs';
 import PieChartComponent     from './PieChartComponent.mjs';
 import GridContainer         from './GridContainer.mjs';
+import Panel                 from '../../../src/container/Panel.mjs';
+import SortZone              from '../../../src/draggable/container/SortZone.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -32,28 +34,72 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {Boolean} sortable_=true
+         */
+        sortable_: true,
+        /**
          * @member {Object[]} items
          */
         items: [{
             module: HeaderToolbar,
             flex  : 'none'
         }, {
-            module   : GridContainer,
-            reference: 'grid'
+            module: Panel,
+            flex  : 1,
+            reference: 'grid-panel',
+            headers: [{
+                dock: 'top',
+                cls : ['neo-draggable'],
+                text: 'Grid'
+            }],
+            items: [
+                {module: GridContainer, reference: 'grid'}
+            ]
         }, {
-            module   : PieChartComponent,
+            module   : Panel,
             flex     : 1.3,
-            reference: 'pie-chart'
+            reference: 'pie-chart-panel',
+            headers: [{
+                dock: 'top',
+                cls : ['neo-draggable'],
+                text: 'Pie Chart'
+            }],
+            items: [
+                {module: PieChartComponent, reference: 'pie-chart'}
+            ]
         }, {
-            module   : BarChartComponent,
+            module   : Panel,
             flex     : 1.3,
-            reference: 'bar-chart'
+            reference: 'bar-chart-panel',
+            headers: [{
+                dock: 'top',
+                cls : ['neo-draggable'],
+                text: 'Bar Chart'
+            }],
+            items: [
+                {module: BarChartComponent, reference: 'bar-chart'}
+            ]
         }],
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
          * @reactive
          */
         stateProvider: ViewportStateProvider
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        if (this.sortable) {
+            this.dragZone = Neo.create({
+                module             : SortZone,
+                owner              : this,
+                boundaryContainerId: this.id
+            });
+        }
     }
 }
 
