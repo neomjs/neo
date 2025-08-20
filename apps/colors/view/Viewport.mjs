@@ -4,7 +4,6 @@ import HeaderToolbar         from './HeaderToolbar.mjs';
 import PieChartComponent     from './PieChartComponent.mjs';
 import GridContainer         from './GridContainer.mjs';
 import Panel                 from '../../../src/container/Panel.mjs';
-import SortZone              from '../../../src/draggable/dashboard/SortZone.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -88,17 +87,24 @@ class Viewport extends BaseViewport {
     }
 
     /**
-     *
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
      */
-    onConstructed() {
-        super.onConstructed();
+    afterSetSortable(value, oldValue) {
+        let me = this;
 
-        if (this.sortable) {
-            this.dragZone = Neo.create({
-                module             : SortZone,
-                owner              : this,
-                boundaryContainerId: this.id
-            });
+        if (value && !me.sortZone) {
+            import('../../../src/draggable/dashboard/SortZone.mjs').then(module => {
+                me.sortZone = Neo.create({
+                    module             : module.default,
+                    appName            : me.appName,
+                    boundaryContainerId: me.id,
+                    owner              : me,
+                    windowId           : me.windowId
+                })
+            })
         }
     }
 }
