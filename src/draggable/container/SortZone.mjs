@@ -185,7 +185,10 @@ class SortZone extends DragZone {
             });
 
             if (me.startIndex !== me.currentIndex) {
-                me.moveTo(me.startIndex, me.currentIndex)
+                me.moveTo(
+                    me.owner.items.indexOf(me.sortableItems[me.startIndex]),
+                    me.owner.items.indexOf(me.sortableItems[me.currentIndex])
+                );
             }
 
             Object.assign(me, {

@@ -1,4 +1,3 @@
-import NeoArray from '../../util/Array.mjs';
 import SortZone from '../container/SortZone.mjs';
 
 /**
@@ -45,10 +44,10 @@ class DashboardSortZone extends SortZone {
      * @param {Number} toIndex The end index within the sortable items
      */
     moveTo(fromIndex, toIndex) {
-        const ownerFromIndex = this.indexMap[fromIndex];
-        const ownerToIndex   = this.indexMap[toIndex];
+        const ownerFromIndex = this.owner.items.indexOf(this.sortableItems[fromIndex]);
+        const ownerToIndex   = this.owner.items.indexOf(this.sortableItems[toIndex]);
 
-        NeoArray.move(this.owner.items, ownerFromIndex, ownerToIndex);
+        this.owner.moveTo(ownerFromIndex, ownerToIndex);
     }
 }
 
