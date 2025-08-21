@@ -156,6 +156,12 @@ class DashboardSortZone extends SortZone {
         if (owner.sortable && draggedPanel) {
             index = me.sortableItems.indexOf(draggedPanel);
 
+            // Get all the rects BEFORE moving anything.
+            const allRects = await owner.getDomRect([owner.id].concat(me.sortableItems.map(e => e.id)));
+
+            me.ownerRect = allRects.shift();
+            let itemRects = allRects;
+
             Object.assign(me, {
                 currentIndex           : index,
                 dragElement            : draggedPanel.vdom,
@@ -171,48 +177,46 @@ class DashboardSortZone extends SortZone {
 
             await me.dragStart(data);
 
-            me.sortableItems.forEach((item, index) => {
+            me.sortableItems.forEach((item, i) => {
                 itemStyles.push({
                     height: item.height ? `${item.height}px` : item.style?.height,
                     width : item.width ? `${item.width}px` : item.style?.width
                 });
             });
 
-            owner.getDomRect([owner.id].concat(me.sortableItems.map(e => e.id))).then(itemRects => {
-                me.ownerRect = itemRects[0];
-                owner.style  = {
-                    ...ownerStyle,
-                    height  : `${itemRects[0].height}px`,
-                    minWidth: `${itemRects[0].width}px`,
-                    width   : `${itemRects[0].width}px`
-                };
-                itemRects.shift();
-                me.itemRects = itemRects;
+            owner.style  = {
+                ...ownerStyle,
+                height  : `${me.ownerRect.height}px`,
+                minWidth: `${me.ownerRect.width}px`,
+                width   : `${me.ownerRect.width}px`
+            };
 
-                if (itemRects.length > 1) {
-                    me.itemMargin = itemRects[1].top - itemRects[0].bottom;
-                } else {
-                    me.itemMargin = 0;
-                }
+            me.itemRects = itemRects;
+            me.slotRects = Neo.clone(itemRects, true);
 
-                me.sortableItems.forEach((item, index) => {
-                    itemStyle         = item.wrapperStyle || {};
-                    rect              = itemRects[index];
-                    item.wrapperStyle = Object.assign(itemStyle, {
-                        height  : `${rect.height}px`,
-                        left    : `${rect.left}px`,
-                        margin  : 0,
-                        position: 'absolute',
-                        top     : `${rect.top}px`,
-                        width   : `${rect.width}px`
-                    });
+            if (itemRects.length > 1) {
+                me.itemMargin = itemRects[1].top - itemRects[0].bottom;
+            } else {
+                me.itemMargin = 0;
+            }
+
+            me.sortableItems.forEach((item, i) => {
+                itemStyle         = item.wrapperStyle || {};
+                rect              = itemRects[i];
+                item.wrapperStyle = Object.assign(itemStyle, {
+                    height  : `${rect.height}px`,
+                    left    : `${rect.left}px`,
+                    margin  : 0,
+                    position: 'absolute',
+                    top     : `${rect.top}px`,
+                    width   : `${rect.width}px`
                 });
+            });
 
-                me.timeout(5).then(() => {
-                    itemStyle                 = draggedPanel.wrapperStyle || {};
-                    itemStyle.visibility      = 'hidden';
-                    draggedPanel.wrapperStyle = itemStyle;
-                });
+            me.timeout(5).then(() => {
+                itemStyle                 = draggedPanel.wrapperStyle || {};
+                itemStyle.visibility      = 'hidden';
+                draggedPanel.wrapperStyle = itemStyle;
             });
         }
     }
@@ -224,20 +228,13 @@ class DashboardSortZone extends SortZone {
     switchItems(fromIndex, toIndex) {
         let me = this;
 
-        NeoArray.move(me.itemRects,    fromIndex, toIndex);
         NeoArray.move(me.sortableItems, fromIndex, toIndex);
+        NeoArray.move(me.itemRects,    fromIndex, toIndex);
 
-        let currentY = me.ownerRect.y; // Use rect.y
-
-        me.itemRects.forEach((rect, i) => {
-            rect.y      = currentY;
-            rect.x      = me.ownerRect.x; // Ensure x is also set for consistency
-            rect.height = rect.height; // Keep height
-            rect.width  = rect.width;  // Keep width
-
-            me.updateItem(me.sortableItems[i], rect);
-
-            currentY += rect.height + me.itemMargin;
+        // Reposition all items according to the original slots
+        me.sortableItems.forEach((item, index) => {
+            let slotRect = me.slotRects[index];
+            me.updateItem(item, slotRect);
         });
     }
 
