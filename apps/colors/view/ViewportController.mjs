@@ -34,36 +34,24 @@ class ViewportController extends Controller {
      * @param {String} name The name of the reference
      */
     async createBrowserWindow(name) {
-        let me                      = this,
-            {windowId}              = me,
-            {config, windowConfigs} = Neo,
-            {environment}           = config,
-            firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
-            {basePath}              = windowConfigs[firstWindowId],
-            url;
+        if (this.getStateProvider().getData('openWidgetsAsPopups')) {
+            let widget = this.getReference(name),
+                rect   = await this.component.getDomRect(widget.vdom.id); // using the vdom id to always get the top-level node
 
-        if (environment !== 'development') {
-            basePath = `${basePath + environment}/`
-        }
-
-        url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
-
-        if (me.getStateProvider().getData('openWidgetsAsPopups')) {
-            let widget                     = me.getReference(name),
-                winData                    = await Neo.Main.getWindowData({windowId} ),
-                rect                       = await me.component.getDomRect(widget.vdom.id), // using the vdom id to always get the top-level node
-                {height, left, top, width} = rect;
-
-            height -= 50; // popup header in Chrome
-            left   += winData.screenLeft;
-            top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
-
-            await Neo.Main.windowOpen({
-                url,
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                windowName    : name
-            })
+            await this.#openWidgetInPopup(name, rect)
         } else {
+            let {config, windowConfigs} = Neo,
+                {environment}           = config,
+                firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+                {basePath}              = windowConfigs[firstWindowId],
+                url;
+
+            if (environment !== 'development') {
+                basePath = `${basePath + environment}/`
+            }
+
+            url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+
             await Neo.Main.windowOpen({url, windowName: '_blank'})
         }
     }
@@ -126,8 +114,11 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    onDragBoundaryExit(data) {
-        console.log('onDragBoundaryExit', data);
+    async onDragBoundaryExit(data) {
+        let {draggedItem, proxyRect} = data,
+            widgetName               = draggedItem.reference.replace('-panel', '');
+
+        await this.#openWidgetInPopup(widgetName, proxyRect);
     }
 
     /**
@@ -230,6 +221,39 @@ class ViewportController extends Controller {
             clearInterval(me.intervalId);
             me.intervalId = null
         }
+    }
+
+    /**
+     * @param {String} name
+     * @param {Object} rect
+     * @private
+     */
+    async #openWidgetInPopup(name, rect) {
+        let me                      = this,
+            {windowId}              = me,
+            {config, windowConfigs} = Neo,
+            {environment}           = config,
+            firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+            {basePath}              = windowConfigs[firstWindowId],
+            url;
+
+        if (environment !== 'development') {
+            basePath = `${basePath + environment}/`
+        }
+
+        url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+
+        let winData               = await Neo.Main.getWindowData({windowId}),
+            {height, width, x, y} = rect,
+            popupHeight           = height - 50, // popup header in Chrome
+            popupLeft             = x + winData.screenLeft,
+            popupTop              = y + (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+        await Neo.Main.windowOpen({
+            url,
+            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
+            windowName    : name
+        })
     }
 
     /**
