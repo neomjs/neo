@@ -232,7 +232,8 @@ class SortZone extends DragZone {
                     me.isWindowDragging = true; // Set flag to prevent re-entry
 
                     me.fire('dragBoundaryExit', {
-                        draggedItem: Neo.getComponent(me.dragElement.id)
+                        draggedItem: Neo.getComponent(me.dragElement.id),
+                        proxyRect
                     });
                     return // Stop further processing in onDragMove
                 }
