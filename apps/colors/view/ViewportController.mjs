@@ -115,10 +115,19 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     async onDragBoundaryExit(data) {
-        let {draggedItem, proxyRect} = data,
-            widgetName               = draggedItem.reference.replace('-panel', '');
+        let {draggedItem, proxyRect, sortZone} = data,
+            widgetName                         = draggedItem.reference.replace('-panel', ''),
+            popupData;
 
-        await this.#openWidgetInPopup(widgetName, proxyRect);
+        // Prohibit the size reduction inside #openWidgetInPopup().
+        proxyRect.height += 50;
+
+        popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
+
+        sortZone.startWindowDrag({
+            dragData: data,
+            ...popupData
+        });
     }
 
     /**
@@ -271,7 +280,9 @@ class ViewportController extends Controller {
             url,
             windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
             windowName    : name
-        })
+        });
+
+        return {popupHeight, popupLeft, popupTop, popupWidth: width, windowName: name}
     }
 
     /**

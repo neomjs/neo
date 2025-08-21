@@ -41,6 +41,10 @@ class SortZone extends DragZone {
          */
         dragHandleSelector: null,
         /**
+         * @member {Boolean} enableProxyToPopup=false
+         */
+        enableProxyToPopup: false,
+        /**
          * @member {Object} indexMap=null
          * @protected
          */
@@ -218,9 +222,9 @@ class SortZone extends DragZone {
             return
         }
 
-        if (me.dragProxy && !me.isWindowDragging) {
+        if (me.dragProxy && me.enableProxyToPopup) {
             const {proxyRect} = data;
-
+console.log(proxyRect);
             if (proxyRect && me.boundaryContainerRect) {
                 const
                     boundaryRect     = me.boundaryContainerRect,
@@ -228,14 +232,20 @@ class SortZone extends DragZone {
                     proxyArea        = proxyRect.width * proxyRect.height,
                     intersectionArea = intersection ? intersection.width * intersection.height : 0;
 
-                if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
-                    me.isWindowDragging = true; // Set flag to prevent re-entry
+                if (!me.isWindowDragging) {
+                    if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
+                        me.isWindowDragging = true; // Set flag to prevent re-entry
 
-                    me.fire('dragBoundaryExit', {
-                        draggedItem: Neo.getComponent(me.dragElement.id),
-                        proxyRect
-                    });
-                    return // Stop further processing in onDragMove
+                        me.fire('dragBoundaryExit', {
+                            draggedItem: Neo.getComponent(me.dragElement.id),
+                            proxyRect,
+                            sortZone   : me
+                        });
+                        return // Stop further processing in onDragMove
+                    }
+                } else if (me.isWindowDragging) {
+                    console.log(proxyArea, intersectionArea, (intersectionArea / proxyArea) > 0.51);
+                    return;
                 }
             }
         }
@@ -431,6 +441,23 @@ class SortZone extends DragZone {
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
         me.isScrolling = false
+    }
+
+    /**
+     * @param {Object} data
+     */
+    startWindowDrag(data) {
+        let me            = this,
+            {popupHeight, popupWidth, windowName} = data;
+
+        // Hide the drag proxy since the window is now the visual indicator
+        me.dragProxy.hidden = true;
+
+        Neo.main.addon.DragDrop.startWindowDrag({
+            popupHeight,
+            popupName: windowName,
+            popupWidth
+        });
     }
 
     /**

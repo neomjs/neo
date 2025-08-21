@@ -43,6 +43,7 @@ class Container extends BaseContainer {
                     allowOverdrag      : true,
                     appName            : me.appName,
                     boundaryContainerId: me.id,
+                    enableProxyToPopup : true,
                     owner              : me,
                     windowId           : me.windowId,
                     listeners          : {
