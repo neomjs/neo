@@ -44,7 +44,8 @@ class Viewport extends BaseViewport {
             layout: {ntype: 'vbox', align: 'stretch'},
 
             listeners: {
-                dragBoundaryExit: 'onDragBoundaryExit'
+                dragBoundaryEntry: 'onDragBoundaryEntry',
+                dragBoundaryExit : 'onDragBoundaryExit'
             },
 
             items: [{

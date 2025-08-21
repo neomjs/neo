@@ -22,6 +22,10 @@ class ViewportController extends Controller {
      */
     intervalId = null
     /**
+     * @member {Boolean} #isWindowDragging=false
+     */
+    #isWindowDragging = false
+    /**
      * @member {Object} widgetIndexMap
      */
     widgetIndexMap = {
@@ -93,8 +97,14 @@ class ViewportController extends Controller {
      * @param {Number} data.windowId
      */
     async onAppDisconnect(data) {
-        let me                  = this,
-            {appName, windowId} = data,
+        let me = this;
+
+        if (me.#isWindowDragging) {
+            me.#isWindowDragging = false;
+            return
+        }
+
+        let {appName, windowId} = data,
             url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             widgetName          = new URL(url).searchParams.get('name'),
             widget              = me.getReference(widgetName);
@@ -109,25 +119,6 @@ class ViewportController extends Controller {
         else if (appName === 'Colors') {
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    async onDragBoundaryExit(data) {
-        let {draggedItem, proxyRect, sortZone} = data,
-            widgetName                         = draggedItem.reference.replace('-panel', ''),
-            popupData;
-
-        // Prohibit the size reduction inside #openWidgetInPopup().
-        proxyRect.height += 50;
-
-        popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
-
-        sortZone.startWindowDrag({
-            dragData: data,
-            ...popupData
-        });
     }
 
     /**
@@ -200,6 +191,34 @@ class ViewportController extends Controller {
      */
     async onDetachPieChartButtonClick(data) {
         await this.createBrowserWindow('pie-chart')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragBoundaryEntry(data) {
+        console.log('onDragBoundaryEntry', data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDragBoundaryExit(data) {
+        let {draggedItem, proxyRect, sortZone} = data,
+            widgetName                         = draggedItem.reference.replace('-panel', ''),
+            popupData;
+
+        this.#isWindowDragging = true;
+
+        // Prohibit the size reduction inside #openWidgetInPopup().
+        proxyRect.height += 50;
+
+        popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
+
+        sortZone.startWindowDrag({
+            dragData: data,
+            ...popupData
+        });
     }
 
     /**

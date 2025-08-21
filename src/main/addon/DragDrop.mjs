@@ -293,7 +293,7 @@ class DragDrop extends Base {
                 ...me.getEventData(event),
                 offsetX  : me.offsetX,
                 offsetY  : me.offsetY,
-                proxyRect: new DOMRect(x, y, me.popupWidth, me.popupHeight),
+                proxyRect: new DOMRect(x - window.screenX, y - window.screenY, me.popupWidth, me.popupHeight),
                 screenX  : originalEvent.screenX,
                 screenY  : originalEvent.screenY,
                 type     : 'drag:move'

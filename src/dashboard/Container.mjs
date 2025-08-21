@@ -47,7 +47,8 @@ class Container extends BaseContainer {
                     owner              : me,
                     windowId           : me.windowId,
                     listeners          : {
-                        dragBoundaryExit: data => me.fire('dragBoundaryExit', data)
+                        dragBoundaryEntry: data => me.fire('dragBoundaryEntry', data),
+                        dragBoundaryExit : data => me.fire('dragBoundaryExit',  data)
                     }
                 })
             })

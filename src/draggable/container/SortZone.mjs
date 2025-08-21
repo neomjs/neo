@@ -224,7 +224,7 @@ class SortZone extends DragZone {
 
         if (me.dragProxy && me.enableProxyToPopup) {
             const {proxyRect} = data;
-console.log(proxyRect);
+
             if (proxyRect && me.boundaryContainerRect) {
                 const
                     boundaryRect     = me.boundaryContainerRect,
@@ -244,7 +244,13 @@ console.log(proxyRect);
                         return // Stop further processing in onDragMove
                     }
                 } else if (me.isWindowDragging) {
-                    console.log(proxyArea, intersectionArea, (intersectionArea / proxyArea) > 0.51);
+                    if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
+                        me.fire('dragBoundaryEntry', {
+                            draggedItem: Neo.getComponent(me.dragElement.id),
+                            proxyRect,
+                            sortZone   : me
+                        });
+                    }
                     return;
                 }
             }
