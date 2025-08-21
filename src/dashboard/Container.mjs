@@ -40,6 +40,7 @@ class Container extends BaseContainer {
             import('../draggable/dashboard/SortZone.mjs').then(module => {
                 me.sortZone = Neo.create({
                     module             : module.default,
+                    allowOverdrag      : true,
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
