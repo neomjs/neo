@@ -12,134 +12,11 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
-     * @param {Object} data
-     */
-    onDragEnd(data) {
-        let me         = this,
-            {owner}    = me,
-            ownerStyle = owner.style || {},
-            itemStyle;
-
-        if (owner.sortable) {
-            ownerStyle.height   = me.ownerStyle.height   || null;
-            ownerStyle.minWidth = me.ownerStyle.minWidth || null;
-            ownerStyle.width    = me.ownerStyle.width    || null;
-
-            owner.style = ownerStyle;
-
-            me.sortableItems.forEach((item, index) => {
-                itemStyle = item.wrapperStyle || {};
-
-                Object.assign(itemStyle, {
-                    height  : me.itemStyles[index].height || null,
-                    left    : null,
-                    margin  : `${me.itemMargin}px 0 0 0`,
-                    position: null,
-                    top     : null,
-                    width   : me.itemStyles[index].width || null
-                });
-
-                if (index === me.startIndex) {
-                    itemStyle.visibility = null;
-                }
-
-                item.wrapperStyle = itemStyle;
-            });
-
-            if (me.startIndex !== me.currentIndex) {
-                // The owner.items array includes the HeaderToolbar, so we need to adjust the index
-                me.moveTo(me.startIndex + 1, me.currentIndex + 1);
-            }
-
-            Object.assign(me, {
-                currentIndex: -1,
-                itemRects   : null,
-                itemStyles  : null,
-                ownerRect   : null,
-                sortableItems: null,
-                startIndex   : -1
-            });
-
-            me.dragEnd(data);
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    async onDragMove(data) {
-        // The method can trigger before we got the client rects from the main thread
-        if (!this.itemRects || this.isScrolling) {
-            return;
-        }
-
-        let me                 = this,
-            {clientX, clientY} = data,
-            index              = me.currentIndex,
-            {itemRects}        = me,
-            maxItems           = itemRects.length - 1,
-            ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
-            ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
-            reversed           = me.reversedLayoutDirection,
-            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
-
-        if (me.sortDirection === 'horizontal') {
-            delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
-            isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
-            isOverDraggingStart = clientX < me.boundaryContainerRect.left;
-            itemHeightOrWidth   = 'width';
-        } else {
-            delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
-            isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
-            isOverDraggingStart = clientY < me.boundaryContainerRect.top;
-            itemHeightOrWidth   = 'height';
-        }
-
-        isOverDragging = isOverDraggingEnd || isOverDraggingStart;
-        moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
-
-        if (isOverDraggingStart) {
-            if (index > 0) {
-                me.currentIndex--;
-                await me.scrollToIndex();
-                me.switchItems(index, me.currentIndex);
-            }
-        }
-
-        else if (isOverDraggingEnd) {
-            if (index < maxItems) {
-                me.currentIndex++;
-                await me.scrollToIndex();
-                me.switchItems(index, me.currentIndex);
-            }
-        }
-
-        else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
-            if (Math.abs(delta) > itemRects[index - 1][itemHeightOrWidth] * moveFactor) {
-                me.currentIndex--;
-                me.switchItems(index, me.currentIndex);
-            }
-        }
-
-        else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
-            if (Math.abs(delta) > itemRects[index + 1][itemHeightOrWidth] * moveFactor) {
-                me.currentIndex++;
-                me.switchItems(index, me.currentIndex);
-            }
-        }
-
-        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
-
-        if (me.isOverDragging) {
-            await me.timeout(30); // wait for 1 frame
-
-            if (me.isOverDragging) {
-                await me.onDragMove(data);
-            }
-        }
-    }
-
-    /**
+     * We must override onDragStart completely because the base class assumes:
+     * 1. The clicked element is the item to drag (we click a header to drag a panel).
+     * 2. All owner.items are sortable (we have a non-sortable toolbar).
+     * This version correctly identifies the panel to drag and measures the geometry
+     * of only the sortable panel items *before* the drag operation starts.
      * @param {Object} data
      */
     async onDragStart(data) {
@@ -148,50 +25,29 @@ class DashboardSortZone extends SortZone {
             {owner}      = me,
             itemStyles   = me.itemStyles = [],
             {layout}     = owner,
-            ownerStyle   = owner.style || {},
-            index, itemStyle, rect;
+            ownerStyle   = owner.style || {};
 
         me.sortableItems = owner.items.filter(item => item.isPanel);
 
-        if (owner.sortable && draggedPanel) {
-            index = me.sortableItems.indexOf(draggedPanel);
+        if (owner.sortable && draggedPanel && me.sortableItems.includes(draggedPanel)) {
+            const index = me.sortableItems.indexOf(draggedPanel);
 
-            // Get all the rects BEFORE moving anything.
             const allRects = await owner.getDomRect([owner.id].concat(me.sortableItems.map(e => e.id)));
 
-            me.ownerRect = allRects.shift();
+            me.ownerRect  = allRects.shift();
             let itemRects = allRects;
 
             Object.assign(me, {
                 currentIndex           : index,
                 dragElement            : draggedPanel.vdom,
-                dragProxyConfig        : {
-                    ...me.dragProxyConfig,
-                    cls: owner.cls.filter(c => c !== 'colors-viewport')
-                },
-                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
+                dragProxyConfig        : { ...me.dragProxyConfig, cls: owner.cls.filter(c => c !== 'colors-viewport') },
+                itemRects              : itemRects,
+                ownerStyle             : { height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width },
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
-                sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
+                sortDirection          : 'vertical',
                 startIndex             : index
             });
 
-            await me.dragStart(data);
-
-            me.sortableItems.forEach((item, i) => {
-                itemStyles.push({
-                    height: item.height ? `${item.height}px` : item.style?.height,
-                    width : item.width ? `${item.width}px` : item.style?.width
-                });
-            });
-
-            owner.style  = {
-                ...ownerStyle,
-                height  : `${me.ownerRect.height}px`,
-                minWidth: `${me.ownerRect.width}px`,
-                width   : `${me.ownerRect.width}px`
-            };
-
-            me.itemRects = itemRects;
             me.slotRects = Neo.clone(itemRects, true);
 
             if (itemRects.length > 1) {
@@ -200,28 +56,93 @@ class DashboardSortZone extends SortZone {
                 me.itemMargin = 0;
             }
 
+            me.sortableItems.forEach(item => {
+                itemStyles.push({
+                    height: item.height ? `${item.height}px` : item.style?.height,
+                    width : item.width ? `${item.width}px` : item.style?.width
+                });
+            });
+
+            await me.dragStart(data);
+
+            owner.style = { ...ownerStyle, height: `${me.ownerRect.height}px`, minWidth: `${me.ownerRect.width}px`, width: `${me.ownerRect.width}px` };
+
             me.sortableItems.forEach((item, i) => {
-                itemStyle         = item.wrapperStyle || {};
-                rect              = itemRects[i];
-                item.wrapperStyle = Object.assign(itemStyle, {
+                const rect = itemRects[i];
+                item.wrapperStyle = {
+                    ...item.wrapperStyle,
                     height  : `${rect.height}px`,
                     left    : `${rect.left}px`,
                     margin  : 0,
                     position: 'absolute',
                     top     : `${rect.top}px`,
                     width   : `${rect.width}px`
-                });
+                };
             });
 
             me.timeout(5).then(() => {
-                itemStyle                 = draggedPanel.wrapperStyle || {};
-                itemStyle.visibility      = 'hidden';
-                draggedPanel.wrapperStyle = itemStyle;
+                draggedPanel.wrapperStyle = { ...draggedPanel.wrapperStyle, visibility: 'hidden' };
             });
         }
     }
 
     /**
+     * We must override onDragEnd because the base class resets styles on all
+     * owner.items, which would break our non-sortable toolbar.
+     * @param {Object} data
+     */
+    async onDragEnd(data) {
+        let me = this;
+
+        await me.timeout(10);
+
+        if (me.owner.sortable) {
+            me.owner.style = { ...me.owner.style, ...me.ownerStyle };
+
+            me.sortableItems.forEach((item, index) => {
+                item.wrapperStyle = {
+                    ...item.wrapperStyle,
+                    height    : me.itemStyles[index].height || null,
+                    left      : null,
+                    margin    : null,
+                    position  : null,
+                    top       : null,
+                    width     : me.itemStyles[index].width || null,
+                    visibility: null
+                };
+            });
+
+            if (me.startIndex !== me.currentIndex) {
+                me.moveTo(me.startIndex, me.currentIndex);
+            }
+
+            Object.assign(me, { currentIndex: -1, itemRects: null, itemStyles: null, ownerRect: null, slotRects: null, startIndex: -1 });
+
+            await me.timeout(30);
+            me.dragEnd(data);
+        }
+    }
+
+    /**
+     * We must provide a moveTo method because the base class calls owner.moveTo()
+     * which does not exist. This method correctly moves the panel within the
+     * owner's (viewport's) items array.
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    moveTo(fromIndex, toIndex) {
+        const itemToMove      = this.sortableItems[fromIndex];
+        const ownerFromIndex  = this.owner.items.indexOf(itemToMove);
+        const landingItem     = this.sortableItems[toIndex];
+        const ownerToIndex    = this.owner.items.indexOf(landingItem);
+
+        NeoArray.move(this.owner.items, ownerFromIndex, ownerToIndex);
+    }
+
+    /**
+     * We must override switchItems because the base class logic is not compatible.
+     * This version uses the clean `slotRects` created in onDragStart to guarantee
+     * that items move to the correct, original positions, preserving gaps.
      * @param {Number} fromIndex
      * @param {Number} toIndex
      */
@@ -231,24 +152,23 @@ class DashboardSortZone extends SortZone {
         NeoArray.move(me.sortableItems, fromIndex, toIndex);
         NeoArray.move(me.itemRects,    fromIndex, toIndex);
 
-        // Reposition all items according to the original slots
         me.sortableItems.forEach((item, index) => {
-            let slotRect = me.slotRects[index];
-            me.updateItem(item, slotRect);
+            me.updateItem(item, me.slotRects[index]);
         });
     }
 
     /**
+     * We must override updateItem because the base class assumes a simple
+     * index map into owner.items. This version updates the passed-in item directly.
      * @param {Neo.component.Base} item
      * @param {Object} rect
      */
     updateItem(item, rect) {
-        let {wrapperStyle} = item;
-
-        wrapperStyle.left = `${rect.x}px`; // Use rect.x
-        wrapperStyle.top  = `${rect.y}px`;  // Use rect.y
-
-        item.wrapperStyle = wrapperStyle;
+        item.wrapperStyle = {
+            ...item.wrapperStyle,
+            left: `${rect.left}px`,
+            top : `${rect.top}px`
+        };
     }
 }
 
