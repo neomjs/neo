@@ -126,6 +126,13 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
+    onDragBoundaryExit(data) {
+        console.log('onDragBoundaryExit', data);
+    }
+
+    /**
+     * @param {Object} data
+     */
     onChangeAmountColors(data) {
         this.updateDataProperty(data, 'amountColors',  data.value)
     }

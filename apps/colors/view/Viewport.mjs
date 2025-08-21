@@ -43,6 +43,10 @@ class Viewport extends BaseViewport {
             module: Dashboard,
             layout: {ntype: 'vbox', align: 'stretch'},
 
+            listeners: {
+                dragBoundaryExit: 'onDragBoundaryExit'
+            },
+
             items: [{
                 module: Panel,
                 flex  : 1,

@@ -43,7 +43,10 @@ class Container extends BaseContainer {
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
-                    windowId           : me.windowId
+                    windowId           : me.windowId,
+                    listeners          : {
+                        dragBoundaryExit: data => me.fire('dragBoundaryExit', data)
+                    }
                 })
             })
         }

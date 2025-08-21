@@ -34,6 +34,11 @@ class DragZone extends Base {
          */
         addDragProxyCls: true,
         /**
+         * Allow the drag proxy to move outside of the boundaryContainerId.
+         * @member {Boolean} allowOverdrag=false
+         */
+        allowOverdrag: false,
+        /**
          * drag:move will by default only fire in case moveInMainThread === false.
          * In case you want to move the dragProxy inside main but still get the event,
          * set this config to true.
@@ -410,7 +415,7 @@ class DragZone extends Base {
         return {
             alwaysFireDragMove : me.alwaysFireDragMove,
             bodyCursorStyle    : me.bodyCursorStyle,
-            boundaryContainerId: me.boundaryContainerId,
+            boundaryContainerId: me.allowOverdrag ? null : me.boundaryContainerId,
             dragElementRootId  : me.getDragElementRoot().id,
             dragProxyCls       : me.dragProxyCls,
             dragZoneId         : me.id,
