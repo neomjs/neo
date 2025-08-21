@@ -33,6 +33,12 @@ class SortZone extends DragZone {
          */
         currentIndex: -1,
         /**
+         * A CSS selector to identify the drag handle within a component.
+         * If specified, the drag is initiated on this element, but the owning component is dragged.
+         * @member {String|null} dragHandleSelector=null
+         */
+        dragHandleSelector: null,
+        /**
          * @member {Object} indexMap=null
          * @protected
          */
