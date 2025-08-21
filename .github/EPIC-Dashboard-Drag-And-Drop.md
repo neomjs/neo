@@ -45,6 +45,8 @@ The primary goal of this phase is to implement the core reordering functionality
 
 ## Phase 2: Live In-Page Proxy
 
+**Status: Complete** - Live proxy implemented by overriding `createDragProxy` in `DashboardSortZone` to move the actual component instance.
+
 The goal of this phase is to enhance the user experience by making the drag proxy a live, interactive component that continues to receive real-time updates during the drag operation. This is the foundational step for the dynamic windowing in Phase 3.
 
 1.  **Override Drag Proxy Creation:**
@@ -58,6 +60,8 @@ The goal of this phase is to enhance the user experience by making the drag prox
     -   On drop, the live component will be moved from the proxy container back into its new position in the `Viewport`'s layout.
 
 ## Phase 3: Dynamic Proxy Transitioning (Windowing)
+
+**Status: In Progress** - Boundary detection and event bubbling mechanism implemented.
 
 This phase builds directly on the live proxy from Phase 2, introducing a seamless transition between an in-page proxy and a separate browser window, based on the drag location. This will adapt the existing "detach widget" logic found in `Colors.view.ViewportController`.
 

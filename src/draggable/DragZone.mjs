@@ -413,9 +413,10 @@ class DragZone extends Base {
         let me = this;
 
         return {
+            allowOverdrag      : me.allowOverdrag,
             alwaysFireDragMove : me.alwaysFireDragMove,
             bodyCursorStyle    : me.bodyCursorStyle,
-            boundaryContainerId: me.allowOverdrag ? null : me.boundaryContainerId,
+            boundaryContainerId: me.boundaryContainerId,
             dragElementRootId  : me.getDragElementRoot().id,
             dragProxyCls       : me.dragProxyCls,
             dragZoneId         : me.id,

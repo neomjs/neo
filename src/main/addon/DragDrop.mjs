@@ -15,6 +15,11 @@ class DragDrop extends Base {
          */
         className: 'Neo.main.addon.DragDrop',
         /**
+         * Allow the drag proxy to move outside of the boundaryContainerId.
+         * @member {Boolean} allowOverdrag=false
+         */
+        allowOverdrag: false,
+        /**
          * @member {Boolean} alwaysFireDragMove=false
          */
         alwaysFireDragMove: false,
@@ -273,7 +278,7 @@ class DragDrop extends Base {
             left = event.detail.clientX - me.offsetX;
             top  = event.detail.clientY - me.offsetY;
 
-            if (rect) {
+            if (rect && !me.allowOverdrag) {
                 if (left < rect.left) {
                     left = rect.left
                 } else if (left > rect.right - proxyRect.width) {
@@ -299,11 +304,18 @@ class DragDrop extends Base {
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
             let originalEvent = event.detail.originalEvent;
+            proxyRect = null;
+
+            if (me.dragProxyElement) {
+                const {height, width} = me.dragProxyElement.getBoundingClientRect();
+                proxyRect = new DOMRect(left, top, width, height);
+            }
 
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
                 offsetX: me.offsetX,
                 offsetY: me.offsetY,
+                proxyRect,
                 screenX: originalEvent.screenX,
                 screenY: originalEvent.screenY,
                 type   : 'drag:move'

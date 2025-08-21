@@ -208,34 +208,35 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async onDragMove(data) {
+        let me = this;
+
         // The method can trigger before we got the client rects from the main thread
-        if (!this.itemRects || this.isScrolling) {
+        if (!me.itemRects || me.isScrolling) {
             return
         }
 
-        // Phase 3: Dynamic Proxy Transitioning
-        if (this.dragProxy && !this.isWindowDragging) {
-            const proxyRect = await this.dragProxy.getDomRect();
+        if (me.dragProxy && !me.isWindowDragging) {
+            const {proxyRect} = data;
 
-            if (proxyRect) {
-                const boundaryRect     = this.boundaryContainerRect;
-                const intersection     = Rectangle.getIntersection(proxyRect, boundaryRect);
-                const proxyArea        = proxyRect.width * proxyRect.height;
-                const intersectionArea = intersection ? intersection.width * intersection.height : 0;
+            if (proxyRect && me.boundaryContainerRect) {
+                const
+                    boundaryRect     = me.boundaryContainerRect,
+                    intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
+                    proxyArea        = proxyRect.width * proxyRect.height,
+                    intersectionArea = intersection ? intersection.width * intersection.height : 0;
 
                 if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
-                    this.isWindowDragging = true; // Set flag to prevent re-entry
+                    me.isWindowDragging = true; // Set flag to prevent re-entry
 
-                    this.fire('dragBoundaryExit', {
-                        draggedItem: Neo.getComponent(this.dragElement.id)
+                    me.fire('dragBoundaryExit', {
+                        draggedItem: Neo.getComponent(me.dragElement.id)
                     });
-                    return; // Stop further processing in onDragMove
+                    return // Stop further processing in onDragMove
                 }
             }
         }
 
-        let me                 = this,
-            {clientX, clientY} = data,
+        let {clientX, clientY} = data,
             index              = me.currentIndex,
             {itemRects}        = me,
             maxItems           = itemRects.length - 1,
