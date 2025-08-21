@@ -40,8 +40,9 @@ class Viewport extends BaseViewport {
             module: HeaderToolbar,
             flex  : 'none'
         }, {
-            module: Dashboard,
-            layout: {ntype: 'vbox', align: 'stretch'},
+            module   : Dashboard,
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'dashboard',
 
             listeners: {
                 dragBoundaryEntry: 'onDragBoundaryEntry',

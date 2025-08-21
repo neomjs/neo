@@ -29,9 +29,9 @@ class ViewportController extends Controller {
      * @member {Object} widgetIndexMap
      */
     widgetIndexMap = {
-        'bar-chart': 3,
-        'pie-chart': 2,
-        grid       : 1
+        'bar-chart': 2,
+        'pie-chart': 1,
+        grid       : 0
     }
 
     /**
@@ -81,7 +81,12 @@ class ViewportController extends Controller {
                 {windowId}   = data,
                 url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName   = new URL(url).searchParams.get('name'),
-                widget       = me.getReference(widgetName);
+                widget       = me.getReference(widgetName),
+                parent       = widget.up('panel');
+
+            if (!me.#isWindowDragging) {
+                parent.hide()
+            }
 
             me.connectedApps.push(widgetName);
 
@@ -105,13 +110,18 @@ class ViewportController extends Controller {
         }
 
         let {appName, windowId} = data,
+            dashboard           = me.getReference('dashboard'),
             url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             widgetName          = new URL(url).searchParams.get('name'),
             widget              = me.getReference(widgetName);
 
         // Closing a non-main app needs to move the widget back into its original position & re-enable the show button
         if (appName === 'ColorsWidget') {
-            me.component.insert(me.widgetIndexMap[widgetName], widget);
+            let itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
+                bodyContainer = itemPanel.getReference('bodyContainer');
+
+            bodyContainer.add(widget);
+            itemPanel.show(true);
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
         }
@@ -196,8 +206,26 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    onDragBoundaryEntry(data) {
-        console.log('onDragBoundaryEntry', data)
+    async onDragBoundaryEntry(data) {
+        let me            = this,
+            {windowId}    = me,
+            {sortZone}    = data,
+            widgetName    = data.draggedItem.reference.replace('-panel', ''),
+            widget        = me.getReference(widgetName),
+            dashboard     = me.getReference('dashboard'),
+            itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
+            bodyContainer = itemPanel.getReference('bodyContainer');
+
+        await Neo.Main.windowClose({names: widgetName, windowId});
+
+        bodyContainer.add(widget);
+
+        me.#isWindowDragging = false;
+
+        sortZone.isWindowDragging = false;
+        sortZone.dragProxy.hidden = false;
+
+        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
     }
 
     /**

@@ -152,12 +152,10 @@ class Panel extends Container {
                 });
 
                 verticalItems.push({
-                    ntype : 'container',
-                    items : horizontalItems,
-                    layout: {
-                        ntype: (hf ? 'hbox' : 'vbox'),
-                        align: 'stretch'
-                    }
+                    ntype    : 'container',
+                    items    : horizontalItems,
+                    layout   : {ntype: (hf ? 'hbox' : 'vbox'), align: 'stretch'},
+                    reference: 'bodyContainer'
                 });
             } else {
                 config = {
@@ -165,6 +163,7 @@ class Panel extends Container {
                     flex        : 1,
                     items,
                     itemDefaults: me.itemDefaults,
+                    reference   : 'bodyContainer',
                     ...containerConfig
                 };
 
