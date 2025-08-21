@@ -19,10 +19,10 @@ class Viewport extends BaseViewport {
          */
         className: 'Colors.view.Viewport',
         /**
-         * @member {String[]} cls=['colors-viewport']
+         * @member {String[]} cls=['colors-viewport','neo-dashboard']
          * @reactive
          */
-        cls: ['colors-viewport'],
+        cls: ['colors-viewport', 'neo-dashboard'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
          * @reactive
