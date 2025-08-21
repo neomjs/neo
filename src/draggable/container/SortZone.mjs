@@ -144,7 +144,7 @@ class SortZone extends DragZone {
     /**
      * @param {Object} data
      */
-    async onDragEnd(data) {return;
+    async onDragEnd(data) {
         let me                  = this,
             {itemStyles, owner} = me,
             ownerStyle          = owner.style || {},
@@ -278,8 +278,7 @@ class SortZone extends DragZone {
      */
     async onDragStart(data) {
         let me                   = this,
-            {owner}              = me,
-            {dragHandleSelector} = me,
+            {adjustItemRectsToParent, dragHandleSelector, owner} = me,
             itemStyles           = me.itemStyles = [],
             {layout}             = owner,
             ownerStyle           = owner.style || {},
@@ -349,9 +348,9 @@ class SortZone extends DragZone {
                 });
             });
 
-            const itemRectsWithId = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
+            const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
-            me.ownerRect = itemRectsWithId.shift();
+            me.ownerRect = itemRects.shift();
 
             owner.style = {
                 ...ownerStyle,
@@ -360,12 +359,12 @@ class SortZone extends DragZone {
                 width   : `${me.ownerRect.width}px`
             };
 
-            me.adjustItemRectsToParent && itemRectsWithId.forEach(rect => {
+            adjustItemRectsToParent && itemRects.forEach(rect => {
                 rect.x -= me.ownerRect.x;
                 rect.y -= me.ownerRect.y
             });
 
-            me.itemRects = itemRectsWithId;
+            me.itemRects = itemRects;
 
             sortableItems.forEach((item, i) => {
                 itemStyle = item.wrapperStyle || {};
@@ -406,7 +405,7 @@ class SortZone extends DragZone {
      * @param {Number} index1
      * @param {Number} index2
      */
-    switchItems(index1, index2) {console.log(index1, index2);
+    switchItems(index1, index2) {
         let me       = this,
             reversed = me.reversedLayoutDirection,
             tmp;
