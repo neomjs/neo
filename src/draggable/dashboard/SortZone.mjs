@@ -7,8 +7,69 @@ import SortZone from '../container/SortZone.mjs';
  */
 class DashboardSortZone extends SortZone {
     static config = {
+        /**
+         * @member {String} className='Neo.draggable.dashboard.SortZone'
+         * @protected
+         */
         className: 'Neo.draggable.dashboard.SortZone',
-        ntype    : 'dashboard-sortzone'
+        /**
+         * @member {String} ntype='dashboard-sortzone'
+         * @protected
+         */
+        ntype: 'dashboard-sortzone'
+    }
+
+    /**
+     * We must provide a moveTo method because the base class calls owner.moveTo()
+     * which does not exist. This method correctly moves the panel within the
+     * owner's (viewport's) items array.
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    moveTo(fromIndex, toIndex) {
+        const itemToMove      = this.sortableItems[fromIndex];
+        const ownerFromIndex  = this.owner.items.indexOf(itemToMove);
+        const landingItem     = this.sortableItems[toIndex];
+        const ownerToIndex    = this.owner.items.indexOf(landingItem);
+
+        NeoArray.move(this.owner.items, ownerFromIndex, ownerToIndex);
+    }
+
+    /**
+     * We must override onDragEnd because the base class resets styles on all
+     * owner.items, which would break our non-sortable toolbar.
+     * @param {Object} data
+     */
+    async onDragEnd(data) {
+        let me = this;
+
+        await me.timeout(10);
+
+        if (me.owner.sortable) {
+            me.owner.style = { ...me.owner.style, ...me.ownerStyle };
+
+            me.sortableItems.forEach((item, index) => {
+                item.wrapperStyle = {
+                    ...item.wrapperStyle,
+                    height    : me.itemStyles[index].height || null,
+                    left      : null,
+                    margin    : null,
+                    position  : null,
+                    top       : null,
+                    width     : me.itemStyles[index].width || null,
+                    visibility: null
+                };
+            });
+
+            if (me.startIndex !== me.currentIndex) {
+                me.moveTo(me.startIndex, me.currentIndex);
+            }
+
+            Object.assign(me, { currentIndex: -1, itemRects: null, itemStyles: null, ownerRect: null, slotRects: null, startIndex: -1 });
+
+            await me.timeout(30);
+            me.dragEnd(data);
+        }
     }
 
     /**
@@ -87,59 +148,6 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
-     * We must override onDragEnd because the base class resets styles on all
-     * owner.items, which would break our non-sortable toolbar.
-     * @param {Object} data
-     */
-    async onDragEnd(data) {
-        let me = this;
-
-        await me.timeout(10);
-
-        if (me.owner.sortable) {
-            me.owner.style = { ...me.owner.style, ...me.ownerStyle };
-
-            me.sortableItems.forEach((item, index) => {
-                item.wrapperStyle = {
-                    ...item.wrapperStyle,
-                    height    : me.itemStyles[index].height || null,
-                    left      : null,
-                    margin    : null,
-                    position  : null,
-                    top       : null,
-                    width     : me.itemStyles[index].width || null,
-                    visibility: null
-                };
-            });
-
-            if (me.startIndex !== me.currentIndex) {
-                me.moveTo(me.startIndex, me.currentIndex);
-            }
-
-            Object.assign(me, { currentIndex: -1, itemRects: null, itemStyles: null, ownerRect: null, slotRects: null, startIndex: -1 });
-
-            await me.timeout(30);
-            me.dragEnd(data);
-        }
-    }
-
-    /**
-     * We must provide a moveTo method because the base class calls owner.moveTo()
-     * which does not exist. This method correctly moves the panel within the
-     * owner's (viewport's) items array.
-     * @param {Number} fromIndex
-     * @param {Number} toIndex
-     */
-    moveTo(fromIndex, toIndex) {
-        const itemToMove      = this.sortableItems[fromIndex];
-        const ownerFromIndex  = this.owner.items.indexOf(itemToMove);
-        const landingItem     = this.sortableItems[toIndex];
-        const ownerToIndex    = this.owner.items.indexOf(landingItem);
-
-        NeoArray.move(this.owner.items, ownerFromIndex, ownerToIndex);
-    }
-
-    /**
      * We must override switchItems because the base class logic is not compatible.
      * This version uses the clean `slotRects` created in onDragStart to guarantee
      * that items move to the correct, original positions, preserving gaps.
@@ -147,6 +155,7 @@ class DashboardSortZone extends SortZone {
      * @param {Number} toIndex
      */
     switchItems(fromIndex, toIndex) {
+        console.log('switchItems', fromIndex, toIndex);
         let me = this;
 
         NeoArray.move(me.sortableItems, fromIndex, toIndex);
