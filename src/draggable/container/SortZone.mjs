@@ -1,4 +1,5 @@
 import DragZone from './DragZone.mjs';
+import NeoArray from '../../util/Array.mjs';
 import VDomUtil from '../../util/VDom.mjs';
 
 /**
@@ -101,6 +102,37 @@ class SortZone extends DragZone {
     isOverDragging = false
 
     /**
+     * Toggles the neo-draggable cls on items inside our owner.
+     * @param {Boolean} draggable
+     */
+    adjustItemCls(draggable) {
+        let me = this;
+
+        if (me.dragHandleSelector) {
+            const handleCls     = me.dragHandleSelector.startsWith('.') ? me.dragHandleSelector.substring(1) : me.dragHandleSelector;
+            const sortableItems = me.owner.items.filter(item =>
+                typeof item !== 'string' && VDomUtil.find(item.vdom, {cls: handleCls})
+            );
+
+            sortableItems.forEach(item => {
+                const wrapperCls = item.wrapperCls || [];
+                NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
+                item.wrapperCls = wrapperCls
+            });
+        } else {
+            super.adjustItemCls(draggable)
+        }
+    }
+
+    /**
+     * Helper method, override as needed
+     * @returns {Object}
+     */
+    getDragProxyConfig() {
+        return {...this.dragProxyConfig, cls: [...this.owner.cls]}
+    }
+
+    /**
      * Override this method for class extensions (e.g. tab.header.Toolbar)
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -112,7 +144,7 @@ class SortZone extends DragZone {
     /**
      * @param {Object} data
      */
-    async onDragEnd(data) {
+    async onDragEnd(data) {return;
         let me                  = this,
             {itemStyles, owner} = me,
             ownerStyle          = owner.style || {},
@@ -127,7 +159,7 @@ class SortZone extends DragZone {
 
             owner.style = ownerStyle;
 
-            owner.items.forEach((item, index) => {
+            me.sortableItems.forEach((item, index) => {
                 itemStyle = item.wrapperStyle || {};
 
                 Object.assign(itemStyle, {
@@ -151,12 +183,13 @@ class SortZone extends DragZone {
             }
 
             Object.assign(me, {
-                currentIndex: -1,
-                indexMap    : null,
-                itemRects   : null,
-                itemStyles  : null,
-                ownerRect   : null,
-                startIndex  : -1
+                currentIndex : -1,
+                indexMap     : null,
+                itemRects    : null,
+                itemStyles   : null,
+                ownerRect    : null,
+                startIndex   : -1,
+                sortableItems: null
             });
 
             await me.timeout(30);
@@ -244,84 +277,117 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async onDragStart(data) {
-        let me         = this,
-            button     = Neo.getComponent(data.path[0].id),
-            {owner}    = me,
-            itemStyles = me.itemStyles = [],
-            {layout}   = owner,
-            ownerStyle = owner.style || {},
-            index, indexMap, itemStyle, rect;
+        let me                   = this,
+            {owner}              = me,
+            {dragHandleSelector} = me,
+            itemStyles           = me.itemStyles = [],
+            {layout}             = owner,
+            ownerStyle           = owner.style || {},
+            draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
         if (owner.sortable) {
-            index    = owner.indexOf(button.id);
+            if (dragHandleSelector) {
+                const handleClassName = dragHandleSelector.substring(1);
+                const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
+
+                if (!handleNode) {
+                    return;
+                }
+
+                const handleIndex = data.path.indexOf(handleNode);
+
+                for (let i = handleIndex; i < data.path.length; i++) {
+                    const potentialItemNode = data.path[i];
+                    const component = Neo.getComponent(potentialItemNode.id);
+
+                    if (component && owner.items.includes(component)) {
+                        draggedItem = component;
+                        break;
+                    }
+                }
+
+                if (!draggedItem) {
+                    return;
+                }
+
+                sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
+                    cls: dragHandleSelector.startsWith('.') ? dragHandleSelector.substring(1) : dragHandleSelector
+                }));
+                index         = sortableItems.indexOf(draggedItem);
+
+                if (index < 0) {
+                    return;
+                }
+            } else {
+                draggedItem   = Neo.getComponent(data.path[0].id);
+                sortableItems = owner.items;
+                index         = owner.indexOf(draggedItem.id);
+            }
+
             indexMap = {};
 
             Object.assign(me, {
                 currentIndex           : index,
-                dragElement            : VDomUtil.find(owner.vdom, button.id).vdom,
-                dragProxyConfig        : {...me.dragProxyConfig, cls: [...owner.cls]},
-                indexMap               : indexMap,
+                dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
+                dragProxyConfig        : me.getDragProxyConfig(),
+                indexMap,
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+                sortableItems,
                 sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
                 startIndex             : index
             });
 
-            await me.dragStart(data); // We do not want to trigger the super class call here
+            await me.dragStart(data);
 
-            owner.items.forEach((item, index) => {
-                indexMap[index] = index;
+            sortableItems.forEach((item, i) => {
+                indexMap[i] = owner.items.indexOf(item);
 
                 itemStyles.push({
                     height: item.height ? `${item.height}px` :  item.style?.height,
                     width : item.width  ? `${item.width}px`  :  item.style?.width
-                })
+                });
             });
 
-            owner.getDomRect([owner.id].concat(owner.items.map(e => e.id))).then(itemRects => {
-                me.ownerRect = itemRects[0];
+            const itemRectsWithId = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
-                // The only reason we are adjusting the toolbar style is that there might be no min-height or min-width present.
-                // => Removing items from the layout could trigger a change in size otherwise
-                owner.style = {
-                    ...ownerStyle,
-                    height  : `${itemRects[0].height}px`,
-                    minWidth: `${itemRects[0].width}px`,
-                    width   : `${itemRects[0].width}px`
-                };
+            me.ownerRect = itemRectsWithId.shift();
 
-                itemRects.shift();
+            owner.style = {
+                ...ownerStyle,
+                height  : `${me.ownerRect.height}px`,
+                minWidth: `${me.ownerRect.width}px`,
+                width   : `${me.ownerRect.width}px`
+            };
 
-                me.adjustItemRectsToParent && itemRects.forEach(rect => {
-                    rect.x -= me.ownerRect.x;
-                    rect.y -= me.ownerRect.y
+            me.adjustItemRectsToParent && itemRectsWithId.forEach(rect => {
+                rect.x -= me.ownerRect.x;
+                rect.y -= me.ownerRect.y
+            });
+
+            me.itemRects = itemRectsWithId;
+
+            sortableItems.forEach((item, i) => {
+                itemStyle = item.wrapperStyle || {};
+                rect      = me.itemRects[i];
+
+                me.adjustProxyRectToParent?.(rect, me.ownerRect);
+
+                item.wrapperStyle = Object.assign(itemStyle, {
+                    height  : `${rect.height}px`,
+                    left    : `${rect.left}px`,
+                    margin  : me.itemMargin,
+                    position: 'absolute',
+                    top     : `${rect.top}px`,
+                    width   : `${rect.width}px`
                 });
+            });
 
-                me.itemRects = itemRects;
+            await me.timeout(5);
 
-                owner.items.forEach((item, index) => {
-                    itemStyle = item.wrapperStyle || {};
-                    rect      = itemRects[index];
-
-                    me.adjustProxyRectToParent?.(rect, me.ownerRect);
-
-                    item.wrapperStyle = Object.assign(itemStyle, {
-                        height  : `${rect.height}px`,
-                        left    : `${rect.left}px`,
-                        margin  : me.itemMargin,
-                        position: 'absolute',
-                        top     : `${rect.top}px`,
-                        width   : `${rect.width}px`
-                    })
-                });
-
-                // we need to add a short (1 frame) delay to ensure the item has switched to an absolute position
-                me.timeout(5).then(() => {
-                    itemStyle = button.wrapperStyle || {};
-                    itemStyle.visibility = 'hidden';
-                    button.wrapperStyle = itemStyle
-                })
-            })
+            itemStyle = draggedItem.wrapperStyle || {};
+            itemStyle.visibility = 'hidden';
+            draggedItem.wrapperStyle = itemStyle;
         }
     }
 
@@ -340,7 +406,7 @@ class SortZone extends DragZone {
      * @param {Number} index1
      * @param {Number} index2
      */
-    switchItems(index1, index2) {
+    switchItems(index1, index2) {console.log(index1, index2);
         let me       = this,
             reversed = me.reversedLayoutDirection,
             tmp;
@@ -365,7 +431,7 @@ class SortZone extends DragZone {
         } else {
             rect1.height = rect2Copy.height;
             rect2.height = rect1Copy.height;
-            rect2.y      = rect1Copy.y + rect2Copy.height
+            rect2.y      = rect1Copy.y + rect2Copy.height;
         }
 
         tmp         = map[index1];
