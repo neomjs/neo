@@ -196,6 +196,24 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
+    async onEnableWindowManagementClick(data) {
+        let me       = this,
+            response = await Neo.main.addon.DragDrop.requestWindowManagementPermission(),
+            button   = me.getReference('window-management-button');
+
+        if (response.success) {
+            button.text = 'W-M enabled';
+            button.iconCls = 'fa fa-check-square';
+            button.disabled = true;
+        } else {
+            button.text = 'W-M disabled';
+            button.iconCls = 'fa fa-exclamation-triangle';
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onStartButtonClick(data) {
         let me           = this,
             intervalTime = 1000 / 60; // assuming 60 FPS

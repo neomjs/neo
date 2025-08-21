@@ -71,6 +71,11 @@ class HeaderToolbar extends Toolbar {
             cls  : ['header-spacer'],
             flex : 1
         }, {
+            handler  : 'onEnableWindowManagementClick',
+            iconCls  : 'fa fa-window-restore',
+            reference: 'window-management-button',
+            text     : 'Enable Window Management'
+        }, {
             handler  : 'onDetachGridButtonClick',
             iconCls  : 'fas fa-table',
             reference: 'detach-grid-button',

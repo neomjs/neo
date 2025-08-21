@@ -110,6 +110,7 @@ class DragDrop extends Base {
          */
         remote: {
             app: [
+                'requestWindowManagementPermission',
                 'setConfigs',
                 'setDragProxyElement'
             ]
@@ -409,6 +410,25 @@ class DragDrop extends Base {
         }
 
         return false
+    }
+
+    /**
+     * @returns {Promise<Object>}
+     */
+    async requestWindowManagementPermission() {
+        if (!window.isSecureContext || !('getScreenDetails' in window)) {
+            return {success: false, error: 'The Window Management API requires a secure context (HTTPS or localhost) and is not supported by this browser.'};
+        }
+
+        try {
+            await window.getScreenDetails();
+            return {success: true};
+        } catch (err) {
+            if (err.name === 'PermissionDeniedError') {
+                return {success: false, error: 'Permission to manage windows was denied.'};
+            }
+            return {success: false, error: `An unknown error occurred: ${err.message}`};
+        }
     }
 
     /**
