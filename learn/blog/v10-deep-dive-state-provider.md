@@ -1,5 +1,7 @@
 # Designing a State Manager for Performance: A Deep Dive into Hierarchical Reactivity
 
+***A look at a new architecture that makes UI state management fast by default.***
+
 Every application developer knows the pain of state management. You have a piece of state—a user object, a theme setting—that needs to be accessed by a component buried deep within your UI tree. The traditional approach is "prop-drilling": passing that data down through every single intermediate component. It's tedious, error-prone, and creates a tight coupling between components that shouldn't know about each other.
 
 Modern frameworks solve this with a "Context API," a central provider that makes state available to any descendant. While this solves prop-drilling, it often introduces a hidden performance penalty. In many implementations, when *any* value in the context changes, *all* components consuming that context are forced to re-render, even if they don't care about the specific piece of data that changed.
@@ -313,6 +315,8 @@ works with Neo's `EffectManager`.
 
 1.  **The `get` Trap:** When your binding function runs, the proxy's `get` trap intercepts these reads and tells the
     `EffectManager`, "The currently running effect depends on this property." This builds a dependency graph automatically.
+
+This is the key to the 'zero-boilerplate' developer experience. Unlike other systems where you must manually declare dependencies and risk stale closures or infinite loops, Neo.mjs discovers them automatically just by observing what your code reads.
 2.  **The `set` Trap:** When you write `provider.data.user.firstname = 'Max'`, the proxy's `set` trap intercepts the assignment.
     It then calls the provider's internal `setData()` method, which triggers the reactivity system to re-run only the
     effects that depend on that specific property.
