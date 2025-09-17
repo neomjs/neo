@@ -11,7 +11,7 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Build Ultra-Fast, Desktop-Like Web Apps :zap:
+# Build Ultra-Fast, Desktop-Like Web Apps
 🚀 **Break Free from UI Freezes — Experience True Multithreading & Uncompromised Responsiveness.**
 
 💻 ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
