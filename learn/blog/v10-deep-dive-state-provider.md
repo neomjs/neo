@@ -4,7 +4,15 @@ Every application developer knows the pain of state management. You have a piece
 
 Modern frameworks solve this with a "Context API," a central provider that makes state available to any descendant. While this solves prop-drilling, it often introduces a hidden performance penalty. In many implementations, when *any* value in the context changes, *all* components consuming that context are forced to re-render, even if they don't care about the specific piece of data that changed.
 
-This is the story of how we built a state provider from the ground up to solve this problem, delivering the convenience of a context API without the performance tax.
+But what if this performance tax isn't an inevitability, but a symptom of a deeper architectural choice? What if the entire problem could be sidestepped by moving state management off the main thread?
+
+This is the fundamental principle behind the Neo.mjs **platform**. Before we continue, there is one architectural fact you must understand, as it is the origin of all the behavior described below:
+
+**In Neo.mjs, State Providers (including all their reactive data and formulas) live and execute exclusively inside a Web Worker.**
+
+This is possible because Neo.mjs provides a holistic, multi-threaded runtime model out of the box. The State Provider is a core capability of this platform—not simply a store you bolt on. It’s how we can deliver the convenience of a context API without the performance tax.
+
+This is the story of how we built a state provider from the ground up to solve this problem, delivering a system that is intuitive, powerful, and surgically performant.
 
 *(Part 5 of 5 in the v10 blog series. Details at the bottom.)*
 
