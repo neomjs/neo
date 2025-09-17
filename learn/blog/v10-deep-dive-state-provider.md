@@ -323,16 +323,25 @@ perceived as a change to its parent (`user`), ensuring that components bound to 
 
 ### Conclusion: Reactivity at the Core
 
-The new `state.Provider` is more than just a state management tool; it's a direct expression of the framework's core
-philosophy. By building on a foundation of true, fine-grained reactivity, it delivers a system that is:
+The new `state.Provider` is more than just a state management tool; it's a direct expression of the framework's core philosophy. By building on a foundation of true, fine-grained reactivity, it delivers a system that is:
 
 *   **Intuitive:** Write state changes like plain JavaScript. The API is clean, direct, and free of boilerplate.
-*   **Surgically Performant:** Only components that depend on the *exact* data that changed will update. The "Context Tax"
-    is eliminated by default.
-*   **Predictable & Robust:** With features like "reactivity bubbling," the system behaves exactly as a developer would
-    expect, removing hidden gotchas and making state management a reliable and enjoyable process.
+*   **Surgically Performant:** Only components that depend on the *exact* data that changed will update. The "Context Tax" is eliminated by default.
+*   **Predictable & Robust:** With features like "reactivity bubbling," the system behaves exactly as a developer would expect, removing hidden gotchas and making state management a reliable and enjoyable process.
 
-This is what a ground-up reactive system enables, and it's a cornerstone of the developer experience in Neo.mjs v10.
+This is the promise of the Neo.mjs platform: a high-performance architecture that results in a simpler, more productive, and more enjoyable developer experience. You spend your time building features, not fighting your tools.
+
+**Seeing is Believing**
+
+Reading about performance is one thing; seeing it is another. While the code snippets in this article are static, you can experience the real, interactive versions and get started with Neo.mjs in minutes.
+
+1.  **Explore Interactive Examples:** See the code from this article and over 70 other examples running live in our Examples Portal. You can edit the code in your browser and see the results instantly.
+    <br>
+    **[=> Explore the Examples Portal](https://neomjs.com/dist/esm/apps/portal/#/examples)**
+
+2.  **Create Your First App:** The `create-app` script is the fastest way to get a multi-threaded "Hello World" application running on your own machine.
+    <br>
+    `npx neo-app@latest`
 
 ---
 
