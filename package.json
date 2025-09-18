@@ -13,6 +13,11 @@
     "scripts": {
         "add-config": "node ./buildScripts/addConfig.mjs",
         "add-reactive-tags": "node ./buildScripts/addReactiveTags.mjs",
+        "ai:build-kb": "npm run ai:create-kb && npm run ai:embed-kb",
+        "ai:create-kb": "node buildScripts/ai/createKnowledgeBase.mjs",
+        "ai:embed-kb": "node buildScripts/ai/embedKnowledgeBase.mjs",
+        "ai:query": "node buildScripts/ai/queryKnowledgeBase.mjs",
+        "ai:server": "chroma run --path ./chroma",
         "build-all": "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
         "build-dist-esm": "node ./buildScripts/buildESModules.mjs",
@@ -79,14 +84,18 @@
     },
     "homepage": "https://neomjs.com/",
     "devDependencies": {
+        "@chroma-core/default-embed": "^0.1.8",
         "@fortawesome/fontawesome-free": "^7.0.1",
+        "@google/generative-ai": "^0.24.1",
         "acorn": "^8.15.0",
         "astring": "^1.9.0",
         "autoprefixer": "^10.4.21",
         "chalk": "^5.6.2",
+        "chromadb": "^3.0.15",
         "clean-webpack-plugin": "^4.0.0",
         "commander": "^14.0.0",
         "cssnano": "^7.1.1",
+        "dotenv": "^17.2.2",
         "envinfo": "^7.14.0",
         "esbuild": "^0.25.9",
         "fs-extra": "^11.3.1",
@@ -107,7 +116,8 @@
         "webpack-cli": "^6.0.1",
         "webpack-dev-server": "^5.2.2",
         "webpack-hook-plugin": "^1.0.7",
-        "webpack-node-externals": "^3.0.0"
+        "webpack-node-externals": "^3.0.0",
+        "yargs": "^17.7.2"
     },
     "funding": {
         "type": "GitHub Sponsors",

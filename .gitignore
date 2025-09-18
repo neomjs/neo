@@ -79,3 +79,7 @@
 .DS_Store
 Thumbs.db
 resources/data/deck/EditorConfig.json
+
+# Local AI Knowledge Base
+.env
+chroma/
