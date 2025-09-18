@@ -65,7 +65,7 @@ class EmbedKnowledgeBase {
 
         for (let i = 0; i < knowledgeBase.length; i += batchSize) {
             const batch = knowledgeBase.slice(i, i + batchSize);
-            const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || ''}`);
+            const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
             
             let retries = 0;
             let success = false;

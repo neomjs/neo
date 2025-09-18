@@ -49,29 +49,50 @@ class CreateKnowledgeBase {
         });
         console.log(`Processed ${chunks.length} API/JSDoc chunks.`);
 
-        // 2. Process the learning content
+        // 2. Process the learning content, splitting guides into chunks by headings
         const learnTreePath = path.resolve(process.cwd(), 'learn/tree.json');
         const learnTree = await fs.readJson(learnTreePath);
         const learnBasePath = path.resolve(process.cwd(), 'learn');
+        let guideChunks = 0;
 
         for (const item of learnTree.data) {
-            if (item.id && !item.isLeaf) { // Assuming parent nodes are directories
-                // We can add more granular processing here later if needed
-            } else if (item.id) {
+            if (item.id && item.isLeaf !== false) { // Process files (leaves or items without isLeaf property)
                 const filePath = path.join(learnBasePath, `${item.id}.md`);
                 if (await fs.pathExists(filePath)) {
                     const content = await fs.readFile(filePath, 'utf-8');
-                    chunks.push({
-                        type: 'guide',
-                        name: item.name,
-                        id: item.id,
-                        content: content,
-                        source: filePath
-                    });
+                    const sections = content.split(/(?=^#+\s)/m); // Split by markdown headings
+
+                    if (sections.length > 1) {
+                        sections.forEach(section => {
+                            if (section.trim() === '') return;
+                            const headingMatch = section.match(/^#+\s(.*)/);
+                            const heading = headingMatch ? headingMatch[1] : item.name;
+                            const chunkName = `${item.name} - ${heading}`;
+
+                            chunks.push({
+                                type: 'guide',
+                                name: chunkName,
+                                id: item.id,
+                                content: section,
+                                source: filePath
+                            });
+                            guideChunks++;
+                        });
+                    } else {
+                        // If no headings, add the whole file as one chunk
+                        chunks.push({
+                            type: 'guide',
+                            name: item.name,
+                            id: item.id,
+                            content: content,
+                            source: filePath
+                        });
+                        guideChunks++;
+                    }
                 }
             }
         }
-        console.log(`Processed learning content. Total chunks: ${chunks.length}.`);
+        console.log(`Processed ${guideChunks} learning content chunks. Total chunks: ${chunks.length}.`);
 
         // 3. Save the unified chunks
         const outputPath = path.resolve(process.cwd(), 'dist/ai-knowledge-base.json');

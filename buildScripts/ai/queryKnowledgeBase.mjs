@@ -40,30 +40,54 @@ class QueryKnowledgeBase {
 
         const results = await collection.query({
             queryEmbeddings: [queryEmbedding.embedding.values],
-            nResults: 15 // Fetch more results to allow for better ranking
+            nResults: 50 // Fetch more results to allow for better ranking
         });
 
         if (results.metadatas?.length > 0 && results.metadatas[0].length > 0) {
             const sourceScores = {};
             const queryLower = query.toLowerCase();
+            const queryTerms = queryLower.split(/\s+/).filter(t => t.length > 2 && !['and', 'the', 'for', 'into'].includes(t));
 
-            results.metadatas[0].forEach(metadata => {
+            results.metadatas[0].forEach((metadata, index) => {
                 if (metadata.source && metadata.source !== 'unknown') {
-                    let score = 1; // Base score for being in the results
+                    // Start with a base score based on relevance ranking from ChromaDB
+                    let score = (results.metadatas[0].length - index) * 0.5;
 
-                    // 1. Boost score for 'Base.mjs' files, as they are fundamental.
-                    if (metadata.source.endsWith('Base.mjs')) {
-                        score += 5;
+                    // 1. Boost for guides, especially if the title matches
+                    if (metadata.type === 'guide') {
+                        score += 10;
+                        if (metadata.name.toLowerCase().includes(queryLower)) {
+                            score += 15;
+                        }
                     }
 
-                    // 2. Boost score for shorter paths (less nested files are often more fundamental).
-                    const depth = metadata.source.split('/').length;
-                    score += Math.max(0, 5 - depth);
+                    // 2. Boost if query terms appear in the path or filename
+                    const sourceLower = metadata.source.toLowerCase();
+                    queryTerms.forEach(term => {
+                        if (sourceLower.includes('/' + term + '/')) { // folder name match
+                            score += 15;
+                        }
+                        if (sourceLower.includes(term) && !sourceLower.endsWith('.mjs')) { // partial folder name match
+                            score += 5;
+                        }
+                        if (sourceLower.endsWith('/' + term + '.mjs')) { // file name match
+                            score += 10;
+                        }
+                    });
 
                     // 3. Big boost for an exact class name match (e.g., query 'button' matches 'Neo.button.Button').
                     if (metadata.type === 'class' && metadata.name.toLowerCase().endsWith(`.${queryLower}`)) {
-                        score += 10;
+                        score += 20;
                     }
+
+                    // 4. Boost score for 'Base.mjs' files, as they are often fundamental.
+                    if (metadata.source.endsWith('Base.mjs')) {
+                        score += 3;
+                    }
+
+                    // 5. Boost score for shorter paths (less nested files are often more fundamental).
+                    const depth = metadata.source.split('/').length;
+                    score += Math.max(0, 5 - depth);
 
                     sourceScores[metadata.source] = (sourceScores[metadata.source] || 0) + score;
                 }
