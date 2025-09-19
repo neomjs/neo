@@ -785,9 +785,14 @@ class Base {
     }
 
     /**
-     * @param {String} className
-     * @param {Object} remote
+     * Sends remote method registration messages to other threads (workers or main-threads).
+     * This method is crucial for enabling cross-worker communication and remote method invocation
+     * for singleton instances. It ensures that methods defined in the `remote` config
+     * are properly registered in the target realm.
+     * @param {String} className - The class name of the instance sending the remote messages.
+     * @param {Object} remote    - The remote config object, specifying target threads and methods.
      * @protected
+     * @static
      */
     static sendRemotes(className, remote) {
         let origin;
@@ -795,12 +800,7 @@ class Base {
         Object.entries(remote).forEach(([worker, methods]) => {
             if (Neo.workerId !== worker) {
                 origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
-
-                origin.sendMessage(worker, {
-                    action: 'registerRemote',
-                    className,
-                    methods
-                })
+                origin.sendMessage(worker, {action: 'registerRemote', className, methods})
             }
         })
     }

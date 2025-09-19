@@ -1,5 +1,28 @@
+import crypto from 'crypto';
 import fs from 'fs-extra';
 import path from 'path';
+
+
+/**
+ * Creates a SHA-256 hash from a stable JSON string representation of the chunk's content.
+ * @param {object} chunk The chunk object.
+ * @returns {string} The hexadecimal hash string.
+ */
+function createContentHash(chunk) {
+    // Create a stable string representation of the content that affects embedding
+    const contentString = JSON.stringify({
+        type: chunk.type,
+        name: chunk.name,
+        description: chunk.description,
+        content: chunk.content,
+        // Include other relevant fields that define the chunk's content
+        extends: chunk.extends,
+        configType: chunk.configType,
+        params: chunk.params,
+        returns: chunk.returns
+    });
+    return crypto.createHash('sha256').update(contentString).digest('hex');
+}
 
 /**
  * This script processes and unifies the framework's existing knowledge sources into a format suitable for AI consumption.
@@ -20,24 +43,28 @@ class CreateKnowledgeBase {
             const sourceFile = item.meta ? path.join(item.meta.path, item.meta.filename) : 'unknown';
 
             if (item.kind === 'class') {
-                chunks.push({
+                const chunk = {
                     type: 'class',
                     name: item.longname,
                     description: item.comment,
                     extends: item.augments?.[0], // Capture the parent class
                     source: sourceFile
-                });
+                };
+                chunk.hash = createContentHash(chunk);
+                chunks.push(chunk);
             } else if (item.kind === 'member' && item.memberof) {
-                chunks.push({
+                const chunk = {
                     type: 'config',
                     className: item.memberof,
                     name: item.name,
                     description: item.description,
                     configType: item.type?.names.join('|') || 'unknown',
                     source: sourceFile
-                });
+                };
+                chunk.hash = createContentHash(chunk);
+                chunks.push(chunk);
             } else if (item.kind === 'function' && item.memberof) {
-                chunks.push({
+                const chunk = {
                     type: 'method',
                     className: item.memberof,
                     name: item.name,
@@ -45,7 +72,9 @@ class CreateKnowledgeBase {
                     params: item.params?.map(p => ({ name: p.name, type: p.type?.names.join('|') })),
                     returns: item.returns?.map(r => r.type?.names.join('|')).join('|'),
                     source: sourceFile
-                });
+                };
+                chunk.hash = createContentHash(chunk);
+                chunks.push(chunk);
             }
         });
         console.log(`Processed ${chunks.length} API/JSDoc chunks.`);
@@ -70,26 +99,30 @@ class CreateKnowledgeBase {
                             const heading = headingMatch ? headingMatch[1] : item.name;
                             const chunkName = `${item.name} - ${heading}`;
 
-                            chunks.push({
+                            const chunk = {
                                 type: 'guide',
                                 name: chunkName,
                                 id: item.id,
                                 isBlog: item.parentId === 'Blog',
                                 content: section,
                                 source: filePath
-                            });
+                            };
+                            chunk.hash = createContentHash(chunk);
+                            chunks.push(chunk);
                             guideChunks++;
                         });
                     } else {
                         // If no headings, add the whole file as one chunk
-                        chunks.push({
+                        const chunk = {
                             type: 'guide',
                             name: item.name,
                             id: item.id,
                             isBlog: item.parentId === 'Blog',
                             content: content,
                             source: filePath
-                        });
+                        };
+                        chunk.hash = createContentHash(chunk);
+                        chunks.push(chunk);
                         guideChunks++;
                     }
                 }

@@ -22,11 +22,6 @@ class EmbedKnowledgeBase {
         const dbClient = new ChromaClient();
         const collectionName = 'neo_knowledge';
 
-        try {
-            await dbClient.deleteCollection({ name: collectionName });
-            console.log(`Deleted existing collection: ${collectionName}`);
-        } catch (err) { /* Collection probably didn't exist, which is fine */ }
-        
         // A dummy embedding function to satisfy the ChromaDB API, since we provide our own embeddings.
         const embeddingFunction = {
             generate: (texts) => {
@@ -44,13 +39,61 @@ class EmbedKnowledgeBase {
             originalLog.apply(console, args);
         };
 
-        const collection = await dbClient.createCollection({
+        const collection = await dbClient.getOrCreateCollection({
             name: collectionName,
             embeddingFunction: embeddingFunction
         });
 
         console.log = originalLog;
-        console.log(`Created new collection: ${collectionName}`);
+        console.log(`Using collection: ${collectionName}`);
+
+        console.log(`Using collection: ${collectionName}`);
+
+        // 1. Fetch existing documents for comparison
+        console.log('Fetching existing documents from ChromaDB...');
+        const existingDocs = await collection.get({ include: ["metadatas"] });
+        const existingDocsMap = new Map();
+        existingDocs.ids.forEach((id, index) => {
+            existingDocsMap.set(id, existingDocs.metadatas[index].hash);
+        });
+        console.log(`Found ${existingDocsMap.size} existing documents.`);
+
+        // 2. Prepare for diffing
+        const chunksToAdd = [];
+        const chunksToUpdate = [];
+        const existingIds = new Set(existingDocs.ids);
+
+        // 3. Compare new chunks with existing ones
+        knowledgeBase.forEach((chunk, index) => {
+            const chunkId = `id_${index}`;
+            if (existingDocsMap.has(chunkId)) {
+                if (existingDocsMap.get(chunkId) !== chunk.hash) {
+                    chunksToUpdate.push({ ...chunk, id: chunkId });
+                }
+                existingIds.delete(chunkId); // Mark this ID as still present
+            } else {
+                chunksToAdd.push({ ...chunk, id: chunkId });
+            }
+        });
+
+        const idsToDelete = Array.from(existingIds);
+
+        console.log(`${chunksToAdd.length} chunks to add.`);
+        console.log(`${chunksToUpdate.length} chunks to update.`);
+        console.log(`${idsToDelete.length} chunks to delete.`);
+
+        // 4. Perform deletions
+        if (idsToDelete.length > 0) {
+            await collection.delete({ ids: idsToDelete });
+            console.log(`Deleted ${idsToDelete.length} stale chunks.`);
+        }
+
+        // 5. Process additions and updates
+        const chunksToProcess = [...chunksToAdd, ...chunksToUpdate];
+        if (chunksToProcess.length === 0) {
+            console.log('No changes detected. Knowledge base is up to date.');
+            return;
+        }
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
@@ -63,8 +106,8 @@ class EmbedKnowledgeBase {
         const batchSize = 100;
         const maxRetries = 5;
 
-        for (let i = 0; i < knowledgeBase.length; i += batchSize) {
-            const batch = knowledgeBase.slice(i, i + batchSize);
+        for (let i = 0; i < chunksToProcess.length; i += batchSize) {
+            const batch = chunksToProcess.slice(i, i + batchSize);
             const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
             
             let retries = 0;
@@ -91,12 +134,12 @@ class EmbedKnowledgeBase {
                         return metadata;
                     });
 
-                    await collection.add({
-                        ids: batch.map((_, j) => `id_${i + j}`),
+                    await collection.upsert({
+                        ids: batch.map(chunk => chunk.id),
                         embeddings: embeddings,
                         metadatas: metadatas
                     });
-                    console.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(knowledgeBase.length / batchSize)}`);
+                    console.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
                     success = true;
                 } catch (err) {
                     retries++;
