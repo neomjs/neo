@@ -1,7 +1,8 @@
 import crypto from 'crypto';
-import fs from 'fs-extra';
-import path from 'path';
+import fs     from 'fs-extra';
+import path   from 'path';
 
+const sectionsRegex = /(?=^#+\s)/m;
 
 /**
  * Creates a SHA-256 hash from a stable JSON string representation of the chunk's content.
@@ -11,16 +12,17 @@ import path from 'path';
 function createContentHash(chunk) {
     // Create a stable string representation of the content that affects embedding
     const contentString = JSON.stringify({
-        type: chunk.type,
-        name: chunk.name,
+        type       : chunk.type,
+        name       : chunk.name,
         description: chunk.description,
-        content: chunk.content,
+        content    : chunk.content,
         // Include other relevant fields that define the chunk's content
-        extends: chunk.extends,
-        configType: chunk.configType,
-        params: chunk.params,
-        returns: chunk.returns
+        extends    : chunk.extends,
+        configType : chunk.configType,
+        params     : chunk.params,
+        returns    : chunk.returns
     });
+
     return crypto.createHash('sha256').update(contentString).digest('hex');
 }
 
@@ -28,85 +30,95 @@ function createContentHash(chunk) {
  * This script processes and unifies the framework's existing knowledge sources into a format suitable for AI consumption.
  * It uses the pre-generated `docs/output/all.json` for API and JSDoc information, and `learn/tree.json`
  * to parse the conceptual learning guides.
- * @buildScripts/buildESModules.mjs NeoStudio.buildScripts.createKnowledgeBase
+ * @class CreateKnowledgeBase
  */
 class CreateKnowledgeBase {
     static async run() {
         console.log('Starting knowledge base creation...');
-        const chunks = [];
-
-        // 1. Process the consolidated API/JSDoc file
-        const apiPath = path.resolve(process.cwd(), 'docs/output/all.json');
-        const apiData = await fs.readJson(apiPath);
+        const
+            chunks  = [],
+            // 1. Process the consolidated API/JSDoc file
+            apiPath = path.resolve(process.cwd(), 'docs/output/all.json'),
+            apiData = await fs.readJson(apiPath);
 
         apiData.forEach(item => {
             const sourceFile = item.meta ? path.join(item.meta.path, item.meta.filename) : 'unknown';
 
             if (item.kind === 'class') {
                 const chunk = {
-                    type: 'class',
-                    name: item.longname,
+                    type       : 'class',
+                    name       : item.longname,
                     description: item.comment,
-                    extends: item.augments?.[0], // Capture the parent class
-                    source: sourceFile
+                    extends    : item.augments?.[0], // Capture the parent class
+                    source     : sourceFile
                 };
+
                 chunk.hash = createContentHash(chunk);
                 chunks.push(chunk);
             } else if (item.kind === 'member' && item.memberof) {
                 const chunk = {
-                    type: 'config',
-                    className: item.memberof,
-                    name: item.name,
+                    type       : 'config',
+                    className  : item.memberof,
+                    name       : item.name,
                     description: item.description,
-                    configType: item.type?.names.join('|') || 'unknown',
-                    source: sourceFile
+                    configType : item.type?.names.join('|') || 'unknown',
+                    source     : sourceFile
                 };
+
                 chunk.hash = createContentHash(chunk);
                 chunks.push(chunk);
             } else if (item.kind === 'function' && item.memberof) {
                 const chunk = {
-                    type: 'method',
-                    className: item.memberof,
-                    name: item.name,
+                    type       : 'method',
+                    className  : item.memberof,
+                    name       : item.name,
                     description: item.description,
-                    params: item.params?.map(p => ({ name: p.name, type: p.type?.names.join('|') })),
-                    returns: item.returns?.map(r => r.type?.names.join('|')).join('|'),
-                    source: sourceFile
+                    params     : item.params?.map(p => ({name: p.name, type: p.type?.names.join('|')})),
+                    returns    : item.returns?.map(r => r.type?.names.join('|')).join('|'),
+                    source     : sourceFile
                 };
+
                 chunk.hash = createContentHash(chunk);
                 chunks.push(chunk);
             }
         });
+
         console.log(`Processed ${chunks.length} API/JSDoc chunks.`);
 
         // 2. Process the learning content, splitting guides into chunks by headings
-        const learnTreePath = path.resolve(process.cwd(), 'learn/tree.json');
-        const learnTree = await fs.readJson(learnTreePath);
-        const learnBasePath = path.resolve(process.cwd(), 'learn');
+        const
+            learnTreePath = path.resolve(process.cwd(), 'learn/tree.json'),
+            learnTree     = await fs.readJson(learnTreePath),
+            learnBasePath = path.resolve(process.cwd(), 'learn');
+
         let guideChunks = 0;
 
         for (const item of learnTree.data) {
             if (item.id && item.isLeaf !== false) { // Process files (leaves or items without isLeaf property)
                 const filePath = path.join(learnBasePath, `${item.id}.md`);
+
                 if (await fs.pathExists(filePath)) {
-                    const content = await fs.readFile(filePath, 'utf-8');
-                    const sections = content.split(/(?=^#+\s)/m); // Split by markdown headings
+                    const
+                        content  = await fs.readFile(filePath, 'utf-8'),
+                        sections = content.split(sectionsRegex); // Split by markdown headings
 
                     if (sections.length > 1) {
                         sections.forEach(section => {
                             if (section.trim() === '') return;
-                            const headingMatch = section.match(/^#+\s(.*)/);
-                            const heading = headingMatch ? headingMatch[1] : item.name;
-                            const chunkName = `${item.name} - ${heading}`;
 
-                            const chunk = {
-                                type: 'guide',
-                                name: chunkName,
-                                id: item.id,
-                                isBlog: item.parentId === 'Blog',
-                                content: section,
-                                source: filePath
-                            };
+                            const
+                                headingMatch = section.match(/^#+\s(.*)/),
+                                heading      = headingMatch ? headingMatch[1] : item.name,
+                                chunkName    = `${item.name} - ${heading}`,
+                                chunk        = {
+                                    type   : 'guide',
+                                    name   : chunkName,
+                                    id     : item.id,
+                                    isBlog : item.parentId === 'Blog',
+                                    content: section,
+                                    source : filePath
+                                };
+
                             chunk.hash = createContentHash(chunk);
                             chunks.push(chunk);
                             guideChunks++;
@@ -114,13 +126,14 @@ class CreateKnowledgeBase {
                     } else {
                         // If no headings, add the whole file as one chunk
                         const chunk = {
-                            type: 'guide',
-                            name: item.name,
-                            id: item.id,
-                            isBlog: item.parentId === 'Blog',
+                            type   : 'guide',
+                            name   : item.name,
+                            id     : item.id,
+                            isBlog : item.parentId === 'Blog',
                             content: content,
-                            source: filePath
+                            source : filePath
                         };
+
                         chunk.hash = createContentHash(chunk);
                         chunks.push(chunk);
                         guideChunks++;
@@ -128,6 +141,7 @@ class CreateKnowledgeBase {
                 }
             }
         }
+
         console.log(`Processed ${guideChunks} learning content chunks. Total chunks: ${chunks.length}.`);
 
         // 3. Save the unified chunks
