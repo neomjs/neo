@@ -107,7 +107,7 @@ class QueryKnowledgeBase {
                         sourceScores[parentData.source] = (sourceScores[parentData.source] || 0) + boost;
                     }
                     currentClass = parentClassName;
-                    boost = Math.floor(boost * 0.8);
+                    boost = Math.floor(boost * 0.6);
                     if (boost < 10) break;
                 }
             });
