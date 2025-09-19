@@ -123,9 +123,9 @@ class Viewport extends BaseViewport {
      * @returns {String}
      */
     getSize(width) {
-        if (width <=  640) {return 'x-small'}
-        if (width <= 1024) {return 'small'}
-        if (width <= 1296) {return 'medium'}
+        if (width <=  640) return 'x-small';
+        if (width <= 1024) return 'small';
+        if (width <= 1296) return 'medium';
         return 'large'
     }
 
