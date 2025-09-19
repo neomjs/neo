@@ -1,6 +1,7 @@
 import Flexbox from './Flexbox.mjs';
 
 /**
+ * The VBox layout allows you to arrange components vertically in a container.
  * @class Neo.layout.VBox
  * @extends Neo.layout.Flexbox
  */

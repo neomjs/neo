@@ -46,51 +46,67 @@ class QueryKnowledgeBase {
         if (results.metadatas?.length > 0 && results.metadatas[0].length > 0) {
             const sourceScores = {};
             const queryLower = query.toLowerCase();
-            const queryTerms = queryLower.split(/\s+/).filter(t => t.length > 2 && !['and', 'the', 'for', 'into'].includes(t));
+            const queryWords = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
+            const mainKeyword = queryWords[queryWords.length - 1] || '';
+            const keywordSingular = mainKeyword.endsWith('s') ? mainKeyword.slice(0, -1) : mainKeyword;
 
             results.metadatas[0].forEach((metadata, index) => {
-                if (metadata.source && metadata.source !== 'unknown') {
-                    // Start with a base score based on relevance ranking from ChromaDB
-                    let score = (results.metadatas[0].length - index) * 0.5;
+                if (!metadata.source || metadata.source === 'unknown') {
+                    return;
+                }
 
-                    // 1. Boost for guides, especially if the title matches
-                    if (metadata.type === 'guide') {
-                        score += 10;
-                        if (metadata.name.toLowerCase().includes(queryLower)) {
-                            score += 15;
-                        }
+                let score = (results.metadatas[0].length - index) * 1; // Base score from vector search rank
+
+                const sourcePath = metadata.source;
+                const sourcePathLower = sourcePath.toLowerCase();
+                const fileName = sourcePath.split('/').pop().toLowerCase();
+                const nameLower = (metadata.name || '').toLowerCase();
+
+                const keyword = keywordSingular;
+
+                if (keyword) {
+                    // 1. Path contains keyword directory
+                    if (sourcePathLower.includes(`/${keyword}/`)) {
+                        score += 40;
                     }
 
-                    // 2. Boost if query terms appear in the path or filename
-                    const sourceLower = metadata.source.toLowerCase();
-                    queryTerms.forEach(term => {
-                        if (sourceLower.includes('/' + term + '/')) { // folder name match
-                            score += 15;
-                        }
-                        if (sourceLower.includes(term) && !sourceLower.endsWith('.mjs')) { // partial folder name match
-                            score += 5;
-                        }
-                        if (sourceLower.endsWith('/' + term + '.mjs')) { // file name match
-                            score += 10;
-                        }
-                    });
+                    // 2. Filename contains keyword
+                    if (fileName.includes(keyword)) {
+                        score += 30;
+                    }
 
-                    // 3. Big boost for an exact class name match (e.g., query 'button' matches 'Neo.button.Button').
-                    if (metadata.type === 'class' && metadata.name.toLowerCase().endsWith(`.${queryLower}`)) {
+                    // 3. Class name contains keyword
+                    if (metadata.type === 'class' && nameLower.includes(keyword)) {
+                        score += 20;
+                    }
+                    
+                    // 4. Member of a class that contains keyword
+                    if (metadata.className && metadata.className.toLowerCase().includes(keyword)) {
                         score += 20;
                     }
 
-                    // 4. Boost score for 'Base.mjs' files, as they are often fundamental.
-                    if (metadata.source.endsWith('Base.mjs')) {
-                        score += 3;
+                    // 5. Boost for guides
+                    if (metadata.type === 'guide') {
+                        score += 30;
+                        // Big boost if guide name matches
+                        if (nameLower.includes(keyword)) {
+                            score += 50;
+                        }
                     }
 
-                    // 5. Boost score for shorter paths (less nested files are often more fundamental).
-                    const depth = metadata.source.split('/').length;
-                    score += Math.max(0, 5 - depth);
-
-                    sourceScores[metadata.source] = (sourceScores[metadata.source] || 0) + score;
+                    // 6. Boost for Base.mjs files
+                    if (fileName.endsWith('base.mjs')) {
+                        score += 20;
+                    }
+                    
+                    // 7. Boost for exact matches on class name parts
+                    const nameParts = nameLower.split('.');
+                    if (nameParts.includes(keyword)) {
+                        score += 30;
+                    }
                 }
+
+                sourceScores[sourcePath] = (sourceScores[sourcePath] || 0) + score;
             });
 
             if (Object.keys(sourceScores).length === 0) {
@@ -98,11 +114,11 @@ class QueryKnowledgeBase {
                 return;
             }
 
-            // Sort by the new, weighted score instead of just the count
+            // Sort by the new, weighted score
             const sortedSources = Object.entries(sourceScores).sort(([, a], [, b]) => b - a);
 
             console.log('\nMost relevant source files (by weighted score):');
-            sortedSources.forEach(([source, score]) => {
+            sortedSources.slice(0, 25).forEach(([source, score]) => {
                 console.log(`- ${source} (Score: ${score.toFixed(0)})`);
             });
             console.log(`\nTop result: ${sortedSources[0][0]}`);
