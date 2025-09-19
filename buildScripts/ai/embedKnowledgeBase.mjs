@@ -1,9 +1,8 @@
-// buildScripts/ai/embedKnowledgeBase.mjs
-import { ChromaClient } from 'chromadb';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import dotenv from 'dotenv';
-import fs from 'fs-extra';
-import path from 'path';
+import {ChromaClient}       from 'chromadb';
+import {GoogleGenerativeAI} from '@google/generative-ai';
+import dotenv               from 'dotenv';
+import fs                   from 'fs-extra';
+import path                 from 'path';
 
 dotenv.config();
 
@@ -19,7 +18,7 @@ class EmbedKnowledgeBase {
         const knowledgeBase = await fs.readJson(knowledgeBasePath);
         console.log(`Loaded ${knowledgeBase.length} knowledge chunks.`);
 
-        const dbClient = new ChromaClient();
+        const dbClient       = new ChromaClient();
         const collectionName = 'neo_knowledge';
 
         // A dummy embedding function to satisfy the ChromaDB API, since we provide our own embeddings.
@@ -40,36 +39,38 @@ class EmbedKnowledgeBase {
         };
 
         const collection = await dbClient.getOrCreateCollection({
-            name: collectionName,
+            name             : collectionName,
             embeddingFunction: embeddingFunction
         });
 
         console.log = originalLog;
-        console.log(`Using collection: ${collectionName}`);
 
         console.log(`Using collection: ${collectionName}`);
 
         // 1. Fetch existing documents for comparison
         console.log('Fetching existing documents from ChromaDB...');
-        const existingDocs = await collection.get({ include: ["metadatas"] });
+        const existingDocs    = await collection.get({include: ["metadatas"]});
         const existingDocsMap = new Map();
+
         existingDocs.ids.forEach((id, index) => {
             existingDocsMap.set(id, existingDocs.metadatas[index].hash);
         });
         console.log(`Found ${existingDocsMap.size} existing documents.`);
 
         // 2. Prepare for diffing
-        const chunksToAdd = [];
+        const chunksToAdd    = [];
         const chunksToUpdate = [];
-        const existingIds = new Set(existingDocs.ids);
+        const existingIds    = new Set(existingDocs.ids);
 
         // 3. Compare new chunks with existing ones
         knowledgeBase.forEach((chunk, index) => {
             const chunkId = `id_${index}`;
+
             if (existingDocsMap.has(chunkId)) {
                 if (existingDocsMap.get(chunkId) !== chunk.hash) {
                     chunksToUpdate.push({ ...chunk, id: chunkId });
                 }
+
                 existingIds.delete(chunkId); // Mark this ID as still present
             } else {
                 chunksToAdd.push({ ...chunk, id: chunkId });
@@ -78,9 +79,9 @@ class EmbedKnowledgeBase {
 
         const idsToDelete = Array.from(existingIds);
 
-        console.log(`${chunksToAdd.length} chunks to add.`);
+        console.log(`${chunksToAdd.length   } chunks to add.`);
         console.log(`${chunksToUpdate.length} chunks to update.`);
-        console.log(`${idsToDelete.length} chunks to delete.`);
+        console.log(`${idsToDelete.length   } chunks to delete.`);
 
         // 4. Perform deletions
         if (idsToDelete.length > 0) {
@@ -97,19 +98,19 @@ class EmbedKnowledgeBase {
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
-        
+
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
         console.log('Initialized Google AI embedding model: text-embedding-004.');
 
         console.log('Embedding chunks...');
-        const batchSize = 100;
+        const batchSize  = 100;
         const maxRetries = 5;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
-            const batch = chunksToProcess.slice(i, i + batchSize);
+            const batch        = chunksToProcess.slice(i, i + batchSize);
             const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
-            
+
             let retries = 0;
             let success = false;
 
@@ -135,9 +136,9 @@ class EmbedKnowledgeBase {
                     });
 
                     await collection.upsert({
-                        ids: batch.map(chunk => chunk.id),
+                        ids       : batch.map(chunk => chunk.id),
                         embeddings: embeddings,
-                        metadatas: metadatas
+                        metadatas : metadatas
                     });
                     console.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
                     success = true;
