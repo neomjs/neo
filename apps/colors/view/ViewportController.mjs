@@ -22,48 +22,40 @@ class ViewportController extends Controller {
      */
     intervalId = null
     /**
+     * @member {Boolean} #isWindowDragging=false
+     */
+    #isWindowDragging = false
+    /**
      * @member {Object} widgetIndexMap
      */
     widgetIndexMap = {
-        'bar-chart': 3,
-        'pie-chart': 2,
-        grid       : 1
+        'bar-chart': 2,
+        'pie-chart': 1,
+        grid       : 0
     }
 
     /**
      * @param {String} name The name of the reference
      */
     async createBrowserWindow(name) {
-        let me                      = this,
-            {windowId}              = me,
-            {config, windowConfigs} = Neo,
-            {environment}           = config,
-            firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
-            {basePath}              = windowConfigs[firstWindowId],
-            url;
+        if (this.getStateProvider().getData('openWidgetsAsPopups')) {
+            let widget = this.getReference(name),
+                rect   = await this.component.getDomRect(widget.vdom.id); // using the vdom id to always get the top-level node
 
-        if (environment !== 'development') {
-            basePath = `${basePath + environment}/`
-        }
-
-        url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
-
-        if (me.getStateProvider().getData('openWidgetsAsPopups')) {
-            let widget                     = me.getReference(name),
-                winData                    = await Neo.Main.getWindowData({windowId} ),
-                rect                       = await me.component.getDomRect(widget.vdom.id), // using the vdom id to always get the top-level node
-                {height, left, top, width} = rect;
-
-            height -= 50; // popup header in Chrome
-            left   += winData.screenLeft;
-            top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
-
-            await Neo.Main.windowOpen({
-                url,
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                windowName    : name
-            })
+            await this.#openWidgetInPopup(name, rect)
         } else {
+            let {config, windowConfigs} = Neo,
+                {environment}           = config,
+                firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+                {basePath}              = windowConfigs[firstWindowId],
+                url;
+
+            if (environment !== 'development') {
+                basePath = `${basePath + environment}/`
+            }
+
+            url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+
             await Neo.Main.windowOpen({url, windowName: '_blank'})
         }
     }
@@ -89,7 +81,12 @@ class ViewportController extends Controller {
                 {windowId}   = data,
                 url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName   = new URL(url).searchParams.get('name'),
-                widget       = me.getReference(widgetName);
+                widget       = me.getReference(widgetName),
+                parent       = widget.up('panel');
+
+            if (!me.#isWindowDragging) {
+                parent.hide()
+            }
 
             me.connectedApps.push(widgetName);
 
@@ -105,15 +102,26 @@ class ViewportController extends Controller {
      * @param {Number} data.windowId
      */
     async onAppDisconnect(data) {
-        let me                  = this,
-            {appName, windowId} = data,
+        let me = this;
+
+        if (me.#isWindowDragging) {
+            me.#isWindowDragging = false;
+            return
+        }
+
+        let {appName, windowId} = data,
+            dashboard           = me.getReference('dashboard'),
             url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             widgetName          = new URL(url).searchParams.get('name'),
             widget              = me.getReference(widgetName);
 
         // Closing a non-main app needs to move the widget back into its original position & re-enable the show button
         if (appName === 'ColorsWidget') {
-            me.component.insert(me.widgetIndexMap[widgetName], widget);
+            let itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
+                bodyContainer = itemPanel.getReference('bodyContainer');
+
+            bodyContainer.add(widget);
+            itemPanel.show(true);
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
         }
@@ -198,6 +206,70 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
+    async onDragBoundaryEntry(data) {
+        let me            = this,
+            {windowId}    = me,
+            {sortZone}    = data,
+            widgetName    = data.draggedItem.reference.replace('-panel', ''),
+            widget        = me.getReference(widgetName),
+            dashboard     = me.getReference('dashboard'),
+            itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
+            bodyContainer = itemPanel.getReference('bodyContainer');
+
+        await Neo.Main.windowClose({names: widgetName, windowId});
+
+        bodyContainer.add(widget);
+
+        me.#isWindowDragging = false;
+
+        sortZone.isWindowDragging = false;
+        sortZone.dragProxy.hidden = false;
+
+        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDragBoundaryExit(data) {
+        let {draggedItem, proxyRect, sortZone} = data,
+            widgetName                         = draggedItem.reference.replace('-panel', ''),
+            popupData;
+
+        this.#isWindowDragging = true;
+
+        // Prohibit the size reduction inside #openWidgetInPopup().
+        proxyRect.height += 50;
+
+        popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
+
+        sortZone.startWindowDrag({
+            dragData: data,
+            ...popupData
+        });
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onEnableWindowManagementClick(data) {
+        let me       = this,
+            response = await Neo.main.addon.DragDrop.requestWindowManagementPermission(),
+            button   = me.getReference('window-management-button');
+
+        if (response.success) {
+            button.text = 'W-M enabled';
+            button.iconCls = 'fa fa-check-square';
+            button.disabled = true;
+        } else {
+            button.text = 'W-M disabled';
+            button.iconCls = 'fa fa-exclamation-triangle';
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onStartButtonClick(data) {
         let me           = this,
             intervalTime = 1000 / 60; // assuming 60 FPS
@@ -223,6 +295,41 @@ class ViewportController extends Controller {
             clearInterval(me.intervalId);
             me.intervalId = null
         }
+    }
+
+    /**
+     * @param {String} name
+     * @param {Object} rect
+     * @private
+     */
+    async #openWidgetInPopup(name, rect) {
+        let me                      = this,
+            {windowId}              = me,
+            {config, windowConfigs} = Neo,
+            {environment}           = config,
+            firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+            {basePath}              = windowConfigs[firstWindowId],
+            url;
+
+        if (environment !== 'development') {
+            basePath = `${basePath + environment}/`
+        }
+
+        url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+
+        let winData               = await Neo.Main.getWindowData({windowId}),
+            {height, width, x, y} = rect,
+            popupHeight           = height - 50, // popup header in Chrome
+            popupLeft             = x + winData.screenLeft,
+            popupTop              = y + (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+        await Neo.Main.windowOpen({
+            url,
+            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
+            windowName    : name
+        });
+
+        return {popupHeight, popupLeft, popupTop, popupWidth: width, windowName: name}
     }
 
     /**

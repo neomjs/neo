@@ -1,0 +1,8 @@
+.neo-container .neo-draggable,
+.neo-panel .neo-draggable {
+    cursor: pointer;
+
+    &:active {
+        cursor: pointer;
+    }
+}

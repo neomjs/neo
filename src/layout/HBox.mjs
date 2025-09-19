@@ -1,6 +1,7 @@
 import Flexbox from './Flexbox.mjs';
 
 /**
+ * The HBox layout allows you to arrange components horizontally in a container.
  * @class Neo.layout.HBox
  * @extends Neo.layout.Flexbox
  */

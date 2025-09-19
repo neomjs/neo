@@ -191,7 +191,7 @@ Neo = globalThis.Neo = Object.assign({
      * Makes the first character of a string uppercase
      * @memberOf module:Neo
      * @param {String} value
-     * @returns {Boolean|String} Returns false for non string inputs
+     * @returns {Boolean|String} Returns false for non-string inputs
      */
     capitalize(value) {
         return value[0].toUpperCase() + value.slice(1)
@@ -255,7 +255,6 @@ Neo = globalThis.Neo = Object.assign({
      * @param {String|Object|Neo.core.Base} className
      * @param {Object}                      [config]
      * @returns {Neo.core.Base|null} The new class instance
-     * @tutorial 02_ClassSystem
      */
     create(className, config) {
         let type = Neo.typeOf(className),
@@ -307,7 +306,7 @@ Neo = globalThis.Neo = Object.assign({
             throw(
 `Invalid config in ${target.className}: '${key}_'. The config '${key}' is already defined as reactive by a parent class.
 To override the default value, use '${key}' (without the underscore) in your static config.
-If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}()', 'beforeSet${Neo.capitalize(key)}()', and 'afterSet${Neo.capitalize(key)}()' hooks instead of redefining the config.`
+If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}()', 'beforeSet${Neo.capitalize(key)}()',and 'afterSet${Neo.capitalize(key)}()' hooks instead of redefining the config.`
             )
         }
 
@@ -331,27 +330,27 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                         value     = hasNewKey ? newKey : me[_key];
 
                     if (value instanceof Date) {
-                        value = new Date(value.valueOf());
+                        value = new Date(value.valueOf())
                     }
                     // new, explicit opt-in path
                     else if (config.cloneOnGet) {
                         const {cloneOnGet} = config;
 
                         if (cloneOnGet === 'deep') {
-                            value = Neo.clone(value, true, true);
+                            value = Neo.clone(value, true, true)
                         } else if (cloneOnGet === 'shallow') {
                             const type = Neo.typeOf(value);
 
                             if (type === 'Array') {
-                                value = [...value];
+                                value = [...value]
                             } else if (type === 'Object') {
-                                value = {...value};
+                                value = {...value}
                             }
                         }
                     }
                     // legacy behavior
                     else if (Array.isArray(value)) {
-                        value = [...value];
+                        value = [...value]
                     }
 
                     if (hasNewKey) {
@@ -676,23 +675,23 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
      *     `dist/production` app can dynamically load an unbundled module from `dist/esm` at runtime.
      *     If that module imports a class already present in the main bundle, this check ensures the
      *     original, bundled class is used, preventing conflicts and maintaining application integrity.
-     * 1.  **Configuration Merging:** It traverses the prototype chain to merge `static config`
+     * 2.  **Configuration Merging:** It traverses the prototype chain to merge `static config`
      *     objects from parent classes into the current class, creating a unified `config`.
-     * 2.  **Applying Overwrites:** It calls the static `applyOverwrites()` method on the class,
+     * 3.  **Applying Overwrites:** It calls the static `applyOverwrites()` method on the class,
      *     allowing the global `Neo.overwrites` object to modify the class's default prototype
      *     configs. This is a key mechanism for external theming and configuration.
-     * 3.  **Reactive Getter/Setter Generation:** For any config ending with an underscore (e.g., `myConfig_`),
+     * 4.  **Reactive Getter/Setter Generation:** For any config ending with an underscore (e.g., `myConfig_`),
      *     it automatically generates the corresponding public getter and setter. This enables optional
      *     lifecycle hooks that are called automatically if implemented on the class:
      *     - `beforeGetMyConfig(value)`
      *     - `beforeSetMyConfig(newValue, oldValue)`
      *     - `afterSetMyConfig(newValue, oldValue)`
-     * 4.  **Prototype-based Configs:** Non-reactive configs (without an underscore) are set
+     * 5.  **Prototype-based Configs:** Non-reactive configs (without an underscore) are set
      *     directly on the prototype for memory efficiency.
-     * 5.  **Mixin Application:** It processes the `mixins` config to blend in functionality from
+     * 6.  **Mixin Application:** It processes the `mixins` config to blend in functionality from
      *     other classes.
-     * 6.  **Namespace Registration:** It registers the class in the global `Neo` namespace.
-     * 7.  **Singleton Instantiation:** If the class is configured as a singleton, it creates the
+     * 7.  **Namespace Registration:** It registers the class in the global `Neo` namespace.
+     * 8.  **Singleton Instantiation:** If the class is configured as a singleton, it creates the
      *     single instance.
      *
      * @memberOf module:Neo
@@ -777,11 +776,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 // This part handles non-reactive configs (including those that were descriptors)
                 // If no property setter exists, define it directly on the prototype.
                 else if (!Neo.hasPropertySetter(element, key)) {
-                    Object.defineProperty(element, key, {
-                        enumerable: true,
-                        value,
-                        writable  : true
-                    })
+                    Object.defineProperty(element, key, {enumerable: true, value, writable: true})
                 }
             });
 
@@ -894,9 +889,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
      */
     typeOf(item) {
         // Return null for null or undefined
-        if (item == null) {
-            return null
-        }
+        if (item == null) return null;
 
         return typeDetector[typeof item]?.(item) || item.constructor?.name
     }
@@ -958,7 +951,7 @@ function applyMixins(cls, mixins, classConfig) {
         Object.entries(Object.getOwnPropertyDescriptors(mixinProto)).forEach(mixinProperty(cls.prototype, mixinProto, classConfig))
     }
 
-    cls.prototype.mixins = mixinClasses // todo: we should do a deep merge
+    cls.prototype.mixins = mixinClasses
 }
 
 /**
@@ -1031,7 +1024,7 @@ function mixinProperty(proto, mixinProto, classConfig) {
             const mixinClassConfig = mixinProto.constructor.config;
 
             if (Object.hasOwn(mixinClassConfig, key)) {
-                classConfig[key] = mixinClassConfig[key];
+                classConfig[key] = mixinClassConfig[key]
             }
 
             return

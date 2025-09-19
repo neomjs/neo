@@ -1,10 +1,20 @@
 # Designing a State Manager for Performance: A Deep Dive into Hierarchical Reactivity
 
+***A look at a new architecture that makes UI state management fast by default.***
+
 Every application developer knows the pain of state management. You have a piece of state—a user object, a theme setting—that needs to be accessed by a component buried deep within your UI tree. The traditional approach is "prop-drilling": passing that data down through every single intermediate component. It's tedious, error-prone, and creates a tight coupling between components that shouldn't know about each other.
 
 Modern frameworks solve this with a "Context API," a central provider that makes state available to any descendant. While this solves prop-drilling, it often introduces a hidden performance penalty. In many implementations, when *any* value in the context changes, *all* components consuming that context are forced to re-render, even if they don't care about the specific piece of data that changed.
 
-This is the story of how we built a state provider from the ground up to solve this problem, delivering the convenience of a context API without the performance tax.
+But what if this performance tax isn't an inevitability, but a symptom of a deeper architectural choice? What if the entire problem could be sidestepped by moving state management off the main thread?
+
+This is the fundamental principle behind the Neo.mjs **platform**. Before we continue, there is one architectural fact you must understand, as it is the origin of all the behavior described below:
+
+**In Neo.mjs, State Providers (including all their reactive data and formulas) live and execute exclusively inside a Web Worker.**
+
+This is possible because Neo.mjs provides a holistic, multi-threaded runtime model out of the box. The State Provider is a core capability of this platform—not simply a store you bolt on. It’s how we can deliver the convenience of a context API without the performance tax.
+
+This is the story of how we built a state provider from the ground up to solve this problem, delivering a system that is intuitive, powerful, and surgically performant.
 
 *(Part 5 of 5 in the v10 blog series. Details at the bottom.)*
 
@@ -305,6 +315,8 @@ works with Neo's `EffectManager`.
 
 1.  **The `get` Trap:** When your binding function runs, the proxy's `get` trap intercepts these reads and tells the
     `EffectManager`, "The currently running effect depends on this property." This builds a dependency graph automatically.
+
+This is the key to the 'zero-boilerplate' developer experience. Unlike other systems where you must manually declare dependencies and risk stale closures or infinite loops, Neo.mjs discovers them automatically just by observing what your code reads.
 2.  **The `set` Trap:** When you write `provider.data.user.firstname = 'Max'`, the proxy's `set` trap intercepts the assignment.
     It then calls the provider's internal `setData()` method, which triggers the reactivity system to re-run only the
     effects that depend on that specific property.
@@ -315,16 +327,25 @@ perceived as a change to its parent (`user`), ensuring that components bound to 
 
 ### Conclusion: Reactivity at the Core
 
-The new `state.Provider` is more than just a state management tool; it's a direct expression of the framework's core
-philosophy. By building on a foundation of true, fine-grained reactivity, it delivers a system that is:
+The new `state.Provider` is more than just a state management tool; it's a direct expression of the framework's core philosophy. By building on a foundation of true, fine-grained reactivity, it delivers a system that is:
 
 *   **Intuitive:** Write state changes like plain JavaScript. The API is clean, direct, and free of boilerplate.
-*   **Surgically Performant:** Only components that depend on the *exact* data that changed will update. The "Context Tax"
-    is eliminated by default.
-*   **Predictable & Robust:** With features like "reactivity bubbling," the system behaves exactly as a developer would
-    expect, removing hidden gotchas and making state management a reliable and enjoyable process.
+*   **Surgically Performant:** Only components that depend on the *exact* data that changed will update. The "Context Tax" is eliminated by default.
+*   **Predictable & Robust:** With features like "reactivity bubbling," the system behaves exactly as a developer would expect, removing hidden gotchas and making state management a reliable and enjoyable process.
 
-This is what a ground-up reactive system enables, and it's a cornerstone of the developer experience in Neo.mjs v10.
+This is the promise of the Neo.mjs platform: a high-performance architecture that results in a simpler, more productive, and more enjoyable developer experience. You spend your time building features, not fighting your tools.
+
+**Seeing is Believing**
+
+Reading about performance is one thing; seeing it is another. While the code snippets in this article are static, you can experience the real, interactive versions and get started with Neo.mjs in minutes.
+
+1.  **Explore Interactive Examples:** See the code from this article and over 70 other examples running live in our Examples Portal. You can edit the code in your browser and see the results instantly.
+    <br>
+    **[=> Explore the Examples Portal](https://neomjs.com/dist/esm/apps/portal/#/examples)**
+
+2.  **Create Your First App:** The `create-app` script is the fastest way to get a multi-threaded "Hello World" application running on your own machine.
+    <br>
+    `npx neo-app@latest`
 
 ---
 

@@ -15,6 +15,11 @@ class DragDrop extends Base {
          */
         className: 'Neo.main.addon.DragDrop',
         /**
+         * Allow the drag proxy to move outside of the boundaryContainerId.
+         * @member {Boolean} allowOverdrag=false
+         */
+        allowOverdrag: false,
+        /**
          * @member {Boolean} alwaysFireDragMove=false
          */
         alwaysFireDragMove: false,
@@ -83,6 +88,11 @@ class DragDrop extends Base {
          */
         initialScrollTop: 0,
         /**
+         * @member {Boolean} isWindowDragging=false
+         * @protected
+         */
+        isWindowDragging: false,
+        /**
          * @member {Boolean} moveHorizontal=true
          */
         moveHorizontal: true,
@@ -99,14 +109,21 @@ class DragDrop extends Base {
          */
         offsetY: 0,
         /**
+         * @member {String|null} popupName=null
+         * @protected
+         */
+        popupName: null,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
          */
         remote: {
             app: [
+                'requestWindowManagementPermission',
                 'setConfigs',
-                'setDragProxyElement'
+                'setDragProxyElement',
+                'startWindowDrag'
             ]
         },
         /**
@@ -241,12 +258,17 @@ class DragDrop extends Base {
             dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
+            isWindowDragging      : false,
             moveHorizontal        : true,
             moveVertical          : true,
+            popupHeight           : null,
+            popupName             : null,
+            popupWidth            : null,
             scrollContainerElement: null,
             scrollContainerRect   : null,
             setScrollFactorLeft   : 1,
-            scrollFactorTop       : 1
+            scrollFactorTop       : 1,
+            windowName            : null
         })
     }
 
@@ -254,10 +276,31 @@ class DragDrop extends Base {
      * @param {Event} event
      */
     onDragMove(event) {
-        let me        = this,
-            proxyRect = me.dragProxyRect,
-            rect      = me.boundaryContainerRect,
+        let me              = this,
+            {originalEvent} = event.detail,
+            proxyRect       = me.dragProxyRect,
+            rect            = me.boundaryContainerRect,
             data, left, top;
+
+        if (me.isWindowDragging) {
+            const
+                x = originalEvent.screenX - (me.offsetX || 0),
+                y = originalEvent.screenY - (me.offsetY || 0);
+
+            Neo.Main.windowMoveTo({windowName: me.popupName, x, y});
+
+            DomEvents.sendMessageToApp({
+                ...me.getEventData(event),
+                offsetX  : me.offsetX,
+                offsetY  : me.offsetY,
+                proxyRect: new DOMRect(x - window.screenX, y - window.screenY, me.popupWidth, me.popupHeight),
+                screenX  : originalEvent.screenX,
+                screenY  : originalEvent.screenY,
+                type     : 'drag:move'
+            });
+
+            return
+        }
 
         if (me.scrollContainerElement) {
             data = me.scrollContainer({
@@ -273,7 +316,7 @@ class DragDrop extends Base {
             left = event.detail.clientX - me.offsetX;
             top  = event.detail.clientY - me.offsetY;
 
-            if (rect) {
+            if (rect && !me.allowOverdrag) {
                 if (left < rect.left) {
                     left = rect.left
                 } else if (left > rect.right - proxyRect.width) {
@@ -299,11 +342,18 @@ class DragDrop extends Base {
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
             let originalEvent = event.detail.originalEvent;
+            proxyRect = null;
+
+            if (me.dragProxyElement) {
+                const {height, width} = me.dragProxyElement.getBoundingClientRect();
+                proxyRect = new DOMRect(left, top, width, height);
+            }
 
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
                 offsetX: me.offsetX,
                 offsetY: me.offsetY,
+                proxyRect,
                 screenX: originalEvent.screenX,
                 screenY: originalEvent.screenY,
                 type   : 'drag:move'
@@ -397,6 +447,25 @@ class DragDrop extends Base {
         }
 
         return false
+    }
+
+    /**
+     * @returns {Promise<Object>}
+     */
+    async requestWindowManagementPermission() {
+        if (!window.isSecureContext || !('getScreenDetails' in window)) {
+            return {success: false, error: 'The Window Management API requires a secure context (HTTPS or localhost) and is not supported by this browser.'};
+        }
+
+        try {
+            await window.getScreenDetails();
+            return {success: true};
+        } catch (err) {
+            if (err.name === 'PermissionDeniedError') {
+                return {success: false, error: 'Permission to manage windows was denied.'};
+            }
+            return {success: false, error: `An unknown error occurred: ${err.message}`};
+        }
     }
 
     /**
@@ -509,6 +578,16 @@ class DragDrop extends Base {
      */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id)
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.popupHeight
+     * @param {String} data.popupName
+     * @param {String} data.popupWidth
+     */
+    startWindowDrag({popupHeight, popupName, popupWidth}) {
+        Object.assign(this, {isWindowDragging: true, popupHeight, popupName, popupWidth})
     }
 }
 
