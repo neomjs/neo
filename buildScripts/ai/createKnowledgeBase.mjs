@@ -24,6 +24,7 @@ class CreateKnowledgeBase {
                     type: 'class',
                     name: item.longname,
                     description: item.comment,
+                    extends: item.augments?.[0], // Capture the parent class
                     source: sourceFile
                 });
             } else if (item.kind === 'member' && item.memberof) {
