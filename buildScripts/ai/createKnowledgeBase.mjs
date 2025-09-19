@@ -74,6 +74,7 @@ class CreateKnowledgeBase {
                                 type: 'guide',
                                 name: chunkName,
                                 id: item.id,
+                                isBlog: item.parentId === 'Blog',
                                 content: section,
                                 source: filePath
                             });
@@ -85,6 +86,7 @@ class CreateKnowledgeBase {
                             type: 'guide',
                             name: item.name,
                             id: item.id,
+                            isBlog: item.parentId === 'Blog',
                             content: content,
                             source: filePath
                         });

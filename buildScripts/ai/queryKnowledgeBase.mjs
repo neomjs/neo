@@ -84,7 +84,8 @@ class QueryKnowledgeBase {
                     if (metadata.type === 'class' && nameLower.includes(keyword)) score += 20;
                     if (metadata.className && metadata.className.toLowerCase().includes(keyword)) score += 20;
                     if (metadata.type === 'guide') {
-                        score += 30;
+                        // Blog posts are useful, but guides are more authoritative
+                        score += metadata.isBlog === 'true' ? 15 : 30;
                         if (nameLower.includes(keyword)) score += 50;
                     }
                     if (fileName.endsWith('base.mjs')) score += 20;

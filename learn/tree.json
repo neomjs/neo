@@ -72,5 +72,12 @@
         {"name": "Overriding Methods",                                 "parentId": "JavaScript",                                          "id": "javascript/Overrides"},
         {"name": "Other JavaScript Class Features",                    "parentId": "JavaScript",                                          "id": "javascript/ClassFeatures"},
         {"name": "Super",                                              "parentId": "JavaScript",                                          "id": "javascript/Super"},
-    {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"}
+    {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"},
+    {"name": "Blog",                                                   "parentId": null,                                 "isLeaf": false, "id": "Blog", "hidden": true},
+        {"name": "Benchmarking Frontends 2025",                        "parentId": "Blog",                                                "id": "blog/benchmarking-frontends-2025"},
+        {"name": "v10 Deep Dive: Functional Components",               "parentId": "Blog",                                                "id": "blog/v10-deep-dive-functional-components"},
+        {"name": "v10 Deep Dive: Reactivity",                          "parentId": "Blog",                                                "id": "blog/v10-deep-dive-reactivity"},
+        {"name": "v10 Deep Dive: State Provider",                      "parentId": "Blog",                                                "id": "blog/v10-deep-dive-state-provider"},
+        {"name": "v10 Deep Dive: VDOM Revolution",                     "parentId": "Blog",                                                "id": "blog/v10-deep-dive-vdom-revolution"},
+        {"name": "v10 Post 1: A Love Story",                           "parentId": "Blog",                                                "id": "blog/v10-post1-love-story"}
 ]}
