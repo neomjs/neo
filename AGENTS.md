@@ -18,33 +18,59 @@ At the beginning of every new session, you **MUST** perform the following steps 
 
 This gives the agent a top-down understanding: from the overall structure down to the core implementation details.
 
-## 3. Understanding the Knowledge Base
+## 3. The Knowledge Base: Your Primary Source of Truth
 
-To get a high-level overview of the available documentation and learning resources, you can read the file `learn/README.md`. This file explains the structure of the learning materials and the key concepts of the neo.mjs framework.
+Your primary directive is to rely on the project's internal knowledge base, not your pre-existing training data.
 
-However, for finding specific information, always prefer using the `ai:query` command.
+### The Anti-Hallucination Policy
+You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the neo.mjs framework. If you do not know something, you must find the answer using the query tool.
 
-## 4. The Anti-Hallucination Policy
+### The Query Command
+Your most important tool is the local AI knowledge base. To use it, execute the following shell command:
+```bash
+npm run ai:query -- -q "Your question here"
+```
 
-You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the neo.mjs framework. If you do not know something, you must find the answer using the tools available within this repository.
+### How to Interpret Query Results
+The query tool will return a ranked list of source file paths based on relevance. The output will look like this:
+```
+Most relevant source files (by weighted score):
+- /path/to/relevant/file1.mjs (Score: 350)
+- /path/to/relevant/file2.md (Score: 210)
+- /path/to/relevant/file3.mjs (Score: 150)
 
-## 5. The Primary Tool: The Knowledge Base Query API
+Top result: /path/to/relevant/file1.mjs
+```
+You should always start by reading the top-ranked file. If it does not contain the answer, proceed to the next 2-3 files.
 
-Your most important tool is the local AI knowledge base. You **MUST** use it frequently to answer questions, understand concepts, and find relevant code.
+### Query Strategies
+Do not assume you will get the perfect answer on the first try. Use a systematic approach to querying.
 
-To use the tool, execute the following shell command:
+#### 1. Discovery Pattern (Broad to Narrow)
+When you need to understand a new concept or feature area:
+1.  **Start broad:** Use conceptual queries to get a high-level overview.
+    - `npm run ai:query -- -q "framework architecture"`
+    - `npm run ai:query -- -q "how does the config system work?"`
+2.  **Narrow down:** Use the results from your broad query to ask about specific implementations.
+    - `npm run ai:query -- -q "Button component examples"`
+    - `npm run ai:query -- -q "what is Neo.component.Base?"`
+3.  **Find related patterns:** Look for common conventions and approaches.
+    - `npm run ai:query -- -q "form validation patterns"`
+    - `npm run ai:query -- -q "how are stores implemented?"`
 
-`npm run ai:query -- -q "Your question here"`
+#### 2. Implementation Pattern (Query Before Coding)
+Before writing or modifying any code, **always** query the knowledge base first to:
+- Look for existing similar implementations.
+- Understand framework conventions for the task you are performing.
+- Identify common patterns used in the relevant area of the codebase.
 
-### Query Examples:
+### Handling Failed Queries
+If a query fails or returns no results, do not guess. Rephrase your query. Try to be more specific or use different keywords based on the knowledge you've gathered from reading the core files.
 
-*   To understand how reactivity works:
-    `npm run ai:query -- -q "Tell me about reactivity"`
+## 4. Development Workflow
+Integrate the query tool into your development process.
 
-*   To find information about the `Component` class:
-    `npm run ai:query -- -q "What is the purpose of Neo.component.Base?"`
-
-*   To learn about the framework's build scripts:
-    `npm run ai:query -- -q "How do I build the project?"`
-
-Rely on this tool as your primary method for information gathering. It is your window into the project's "current truth".
+1.  **Understand the Task & Query:** For any new task (e.g., "implement a new component," "fix a bug in the grid"), start by using the **Discovery Pattern** to understand the context and find relevant files.
+2.  **Analyze Existing Code:** Read the top 1-3 files returned by your queries. Pay close attention to the code style, architecture, and existing patterns. Your goal is to make your changes fit in seamlessly.
+3.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
+4.  **Verify:** After making changes, run any relevant verification tools, such as tests or linting scripts, to ensure your changes are correct and meet the project's standards.
