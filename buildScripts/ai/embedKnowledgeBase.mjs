@@ -3,6 +3,7 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import path                 from 'path';
+import readline             from 'readline';
 
 dotenv.config();
 
@@ -11,11 +12,21 @@ class EmbedKnowledgeBase {
         console.log('Starting knowledge base embedding...');
         const projectRoot = process.cwd();
 
-        const knowledgeBasePath = path.resolve(projectRoot, 'dist/ai-knowledge-base.json');
+        const knowledgeBasePath = path.resolve(projectRoot, 'dist/ai-knowledge-base.jsonl');
         if (!await fs.pathExists(knowledgeBasePath)) {
             throw new Error(`Knowledge base not found at ${knowledgeBasePath}. Please run createKnowledgeBase.mjs first.`);
         }
-        const knowledgeBase = await fs.readJson(knowledgeBasePath);
+
+        const knowledgeBase = [];
+        const fileStream    = fs.createReadStream(knowledgeBasePath);
+        const rl            = readline.createInterface({
+            input    : fileStream,
+            crlfDelay: Infinity
+        });
+
+        for await (const line of rl) {
+            knowledgeBase.push(JSON.parse(line));
+        }
         console.log(`Loaded ${knowledgeBase.length} knowledge chunks.`);
 
         const dbClient       = new ChromaClient();

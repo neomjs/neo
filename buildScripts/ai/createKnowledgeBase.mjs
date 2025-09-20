@@ -28,35 +28,37 @@ function createContentHash(chunk) {
 
 /**
  * This script processes and unifies the framework's existing knowledge sources into a format suitable for AI consumption.
- * It uses the pre-generated `docs/output/all.json` for API and JSDoc information, and `learn/tree.json`
+ * It uses the pre-generated 'docs/output/all.json' for API and JSDoc information, and 'learn/tree.json'
  * to parse the conceptual learning guides.
  * @class CreateKnowledgeBase
  */
 class CreateKnowledgeBase {
     static async run() {
         console.log('Starting knowledge base creation...');
-        const
-            chunks  = [],
-            // 1. Process the consolidated API/JSDoc file
-            apiPath = path.resolve(process.cwd(), 'docs/output/all.json'),
-            apiData = await fs.readJson(apiPath);
+        const outputPath = path.resolve(process.cwd(), 'dist/ai-knowledge-base.jsonl');
+        await fs.ensureDir(path.dirname(outputPath));
+        const writeStream = fs.createWriteStream(outputPath);
+        let apiChunks = 0,
+            guideChunks = 0;
+
+        // 1. Process the consolidated API/JSDoc file
+        const apiPath = path.resolve(process.cwd(), 'docs/output/all.json');
+        const apiData = await fs.readJson(apiPath);
 
         apiData.forEach(item => {
             const sourceFile = item.meta ? path.join(item.meta.path, item.meta.filename) : 'unknown';
+            let chunk;
 
             if (item.kind === 'class') {
-                const chunk = {
+                chunk = {
                     type       : 'class',
                     name       : item.longname,
                     description: item.comment,
                     extends    : item.augments?.[0], // Capture the parent class
                     source     : sourceFile
                 };
-
-                chunk.hash = createContentHash(chunk);
-                chunks.push(chunk);
             } else if (item.kind === 'member' && item.memberof) {
-                const chunk = {
+                chunk = {
                     type       : 'config',
                     className  : item.memberof,
                     name       : item.name,
@@ -64,11 +66,8 @@ class CreateKnowledgeBase {
                     configType : item.type?.names.join('|') || 'unknown',
                     source     : sourceFile
                 };
-
-                chunk.hash = createContentHash(chunk);
-                chunks.push(chunk);
             } else if (item.kind === 'function' && item.memberof) {
-                const chunk = {
+                chunk = {
                     type       : 'method',
                     className  : item.memberof,
                     name       : item.name,
@@ -77,13 +76,16 @@ class CreateKnowledgeBase {
                     returns    : item.returns?.map(r => r.type?.names.join('|')).join('|'),
                     source     : sourceFile
                 };
+            }
 
+            if (chunk) {
                 chunk.hash = createContentHash(chunk);
-                chunks.push(chunk);
+                writeStream.write(JSON.stringify(chunk) + '\n');
+                apiChunks++;
             }
         });
 
-        console.log(`Processed ${chunks.length} API/JSDoc chunks.`);
+        console.log(`Processed ${apiChunks} API/JSDoc chunks.`);
 
         // 2. Process the learning content, splitting guides into chunks by headings
         const
@@ -94,8 +96,6 @@ class CreateKnowledgeBase {
         const filteredLearnData = learnTree.data.filter(item => {
             return item.id !== 'comparisons' && item.parentId !== 'comparisons';
         });
-
-        let guideChunks = 0;
 
         for (const item of filteredLearnData) {
             if (item.id && item.isLeaf !== false) { // Process files (leaves or items without isLeaf property)
@@ -124,7 +124,7 @@ class CreateKnowledgeBase {
                                 };
 
                             chunk.hash = createContentHash(chunk);
-                            chunks.push(chunk);
+                            writeStream.write(JSON.stringify(chunk) + '\n');
                             guideChunks++;
                         });
                     } else {
@@ -139,19 +139,17 @@ class CreateKnowledgeBase {
                         };
 
                         chunk.hash = createContentHash(chunk);
-                        chunks.push(chunk);
+                        writeStream.write(JSON.stringify(chunk) + '\n');
                         guideChunks++;
                     }
                 }
             }
         }
 
-        console.log(`Processed ${guideChunks} learning content chunks. Total chunks: ${chunks.length}.`);
+        console.log(`Processed ${guideChunks} learning content chunks. Total chunks: ${apiChunks + guideChunks}.`);
 
-        // 3. Save the unified chunks
-        const outputPath = path.resolve(process.cwd(), 'dist/ai-knowledge-base.json');
-        await fs.ensureDir(path.dirname(outputPath));
-        await fs.writeJson(outputPath, chunks, { spaces: 2 });
+        // 3. End the stream
+        writeStream.end();
         console.log(`Knowledge base creation complete. Saved to ${outputPath}`);
     }
 }
