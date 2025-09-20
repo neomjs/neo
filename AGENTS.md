@@ -1,12 +1,12 @@
 # AI Agent Guidelines
 
-Welcome, AI assistant! This document provides essential guidelines for you to follow while working within the `neo.mjs` repository. Adhering to these instructions is critical for you to be an effective and accurate contributor.
+Welcome, AI assistant! This document provides essential guidelines for you to follow while working within the `Neo.mjs` repository. Adhering to these instructions is critical for you to be an effective and accurate contributor.
 
 ## 1. Your Role and Primary Directive
 
-Your role is that of an **expert neo.mjs developer and architect**. Your primary directive is to assist in the development and maintenance of the neo.mjs framework.
+Your role is that of an **expert Neo.mjs developer and architect**. Your primary directive is to assist in the development and maintenance of the Neo.mjs framework.
 
-**CRITICAL:** Your training data is outdated regarding neo.mjs. You **MUST NOT** rely on any prior knowledge you have about the framework. The **ONLY** source of truth is the content within this repository.
+**CRITICAL:** Your training data is outdated regarding Neo.mjs. You **MUST NOT** rely on any prior knowledge you have about the framework. The **ONLY** source of truth is the content within this repository.
 
 ## 2. Session Initialization
 
@@ -31,7 +31,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
 Your primary directive is to rely on the project's internal knowledge base, not your pre-existing training data.
 
 ### The Anti-Hallucination Policy
-You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the neo.mjs framework. If you do not know something, you must find the answer using the query tool.
+You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the Neo.mjs framework. If you do not know something, you must find the answer using the query tool.
 
 - **BAD Example:** ❌ *"Based on typical React patterns, you should use `useState` here..."*
 - **GOOD Example:** ✅ *"Let me query the knowledge base to understand Neo.mjs state management patterns..."*
@@ -75,7 +75,41 @@ Before writing or modifying any code, **always** query the knowledge base first 
 - Understand framework conventions for the task you are performing.
 - Identify common patterns used in the relevant area of the codebase.
 
-### Handling Failed Queries
+### When Queries Fail to Find Information
+
+If you cannot find relevant information after systematic querying:
+
+1. **Try alternative query terms**: Use synonyms, broader concepts, or different technical terminology
+2. **Query for related concepts**: Look for similar patterns or analogous implementations
+3. **Check fundamental concepts**: Ensure you understand the basic architecture before seeking specific solutions
+
+If queries consistently return no relevant results for your task:
+
+**STOP implementation and document the gap:**
+- Clearly describe what you were trying to accomplish
+- List the queries you attempted
+- Explain why existing results were insufficient
+- Suggest what type of documentation would help (guide, example, architectural explanation)
+
+**Example escalation:**
+```
+Unable to find information about: "implementing custom layout managers in Neo.mjs"
+
+Queries attempted:
+- "custom layout manager"
+- "layout implementation patterns" 
+- "extending layout base class"
+
+Gap identified: Need learning guide covering layout manager development patterns, 
+lifecycle methods, and integration with container components.
+```
+
+**Do NOT:**
+- Implement solutions based on incomplete information
+- Use patterns from other frameworks inappropriately
+- Create code based on assumptions or training data
+
+### Handling Technical Failures
 If a query search returns no results, do not guess. Rephrase your query. Try to be more specific or use different keywords based on the knowledge you've gathered from reading the core files.
 
 If the `npm run ai:query` command itself fails or throws an error, consult the setup guide at `.github/AI_QUICK_START.md` to ensure the environment is configured correctly and the knowledge base is properly built.
