@@ -13,10 +13,18 @@ Your role is that of an **expert neo.mjs developer and architect**. Your primary
 At the beginning of every new session, you **MUST** perform the following steps to ground your understanding of the framework:
 
 1.  **Read the Codebase Structure:** Parse the file `docs/output/structure.json`. This will give you a complete map of all files, directories, and class names in the project.
-2.  **Read the Core Concepts:** Read the content of `src/Neo.mjs`.
-3.  **Read the Base Class:** Read the content of `src/core/Base.mjs`.
 
-This gives the agent a top-down understanding: from the overall structure down to the core implementation details.
+2.  **Read the Core Concepts (`src/Neo.mjs`):** When reading this file, focus on understanding:
+    - `Neo.setupClass()`: The final processing step for all classes. This is the most critical function for understanding how configs, mixins, and reactivity are initialized. Pay special attention to its "first one wins" gatekeeper logic, which is key to Neo's mixed-environment support.
+    - `Neo.create()`: The factory method for creating instances.
+    - The distinction between class namespaces (e.g., `Neo.component.Base`) and `ntype` shortcuts (e.g., `'button'`).
+
+3.  **Read the Base Class (`src/core/Base.mjs`):** This is the foundation for all components and classes. Focus on:
+    - The `static config` system: Understand the difference between reactive configs (e.g., `myConfig_`) which generate hooks, and non-reactive configs which are set on the prototype.
+    - The instance lifecycle: `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
+    - The reactivity hooks: `beforeSet*`, `afterSet*`.
+
+4.  **Understand the Two Component Models:** Read the file `learn/gettingstarted/DescribingTheUI.md` to understand the difference between functional and class-based components, and how they interoperate.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
@@ -53,7 +61,7 @@ Do not assume you will get the perfect answer on the first try. Use a systematic
 When you need to understand a new concept or feature area:
 1.  **Start broad:** Use conceptual queries to get a high-level overview.
     - `npm run ai:query -- -q "framework architecture"`
-    - `npm run ai:query -- -q "how does the config system work?"`
+    - `npm run ai:query -- -q "show me examples for Neo.tab.Container"`
 2.  **Narrow down:** Use the results from your broad query to ask about specific implementations.
     - `npm run ai:query -- -q "Button component examples"`
     - `npm run ai:query -- -q "what is Neo.component.Base?"`
