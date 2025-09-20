@@ -91,9 +91,13 @@ class CreateKnowledgeBase {
             learnTree     = await fs.readJson(learnTreePath),
             learnBasePath = path.resolve(process.cwd(), 'learn');
 
+        const filteredLearnData = learnTree.data.filter(item => {
+            return item.id !== 'comparisons' && item.parentId !== 'comparisons';
+        });
+
         let guideChunks = 0;
 
-        for (const item of learnTree.data) {
+        for (const item of filteredLearnData) {
             if (item.id && item.isLeaf !== false) { // Process files (leaves or items without isLeaf property)
                 const filePath = path.join(learnBasePath, `${item.id}.md`);
 
