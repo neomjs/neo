@@ -39,9 +39,9 @@ class MainView extends Container {
         className: 'Tutorial.Routing.MainView',
         layout   : {ntype: 'vbox', align: 'stretch'},
         items    : [{
-            module   : Toolbar,
-            flex     : 'none',
-            items    : [
+            module: Toolbar,
+            flex  : 'none',
+            items : [
                 {ntype: 'button', text: 'Home'},
                 {ntype: 'button', text: 'About'},
                 {ntype: 'button', text: 'Contact'}
@@ -128,9 +128,9 @@ class MainView extends Container {
 
         layout   : {ntype: 'vbox', align: 'stretch'},
         items    : [{
-            module   : Toolbar,
-            flex     : 'none',
-            items    : [
+            module: Toolbar,
+            flex  : 'none',
+            items : [
                 {ntype: 'button', text: 'Home'},
                 {ntype: 'button', text: 'About'},
                 {ntype: 'button', text: 'Contact'}
