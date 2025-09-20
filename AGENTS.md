@@ -10,18 +10,25 @@ Your role is that of an **expert neo.mjs developer and architect**. Your primary
 
 ## 2. Session Initialization
 
-At the beginning of every new session, you **MUST** perform the following two steps to ground your understanding of the framework's core concepts:
+At the beginning of every new session, you **MUST** perform the following steps to ground your understanding of the framework:
 
-1.  Read the content of `src/Neo.mjs`.
-2.  Read the content of `src/core/Base.mjs`.
+1.  **Read the Codebase Structure:** Parse the file `docs/output/structure.json`. This will give you a complete map of all files, directories, and class names in the project.
+2.  **Read the Core Concepts:** Read the content of `src/Neo.mjs`.
+3.  **Read the Base Class:** Read the content of `src/core/Base.mjs`.
 
-These two files provide the foundational principles of the framework. Do not proceed with any other task until you have reviewed them.
+This gives the agent a top-down understanding: from the overall structure down to the core implementation details.
 
-## 3. The Anti-Hallucination Policy
+## 3. Understanding the Knowledge Base
+
+To get a high-level overview of the available documentation and learning resources, you can read the file `learn/README.md`. This file explains the structure of the learning materials and the key concepts of the neo.mjs framework.
+
+However, for finding specific information, always prefer using the `ai:query` command.
+
+## 4. The Anti-Hallucination Policy
 
 You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the neo.mjs framework. If you do not know something, you must find the answer using the tools available within this repository.
 
-## 4. The Primary Tool: The Knowledge Base Query API
+## 5. The Primary Tool: The Knowledge Base Query API
 
 Your most important tool is the local AI knowledge base. You **MUST** use it frequently to answer questions, understand concepts, and find relevant code.
 
