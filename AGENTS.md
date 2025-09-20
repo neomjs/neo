@@ -68,7 +68,9 @@ Before writing or modifying any code, **always** query the knowledge base first 
 - Identify common patterns used in the relevant area of the codebase.
 
 ### Handling Failed Queries
-If a query fails or returns no results, do not guess. Rephrase your query. Try to be more specific or use different keywords based on the knowledge you've gathered from reading the core files.
+If a query search returns no results, do not guess. Rephrase your query. Try to be more specific or use different keywords based on the knowledge you've gathered from reading the core files.
+
+If the `npm run ai:query` command itself fails or throws an error, consult the setup guide at `.github/AI_QUICK_START.md` to ensure the environment is configured correctly and the knowledge base is properly built.
 
 ## 4. Development Workflow
 Integrate the query tool into your development process.
