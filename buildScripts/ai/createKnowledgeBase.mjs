@@ -27,9 +27,21 @@ function createContentHash(chunk) {
 }
 
 /**
- * This script processes and unifies the framework's existing knowledge sources into a format suitable for AI consumption.
- * It uses the pre-generated 'docs/output/all.json' for API and JSDoc information, and 'learn/tree.json'
- * to parse the conceptual learning guides.
+ * This script is the first stage in the AI knowledge base pipeline: **Parse**.
+ *
+ * Its primary role is to act as a parser and compiler, reading from various source-of-truth files
+ * (JSDoc JSON output, markdown learning guides) and converting them into a unified, structured format.
+ *
+ * Key characteristics:
+ * - **Input:** Reads from `docs/output/all.json` for API data and `learn/tree.json` for the guide structure.
+ * - **Processing:** It breaks down the content into logical "chunks" (e.g., a class, a method, a section of a guide).
+ * - **Output:** It streams each chunk as a JSON object into the `dist/ai-knowledge-base.jsonl` file.
+ *   This JSONL (JSON Lines) format is crucial for ensuring that downstream processes can read the data
+ *   in a memory-efficient way.
+ *
+ * This script does NOT perform any scoring or data enrichment; its sole focus is on creating a clean,
+ * structured representation of the source knowledge.
+ *
  * @class CreateKnowledgeBase
  */
 class CreateKnowledgeBase {

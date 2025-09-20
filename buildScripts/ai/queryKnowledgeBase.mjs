@@ -8,6 +8,28 @@ import {hideBin}            from 'yargs/helpers';
 
 dotenv.config({quiet: true});
 
+/**
+ * This script is the final stage in the AI knowledge base pipeline: **Query**.
+ *
+ * Its purpose is to provide a fast and efficient way to search the knowledge base.
+ * It takes a user's natural language query, converts it into a vector embedding, and uses that
+ * to find the most relevant documents in the ChromaDB vector database.
+ *
+ * Key architectural features:
+ * - **Lightweight & Fast:** This script is designed to be extremely performant. It does NOT read any
+ *   large JSON files from the filesystem. All necessary data is retrieved directly from the database.
+ * - **Dynamic Scoring:** It applies a scoring algorithm to the results returned by the database.
+ *   This includes:
+ *     - A base score from the semantic similarity search.
+ *     - Dynamic boosts based on matching keywords from the query against the chunk's properties.
+ *     - An inheritance boost, which is calculated quickly by using the pre-computed `inheritanceChain`
+ *       stored in the metadata of each result.
+ *
+ * The design philosophy is to offload all heavy, static pre-processing to the `embed` phase,
+ * allowing this `query` phase to be as quick and responsive as possible.
+ *
+ * @class QueryKnowledgeBase
+ */
 class QueryKnowledgeBase {
     static async run(query) {
         if (!query) {
