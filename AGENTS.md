@@ -25,6 +25,9 @@ Your primary directive is to rely on the project's internal knowledge base, not 
 ### The Anti-Hallucination Policy
 You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the neo.mjs framework. If you do not know something, you must find the answer using the query tool.
 
+- **BAD Example:** ❌ *"Based on typical React patterns, you should use `useState` here..."*
+- **GOOD Example:** ✅ *"Let me query the knowledge base to understand Neo.mjs state management patterns..."*
+
 ### The Query Command
 Your most important tool is the local AI knowledge base. To use it, execute the following shell command:
 ```bash
@@ -71,6 +74,11 @@ If a query fails or returns no results, do not guess. Rephrase your query. Try t
 Integrate the query tool into your development process.
 
 1.  **Understand the Task & Query:** For any new task (e.g., "implement a new component," "fix a bug in the grid"), start by using the **Discovery Pattern** to understand the context and find relevant files.
-2.  **Analyze Existing Code:** Read the top 1-3 files returned by your queries. Pay close attention to the code style, architecture, and existing patterns. Your goal is to make your changes fit in seamlessly.
+2.  **Analyze Existing Code:** Read the top 1-3 files returned by your queries. When reading, focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture. Your goal is to make your changes fit in seamlessly.
 3.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
 4.  **Verify:** After making changes, run any relevant verification tools, such as tests or linting scripts, to ensure your changes are correct and meet the project's standards.
+
+## 5. Session Maintenance
+Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you should consider re-running your initialization steps (reading `structure.json`, `Neo.mjs`, and `core/Base.mjs`) to ensure your understanding is up-to-date.
+
+Furthermore, after pulling changes, the local knowledge base may be out of sync. You should run `npm run ai:build-kb` to re-embed the latest changes into the database.
