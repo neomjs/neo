@@ -29,6 +29,39 @@ class EmbedKnowledgeBase {
         }
         console.log(`Loaded ${knowledgeBase.length} knowledge chunks.`);
 
+        // Build the inheritance map
+        const classNameToDataMap = {};
+        knowledgeBase.forEach(chunk => {
+            if (chunk.type === 'class') {
+                classNameToDataMap[chunk.name] = {
+                    source: chunk.source,
+                    parent: chunk.extends
+                };
+            }
+        });
+
+        // Pre-calculate inheritance chains for all chunks
+        knowledgeBase.forEach(chunk => {
+            let currentClass = chunk.type === 'class' ? chunk.name : chunk.className;
+            const inheritanceChain = [];
+            const visited = new Set();
+
+            while (currentClass && classNameToDataMap[currentClass]?.parent && !visited.has(currentClass)) {
+                visited.add(currentClass);
+                const parentClassName = classNameToDataMap[currentClass].parent;
+                const parentData      = classNameToDataMap[parentClassName];
+
+                if (parentData) {
+                    inheritanceChain.push({
+                        className: parentClassName,
+                        source   : parentData.source
+                    });
+                }
+                currentClass = parentClassName;
+            }
+            chunk.inheritanceChain = inheritanceChain;
+        });
+
         const dbClient       = new ChromaClient();
         const collectionName = 'neo_knowledge';
 

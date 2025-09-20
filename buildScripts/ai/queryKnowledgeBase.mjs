@@ -18,24 +18,7 @@ class QueryKnowledgeBase {
 
         console.log(`Querying for: "${query}"...`);
 
-        // 1. Load the entire knowledge base to build an inheritance map
-        const knowledgeBasePath = path.resolve(process.cwd(), 'dist/ai-knowledge-base.json');
-        if (!await fs.pathExists(knowledgeBasePath)) {
-            throw new Error(`Knowledge base not found at ${knowledgeBasePath}. Please run createKnowledgeBase.mjs first.`);
-        }
-        const knowledgeBase = await fs.readJson(knowledgeBasePath);
-
-        const classNameToDataMap = {};
-        knowledgeBase.forEach(chunk => {
-            if (chunk.type === 'class') {
-                classNameToDataMap[chunk.name] = {
-                    source: chunk.source,
-                    parent: chunk.extends
-                };
-            }
-        });
-
-        // 2. Connect to ChromaDB and get query results
+        // 1. Connect to ChromaDB and get query results
         const dbClient       = new ChromaClient();
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
@@ -60,7 +43,7 @@ class QueryKnowledgeBase {
             nResults       : 50
         });
 
-        // 3. Process results with the enhanced scoring algorithm
+        // 2. Process results with the enhanced scoring algorithm
         if (results.metadatas?.length > 0 && results.metadatas[0].length > 0) {
             const sourceScores    = {};
             const queryLower      = query.toLowerCase();
@@ -97,25 +80,15 @@ class QueryKnowledgeBase {
                 sourceScores[sourcePath] = (sourceScores[sourcePath] || 0) + score;
 
                 // Apply inheritance boost
-                let currentClass = metadata.type === 'class' ? metadata.name : metadata.className;
-                let boost        = 80;
+                const inheritanceChain = JSON.parse(metadata.inheritanceChain || '[]');
+                let boost = 80;
 
-                const visited = new Set();
-
-                while (currentClass && classNameToDataMap[currentClass]?.parent && !visited.has(currentClass)) {
-                    visited.add(currentClass);
-                    const parentClassName = classNameToDataMap[currentClass].parent;
-                    const parentData      = classNameToDataMap[parentClassName];
-
-                    if (parentData && parentData.source) {
-                        sourceScores[parentData.source] = (sourceScores[parentData.source] || 0) + boost;
+                inheritanceChain.forEach(parent => {
+                    if (parent.source) {
+                        sourceScores[parent.source] = (sourceScores[parent.source] || 0) + boost;
                     }
-
-                    currentClass = parentClassName;
-                    boost        = Math.floor(boost * 0.6);
-
-                    if (boost < 10) break;
-                }
+                    boost = Math.floor(boost * 0.6);
+                });
             });
 
             if (Object.keys(sourceScores).length === 0) {
