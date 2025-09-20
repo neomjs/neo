@@ -1,49 +1,36 @@
-# Unit Testing with Siesta
+# Testing in Neo.mjs with Siesta
 
-This guide provides a comprehensive introduction to writing unit tests for your Neo.mjs applications and components using the Siesta testing framework. A robust test suite is crucial for building maintainable, high-quality applications.
+This guide provides a comprehensive introduction to testing your Neo.mjs applications. A robust test suite is crucial for building maintainable, high-quality applications.
 
-## Introduction to Siesta
+Neo.mjs utilizes the Siesta framework and provides two distinct testing harnesses, each for a specific purpose:
 
-Siesta is the integrated testing framework used by Neo.mjs. It allows you to run tests in a real browser environment, which is essential for verifying both business logic and DOM rendering. All tests are written as ES modules.
+1.  **Pure Unit Testing (`/test/siesta/`)**: For testing business logic, data classes, and component VDOM generation *without* rendering to the real DOM.
+2.  **Component Integration Testing (`/test/components/`)**: For testing the lifecycle, rendering, and user interaction of components in a real DOM environment.
 
-The main test runner can be accessed by navigating to the `/test/siesta/` directory in your application's web root.
+Understanding which harness to use is key to writing effective tests.
 
-## Setting Up a New Test File
+---
 
-Adding a new test to your project involves two simple steps:
+## 1. Pure Unit Testing (No DOM Rendering)
 
-1.  **Create the Test File:**
-    Create a new `.mjs` file inside the `test/siesta/tests/` directory. It's good practice to mirror your `src/` directory structure. For example, a test for `src/form/field/MyField.mjs` could be placed at `test/siesta/tests/form/field/MyField.mjs`.
+This is your go-to for testing the core logic of your application. Because it doesn't involve the DOM, it is faster and ideal for testing algorithms, data manipulation, and the VDOM output of components.
 
-2.  **Add the File to the Test Plan:**
-    Open `test/siesta/siesta.js`. This file contains the master plan for all tests. Add the path to your new test file to the `project.plan()` array. You can add it as a standalone file or within a `group`.
+**Use this for:**
+- Testing non-visual classes (Utilities, Controllers, Stores, Models).
+- Verifying a component's VDOM structure based on its configuration.
+- Testing a component's reactive logic by asserting VDOM "deltas" after config changes.
 
-    ```javascript
-    // In test/siesta/siesta.js
-    project.plan(
-        // ... other groups
-        {
-            group: 'form',
-            items: [
-                'tests/form/field/AfterSetValueSequence.mjs',
-                'tests/form/field/MyField.mjs' // Add your new test here
-            ]
-        },
-        // ... other tests
-    );
-    ```
+**Test Runner:** `/test/siesta/index.html`
 
-## The Anatomy of a Test File
+### Setup and Anatomy
 
-A typical Siesta test file has a simple structure. All test logic is wrapped in the `StartTest()` function.
+A typical unit test file lives in `/test/siesta/tests/` and follows this structure:
 
-```javascript
+```javascript readonly
 // test/siesta/tests/MyTest.mjs
 import Neo from '../../../src/Neo.mjs';
 
 StartTest(t => {
-    // Your test code goes here
-
     t.it('Should perform a basic check', t => {
         t.is(1 + 1, 2, 'The most basic assertion should pass');
     });
@@ -55,36 +42,19 @@ StartTest(t => {
 });
 ```
 
--   **`StartTest(t => { ... })`**: The main wrapper for the test suite in a file.
--   **`t`**: The test context object. It contains all the assertion methods.
--   **`t.it('description', t => { ... })`**: Defines an individual test case. Using `async t` allows you to use `await` within your test.
--   **`t.is(value1, value2, 'description')`**: A common assertion to check for strict equality (`===`).
+- **`StartTest(t => { ... })`**: The main wrapper for the test suite.
+- **`t`**: The test context object, containing assertion methods.
+- **`t.it('description', t => { ... })`**: Defines an individual test case.
 
-## Testing Core Logic
+### Testing Component VDOM
 
-Testing non-component classes (e.g., utilities, data models) is straightforward. You can import the class, create instances, and assert their behavior directly.
+When testing components, you must enable a special `unitTestMode` that prevents rendering to the real DOM.
 
-```javascript
-// test/siesta/tests/core/MyUtil.mjs
-import MyUtil from '../../../../src/util/MyUtil.mjs';
+#### a. Test Environment Setup
 
-StartTest(t => {
-    t.it('Should correctly format a string', t => {
-        const result = MyUtil.format('hello');
-        t.is(result, 'HELLO', 'String should be capitalized');
-    });
-});
-```
+At the top of your component test file, configure the environment and create a mock application context.
 
-## Testing Components (Class-based & Functional)
-
-Testing components is more involved because they interact with the VDOM and have a lifecycle. Neo.mjs tests run in a special `unitTestMode` where the real DOM is not updated, but we can inspect the generated virtual DOM.
-
-### 1. Test Environment Setup
-
-At the top of your component test file, you must configure the test environment. This involves enabling `unitTestMode` but allowing VDOM updates to be generated, and creating a mock application context.
-
-```javascript
+```javascript readonly
 import Neo from '../../../../src/Neo.mjs';
 import MyButton from '../../../../src/button/MyButton.mjs';
 
@@ -102,92 +72,134 @@ Neo.apps[appName] = {
     isMounted: () => true,
     vnodeInitialising: false
 };
-
-StartTest(t => {
-    // ... your tests
-});
 ```
 
-### 2. The `beforeEach` and `afterEach` Hooks
+#### b. Testing Workflow
 
-To ensure tests are isolated, create and destroy a new component instance for each test case using the `beforeEach` and `afterEach` hooks.
+The core pattern is to create a component, inspect its initial VDOM, change its state, and then inspect the VDOM "deltas" (the minimal changes).
 
-```javascript
+```javascript readonly
 StartTest(t => {
     let button, vnode;
 
     t.beforeEach(async t => {
         button = Neo.create(MyButton, {
-            appName, // Connect to the mock app
+            appName,
             text: 'Initial Text'
         });
-
-        // Manually generate the initial VDOM
         ({vnode} = await button.initVnode());
         button.mounted = true; // Mock the mounted state
     });
 
     t.afterEach(t => {
-        // Clean up the component instance
         button?.destroy();
         button = null;
         vnode = null;
     });
 
-    // ... your t.it() blocks
+    t.it('should create initial vnode correctly', t => {
+        t.expect(vnode.nodeName).toBe('button');
+        const textNode = vnode.childNodes[0];
+        t.expect(textNode.textContent).toBe('Initial Text');
+    });
+
+    t.it('should generate a VDOM delta on config change', async t => {
+        const textNodeId = vnode.childNodes[0].id;
+
+        // Change a config property
+        const {deltas} = await button.set({text: 'New Text'});
+
+        // Assert the generated delta
+        t.is(deltas.length, 1, 'Should generate exactly one delta');
+        const delta = deltas[0];
+        t.is(delta.id, textNodeId, 'Delta should target the text node');
+        t.is(delta.textContent, 'New Text', 'Delta textContent is correct');
+    });
 });
 ```
 
-### 3. Asserting the Initial State
+---
 
-Your first test should usually verify that the component's initial VDOM is rendered correctly based on its configuration.
+## 2. Component Integration Testing (With DOM Rendering)
 
-```javascript
-t.it('should create initial vnode correctly', async t => {
-    t.expect(vnode.nodeName).toBe('button');
-    t.expect(vnode.className).toEqual(['neo-button']);
+This harness is for testing what your users will actually see and interact with. It launches a real, albeit empty, Neo.mjs application in a worker and renders components into the browser's DOM.
 
-    const textNode = vnode.childNodes[0];
-    t.expect(textNode.className).toEqual(['neo-button-text']);
-    t.expect(textNode.textContent).toBe('Initial Text');
+**Use this for:**
+- Verifying that a component renders the correct HTML.
+- Testing component lifecycle methods (`onConstructed`, `mounted`, etc.).
+- Simulating user interactions (not yet covered, but this is where it would go).
+- Testing complex component behaviors that rely on the DOM.
+
+**Test Runner:** `/test/components/index.html`
+
+### Setup and Anatomy
+
+This setup is architecturally different. The test code runs in the **main thread**, while the components live in the **app worker**. Communication happens via an asynchronous API.
+
+1.  **Add Component to App:** First, ensure the component you want to test is imported into the test app shell at `/test/components/app.mjs`.
+2.  **Create Test File:** Create your test file in `/test/components/files/`.
+3.  **Add to Test Plan:** Add the file's path to `/test/components/siesta.js`.
+
+### Testing Workflow
+
+The key difference is the use of `Neo.worker.App` to create and manipulate components in the other thread. Assertions are made against the real DOM using Siesta's selector-based methods.
+
+```javascript readonly
+// test/components/files/button/Base.mjs
+StartTest(t => {
+    let button;
+
+    t.afterEach(async t => {
+        // Destroy the component in the app worker
+        if (button) {
+            await Neo.worker.App.destroyNeoInstance(button);
+            button = null;
+        }
+    });
+
+    t.it('Should render a button in the DOM', async t => {
+        // Asynchronously create the component in the app worker
+        button = await Neo.worker.App.createNeoInstance({
+            ntype: 'button',
+            text : 'Hello Siesta'
+        });
+
+        // Use Siesta's DOM assertions
+        await t.waitForSelector('button');
+        t.selectorExists('button:contains(Hello Siesta)');
+    });
+
+    t.it('Should update the DOM when configs change', async t => {
+        button = await Neo.worker.App.createNeoInstance({
+            ntype    : 'button',
+            isLoading: false
+        });
+
+        await t.waitForSelector('button');
+        t.selectorNotExists('button .fa-spinner');
+
+        // Asynchronously update the component's config
+        await Neo.worker.App.setConfigs({id: button, isLoading: true});
+
+        // Assert the DOM has updated
+        await t.waitForSelector('button .fa-spinner');
+        t.selectorExists('button .fa-spinner.fa-spin');
+    });
 });
 ```
 
-### 4. Testing Reactivity and Updates
+- **`Neo.worker.App.createNeoInstance()`**: Asynchronously creates a component in the app worker and renders it. Returns a lightweight proxy object.
+- **`Neo.worker.App.setConfigs()`**: Asynchronously updates configs on a component instance in the app worker.
+- **`Neo.worker.App.destroyNeoInstance()`**: Asynchronously destroys the component instance.
+- **`t.waitForSelector()` / `t.selectorExists()`**: Siesta methods that poll the DOM until a condition is met. These are essential for testing asynchronous rendering and updates.
 
-The most powerful part of component testing in Neo.mjs is verifying reactivity. You can change a component's config and assert that the correct, minimal VDOM update (a "delta") is generated.
+## Summary: Which Harness Should I Use?
 
-Use the `component.set()` method, which returns a promise resolving with the generated `deltas`.
-
-```javascript
-t.it('should update vnode and create a delta on config change', async t => {
-    const textNodeId = vnode.childNodes[0].id;
-
-    // Change a config property
-    const {deltas} = await button.set({text: 'New Text'});
-
-    // Assert the generated delta
-    t.is(deltas.length, 1, 'Should generate exactly one delta');
-    const delta = deltas[0];
-
-    t.is(delta.id, textNodeId, 'Delta should target the text node');
-    t.is(delta.textContent, 'New Text', 'Delta textContent is correct');
-});
-```
-
-This pattern allows you to test your component's `afterSet` hooks and other reactive logic with precision, ensuring they produce the expected VDOM changes without the overhead of a full browser render.
-
-## Common Assertions
-
-Here are some of the most common assertion methods available on the `t` object:
-
--   `t.is(got, expected, description)`: Checks for strict equality (`===`).
--   `t.isNot(got, unexpected, description)`: Checks for strict inequality (`!==`).
--   `t.isDeeply(got, expected, description)`: Performs a deep comparison of objects or arrays.
--   `t.ok(value, description)`: Checks if a value is truthy.
--   `t.notOk(value, description)`: Checks if a value is falsy.
--   `t.expect(value).toBe(expected)`: A BDD-style assertion syntax.
--   `t.pass(description)`: Marks a test as passed.
--   `t.fail(description)`: Marks a test as failed.
-
-By following these patterns, you can build a comprehensive and reliable test suite for your Neo.mjs applications, ensuring that both your core logic and your components behave as expected.
+| Scenario                               | Use Pure Unit Tests (`/test/siesta`) | Use Component Tests (`/test/components`) |
+|----------------------------------------|:------------------------------------:|:----------------------------------------:|
+| Testing a utility function             |                  ✅                  |                                          |
+| Testing a Store's sorting logic        |                  ✅                  |                                          |
+| Verifying a Button's VDOM `deltas`     |                  ✅                  |                                          |
+| Checking if a Button renders a `<span>` |                                      |                    ✅                    |
+| Testing a ComboBox's picker visibility |                                      |                    ✅                    |
+| Testing a component's `mounted` logic  |                                      |                    ✅                    |
