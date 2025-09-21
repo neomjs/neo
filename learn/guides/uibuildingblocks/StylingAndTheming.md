@@ -252,7 +252,31 @@ The most efficient and recommended way to create a new theme is to start with an
     npm run build-themes
     ```
 
-## 8. The Build Process
+## 8. Theming in a Workspace
+
+While the concepts above apply everywhere, it's important to understand *where* you should place your custom theme files when developing your own application. For this, Neo.mjs uses a **workspace** structure, typically created with `npx neo-app`.
+
+A workspace mirrors the main `neo.mjs` repository structure, including its own `resources/scss` directory. This allows you to add themes and styles for your custom applications without modifying the framework's source code (which is included as an npm dependency in `node_modules`).
+
+### The SCSS Merge Mechanism
+
+The most powerful feature of workspace theming is how the build scripts work. When you run `npm run build-themes` from your workspace, the script intelligently **merges** the SCSS files from your workspace's `resources/scss` directory with the ones from `node_modules/neo.mjs/resources/scss`.
+
+The workspace's files act as an overlay, giving you fine-grained control.
+
+This enables several powerful workflows:
+
+1.  **Override Specific Variables:** To change just a few variables for an existing theme (e.g., `theme-dark`), you only need to create a file at the corresponding path in your workspace (e.g., `my-workspace/resources/scss/theme-dark/button/Base.scss`) and redefine only the variables you want to change. The build script will merge your changes with the original theme file from the framework.
+
+2.  **Create an Entirely New Theme:** You can create a brand new theme folder (e.g., `my-workspace/resources/scss/theme-corporate`) inside your workspace. By creating SCSS files that match the paths of the framework components, you can provide a complete set of CSS variable definitions for your theme. The build script will discover and compile your new theme, allowing you to build a unique look and feel from the ground up without ever touching the framework's source code.
+
+3.  **Style App-Specific Components:** If you create a component that is only used within a single application (e.g., `my-workspace/apps/my-app/view/MyComponent.mjs`), you can create its structural styles in your workspace at `my-workspace/resources/scss/src/apps/my-app/MyComponent.scss`. The build script will pick it up and process it just like a framework component.
+
+4.  **Style Workspace-Shared Components:** For components intended to be shared across multiple apps in your workspace, you can create them in the workspace's main `src` folder. These components must use the `Neo` namespace (e.g., `my-workspace/src/component/MyWorkspaceWidget.mjs` defining `Neo.component.MyWorkspaceWidget`). You can then provide their structural styles in the corresponding path within your workspace's `resources/scss/src` folder (e.g., `my-workspace/resources/scss/src/component/MyWorkspaceWidget.scss`).
+
+This overlay approach is extremely powerful. It lets you maintain a clean separation between your application code and the framework, making framework upgrades significantly easier.
+
+## 9. The Build Process
 
 To compile the SCSS files into the CSS that the browser uses, Neo.mjs provides two main build scripts.
 
