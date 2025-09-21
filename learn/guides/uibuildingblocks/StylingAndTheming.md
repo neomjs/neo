@@ -90,7 +90,47 @@ Within each of these folders, the SCSS files are organized to mirror the compone
 -   `resources/scss/theme-light/button/Base.scss`
 -   `resources/scss/theme-dark/button/Base.scss`
 
-## 4. Theme Inheritance
+## 4. SCSS File & Namespace Mapping
+
+For the automatic lazy-loading of theme files to work, it is **critical** that the path of an SCSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
+
+### Framework Components
+
+For standard framework components, the mapping is direct. The path within `resources/scss/src` (or a theme folder) matches the class path after `Neo.`.
+
+-   **JS Class:** `src/button/Base.mjs` (which defines `Neo.button.Base`)
+-   **Maps to SCSS:** `resources/scss/src/button/Base.scss`
+
+### Application Components (The `view` rule)
+
+Applications follow a similar rule, but with one important exception: the `view` folder in the JavaScript path is **omitted** from the SCSS path. It is a mandatory convention that only components inside an application's `view` folder should have associated SCSS files.
+
+-   **JS Class:** `apps/portal/view/Viewport.mjs` (defines `Portal.view.Viewport`)
+-   **Maps to SCSS:** `resources/scss/src/apps/portal/Viewport.scss`
+
+Notice how `view/` is not present in the SCSS path. The framework's build tools and runtime loader are specifically coded to handle this convention. Adhering to it is essential for your application's styles to be loaded correctly.
+
+## 4. SCSS File & Namespace Mapping
+
+For the automatic lazy-loading of theme files to work, it is **critical** that the path of an SCSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
+
+### Framework Components
+
+For standard framework components, the mapping is direct. The path within `resources/scss/src` (or a theme folder) matches the class path after `Neo.`.
+
+-   **JS Class:** `src/button/Base.mjs` (which defines `Neo.button.Base`)
+-   **Maps to SCSS:** `resources/scss/src/button/Base.scss`
+
+### Application Components (The `view` rule)
+
+Applications follow a similar rule, but with one important exception: the `view` folder in the JavaScript path is **omitted** from the SCSS path. It is a mandatory convention that only components inside an application's `view` folder should have associated SCSS files.
+
+-   **JS Class:** `apps/portal/view/Viewport.mjs` (defines `Portal.view.Viewport`)
+-   **Maps to SCSS:** `resources/scss/src/apps/portal/Viewport.scss`
+
+Notice how `view/` is not present in the SCSS path. The framework's build tools and runtime loader are specifically coded to handle this convention. Adhering to it is essential for your application's styles to be loaded correctly.
+
+## 5. Theme Inheritance
 
 The theming engine uses a powerful and automatic inheritance model. You **do not** need to manually `@import` base styles into your theme's SCSS files. The framework handles this for you at runtime.
 
@@ -118,7 +158,7 @@ A theme file can therefore be very clean and focused:
 
 You can also create your own themes that inherit from the existing Neo.mjs themes. The same principle applies: the framework will load the base theme's CSS first, followed by your new theme's CSS.
 
-## 5. Architecting Nestable Themes
+## 6. Architecting Nestable Themes
 
 A key feature of the Neo.mjs theming architecture is the ability to nest components with different themes inside each other. For example, you could have a dark-themed grid inside a light-themed panel. To make this work reliably, themes must follow a strict separation of concerns.
 
@@ -180,7 +220,7 @@ This process allows you to continue your work without being blocked, while also 
 
 If you are creating a one-off, custom theme that will never be nested, this rule is less critical. However, for creating robust, reusable themes, sticking to the "structure vs. skin" separation is essential.
 
-## 6. Creating a New Theme
+## 7. Creating a New Theme
 
 The most efficient and recommended way to create a new theme is to start with an existing one. This ensures you have all the necessary folder structures and CSS variable definitions in place.
 
@@ -212,7 +252,7 @@ The most efficient and recommended way to create a new theme is to start with an
     npm run build-themes
     ```
 
-## 7. The Build Process
+## 8. The Build Process
 
 To compile the SCSS files into the CSS that the browser uses, Neo.mjs provides two main build scripts.
 
@@ -232,7 +272,7 @@ For development, you can use `npm run watch-themes`. This script will watch the 
 
 **Important Note:** The current version of `watch-themes` only handles changes to *existing* files. It does **not** detect new files, renamed files, or deleted files. As a result, if you add, move, or delete SCSS files while the watcher is running, the `theme-map.json` will not be updated, which can lead to inconsistencies. To apply these kinds of changes, you can run a full `npm run build-themes` command in a separate terminal. Enhancing the watch script to handle these cases is a planned improvement.
 
-## 8. Lazy Loading in Action
+## 9. Lazy Loading in Action
 
 You do not need to manually include any theme CSS files in your application's `index.html`. The framework handles it automatically.
 
