@@ -8,7 +8,7 @@ const
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexReadonly     = /```(javascript|html|css|json)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
+    regexReadonly     = /```(bash|javascript|html|css|json|scss)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
 
 /**
  * @class Portal.view.learn.ContentComponent
