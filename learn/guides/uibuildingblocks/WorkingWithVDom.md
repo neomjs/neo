@@ -476,6 +476,16 @@ class Helix extends Component {
 
 ## Security Considerations
 
+### `text` vs. `html`: The Most Important Security Rule
+
+When assigning content to a VDOM node, you have two properties: `text` and `html`. Choosing the right one is critical for security.
+
+-   **`text` (Best Practice):** This property should be your default choice for any string-based content. It maps directly to the `textContent` property of a DOM element. The browser does **not** parse this string as HTML, so any malicious scripts or tags are rendered as inert, harmless text. This is your primary defense against Cross-Site Scripting (XSS) attacks.
+
+-   **`html` (Use with Extreme Caution):** This property maps to the `innerHTML` property of a DOM element. The browser will parse this string as HTML, executing any scripts it contains. You should **only** use this property if you are 100% certain the HTML content is from a trusted source or has been thoroughly sanitized by a library like DOMPurify.
+
+Always prefer `text` over `html` unless you have an explicit and unavoidable need to render raw HTML.
+
 ### XSS Prevention
 
 ```javascript readonly

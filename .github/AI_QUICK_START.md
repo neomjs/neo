@@ -7,6 +7,15 @@ This guide assumes you have already cloned the `neo` repository and have all the
 1.  **Node.js**: v18 or later
 2.  **Google AI API Key**: A `GEMINI_API_KEY` from Google AI Studio.
 
+## Getting a Gemini API Key
+
+To interact with the local knowledge base, you need a Google AI API key.
+
+1.  Visit the Google AI Studio website: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+2.  Sign in with your Google account.
+3.  Click the "Create API key" button.
+4.  Copy the generated API key. You will need it for the setup below.
+
 ## Setup Steps
 
 1.  **Configure Environment**
