@@ -118,61 +118,92 @@ A theme file can therefore be very clean and focused:
 
 You can also create your own themes that inherit from the existing Neo.mjs themes. The same principle applies: the framework will load the base theme's CSS first, followed by your new theme's CSS.
 
-## 5. The Build Process
+## 4. Theme Inheritance
 
-To compile the SCSS files into the CSS that the browser uses, Neo.mjs provides two main build scripts.
+The theming engine uses a powerful and automatic inheritance model. You **do not** need to manually `@import` base styles into your theme's SCSS files. The framework handles this for you at runtime.
 
-### `build-themes`
+Here's how it works: When a component is created, the `insertThemeFiles()` method (in `src/worker/App.mjs`) inspects the component's entire JavaScript prototype chain. It walks **up** the chain from the component's class (e.g., `MyApp.view.CustomButton`) through its parents (like `Neo.button.Base`, `Neo.component.Base`, etc.) and loads the corresponding CSS file for each class that has one.
 
-The `npm run build-themes` command is the main script for a full theme build. It:
-1.  Compiles all `.scss` files in `resources/scss` into `.css` files.
-2.  Uses `postcss` to add vendor prefixes (`autoprefixer`) and minify the CSS (`cssnano`) for production builds.
-3.  Places the output into the `dist/<environment>/css/` directory.
-4.  Generates a critical file: `resources/theme-map.json`.
+This means that the styles from `src` are always loaded as the base, and your theme's styles are automatically applied on top of them as overrides.
 
-The `theme-map.json` file creates a mapping between every class name and the themes that have custom styles for it. This file is the key to the lazy loading mechanism.
+This approach has two major benefits:
+1.  **Simplicity:** Your theme files only need to contain the specific styles you want to change. You don't need to worry about managing complex SCSS imports.
+2.  **Accuracy:** The CSS inheritance perfectly mirrors the JavaScript class inheritance.
 
-### `watch-themes`
+A theme file can therefore be very clean and focused:
 
-For development, you can use `npm run watch-themes`. This script will watch the `resources/scss` directory for any changes and recompile only the file that was changed. This provides a much faster feedback loop when you are developing themes.
+```scss
+// resources/scss/theme-dark/button/Base.scss
 
-**Important Note:** The current version of `watch-themes` only handles changes to *existing* files. It does **not** detect new files, renamed files, or deleted files. As a result, if you add, move, or delete SCSS files while the watcher is running, the `theme-map.json` will not be updated, which can lead to inconsistencies. To apply these kinds of changes, you can run a full `npm run build-themes` command in a separate terminal. Enhancing the watch script to handle these cases is a planned improvement.
+// No @import needed!
 
-## 6. Creating a New Theme
+.neo-button {
+    // Dark theme overrides
+    background-color: var(--dark-button-background-color);
+    color: var(--dark-button-text-color);
+}
+```
 
-To create a new theme, follow these steps:
+You can also create your own themes that inherit from the existing Neo.mjs themes. The same principle applies: the framework will load the base theme's CSS first, followed by your new theme's CSS.
 
-1.  **Create a new theme folder:**
-    Inside `resources/scss`, create a new folder, e.g., `theme-my-awesome-theme`.
+## 5. Architecting Nestable Themes
 
-2.  **Add SCSS files:**
-    Start adding SCSS files that mirror the structure of the `src` or other theme folders. You only need to create files for the components you want to style differently. For any component you don't provide a custom style for, it will inherit the base `src` style.
+A key feature of the Neo.mjs theming architecture is the ability to nest components with different themes inside each other. For example, you could have a dark-themed grid inside a light-themed panel. To make this work reliably, themes must follow a strict separation of concerns.
 
-3.  **Configure your application:**
-    In your `neo-config.json`, add your new theme to the `themes` array. The first theme in the array is the default theme.
+**The Golden Rule:**
+-   **`resources/scss/src/` defines structure:** The SCSS files in the `src` directory should define all the CSS selectors and structural properties (like `display`, `position`, `overflow`, etc.). They use CSS variables (`var()`) for all cosmetic properties (like `color`, `background-color`, `border`, etc.).
+-   **`resources/scss/theme-*/` defines the skin:** Theme files should, ideally, **only** contain definitions for CSS variables. They should not introduce new selectors or override structural properties.
 
-    ```json
-    {
-        "themes": ["neo-theme-my-awesome-theme", "neo-theme-light"]
-    }
-    ```
-    *Note: The `neo-` prefix is important.*
+### A Practical Example: `list/Base.scss`
 
-4.  **Build the themes:**
-    Run `npm run build-themes` to compile your new theme and update the `theme-map.json`.
+This principle is clearly demonstrated in the styling for `Neo.list.Base`.
 
-5.  **Run your application:**
-    Your application will now use your new theme.
+**Structure (`src/list/Base.scss`):**
+```scss
+.neo-list-wrapper {
+    background-color: var(--list-container-background-color);
+    border          : var(--list-container-border);
+    overflow        : hidden;
+    position        : relative;
+}
 
-## 7. Lazy Loading in Action
+.neo-list-item {
+    background-color: var(--list-item-background-color);
+    padding         : var(--list-item-padding);
+    /* ... more structural styles */
+}
+```
+This file sets up the rules. It says that a `.neo-list-wrapper` *can* have a `border`, and its value is determined by the `--list-container-border` variable.
 
-You do not need to manually include any theme CSS files in your application's `index.html`. The framework handles it automatically.
+**Skin (`theme-dark/list/Base.scss`):**
+```scss
+:root .neo-theme-dark {
+    --list-container-border: 1px solid #282829;
+    /* ... other dark theme variables */
+}
+```
+The dark theme provides a value for the border variable.
 
-Here's how it works:
+**Skin & Nullification (`theme-light/list/Base.scss`):**
+```scss
+:root .neo-theme-light {
+    --list-container-border: 0;
+    /* ... other light theme variables */
+}
+```
+The light theme explicitly sets the border variable to `0`. This is called **nullification**. It's critical for nesting. If a light-themed list is placed inside a dark-themed component, this rule ensures the list does not incorrectly inherit the dark theme's 1px border. It actively resets the property defined in the `src` structure.
 
-1.  When the application starts, the `worker.App` loads the `theme-map.json` file.
-2.  When a component is about to be created, the framework checks the `theme-map.json` to see if the active theme has a specific CSS file for that component.
-3.  If it does, it sends a message to the `main.addon.Stylesheet` (in the main thread) to dynamically create a `<link>` tag for that CSS file and add it to the document's `<head>`.
-4.  The browser then loads the CSS file.
+### Bad Practice & The Right Way Forward
 
-This process ensures that you only ever load the CSS that is actually needed for the components currently in your application, which can significantly improve initial load times.
+While you technically *can* add new selectors or structural overrides inside a theme file, it is considered **bad practice** if you want your theme to be nestable and composable with other themes. Doing so can lead to unpredictable side effects when themes are mixed and matched.
+
+**What if a needed selector doesn't exist in `src`?**
+
+There might be cases where your custom design requires styling a part of a component that doesn't have a dedicated CSS class or selector in the base `src` files. Here is the recommended workflow:
+
+1.  **Temporarily add the selector to your theme:** To keep your project moving, it is acceptable to add the new structural selector directly into your theme's SCSS file as a temporary measure.
+2.  **Open a feature request:** Immediately after, you should open a feature request ticket in the [Neo.mjs GitHub repository](https://github.com/neomjs/neo/issues). The ticket should describe the component you are styling and the new selector(s) you need.
+
+This process allows you to continue your work without being blocked, while also contributing back to the framework. Once the new selectors are added to the `src` files in a future Neo.mjs update, you can refactor your theme to remove the temporary structural code and use the new, official CSS variables instead. This keeps themes clean and aligned with the framework's architecture for the long term.
+
+If you are creating a one-off, custom theme that will never be nested, this rule is less critical. However, for creating robust, reusable themes, sticking to the "structure vs. skin" separation is essential.
