@@ -92,14 +92,22 @@ Within each of these folders, the SCSS files are organized to mirror the compone
 
 ## 4. Theme Inheritance
 
-The theming engine uses a clear inheritance model. The styles in `src` are the base, and each theme can override them. For example, `theme-light` might import the base button styles and then apply its own color scheme.
+The theming engine uses a powerful and automatic inheritance model. You **do not** need to manually `@import` base styles into your theme's SCSS files. The framework handles this for you at runtime.
 
-This is typically done using SCSS variables and mixins to keep the theme files clean and maintainable. A theme file might look like this:
+Here's how it works: When a component is created, the `insertThemeFiles()` method (in `src/worker/App.mjs`) inspects the component's entire JavaScript prototype chain. It walks **up** the chain from the component's class (e.g., `MyApp.view.CustomButton`) through its parents (like `Neo.button.Base`, `Neo.component.Base`, etc.) and loads the corresponding CSS file for each class that has one.
+
+This means that the styles from `src` are always loaded as the base, and your theme's styles are automatically applied on top of them as overrides.
+
+This approach has two major benefits:
+1.  **Simplicity:** Your theme files only need to contain the specific styles you want to change. You don't need to worry about managing complex SCSS imports.
+2.  **Accuracy:** The CSS inheritance perfectly mirrors the JavaScript class inheritance.
+
+A theme file can therefore be very clean and focused:
 
 ```scss
 // resources/scss/theme-dark/button/Base.scss
 
-@import '../../src/button/Base';
+// No @import needed!
 
 .neo-button {
     // Dark theme overrides
@@ -108,7 +116,7 @@ This is typically done using SCSS variables and mixins to keep the theme files c
 }
 ```
 
-You can also create your own themes that inherit from the existing Neo.mjs themes.
+You can also create your own themes that inherit from the existing Neo.mjs themes. The same principle applies: the framework will load the base theme's CSS first, followed by your new theme's CSS.
 
 ## 5. The Build Process
 
