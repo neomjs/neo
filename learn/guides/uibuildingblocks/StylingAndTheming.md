@@ -179,3 +179,68 @@ There might be cases where your custom design requires styling a part of a compo
 This process allows you to continue your work without being blocked, while also contributing back to the framework. Once the new selectors are added to the `src` files in a future Neo.mjs update, you can refactor your theme to remove the temporary structural code and use the new, official CSS variables instead. This keeps themes clean and aligned with the framework's architecture for the long term.
 
 If you are creating a one-off, custom theme that will never be nested, this rule is less critical. However, for creating robust, reusable themes, sticking to the "structure vs. skin" separation is essential.
+
+## 6. Creating a New Theme
+
+The most efficient and recommended way to create a new theme is to start with an existing one. This ensures you have all the necessary folder structures and CSS variable definitions in place.
+
+1.  **Choose a Base Theme and Duplicate It:**
+    Decide whether `theme-light` or `theme-dark` is a closer starting point for your design. Then, duplicate the folder and give it a new name.
+
+    ```bash
+    # Example: Creating a new theme based on theme-light
+    cp -r resources/scss/theme-light resources/scss/theme-my-awesome-theme
+    ```
+
+2.  **Customize Your Theme's Variables:**
+    Now you can go through the `.scss` files in your new `theme-my-awesome-theme` folder and adjust the CSS variable values to match your design requirements.
+
+3.  **Configure Your Application:**
+    In your `neo-config.json`, add your new theme to the `themes` array. The first theme in the array becomes the default theme for the application.
+
+    ```json
+    {
+        "themes": ["neo-theme-my-awesome-theme", "neo-theme-light"]
+    }
+    ```
+    **Note:** The `neo-` prefix is required, and your folder name should not include it (e.g., folder `theme-foo` becomes `neo-theme-foo` in the config).
+
+4.  **Build Your New Theme:**
+    Run the full theme build process to compile the SCSS for your new theme and, critically, to update the `theme-map.json` file to include it.
+
+    ```bash
+    npm run build-themes
+    ```
+
+## 7. The Build Process
+
+To compile the SCSS files into the CSS that the browser uses, Neo.mjs provides two main build scripts.
+
+### `build-themes`
+
+The `npm run build-themes` command is the main script for a full theme build. It:
+1.  Compiles all `.scss` files in `resources/scss` into `.css` files.
+2.  Uses `postcss` to add vendor prefixes (`autoprefixer`) and minify the CSS (`cssnano`) for production builds.
+3.  Places the output into the `dist/<environment>/css/` directory.
+4.  Generates a critical file: `resources/theme-map.json`.
+
+The `theme-map.json` file creates a mapping between every class name and the themes that have custom styles for it. This file is the key to the lazy loading mechanism.
+
+### `watch-themes`
+
+For development, you can use `npm run watch-themes`. This script will watch the `resources/scss` directory for any changes and recompile only the file that was changed. This provides a much faster feedback loop when you are developing themes.
+
+**Important Note:** The current version of `watch-themes` only handles changes to *existing* files. It does **not** detect new files, renamed files, or deleted files. As a result, if you add, move, or delete SCSS files while the watcher is running, the `theme-map.json` will not be updated, which can lead to inconsistencies. To apply these kinds of changes, you can run a full `npm run build-themes` command in a separate terminal. Enhancing the watch script to handle these cases is a planned improvement.
+
+## 8. Lazy Loading in Action
+
+You do not need to manually include any theme CSS files in your application's `index.html`. The framework handles it automatically.
+
+Here's how it works:
+
+1.  When the application starts, the `worker.App` loads the `theme-map.json` file.
+2.  When a component is about to be created, the framework checks the `theme-map.json` to see if the active theme has a specific CSS file for that component.
+3.  If it does, it sends a message to the `main.addon.Stylesheet` (in the main thread) to dynamically create a `<link>` tag for that CSS file and add it to the document's `<head>`.
+4.  The browser then loads the CSS file.
+
+This process ensures that you only ever load the CSS that is actually needed for the components currently in your application, which can significantly improve initial load times.
