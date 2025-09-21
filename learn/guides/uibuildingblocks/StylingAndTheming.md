@@ -25,7 +25,7 @@ The primary way to style individual components is through configuration properti
 
 For applying inline CSS styles, use the `style` config. It accepts a standard JavaScript object. While the recommended convention is to use camelCased keys for CSS properties, you can also use quoted kebab-case keys.
 
-```javascript
+```javascript readonly
 // Recommended: camelCase
 {
     ntype: 'button',
@@ -55,7 +55,7 @@ This will be rendered as `style="background-color: blue; color: white; border-ra
 
 To apply CSS classes, use the `cls` config, which accepts an array of strings.
 
-```javascript
+```javascript readonly
 {
     ntype: 'panel',
     cls: ['my-custom-panel', 'another-class']
@@ -70,7 +70,7 @@ The `ui` config is a special styling hook that provides a simple way to apply a 
 
 For example, if you have a button:
 
-```javascript
+```javascript readonly
 {
     ntype: 'button',
     text: 'Important Button',
@@ -84,7 +84,7 @@ This will add the class `neo-button-primary` to the button's element, allowing y
 
 To create your own `ui` variant, you simply add the corresponding CSS rule to your theme's SCSS file. For example, to create a "success" button style, you would first set the config:
 
-```javascript
+```javascript readonly
 {
     ntype: 'button',
     text: 'Save Changes',
@@ -94,7 +94,7 @@ To create your own `ui` variant, you simply add the corresponding CSS rule to yo
 
 Then, in your theme's SCSS file (e.g., `resources/scss/theme-my-theme/button/Base.scss`), you would add the style definition:
 
-```scss
+```scss readonly
 .neo-button-success {
     background-color: #28a745; // Green for success
     color: white;
@@ -137,7 +137,7 @@ To avoid conflicts and ensure the reactive system works correctly, it is critica
 
 -   **For all other descendant VDOM nodes:** Use the standard inline `cls` (as an array) and `style` (as an object) attributes directly inside the VDOM structure. This is the correct and intended way to style the inner parts of your component.
 
-```javascript
+```javascript readonly
 // GOOD EXAMPLE
 {
     ntype: 'container',
@@ -230,7 +230,7 @@ This approach has two major benefits:
 
 A theme file can therefore be very clean and focused:
 
-```scss
+```scss readonly
 // resources/scss/theme-dark/button/Base.scss
 
 // No @import needed!
@@ -257,7 +257,7 @@ A key feature of the Neo.mjs theming architecture is the ability to nest compone
 This principle is clearly demonstrated in the styling for `Neo.list.Base`.
 
 **Structure (`src/list/Base.scss`):**
-```scss
+```scss readonly
 .neo-list-wrapper {
     background-color: var(--list-container-background-color);
     border          : var(--list-container-border);
@@ -274,7 +274,7 @@ This principle is clearly demonstrated in the styling for `Neo.list.Base`.
 This file sets up the rules. It says that a `.neo-list-wrapper` *can* have a `border`, and its value is determined by the `--list-container-border` variable.
 
 **Skin (`theme-dark/list/Base.scss`):**
-```scss
+```scss readonly
 :root .neo-theme-dark {
     --list-container-border: 1px solid #282829;
     /* ... other dark theme variables */
@@ -283,7 +283,7 @@ This file sets up the rules. It says that a `.neo-list-wrapper` *can* have a `bo
 The dark theme provides a value for the border variable.
 
 **Skin & Nullification (`theme-light/list/Base.scss`):**
-```scss
+```scss readonly
 :root .neo-theme-light {
     --list-container-border: 0;
     /* ... other light theme variables */
@@ -313,7 +313,7 @@ The most efficient and recommended way to create a new theme is to start with an
 1.  **Choose a Base Theme and Duplicate It:**
     Decide whether `theme-light` or `theme-dark` is a closer starting point for your design. Then, duplicate the folder and give it a new name.
 
-    ```bash
+    ```bash readonly
     # Example: Creating a new theme based on theme-light
     cp -r resources/scss/theme-light resources/scss/theme-my-awesome-theme
     ```
@@ -324,7 +324,7 @@ The most efficient and recommended way to create a new theme is to start with an
 3.  **Configure Your Application:**
     In your `neo-config.json`, add your new theme to the `themes` array. The first theme in the array becomes the default theme for the application.
 
-    ```json
+    ```json readonly
     {
         "themes": ["neo-theme-my-awesome-theme", "neo-theme-light"]
     }
@@ -334,7 +334,7 @@ The most efficient and recommended way to create a new theme is to start with an
 4.  **Build Your New Theme:**
     Run the full theme build process to compile the SCSS for your new theme and, critically, to update the `theme-map.json` file to include it.
 
-    ```bash
+    ```bash readonly
     npm run build-themes
     ```
 
