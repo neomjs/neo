@@ -107,6 +107,37 @@ All component configurations, including `style` and `cls`, are ultimately applie
 
 When you change a style-related config at runtime, the component's `afterSet` hook for that config (e.g., `afterSetStyle()`) is triggered. This hook updates the VDOM, and the framework's rendering engine applies the changes to the live DOM. This reactive system ensures that UI updates are fast and automatic.
 
+### Where to Apply Styles: A Critical Distinction
+
+To avoid conflicts and ensure the reactive system works correctly, it is critical to follow this rule:
+
+-   **For the component's root VDOM node(s):** Always use the component-level configs (`cls`, `style`, `wrapperCls`, `wrapperStyle`). Do **not** add `cls` or `style` attributes directly to the root node within the `vdom` object itself. This allows the framework to manage these styles reactively. If you set them directly on the VDOM root, your styles could be overwritten by a config change, or they could conflict with it.
+
+-   **For all other descendant VDOM nodes:** Use the standard inline `cls` (as an array) and `style` (as an object) attributes directly inside the VDOM structure. This is the correct and intended way to style the inner parts of your component.
+
+```javascript
+// GOOD EXAMPLE
+{
+    ntype: 'container',
+    // Use component configs for the root node
+    cls: ['my-container'],
+    style: { border: '1px solid blue' },
+
+    // Define VDOM with inline styles for descendants
+    vdom: {
+        // No cls or style here!
+        cn: [{
+            tag: 'h1',
+            cls: ['my-title'], // Correct for a descendant
+            style: { color: 'blue' }, // Correct for a descendant
+            html: 'My Component'
+        }, {
+            // ... other descendant nodes
+        }]
+    }
+}
+```
+
 ## 3. SCSS & Theming
 
 Neo.mjs's theming system is built with SCSS. The source files are located in the `resources/scss` directory.
