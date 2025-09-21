@@ -80,6 +80,28 @@ For example, if you have a button:
 
 This will add the class `neo-button-primary` to the button's element, allowing you to target it with specific styles in your theme.
 
+#### Implementing a Custom `ui` Style
+
+To create your own `ui` variant, you simply add the corresponding CSS rule to your theme's SCSS file. For example, to create a "success" button style, you would first set the config:
+
+```javascript
+{
+    ntype: 'button',
+    text: 'Save Changes',
+    ui: 'success'
+}
+```
+
+Then, in your theme's SCSS file (e.g., `resources/scss/theme-my-theme/button/Base.scss`), you would add the style definition:
+
+```scss
+.neo-button-success {
+    background-color: #28a745; // Green for success
+    color: white;
+    // any other styles...
+}
+```
+
 ### Advanced Styling: Wrappers and Root Nodes
 
 For more advanced control, `Neo.component.Base` provides a set of five style and class-related configs. Understanding them requires understanding the difference between a component's **outermost node** and its **logical root node** (`getVdomRoot()`).
@@ -130,7 +152,7 @@ To avoid conflicts and ensure the reactive system works correctly, it is critica
             tag: 'h1',
             cls: ['my-title'], // Correct for a descendant
             style: { color: 'blue' }, // Correct for a descendant
-            html: 'My Component'
+            text: 'My Component'
         }, {
             // ... other descendant nodes
         }]
