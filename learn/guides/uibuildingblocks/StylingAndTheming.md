@@ -80,6 +80,27 @@ For example, if you have a button:
 
 This will add the class `neo-button-primary` to the button's element, allowing you to target it with specific styles in your theme.
 
+### Advanced Styling: Wrappers and Root Nodes
+
+For more advanced control, `Neo.component.Base` provides a set of five style and class-related configs. Understanding them requires understanding the difference between a component's **outermost node** and its **logical root node** (`getVdomRoot()`).
+
+-   For many simple components, these two nodes are the same.
+-   For complex components, the logical root might be a child of the outermost node. For example, a grid cell component's logical root might be a `<div>`, but its outermost node is the `<td>` that wraps it.
+
+This distinction explains the purpose of the different configs:
+
+-   **`style`**: An object of inline styles applied to the component's **logical root node**.
+-   **`cls`**: An array of CSS classes applied to the component's **logical root node**.
+-   **`wrapperStyle`**: An object of inline styles applied to the component's **outermost node**. This is only needed when the outermost node is different from the logical root.
+-   **`wrapperCls`**: An array of CSS classes applied to the component's **outermost node**, for the same reason as `wrapperStyle`.
+-   **`baseCls`**: An array of fundamental CSS classes applied by the component class itself for its core functionality. This is for internal framework use and is automatically merged into the final `cls` array.
+
+### Best Practice: `cls` vs. `style`
+
+Whenever possible, it is considered **best practice to use `cls` instead of `style`**. Defining styles in CSS classes keeps your component definitions cleaner and makes your styles more reusable and maintainable.
+
+The `style` config should be reserved for situations where style properties are being calculated dynamically at runtime and are specific to that single component instance. A perfect example is a resizable `Dialog` component. As a user drags the corner of the dialog, the framework will dynamically update its `width` and `height` via the `style` config. These are transient, calculated values that don't belong in a reusable CSS class.
+
 ## 2. VDOM-Based Styles
 
 All component configurations, including `style` and `cls`, are ultimately applied to the component's Virtual DOM (VDOM) tree. The framework then efficiently updates the real DOM based on changes to the VDOM.
