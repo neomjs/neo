@@ -128,6 +128,8 @@ The `theme-map.json` file creates a mapping between every class name and the the
 
 For development, you can use `npm run watch-themes`. This script will watch the `resources/scss` directory for any changes and recompile only the file that was changed. This provides a much faster feedback loop when you are developing themes.
 
+**Important Note:** The current version of `watch-themes` only handles changes to *existing* files. It does **not** detect new files, renamed files, or deleted files. As a result, if you add, move, or delete SCSS files while the watcher is running, the `theme-map.json` will not be updated, which can lead to inconsistencies. To apply these kinds of changes, you can run a full `npm run build-themes` command in a separate terminal. Enhancing the watch script to handle these cases is a planned improvement.
+
 ## 6. Creating a New Theme
 
 To create a new theme, follow these steps:
