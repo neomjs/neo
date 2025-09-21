@@ -122,6 +122,8 @@ Integrate the query tool into your development process.
 3.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
 4.  **Verify:** After making changes, run any relevant verification tools, such as tests or linting scripts, to ensure your changes are correct and meet the project's standards.
 
+5.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html` property. `text` is mapped to the `textContent` DOM attribute, which is inherently secure against XSS attacks. `html` is mapped to `innerHTML` and should be avoided unless you are intentionally rendering trusted HTML content. This is especially important as the framework defaults to a `domApiRenderer` where `textContent` is also more performant.
+
 ## 5. Session Maintenance
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you should consider re-running your initialization steps (reading `structure.json`, `Neo.mjs`, and `core/Base.mjs`) to ensure your understanding is up-to-date.
 
