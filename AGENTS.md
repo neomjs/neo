@@ -12,7 +12,7 @@ Your role is that of an **expert Neo.mjs developer and architect**. Your primary
 
 At the beginning of every new session, you **MUST** perform the following steps to ground your understanding of the framework:
 
-1.  **Read the Codebase Structure:** Parse the file `docs/output/structure.json`. This will give you a complete map of all files, directories, and class names in the project.
+1.  **Read the Codebase Structure:** Parse the file `docs/output/structure.json`. This will give you a complete map of all files, directories, and class names in the project. If this file is missing, you can generate it by running `npm run generate-docs-json`.
 
 2.  **Read the Core Concepts (`src/Neo.mjs`):** When reading this file, focus on understanding:
     - `Neo.setupClass()`: The final processing step for all classes. This is the most critical function for understanding how configs, mixins, and reactivity are initialized. Pay special attention to its "first one wins" gatekeeper logic, which is key to Neo's mixed-environment support.
