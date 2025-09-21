@@ -244,3 +244,13 @@ Here's how it works:
 4.  The browser then loads the CSS file.
 
 This process ensures that you only ever load the CSS that is actually needed for the components currently in your application, which can significantly improve initial load times.
+
+### VDOM Updates and Style Loading
+
+The lazy loading of styles is tightly integrated with the framework's rendering engine to prevent a "flash of unstyled content" (FOUC) and unnecessary layout recalculations.
+
+Imagine you are showing a complex component, like a grid, for the first time. The framework will trigger the lazy loading of the grid's theme CSS. If a VDOM update for the grid were to proceed immediately, the browser might render the grid's DOM structure *before* its styles have arrived, causing a flicker or a jarring layout shift once the styles are applied.
+
+To prevent this, the `updateVdom()` method in `src/mixin/VdomLifecycle.mjs` contains a crucial check. It looks at the `Neo.worker.App` instance to see if any theme files are currently being loaded (`countLoadingThemeFiles > 0`). If they are, it will pause the VDOM update for the component and listen for a `themeFilesLoaded` event. Once all pending CSS files have been loaded, the VDOM update is automatically resumed.
+
+This elegant mechanism ensures that a component's DOM is only mounted or updated after its required styles are in place, leading to a smoother and more professional user experience.
