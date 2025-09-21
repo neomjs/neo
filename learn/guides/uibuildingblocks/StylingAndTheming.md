@@ -23,9 +23,10 @@ The primary way to style individual components is through configuration properti
 
 ### `style`
 
-For applying inline CSS styles, use the `style` config. It accepts a standard JavaScript object where keys are camelCased CSS properties.
+For applying inline CSS styles, use the `style` config. It accepts a standard JavaScript object. While the recommended convention is to use camelCased keys for CSS properties, you can also use quoted kebab-case keys.
 
 ```javascript
+// Recommended: camelCase
 {
     ntype: 'button',
     text: 'Click Me',
@@ -33,6 +34,17 @@ For applying inline CSS styles, use the `style` config. It accepts a standard Ja
         backgroundColor: 'blue',
         color: 'white',
         borderRadius: '5px'
+    }
+}
+
+// Also valid: quoted kebab-case
+{
+    ntype: 'button',
+    text: 'Click Me',
+    style: {
+        'background-color': 'blue',
+        'color': 'white',
+        'border-radius': '5px'
     }
 }
 ```
