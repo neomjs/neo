@@ -2,6 +2,21 @@
 
 This guide assumes you have already cloned the `neo` repository and have all the necessary files.
 
+## Installation
+
+1.  **Install the Gemini CLI**
+    If you haven't already, install the Google Gemini CLI globally via npm:
+    ```bash
+    npm install -g @google/gemini-cli
+    ```
+
+2.  **Start the CLI**
+    Navigate to the root directory of your `neo` repository clone and start the Gemini CLI:
+    ```bash
+    gemini
+    ```
+    **Important:** You must run the CLI from the project root for it to have the correct context of the codebase.
+
 ## Prerequisites
 
 1.  **Node.js**: v18 or later
