@@ -34,6 +34,8 @@ At the heart of our AI-native approach is a powerful, local knowledge base built
 
 This transforms the AI from a source of generic advice into an expert on *your* specific codebase.
 
+This entire system is a practical implementation of a powerful AI technique called **Retrieval-Augmented Generation (RAG)**. The core idea of RAG is simple but transformative: instead of relying solely on an LLM's static training data, you first *retrieve* up-to-date, relevant information from your own knowledge base and then provide that information to the LLM as context for its *generation* task. This dramatically reduces hallucinations and ensures the AI's output is grounded in the reality of your project. Our query tool is the "Retrieval" step in this process, giving you the perfect context to feed into any generative AI.
+
 ### 2. The `AGENTS.md` Protocol: A Self-Improving System
 
 To ensure this power is used effectively and safely, we've introduced `AGENTS.md`—a file in our repository that acts as an operational manual, or a "constitution," for any AI agent interacting with the project. It enforces a simple but revolutionary rule:
