@@ -13,7 +13,7 @@ program
     .name('neo-ai-query')
     .version('1.0.0') // Or from package.json
     .option('-q, --query <value>', 'The search query for the knowledge base')
-    .option('-t, --type <value>', 'The content type to query for', 'all')
+    .option('-t, --type <value>', 'The content type to query for. Choices: all, blog, guide, src, example', 'all')
     .parse(process.argv);
 
 const opts = program.opts();
