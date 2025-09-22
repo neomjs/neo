@@ -64,6 +64,78 @@ We call this the "JSON Blueprint" advantage. For an AI, this is its native langu
 
 Finally, the platform's unique multi-threaded architecture, where the application, VDOM, and data logic all run in separate web workers, provides the perfect environment for AI-driven development. Heavy operations, like asking an AI to generate a complex component or process a large amount of data, can be offloaded to a worker without ever blocking the main UI thread. This ensures the user experience remains fluid and responsive, no matter what the AI is doing in the background.
 
+### A Query in Action: Understanding Reactivity
+
+Talk is cheap. Let's see what happens when we ask the platform to explain its own reactivity model. We'll run the same query three times, asking for a guide, a blog post, and the source code.
+
+**First, we ask for a high-level guide:**
+
+```bash readonly
+> npm run ai:query -- -q "reactivity" -t guide
+
+Querying for: "reactivity" (type: guide)...
+
+
+Most relevant source files (by weighted score):
+- /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/ConfigSystemDeepDive.md (Score: 458)
+- /Users/Shared/github/neomjs/neo/learn/guides/datahandling/Records.md (Score: 454)
+- /Users/Shared/github/neomjs/neo/learn/guides/datahandling/Collections.md (Score: 353)
+- /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom.md (Score: 245)
+- /Users/Shared/github/neomjs/neo/learn/guides/datahandling/StateProviders.md (Score: 239)
+- /Users/Shared/github/neomjs/neo/learn/guides/uibuildingblocks/CustomComponents.md (Score: 89)
+- /Users/Shared/github/neomjs/neo/learn/guides/userinteraction/events/CustomEvents.md (Score: 82)
+- /Users/Shared/github/neomjs/neo/learn/guides/uibuildingblocks/WorkingWithVDom.md (Score: 82)
+- /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/ExtendingNeoClasses.md (Score: 65)
+- /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/DeclarativeVDOMWithEffects.md (Score: 48)
+- /Users/Shared/github/neomjs/neo/learn/guides/uibuildingblocks/StylingAndTheming.md (Score: 34)
+
+Top result: /Users/Shared/github/neomjs/neo/learn/guides/fundamentals/ConfigSystemDeepDive.md
+```
+
+The system immediately points us to the primary guide for the config system, which is the heart of reactivity in Neo.mjs.
+
+**Next, let's ask for a more narrative explanation from the blog:**
+
+```bash readonly
+> npm run ai:query -- -q "reactivity" -t blog
+
+Querying for: "reactivity" (type: blog)...
+
+
+Most relevant source files (by weighted score):
+- /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-reactivity.md (Score: 3175)
+- /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-state-provider.md (Score: 447)
+- /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-functional-components.md (Score: 263)
+- /Users/Shared/github/neomjs/neo/learn/blog/v10-post1-love-story.md (Score: 152)
+- /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-vdom-revolution.md (Score: 118)
+- /Users/Shared/github/neomjs/neo/learn/blog/benchmarking-frontends-2025.md (Score: 81)
+
+Top result: /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-reactivity.md
+```
+
+As expected, it returns the specific blog post dedicated to a deep dive on reactivity, with a massive score indicating high relevance.
+
+**Finally, let's find the source of truth:**
+
+```bash readonly
+> npm run ai:query -- -q "reactivity" -t src
+
+Querying for: "reactivity" (type: src)...
+
+
+Most relevant source files (by weighted score):
+- /Users/Shared/github/neomjs/neo/src/core/Base.mjs (Score: 92)
+- /Users/Shared/github/neomjs/neo/src/core/Effect.mjs (Score: 13)
+- /Users/Shared/github/neomjs/neo/src/state/Provider.mjs (Score: 10)
+- /Users/Shared/github/neomjs/neo/src/button/Effect.mjs (Score: 9)
+- /Users/Shared/github/neomjs/neo/src/core/Config.mjs (Score: 8)
+- /Users/Shared/github/neomjs/neo/src/Neo.mjs (Score: 6)
+
+Top result: /Users/Shared/github/neomjs/neo/src/core/Base.mjs
+```
+
+Perfect. The query engine correctly identifies `src/core/Base.mjs` as the epicenter of the reactivity system, where the config hooks are implemented. This single query gives a developer the conceptual guide, the narrative context, and the core implementation file in seconds.
+
 ## What This Means for Developers & AI Tools
 
 This AI-native architecture isn't just a theoretical advantage; it fundamentally changes the daily workflow for the better.
