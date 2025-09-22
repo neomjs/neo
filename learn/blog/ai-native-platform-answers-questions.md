@@ -2,43 +2,70 @@
 
 *Inside the conversational code architecture of Neo.mjs and how it's changing the developer experience for Hacktoberfest and beyond.*
 
-The next great leap in frontend development will not be a new rendering pattern or state management library. It will be a fundamental shift in our partnership with artificial intelligence. For too long, we've treated AI as a clever autocomplete—a helpful but limited assistant. What if, instead, we built development platforms that treated AI as a first-class partner? 
+The next great leap in frontend development will not be a new rendering pattern or state management library.
+It will be a fundamental shift in our partnership with artificial intelligence. For too long, we've treated AI as a
+clever autocomplete—a helpful but limited assistant. What if, instead, we built development platforms that treated AI as
+a first-class partner? 
 
-This is the question at the heart of Neo.mjs v10.7, the first release to be architected from the ground up for an **AI-Native** future. 
+This is the question at the heart of Neo.mjs v10.7,
+the first release to be architected from the ground up for an **AI-Native** future. 
 
-This isn't about bolting on a chatbot; it's about a new development model where AI is a foundational part of the architecture, designed to be understood, queried, and even enhanced by the platform itself. At the core of this new experience are two key innovations: a comprehensive, local **AI Knowledge Base** and a formalized **AI Agent Protocol** (`AGENTS.md`).
+This isn't about bolting on a chatbot; it's about a new development model where AI is a foundational part of the
+architecture, designed to be understood, queried, and even enhanced by the platform itself. At the core of this new
+experience are two key innovations: a comprehensive, local **AI Knowledge Base** and a formalized
+**AI Agent Protocol** ([AGENTS.md](https://github.com/neomjs/neo/blob/dev/AGENTS.md)).
 
 Together, they transform the developer experience from a monologue of reading docs into a dialogue with the platform itself.
 
 ## The Problem with "AI-Assisted" Development
 
-Current AI coding tools are powerful, but they operate with one hand tied behind their back. When interacting with traditional frontend frameworks, they face significant challenges:
+Current AI coding tools are powerful, but they operate with one hand tied behind their back. When interacting with
+traditional frontend frameworks, they face significant challenges:
 
-1.  **Outdated Knowledge:** An AI's training data is a snapshot of the past. It doesn't know about your project's specific conventions, the latest API changes, or the nuances of your architecture. This leads to well-intentioned but incorrect or outdated code suggestions—the dreaded "AI hallucination."
-2.  **Complex, Unpredictable Codebases:** Frameworks that rely on complex templating languages (like JSX) or highly abstracted component models create a codebase that is difficult for an AI to parse and understand safely. The patterns are often inconsistent, making it hard for an AI to generate code that "fits in."
-3.  **A One-Way Street:** The interaction is purely extractive. The AI gives you code, but it learns nothing in the process. It cannot improve its understanding of your project, and it cannot contribute to the project's long-term health.
+1.  **Outdated Knowledge:** An AI's training data is a snapshot of the past. It doesn't know about your project's
+    specific conventions, the latest API changes, or the nuances of your architecture. This leads to well-intentioned
+    but incorrect or outdated code suggestions—the dreaded "AI hallucination."
+2.  **Complex, Unpredictable Codebases:** Frameworks that rely on complex templating languages (like JSX) or highly
+    abstracted component models create a codebase that is difficult for an AI to parse and understand safely.
+    The patterns are often inconsistent, making it hard for an AI to generate code that "fits in."
+3.  **A One-Way Street:** The interaction is purely extractive. The AI gives you code, but it learns nothing in the
+    process. It cannot improve its understanding of your project, and it cannot contribute to the project's long-term health.
 
-This "AI-Assisted" model leaves the developer with the full burden of validating the AI's output, teaching it the project's rules, and manually updating it on new patterns. It's helpful, but it's not a true partnership.
+This "AI-Assisted" model leaves the developer with the full burden of validating the AI's output, teaching it the
+project's rules, and manually updating it on new patterns. It's helpful, but it's not a true partnership.
 
 ## The Neo.mjs AI-Native Architecture
 
-Neo.mjs flips this model on its head. Instead of asking the AI to learn a complex and opaque system, we've built a platform that is transparent, queryable, and designed for AI collaboration from its very foundation. This architecture stands on four pillars:
+Neo.mjs flips this model on its head. Instead of asking the AI to learn a complex and opaque system, we've built a
+platform that is transparent, queryable, and designed for AI collaboration from its very foundation.
+This architecture stands on four pillars:
 
 ### 1. The Local AI Knowledge Base
 
-At the heart of our AI-native approach is a powerful, local knowledge base built on a suite of simple scripts (`createKnowledgeBase.mjs`, `embedKnowledgeBase.mjs`, `queryKnowledgeBase.mjs`). Here's how it works:
+At the heart of our AI-native approach is a powerful, local knowledge base built on a suite of simple scripts
+(`createKnowledgeBase.mjs`, `embedKnowledgeBase.mjs`, `queryKnowledgeBase.mjs`). Here's how it works:
 
--   **Comprehensive:** It indexes the *entire* project—not just documentation, but all source code, JSDoc comments, and even our blog posts.
--   **Vectorized for Meaning:** Using the `text-embedding-004` model via your own private API key, it converts the entire knowledge base into semantic vectors and stores them locally in a ChromaDB database.
--   **Always Current:** Because it runs locally, it's always up-to-date with your latest code changes. The AI is querying the reality of your project *right now*, not the state of the world a year ago.
+-   **Comprehensive:** It indexes the *entire* project—not just documentation, but all source code, JSDoc comments,
+    and even our blog posts.
+-   **Vectorized for Meaning:** Using the `text-embedding-004` model via your own private API key, it converts the entire
+    knowledge base into semantic vectors and stores them locally in a ChromaDB database.
+-   **Always Current:** Because it runs locally, it's always up-to-date with your latest code changes.
+    The AI is querying the reality of your project *right now*, not the state of the world a year ago.
 
 This transforms the AI from a source of generic advice into an expert on *your* specific codebase.
 
-This entire system is a practical implementation of a powerful AI technique called **Retrieval-Augmented Generation (RAG)**. The core idea of RAG is simple but transformative: instead of relying solely on an LLM's static training data, you first *retrieve* up-to-date, relevant information from your own knowledge base and then provide that information to the LLM as context for its *generation* task. This dramatically reduces hallucinations and ensures the AI's output is grounded in the reality of your project. Our query tool is the "Retrieval" step in this process, giving you the perfect context to feed into any generative AI.
+This entire system is a practical implementation of a powerful AI technique called **Retrieval-Augmented Generation
+(RAG)**. The core idea of RAG is simple but transformative: instead of relying solely on an LLM's static training data,
+you first *retrieve* up-to-date, relevant information from your own knowledge base and then provide that information to
+the LLM as context for its *generation* task. This dramatically reduces hallucinations and ensures the AI's output is
+grounded in the reality of your project. Our query tool is the "Retrieval" step in this process, giving you the perfect
+context to feed into any generative AI.
 
 ### 2. The `AGENTS.md` Protocol: A Self-Improving System
 
-To ensure this power is used effectively and safely, we've introduced `AGENTS.md`—a file in our repository that acts as an operational manual, or a "constitution," for any AI agent interacting with the project. It enforces a simple but revolutionary rule:
+To ensure this power is used effectively and safely, we've introduced `AGENTS.md`—a file in our repository that acts as
+an operational manual, or a "constitution," for any AI agent interacting with the project. It enforces a simple but
+revolutionary rule:
 
 **The Anti-Hallucination Policy: The AI MUST query the local knowledge base before writing any code.**
 
@@ -46,30 +73,41 @@ This query-first development model requires the AI to ask questions like:
 - `npm run ai:query -- -q "How does push-based afterSet hooks integrate with pull-based effects?"`
 - `npm run ai:query -- -q "show me examples for Neo.tab.Container"`
 
-But it goes a step further. It introduces a **Knowledge Base Enhancement Strategy**, turning the AI from a passive consumer of information into an active contributor to the platform's clarity. The workflow is as follows:
+But it goes a step further. It introduces a **Knowledge Base Enhancement Strategy**, turning the AI from a passive
+consumer of information into an active contributor to the platform's clarity. The workflow is as follows:
 
 1.  **Query First:** The AI queries the knowledge base to understand a task.
-2.  **Analyze and Identify Gaps:** While reading the source code, if the AI encounters a complex method or a confusing section with poor documentation, it pauses its implementation task.
-3.  **Enhance and Document:** Its new, primary task is to analyze the confusing code, understand its intent, and generate clear, intent-driven JSDoc comments to explain the *why*, not just the *what*.
+2.  **Analyze and Identify Gaps:** While reading the source code, if the AI encounters a complex method or a confusing
+    section with poor documentation, it pauses its implementation task.
+3.  **Enhance and Document:** Its new, primary task is to analyze the confusing code, understand its intent, and generate
+    clear, intent-driven JSDoc comments to explain the *why*, not just the *what*.
 4.  **Commit and Improve:** The AI commits this documentation enhancement.
 5.  **Resume:** It then resumes its original task, now with a better understanding.
 
-This creates a powerful **virtuous cycle**. While this represents a small upfront investment of time for the AI, the long-term payoff is a dramatic reduction in future development friction for the entire team. Each time an AI struggles with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
+This creates a powerful **virtuous cycle**. While this represents a small upfront investment of time for the AI, the
+long-term payoff is a dramatic reduction in future development friction for the entire team. Each time an AI struggles
+with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge
+base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
 
 ### A Built-in Model Context Protocol
 
-This combination of a queryable knowledge base and a strict agent protocol effectively creates a specialized, local **Model Context Protocol (MCP)** for the repository. MCP is an emerging [open standard](https://modelcontextprotocol.io/) for connecting AI applications to external systems, and Neo.mjs has independently implemented its core philosophy.
+This combination of a queryable knowledge base and a strict agent protocol effectively creates a specialized, local
+**Model Context Protocol (MCP)** for the repository. MCP is an emerging [open standard](https://modelcontextprotocol.io/)
+for connecting AI applications to external systems, and Neo.mjs has independently implemented its core philosophy.
 
 In this paradigm:
--   The **Server** is the combination of the local ChromaDB database and the `npm run ai:query` script, which exposes the codebase as a queryable tool.
+-   The **Server** is the combination of the local ChromaDB database and the `npm run ai:query` script, which exposes
+    the codebase as a queryable tool.
 -   The **Client** is any AI agent, like Gemini CLI or Claude, that can read the protocol and execute shell commands.
 -   The **Protocol** is defined by `AGENTS.md`, which serves as the manifest telling clients how to interact with the server.
 
-This built-in MCP turns the entire repository into an intelligent, self-describing system that any AI can securely and reliably connect to.
+This built-in MCP turns the entire repository into an intelligent,
+self-describing system that any AI can securely and reliably connect to.
 
 ### Your Personal (and Benevolent) MCP
 
-So while our local MCP provides the authority and knowledge of a sci-fi "Master Control Program". It's designed to be a partner, not a tyrant. It serves the user, not the other way around.
+So while our local MCP provides the authority and knowledge of a sci-fi "Master Control Program".
+It's designed to be a partner, not a tyrant. It serves the user, not the other way around.
 
 > End of line.
 >
@@ -77,11 +115,16 @@ So while our local MCP provides the authority and knowledge of a sci-fi "Master 
 
 ### 3. The JSON Blueprint Advantage
 
-To understand the AI-native advantage, we have to be honest about a hard truth of **traditional** frontend architecture: JSX, for all its elegance, is a "lie." It's not real code. It's syntactic sugar that must be transpiled by tools like Babel or SWC into `React.createElement()` function calls—a non-trivial computational step that stands between you and the code that actually runs.
+To understand the AI-native advantage, we have to be honest about a hard truth of **traditional** frontend architecture:
+JSX, for all its elegance, is a "lie." It's not real code. It's syntactic sugar that must be transpiled by tools like
+Babel or SWC into `React.createElement()` function calls—a non-trivial computational step that stands between you and
+the code that actually runs.
 
-Neo.mjs is built on a **modern** philosophy. It uses JavaScript object literals—or "JSON Blueprints"—to define component trees. This is a first-class citizen of the language, parsed natively by the JavaScript engine with zero extra steps.
+Neo.mjs is built on a **modern** philosophy. It uses JavaScript object literals—or "JSON Blueprints"—to define component
+trees. This is a first-class citizen of the language, parsed natively by the JavaScript engine with zero extra steps.
 
-We've seen this movie before: for years, XML was the verbose standard for API data interchange, until JSON emerged and won by being lighter, simpler, and native to JavaScript. We believe the same shift is happening for UI definition.
+We've seen this movie before: for years, XML was the verbose standard for API data interchange, until JSON emerged and
+won by being lighter, simpler, and native to JavaScript. We believe the same shift is happening for UI definition.
 
 Consider a simple button:
 
@@ -109,7 +152,10 @@ Now, here is the same component as a Neo.mjs JSON blueprint:
 }
 ```
 
-A skeptic might correctly point out that this blueprint is a configuration for a class instance (`Neo.button.Base`), which gets consumed by `Neo.create()` to create the matching instance. This is true. However, the fundamental difference remains: inside a classic Neo.mjs component, the VDOM that gets rendered is *also* a simple, declarative JSON-like object. It is not generated by parsing a template string.
+A skeptic might correctly point out that this blueprint is a configuration for a class instance (`Neo.button.Base`),
+which gets consumed by `Neo.create()` to create the matching instance. This is true. However, the fundamental difference
+remains: inside a classic Neo.mjs component, the VDOM that gets rendered is *also* a simple, declarative JSON-like object.
+It is not generated by parsing a template string.
 
 Here is the default `_vdom` property directly from `src/button/Base.mjs`:
 
@@ -128,15 +174,23 @@ Here is the default `_vdom` property directly from `src/button/Base.mjs`:
 }
 ```
 
-This consistent, data-first approach to UI definition at every level is what makes the platform uniquely transparent to an AI. We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data, whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction. There is no ambiguity.
+This consistent, data-first approach to UI definition at every level is what makes the platform uniquely transparent
+to an AI. We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data,
+whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction.
+There is no ambiguity.
 
 ### 4. Multi-Threading for Unmatched Performance
 
-Finally, the platform's unique multi-threaded architecture, where the application, VDOM, and data logic all run in separate web workers, provides the perfect environment for AI-driven development. Imagine asking the AI to generate a 500-row data grid while you continue to interact with the UI. In a traditional single-threaded app, this would freeze the browser. In Neo.mjs, the generation happens in a worker, leaving the UI perfectly responsive, no matter what the AI is doing in the background.
+Finally, the platform's unique multi-threaded architecture, where the application, VDOM, and data logic all run in
+separate web workers, provides the perfect environment for AI-driven development. Imagine asking the AI to generate a
+500-row data grid while you continue to interact with the UI. In a traditional single-threaded app, this would freeze
+the browser. In Neo.mjs, the generation happens in a worker, leaving the UI perfectly responsive, no matter what the
+AI is doing in the background.
 
 ### A Query in Action: Understanding Reactivity
 
-Talk is cheap. Let's see what happens when we ask the platform to explain its own reactivity model. We'll run the same query three times, asking for a guide, a blog post, and the source code.
+Talk is cheap. Let's see what happens when we ask the platform to explain its own reactivity model. We'll run the same
+query three times, asking for a guide, a blog post, and the source code.
 
 **First, we ask for a high-level guide:**
 
@@ -183,7 +237,8 @@ Most relevant source files (by weighted score):
 Top result: /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-reactivity.md
 ```
 
-As expected, it returns the specific blog post dedicated to a deep dive on reactivity, with a massive score indicating high relevance.
+As expected, it returns the specific blog post dedicated to a deep dive on reactivity,
+with a massive score indicating high relevance.
 
 **Finally, let's find the source of truth:**
 
@@ -204,41 +259,61 @@ Most relevant source files (by weighted score):
 Top result: /Users/Shared/github/neomjs/neo/src/core/Base.mjs
 ```
 
-Perfect. The query engine correctly identifies `src/core/Base.mjs` as the epicenter of the reactivity system, where the config hooks are implemented. This single query gives a developer the conceptual guide, the narrative context, and the core implementation file in seconds.
+Perfect. The query engine correctly identifies `src/core/Base.mjs` as the epicenter of the reactivity system, where the
+config hooks are implemented. This single query gives a developer the conceptual guide, the narrative context, and the
+core implementation file in seconds.
 
 ## What This Means for Developers & AI Tools
 
 This AI-native architecture isn't just a theoretical advantage; it fundamentally changes the daily workflow for the better.
 
 **For the Developer:**
--   **Dismantling the Learning Curve:** Instead of a steep climb, onboarding becomes a guided tour. New team members can skip weeks of manual doc-hunting and become productive in hours by asking direct questions.
--   **Expert Guidance on Demand:** You have an instant expert by your side that can explain complex architectural patterns or find the exact example you need.
--   **Focus on What Matters:** With the AI handling the boilerplate and convention-checking, you can focus your energy on creative problem-solving and building great features.
+-   **Dismantling the Learning Curve:** Instead of a steep climb, onboarding becomes a guided tour. New team members can
+    skip weeks of manual doc-hunting and become productive in hours by asking direct questions.
+-   **Expert Guidance on Demand:** You have an instant expert by your side that can explain complex architectural patterns
+    or find the exact example you need.
+-   **Focus on What Matters:** With the AI handling the boilerplate and convention-checking, you can focus your energy on
+    creative problem-solving and building great features.
 
 **For AI Agents (like Gemini CLI or Claude Code):**
--   **A Seat at the Table:** AI tools are promoted from simple code completers to true development partners. They can operate with a high degree of autonomy because they have a reliable way to gather context and follow rules.
--   **Deterministic & Reliable Output:** Because the AI is grounded in the local knowledge base, its output is far more predictable and reliable. It generates code that is consistent with your project's style and patterns.
--   **A Path to Contribution:** For the first time, AI agents have a clear and safe path to not just write code, but to contribute to a project's long-term health by enhancing it with intent-driven comments and adhering to its established conventions.
+-   **A Seat at the Table:** AI tools are promoted from simple code completers to true development partners. They can
+    operate with a high degree of autonomy because they have a reliable way to gather context and follow rules.
+-   **Deterministic & Reliable Output:** Because the AI is grounded in the local knowledge base, its output is far more
+    predictable and reliable. It generates code that is consistent with your project's style and patterns.
+-   **A Path to Contribution:** For the first time, AI agents have a clear and safe path to not just write code, but to
+    contribute to a project's long-term health by enhancing it with intent-driven comments and adhering to its
+    established conventions.
 
 ## Your First AI-Powered PR: Get Involved this Hacktoberfest!
 
-The era of AI-assisted coding is over. The era of AI-native development has begun. Neo.mjs is pioneering this new frontier, creating a platform where human and machine collaborate to build better, faster, and more maintainable web applications. This approach even helps to bridge ecosystem gaps, as the AI can generate new components on-demand faster than traditional community growth.
+The era of AI-assisted coding is over. The era of AI-native development has begun. Neo.mjs is pioneering this new frontier,
+creating a platform where human and machine collaborate to build better, faster, and more maintainable web applications.
+This approach even helps to bridge ecosystem gaps, as the AI can generate new components on-demand faster than traditional
+community growth.
 
-There has never been a better time to get involved in open source. With Hacktoberfest just around the corner, this is your opportunity to contribute to a truly innovative project. The AI-native architecture of Neo.mjs is designed to empower new contributors. You don't need to be an expert; you just need to be curious.
+There has never been a better time to get involved in open source. With Hacktoberfest just around the corner,
+this is your opportunity to contribute to a truly innovative project. The AI-native architecture of Neo.mjs is designed
+to empower new contributors. You don't need to be an expert; you just need to be curious.
 
 1.  **Fork the repository:** [https://github.com/neomjs/neo](https://github.com/neomjs/neo)
 2.  **Follow the setup:** Get your local knowledge base running in minutes with our [AI Quick Start Guide](/.github/AI_QUICK_START.md).
-3.  **Start a conversation:** Ask the platform a question. Find a small bug or a documentation gap. Use the AI as your partner to fix it.
+3.  **Start a conversation:** Ask the platform a question. Find a small bug or a documentation gap.
+    Use the AI as your partner to fix it.
 
-We are actively creating new tickets of all difficulty levels for Hacktoberfest. Come join us, and let's build the future of frontend development together.
+We are actively creating new tickets of all difficulty levels for Hacktoberfest. Come join us, and let's build the future
+of frontend development together.
 
 ## Technical Deep Dive: Inside the Knowledge Base Engine
 
-For those who want to see how the magic happens, the entire AI knowledge base engine is powered by three surprisingly simple Node.js scripts. This transparency is a core part of our philosophy. Here’s how they work.
+For those who want to see how the magic happens, the entire AI knowledge base engine is powered by three surprisingly
+simple Node.js scripts. This transparency is a core part of our philosophy. Here’s how they work.
 
 ### 1. `createKnowledgeBase.mjs`: The Parser
 
-This is the first step in the pipeline. This script's only job is to read all the different source files (JSDoc JSON, Markdown guides, blog posts) and convert them into a single, consistent format. It breaks down classes, methods, and articles into logical "chunks" and streams them into a `dist/ai-knowledge-base.jsonl` file. The JSON Lines format is key here, as it allows the next script to process the data without having to load the entire file into memory.
+This is the first step in the pipeline. This script's only job is to read all the different source files (JSDoc JSON,
+Markdown guides, blog posts) and convert them into a single, consistent format. It breaks down classes, methods, and
+articles into logical "chunks" and streams them into a `dist/ai-knowledge-base.jsonl` file. The JSON Lines format is key
+here, as it allows the next script to process the data without having to load the entire file into memory.
 
 ```javascript readonly
 import crypto from 'crypto';
@@ -417,7 +492,12 @@ CreateKnowledgeBase.run().catch(err => {
 
 ### 2. `embedKnowledgeBase.mjs`: The Scorer & Embedder
 
-This is the most computationally intensive step, and it's designed to be. It loads all the chunks from the previous step into memory to perform holistic analysis, like building a complete class inheritance map. It then enriches each chunk with this new metadata. Most importantly, it performs a **diff** against the existing database, identifying only the chunks that are new, have changed (by comparing content hashes), or have been deleted. Only the changed chunks are sent to the Gemini API to be converted into vector embeddings. Finally, it "upserts" these chunks into ChromaDB. By doing all the heavy lifting here, we make the final query step incredibly fast.
+This is the most computationally intensive step, and it's designed to be. It loads all the chunks from the previous step
+into memory to perform holistic analysis, like building a complete class inheritance map. It then enriches each chunk
+with this new metadata. Most importantly, it performs a **diff** against the existing database, identifying only the
+chunks that are new, have changed (by comparing content hashes), or have been deleted. Only the changed chunks are sent
+to the Gemini API to be converted into vector embeddings. Finally, it "upserts" these chunks into ChromaDB. By doing all
+the heavy lifting here, we make the final query step incredibly fast.
 
 ```javascript readonly
 import {ChromaClient}       from 'chromadb';
@@ -655,7 +735,11 @@ EmbedKnowledgeBase.run().catch(err => {
 
 ### 3. `queryKnowledgeBase.mjs`: The Query Engine
 
-This is the script you interact with. It's designed to be extremely lightweight and fast. It takes your plain English query, sends it to the Gemini API to get a query vector, and then uses that vector to find the most semantically similar chunks in ChromaDB. It then applies a dynamic scoring algorithm, which gives boosts for keyword matches and, crucially, uses the pre-calculated inheritance chain to reward parent classes of relevant results. This hybrid approach of semantic search plus heuristic scoring gives incredibly relevant and accurate results.
+This is the script you interact with. It's designed to be extremely lightweight and fast. It takes your plain English
+query, sends it to the Gemini API to get a query vector, and then uses that vector to find the most semantically similar
+chunks in ChromaDB. It then applies a dynamic scoring algorithm, which gives boosts for keyword matches and, crucially,
+uses the pre-calculated inheritance chain to reward parent classes of relevant results. This hybrid approach of semantic
+search plus heuristic scoring gives incredibly relevant and accurate results.
 
 ```javascript readonly
 import {ChromaClient}       from 'chromadb';
@@ -846,4 +930,8 @@ QueryKnowledgeBase.run(opts.query, opts.type).catch(err => {
 });
 ```
 
-As you can see, there is no hidden magic. The entire engine is just a series of logical steps: parsing content into a standard format, enriching it with metadata, and using a vector database to find the most relevant information. This transparency is the essence of the AI-Native approach. It’s a system designed not just to be used, but to be understood, extended, and improved upon. We invite you to dive in, experiment with the scripts, and imagine what you can build on this foundation.
+As you can see, there is no hidden magic. The entire engine is just a series of logical steps: parsing content into a
+standard format, enriching it with metadata, and using a vector database to find the most relevant information.
+This transparency is the essence of the AI-Native approach. It’s a system designed not just to be used, but to be
+understood, extended, and improved upon. We invite you to dive in, experiment with the scripts, and imagine what you
+can build on this foundation.
