@@ -699,3 +699,5 @@ QueryKnowledgeBase.run(opts.query, opts.type).catch(err => {
     process.exit(1);
 });
 ```
+
+As you can see, there is no hidden magic. The entire engine is just a series of logical steps: parsing content into a standard format, enriching it with metadata, and using a vector database to find the most relevant information. This transparency is the essence of the AI-Native approach. It’s a system designed not just to be used, but to be understood, extended, and improved upon. We invite you to dive in, experiment with the scripts, and imagine what you can build on this foundation.
