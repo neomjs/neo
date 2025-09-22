@@ -1,12 +1,22 @@
 import {ChromaClient}       from 'chromadb';
 import {GoogleGenerativeAI} from '@google/generative-ai';
+import {Command}            from 'commander/esm.mjs';
 import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import path                 from 'path';
-import yargs                from 'yargs';
-import {hideBin}            from 'yargs/helpers';
 
 dotenv.config({quiet: true});
+
+const program = new Command();
+
+program
+    .name('neo-ai-query')
+    .version('1.0.0') // Or from package.json
+    .option('-q, --query <value>', 'The search query for the knowledge base')
+    .option('-t, --type <value>', 'The content type to query for', 'all')
+    .parse(process.argv);
+
+const opts = program.opts();
 
 /**
  * This script is the final stage in the AI knowledge base pipeline: **Query**.
@@ -31,14 +41,15 @@ dotenv.config({quiet: true});
  * @class QueryKnowledgeBase
  */
 class QueryKnowledgeBase {
-    static async run(query) {
+    static async run(query, type) {
         if (!query) {
             console.error('Error: A query string must be provided.');
-            console.log('Usage: npm run ai:query -- --query "your search query"');
+            console.log('Usage: npm run ai:query -- -q "your search query"');
             return;
         }
 
-        console.log(`Querying for: "${query}"...`);
+        console.log(`Querying for: "${query}" (type: ${type})...
+`);
 
         // 1. Connect to ChromaDB and get query results
         const dbClient       = new ChromaClient();
@@ -62,10 +73,29 @@ class QueryKnowledgeBase {
         const queryEmbedding = await model.embedContent(query);
         const results        = await collection.query({
             queryEmbeddings: [queryEmbedding.embedding.values],
-            nResults       : 50
+            nResults       : 100 // Increased to get a wider net for filtering
         });
 
-        // 2. Process results with the enhanced scoring algorithm
+        // 2. Filter results by content type if specified
+        if (type && type !== 'all') {
+            results.metadatas[0] = results.metadatas[0].filter(metadata => {
+                const source = metadata.source || '';
+                switch (type) {
+                    case 'blog':
+                        return source.includes('/learn/blog/');
+                    case 'guide':
+                        return source.includes('/learn/guides/');
+                    case 'src':
+                        return source.includes('/src/');
+                    case 'example':
+                        return source.includes('/examples/');
+                    default:
+                        return true;
+                }
+            });
+        }
+
+        // 3. Process results with the enhanced scoring algorithm
         if (results.metadatas?.length > 0 && results.metadatas[0].length > 0) {
             const sourceScores    = {};
             const queryLower      = query.toLowerCase();
@@ -114,7 +144,7 @@ class QueryKnowledgeBase {
             });
 
             if (Object.keys(sourceScores).length === 0) {
-                console.log('No relevant source files found.');
+                console.log('No relevant source files found for the specified type.');
                 return;
             }
 
@@ -139,20 +169,19 @@ class QueryKnowledgeBase {
             finalSorted.slice(0, 25).forEach(([source, score]) => {
                 console.log(`- ${source} (Score: ${score.toFixed(0)})`);
             });
-            console.log(`\nTop result: ${finalSorted[0][0]}`);
+
+            if (finalSorted.length > 0) {
+                console.log(`\nTop result: ${finalSorted[0][0]}`);
+            } else {
+                console.log('No relevant source files found after scoring.');
+            }
         } else {
-            console.log('No results found for your query.');
+            console.log('No results found for your query and type.');
         }
     }
 }
 
-const argv = yargs(hideBin(process.argv)).option('query', {
-    alias      : 'q',
-    type       : 'string',
-    description: 'The search query for the knowledge base'
-}).argv;
-
-QueryKnowledgeBase.run(argv.query).catch(err => {
+QueryKnowledgeBase.run(opts.query, opts.type).catch(err => {
     console.error(err);
     process.exit(1);
 });

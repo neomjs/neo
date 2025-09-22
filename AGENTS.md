@@ -39,8 +39,10 @@ You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the
 ### The Query Command
 Your most important tool is the local AI knowledge base. To use it, execute the following shell command:
 ```bash
-npm run ai:query -- -q "Your question here"
+npm run ai:query -- -q "Your question here" -t <type>
 ```
+- The `-t` or `--type` flag is optional and allows you to filter results by content type.
+- Supported types are: `all` (default), `blog`, `guide`, `src`, `example`.
 
 ### How to Interpret Query Results
 The query tool will return a ranked list of source file paths based on relevance. The output will look like this:
@@ -69,10 +71,22 @@ When you need to understand a new concept or feature area:
     - `npm run ai:query -- -q "form validation patterns"`
     - `npm run ai:query -- -q "how are stores implemented?"`
 
-#### 2. Implementation Pattern (Query Before Coding)
+#### 2. Targeted Content-Type Searching
+Use the `--type` (`-t`) flag to focus your search on specific types of content. This is a powerful way to get more relevant results.
+
+-   **To find conceptual explanations:**
+    - `npm run ai:query -- -q "state management" -t guide`
+-   **To find concrete usage examples:**
+    - `npm run ai:query -- -q "Button component" -t example`
+-   **To dive deep into implementation details:**
+    - `npm run ai:query -- -q "afterSet hook" -t src`
+
+**Strategy:** If a broad query returns too many source files and not enough conceptual documents, re-run the query with `-t guide`. Conversely, if you have read the guides but need to see the actual implementation, re-run with `-t src`.
+
+#### 3. Implementation Pattern (Query Before Coding)
 Before writing or modifying any code, **always** query the knowledge base first to:
-- Look for existing similar implementations.
-- Understand framework conventions for the task you are performing.
+- Look for existing similar implementations (try `-t src` or `-t example`).
+- Understand framework conventions for the task you are performing (try `-t guide`).
 - Identify common patterns used in the relevant area of the codebase.
 
 ### When Queries Fail to Find Information
