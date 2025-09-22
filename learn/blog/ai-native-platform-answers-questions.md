@@ -56,6 +56,17 @@ But it goes a step further. It introduces a **Knowledge Base Enhancement Strateg
 
 This creates a powerful **virtuous cycle**. While this represents a small upfront investment of time for the AI, the long-term payoff is a dramatic reduction in future development friction for the entire team. Each time an AI struggles with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
 
+### A Built-in Model Context Protocol
+
+This combination of a queryable knowledge base and a strict agent protocol effectively creates a specialized, local **Model Context Protocol (MCP)** for the repository. MCP is an emerging [open standard](https://modelcontextprotocol.io/) for connecting AI applications to external systems, and Neo.mjs has independently implemented its core philosophy.
+
+In this paradigm:
+-   The **Server** is the combination of the local ChromaDB database and the `npm run ai:query` script, which exposes the codebase as a queryable tool.
+-   The **Client** is any AI agent, like Gemini CLI or Claude, that can read the protocol and execute shell commands.
+-   The **Protocol** is defined by `AGENTS.md`, which serves as the manifest telling clients how to interact with the server.
+
+This built-in MCP turns the entire repository into an intelligent, self-describing system that any AI can securely and reliably connect to.
+
 ### 3. The JSON Blueprint Advantage
 
 Neo.mjs was architecturally ready for the AI revolution years before it happened. Unlike platforms that use complex, proprietary templating languages like JSX, our platform uses simple JSON-like configuration objects to define component trees.
