@@ -114,7 +114,8 @@ A skeptic might correctly point out that this blueprint is a configuration for a
 Here is the default `_vdom` property directly from `src/button/Base.mjs`:
 
 ```javascript readonly
-// The Button's internal VDOM structure
+// The Button's internal VDOM skeleton. This skeleton is then dynamically enhanced by the class's logic,
+// which can also use `removeDom` to exclude live-DOM nodes that are not needed based on config values.
 {
   tag: 'button', type: 'button', cn: [
     {tag: 'span', cls: ['neo-button-glyph']},
