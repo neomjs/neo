@@ -67,6 +67,14 @@ In this paradigm:
 
 This built-in MCP turns the entire repository into an intelligent, self-describing system that any AI can securely and reliably connect to.
 
+### Your Personal (and Benevolent) MCP
+
+So while our local MCP provides the authority and knowledge of a sci-fi "Master Control Program," it's designed to be a partner, not a tyrant. It serves the user, not the other way around.
+
+> End of line.
+>
+> — Master Control Program, *Tron* (1982)
+
 ### 3. The JSON Blueprint Advantage
 
 Neo.mjs was architecturally ready for the AI revolution years before it happened. Unlike platforms that use complex, proprietary templating languages like JSX, our platform uses simple JSON-like configuration objects to define component trees.
