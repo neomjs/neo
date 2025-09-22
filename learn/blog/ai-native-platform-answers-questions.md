@@ -106,6 +106,14 @@ self-describing system that any AI can securely and reliably connect to.
 
 ### Your Personal (and Benevolent) MCP
 
+**[Satire]** When working on the article, I asked Gemini:
+"How does our implementation relate to MCP?"
+
+Reply: "Why would you compare it to the sci-fi movie Tron?"
+
+This is exactly what this article is about: The importance of the right context.
+Model Context Protocol VS Master Control Program.
+
 So while our local MCP provides the authority and knowledge of a sci-fi "Master Control Program".
 It's designed to be a partner, not a tyrant. It serves the user, not the other way around.
 
@@ -131,8 +139,8 @@ Consider a simple button:
 ```javascript readonly
 // JSX Example
 <Button
-  className="primary"
-  iconCls="fa fa-home"
+  className='primary'
+  iconCls='fa fa-home'
   onClick={() => console.log('Clicked!')}
 >
   Home
@@ -179,6 +187,9 @@ to an AI. We call this the "JSON Blueprint" advantage. For an AI, the blueprint 
 whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction.
 There is no ambiguity.
 
+To dive deeper:
+[The Surgical Update: From JSON Blueprints to Flawless UI](https://github.com/neomjs/neo/blob/dev/learn/blog/v10-deep-dive-vdom-revolution.md)
+
 ### 4. Multi-Threading for Unmatched Performance
 
 Finally, the platform's unique multi-threaded architecture, where the application, VDOM, and data logic all run in
@@ -186,6 +197,10 @@ separate web workers, provides the perfect environment for AI-driven development
 500-row data grid while you continue to interact with the UI. In a traditional single-threaded app, this would freeze
 the browser. In Neo.mjs, the generation happens in a worker, leaving the UI perfectly responsive, no matter what the
 AI is doing in the background.
+
+More input:<br>
+[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/OffTheMainThread.md)<br>
+[How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces](https://github.com/neomjs/neo/blob/dev/learn/blog/json-blueprints-and-shared-workers.md)
 
 ### A Query in Action: Understanding Reactivity
 
