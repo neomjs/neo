@@ -19,8 +19,22 @@ This guide assumes you have already cloned the `neo` repository and have all the
 
 ## Prerequisites
 
-1.  **Node.js**: v18 or later
-2.  **Google AI API Key**: A `GEMINI_API_KEY` from Google AI Studio.
+To get started, you will need the following:
+
+1.  **Google Account**: You'll need one to access Google AI Studio for an API key. If you don't have one, you can create it at [accounts.google.com](https://accounts.google.com).
+2.  **Node.js**: Version 18 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
+3.  **Forked & Cloned Neo.mjs Repository**: To contribute, you should first fork the repository on GitHub, and then clone your personal fork.
+    ```bash
+    # In your browser, visit https://github.com/neomjs/neo and click the "Fork" button.
+    # Then, clone your fork (replace YOUR_USERNAME):
+    git clone https://github.com/YOUR_USERNAME/neo.git
+    cd neo
+    ```
+4.  **Internet Access**: Required for the initial installation of tools and for generating your API key.
+
+## A Note on Cost
+
+This entire process uses the free tier of the Google Gemini API. The free tier is generous and more than sufficient for this development workflow, typically allowing up to **60 queries per minute** for the embedding model used here. You can check your specific limits in the Google AI Studio.
 
 ## Getting a Gemini API Key
 
