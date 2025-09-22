@@ -52,17 +52,43 @@ But it goes a step further. It introduces a **Knowledge Base Enhancement Strateg
 4.  **Commit and Improve:** The AI commits this documentation enhancement.
 5.  **Resume:** It then resumes its original task, now with a better understanding.
 
-This creates a powerful **virtuous cycle**. Each time an AI struggles with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
+This creates a powerful **virtuous cycle**. While this represents a small upfront investment of time for the AI, the long-term payoff is a dramatic reduction in future development friction for the entire team. Each time an AI struggles with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
 
 ### 3. The JSON Blueprint Advantage
 
-Neo.mjs was architecturally ready for the AI revolution years before it happened. Unlike frameworks that use complex, proprietary templating languages, our platform uses simple JSON-like configuration objects to define component trees. 
+Neo.mjs was architecturally ready for the AI revolution years before it happened. Unlike platforms that use complex, proprietary templating languages like JSX, our platform uses simple JSON-like configuration objects to define component trees.
 
-We call this the "JSON Blueprint" advantage. For an AI, this is its native language. There is no complex syntax to learn, no ambiguity to parse. Generating a new component is as simple as creating a JavaScript object. This makes it incredibly easy and predictable for an AI to generate, manipulate, and reason about UI structures.
+To a human, JSX looks clean, but to a machine, it's an abstraction that requires parsing and knowledge of special syntax. Consider a simple button:
+
+```javascript readonly
+// JSX Example
+<Button
+  className="primary"
+  iconCls="fa fa-home"
+  onClick={() => console.log('Clicked!')}
+>
+  Home
+</Button>
+```
+
+Now, here is the same component as a Neo.mjs JSON blueprint:
+
+```javascript readonly
+// Neo.mjs JSON Blueprint
+{
+  module : Button,
+  ui     : 'primary',
+  iconCls: 'fa fa-home',
+  text   : 'Home',
+  handler: () => console.log('Clicked!')
+}
+```
+
+We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data, whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction. There is no ambiguity. Generating a new component is as simple as creating a JavaScript object, making it incredibly easy and predictable for an AI to generate, manipulate, and reason about UI structures.
 
 ### 4. Multi-Threading for Unmatched Performance
 
-Finally, the platform's unique multi-threaded architecture, where the application, VDOM, and data logic all run in separate web workers, provides the perfect environment for AI-driven development. Heavy operations, like asking an AI to generate a complex component or process a large amount of data, can be offloaded to a worker without ever blocking the main UI thread. This ensures the user experience remains fluid and responsive, no matter what the AI is doing in the background.
+Finally, the platform's unique multi-threaded architecture, where the application, VDOM, and data logic all run in separate web workers, provides the perfect environment for AI-driven development. Imagine asking the AI to generate a 500-row data grid while you continue to interact with the UI. In a traditional single-threaded app, this would freeze the browser. In Neo.mjs, the generation happens in a worker, leaving the UI perfectly responsive, no matter what the AI is doing in the background.
 
 ### A Query in Action: Understanding Reactivity
 
