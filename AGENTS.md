@@ -52,7 +52,7 @@ Most relevant source files (by weighted score):
 
 Top result: /path/to/relevant/file1.mjs
 ```
-You should always start by reading the top-ranked file. If it does not contain the answer, proceed to the next 2-3 files.
+You should always start by reading the top-ranked file. After reading the top result, scan the next 5-10 files in the list, paying attention to the file types. Since `.md` guides often provide valuable conceptual context that `.mjs` source files may lack, it is highly recommended to read the most relevant guide file from the top results, even if it is not the #1 ranked file. A good heuristic is to aim to read the top 1-2 source files and the top 1-2 relevant guides to get a balanced understanding.
 
 ### Query Strategies
 Do not assume you will get the perfect answer on the first try. Use a systematic approach to querying.
