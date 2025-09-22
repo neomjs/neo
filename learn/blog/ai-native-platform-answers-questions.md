@@ -69,7 +69,7 @@ This built-in MCP turns the entire repository into an intelligent, self-describi
 
 ### Your Personal (and Benevolent) MCP
 
-So while our local MCP provides the authority and knowledge of a sci-fi "Master Control Program," it's designed to be a partner, not a tyrant. It serves the user, not the other way around.
+So while our local MCP provides the authority and knowledge of a sci-fi "Master Control Program". It's designed to be a partner, not a tyrant. It serves the user, not the other way around.
 
 > End of line.
 >
@@ -109,9 +109,9 @@ Now, here is the same component as a Neo.mjs JSON blueprint:
 }
 ```
 
-We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data, whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction. There is no ambiguity. Generating a new component is as simple as creating a JavaScript object, This makes it incredibly easy and predictable for an AI to generate, manipulate, and reason about UI structures.
+We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data, whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction. There is no ambiguity.
 
-This advantage also extends to raw efficiency and cost. Parsing HTML is a notoriously complex task requiring large libraries like `parse5` (which is over 170KB minified). While LLMs are heavily trained on JSX, it still requires a full transpilation step to be understood as code. In contrast, JSON is parsed natively with extreme efficiency. For an AI, this means fewer tokens are needed to define a component, less computational power is wasted on parsing complex syntax, and the end result is a faster, cheaper, and more reliable generation process.
+This advantage also extends to raw efficiency and cost. Parsing HTML is a notoriously complex task requiring large libraries like `parse5` (which is over 170KB minified). While LLMs are heavily trained on JSX, it still requires a full transpilation step to be understood as code. In contrast, JSON is parsed natively with extreme efficiency. For an AI, this means fewer tokens are needed to define a component, less computational power is wasted on parsing complex syntax, and the end result is a faster, cheaper, and more reliable generation process, making it incredibly easy and predictable to reason about UI structures.
 
 ### 4. Multi-Threading for Unmatched Performance
 
