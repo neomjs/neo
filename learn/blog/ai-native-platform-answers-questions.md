@@ -34,17 +34,21 @@ At the heart of our AI-native approach is a powerful, local knowledge base built
 
 This transforms the AI from a source of generic advice into an expert on *your* specific codebase.
 
-### 2. The `AGENTS.md` Protocol: A Constitution for AI
+### 2. The `AGENTS.md` Protocol: A Self-Improving System
 
 To ensure this power is used effectively and safely, we've introduced `AGENTS.md`—a file in our repository that acts as an operational manual, or a "constitution," for any AI agent interacting with the project. It enforces a simple but revolutionary rule:
 
 **The Anti-Hallucination Policy: The AI MUST query the local knowledge base before writing any code.**
 
-This query-first development model requires the AI to ask questions like:
-- `npm run ai:query -- -q "show me examples for Neo.tab.Container"`
-- `npm run ai:query -- -q "how are stores implemented?" -t guide`
+But it goes a step further. It introduces a **Knowledge Base Enhancement Strategy**, turning the AI from a passive consumer of information into an active contributor to the platform's clarity. The workflow is as follows:
 
-By forcing the AI to learn from the project's ground truth, we eliminate hallucinations and ensure that all contributions adhere to existing patterns and conventions. It turns every interaction into a learning moment, creating a self-improving system where the AI gets smarter about your project over time.
+1.  **Query First:** The AI queries the knowledge base to understand a task.
+2.  **Analyze and Identify Gaps:** While reading the source code, if the AI encounters a complex method or a confusing section with poor documentation, it pauses its implementation task.
+3.  **Enhance and Document:** Its new, primary task is to analyze the confusing code, understand its intent, and generate clear, intent-driven JSDoc comments to explain the *why*, not just the *what*.
+4.  **Commit and Improve:** The AI commits this documentation enhancement.
+5.  **Resume:** It then resumes its original task, now with a better understanding.
+
+This creates a powerful **virtuous cycle**. Each time an AI struggles with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
 
 ### 3. The JSON Blueprint Advantage
 
