@@ -27,7 +27,7 @@ traditional frontend frameworks, they face significant challenges:
     but incorrect or outdated code suggestions—the dreaded "AI hallucination."
 2.  **Complex, Unpredictable Codebases:** Frameworks that rely on complex templating languages (like JSX) or highly
     abstracted component models create a codebase that is difficult for an AI to parse and understand safely.
-    The patterns are often inconsistent, making it hard for an AI to generate code that "fits in."
+    The patterns are often inconsistent, making it hard for an AI to generate code that "fits in".
 3.  **A One-Way Street:** The interaction is purely extractive. The AI gives you code, but it learns nothing in the
     process. It cannot improve its understanding of your project, and it cannot contribute to the project's long-term health.
 
