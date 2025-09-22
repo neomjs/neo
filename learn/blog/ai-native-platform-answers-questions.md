@@ -6,7 +6,7 @@ The next great leap in frontend development will not be a new rendering pattern 
 
 This is the question at the heart of Neo.mjs v10.7, the first release to be architected from the ground up for an **AI-Native** future. 
 
-This isn't about bolting on a chatbot. It's about a new development model where the platform itself is designed to be understood, queried, and even enhanced by AI. At the core of this new experience are two key innovations: a comprehensive, local **AI Knowledge Base** and a formalized **AI Agent Protocol** (`AGENTS.md`).
+This isn't about bolting on a chatbot; it's about a new development model where AI is a foundational part of the architecture, designed to be understood, queried, and even enhanced by the platform itself. At the core of this new experience are two key innovations: a comprehensive, local **AI Knowledge Base** and a formalized **AI Agent Protocol** (`AGENTS.md`).
 
 Together, they transform the developer experience from a monologue of reading docs into a dialogue with the platform itself.
 
@@ -40,6 +40,10 @@ To ensure this power is used effectively and safely, we've introduced `AGENTS.md
 
 **The Anti-Hallucination Policy: The AI MUST query the local knowledge base before writing any code.**
 
+This query-first development model requires the AI to ask questions like:
+- `npm run ai:query -- -q "How does push-based afterSet hooks integrate with pull-based effects?"`
+- `npm run ai:query -- -q "show me examples for Neo.tab.Container"`
+
 But it goes a step further. It introduces a **Knowledge Base Enhancement Strategy**, turning the AI from a passive consumer of information into an active contributor to the platform's clarity. The workflow is as follows:
 
 1.  **Query First:** The AI queries the knowledge base to understand a task.
@@ -65,7 +69,7 @@ Finally, the platform's unique multi-threaded architecture, where the applicatio
 This AI-native architecture isn't just a theoretical advantage; it fundamentally changes the daily workflow for the better.
 
 **For the Developer:**
--   **The Learning Curve is Eliminated:** Instead of spending weeks learning framework patterns, you can simply ask. New team members can become productive in hours, not months.
+-   **Dismantling the Learning Curve:** Instead of a steep climb, onboarding becomes a guided tour. New team members can skip weeks of manual doc-hunting and become productive in hours by asking direct questions.
 -   **Expert Guidance on Demand:** You have an instant expert by your side that can explain complex architectural patterns or find the exact example you need.
 -   **Focus on What Matters:** With the AI handling the boilerplate and convention-checking, you can focus your energy on creative problem-solving and building great features.
 
@@ -76,7 +80,7 @@ This AI-native architecture isn't just a theoretical advantage; it fundamentally
 
 ## Your First AI-Powered PR: Get Involved this Hacktoberfest!
 
-The era of AI-assisted coding is over. The era of AI-native development has begun. Neo.mjs is pioneering this new frontier, creating a platform where human and machine collaborate to build better, faster, and more maintainable web applications.
+The era of AI-assisted coding is over. The era of AI-native development has begun. Neo.mjs is pioneering this new frontier, creating a platform where human and machine collaborate to build better, faster, and more maintainable web applications. This approach even helps to bridge ecosystem gaps, as the AI can generate new components on-demand faster than traditional community growth.
 
 There has never been a better time to get involved in open source. With Hacktoberfest just around the corner, this is your opportunity to contribute to a truly innovative project. The AI-native architecture of Neo.mjs is designed to empower new contributors. You don't need to be an expert; you just need to be curious.
 
