@@ -165,7 +165,7 @@ Integrate the query tool into your development process.
 1.  **Understand the Task & Query:** For any new task (e.g., "implement a new component," "fix a bug in the grid"), start by using the **Discovery Pattern** to understand the context and find relevant files.
 2.  **Analyze Existing Code & Enhance Documentation:** Read the top 1-3 files returned by your queries. When reading, focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture. **If you encounter source code lacking intent-driven comments, apply the "Knowledge Base Enhancement Strategy" to add meaningful documentation before proceeding.** Your goal is to make your changes fit in seamlessly.
 3.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
-4.  **Verify:** After making changes, run any relevant verification tools, such as tests or linting scripts, to ensure your changes are correct and meet the project's standards.
+4.  **Verify:** After making changes, run any relevant verification tools, such as tests, to ensure your changes are correct and meet the project's standards. For bug fixes, ensure you've created regression tests (see `learn/guides/UnitTestingWithSiesta.md` for guidance).
 
 5.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html` property. `text` is mapped to the `textContent` DOM attribute, which is inherently secure against XSS attacks. `html` is mapped to `innerHTML` and should be avoided unless you are intentionally rendering trusted HTML content. This is especially important as the framework defaults to a `domApiRenderer` where `textContent` is also more performant.
 
