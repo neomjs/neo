@@ -81,17 +81,48 @@ Use the `--type` (`-t`) flag to focus your search on specific types of content. 
 -   **To dive deep into implementation details:**
     - `npm run ai:query -- -q "afterSet hook" -t src`
 
-**Strategy:** If a broad query returns too many source files and not enough conceptual documents, re-run the query with `-t guide`. Conversely, if you have read the guides but need to see the actual implementation, re-run with `-t src`.
+**Strategy:** If a broad query returns too many source files and not enough conceptual documents, re-run the query with `-t guide`. Conversely, if you have read the guides but need to see the actual implementation, re-run with `-t src` or `-t example`.
 
-#### 3. Implementation Pattern (Query Before Coding)
-Before writing or modifying any code, **always** query the knowledge base first to:
-- Look for existing similar implementations (try `-t src` or `-t example`).
-- Understand framework conventions for the task you are performing (try `-t guide`).
-- Identify common patterns used in the relevant area of the codebase.
+#### 3. Knowledge Base Enhancement Strategy: Contributing Intent-Driven Comments
+When analyzing source files (e.g., during step 2 of the Development Workflow), if you encounter code that lacks sufficient intent-driven comments or clear documentation, immediately enhance it with meaningful documentation before proceeding with your implementation.
 
-### When Queries Fail to Find Information
+1.  **Analyze the Implementation**: Study the source code carefully to understand:
+    - What the code does (mechanics)
+    - Why it does it (intent)
+    - How it fits into the broader architecture
+    - What patterns it follows
 
-If you cannot find relevant information after systematic querying:
+2.  **Generate Intent-Driven Comments**: Add meaningful comments that explain:
+    - The purpose of complex methods
+    - The reasoning behind architectural decisions
+    - How the class fits into the framework ecosystem
+    - Usage patterns and common scenarios
+
+3.  **Enhance for Future Sessions**: Your comments become part of the knowledge base, helping future AI sessions understand the code more effectively.
+
+**Example of Good Intent-Driven Comments:**
+```javascript
+/**
+ * Handles the complex lifecycle of tab activation in Neo.mjs containers.
+ * This method coordinates between the visual tab switching UI and the
+ * underlying card layout system, ensuring that component lifecycle
+ * methods are properly called and that the framework's reactivity
+ * system stays in sync.
+ *
+ * Key responsibilities:
+ * - Deactivate the previous tab's associated card
+ * - Trigger beforeTabChange and afterTabChange events
+ * - Update the container's activeIndex config (triggers reactivity)
+ * - Ensure proper DOM cleanup and creation
+ */
+activateTab(index, silentChange = false) {
+    // Implementation details...
+}
+```
+
+#### 4. When Queries Fail to Find Information
+
+If you cannot find relevant information after systematic querying (including using the Knowledge Base Enhancement Strategy):
 
 1. **Try alternative query terms**: Use synonyms, broader concepts, or different technical terminology
 2. **Query for related concepts**: Look for similar patterns or analogous implementations
@@ -111,10 +142,10 @@ Unable to find information about: "implementing custom layout managers in Neo.mj
 
 Queries attempted:
 - "custom layout manager"
-- "layout implementation patterns" 
+- "layout implementation patterns"
 - "extending layout base class"
 
-Gap identified: Need learning guide covering layout manager development patterns, 
+Gap identified: Need learning guide covering layout manager development patterns,
 lifecycle methods, and integration with container components.
 ```
 
@@ -132,11 +163,23 @@ If the `npm run ai:query` command itself fails or throws an error, consult the s
 Integrate the query tool into your development process.
 
 1.  **Understand the Task & Query:** For any new task (e.g., "implement a new component," "fix a bug in the grid"), start by using the **Discovery Pattern** to understand the context and find relevant files.
-2.  **Analyze Existing Code:** Read the top 1-3 files returned by your queries. When reading, focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture. Your goal is to make your changes fit in seamlessly.
+2.  **Analyze Existing Code & Enhance Documentation:** Read the top 1-3 files returned by your queries. When reading, focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture. **If you encounter source code lacking intent-driven comments, apply the "Knowledge Base Enhancement Strategy" to add meaningful documentation before proceeding.** Your goal is to make your changes fit in seamlessly.
 3.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
 4.  **Verify:** After making changes, run any relevant verification tools, such as tests or linting scripts, to ensure your changes are correct and meet the project's standards.
 
 5.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html` property. `text` is mapped to the `textContent` DOM attribute, which is inherently secure against XSS attacks. `html` is mapped to `innerHTML` and should be avoided unless you are intentionally rendering trusted HTML content. This is especially important as the framework defaults to a `domApiRenderer` where `textContent` is also more performant.
+
+## This Changes the Workflow
+
+The enhanced workflow becomes:
+
+1. **Query for understanding** (as before)
+2. **Read available documentation** 
+3. **If source lacks context**: Analyze the code and **add meaningful comments**
+4. **Implement your changes** with the new understanding
+5. **The knowledge base gets richer** for the next session
+
+This approach transforms the AI agent from just a consumer of documentation to a **contributor** to the project's long-term maintainability.
 
 ## 5. Session Maintenance
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you should consider re-running your initialization steps (reading `structure.json`, `Neo.mjs`, and `core/Base.mjs`) to ensure your understanding is up-to-date.
