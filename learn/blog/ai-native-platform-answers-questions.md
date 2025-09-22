@@ -77,9 +77,13 @@ So while our local MCP provides the authority and knowledge of a sci-fi "Master 
 
 ### 3. The JSON Blueprint Advantage
 
-Neo.mjs was architecturally ready for the AI revolution years before it happened. Unlike platforms that use complex, proprietary templating languages like JSX, our platform uses simple JSON-like configuration objects to define component trees.
+To understand the AI-native advantage, we have to be honest about a hard truth of **traditional** frontend architecture: JSX, for all its elegance, is a "lie." It's not real code. It's syntactic sugar that must be transpiled by tools like Babel or SWC into `React.createElement()` function calls—a non-trivial computational step that stands between you and the code that actually runs.
 
-To a human, JSX looks clean, but to a machine, it's an abstraction that requires parsing and knowledge of special syntax. Consider a simple button:
+Neo.mjs is built on a **modern** philosophy. It uses JavaScript object literals—or "JSON Blueprints"—to define component trees. This is a first-class citizen of the language, parsed natively by the JavaScript engine with zero extra steps.
+
+We've seen this movie before: for years, XML was the verbose standard for API data interchange, until JSON emerged and won by being lighter, simpler, and native to JavaScript. We believe the same shift is happening for UI definition.
+
+Consider a simple button:
 
 ```javascript readonly
 // JSX Example
@@ -105,7 +109,9 @@ Now, here is the same component as a Neo.mjs JSON blueprint:
 }
 ```
 
-We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data, whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction. There is no ambiguity. Generating a new component is as simple as creating a JavaScript object, making it incredibly easy and predictable for an AI to generate, manipulate, and reason about UI structures.
+We call this the "JSON Blueprint" advantage. For an AI, the blueprint is immediately parsable data, whereas JSX requires an understanding of JavaScript's syntax, build tools, and React's `createElement` abstraction. There is no ambiguity. Generating a new component is as simple as creating a JavaScript object, This makes it incredibly easy and predictable for an AI to generate, manipulate, and reason about UI structures.
+
+This advantage also extends to raw efficiency and cost. Parsing HTML is a notoriously complex task requiring large libraries like `parse5` (which is over 170KB minified). While LLMs are heavily trained on JSX, it still requires a full transpilation step to be understood as code. In contrast, JSON is parsed natively with extreme efficiency. For an AI, this means fewer tokens are needed to define a component, less computational power is wasted on parsing complex syntax, and the end result is a faster, cheaper, and more reliable generation process.
 
 ### 4. Multi-Threading for Unmatched Performance
 
