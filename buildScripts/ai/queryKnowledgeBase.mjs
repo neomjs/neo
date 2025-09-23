@@ -126,9 +126,17 @@ class QueryKnowledgeBase {
                         score += metadata.isBlog === 'true' ? 15 : 30;
                         if (nameLower.includes(keyword)) score += 50;
                     }
+                    if (metadata.type === 'release') {
+                        score -= 50; // Penalize release notes in general queries
+                    }
                     if (fileName.endsWith('base.mjs')) score += 20;
                     const nameParts = nameLower.split('.');
                     if (nameParts.includes(keyword)) score += 30;
+                }
+
+                // Boost exact matches for version-like queries
+                if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) {
+                    score += 1000; // Strong boost for exact version match
                 }
 
                 sourceScores[sourcePath] = (sourceScores[sourcePath] || 0) + score;
