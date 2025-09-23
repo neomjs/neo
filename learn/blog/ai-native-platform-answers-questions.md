@@ -2,6 +2,8 @@
 
 *Inside the conversational code architecture of Neo.mjs and how it's changing the developer experience for Hacktoberfest and beyond.*
 
+<img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/PlatformAnswersQuestions.jpg" alt="Cover Image" class="blog-image">
+
 The next great leap in frontend development will not be a new rendering pattern or state management library.
 It will be a fundamental shift in our partnership with artificial intelligence. For too long, we've treated AI as a
 clever autocomplete—a helpful but limited assistant. What if, instead, we built development platforms that treated AI as
