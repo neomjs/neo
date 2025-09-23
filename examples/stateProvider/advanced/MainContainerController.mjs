@@ -1,6 +1,9 @@
 import Controller from '../../../src/controller/Component.mjs';
 
 /**
+ * Controller for the advanced StateProvider example.
+ * This class contains the logic for handling user interactions and demonstrates different
+ * ways to update and interact with hierarchical state providers.
  * @class Neo.examples.stateProvider.advanced.MainContainerController
  * @extends Neo.controller.Component
  */
@@ -14,6 +17,9 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Dynamically adds a third button and textfield to the view.
+     * This demonstrates that components added at runtime can still connect to the
+     * existing state provider hierarchy.
      * @param {Object} data
      */
     onAddButtonTextfieldButtonClick(data) {
@@ -58,6 +64,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Resets the value of button1Text.
      * @param {Object} data
      */
     onButton1Click(data) {
@@ -65,6 +72,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Resets the value of button2Text.
      * @param {Object} data
      */
     onButton2Click(data) {
@@ -72,6 +80,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Resets the value of button3Text.
      * @param {Object} data
      */
     onButton3Click(data) {
@@ -79,6 +88,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Logs the child (Panel) state provider instance to the console.
      * @param {Object} data
      */
     onLogChildStateProviderIntoConsoleButtonClick(data) {
@@ -86,6 +96,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Logs the main (Viewport) state provider instance to the console.
      * @param {Object} data
      */
     onLogMainStateProviderIntoConsoleButtonClick(data) {
@@ -93,7 +104,8 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @param {Object} data
+     * Handles the change event from the first textfield and updates the state.
+     * @param {Object} data Event data
      */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
@@ -102,7 +114,8 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @param {Object} data
+     * Handles the change event from the second textfield and updates the state.
+     * @param {Object} data Event data
      */
     onTextField2Change(data) {
         if (data.oldValue !== null) {
@@ -111,7 +124,8 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @param {Object} data
+     * Handles the change event from the dynamically added third textfield.
+     * @param {Object} data Event data
      */
     onTextField3Change(data) {
         if (data.oldValue !== null) {
@@ -120,14 +134,24 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * This method demonstrates a key concept: updating a state property on a component
+     * (`panel`) that does not own the property in its own StateProvider.
+     *
+     * The framework will automatically walk up the component tree to find the StateProvider
+     * that *does* own `button1Text` (in this case, the MainContainer's provider) and update
+     * the value there. This makes state updates predictable regardless of where they are initiated.
      * @param {String} value
      */
     updateButton1Text(value) {
-        // test to access a child model instead to check if the data value bubbles up
+        // By setting the state on the child panel, we test to ensure the data change
+        // correctly bubbles up to the parent state provider that owns the property.
         this.getReference('panel').setState('button1Text', value)
     }
 
     /**
+     * Updates the `button2Text` property. This method uses `setState` on the panel,
+     * which owns `button2Text` in its own StateProvider. The update is therefore
+     * handled locally by the panel's provider.
      * @param {String} value
      */
     updateButton2Text(value) {
@@ -137,6 +161,9 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * Updates the `button3Text` property. This method demonstrates updating the state
+     * by directly accessing the top-level state provider and modifying its `data` object.
+     * This is a valid and highly performant way to update state.
      * @param {String} value
      */
     updateButton3Text(value) {
