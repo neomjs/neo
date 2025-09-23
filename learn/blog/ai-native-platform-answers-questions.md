@@ -89,6 +89,12 @@ long-term payoff is a dramatic reduction in future development friction for the 
 with a piece of code, it makes that code easier to understand for the next developer—whether human or AI. The knowledge
 base doesn't just stay current; it gets smarter, richer, and more helpful with every single interaction.
 
+While `AGENTS.md` is written as a directive for AI agents, it is invaluable for human developers as well. Reading it
+provides a transparent, behind-the-scenes look at the AI's 'constitution'. You'll understand exactly how the AI is
+instructed to behave, what its foundational knowledge sources are, and the precise workflow it must follow to contribute
+to the codebase. It demystifies the AI's role, turning it from a black box into a predictable, reliable teammate. This
+transparency is central to the AI-native philosophy.
+
 ### A Built-in Model Context Protocol
 
 This combination of a queryable knowledge base and a strict agent protocol effectively creates a specialized, local
