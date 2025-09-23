@@ -361,6 +361,21 @@ to empower new contributors. You don't need to be an expert; you just need to be
 We are actively creating new tickets of all difficulty levels for Hacktoberfest. Come join us, and let's build the future
 of frontend development together.
 
+## What's Next: Full Workspace Support
+
+The AI-native features described here are just the beginning. Right now, the knowledge base is scoped to the `neo`
+repository itself. However, the entire architecture was designed with the primary development workflow in mind:
+creating custom workspaces using `npx neo-app`.
+
+A Neo.mjs workspace has the same folder structure as the framework repository (`apps`, `src`, `resources`), with the
+framework itself residing inside `node_modules`. Our JSDoc parser already merges the source code of your workspace
+with the framework's source code to create a unified API documentation.
+
+The next logical step is to extend the AI knowledge base to do the same. Soon, you will be able to build a comprehensive
+knowledge base for your entire workspace. This will give your AI assistant a deep, semantic understanding of not just
+the Neo.mjs framework, but of your own applications, components, and business logic. It's a top-level priority, and
+thankfully, it will be a straightforward extension of the current engine.
+
 ## Technical Deep Dive: Inside the Knowledge Base Engine
 
 For those who want to see how the magic happens, the entire AI knowledge base engine is powered by three surprisingly
