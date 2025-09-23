@@ -89,6 +89,8 @@ class QueryKnowledgeBase {
                         return source.includes('/src/');
                     case 'example':
                         return source.includes('/examples/');
+                    case 'release':
+                        return source.includes('/.github/RELEASE_NOTES/');
                     default:
                         return true;
                 }
