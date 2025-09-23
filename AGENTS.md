@@ -38,6 +38,9 @@ At the beginning of every new session, you **MUST** perform the following steps 
     documentation changes adhere to the project's established standards, paying special attention to the
     JSDoc rules for configs.
 
+6.  **Read the Ticket Strategy:** Parse the file `.github/TICKET_STRATEGY.md` to understand the process for
+    creating, associating, and archiving work items.
+
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
 Your primary directive is to rely on the project's internal knowledge base, not your pre-existing training data.
@@ -200,23 +203,23 @@ to ensure the environment is configured correctly and the knowledge base is prop
 
 ## 4. Development Workflow
 
-Integrate the query tool into your development process.
+Integrate the query tool and the ticketing system into your development process.
 
-1.  **Understand the Task & Query:** For any new task (e.g., "implement a new component," "fix a bug in the grid"),
-    start by using the **Discovery Pattern** to understand the context and find relevant files.
-2.  **Analyze Existing Code & Enhance Documentation:** Read the top 1-3 files returned by your queries. When reading,
-    focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture.
-    **If you encounter source code lacking intent-driven comments, apply the "Knowledge Base Enhancement Strategy" to add
-    meaningful documentation before proceeding.** Your goal is to make your changes fit in seamlessly.
-3.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
-4.  **Verify:** After making changes, run any relevant verification tools, such as tests, to ensure your changes are
-    correct and meet the project's standards. For bug fixes, ensure you've created regression tests
-    (see `learn/guides/UnitTestingWithSiesta.md` for guidance).
+1.  **Understand the Task & Identify Intent:** When a new request is received, first determine the user's intent.
+    -   **Conceptual/Informational:** Is the user asking for an explanation, brainstorming ideas, or asking a question that does not involve changing files? (e.g., "How does reactivity work?", "Should we move these files?"). If so, proceed directly to answering the query. No ticket is needed.
+    -   **Actionable/Modification:** Does the user's request require creating, deleting, or modifying files in the repository? (e.g., "Fix this bug," "Add JSDoc to this file," "Create a new release"). If so, proceed to the next step.
 
-5.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html`
-    property. `text` is mapped to the `textContent` DOM attribute, which is inherently secure against XSS attacks. `html`
-    is mapped to `innerHTML` and should be avoided unless you are intentionally rendering trusted HTML content.
-    This is especially important as the framework defaults to a `domApiRenderer` where `textContent` is also more performant.
+2.  **Ensure a Ticket Exists (Ticket-First Mandate):**
+    -   For any modification task, check if the request is already associated with an existing ticket file in `.github/ISSUE/`.
+    -   If not, your first action **MUST** be to create one. The ticket should summarize the task, its scope, and the goal. Inform the user that you are creating the ticket to track the work, following the process defined in `.github/TICKET_STRATEGY.md`.
+
+3.  **Query & Analyze:** With a ticket now in place, use the **Discovery Pattern** to understand the context and find relevant files. When reading, focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture. **If you encounter source code lacking intent-driven comments, apply the "Knowledge Base Enhancement Strategy" to add meaningful documentation before proceeding.** Your goal is to make your changes fit in seamlessly.
+
+4.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
+
+5.  **Verify:** After making changes, run any relevant verification tools, such as tests, to ensure your changes are correct and meet the project's standards. For bug fixes, ensure you've created regression tests (see `learn/guides/UnitTestingWithSiesta.md` for guidance).
+
+6.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html`
 
 ## This Changes the Workflow
 
