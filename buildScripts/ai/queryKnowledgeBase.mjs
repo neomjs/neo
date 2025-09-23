@@ -122,8 +122,8 @@ class QueryKnowledgeBase {
                     if (metadata.type === 'class' && nameLower.includes(keyword)) score += 20;
                     if (metadata.className && metadata.className.toLowerCase().includes(keyword)) score += 20;
                     if (metadata.type === 'guide') {
-                        // Blog posts are useful, but guides are more authoritative
-                        score += metadata.isBlog === 'true' ? 15 : 30;
+                        // Guides are the most authoritative source for how-to information.
+                        score += metadata.isBlog === 'true' ? 5 : 50;
                         if (nameLower.includes(keyword)) score += 50;
                     }
                     if (metadata.type === 'release') {

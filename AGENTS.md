@@ -79,6 +79,8 @@ files may lack, it is highly recommended to read the most relevant guide file fr
 the #1 ranked file. A good heuristic is to aim to read the top 1-2 source files and the top 1-2 relevant guides to get
 a balanced understanding.
 
+- **Prioritize Content Types:** Always prioritize `guide` and `src` results for implementation details and current best practices. Treat `blog` results as sources for historical and conceptual context; their code examples may be outdated.
+
 ### Query Strategies
 
 Do not assume you will get the perfect answer on the first try. Use a systematic approach to querying.
