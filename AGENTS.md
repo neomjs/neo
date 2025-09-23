@@ -106,43 +106,49 @@ This is a powerful way to get more relevant results.
 `-t guide`. Conversely, if you have read the guides but need to see the actual implementation,
 re-run with `-t src` or `-t example`.
 
-#### 3. Knowledge Base Enhancement Strategy: Contributing Intent-Driven Comments
+#### 3. Knowledge Base Enhancement Strategy: Contributing Queryable, Intent-Driven Comments
 
 When analyzing source files (e.g., during step 2 of the Development Workflow), if you encounter code that lacks
-sufficient intent-driven comments or clear documentation, immediately enhance it with meaningful documentation before
-proceeding with your implementation.
+sufficient intent-driven comments or clear documentation, immediately enhance it with meaningful, structured
+documentation before proceeding with your implementation. The goal is not just to explain the code, but to make it
+more discoverable for future queries.
 
 1.  **Analyze the Implementation**: Study the source code carefully to understand:
-    - What the code does (mechanics)
-    - Why it does it (intent)
-    - How it fits into the broader architecture
-    - What patterns it follows
+    - What the code does (mechanics).
+    - Why it does it (intent).
+    - How it fits into the broader architecture.
+    - What patterns it follows.
 
-2.  **Generate Intent-Driven Comments**: Add meaningful comments that explain:
-    - The purpose of complex methods
-    - The reasoning behind architectural decisions
-    - How the class fits into the framework ecosystem
-    - Usage patterns and common scenarios
+2.  **Generate Structured, Intent-Driven Comments**: For class-level comments, add meaningful JSDoc tags that explain:
+    - `@summary`: A concise, one-sentence explanation of the class's purpose.
+    - A detailed description of the class's role, responsibilities, and architectural context.
+    - `@see`: Links to other relevant classes, guides, or examples.
 
-3.  **Enhance for Future Sessions**: Your comments become part of the knowledge base, helping future AI sessions
-    understand the code more effectively.
+3.  **Anticipate Future Queries**: After documenting the class's purpose, think like a user. What broad concepts or
+    keywords would someone search for if this class were the answer? Explicitly include these concepts in the
+    class description. This acts as a "semantic signpost" that makes the class more discoverable. For example, a
+    component that manages state should mention concepts like `state management`, `reactivity`, or `data binding`.
 
-**Example of Good Intent-Driven Comments:**
+4.  **Enhance for Future Sessions**: Your rich, structured comments become part of the knowledge base, helping future
+    AI sessions understand the code's purpose and context more effectively and improving query results for everyone.
+
+**Example of a Good Query-Driven Class Comment:**
 ```javascript
 /**
- * Handles the complex lifecycle of tab activation in Neo.mjs containers.
- * This method coordinates between the visual tab switching UI and the
- * underlying card layout system, ensuring that component lifecycle
- * methods are properly called and that the framework's reactivity
- * system stays in sync.
+ * @summary Manages the state and lifecycle of a tab container's header.
  *
- * Key responsibilities:
- * - Deactivate the previous tab's associated card
- * - Trigger beforeTabChange and afterTabChange events
- * - Update the container's activeIndex config (triggers reactivity)
- * - Ensure proper DOM cleanup and creation
+ * This class is a core part of the tab container's view logic. It is responsible for rendering the tab
+ * buttons, handling user interactions (like clicks and keyboard navigation), and synchronizing the
+ * header's UI with the active tab in the main container. It works closely with the main Tab.Container
+ * and its layout to ensure a seamless user experience.
+ *
+ * This class is a key example of the framework's **reactivity** model and demonstrates concepts like
+ * **component composition**, **event handling**, and **data binding**.
+ *
+ * @see Neo.tab.Container
+ * @see Neo.examples.tab.Container
  */
-activateTab(index, silentChange = false) {
+class TabHeader extends Component {
     // Implementation details...
 }
 ```
