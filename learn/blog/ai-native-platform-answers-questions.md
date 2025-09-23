@@ -104,6 +104,40 @@ In this paradigm:
 This built-in MCP turns the entire repository into an intelligent,
 self-describing system that any AI can securely and reliably connect to.
 
+### How Our AI-Native Approach Compares to Angular's MCP
+
+It's important to acknowledge the broader industry movement toward AI integration. Angular, for instance, was the first major
+framework to ship an experimental MCP server, enabling AI assistants to interact with the Angular CLI. This is a valuable
+step forward, but it highlights a fundamental difference in philosophy compared to Neo.mjs.
+
+Angular's MCP is a powerful **tooling layer**. It exposes a set of predefined tools—like `search_documentation` or
+`get_best_practices`—that an AI can call. This enhances the existing CLI-based workflow.
+
+[Angular MCP](https://angular.dev/ai/mcp)
+
+Neo.mjs's approach is a fundamental **paradigm shift**. We haven't just added AI tooling; we've reimagined the
+framework's core to be AI-native. The distinction is best understood by comparing the two:
+
+-   **Architectural Philosophy:** Angular integrates MCP as a separate, experimental server that interfaces with its
+    traditional architecture. In Neo.mjs, the local AI Knowledge Base and the `AGENTS.md` protocol are foundational
+    pillars, not an add-on.
+
+-   **The Knowledge Base:** Angular's MCP provides access to its official documentation. Neo.mjs implements a complete
+    Retrieval-Augmented Generation (RAG) system that indexes the *entire local project*—source code, JSDoc, guides, and
+    even your own apps—for deep, semantic understanding.
+
+-   **The Agent Protocol:** Angular relies on standard MCP server-client interactions. Neo.mjs enforces a strict,
+    in-repo `AGENTS.md` constitution. This includes a critical **Anti-Hallucination Policy** and a unique
+    **Knowledge Base Enhancement Strategy**, which compels the AI to contribute documentation back to the project,
+    creating a self-improving system.
+
+-   **Core Framework Design:** Angular maintains its existing component model. Neo.mjs is architected for AI
+    collaboration, using "JSON Blueprints" that are immediately parsable by an AI (unlike JSX) and a multi-threaded
+    architecture that allows AI operations to run in the background without freezing the UI.
+
+The key distinction is this: Neo.mjs has reimagined frontend development *for* an AI-collaborative future, while Angular
+has added AI tooling *to* their existing development model.
+
 ### Your Personal (and Benevolent) MCP
 
 **[Satire]** When working on the article, I asked Gemini:
