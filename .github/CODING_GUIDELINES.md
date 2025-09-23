@@ -193,6 +193,45 @@ export default Base;
   - empty line
 
 ## 5. Config order
+
+## JSDoc for Configs
+
+To ensure consistency and enable static analysis, the following JSDoc standards for configs are mandatory.
+
+### The `@reactive` Tag
+
+A config is considered **reactive** if its definition within the `static config` block (anywhere in its prototype chain) ends with a trailing underscore (`_`). This is the single source of truth for reactivity.
+
+- The `@reactive` tag **MUST** be included in the JSDoc comment block for any config that is reactive.
+- This tag signals that the framework generates public `get()` and `set()` methods, along with `beforeGet`, `beforeSet`, and `afterSet` hooks.
+
+**Correct Example:**
+```javascript
+/**
+ * My cool reactive property.
+ * @member {Boolean} myProperty_=true
+ * @reactive
+ */
+myProperty_: true,
+```
+
+### The `@protected` Tag
+
+The `@protected` tag restricts a config to internal use within a class and its subclasses. It should be used sparingly.
+
+- This tag **MUST ONLY** be used for configs that are not intended to be part of the public API for component instantiation or modification.
+- A prime example is the `className` config, which is an internal detail.
+- It **MUST NOT** be used for configs that developers are expected to use, such as `items`, `layout`, `style`, `width`, etc.
+
+**Correct Example:**
+```javascript
+/**
+ * @member {String} className='Neo.button.Base'
+ * @protected
+ */
+className: 'Neo.button.Base',
+```
+
 ```javascript
 static config = {
     /**

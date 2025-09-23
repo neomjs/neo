@@ -27,13 +27,16 @@ At the beginning of every new session, you **MUST** perform the following steps 
     - The distinction between class namespaces (e.g., `Neo.component.Base`) and `ntype` shortcuts (e.g., `'button'`).
 
 3.  **Read the Base Class (`src/core/Base.mjs`):** This is the foundation for all components and classes. Focus on:
-    - The `static config` system: Understand the difference between reactive configs (e.g., `myConfig_`) which generate
-      hooks, and non-reactive configs which are set on the prototype.
+    - The `static config` system: **CRITICAL:** You must deeply understand the difference between **reactive configs** (e.g., `myConfig_`), which generate `before/afterSet` hooks and are fundamental to the framework's reactivity, and **non-reactive configs**, which are applied to the prototype. Misinterpreting this is a critical failure. The trailing underscore is the key indicator.
     - The instance lifecycle: `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
     - The reactivity hooks: `beforeGet*`, `beforeSet*`, `afterSet*`.
 
 4.  **Understand the Two Component Models:** Read the file `learn/gettingstarted/DescribingTheUI.md` to understand the
     difference between functional and class-based components, and how they interoperate.
+
+5.  **Read the Coding Guidelines:** Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and
+    documentation changes adhere to the project's established standards, paying special attention to the
+    JSDoc rules for configs.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
@@ -209,6 +212,7 @@ Integrate the query tool into your development process.
 4.  **Verify:** After making changes, run any relevant verification tools, such as tests, to ensure your changes are
     correct and meet the project's standards. For bug fixes, ensure you've created regression tests
     (see `learn/guides/UnitTestingWithSiesta.md` for guidance).
+
 5.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html`
     property. `text` is mapped to the `textContent` DOM attribute, which is inherently secure against XSS attacks. `html`
     is mapped to `innerHTML` and should be avoided unless you are intentionally rendering trusted HTML content.
