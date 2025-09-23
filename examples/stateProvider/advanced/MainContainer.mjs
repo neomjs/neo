@@ -6,8 +6,27 @@ import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
+ * @summary Demonstrates hierarchical state management in a Neo.mjs application.
+ *
+ * This example demonstrates the hierarchical nature of the Neo.mjs StateProvider and is a key example
+ * of the framework's **reactivity** and **data binding** system for **state management**.
+ *
+ * A StateProvider can be defined at any level of the component tree. When a component's `bind` config
+ * requests a piece of data (e.g., `data.button1Text`), the framework will walk up the component tree
+ * from that component, looking for a StateProvider that has the requested key in its `data` object.
+ *
+ * In this example:
+ * 1. The top-level Viewport (`MainContainer`) has a stateProvider with `button1Text`.
+ * 2. The nested Panel has its own stateProvider with `button2Text`.
+ *
+ * Components inside the Panel will find `button2Text` on their direct parent's provider, but will
+ * have to traverse up to the MainContainer to find `button1Text`. This demonstrates how state can be
+ * scoped locally or shared globally.
+ *
+ * The controller (`MainContainerController`) shows various methods for updating this hierarchical state.
  * @class Neo.examples.stateProvider.advanced.MainContainer
  * @extends Neo.container.Viewport
+ * @see Neo.state.Provider
  */
 class MainContainer extends Viewport {
     static config = {
@@ -22,6 +41,9 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
+         * The top-level StateProvider for this example.
+         * It holds data properties that are available to all child components
+         * unless overridden by a more deeply nested StateProvider.
          * @member {Object|Neo.state.Provider} stateProvider
          */
         stateProvider: {
@@ -43,6 +65,12 @@ class MainContainer extends Viewport {
             module   : Panel,
             reference: 'panel',
 
+            /**
+             * A nested StateProvider scoped to this Panel and its children.
+             * It holds the `button2Text` property. Components within this panel will find
+             * `button2Text` here before traversing up to the MainContainer's provider.
+             * @member {Object|Neo.state.Provider} stateProvider
+             */
             stateProvider: {
                 data: {
                     button2Text: 'Button 2'
@@ -73,6 +101,13 @@ class MainContainer extends Viewport {
                     handler: 'onButton1Click',
                     iconCls: 'fa fa-home',
 
+                    /**
+                     * This binding demonstrates accessing data from multiple state providers.
+                     * `button1Text` is resolved from the top-level (MainContainer) provider.
+                     * `button2Text` is resolved from the panel's provider.
+                     * The framework handles the hierarchical lookup automatically.
+                     * @member {Object} bind
+                     */
                     bind: {
                         text: data => `Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}`
                     }
@@ -81,6 +116,11 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-user',
                     style  : {marginLeft: '10px'},
 
+                    /**
+                     * This binding demonstrates a simple transformation on the state data.
+                     * `button2Text` is found in the panel's state provider.
+                     * @member {Object} bind
+                     */
                     bind: {
                         text: data => data.button2Text.toLowerCase()
                     }
