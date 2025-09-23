@@ -8,8 +8,22 @@ import RangeField         from '../../../src/form/field/Range.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
+ * @summary A 3D helix component example demonstrating advanced component lifecycle and interactivity.
+ *
+ * This class provides the main viewport for the Helix example, showcasing a complex 3D component (`Neo.component.Helix`)
+ * integrated into a standard application layout. It demonstrates several key Neo.mjs concepts:
+ *
+ * - **Component Lifecycle:** The `construct` method is used to dynamically create the `Helix` instance and inject it into the items array before the component tree is mounted.
+ * - **Reactivity & Hooks:** `afterSet` hooks (`afterSetMounted`, `afterSetShowGitHubStarButton`) are used to trigger side effects when configs change, such as adding external scripts or showing/hiding components.
+ * - **Controller-View Interaction:** It delegates all event handling and business logic to its `ViewportController`.
+ * - **Advanced Layouts:** It uses a combination of `hbox` and `fit` layouts to create a responsive UI with a main content area and a side control panel.
+ *
+ * This example is a good showcase for **3D transformations**, **component performance**, and **complex interactivity**.
+ *
  * @class Neo.examples.component.helix.Viewport
  * @extends Neo.container.Viewport
+ * @see Neo.component.Helix
+ * @see Neo.examples.component.helix.ViewportController
  */
 class Viewport extends BaseViewport {
     /**
@@ -22,7 +36,7 @@ class Viewport extends BaseViewport {
 
     static config = {
         /**
-         * @member {String} className='Neo.examples.component.helix.ViewportController'
+         * @member {String} className='Neo.examples.component.helix.Viewport'
          * @protected
          */
         className: 'Neo.examples.component.helix.Viewport',
@@ -32,25 +46,28 @@ class Viewport extends BaseViewport {
          */
         controller: ViewportController,
         /**
+         * Holds the dynamically created instance of the Helix component.
          * @member {Neo.component.Helix|null} helix=null
          */
         helix: null,
         /**
+         * A configuration object that is passed to the Helix instance upon creation.
          * @member {Object|null} helixConfig=null
          */
         helixConfig: null,
         /**
-         * @member {Object|null} layout={ntype: 'hbox',align:'stretch'}
-         * @reactive
+         * @member {Object} layout={ntype: 'hbox',align:'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
+         * Controls the visibility of the GitHub star button.
          * @member {Boolean} showGitHubStarButton_=true
          * @reactive
          */
         showGitHubStarButton_: true,
         /**
          * @member {Object[]} items
+         * @protected
          */
         items: [{
             ntype : 'container',
@@ -220,7 +237,7 @@ class Viewport extends BaseViewport {
                 valueLabelText: 'logDeltaUpdates'
             }, {
                 ntype: 'label',
-                text : [
+                html : [
                     '<b>Navigation Concept</b>',
                     '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>',
                     '<p>Hit the Space Key to rotate the currently selected item to the front.</p>',
@@ -240,7 +257,11 @@ class Viewport extends BaseViewport {
     }
 
     /**
+     * Overrides the default `construct` method to dynamically create the Helix component.
+     * This ensures the Helix is instantiated with the correct `windowId` and any specific
+     * `helixConfig` before being added to the viewport's items.
      * @param {Object} config
+     * @protected
      */
     construct(config) {
         super.construct(config);
@@ -260,9 +281,10 @@ class Viewport extends BaseViewport {
     }
 
     /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Triggered after the mounted config got changed. This hook is used to perform actions
+     * that should only run once the component is live in the DOM.
+     * @param {Boolean} value The new value of `mounted`
+     * @param {Boolean} oldValue The old value of `mounted`
      * @protected
      */
     afterSetMounted(value, oldValue) {
@@ -271,12 +293,14 @@ class Viewport extends BaseViewport {
         if (value) {
             let me = this;
 
+            // Enable render delta logging for performance monitoring.
             Neo.Main.setNeoConfig({
                 key     : 'renderCountDeltas',
                 value   : true,
                 windowId: me.windowId
             });
 
+            // Dynamically load the GitHub buttons script if the star button is visible.
             if (me.showGitHubStarButton) {
                 me.timeout(200).then(() => {
                     let {windowId}  = me,
@@ -298,9 +322,10 @@ class Viewport extends BaseViewport {
     }
 
     /**
-     * Triggered after the showGitHubStarButton config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * A hook that fires after the `showGitHubStarButton` config is changed.
+     * It toggles the visibility of the GitHub button component.
+     * @param {Boolean} value The new value
+     * @param {Boolean} oldValue The old value
      * @protected
      */
     afterSetShowGitHubStarButton(value, oldValue) {
