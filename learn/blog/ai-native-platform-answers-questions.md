@@ -161,6 +161,11 @@ It's designed to be a partner, not a tyrant. It serves the user, not the other w
 >
 > — Master Control Program, *Tron* (1982)
 
+This built-in protocol is powerful, but it's made truly effective by the framework's underlying structure. For an AI to
+collaborate meaningfully, it must be able to understand the code it's working with as native data. A protocol enables
+communication, but the *format* of that communication determines its efficiency and clarity. This is where Neo.mjs's
+JSON Blueprint architecture provides a decisive advantage over traditional approaches.
+
 ### 3. The JSON Blueprint Advantage
 
 To understand the AI-native advantage, we have to be honest about a hard truth of **traditional** frontend architecture:
