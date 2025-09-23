@@ -217,16 +217,14 @@ Here is the default `_vdom` property directly from `src/button/Base.mjs`:
 ```javascript readonly
 // The Button's internal VDOM skeleton. This skeleton is then dynamically enhanced by the class's logic,
 // which can also use `removeDom` to exclude live-DOM nodes that are not needed based on config values.
-{
-  tag: 'button', type: 'button', cn: [
+{tag: 'button', type: 'button', cn: [
     {tag: 'span', cls: ['neo-button-glyph']},
     {tag: 'span', cls: ['neo-button-text']},
     {cls: ['neo-button-badge']},
     {cls: ['neo-button-ripple-wrapper'], cn: [
         {cls: ['neo-button-ripple']}
     ]}
-  ]
-}
+]}
 ```
 
 This consistent, data-first approach to UI definition at every level is what makes the platform uniquely transparent
