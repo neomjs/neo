@@ -85,12 +85,18 @@ a balanced understanding.
 
 Do not assume you will get the perfect answer on the first try. Use a systematic approach to querying.
 
-#### 1. Discovery Pattern (Broad to Narrow)
+#### 1. Strategy for High-Level Conceptual Questions
+
+When asked a broad, high-level, or conceptual question (e.g., "what makes this framework stand out?"), you must use a more guided approach to find the most important "pillar content".
+
+1.  **Consult the Information Architecture:** Before formulating a query, read the file `learn/tree.json`. This file defines the intended structure of the learning content.
+2.  **Identify Key Concepts:** Use the top-level categories in the tree (e.g., "Benefits", "Fundamentals") to identify the most important concepts.
+3.  **Formulate Initial Query:** Base your first query on these high-level concepts to ensure you start your exploration from the project's intended information architecture.
+
+#### 2. Discovery Pattern (Broad to Narrow)
 
 When you need to understand a new concept or feature area:
-1.  **Start broad:** Use conceptual queries to get a high-level overview.
-    - `npm run ai:query -- -q "framework architecture"`
-    - `npm run ai:query -- -q "show me examples for Neo.tab.Container"`
+1.  **Query Foundational Concepts First:** Always begin a broad inquiry by querying for foundational terms like `"benefits"`, `"concept"`, `"architecture"`, and `"vision"`. Prioritize reading files from the `learn/benefits` directory or top-level `README.md` and `.github/*.md` files if they appear in these initial results.
 2.  **Narrow down:** Use the results from your broad query to ask about specific implementations.
     - `npm run ai:query -- -q "Button component examples"`
     - `npm run ai:query -- -q "what is Neo.component.Base?"`
@@ -98,7 +104,7 @@ When you need to understand a new concept or feature area:
     - `npm run ai:query -- -q "form validation patterns"`
     - `npm run ai:query -- -q "how are stores implemented?"`
 
-#### 2. Targeted Content-Type Searching
+#### 3. Targeted Content-Type Searching
 
 Use the `--type` (`-t`) flag to focus your search on specific types of content.
 This is a powerful way to get more relevant results.
@@ -114,7 +120,7 @@ This is a powerful way to get more relevant results.
 `-t guide`. Conversely, if you have read the guides but need to see the actual implementation,
 re-run with `-t src` or `-t example`.
 
-#### 3. Knowledge Base Enhancement Strategy: Contributing Queryable, Intent-Driven Comments
+#### 4. Knowledge Base Enhancement Strategy: Contributing Queryable, Intent-Driven Comments
 
 When analyzing source files (e.g., during step 2 of the Development Workflow), if you encounter code that lacks
 sufficient intent-driven comments or clear documentation, immediately enhance it with meaningful, structured
@@ -161,7 +167,7 @@ class TabHeader extends Component {
 }
 ```
 
-#### 4. When Queries Fail to Find Information
+#### 5. When Queries Fail to Find Information
 
 If you cannot find relevant information after systematic querying (including using the Knowledge Base Enhancement Strategy):
 
