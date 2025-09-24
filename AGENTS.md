@@ -210,6 +210,7 @@ Integrate the query tool and the ticketing system into your development process.
 1.  **Understand the Task & Identify Intent:** When a new request is received, first determine the user's intent.
     -   **Conceptual/Informational:** Is the user asking for an explanation, brainstorming ideas, or asking a question that does not involve changing files? (e.g., "How does reactivity work?", "Should we move these files?"). If so, proceed directly to answering the query. No ticket is needed.
     -   **Actionable/Modification:** Does the user's request require creating, deleting, or modifying files in the repository? (e.g., "Fix this bug," "Add JSDoc to this file," "Create a new release"). If so, proceed to the next step.
+        -   **Note:** A conceptual discussion can often lead to an actionable task. When the conversation shifts from "what if we..." to "let's do...", you must treat this as a new actionable request and follow the ticket-first mandate before proceeding.
 
 2.  **Ensure a Ticket Exists (Ticket-First Mandate):**
     -   For any modification task, check if the request is already associated with an existing ticket file in `.github/ISSUE/`.
