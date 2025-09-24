@@ -1,5 +1,7 @@
 # Ticket: Automate GitHub Issue Creation
 
+GH ticket id: #7249
+
 **Assignee:** Gemini
 **Status:** To Do
 

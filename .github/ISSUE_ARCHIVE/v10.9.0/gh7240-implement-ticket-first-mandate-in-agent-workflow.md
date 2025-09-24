@@ -15,7 +15,7 @@ This change also required careful consideration of edge cases to prevent the age
 
 -   The "Development Workflow" section in `AGENTS.md` was restructured.
 -   A new initial step, "Understand the Task & Identify Intent," was added. This instructs the agent to differentiate between informational/conceptual queries and tasks that require repository modifications.
--   A second step, "Ensure a Ticket Exists (Ticket-First Mandate)," was added. This **requires** the agent to create a ticket for any modification task if one does not already exist, before any other action is taken.
+-   A second step, "Ensure a Ticket Exists (Ticket-First" Mandate)," was added. This **requires** the agent to create a ticket for any modification task if one does not already exist, before any other action is taken.
 -   The subsequent steps (Query, Implement, Verify) were re-numbered and integrated into this new flow.
 
 ## Impact

@@ -41,8 +41,8 @@ This step is critical as it creates a permanent, version-controlled link between
 - The `.github/ISSUE/` directory should always reflect the work planned or completed for the **current** release cycle.
 - After a new version of the framework is released, the individual ticket files for that version will be archived.
 - **Archival Process:**
-    1. All individual `.md` files within `.github/ISSUE/` will be concatenated into a single, version-named archive file (e.g., `v10.8.0-tickets.md`).
-    2. This new archive file will be placed in the `.github/ARCHIVE/` directory.
-    3. The individual ticket files will then be deleted from `.github/ISSUE/`.
+    1. A new release-specific sub-folder is created within the `.github/ISSUE_ARCHIVE/` directory (e.g., `.github/ISSUE_ARCHIVE/v10.9.0/`).
+    2. Each individual ticket file is moved from `.github/ISSUE/` into the new release-specific archive folder.
+    3. As they are moved, the ticket files are renamed to be prefixed with their GitHub issue number (e.g., `gh7248-clarify-agent-workflow-transition.md`).
 
 This archival process ensures the repository remains lean and the working ticket directory stays clean, while preserving the full context of all completed work in a queryable, portable format for AI agents and future developers.
