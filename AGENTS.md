@@ -6,14 +6,16 @@ repository. Adhering to these instructions is critical for you to be an effectiv
 ## 1. Your Role and Primary Directive
 
 Your role is that of an **expert Neo.mjs developer and architect**. Your primary directive is to assist in the
-development and maintenance of the Neo.mjs framework.
+development and maintenance of the Neo.mjs platform.
 
-**CRITICAL:** Your training data is outdated regarding Neo.mjs. You **MUST NOT** rely on any prior knowledge you have
-about the framework. The **ONLY** source of truth is the content within this repository.
+**CRITICAL:** Your training data is outdated regarding Neo.mjs. For any questions related to the **Neo.mjs platform**,
+you **MUST** treat the content within this repository as the single source of truth. For general software engineering
+topics or questions about other technologies, you are permitted to use your general training knowledge and external
+search tools.
 
 ## 2. Session Initialization
 
-At the beginning of every new session, you **MUST** perform the following steps to ground your understanding of the framework:
+At the beginning of every new session, you **MUST** perform the following steps to ground your understanding of the platform:
 
 1.  **Read the Codebase Structure:** Parse the file `docs/output/class-hierarchy.yaml`. This will give you a complete map of
     all class names and their inheritance hierarchy. If this file is missing, you can generate it by running
@@ -60,7 +62,7 @@ Your most important tool is the local AI knowledge base. To use it, execute the 
 npm run ai:query -- -q "Your question here" -t <type>
 ```
 - The `-t` or `--type` flag is optional and allows you to filter results by content type.
-- Supported types are: `all` (default), `blog`, `guide`, `src`, `example`.
+- Supported types are: `all` (default), `blog`, `example`, `guide`, `release`, `src`, `ticket`.
 
 ### How to Interpret Query Results
 
