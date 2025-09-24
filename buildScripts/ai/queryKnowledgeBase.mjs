@@ -5,7 +5,14 @@ import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import path                 from 'path';
 
-dotenv.config({quiet: true});
+const
+    cwd       = process.cwd(),
+    insideNeo = process.env.npm_package_name.includes('neo.mjs');
+
+dotenv.config({
+    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
+    quiet: true
+});
 
 const program = new Command();
 
@@ -89,6 +96,8 @@ class QueryKnowledgeBase {
                         return source.includes('/src/');
                     case 'example':
                         return source.includes('/examples/');
+                    case 'release':
+                        return source.includes('/.github/RELEASE_NOTES/');
                     default:
                         return true;
                 }
@@ -120,13 +129,21 @@ class QueryKnowledgeBase {
                     if (metadata.type === 'class' && nameLower.includes(keyword)) score += 20;
                     if (metadata.className && metadata.className.toLowerCase().includes(keyword)) score += 20;
                     if (metadata.type === 'guide') {
-                        // Blog posts are useful, but guides are more authoritative
-                        score += metadata.isBlog === 'true' ? 15 : 30;
+                        // Guides are the most authoritative source for how-to information.
+                        score += metadata.isBlog === 'true' ? 5 : 50;
                         if (nameLower.includes(keyword)) score += 50;
+                    }
+                    if (metadata.type === 'release') {
+                        score -= 50; // Penalize release notes in general queries
                     }
                     if (fileName.endsWith('base.mjs')) score += 20;
                     const nameParts = nameLower.split('.');
                     if (nameParts.includes(keyword)) score += 30;
+                }
+
+                // Boost exact matches for version-like queries
+                if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) {
+                    score += 1000; // Strong boost for exact version match
                 }
 
                 sourceScores[sourcePath] = (sourceScores[sourcePath] || 0) + score;

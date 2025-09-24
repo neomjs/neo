@@ -1,6 +1,16 @@
 import crypto from 'crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
+import dotenv from 'dotenv';
+
+const
+    cwd         = process.cwd(),
+    insideNeo   = process.env.npm_package_name.includes('neo.mjs'),
+    neoPath     = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/');
+
+dotenv.config({
+    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env')
+});
 
 const sectionsRegex = /(?=^#+\s)/m;
 
@@ -158,9 +168,35 @@ class CreateKnowledgeBase {
             }
         }
 
-        console.log(`Processed ${guideChunks} learning content chunks. Total chunks: ${apiChunks + guideChunks}.`);
+        console.log(`Processed ${guideChunks} learning content chunks.`);
 
-        // 3. End the stream
+        // 3. Process release notes
+        const releaseNotesPath = path.resolve(process.cwd(), '.github/RELEASE_NOTES');
+        const releaseFiles = await fs.readdir(releaseNotesPath);
+        let releaseChunks = 0;
+
+        for (const file of releaseFiles) {
+            if (file.endsWith('.md')) {
+                const filePath = path.join(releaseNotesPath, file);
+                const content = await fs.readFile(filePath, 'utf-8');
+                const chunkName = file.replace('.md', '');
+
+                const chunk = {
+                    type   : 'release',
+                    name   : chunkName,
+                    content: content,
+                    source : filePath
+                };
+
+                chunk.hash = createContentHash(chunk);
+                writeStream.write(JSON.stringify(chunk) + '\n');
+                releaseChunks++;
+            }
+        }
+
+        console.log(`Processed ${releaseChunks} release note chunks. Total chunks: ${apiChunks + guideChunks + releaseChunks}.`);
+
+        // 4. End the stream
         writeStream.end();
         console.log(`Knowledge base creation complete. Saved to ${outputPath}`);
     }
