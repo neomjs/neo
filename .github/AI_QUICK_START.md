@@ -10,15 +10,27 @@ Before you begin, ensure you have the following:
 1.  **Google Account**: You'll need one to access Google AI Studio for an API key. If you don't have one,
     you can create it at [accounts.google.com](https://accounts.google.com).
 2.  **Node.js**: Version 18 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
-3.  **Forked & Cloned Neo.mjs Repository**: To contribute, you should first fork the repository on GitHub,
-    and then clone your personal fork.
+3.  **Project Setup**: Your setup depends on how you are working with Neo.mjs.
+
+    **A) For contributions to the Neo.mjs framework itself:**
+
+    To contribute directly to the framework, you should first fork the repository on GitHub, and then clone your personal fork.
     ```bash
     # In your browser, visit https://github.com/neomjs/neo and click the "Fork" button.
     # Then, clone your fork (replace YOUR_USERNAME):
     git clone https://github.com/YOUR_USERNAME/neo.git
     cd neo
     ```
-4.  **Internet Access**: Required for the initial installation of tools and for generating your API key.
+
+    **B) For developing your own application in a Neo.mjs workspace:**
+
+    If you are building your own application, you will have already created a workspace using `npx neo-app`.
+    Simply navigate into your workspace directory.
+    ```bash
+    # Example:
+    npx neo-app my-app
+    cd my-app
+    ```
 
 ## 2. A Note on Cost
 
