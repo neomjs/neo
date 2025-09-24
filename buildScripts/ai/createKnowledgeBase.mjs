@@ -194,9 +194,46 @@ class CreateKnowledgeBase {
             }
         }
 
-        console.log(`Processed ${releaseChunks} release note chunks. Total chunks: ${apiChunks + guideChunks + releaseChunks}.`);
+        console.log(`Processed ${releaseChunks} release note chunks.`);
 
-        // 4. End the stream
+        // 4. Process ticket archives
+        const ticketArchivePath = path.resolve(process.cwd(), '.github/ISSUE_ARCHIVE');
+        let ticketChunks = 0;
+
+        if (await fs.pathExists(ticketArchivePath)) {
+            const releaseVersions = await fs.readdir(ticketArchivePath);
+
+            for (const version of releaseVersions) {
+                const versionPath = path.join(ticketArchivePath, version);
+                if ((await fs.stat(versionPath)).isDirectory()) {
+                    const ticketFiles = await fs.readdir(versionPath);
+
+                    for (const file of ticketFiles) {
+                        if (file.endsWith('.md')) {
+                            const filePath = path.join(versionPath, file);
+                            const content = await fs.readFile(filePath, 'utf-8');
+                            const titleMatch = content.match(/^# Ticket: (.*)/m);
+                            const chunkName = titleMatch ? titleMatch[1] : file.replace('.md', '');
+
+                            const chunk = {
+                                type   : 'ticket',
+                                name   : chunkName,
+                                content: content,
+                                source : filePath
+                            };
+
+                            chunk.hash = createContentHash(chunk);
+                            writeStream.write(JSON.stringify(chunk) + '\n');
+                            ticketChunks++;
+                        }
+                    }
+                }
+            }
+        }
+
+        console.log(`Processed ${ticketChunks} ticket chunks. Total chunks: ${apiChunks + guideChunks + releaseChunks + ticketChunks}.`);
+
+        // 5. End the stream
         writeStream.end();
         console.log(`Knowledge base creation complete. Saved to ${outputPath}`);
     }

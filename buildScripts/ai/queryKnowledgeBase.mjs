@@ -78,39 +78,28 @@ class QueryKnowledgeBase {
         }
 
         const queryEmbedding = await model.embedContent(query);
-        const results        = await collection.query({
-            queryEmbeddings: [queryEmbedding.embedding.values],
-            nResults       : 100 // Increased to get a wider net for filtering
-        });
+        const queryLower     = query.toLowerCase();
 
-        // 2. Filter results by content type if specified
+        let whereClause = {};
         if (type && type !== 'all') {
-            results.metadatas[0] = results.metadatas[0].filter(metadata => {
-                const source = metadata.source || '';
-                switch (type) {
-                    case 'blog':
-                        return source.includes('/learn/blog/');
-                    case 'guide':
-                        return source.includes('/learn/guides/');
-                    case 'src':
-                        return source.includes('/src/');
-                    case 'example':
-                        return source.includes('/examples/');
-                    case 'release':
-                        return source.includes('/.github/RELEASE_NOTES/');
-                    default:
-                        return true;
-                }
-            });
+            whereClause = {type: type};
         }
+
+        const queryOptions = {
+            queryEmbeddings: [queryEmbedding.embedding.values],
+            nResults       : 100 // Get a wider net for filtering
+        };
+
+        if (Object.keys(whereClause).length > 0) {
+            queryOptions.where = whereClause;
+        }
+
+        const results = await collection.query(queryOptions);
 
         // 3. Process results with the enhanced scoring algorithm
         if (results.metadatas?.length > 0 && results.metadatas[0].length > 0) {
-            const sourceScores    = {};
-            const queryLower      = query.toLowerCase();
-            const queryWords      = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
-            const mainKeyword     = queryWords[queryWords.length - 1] || '';
-            const keywordSingular = mainKeyword.endsWith('s') ? mainKeyword.slice(0, -1) : mainKeyword;
+            const sourceScores = {};
+            const queryWords   = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
 
             results.metadatas[0].forEach((metadata, index) => {
                 if (!metadata.source || metadata.source === 'unknown') return;
@@ -121,25 +110,37 @@ class QueryKnowledgeBase {
                 const sourcePathLower = sourcePath.toLowerCase();
                 const fileName        = sourcePath.split('/').pop().toLowerCase();
                 const nameLower       = (metadata.name || '').toLowerCase();
-                const keyword         = keywordSingular;
 
-                if (keyword) {
-                    if (sourcePathLower.includes(`/${keyword}/`)) score += 40;
-                    if (fileName.includes(keyword)) score += 30;
-                    if (metadata.type === 'class' && nameLower.includes(keyword)) score += 20;
-                    if (metadata.className && metadata.className.toLowerCase().includes(keyword)) score += 20;
-                    if (metadata.type === 'guide') {
-                        // Guides are the most authoritative source for how-to information.
-                        score += metadata.isBlog === 'true' ? 5 : 50;
-                        if (nameLower.includes(keyword)) score += 50;
+                queryWords.forEach(queryWord => {
+                    const keyword         = queryWord;
+                    const keywordSingular = keyword.endsWith('s') ? keyword.slice(0, -1) : keyword;
+
+                    if (keywordSingular.length > 2) { // Only apply boosts for meaningful keywords
+                        if (sourcePathLower.includes(`/${keywordSingular}/`)) score += 40;
+                        if (fileName.includes(keywordSingular)) score += 30;
+                        if (metadata.type === 'class' && nameLower.includes(keywordSingular)) score += 20;
+                        if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) score += 20;
+                        if (metadata.type === 'guide') {
+                            // Guides are the most authoritative source for how-to information.
+                            score += metadata.isBlog === 'true' ? 5 : 50;
+                            if (nameLower.includes(keywordSingular)) score += 50;
+                        }
+                        const nameParts = nameLower.split('.');
+                        if (nameParts.includes(keywordSingular)) score += 30;
                     }
-                    if (metadata.type === 'release') {
-                        score -= 50; // Penalize release notes in general queries
+                });
+
+                if (metadata.type === 'ticket') {
+                    if (type === 'all') {
+                        score -= 70;
                     }
-                    if (fileName.endsWith('base.mjs')) score += 20;
-                    const nameParts = nameLower.split('.');
-                    if (nameParts.includes(keyword)) score += 30;
                 }
+
+                // Logic for release and base.mjs, applies once per chunk
+                if (metadata.type === 'release') {
+                    score -= 50; // Penalize release notes in general queries
+                }
+                if (fileName.endsWith('base.mjs')) score += 20;
 
                 // Boost exact matches for version-like queries
                 if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) {
