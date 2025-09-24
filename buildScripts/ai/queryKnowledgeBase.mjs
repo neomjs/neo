@@ -5,7 +5,14 @@ import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import path                 from 'path';
 
-dotenv.config({quiet: true});
+const
+    cwd       = process.cwd(),
+    insideNeo = process.env.npm_package_name.includes('neo.mjs');
+
+dotenv.config({
+    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
+    quiet: true
+});
 
 const program = new Command();
 

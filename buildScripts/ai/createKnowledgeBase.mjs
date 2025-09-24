@@ -1,6 +1,16 @@
 import crypto from 'crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
+import dotenv from 'dotenv';
+
+const
+    cwd         = process.cwd(),
+    insideNeo   = process.env.npm_package_name.includes('neo.mjs'),
+    neoPath     = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/');
+
+dotenv.config({
+    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env')
+});
 
 const sectionsRegex = /(?=^#+\s)/m;
 

@@ -5,7 +5,13 @@ import fs                   from 'fs-extra';
 import path                 from 'path';
 import readline             from 'readline';
 
-dotenv.config();
+const
+    cwd       = process.cwd(),
+    insideNeo = process.env.npm_package_name.includes('neo.mjs');
+
+dotenv.config({
+    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env')
+});
 
 /**
  * This script is the second stage in the AI knowledge base pipeline: **Score & Embed**.
