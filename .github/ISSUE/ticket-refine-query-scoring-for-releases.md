@@ -3,7 +3,7 @@
 GH ticket id: #7242
 
 **Assignee:** Gemini
-**Status:** To Do
+**Status:** Done
 
 ## Description
 

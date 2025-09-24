@@ -1,5 +1,7 @@
 # Ticket: Enhance Helix Example with Query-Driven Comments
 
+GH ticket id: #7236
+
 **Assignee:** Gemini
 **Status:** Done
 

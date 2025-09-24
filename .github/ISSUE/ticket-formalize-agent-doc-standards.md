@@ -1,5 +1,7 @@
 # Ticket: Formalize Agent & Documentation Standards
 
+GH ticket id: #7237
+
 **Assignee:** Gemini
 **Status:** Done
 
