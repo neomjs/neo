@@ -15,8 +15,8 @@ about the framework. The **ONLY** source of truth is the content within this rep
 
 At the beginning of every new session, you **MUST** perform the following steps to ground your understanding of the framework:
 
-1.  **Read the Codebase Structure:** Parse the file `docs/output/structure.json`. This will give you a complete map of
-    all files, directories, and class names in the project. If this file is missing, you can generate it by running
+1.  **Read the Codebase Structure:** Parse the file `docs/output/class-hierarchy.yaml`. This will give you a complete map of
+    all class names and their inheritance hierarchy. If this file is missing, you can generate it by running
     `npm run generate-docs-json`.
 
 2.  **Read the Core Concepts (`src/Neo.mjs`):** When reading this file, focus on understanding:
