@@ -33,7 +33,7 @@
         "generate-docs-json"    : "node ./buildScripts/docs/jsdocx.mjs",
         "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
         "server-start"          : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
-        "test"                  : "echo \"Error: no test specified\" && exit 1",
+        "test"                  : "playwright test -c test/playwright/playwright.config.mjs",
         "watch-themes"          : "node ./buildScripts/watchThemes.mjs"
     },
     "keywords": [
@@ -87,6 +87,7 @@
         "@chroma-core/default-embed"   : "^0.1.8",
         "@fortawesome/fontawesome-free": "^7.0.1",
         "@google/generative-ai"        : "^0.24.1",
+        "@playwright/test"             : "^1.55.1",
         "acorn"                        : "^8.15.0",
         "astring"                      : "^1.9.0",
         "autoprefixer"                 : "^10.4.21",

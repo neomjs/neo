@@ -83,3 +83,6 @@ resources/data/deck/EditorConfig.json
 # Local AI Knowledge Base
 .env
 chroma/
+
+# Playwright test results
+test/playwright/test-results.json
