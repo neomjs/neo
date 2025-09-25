@@ -1,26 +1,3 @@
-// This file sets up the Node.js global scope to run Neo.mjs
-// VDOM unit tests without a browser or jsdom.
-
-const appName = 'ClassicButtonTest';
-
-globalThis.Neo = {
-    apps: {
-        [appName]: {
-            name             : appName,
-            fire             : () => {},
-            isMounted        : () => true,
-            vnodeInitialising: false
-        }
-    },
-    config: {
-        allowVdomUpdatesInTests: true,
-        environment            : 'development',
-        unitTestMode           : true,
-        useDomApiRenderer      : true
-    }
-};
-
-// Running the unit tests directly inside nodejs requires a mock for DOMRect.
 globalThis.DOMRect = class DOMRect {
     constructor(x, y, width, height) {
         this.x = x || 0;
@@ -36,3 +13,28 @@ globalThis.DOMRect = class DOMRect {
         return new DOMRect(other.x, other.y, other.width, other.height);
     }
 };
+
+// This file sets up the Node.js global scope to run Neo.mjs
+// VDOM unit tests without a browser or jsdom.
+
+export function setup(options = {}) {
+    const { neoConfig = {}, appConfig = {} } = options;
+
+    const defaultNeoConfig = {
+        environment : 'development',
+        unitTestMode: true
+    };
+
+    const defaultAppConfig = {
+        fire             : () => {},
+        isMounted        : () => true,
+        vnodeInitialising: false
+    };
+
+    globalThis.Neo = {
+        apps: {
+            [appConfig.name]: { ...defaultAppConfig, ...appConfig }
+        },
+        config: { ...defaultNeoConfig, ...neoConfig }
+    };
+}

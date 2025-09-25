@@ -1,16 +1,25 @@
-import '../setup.mjs'; // Sets up the globalThis.Neo object
+import { setup } from '../setup.mjs';
+
+const appName = 'ClassicButtonTest';
+
+// Call setup with the specific configuration for this test file
+setup({
+    neoConfig: {
+        allowVdomUpdatesInTests: true,
+        useDomApiRenderer      : true
+    },
+    appConfig: {
+        name: appName
+    }
+});
 
 import { test, expect } from '@playwright/test';
 
-// Correct import order is critical for Neo.mjs initialization
 import Neo from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
 import Button from '../../../src/button/Base.mjs';
 import DomApiVnodeCreator from '../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper from '../../../src/vdom/Helper.mjs';
-
-
-const appName = 'ClassicButtonTest';
 
 test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
