@@ -85,4 +85,4 @@ resources/data/deck/EditorConfig.json
 chroma/
 
 # Playwright test results
-test/playwright/test-results.json
+test/playwright/test-results/
