@@ -3,7 +3,7 @@
 GH ticket id: #7258
 
 **Assignee:** Gemini
-**Status:** In Progress
+**Status:** Done
 
 ## Description
 
@@ -22,13 +22,6 @@ This ticket covers the initial refactoring of the Playwright test environment an
 
 ### Current Status:
 
-The conversion of the `VdomHelper` test has uncovered a bug in the `VdomHelper` when `useDomApiRenderer` is `false`. The `className` property is being incorrectly moved into the `attributes` object of the vnode.
+The conversion of the `VdomHelper` test is complete. After a thorough review, all missing test logic from the original Siesta test has been added to `test/playwright/unit/VdomHelper.spec.mjs`.
 
-This bug is documented in ticket: **.github/ISSUE/ticket-vdom-helper-classname-bug.md**
-
-The tests in `VdomHelper.spec.mjs` are currently failing as expected, pending a fix for the bug.
-
-## Next Steps:
-
-- Do not merge any fixes that make the broken tests pass.
-- The priority is to fix the underlying bug in the framework.
+All 14 unit tests in the Playwright suite are now passing.

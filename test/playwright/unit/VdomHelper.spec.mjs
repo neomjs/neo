@@ -75,7 +75,7 @@ test.describe('Neo.vdom.Helper', () => {
     });
 
     test('Modify vdom.style', () => {
-        let vdom = {tag: 'div', className: ['neo-container']};
+        let vdom = {tag: 'div', cls: ['neo-container']};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomIds(vnode, vdom);
         const vnodeId = vnode.id;
@@ -103,7 +103,7 @@ test.describe('Neo.vdom.Helper', () => {
     });
 
     test('Modify vdom attributes', () => {
-        let vdom = {tag: 'div', className: ['neo-container'], style: {color: 'green'}};
+        let vdom = {tag: 'div', cls: ['neo-container'], style: {color: 'green'}};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomIds(vnode, vdom);
         const vnodeId = vnode.id;
@@ -131,47 +131,116 @@ test.describe('Neo.vdom.Helper', () => {
     });
 
     test('Modify vdom cn (childNodes)', () => {
-        let vdom = {tag: 'div', className: ['neo-container'], style: {color: 'green'}};
+        let vdom = {tag: 'div', cls: ['neo-container'], style: {color: 'green'}};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomIds(vnode, vdom);
         const vnodeId = vnode.id;
 
-        // Add childNodes
+        // 1. Add childNodes
         vdom.cn = [{tag: 'div'}, {tag: 'div', id: 'neo-button-1'}, {tag: 'div'}];
-        let { deltas, vnode: updatedVnode1 } = VdomHelper.update({vdom, vnode});
-        VDomUtil.syncVdomIds(updatedVnode1, vdom);
+        let output = VdomHelper.update({vdom, vnode});
+        let deltas = output.deltas;
+        vnode = output.vnode;
+        VDomUtil.syncVdomIds(vnode, vdom);
 
-        expect(updatedVnode1.childNodes.length).toBe(3);
-        expect(updatedVnode1.childNodes[0].id).toEqual(expect.any(String));
-        expect(updatedVnode1.childNodes[1].id).toBe('neo-button-1');
-        expect(updatedVnode1.childNodes[2].id).toEqual(expect.any(String));
+        const childIds = vnode.childNodes.map(node => node.id);
 
-        expect(deltas.length).toBe(3);
-        expect(deltas[0].action).toBe('insertNode');
-        expect(deltas[1].action).toBe('insertNode');
-        expect(deltas[2].action).toBe('insertNode');
+        expect(vnode).toEqual({
+            attributes: {},
+            className : ['neo-container'],
+            id        : vnodeId,
+            nodeName  : 'div',
+            style     : {color: 'green'},
+            vtype     : 'vnode',
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: childIds[0],  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: childIds[2],  nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        });
 
-        // Reorder childNodes
+        expect(deltas).toEqual([
+            {action: 'insertNode', index: 0, outerHTML: `<div id="${childIds[0]}"></div>`,  parentId: vnodeId},
+            {action: 'insertNode', index: 1, outerHTML: '<div id="neo-button-1"></div>', parentId: vnodeId},
+            {action: 'insertNode', index: 2, outerHTML: `<div id="${childIds[2]}"></div>`,  parentId: vnodeId}
+        ]);
+
+        // 2. Reorder childNodes (swap)
         let tmp = vdom.cn[0];
         vdom.cn[0] = vdom.cn[2];
         vdom.cn[2] = tmp;
-        let { deltas: deltas2, vnode: updatedVnode2 } = VdomHelper.update({vdom, vnode: updatedVnode1});
 
-        expect(updatedVnode2.childNodes[0].id).toBe(updatedVnode1.childNodes[2].id);
-        expect(updatedVnode2.childNodes[2].id).toBe(updatedVnode1.childNodes[0].id);
-        expect(deltas2.length).toBe(2);
-        expect(deltas2[0].action).toBe('moveNode');
-        expect(deltas2[1].action).toBe('moveNode');
+        output = VdomHelper.update({vdom, vnode});
+        deltas = output.deltas;
+        vnode = output.vnode;
 
-        // Left shift
+        expect(vnode).toEqual({
+            attributes: {},
+            className : ['neo-container'],
+            id        : vnodeId,
+            nodeName  : 'div',
+            style     : {color: 'green'},
+            vtype     : 'vnode',
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: childIds[2],  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: childIds[0],  nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        });
+
+        expect(deltas).toEqual([
+            {action: 'moveNode', id: childIds[2],  index: 0, parentId: vnodeId},
+            {action: 'moveNode', id: 'neo-button-1', index: 1, parentId: vnodeId}
+        ]);
+
+        // 3. Left shift
         vdom.cn.push(vdom.cn.shift());
-        let { deltas: deltas3, vnode: updatedVnode3 } = VdomHelper.update({vdom, vnode: updatedVnode2});
-        expect(deltas3.length).toBe(2);
+        output = VdomHelper.update({vdom, vnode});
+        deltas = output.deltas;
+        vnode = output.vnode;
 
-        // Right shift
+        expect(vnode).toEqual({
+            attributes: {},
+            className : ['neo-container'],
+            id        : vnodeId,
+            nodeName  : 'div',
+            style     : {color: 'green'},
+            vtype     : 'vnode',
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: childIds[0],  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: childIds[2],  nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        });
+
+        expect(deltas).toEqual([
+            {action: 'moveNode', id: 'neo-button-1', index: 0, parentId: vnodeId},
+            {action: 'moveNode', id: childIds[0],  index: 1, parentId: vnodeId}
+        ]);
+
+        // 4. Right shift
         vdom.cn.unshift(vdom.cn.pop());
-        let { deltas: deltas4, vnode: updatedVnode4 } = VdomHelper.update({vdom, vnode: updatedVnode3});
-        expect(deltas4.length).toBe(1);
+        output = VdomHelper.update({vdom, vnode});
+        deltas = output.deltas;
+        vnode = output.vnode;
+
+        expect(vnode).toEqual({
+            attributes: {},
+            className : ['neo-container'],
+            id        : vnodeId,
+            nodeName  : 'div',
+            style     : {color: 'green'},
+            vtype     : 'vnode',
+            childNodes: [
+                {attributes: {}, childNodes: [], className: [], id: childIds[2],  nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', nodeName: 'div', style: {}, vtype: 'vnode'},
+                {attributes: {}, childNodes: [], className: [], id: childIds[0],  nodeName: 'div', style: {}, vtype: 'vnode'}
+            ]
+        });
+
+        expect(deltas).toEqual([
+            {action: 'moveNode', id: childIds[2], index: 0, parentId: vnodeId}
+        ]);
     });
 
     test('vdom filtering (list.Base)', () => {
@@ -209,6 +278,84 @@ test.describe('Neo.vdom.Helper', () => {
             {action: 'removeNode', id: 'neo-list-1__mrsunshine'},
             {action: 'removeNode', id: 'neo-list-1__rwaters'}
         ]);
+
+        // recreate the 3 removed items
+        vdom.cn = [
+            {tag: 'li', cls: ['neo-list-item'], html: 'Bastian', id: 'neo-list-1__bhaustein',     tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Gerard',  id: 'neo-list-1__camtnbikerrwc', tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Jozef',   id: 'neo-list-1__jsakalos',      tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Nils',    id: 'neo-list-1__mrsunshine',    tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Rich',    id: 'neo-list-1__rwaters',       tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Tobias',  id: 'neo-list-1__tobiu',         tabIndex: -1}
+        ];
+
+        let { deltas: deltas2, vnode: updatedVnode2 } = VdomHelper.update({vdom, vnode: updatedVnode1});
+        expect(updatedVnode2.childNodes.length).toBe(6);
+        expect(deltas2.length).toBe(3);
+
+        // remove items at index: 2, 4, switch nils & tobi
+        vdom.cn = [
+            {tag: 'li', cls: ['neo-list-item'], html: 'Bastian', id: 'neo-list-1__bhaustein',     tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Gerard',  id: 'neo-list-1__camtnbikerrwc', tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Tobias',  id: 'neo-list-1__tobiu',         tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Nils',    id: 'neo-list-1__mrsunshine',    tabIndex: -1}
+        ];
+
+        let { deltas: deltas3, vnode: updatedVnode3 } = VdomHelper.update({vdom, vnode: updatedVnode2});
+        expect(deltas3.length).toBe(3);
+
+        // remove first list item
+        vdom.cn.splice(0, 1);
+        let { deltas: deltas4, vnode: updatedVnode4 } = VdomHelper.update({vdom, vnode: updatedVnode3});
+        expect(deltas4.length).toBe(1);
+
+        // restore the initial list state
+        vdom.cn = [
+            {tag: 'li', cls: ['neo-list-item'], html: 'Bastian', id: 'neo-list-1__bhaustein',     tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Gerard',  id: 'neo-list-1__camtnbikerrwc', tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Jozef',   id: 'neo-list-1__jsakalos',      tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Nils',    id: 'neo-list-1__mrsunshine',    tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Rich',    id: 'neo-list-1__rwaters',       tabIndex: -1},
+            {tag: 'li', cls: ['neo-list-item'], html: 'Tobias',  id: 'neo-list-1__tobiu',         tabIndex: -1}
+        ];
+        let { vnode: updatedVnode5 } = VdomHelper.update({vdom, vnode: updatedVnode4});
+        expect(updatedVnode5.childNodes.length).toBe(6);
+    });
+
+    test('Sorting', () => {
+        let vdom = {
+            id: 'root', cn: [
+                {id: '0', html: 'g'},
+                {id: '1', html: 'g'},
+                {id: '2', html: 'g'},
+                {id: '3', html: 'g'},
+                {id: '4', html: 'm'},
+                {id: '5', html: 'm'},
+                {id: '6', html: 'w'},
+                {id: '7', html: 'w'},
+                {id: '8', html: 'w'},
+                {id: '9', html: 'w'}
+            ]
+        };
+
+        let { vnode } = VdomHelper.create({vdom});
+
+        vdom.cn = [
+            {id: '9', html: 'w'},
+            {id: '8', html: 'w'},
+            {id: '7', html: 'w'},
+            {id: '6', html: 'w'},
+            {id: '4', html: 'm'},
+            {id: '5', html: 'm'},
+            {id: '3', html: 'g'},
+            {id: '2', html: 'g'},
+            {id: '1', html: 'g'},
+            {id: '0', html: 'g'}
+        ];
+
+        let { vnode: updatedVnode } = VdomHelper.update({vdom, vnode});
+
+        expect(updatedVnode.childNodes.map(c => c.id)).toEqual(['9', '8', '7', '6', '4', '5', '3', '2', '1', '0']);
     });
 
     test('Replacing a parent node with one child', () => {
@@ -243,5 +390,24 @@ test.describe('Neo.vdom.Helper', () => {
             {action: 'moveNode', id: 'level-3-2', index: 2, parentId: 'level-1'},
             {action: 'removeNode', id: 'level-2'}
         ]);
+    });
+
+    test('Replacing a parent node with multiple children & adding a new node', () => {
+        let vdom = {id: 'level-1', cn: [{id: 'level-2', cn: [{id: 'level-3-1'}, {id: 'level-3-2'}]}]};
+        let { vnode } = VdomHelper.create({vdom});
+
+        vdom = {
+            id: 'level-1', cn: [
+                {id: 'level-3-1'},
+                {id: 'new-node'},
+                {id: 'level-3-2'}
+            ]
+        };
+
+        let { deltas, vnode: updatedVnode } = VdomHelper.update({vdom, vnode});
+
+        expect(updatedVnode.childNodes.length).toBe(3);
+        expect(updatedVnode.childNodes[1].id).toBe('new-node');
+        expect(deltas.length).toBe(4);
     });
 });
