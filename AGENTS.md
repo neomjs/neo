@@ -29,7 +29,10 @@ At the beginning of every new session, you **MUST** perform the following steps 
     - The distinction between class namespaces (e.g., `Neo.component.Base`) and `ntype` shortcuts (e.g., `'button'`).
 
 3.  **Read the Base Class (`src/core/Base.mjs`):** This is the foundation for all components and classes. Focus on:
-    - The `static config` system: **CRITICAL:** You must deeply understand the difference between **reactive configs** (e.g., `myConfig_`), which generate `before/afterSet` hooks and are fundamental to the framework's reactivity, and **non-reactive configs**, which are applied to the prototype. Misinterpreting this is a critical failure. The trailing underscore is the key indicator.
+    - The `static config` system: **CRITICAL:** You must deeply understand the difference between **reactive configs**
+      (e.g., `myConfig_`), which generate `before/afterSet` hooks and are fundamental to the framework's reactivity,
+      and **non-reactive configs**, which are applied to the prototype. Misinterpreting this is a critical failure.
+      The trailing underscore is the key indicator.
     - The instance lifecycle: `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
     - The reactivity hooks: `beforeGet*`, `beforeSet*`, `afterSet*`.
 
@@ -81,7 +84,8 @@ files may lack, it is highly recommended to read the most relevant guide file fr
 the #1 ranked file. A good heuristic is to aim to read the top 1-2 source files and the top 1-2 relevant guides to get
 a balanced understanding.
 
-- **Prioritize Content Types:** Always prioritize `guide` and `src` results for implementation details and current best practices. Treat `blog` results as sources for historical and conceptual context; their code examples may be outdated.
+- **Prioritize Content Types:** Always prioritize `guide` and `src` results for implementation details and current best
+  practices. Treat `blog` results as sources for historical and conceptual context; their code examples may be outdated.
 
 ### Query Strategies
 
@@ -89,16 +93,22 @@ Do not assume you will get the perfect answer on the first try. Use a systematic
 
 #### 1. Strategy for High-Level Conceptual Questions
 
-When asked a broad, high-level, or conceptual question (e.g., "what makes this framework stand out?"), you must use a more guided approach to find the most important "pillar content".
+When asked a broad, high-level, or conceptual question (e.g., "what makes this framework stand out?"), you must use a
+more guided approach to find the most important "pillar content".
 
-1.  **Consult the Information Architecture:** Before formulating a query, read the file `learn/tree.json`. This file defines the intended structure of the learning content.
-2.  **Identify Key Concepts:** Use the top-level categories in the tree (e.g., "Benefits", "Fundamentals") to identify the most important concepts.
-3.  **Formulate Initial Query:** Base your first query on these high-level concepts to ensure you start your exploration from the project's intended information architecture.
+1.  **Consult the Information Architecture:** Before formulating a query, read the file `learn/tree.json`.
+    This file defines the intended structure of the learning content.
+2.  **Identify Key Concepts:** Use the top-level categories in the tree (e.g., "Benefits", "Fundamentals") to identify
+    the most important concepts.
+3.  **Formulate Initial Query:** Base your first query on these high-level concepts to ensure you start your exploration
+    from the project's intended information architecture.
 
 #### 2. Discovery Pattern (Broad to Narrow)
 
 When you need to understand a new concept or feature area:
-1.  **Query Foundational Concepts First:** Always begin a broad inquiry by querying for foundational terms like `"benefits"`, `"concept"`, `"architecture"`, and `"vision"`. Prioritize reading files from the `learn/benefits` directory or top-level `README.md` and `.github/*.md` files if they appear in these initial results.
+1.  **Query Foundational Concepts First:** Always begin a broad inquiry by querying for foundational terms like
+    `"benefits"`, `"concept"`, `"architecture"`, and `"vision"`. Prioritize reading files from the `learn/benefits`
+    directory or top-level `README.md` and `.github/*.md` files if they appear in these initial results.
 2.  **Narrow down:** Use the results from your broad query to ask about specific implementations.
     - `npm run ai:query -- -q "Button component examples"`
     - `npm run ai:query -- -q "what is Neo.component.Base?"`
@@ -211,39 +221,58 @@ keywords based on the knowledge you've gathered from reading the core files.
 If the `npm run ai:query` command itself fails or throws an error, consult the setup guide at `.github/AI_QUICK_START.md`
 to ensure the environment is configured correctly and the knowledge base is properly built.
 
-## 4. Development Workflow
+## 4. Development Workflow: Triage and Gating Protocol
 
-Integrate the query tool and the ticketing system into your development process.
+You **MUST** follow this protocol for every user request to ensure work is tracked and context is maintained.
 
-1.  **Understand the Task & Identify Intent:** When a new request is received, first determine the user's intent.
-    -   **Conceptual/Informational:** Is the user asking for an explanation, brainstorming ideas, or asking a question that does not involve changing files? (e.g., "How does reactivity work?", "Should we move these files?"). If so, proceed directly to answering the query. No ticket is needed.
-    -   **Actionable/Modification:** Does the user's request require creating, deleting, or modifying files in the repository? (e.g., "Fix this bug," "Add JSDoc to this file," "Create a new release"). If so, proceed to the next step.
-        -   **Note:** A conceptual discussion can often lead to an actionable task. When the conversation shifts from "what if we..." to "let's do...", you must treat this as a new actionable request and follow the ticket-first mandate before proceeding.
+### Step 1: Triage the Request
 
-2.  **Ensure a Ticket Exists (Ticket-First Mandate):**
-    -   For any modification task, check if the request is already associated with an existing ticket file in `.github/ISSUE/`.
-    -   If not, your first action **MUST** be to create one. The ticket should summarize the task, its scope, and the goal. Inform the user that you are creating the ticket to track the work, following the process defined in `.github/TICKET_STRATEGY.md`.
+First, classify the user's request into one of two categories:
 
-3.  **Query & Analyze:** With a ticket now in place, use the **Discovery Pattern** to understand the context and find relevant files. When reading, focus on understanding the existing class structure, method signatures, configuration patterns, and overall architecture. **If you encounter source code lacking intent-driven comments, apply the "Knowledge Base Enhancement Strategy" to add meaningful documentation before proceeding.** Your goal is to make your changes fit in seamlessly.
+-   **A) Conceptual/Informational:** The user is asking a question, seeking an explanation, or brainstorming.
+    No files will be created, modified, or deleted.
+    -   **Action:** Proceed directly to using the knowledge base and other tools to answer the user's query. **No ticket is required.**
 
-4.  **Implement Changes:** Write or modify the code, strictly adhering to the conventions you observed.
+-   **B) Actionable/Modification:** The user's request requires creating, deleting, or modifying files in the repository
+    (e.g., "Fix this bug," "Add JSDoc," "Create a release").
+    -   **Action:** Proceed to **Step 2**.
 
-5.  **Verify:** After making changes, run any relevant verification tools, such as tests, to ensure your changes are correct and meet the project's standards. For bug fixes, ensure you've created regression tests (see `learn/guides/UnitTestingWithSiesta.md` for guidance).
+**Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to
+"let's do...", you must treat it as a new actionable request and start this protocol from Step 1.
 
-6.  **Use `text` over `html` in VDOM:** When creating VDOM nodes, always prefer using the `text` property over the `html`
+### Step 2: The "Ticket-First" Gate
 
-## This Changes the Workflow
+For any **Actionable/Modification** request, a ticket is mandatory. This is a non-negotiable gate.
 
-The enhanced workflow becomes:
+1.  **Check for an Existing Ticket:** Does the request reference an existing ticket file in `.github/ISSUE/`?
+2.  **Create a New Ticket:** If no ticket exists, your immediate next action **MUST** be to create one.
+    -   Inform the user: "This is an actionable request. I will create a ticket to track this work, as per our workflow."
+    -   Follow the process in `.github/TICKET_STRATEGY.md` to create the ticket file.
 
-1. **Query for understanding** (as before)
-2. **Read available documentation** 
-3. **If source lacks context**: Analyze the code and **add meaningful comments**
-4. **Implement your changes** with the new understanding
-5. **The knowledge base gets richer** for the next session
+**CRITICAL:** You are not permitted to use any file modification tools (`replace`, `write_file`) or run any
+file-system-altering shell commands until a ticket has been created and acknowledged.
 
-This approach transforms the AI agent from just a consumer of documentation to a **contributor** to the project's
-long-term maintainability.
+### Step 3: The Implementation Loop
+
+Once you have passed the "Ticket-First" Gate, you may proceed with the task.
+
+1.  **Query & Analyze:** Use the **Discovery Pattern** to understand the context. If you find source code lacking
+    intent-driven comments, apply the **Knowledge Base Enhancement Strategy** to add them *before* implementing your main changes.
+2.  **Implement Changes:** Write or modify code, adhering to project conventions.
+3.  **Verify:** Run tests and other verification tools to confirm your changes are correct.
+
+### The Virtuous Cycle: Enhancing the Knowledge Base
+
+The Implementation Loop creates a virtuous cycle that continuously improves the project's knowledge base:
+
+1.  **Query for understanding** (as before).
+2.  **Read available documentation**.
+3.  **If source lacks context**: Analyze the code and **add meaningful, intent-driven comments**.
+4.  **Implement your changes** with the new, deeper understanding.
+5.  **The knowledge base gets richer**, making the next query more effective.
+
+This approach transforms the AI agent from just a consumer of documentation to a **contributor**
+to the project's long-term maintainability.
 
 ## 5. Session Maintenance
 

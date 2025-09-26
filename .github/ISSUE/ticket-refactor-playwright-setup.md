@@ -1,6 +1,6 @@
 # Ticket: Refactor Playwright Setup Function for Test-Specific Configurations
 
-GH ticket id: #
+GH ticket id: #7256
 
 **Assignee:** Gemini
 **Status:** Done
