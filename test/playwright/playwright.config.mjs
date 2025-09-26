@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: '.',
+  testDir: './unit',
   outputDir: 'test-results',
   /* Run tests in files in parallel */
   fullyParallel: true,

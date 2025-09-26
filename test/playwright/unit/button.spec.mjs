@@ -15,11 +15,11 @@ setup({
 
 import { test, expect } from '@playwright/test';
 
-import Neo from '../../../src/Neo.mjs';
-import * as core from '../../../src/core/_export.mjs';
-import Button from '../../../src/button/Base.mjs';
+import Neo                from '../../../src/Neo.mjs';
+import * as core          from '../../../src/core/_export.mjs';
+import Button             from '../../../src/button/Base.mjs';
 import DomApiVnodeCreator from '../../../src/vdom/util/DomApiVnodeCreator.mjs';
-import VdomHelper from '../../../src/vdom/Helper.mjs';
+import VdomHelper         from '../../../src/vdom/Helper.mjs';
 
 test.describe('Neo.button.Base VDOM (Node.js)', () => {
 

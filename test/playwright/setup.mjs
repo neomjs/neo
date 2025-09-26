@@ -1,3 +1,10 @@
+globalThis.Neo = {};
+
+globalThis.Neo.config = {
+    environment : 'development',
+    unitTestMode: true
+};
+
 globalThis.DOMRect = class DOMRect {
     constructor(x, y, width, height) {
         this.x = x || 0;
@@ -25,16 +32,15 @@ export function setup(options = {}) {
         unitTestMode: true
     };
 
+    Object.assign(Neo.config, defaultNeoConfig);
+    Object.assign(Neo.config, neoConfig);
+
     const defaultAppConfig = {
         fire             : () => {},
         isMounted        : () => true,
         vnodeInitialising: false
     };
 
-    globalThis.Neo = {
-        apps: {
-            [appConfig.name]: { ...defaultAppConfig, ...appConfig }
-        },
-        config: { ...defaultNeoConfig, ...neoConfig }
-    };
+    Neo.apps ??= [];
+    Neo.apps[appConfig.name] = { ...defaultAppConfig, ...appConfig };
 }
