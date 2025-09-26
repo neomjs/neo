@@ -19,7 +19,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
 
 1.  **Read the Codebase Structure:** Parse the file `docs/output/class-hierarchy.yaml`. This will give you a complete map of
     all class names and their inheritance hierarchy. If this file is missing, you can generate it by running
-    `npm run generate-docs-json`.
+    `npm run generate-docs-json`. **Note:** The `docs/output` directory is git-ignored; ensure you are checking for ignored files.
 
 2.  **Read the Core Concepts (`src/Neo.mjs`):** When reading this file, focus on understanding:
     - `Neo.setupClass()`: The final processing step for all classes. This is the most critical function for understanding
