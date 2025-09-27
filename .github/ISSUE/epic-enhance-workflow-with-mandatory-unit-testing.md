@@ -42,6 +42,10 @@ The primary goal is to prevent regressions, especially in the complex core modul
 
 4.  **Update Status:** Once a migration is complete and verified with `npm test`, update the status of the corresponding ticket to "Done" and, if possible, update its status in this epic.
 
+5.  **Add Intent-Driven JSDoc:** At the top of the main `test.describe()` block for the test suite, add a JSDoc comment block. This block should include:
+    *   A `@summary` tag explaining the primary purpose of the test suite.
+    *   A brief description of what aspects of the class are being tested and why they are important.
+
 ## Sub-Tasks
 
 ### Setup & Refactoring
@@ -53,7 +57,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 ### Test Migrations
 - **Done:** ticket-refactor-playwright-and-convert-vdom-helper.md (covers `VdomHelper.mjs`)
 - **Done:** ticket-convert-core-effect-test.md (covers `core/Effect.mjs`)
-- **To Do:** ticket-convert-classconfigsandfields-test.md
+- **Done:** ticket-convert-classconfigsandfields-test.md
 - **To Do:** ticket-convert-classsystem-test.md
 - **To Do:** ticket-convert-collectionbase-test.md
 - **To Do:** ticket-convert-config-aftersetconfig-test.md

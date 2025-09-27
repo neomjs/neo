@@ -28,6 +28,14 @@ class TestClass extends core.Base {
 
 Neo.setupClass(TestClass);
 
+/**
+ * @summary Verifies the order of operations for Neo.mjs class fields and reactive configs.
+ *
+ * This test suite is critical for ensuring the predictability of the framework's config system.
+ * It confirms that class fields are resolved before config setters are called, and that all
+ * config-related hooks (`beforeSet*`, `afterSet*`) have access to the complete, updated
+ * state within a single `set()` batch operation, regardless of property order.
+ */
 test.describe('ClassConfigsAndFields', () => {
     test('Default class fields inside constructors', () => {
         class CtorTest {
