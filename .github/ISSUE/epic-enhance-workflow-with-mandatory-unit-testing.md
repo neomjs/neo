@@ -46,6 +46,20 @@ The primary goal is to prevent regressions, especially in the complex core modul
     *   A `@summary` tag explaining the primary purpose of the test suite.
     *   A brief description of what aspects of the class are being tested and why they are important.
 
+6.  **Always Re-Assign After `setupClass`:** When defining a class locally for a test, you **MUST** re-assign the class variable to the return value of `Neo.setupClass()`. This ensures you are using the final, fully processed constructor. Failure to do so can lead to subtle inheritance bugs in the Node.js test environment.
+
+    **Correct:**
+    ```javascript
+    class MyTestClass extends Base { /* ... */ }
+    MyTestClass = Neo.setupClass(MyTestClass); // Re-assignment is crucial
+    ```
+
+    **Incorrect:**
+    ```javascript
+    class MyTestClass extends Base { /* ... */ }
+    Neo.setupClass(MyTestClass); // Missing re-assignment
+    ```
+
 ## Sub-Tasks
 
 ### Setup & Refactoring
@@ -58,7 +72,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **Done:** ticket-refactor-playwright-and-convert-vdom-helper.md (covers `VdomHelper.mjs`)
 - **Done:** ticket-convert-core-effect-test.md (covers `core/Effect.mjs`)
 - **Done:** ticket-convert-classconfigsandfields-test.md
-- **To Do:** ticket-convert-classsystem-test.md
+- **Done:** ticket-convert-classsystem-test.md
 - **To Do:** ticket-convert-collectionbase-test.md
 - **To Do:** ticket-convert-config-aftersetconfig-test.md
 - **To Do:** ticket-convert-config-basic-test.md
