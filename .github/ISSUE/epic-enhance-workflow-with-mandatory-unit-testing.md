@@ -33,4 +33,5 @@ The primary goal is to prevent regressions, especially in the complex core modul
 ### Test Migrations
 - **Done:** ticket-refactor-playwright-and-convert-vdom-helper.md (covers `VdomHelper.mjs`)
 - **Done:** ticket-convert-core-effect-test.md (covers `core/Effect.mjs`)
-- **To Do:** *[Future tickets for remaining test files will be listed here]*
+- **To Do:** ticket-plan-remaining-siesta-migrations.md
+- **To Do:** ticket-explore-test-file-indexing.md
