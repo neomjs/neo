@@ -33,5 +33,33 @@ The primary goal is to prevent regressions, especially in the complex core modul
 ### Test Migrations
 - **Done:** ticket-refactor-playwright-and-convert-vdom-helper.md (covers `VdomHelper.mjs`)
 - **Done:** ticket-convert-core-effect-test.md (covers `core/Effect.mjs`)
-- **To Do:** ticket-plan-remaining-siesta-migrations.md
+- **To Do:** ticket-convert-classconfigsandfields-test.md
+- **To Do:** ticket-convert-classsystem-test.md
+- **To Do:** ticket-convert-collectionbase-test.md
+- **To Do:** ticket-convert-config-aftersetconfig-test.md
+- **To Do:** ticket-convert-config-basic-test.md
+- **To Do:** ticket-convert-config-circulardependencies-test.md
+- **To Do:** ticket-convert-config-customfunctions-test.md
+- **To Do:** ticket-convert-config-hierarchy-test.md
+- **To Do:** ticket-convert-config-memoryleak-test.md
+- **To Do:** ticket-convert-config-multilevelhierarchy-test.md
+- **To Do:** ticket-convert-core-effectbatching-test.md
+- **To Do:** ticket-convert-form-field-aftersetvaluesequence-test.md
+- **To Do:** ticket-convert-functional-button-test.md
+- **To Do:** ticket-convert-functional-htmltemplatecomponent-test.md
+- **To Do:** ticket-convert-functional-parse5processor-test.md
+- **To Do:** ticket-convert-managerinstance-test.md
+- **To Do:** ticket-convert-neo-mixinstaticconfig-test.md
+- **To Do:** ticket-convert-rectangle-test.md
+- **To Do:** ticket-convert-state-createhierarchicaldataproxy-test.md
+- **To Do:** ticket-convert-state-feedbackloop-test.md
+- **To Do:** ticket-convert-state-provider-test.md
+- **To Do:** ticket-convert-state-providernesteddataconfigs-test.md
+- **To Do:** ticket-convert-vdom-advanced-test.md
+- **To Do:** ticket-convert-vdom-layout-cube-test.md
+- **To Do:** ticket-convert-vdom-table-container-test.md
+- **To Do:** ticket-convert-vdom-vdomasymmetricupdates-test.md
+- **To Do:** ticket-convert-vdom-vdomrealworldupdates-test.md
+- **To Do:** ticket-convert-vdomcalendar-test.md
 - **To Do:** ticket-explore-test-file-indexing.md
+- **Done:** ticket-plan-remaining-siesta-migrations.md
