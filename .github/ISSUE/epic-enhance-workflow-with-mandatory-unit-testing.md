@@ -22,6 +22,26 @@ The primary goal is to prevent regressions, especially in the complex core modul
     *   Before any actionable ticket concerning stable, non-experimental code is considered complete, the agent **must** run the full Playwright unit test suite and confirm that all tests pass.
     *   This ensures that no change, however small, introduces a regression or an unintended API modification.
 
+### Migration Guide & Best Practices
+
+**CRITICAL:** All contributors (human or AI) assigned to a test migration task **MUST** follow these instructions to ensure consistency and prevent regressions.
+
+1.  **Analyze Existing Examples:** Before starting, thoroughly review the already completed Playwright test `test/playwright/unit/VdomHelper.spec.mjs` and its original Siesta counterpart `test/siesta/tests/VdomHelper.mjs`. This will provide the blueprint for structure, assertions, and setup.
+
+2.  **Do Not Remove Core Imports:** The Playwright unit tests run in a Node.js environment, not a browser. They require explicit imports to set up the Neo.mjs environment.
+    ```javascript
+    import Neo from '../../../src/Neo.mjs';
+    import * as core from '../../../src/core/_export.mjs';
+    ```
+    Even if these imports appear "unused" in the test file, they are **ESSENTIAL**. They attach the `Neo` namespace to the `globalThis` object. Removing them will cause the test environment to fail. **DO NOT REMOVE THEM.**
+
+3.  **Follow the Test Structure:**
+    *   Use `test.describe()` to group tests for a class.
+    *   Use `test()` for individual test cases.
+    *   Use `expect()` from Playwright for assertions (`toEqual`, `toBe`, etc.).
+
+4.  **Update Status:** Once a migration is complete and verified with `npm test`, update the status of the corresponding ticket to "Done" and, if possible, update its status in this epic.
+
 ## Sub-Tasks
 
 ### Setup & Refactoring
