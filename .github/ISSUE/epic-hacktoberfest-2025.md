@@ -1,5 +1,7 @@
 # Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
 
+GH ticket id: #7296
+
 **Status:** Pinned  
 **Labels:** `hacktoberfest`, `epic`, `good first issue`, `help wanted`
 
