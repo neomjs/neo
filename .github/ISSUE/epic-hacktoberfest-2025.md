@@ -15,32 +15,26 @@
 
 ## Choose Your Path - All Lead to Success
 
-### Path 1: Zero Setup, Immediate Impact (Start in 2 minutes)
-No AI needed, no special tools required:
+### Path 1: The Classic Contributor (No AI Setup Required)
+Dive directly into the codebase and make a tangible impact. This path is perfect for developers of all skill levels who prefer a traditional workflow. Here are some high-impact ways to contribute:
 
-```bash
-git clone https://github.com/neomjs/neo.git
-cd neo
-# Look for files in /src missing JSDoc comments
-# Add a comment explaining what a function does
-# Submit PR - you're done!
-```
-
-**Quick wins without AI:**
-- Add missing JSDoc comments
-- Fix typos in documentation
-- Improve README sections
-- Add code examples to existing guides
+- **Write High-Quality Documentation:** Good documentation is the backbone of a healthy open-source project. Help fellow developers by adding clear, intent-driven JSDoc comments to undocumented classes and methods in the `/src` directory. **Bonus:** Our AI-native system consumes these comments, so every piece of documentation you write also makes our AI assistant smarter.
+- **Build New Examples:** Create a new, practical code example for any component in the `/examples` folder. This is one of the best ways to learn the framework and help others.
+- **Strengthen the Codebase:** Add or improve unit tests for existing functionality.
+- **Fix Bugs & Refactor:** Tackle an issue from our `good first issue` list or propose a refactoring to improve code quality.
 
 ### Path 2: AI-Powered Development (15-minute setup, then fly)
-Let AI do the heavy lifting while you learn:
+Let AI do the heavy lifting while you learn. The one-time setup takes about 15 minutes and leverages Google's generous free tier, which works in two parts:
 
+- **Knowledge Base:** Building and querying the knowledge base uses the `text-embedding-004` model, which is free for up to **60 queries per minute**.
+- **AI Agent:** For interactive development, if you use the Gemini CLI, it uses the `gemini-pro` model, which provides up to **3 million tokens per day for free**.
+
+**1. Follow the [AI Knowledge Base Quick Start Guide](./AI_QUICK_START.md)**
+
+This will walk you through building the local knowledge base that the AI uses to understand the project.
+
+**2. Then, just chat with your AI:**
 ```bash
-# One-time 15-minute setup (all FREE - 3M tokens daily)
-npm install
-npm run ai:setup  # Get free API key & build knowledge base
-
-# Then just chat with your AI:
 gemini
 > "Help me find something to improve in Neo.mjs"
 ```
@@ -60,18 +54,21 @@ Write about your experience, no coding required:
 
 Neo.mjs is the first framework built for AI collaboration. While others bolt AI on top, we built it into our DNA.
 
-**Want the full story?** Read [AI-Native, Not AI-Assisted](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md) (or skip it and just start contributing!)
+**Want the full story?** Read "AI-Native, Not AI-Assisted" on [GitHub](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md) or [Medium (friends link, no paywall)](https://itnext.io/ai-native-not-ai-assisted-a-platform-that-answers-your-questions-0c08f5a336ae?source=friends_link&sk=45cc238e4f342672d3eb3244136b7770) (or skip it and just start contributing!)
 
-## Real Examples from Real Contributors
+## Example Contribution Workflows
 
-### "My First PR Took 20 Minutes"
+### Classic Contribution: Adding Documentation
+This workflow shows how a classic contribution directly improves the codebase.
+
+**Before:** An undocumented function.
 ```javascript
-// Before: Undocumented function
 createVnode(vdom) {
     // complex logic here
 }
-
-// After: Clear, searchable documentation
+```
+**After:** Clear, intent-driven documentation is added.
+```javascript
 /**
  * Transforms a JSON blueprint into a virtual DOM node structure.
  * Part of Neo's reactivity system - enables surgical DOM updates.
@@ -82,8 +79,10 @@ createVnode(vdom) {
     // complex logic here
 }
 ```
+*This documentation is now part of the knowledge base, making the AI smarter for the next contributor.*
 
-### "I Let AI Teach Me While Contributing"
+### AI-Powered Contribution: Learning and Building
+This workflow demonstrates using the AI as a pair programmer to learn and contribute simultaneously.
 ```bash
 You: "Find me a component that needs better examples"
 AI: "I found Neo.button.Split lacks examples. Let me explain what it does..."
@@ -151,11 +150,8 @@ cd neo
 ```
 
 ### 🤖 AI-Powered Start (15 minutes)
+Set up once following the **[AI Knowledge Base Quick Start Guide](./AI_QUICK_START.md)**, then the AI guides everything.
 ```bash
-# Set up once, then AI guides everything
-git clone https://github.com/neomjs/neo.git
-cd neo
-npm install && npm run ai:setup
 gemini  # or your preferred AI tool
 > "Guide me through my first Neo.mjs contribution"
 ```
