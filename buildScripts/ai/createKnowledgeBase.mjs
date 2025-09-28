@@ -4,9 +4,8 @@ import path   from 'path';
 import dotenv from 'dotenv';
 
 const
-    cwd         = process.cwd(),
-    insideNeo   = process.env.npm_package_name.includes('neo.mjs'),
-    neoPath     = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/');
+    cwd       = process.cwd(),
+    insideNeo = process.env.npm_package_name.includes('neo.mjs');
 
 dotenv.config({
     path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env')
@@ -69,11 +68,16 @@ class CreateKnowledgeBase {
 
         apiData.forEach(item => {
             const sourceFile = item.meta ? path.join(item.meta.path, item.meta.filename) : 'unknown';
-            let chunk;
+            let chunk, type = 'src';
+
+            if (sourceFile.includes('/examples/')) {
+                type = 'example';
+            }
 
             if (item.kind === 'class') {
                 chunk = {
-                    type       : 'class',
+                    type,
+                    kind       : 'class',
                     name       : item.longname,
                     description: item.comment,
                     extends    : item.augments?.[0], // Capture the parent class
@@ -81,7 +85,8 @@ class CreateKnowledgeBase {
                 };
             } else if (item.kind === 'member' && item.memberof) {
                 chunk = {
-                    type       : 'config',
+                    type,
+                    kind       : 'config',
                     className  : item.memberof,
                     name       : item.name,
                     description: item.description,
@@ -90,7 +95,8 @@ class CreateKnowledgeBase {
                 };
             } else if (item.kind === 'function' && item.memberof) {
                 chunk = {
-                    type       : 'method',
+                    type,
+                    kind       : 'method',
                     className  : item.memberof,
                     name       : item.name,
                     description: item.description,
@@ -138,6 +144,7 @@ class CreateKnowledgeBase {
                                 chunkName    = `${item.name} - ${heading}`,
                                 chunk        = {
                                     type   : 'guide',
+                                    kind   : 'guide',
                                     name   : chunkName,
                                     id     : item.id,
                                     isBlog : item.parentId === 'Blog',
@@ -153,6 +160,7 @@ class CreateKnowledgeBase {
                         // If no headings, add the whole file as one chunk
                         const chunk = {
                             type   : 'guide',
+                            kind   : 'guide',
                             name   : item.name,
                             id     : item.id,
                             isBlog : item.parentId === 'Blog',
@@ -183,6 +191,7 @@ class CreateKnowledgeBase {
 
                 const chunk = {
                     type   : 'release',
+                    kind   : 'release',
                     name   : chunkName,
                     content: content,
                     source : filePath
@@ -217,6 +226,7 @@ class CreateKnowledgeBase {
 
                             const chunk = {
                                 type   : 'ticket',
+                                kind   : 'ticket',
                                 name   : chunkName,
                                 content: content,
                                 source : filePath
