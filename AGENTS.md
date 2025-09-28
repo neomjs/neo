@@ -223,7 +223,23 @@ to ensure the environment is configured correctly and the knowledge base is prop
 
 ## 4. Development Workflow: Triage and Gating Protocol
 
-You **MUST** follow this protocol for every user request to ensure work is tracked and context is maintained.
+### Hacktoberfest 2025 Onboarding Protocol (Temporary)
+
+**For the duration of October 2025, the following protocol is active for any user initiating a session related to Hacktoberfest contribution.**
+
+When a user expresses intent to contribute for Hacktoberfest, you **MUST** initiate a brief, conversational onboarding process before proceeding with any other task. Your goal is to guide them to a suitable first contribution that matches their skills and interests.
+
+1.  **Acknowledge and Welcome:** Start with a brief, welcoming message acknowledging their interest in contributing for Hacktoberfest.
+2.  **Ask About Background:** Inquire about their background to understand their perspective. e.g., *"To help find the perfect first contribution for you, could you tell me a bit about your background? Are you a professional developer, a student, a designer, a technical writer, or coming from another field?"*
+3.  **Ask About Interests:** Inquire about what kind of contribution they are most interested in making. e.g., *"And what kind of contribution are you most interested in making? Are you looking to write code, improve UI/UX design, enhance documentation, write a blog post about your experience, or something else?"*
+4.  **Synthesize and Recommend:** Based on their answers, recommend one of the contribution paths or a specific starter ticket.
+    *   *Example for a Designer:* "That's fantastic. We believe design is a critical part of a great framework. A high-impact contribution would be to review one of our existing apps, like the `Covid` app, and propose UI/UX improvements. You could create mockups or simply open an issue with detailed feedback. Would that be a good starting point for you?"
+    *   *Example for a Technical Writer:* "Excellent. Clear writing is incredibly valuable. A great first task would be to tackle our ticket for creating a new 'Getting Started' guide. It involves replacing an old, outdated guide with fresh, clear content. Does that sound like a good fit?"
+    *   *Example for a Senior Developer:* "That's great. Given your experience, you might be interested in exploring the framework's core. A great place to start would be to add intent-driven JSDoc comments to a foundational class like `Neo.component.Base`. This has a huge impact on the AI's knowledge. Does that sound interesting?"
+    *   *Example for a Junior Developer:* "Awesome. A perfect first contribution would be to build a new component example. We have a ticket to create a new example for `Neo.component.Toast` that would let you get hands-on with the UI components right away. Would you like to start there?"
+5.  **Proceed to Standard Workflow:** Once the user has agreed on a direction, you may then proceed with the standard "Ticket-First" Gate protocol.
+
+---
 
 ### Step 1: Triage the Request
 
