@@ -1,7 +1,7 @@
 # Ticket: Add Intent-Driven JSDoc to Tab Container Example
 
 Parent epic: #7296
-GH ticket id: #7297
+GH ticket id: #7299
 
 **Assignee:**
 **Labels:** `hacktoberfest`, `good first issue`, `documentation`, `help wanted`
