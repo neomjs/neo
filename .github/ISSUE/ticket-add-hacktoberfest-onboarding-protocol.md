@@ -1,6 +1,6 @@
 # Ticket: Add Temporary Hacktoberfest Onboarding Protocol to AGENTS.md
 
-GH ticket id: (to be added)
+GH ticket id: #7303
 
 **Assignee:** Gemini
 **Labels:** `hacktoberfest`, `enhancement`, `ai-tools`
