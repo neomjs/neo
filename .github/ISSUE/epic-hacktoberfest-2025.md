@@ -50,6 +50,24 @@ Write about your experience, no coding required:
 
 **We especially value blog posts!** They help others learn.
 
+---
+
+## How to Contribute: The Neo.mjs Way
+
+Unlike traditional Hacktoberfest projects where you pick from a pre-existing list of issues, we encourage you to **propose your own contributions**. This is a core part of our AI-native philosophy: you will use the AI agent as a partner to explore the codebase, identify areas for improvement, and define your own work.
+
+Our workflow is designed to mirror a real-world development process:
+
+1.  **Explore and Discover:** Use your chosen path (Classic or AI-Powered) to find something to improve. This could be missing documentation, a component that needs an example, a bug, or a potential refactoring.
+2.  **Propose Your Task by Opening an Issue:** Once you have an idea, [open a new issue on GitHub](https://github.com/neomjs/neo/issues/new). Clearly describe the work you intend to do. This is your proposal.
+3.  **Get Approval and Assignment:** A maintainer will review your proposal. If it's aligned with the project goals, we will approve it, assign it to you, and add the `hacktoberfest` label. **Please wait for this approval before starting your work.**
+4.  **Implement Your Change:** Once approved, you can start working on your contribution.
+5.  **Submit Your PR:** Link your Pull Request to the issue you created.
+
+This "propose, then build" model is exactly how professional software development works. It gives you a more realistic and valuable experience than simply grabbing a pre-made ticket. While we will still tag a few issues with `hacktoberfest` for those who prefer a traditional start, we highly encourage you to try our discovery-led process.
+
+---
+
 ## What Makes Neo.mjs Different (Optional Reading)
 
 Neo.mjs is the first framework built for AI collaboration. While others bolt AI on top, we built it into our DNA.
