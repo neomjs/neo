@@ -7,8 +7,9 @@ for the Neo.mjs repository.
 
 Before you begin, ensure you have the following:
 
-1.  **Node.js**: Version 20 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
-2.  **Project Setup**: Your setup depends on how you are working with Neo.mjs.
+1.  **Google Account**: You'll need one to access Google AI Studio for an API key, which is required to build the knowledge base. If you don't have one, you can create it at [accounts.google.com](https://accounts.google.com).
+2.  **Node.js**: Version 20 or later. If you don't have it, you can install it from [nodejs.org](https://nodejs.org).
+3.  **Project Setup**: Your setup depends on how you are working with Neo.mjs.
 
     **A) For contributions to the Neo.mjs framework itself:**
 
@@ -39,10 +40,40 @@ to directly interact with your codebase, run scripts, and access the local knowl
 You can use any CLI-based AI agent that you are comfortable with. The following sections will show you how to set up
 the knowledge base, and then provide an optional guide for configuring the Gemini CLI as one possible agent.
 
-## 3. Building the Knowledge Base (Required)
+## 3. Setup & Build the Knowledge Base (Required)
 
-This step creates a local vector database that your AI agent can query to get accurate, up-to-date information
-about the Neo.mjs codebase. This is a required step, regardless of which AI agent you choose to use.
+This section covers the mandatory steps to create the local vector database. The embedding process uses a Google
+Gemini model, so a Gemini API key is required regardless of which AI agent you choose for chatting.
+
+### A Note on Cost
+
+This entire process uses the free tier of the Google Gemini API. The free tier is generous and more than sufficient for
+this development workflow, typically allowing up to **60 queries per minute** for the embedding model used here.
+You can check your specific limits in the Google AI Studio.
+
+### Step 3.1: Obtain a Gemini API Key
+
+The API key authenticates your requests to Google's Gemini models.
+
+1.  **Visit Google AI Studio**: Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
+2.  **Sign In**: Use your Google account credentials. Complete any two-factor authentication (2FA) if prompted.
+3.  **Create API Key**: Click the "Create API key" button. The key will be generated instantly.
+4.  **Copy and Secure the Key**: Click the copy icon next to the key. **Treat this key like a password and never commit
+    it to version control.**
+
+### Step 3.2: Configure Your Local Environment
+
+1.  **Navigate to Repo Root**: Make sure you are in the root directory of your cloned `neo` repository.
+2.  **Create `.env` file**: Create a new file named `.env`.
+3.  **Add API Key**: Add the following line to the `.env` file, replacing `YOUR_API_KEY_HERE` with the key you just copied:
+    ```
+    GEMINI_API_KEY="YOUR_API_KEY_HERE"
+    ```
+    This file is already listed in `.gitignore` to prevent you from accidentally committing your key.
+
+### Step 3.3: Build the Knowledge Base
+
+With the configuration in place, you can now build the local vector database.
 
 1.  **Start the AI Server**: In a new terminal window, start the ChromaDB server. Keep this process running in the background.
     ```bash
@@ -58,43 +89,14 @@ about the Neo.mjs codebase. This is a required step, regardless of which AI agen
     npm run ai:build-kb
     ```
 
-## 4. Configuring an Agent (Example: Gemini CLI)
+## 4. Configuring an Agent (Optional Example: Gemini CLI)
 
-This section is an optional, specific guide for setting up Google's Gemini CLI as your agent. If you are using a
-different agent (like Claude, etc.), you will need to follow its specific instructions for configuration.
+Once the knowledge base is built, you can interact with it using any terminal-based AI agent. This is an optional
+step showing how to install the Gemini CLI.
 
-### A Note on Cost
-
-This entire process uses the free tier of the Google Gemini API. The free tier is generous and more than sufficient for
-this development workflow, typically allowing up to **60 queries per minute** for the embedding model used here.
-You can check your specific limits in the Google AI Studio.
-
-### Step 4.1: Install the Gemini CLI
-
-If you don't have the Gemini CLI, install it globally via npm:
 ```bash
 npm i -g @google/generative-ai/cli
 ```
-
-### Step 4.2: Obtain a Gemini API Key
-
-The API key authenticates your requests to Google's Gemini models.
-
-1.  **Visit Google AI Studio**: Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
-2.  **Sign In**: Use your Google account credentials. Complete any two-factor authentication (2FA) if prompted.
-3.  **Create API Key**: Click the "Create API key" button. The key will be generated instantly.
-4.  **Copy and Secure the Key**: Click the copy icon next to the key. **Treat this key like a password and never commit
-    it to version control.**
-
-### Step 4.3: Configure Your Local Environment
-
-1.  **Navigate to Repo Root**: Make sure you are in the root directory of your cloned `neo` repository.
-2.  **Create `.env` file**: Create a new file named `.env`.
-3.  **Add API Key**: Add the following line to the `.env` file, replacing `YOUR_API_KEY_HERE` with the key you just copied:
-    ```
-    GEMINI_API_KEY="YOUR_API_KEY_HERE"
-    ```
-    This file is already listed in `.gitignore` to prevent you from accidentally committing your key.
 
 ## 5. The AI-Native Workflow in Action
 
