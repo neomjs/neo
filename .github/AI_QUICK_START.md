@@ -98,29 +98,35 @@ step showing how to install the Gemini CLI.
 npm i -g @google/generative-ai/cli
 ```
 
-## 5. The AI-Native Workflow in Action
+## 5. The AI-Native Workflow: A Partnership
 
-The goal of this system is not for you to manually run queries, but to empower an AI agent to do it for you. Here’s how
-the intended workflow looks:
+The goal of this system is to create a powerful partnership between you and the AI agent. To facilitate this, we use a dual-guide system:
+
+-   **`AGENTS.md`**: This is the rulebook for the **AI**. It contains the critical instructions, protocols, and constraints the agent must follow to be an effective contributor.
+-   **`WORKING_WITH_AGENTS.md`**: This is the playbook for **you**, the human developer. It provides essential strategies for guiding the agent, handling common issues, and maximizing its performance.
+
+Your first step before starting a session should be to familiarize yourself with the `WORKING_WITH_AGENTS.md` guide.
+
+### The Workflow in Action
+
+Here’s how the intended workflow looks:
 
 1.  **Start your AI Agent**: From the repo root, launch your AI agent of choice (e.g., Gemini CLI).
     ```bash
     gemini
     ```
-2.  **Give a High-Level Prompt**: Instead of feeding the AI context, you give it a goal and instruct it to use the tools
-    available in the repository.
+2.  **Give the Initial Handshake**: This is the most critical step. Your first prompt **must** direct the agent to its instructions.
+    > **Your Prompt:** "follow the instructions inside @AGENTS.md"
 
+3.  **Give a High-Level Prompt**: Once the agent has completed its initialization, you can give it a goal.
     > **Your Prompt:** "Explain the Neo.mjs two-tier reactivity model and provide a simple code example."
 
-3.  **The AI Takes Over**: An AI agent following the `AGENTS.md` protocol will then:
+4.  **The AI Takes Over**: An agent following the `AGENTS.md` protocol will then:
     *   **Formulate a query**: It will determine that "reactivity" is the key concept.
-    *   **Execute the tool**: It will run `npm run ai:query -- -q "reactivity" -t guide` and
-        `npm run ai:query -- -q "reactivity" -t src` on its own.
-    *   **Synthesize the answer**: After getting the paths to the most relevant guides and source files, it will read
-        them and use that fresh, accurate context to generate a comprehensive explanation and code example.
+    *   **Execute the tool**: It will run `npm run ai:query -- -q "reactivity" -t guide` on its own.
+    *   **Synthesize the answer**: After getting the paths to the most relevant guides and source files, it will read them and use that fresh, accurate context to generate a comprehensive explanation.
 
-This is the crucial difference: you are delegating the *research* task to the AI, making it a true partner that can
-autonomously navigate and understand your codebase.
+This is the crucial difference: you are delegating the *research* task to the AI, making it a true partner that can autonomously navigate and understand your codebase.
 
 ## 6. Common Troubleshooting
 

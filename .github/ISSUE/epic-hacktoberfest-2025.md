@@ -31,9 +31,9 @@ Let AI do the heavy lifting while you learn. The one-time setup takes about 15 m
 - **Knowledge Base:** Building and querying the knowledge base uses the `text-embedding-004` model, which is free for up to **60 queries per minute**.
 - **AI Agent:** For interactive development, if you use the Gemini CLI, it uses the `gemini-pro` model, which provides up to **3 million tokens per day for free**.
 
-**1. Follow the [AI Knowledge Base Quick Start Guide](./AI_QUICK_START.md)**
-
-This will walk you through building the local knowledge base that the AI uses to understand the project.
+**1. Read the Guides:**
+   - **[Working with AI Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md):** First, read this playbook for you, the human developer. It provides essential strategies for guiding the agent and maximizing its performance.
+   - **[AI Knowledge Base Quick Start Guide](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md):** Then, follow this guide to build the local knowledge base that the AI uses to understand the project.
 
 **2. Then, just chat with your AI:**
 ```bash
