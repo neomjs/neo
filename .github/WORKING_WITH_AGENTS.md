@@ -129,3 +129,19 @@ Instead of waiting for "session dementia" to set in, you can proactively manage 
 > "We have now completed the test migration epic. The next task is to refactor the documentation's CSS variables. Given this significant context shift, would you recommend we start a fresh session for this new task?"
 
 This prompt allows the agent to reason about the semantic distance between its current, highly specialized context and the new task. It will almost always recommend a fresh start, confirming that you are making the most efficient choice and preventing the session from declining in quality.
+
+## 8. A Look Ahead: The Reality of Fully Automated Workflows
+
+Given the power of modern agents, it's natural to ask: "Can we achieve fully automated workflows?"
+
+The answer, for now, is **not reliably**. As we've discussed, the combination of non-determinism and imperfect accuracy makes it impossible to guarantee that a single agent session will successfully complete a complex task from start to finish. It often feels like "luck" when it does.
+
+### The "Brute-Force" Strategy
+
+Some organizations are approaching this as a numbers game. Instead of relying on one session, they might run 100 identical, parallel sessions to solve a single problem. They anticipate that a high percentage (e.g., 90%) will fail, get stuck, or produce incorrect results. However, if 10% succeed, a final evaluation phase can pick the best outcome.
+
+While this "brute-force" approach seems wasteful in terms of computing power and cost, it can be an economically viable strategy for certain problems if the value of the successful outcomes outweighs the cost of the failures.
+
+### Our Recommended Approach: The Partnership
+
+For high-quality, nuanced software engineering, we believe the **human-in-the-loop partnership model** described in this guide remains the most effective and reliable approach. Your expertise, intuition, and oversight are the critical components that guide the agent's powerful but flawed capabilities to a successful conclusion, every time.
