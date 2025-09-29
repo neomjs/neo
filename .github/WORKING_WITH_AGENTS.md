@@ -114,3 +114,18 @@ You'll notice this when the agent starts:
 When you see these signs, the session has reached its end-of-life. The most effective solution is to **retire the session.** Before you do, consider providing a brief, final piece of feedback (e.g., "This was a productive session, we accomplished our goal."). This explicit feedback is a valuable signal for the long-term improvement of AI models.
 
 After providing feedback, end the session and start a new one with the initial handshake. This "restarts the lifetime," giving you a fresh, sharp, and fully-grounded collaborator once again.
+
+## 7. Proactive Context Management: The "Fresh Start" Query
+
+As a session progresses through a series of related tasks (e.g., working on multiple tickets within the same epic), its context window becomes highly specialized and efficient for that specific work. However, this specialization can become a hindrance when switching to a completely unrelated task.
+
+The old, irrelevant context can clutter the agent's "thinking," potentially leading to errors or inefficient work as it tries to apply old patterns to a new problem.
+
+### Best Practice: Ask the Agent
+
+Instead of waiting for "session dementia" to set in, you can proactively manage the context. Before starting a new and unrelated task, ask the agent for its recommendation.
+
+**Example Prompt:**
+> "We have now completed the test migration epic. The next task is to refactor the documentation's CSS variables. Given this significant context shift, would you recommend we start a fresh session for this new task?"
+
+This prompt allows the agent to reason about the semantic distance between its current, highly specialized context and the new task. It will almost always recommend a fresh start, confirming that you are making the most efficient choice and preventing the session from declining in quality.
