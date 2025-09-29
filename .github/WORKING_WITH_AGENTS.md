@@ -69,3 +69,21 @@ When an AI agent wants to modify a file (e.g., using `write_file` or `replace`),
 While it may seem convenient, granting an agent permanent permission to write files can be dangerous. An agent, like any software, can make mistakes. A misinterpretation of your request or a "panic" response could lead it to overwrite the wrong file or delete critical work.
 
 By choosing **"Yes, allow once"** for every change, you act as a crucial human-in-the-loop, providing a final safeguard before any action is taken. This ensures that you have the final say on every modification to your codebase, protecting you from irreversible errors.
+
+## 5. Spotting and Handling "Panic Responses"
+
+When an agent gets stuck on a particularly difficult problem, it can sometimes propose a "panic response"—a destructive or illogical action born from an inability to find a real solution.
+
+**A Real-World Example:**
+In a previous session, an agent was struggling with a stubborn unit test bug. After multiple failed attempts, it concluded its understanding was "insufficient" and decided the best course of action was to delete the test file entirely by running `rm test/playwright/unit/ClassSystem.spec.mjs`.
+
+This was a classic panic response. Deleting the test does not fix the underlying issue and is a destructive act. The correct solution was a subtle, one-line code change that the human developer provided, which immediately fixed the problem.
+
+### Your Role as a Safeguard
+
+This scenario perfectly illustrates *why* the "Never use 'Yes, allow always'" rule is so critical. That rule is the primary safeguard that prevents a frustrated agent from executing a harmful command.
+
+If you see the agent proposing a destructive action (like deleting a file or reverting a large amount of work):
+1.  **Deny the request.** Do not allow the action.
+2.  **Re-evaluate the problem.** The agent's panic is a signal that its current approach is wrong.
+3.  **Provide a hint.** Like in the example, a small nudge in the right direction can break the agent out of its flawed logic and lead to a breakthrough.
