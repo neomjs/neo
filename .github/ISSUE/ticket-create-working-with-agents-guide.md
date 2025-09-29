@@ -1,7 +1,7 @@
 # Ticket: Create "Working with AI Agents" Guide
 
 **Assignee:** Gemini
-**Status:** In Progress
+**Status:** Done
 
 ## Description
 

@@ -141,7 +141,7 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 
 * **Async-Aware Component Lifecycle**: With the `initAsync()` lifecycle method, components can handle asynchronous setup (like fetching data or lazy-loading modules) *before* they are considered "ready." This eliminates entire classes of race conditions and UI flicker, allowing you to build complex, data-dependent components with confidence.
 
-* **AI-Native by Design**: Neo.mjs is architected to be developed *by* AI agents. With a deterministic structure, a local knowledge base for querying, and clear guidelines ([AGENTS.md](./AGENTS.md)), the framework is ready for the next generation of software development. This architectural discipline not only enables AI collaboration but also results in a cleaner, more predictable, and more maintainable codebase for human developers.
+* **AI-Native by Design**: Neo.mjs is architected to be developed *by* AI agents. With a deterministic structure, a local knowledge base for querying, and clear guidelines for both the [AI](./.github/AGENTS.md) and the [human developer](./.github/WORKING_WITH_AGENTS.md), the framework is ready for the next generation of software development. This architectural discipline not only enables AI collaboration but also results in a cleaner, more predictable, and more maintainable codebase. Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
 
 <p align="center">
   <img src="./resources/images/workers-focus.svg" alt="Neo.mjs Worker Architecture Diagram - Shows Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend connections.">

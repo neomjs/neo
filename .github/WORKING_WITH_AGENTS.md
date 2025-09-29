@@ -145,3 +145,5 @@ While this "brute-force" approach seems wasteful in terms of computing power and
 ### Our Recommended Approach: The Partnership
 
 For high-quality, nuanced software engineering, we believe the **human-in-the-loop partnership model** described in this guide remains the most effective and reliable approach. Your expertise, intuition, and oversight are the critical components that guide the agent's powerful but flawed capabilities to a successful conclusion, every time.
+
+This partnership creates a virtuous cycle: every successfully guided session improves the codebase and its documentation, which in turn enriches the knowledge base. This is the only path to making future, large-scale automation strategies viable for a project of this complexity. Your collaboration today is what makes a smarter, more autonomous AI possible tomorrow.
