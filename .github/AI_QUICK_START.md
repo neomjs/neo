@@ -95,7 +95,7 @@ Once the knowledge base is built, you can interact with it using any terminal-ba
 step showing how to install the Gemini CLI.
 
 ```bash
-npm i -g @google/generative-ai/cli
+npm i -g @google/gemini-cli
 ```
 
 ## 5. The AI-Native Workflow: A Partnership
