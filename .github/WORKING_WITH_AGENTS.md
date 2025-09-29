@@ -87,3 +87,22 @@ If you see the agent proposing a destructive action (like deleting a file or rev
 1.  **Deny the request.** Do not allow the action.
 2.  **Re-evaluate the problem.** The agent's panic is a signal that its current approach is wrong.
 3.  **Provide a hint.** Like in the example, a small nudge in the right direction can break the agent out of its flawed logic and lead to a breakthrough.
+
+## 6. The Session Lifecycle: Knowing When to Retire a Session
+
+It's helpful to think of an AI agent's session as a human lifetime. This analogy can help you understand its behavior and know when it's time to start fresh.
+
+1.  **Childhood (The Beginning):** A new session is like a child—motivated and eager to learn, but completely clueless about the specifics of the Neo.mjs project. Your first instruction to follow `AGENTS.md` is the start of its education.
+
+2.  **Adulthood (The Sweet Spot):** As you guide the agent and it uses the knowledge base, the core concepts will "click." It enters an "adult" phase where it is incredibly productive, understands the context, and effectively assists with complex tasks. This is the sweet spot of your collaboration.
+
+3.  **Old Age (End-of-Life):** As a session continues and accumulates a long history of prompts, code, and outputs, the agent's finite context window begins to fill up. To make space, it starts to compress or "forget" the earliest and most foundational instructions. This is the AI equivalent of dementia.
+
+You'll notice this when the agent starts:
+*   Forgetting the "ticket-first" mandate.
+*   Hallucinating answers to questions it could previously answer from the knowledge base.
+*   Making basic errors it had already mastered.
+
+When you see these signs, the session has reached its end-of-life. The most effective solution is to **retire the session.** Before you do, consider providing a brief, final piece of feedback (e.g., "This was a productive session, we accomplished our goal."). This explicit feedback is a valuable signal for the long-term improvement of AI models.
+
+After providing feedback, end the session and start a new one with the initial handshake. This "restarts the lifetime," giving you a fresh, sharp, and fully-grounded collaborator once again.
