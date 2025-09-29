@@ -54,3 +54,18 @@ This **non-determinism** is a feature, not a bug. It's a result of the creative 
 By understanding these behaviors, you can set the right expectations and develop a more effective and less frustrating working relationship with your AI agent.
 
 For a deeper technical dive into the causes of non-determinism in LLMs, see this article: [Defeating Nondeterminism in LLM Inference](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/).
+
+## 4. The Human-in-the-Loop: A Critical Safety Rule
+
+When an AI agent wants to modify a file (e.g., using `write_file` or `replace`), the Gemini CLI will prompt you for permission with four options:
+
+1.  **Yes, allow once**
+2.  **Yes, allow always**
+3.  **Modify with external editor**
+4.  **No, suggest changes**
+
+**Golden Rule: Never use "Yes, allow always" for file modifications.**
+
+While it may seem convenient, granting an agent permanent permission to write files can be dangerous. An agent, like any software, can make mistakes. A misinterpretation of your request or a "panic" response could lead it to overwrite the wrong file or delete critical work.
+
+By choosing **"Yes, allow once"** for every change, you act as a crucial human-in-the-loop, providing a final safeguard before any action is taken. This ensures that you have the final say on every modification to your codebase, protecting you from irreversible errors.
