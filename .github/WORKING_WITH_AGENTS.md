@@ -1,0 +1,56 @@
+# Working with AI Agents
+
+This guide provides essential instructions for human developers on how to effectively collaborate with AI agents within the Neo.mjs repository. Following these guidelines will help ensure that the agent is properly grounded in the project's context and can recover from common errors.
+
+## 1. Starting a Session: The Critical Handshake
+
+To ensure the AI agent has the correct context and adheres to the project's specific protocols, every new session **MUST** begin with a specific instruction. This acts as a "handshake," directing the agent to its primary set of rules.
+
+Your very first prompt to the agent should be:
+
+> follow the instructions inside @AGENTS.md
+
+Upon receiving this command, the agent will perform its initialization sequence, which includes reading the codebase structure, core classes, and coding guidelines. This grounding process is critical for its ability to provide accurate and relevant assistance.
+
+## 2. Handling and Recovering from Errors
+
+AI agents are powerful but not infallible. They can make mistakes, such as typos, using incorrect file paths, or getting stuck in a loop. As you observed in our own session, these errors are often simple but can derail a task.
+
+Fortunately, agents with large context windows are very capable of self-correction when prompted.
+
+### The Recovery Prompt
+
+If you notice the agent has made a mistake, you can guide it back on track with a simple, direct prompt. Instead of starting over, ask the agent to review its last action.
+
+**Example Recovery Prompts:**
+
+> "You made a typo in the last command. Please review it, correct the mistake, and try again."
+
+> "It looks like you used an incorrect file path. Please review the path you used and correct it."
+
+> "Let's pause. Please review what went wrong in the last step and explain how you will fix it."
+
+This approach leverages the agent's ability to analyze its own behavior, identify the error, and formulate a corrected plan, making for a more resilient and efficient workflow.
+
+## 3. Understanding Agent Behavior: Accuracy and Determinism
+
+To collaborate effectively with an AI agent, it's important to understand two of its core characteristics: it is **not always accurate** and it is **not deterministic**.
+
+### Accuracy is Not Guaranteed
+
+An AI agent is a powerful assistant, but it is not an oracle. Its responses are generated based on patterns in its training data and the context you provide from the local knowledge base. While this often leads to correct and helpful results, it can also produce plausible-sounding but incorrect information ("hallucinations").
+
+**Your Role as the Expert:** As the human developer, you are the final arbiter of correctness. Always review and verify the agent's output, whether it's code, documentation, or a technical explanation. Treat the agent as a highly skilled but fallible junior developer who requires oversight.
+
+### Embracing Non-Determinism
+
+If you ask a traditional program the same question twice, you expect the exact same answer. This is not true for AI agents. Asking the same prompt multiple times will likely result in slightly different, or sometimes completely different, responses.
+
+This **non-determinism** is a feature, not a bug. It's a result of the creative sampling techniques used to generate text. You can use this to your advantage:
+
+*   **If you don't like the first answer, try again.** Re-phrasing your prompt slightly or even just re-submitting the same one can often produce a better result.
+*   **Think of it as brainstorming.** The agent's variability can provide different perspectives or alternative solutions to a problem that you might not have considered.
+
+By understanding these behaviors, you can set the right expectations and develop a more effective and less frustrating working relationship with your AI agent.
+
+For a deeper technical dive into the causes of non-determinism in LLMs, see this article: [Defeating Nondeterminism in LLM Inference](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/).
