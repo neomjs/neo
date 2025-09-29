@@ -14,7 +14,7 @@ Upon receiving this command, the agent will perform its initialization sequence,
 
 ## 2. Handling and Recovering from Errors
 
-AI agents are powerful but not infallible. They can make mistakes, such as typos, using incorrect file paths, or getting stuck in a loop. As you observed in our own session, these errors are often simple but can derail a task.
+AI agents are powerful but not infallible. They can make mistakes, such as typos, using incorrect file paths, or getting stuck in a loop. These errors are often simple but can derail a task.
 
 Fortunately, agents with large context windows are very capable of self-correction when prompted.
 
