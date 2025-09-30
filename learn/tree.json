@@ -20,7 +20,7 @@
         {"name": "Neo.mjs vs Solid.js",                                "parentId": "comparisons",                                         "id": "comparisons/NeoVsSolid"},
         {"name": "Neo.mjs vs Next.js",                                 "parentId": "comparisons",                                         "id": "comparisons/NeoVsNextJs"},
         {"name": "Neo.mjs vs Ext.js",                                  "parentId": "comparisons",                                         "id": "comparisons/NeoVsExtJs"},
-    {"name": "Getting Started",                                        "parentId": null,                                 "isLeaf": false, "id": "GettingStarted", "collapsed": true},
+    {"name": "Getting Started",                                        "parentId": null,                                 "isLeaf": false, "id": "GettingStarted"},
         {"name": "Setup",                                              "parentId": "GettingStarted",                                      "id": "gettingstarted/Setup"},
         {"name": "Workspaces and Applications",                        "parentId": "GettingStarted",                                      "id": "gettingstarted/Workspaces"},
         {"name": "Describing a View",                                  "parentId": "GettingStarted",                                      "id": "gettingstarted/DescribingTheUI"},
