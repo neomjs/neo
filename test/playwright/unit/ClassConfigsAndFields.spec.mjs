@@ -26,7 +26,7 @@ class TestClass extends core.Base {
     }
 }
 
-Neo.setupClass(TestClass);
+TestClass = Neo.setupClass(TestClass);
 
 /**
  * @summary Verifies the order of operations for Neo.mjs class fields and reactive configs.
@@ -267,7 +267,7 @@ test.describe('ClassConfigsAndFields', () => {
             }
         }
 
-        Neo.setupClass(AdvancedClass);
+        AdvancedClass = Neo.setupClass(AdvancedClass);
 
         let instance = Neo.create(AdvancedClass);
 
