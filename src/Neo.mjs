@@ -744,10 +744,11 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
 
         // Process each class in the prototype chain (from top to bottom)
         protos.forEach(element => {
-            let mixins;
+            let currentConfigDescriptors = {},
+                mixins;
 
             ctor = element.constructor;
-            cfg  = ctor.config || {};
+            cfg  = ctor.config ? Neo.clone(ctor.config, true) : {};
 
             if (Neo.overwrites) {
                 ctor.applyOverwrites?.(cfg)
@@ -762,8 +763,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 // 1. Handle descriptors: If the value is a descriptor object, store it.
                 //    The 'value' property of the descriptor is then used as the actual config value.
                 if (Neo.isObject(value) && value[isDescriptor] === true) {
-                    ctor.configDescriptors ??= {};
-                    ctor.configDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
+                    currentConfigDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
                     value = value.value // Use the descriptor's value as the config value
                 }
 
@@ -782,10 +782,10 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
 
             // Merge configDescriptors: Apply "first-defined wins" strategy.
             // If a descriptor for a key already exists (from a parent class), it is not overwritten.
-            if (ctor.configDescriptors) {
-                for (const key in ctor.configDescriptors) {
+            if (Object.keys(currentConfigDescriptors).length > 0) {
+                for (const key in currentConfigDescriptors) {
                     if (!Object.hasOwn(configDescriptors, key)) {
-                        configDescriptors[key] = Neo.clone(ctor.configDescriptors[key], true) // Deep clone for immutability
+                        configDescriptors[key] = currentConfigDescriptors[key];
                     }
                 }
             }
