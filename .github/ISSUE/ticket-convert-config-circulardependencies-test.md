@@ -2,8 +2,8 @@
 
 GH ticket id: #7275
 
-**Assignee:**
-**Status:** To Do
+**Assignee:** Gemini
+**Status:** Done
 
 **Parent Epic:** epic-enhance-workflow-with-mandatory-unit-testing.md
 
