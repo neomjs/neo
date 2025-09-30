@@ -36,6 +36,7 @@ Have a question or want to connect with the community? We have two channels to h
 *   **[💬 Discord (Recommended for Questions & History)](https://discord.gg/6p8paPq):** Our primary community hub. All conversations are permanently archived and searchable, making it the best place to ask questions and find past answers.
 *   **[⚡️ Slack (For Real-Time Chat)](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA):** Perfect for quick, real-time conversations. Please note that the free version's history is temporary (messages are deleted after 90 days).
 
+</br></br>
 ## 🚀 Why Choose Neo.mjs? Solving the Toughest UI Challenges
 Traditional single-threaded frontend frameworks often struggle with performance bottlenecks and UI freezes, especially for
 large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundamentally different solution, designed for
