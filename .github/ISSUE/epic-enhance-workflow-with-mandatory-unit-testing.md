@@ -73,7 +73,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **Done:** ticket-convert-core-effect-test.md (covers `core/Effect.mjs`)
 - **Done:** ticket-convert-classconfigsandfields-test.md
 - **Done:** ticket-convert-classsystem-test.md
-- **To Do:** ticket-convert-collectionbase-test.md
+- **Done:** ticket-convert-collectionbase-test.md
 - **To Do:** ticket-convert-config-aftersetconfig-test.md
 - **To Do:** ticket-convert-config-basic-test.md
 - **To Do:** ticket-convert-config-circulardependencies-test.md
