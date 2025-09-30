@@ -29,6 +29,13 @@ By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensur
 </p>
 
 </br></br>
+## 🤝 Community & Support
+
+Have a question or want to connect with the community? We have two channels to help you out.
+
+*   **[💬 Discord (Recommended for Questions & History)](https://discord.gg/6p8paPq):** Our primary community hub. All conversations are permanently archived and searchable, making it the best place to ask questions and find past answers.
+*   **[⚡️ Slack (For Real-Time Chat)](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA):** Perfect for quick, real-time conversations. Please note that the free version's history is temporary (messages are deleted after 90 days).
+
 ## 🚀 Why Choose Neo.mjs? Solving the Toughest UI Challenges
 Traditional single-threaded frontend frameworks often struggle with performance bottlenecks and UI freezes, especially for
 large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundamentally different solution, designed for
@@ -240,9 +247,7 @@ Next steps:
 * :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
 
 </br></br>
-## :handshake: Join the Community
-
-:speech_balloon: Have questions? Join our [Slack channel](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA) and connect with other developers.
+## :handshake: How to Contribute
 
 :hammer_and_wrench: Want to contribute? Check out our [Contributing Guide](https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md).
 
