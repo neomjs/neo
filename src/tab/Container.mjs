@@ -6,6 +6,18 @@ import NeoArray      from '../util/Array.mjs';
 import Strip         from './Strip.mjs';
 
 /**
+ * @summary Manages a tabbed interface with a header toolbar and a content body.
+ *
+ * This class acts as the main orchestrator for a tabbed view. It uses a flexbox layout to arrange its
+ * two primary children: a `Neo.tab.header.Toolbar` for the tab buttons and a `Neo.tab.BodyContainer`.
+ * The `BodyContainer` is configured with a `card` layout. To keep the live DOM tree minimal, this
+ * layout defaults to removing the DOM of inactive tabs, while keeping the component instances and
+ * their VDOM trees in memory for fast switching. This behavior can be changed via the `removeInactiveCards` config.
+ *
+ * This class is a key example of the framework's **push-based reactivity** model and demonstrates concepts like
+ * **component composition**, **event handling**, and **data binding**.
+ *
+ * @see Neo.examples.tab.Container
  * @class Neo.tab.Container
  * @extends Neo.container.Base
  */

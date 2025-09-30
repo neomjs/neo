@@ -161,20 +161,22 @@ more discoverable for future queries.
 **Example of a Good Query-Driven Class Comment:**
 ```javascript
 /**
- * @summary Manages the state and lifecycle of a tab container's header.
+ * @summary Manages a tabbed interface with a header toolbar and a content body.
  *
- * This class is a core part of the tab container's view logic. It is responsible for rendering the tab
- * buttons, handling user interactions (like clicks and keyboard navigation), and synchronizing the
- * header's UI with the active tab in the main container. It works closely with the main Tab.Container
- * and its layout to ensure a seamless user experience.
+ * This class acts as the main orchestrator for a tabbed view. It uses a flexbox layout to arrange its
+ * two primary children: a `Neo.tab.header.Toolbar` for the tab buttons and a `Neo.tab.BodyContainer`.
+ * The `BodyContainer` is configured with a `card` layout. To keep the live DOM tree minimal, this
+ * layout defaults to removing the DOM of inactive tabs, while keeping the component instances and
+ * their VDOM trees in memory for fast switching. This behavior can be changed via the `removeInactiveCards` config.
  *
- * This class is a key example of the framework's **reactivity** model and demonstrates concepts like
+ * This class is a key example of the framework's **push-based reactivity** model and demonstrates concepts like
  * **component composition**, **event handling**, and **data binding**.
  *
- * @see Neo.tab.Container
  * @see Neo.examples.tab.Container
+ * @class Neo.tab.Container
+ * @extends Neo.container.Base
  */
-class TabHeader extends Component {
+class TabContainer extends Container {
     // Implementation details...
 }
 ```
