@@ -79,7 +79,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **Done:** ticket-convert-config-circulardependencies-test.md
 - **Done:** ticket-convert-config-customfunctions-test.md
 - **Done:** ticket-convert-config-hierarchy-test.md
-- **To Do:** ticket-convert-config-memoryleak-test.md
+- **Done:** ticket-convert-config-memoryleak-test.md
 - **To Do:** ticket-convert-config-multilevelhierarchy-test.md
 - **To Do:** ticket-convert-core-effectbatching-test.md
 - **To Do:** ticket-convert-form-field-aftersetvaluesequence-test.md
