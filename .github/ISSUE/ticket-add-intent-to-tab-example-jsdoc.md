@@ -3,7 +3,8 @@
 Parent epic: #7296
 GH ticket id: #7299
 
-**Assignee:**
+**Assignee:** nikeshadhikari9
+**Status:** Done
 **Labels:** `hacktoberfest`, `good first issue`, `documentation`, `help wanted`
 
 ## Description

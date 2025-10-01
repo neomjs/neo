@@ -1,9 +1,10 @@
 # Ticket: Add Intent-Driven JSDoc to `splitter.MainContainer` Example
 
 Parent epic: #7296
-GH ticket id: (to be added)
+GH ticket id: #7301
 
-**Assignee:**
+**Assignee:** nikeshadhikari9
+**Status:** Done
 **Labels:** `hacktoberfest`, `good first issue`, `documentation`, `help wanted`
 
 ## Description
