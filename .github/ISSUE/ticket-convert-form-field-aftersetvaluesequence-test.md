@@ -2,8 +2,8 @@
 
 GH ticket id: #7281
 
-**Assignee:**
-**Status:** To Do
+**Assignee:** tobiu
+**Status:** Done
 
 **Parent Epic:** epic-enhance-workflow-with-mandatory-unit-testing.md
 
