@@ -693,7 +693,11 @@ class Collection extends Base {
                 delete config.items;
                 delete config.sorters;
 
-                me.allItems = Neo.create(Collection, {
+                // When a collection is filtered, it clones itself to create an `allItems` collection
+                // which stores the unfiltered data. It is crucial to use `me.constructor` here.
+                // If we hardcode `Collection`, subclasses like `data.Store` would lose their specific
+                // functionalities (e.g., lazy record instantiation on `get()`) for the `allItems` collection.
+                me.allItems = Neo.create(me.constructor, {
                     ...Neo.clone(config, true, true),
                     id         : me.id + '-all',
                     items      : [...me._items], // Initialize with a shallow copy of current items
