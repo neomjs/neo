@@ -1,9 +1,9 @@
-import CheckBox from '../../../src/form/field/CheckBox.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import NumberField from '../../../src/form/field/Number.mjs';
-import Radio from '../../../src/form/field/Radio.mjs';
-import TextField from '../../../src/form/field/Text.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
+import TabContainer          from '../../../src/tab/Container.mjs';
 
 /**
  * @summary An interactive example demonstrating the Neo.tab.Container.
@@ -42,7 +42,7 @@ class MainContainer extends ConfigurationViewport {
          * The layout for the viewport, arranging the configuration panel and the example component horizontally.
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
-        layout: { ntype: 'hbox', align: 'stretch' }
+        layout: {ntype: 'hbox', align: 'stretch'}
     }
 
     /**
@@ -52,148 +52,148 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Object[]} An array of component configuration objects.
      */
     createConfigurationComponents() {
-        let me = this,
+        let me           = this,
             tabContainer = me.exampleComponent,
             headerLayout = tabContainer.getTabBar().layout;
 
         return [{
-            module: NumberField,
-            id: 'activeIndexField',
+            module   : NumberField,
+            id       : 'activeIndexField',
             labelText: 'activeIndex',
-            listeners: { change: me.onConfigChange.bind(me, 'activeIndex') },
-            maxValue: 2,
-            minValue: 0,
-            value: tabContainer.activeIndex
+            listeners: {change: me.onConfigChange.bind(me, 'activeIndex')},
+            maxValue : 2,
+            minValue : 0,
+            value    : tabContainer.activeIndex
         }, {
-            module: NumberField,
+            module   : NumberField,
             labelText: 'height',
-            listeners: { change: me.onConfigChange.bind(me, 'height') },
-            maxValue: 800,
-            minValue: 300,
-            stepSize: 5,
-            value: tabContainer.height
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 800,
+            minValue : 300,
+            stepSize : 5,
+            value    : tabContainer.height
         }, {
-            module: CheckBox,
-            checked: headerLayout.direction === 'column-reverse' || headerLayout.direction === 'row-reverse',
-            hideLabel: true,
+            module        : CheckBox,
+            checked       : headerLayout.direction === 'column-reverse' || headerLayout.direction === 'row-reverse',
+            hideLabel     : true,
             hideValueLabel: false,
-            id: 'reverseLayoutDirection',
-            listeners: { change: me.onLayoutSortDirectionChange.bind(me) },
-            style: { marginTop: '10px' },
+            id            : 'reverseLayoutDirection',
+            listeners     : {change: me.onLayoutSortDirectionChange.bind(me)},
+            style         : {marginTop: '10px'},
             valueLabelText: 'reversed layout sort-direction'
         }, {
-            module: CheckBox,
-            checked: tabContainer.sortable,
-            hideLabel: true,
+            module        : CheckBox,
+            checked       : tabContainer.sortable,
+            hideLabel     : true,
             hideValueLabel: false,
-            listeners: { change: me.onConfigChange.bind(me, 'sortable') },
-            style: { marginTop: '10px' },
+            listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
+            style         : {marginTop: '10px'},
             valueLabelText: 'sortable'
         }, {
-            module: Radio,
-            checked: tabContainer.tabBarPosition === 'top',
+            module        : Radio,
+            checked       : tabContainer.tabBarPosition === 'top',
             hideValueLabel: false,
-            labelText: 'tabBarPosition',
-            listeners: { change: me.onTabBarPositionChange.bind(me, 'top') },
-            name: 'tabBarPosition',
-            style: { marginTop: '10px' },
+            labelText     : 'tabBarPosition',
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'top')},
+            name          : 'tabBarPosition',
+            style         : {marginTop: '10px'},
             valueLabelText: 'top'
         }, {
-            module: Radio,
-            checked: tabContainer.tabBarPosition === 'right',
+            module        : Radio,
+            checked       : tabContainer.tabBarPosition === 'right',
             hideValueLabel: false,
-            labelText: '',
-            listeners: { change: me.onTabBarPositionChange.bind(me, 'right') },
-            name: 'tabBarPosition',
+            labelText     : '',
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'right')},
+            name          : 'tabBarPosition',
             valueLabelText: 'right'
         }, {
-            module: Radio,
-            checked: tabContainer.tabBarPosition === 'bottom',
+            module        : Radio,
+            checked       : tabContainer.tabBarPosition === 'bottom',
             hideValueLabel: false,
-            labelText: '',
-            listeners: { change: me.onTabBarPositionChange.bind(me, 'bottom') },
-            name: 'tabBarPosition',
+            labelText     : '',
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'bottom')},
+            name          : 'tabBarPosition',
             valueLabelText: 'bottom'
         }, {
-            module: Radio,
-            checked: tabContainer.tabBarPosition === 'left',
+            module        : Radio,
+            checked       : tabContainer.tabBarPosition === 'left',
             hideValueLabel: false,
-            labelText: '',
-            listeners: { change: me.onTabBarPositionChange.bind(me, 'left') },
-            name: 'tabBarPosition',
+            labelText     : '',
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'left')},
+            name          : 'tabBarPosition',
             valueLabelText: 'left'
         }, {
-            module: NumberField,
+            module   : NumberField,
             labelText: 'width',
-            listeners: { change: me.onConfigChange.bind(me, 'width') },
-            maxValue: 800,
-            minValue: 250,
-            stepSize: 5,
-            style: { marginTop: '10px' },
-            value: tabContainer.width
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 800,
+            minValue : 250,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : tabContainer.width
         }, {
-            module: CheckBox,
-            checked: tabContainer.useActiveTabIndicator,
-            hideLabel: true,
+            module        : CheckBox,
+            checked       : tabContainer.useActiveTabIndicator,
+            hideLabel     : true,
             hideValueLabel: false,
-            listeners: { change: me.onConfigChange.bind(me, 'useActiveTabIndicator') },
-            style: { marginTop: '10px' },
+            listeners     : {change: me.onConfigChange.bind(me, 'useActiveTabIndicator')},
+            style         : {marginTop: '10px'},
             valueLabelText: 'useActiveTabIndicator'
         }, {
-            module: TextField, // todo: SelectField
+            module   : TextField, // todo: SelectField
             labelText: 'Tab 1 iconCls',
-            listeners: { change: me.onFirstTabHeaderConfigChange.bind(me, 'iconCls') },
-            style: { marginTop: '50px' },
-            value: me.getFirstTabHeader().iconCls
+            listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'iconCls')},
+            style    : {marginTop: '50px'},
+            value    : me.getFirstTabHeader().iconCls
         }, {
-            module: TextField, // todo: ColorPicker
+            module   : TextField, // todo: ColorPicker
             labelText: 'Tab 1 iconColor',
-            listeners: { change: me.onFirstTabHeaderConfigChange.bind(me, 'iconColor') },
-            value: me.getFirstTabHeader().iconColor
+            listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'iconColor')},
+            value    : me.getFirstTabHeader().iconColor
         }, {
-            module: TextField,
+            module   : TextField,
             labelText: 'Tab 1 text',
-            listeners: { change: me.onFirstTabHeaderConfigChange.bind(me, 'text') },
-            value: me.getFirstTabHeader().text
+            listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'text')},
+            value    : me.getFirstTabHeader().text
         }, {
-            module: Radio,
-            checked: me.getBadgeTabHeader().badgePosition === 'bottom-left',
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'bottom-left',
             hideValueLabel: false,
-            labelText: 'badgePosition',
-            listeners: { change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left') },
-            name: 'badgePosition',
-            style: { marginTop: '50px' },
+            labelText     : 'badgePosition',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left')},
+            name          : 'badgePosition',
+            style         : {marginTop: '50px'},
             valueLabelText: 'bottom-left'
         }, {
-            module: Radio,
-            checked: me.getBadgeTabHeader().badgePosition === 'bottom-right',
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'bottom-right',
             hideValueLabel: false,
-            labelText: '',
-            listeners: { change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-right') },
-            name: 'badgePosition',
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-right')},
+            name          : 'badgePosition',
             valueLabelText: 'bottom-right'
         }, {
-            module: Radio,
-            checked: me.getBadgeTabHeader().badgePosition === 'top-left',
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'top-left',
             hideValueLabel: false,
-            labelText: '',
-            listeners: { change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-left') },
-            name: 'badgePosition',
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-left')},
+            name          : 'badgePosition',
             valueLabelText: 'top-left'
         }, {
-            module: Radio,
-            checked: me.getBadgeTabHeader().badgePosition === 'top-right',
+            module        : Radio,
+            checked       : me.getBadgeTabHeader().badgePosition === 'top-right',
             hideValueLabel: false,
-            labelText: '',
-            listeners: { change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right') },
-            name: 'badgePosition',
+            labelText     : '',
+            listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right')},
+            name          : 'badgePosition',
             valueLabelText: 'top-right'
         }, {
-            module: TextField,
+            module   : TextField,
             labelText: 'badgeText',
-            listeners: { change: me.onBadgeConfigChange.bind(me, 'badgeText') },
-            style: { marginTop: '10px' },
-            value: me.getBadgeTabHeader().badgeText
+            listeners: {change: me.onBadgeConfigChange.bind(me, 'badgeText')},
+            style    : {marginTop: '10px'},
+            value    : me.getBadgeTabHeader().badgeText
         }]
     }
 
@@ -205,31 +205,31 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create(TabContainer, {
-            height: 300,
-            width: 500,
+            height  : 300,
+            width   : 500,
             sortable: true,
-            style: { margin: '20px' },
+            style   : {margin: '20px'},
 
             itemDefaults: {
                 ntype: 'component',
-                cls: ['neo-examples-tab-component'],
-                style: { padding: '20px' }
+                cls  : ['neo-examples-tab-component'],
+                style: {padding: '20px'}
             },
 
             items: [{
-                header: { iconCls: 'fa fa-home', text: 'Tab 1', flag: 'tab1', },
-                vdom: { html: 'Tab 1 Content' }
+                header: {iconCls: 'fa fa-home', text: 'Tab 1', flag: 'tab1',},
+                vdom  : {html: 'Tab 1 Content'}
             }, {
-                header: { iconCls: 'fa fa-play-circle', text: 'Tab 2' },
-                vdom: { html: 'Tab 2 Content' }
+                header: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
+                vdom  : {html: 'Tab 2 Content'}
             }, {
-                header: { iconCls: 'fa fa-user', text: 'Tab 3', badgeText: 'hello' },
-                vdom: { html: 'Tab 3 Content' }
+                header: {iconCls: 'fa fa-user', text: 'Tab 3', badgeText: 'hello'},
+                vdom  : {html: 'Tab 3 Content'}
             }],
 
             listeners: {
                 activeIndexChange: this.onUserActiveIndexChange,
-                scope: this
+                scope            : this
             }
         })
     }
@@ -310,7 +310,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Boolean} data.value The new checked state of the checkbox.
      */
     onLayoutSortDirectionChange(data) {
-        let layout = this.exampleComponent.getTabBar().layout,
+        let layout    = this.exampleComponent.getTabBar().layout,
             direction = layout.direction;
 
         if (data.value === true) {

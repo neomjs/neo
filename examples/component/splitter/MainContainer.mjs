@@ -1,7 +1,7 @@
-import CheckBox from '../../../src/form/field/CheckBox.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import NumberField from '../../../src/form/field/Number.mjs';
-import Splitter from '../../../src/component/Splitter.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import Splitter              from '../../../src/component/Splitter.mjs';
 
 /**
  * @summary An interactive example demonstrating the Neo.component.Splitter.
@@ -42,7 +42,7 @@ class MainContainer extends ConfigurationViewport {
          * The layout for the viewport, arranging the configuration panel and the example component horizontally.
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
-        layout: { ntype: 'hbox', align: 'stretch' }
+        layout: {ntype: 'hbox', align: 'stretch'}
     }
 
     /**
@@ -55,30 +55,30 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
-            module: NumberField,
+            module   : NumberField,
             clearable: true,
             labelText: 'height',
-            listeners: { change: me.onConfigChange.bind(me, 'height') },
-            maxValue: 1000,
-            minValue: 200,
-            stepSize: 5,
-            value: me.exampleComponent.height
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 1000,
+            minValue : 200,
+            stepSize : 5,
+            value    : me.exampleComponent.height
         }, {
-            module: CheckBox,
-            checked: me.exampleComponent.direction === 'horizontal',
+            module   : CheckBox,
+            checked  : me.exampleComponent.direction === 'horizontal',
             labelText: 'horizontal',
-            listeners: { change: me.switchDirection.bind(me) },
-            style: { marginTop: '10px' }
+            listeners: {change: me.switchDirection.bind(me)},
+            style    : {marginTop: '10px'}
         }, {
-            module: NumberField,
+            module   : NumberField,
             clearable: true,
             labelText: 'width',
-            listeners: { change: me.onConfigChange.bind(me, 'width') },
-            maxValue: 1000,
-            minValue: 200,
-            stepSize: 5,
-            style: { marginTop: '10px' },
-            value: me.exampleComponent.width
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 1000,
+            minValue : 200,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.width
         }]
     }
 
@@ -90,12 +90,12 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.ntype({
-            ntype: 'container',
+            ntype : 'container',
             height: 600,
-            layout: { ntype: 'hbox', align: 'stretch' },
-            style: { border: '1px solid var(--panel-border-color)' },
-            width: 600,
-            items: [{
+            layout: {ntype: 'hbox', align: 'stretch'},
+            style : {border: '1px solid var(--panel-border-color)'},
+            width : 600,
+            items : [{
                 ntype: 'component'
             }, {
                 module: Splitter
@@ -110,7 +110,7 @@ class MainContainer extends ConfigurationViewport {
      * This can be wired up to a button in the configuration panel for easy inspection.
      */
     logInstance() {
-        console.log(this.exampleComponent.down({ module: Splitter }))
+        console.log(this.exampleComponent.down({module: Splitter}))
     }
 
     /**
@@ -122,7 +122,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Boolean} data.value The new checked state of the checkbox.
      */
     switchDirection(data) {
-        this.exampleComponent.down({ module: Splitter }).direction = data.value ? 'horizontal' : 'vertical';
+        this.exampleComponent.down({module: Splitter}).direction = data.value ? 'horizontal' : 'vertical';
 
         this.exampleComponent.layout = {
             ntype: data.value ? 'vbox' : 'hbox',
