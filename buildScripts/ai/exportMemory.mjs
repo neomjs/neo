@@ -22,7 +22,7 @@ class ExportMemory {
 
         let collection;
         try {
-            collection = await dbClient.getCollection({ name: collectionName });
+            collection = await dbClient.getCollection({ name: collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
         } catch (err) {
             console.error(`Could not connect to collection \"${collectionName}\". Please ensure the memory server is running (\`npm run ai:server-memory\`).`);
             return;

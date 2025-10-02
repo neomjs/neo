@@ -54,7 +54,7 @@ async function createMemoryCollection(client) {
             console.log(`Collection "${collectionName}" already exists.`);
         } else {
             console.log(`Creating collection: "${collectionName}"...`);
-            await client.createCollection({name: collectionName});
+            await client.createCollection({name: collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
             console.log(`Collection "${collectionName}" created successfully.`);
         }
     } catch (error) {

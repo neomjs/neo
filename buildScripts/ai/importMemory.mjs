@@ -39,7 +39,7 @@ class ImportMemory {
 
         let collection;
         try {
-            collection = await dbClient.getOrCreateCollection({ name: collectionName });
+            collection = await dbClient.getOrCreateCollection({ name: collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
         } catch (err) {
             console.error(`Could not connect to collection "${collectionName}". Please ensure the memory server is running (\`npm run ai:server-memory\`).`);
             return;
