@@ -1,7 +1,6 @@
-# GitHub Issue: 
-# 
-
 # Ticket: Create Guide: Neo.setupClass() Deep Dive
+
+GH ticket id: #7328
 
 **Assignee:** Unassigned
 **Status:** Open
