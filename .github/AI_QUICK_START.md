@@ -89,7 +89,27 @@ With the configuration in place, you can now build the local vector database.
     npm run ai:build-kb
     ```
 
-## 4. Configuring an Agent (Optional Example: Gemini CLI)
+## 4. Optional: Enable Agent Memory Core
+
+To give your AI agent a persistent memory of past interactions, you can enable the optional memory core. This allows the agent to recall previous conversations, decisions, and thought processes, leading to more informed and consistent responses.
+
+### Step 4.1: Start the Memory Server
+
+In a new terminal window, start the dedicated ChromaDB server for agent memories. Keep this process running in the background.
+
+```bash
+npm run ai:server-memory
+```
+
+### Step 4.2: Initialize the Memory Collection
+
+In another terminal, run the following command to create the necessary collection in the memory database.
+
+```bash
+npm run ai:setup-memory-db
+```
+
+## 5. Configuring an Agent (Optional Example: Gemini CLI)
 
 Once the knowledge base is built, you can interact with it using any terminal-based AI agent. This is an optional
 step showing how to install the Gemini CLI.
@@ -98,7 +118,7 @@ step showing how to install the Gemini CLI.
 npm i -g @google/gemini-cli
 ```
 
-## 5. The AI-Native Workflow: A Partnership
+## 6. The AI-Native Workflow: A Partnership
 
 The goal of this system is to create a powerful partnership between you and the AI agent. To facilitate this, we use a dual-guide system:
 
@@ -113,7 +133,7 @@ Here’s how the intended workflow looks:
 
 1.  **Start your AI Agent**: From the repo root, launch your AI agent of choice (e.g., Gemini CLI).
     ```bash
-    gemini
+gemini
     ```
 2.  **Give the Initial Handshake**: This is the most critical step. Your first prompt **must** direct the agent to its instructions.
     > **Your Prompt:** "follow the instructions inside @AGENTS.md"
@@ -128,8 +148,7 @@ Here’s how the intended workflow looks:
 
 This is the crucial difference: you are delegating the *research* task to the AI, making it a true partner that can autonomously navigate and understand your codebase.
 
-## 6. Common Troubleshooting
-
+## 7. Common Troubleshooting
 -   **API Key Errors**: If queries fail with authentication issues, try regenerating the key in Google AI Studio or
     check your usage quotas.
 -   **`gemini` Command Not Found**: If you installed the Gemini CLI but the command isn't found, ensure your system's
