@@ -30,7 +30,7 @@ This initiative is a key pillar for advanced workflows, alongside mandatory unit
 ### Phase 1: The Memory Core
 - **Done:** ticket-refactor-ai-configuration.md
 - **Done:** ticket-setup-memory-chromadb.md
-- **To Do:** ticket-create-memory-capture-api.md
+- **Done:** ticket-create-memory-capture-api.md
 - **To Do:** ticket-implement-memory-backup-and-restore.md
 
 ### Phase 2: The Recall Engine
