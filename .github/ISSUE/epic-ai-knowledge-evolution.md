@@ -28,6 +28,7 @@ This initiative is a key pillar for advanced workflows, alongside mandatory unit
 ## Sub-Tasks
 
 ### Phase 1: The Memory Core
+- **To Do:** ticket-refactor-ai-configuration.md
 - **To Do:** ticket-setup-memory-chromadb.md
 - **To Do:** ticket-create-memory-capture-api.md
 - **To Do:** ticket-implement-memory-backup-and-restore.md
