@@ -14,19 +14,9 @@
  */
 
 import {ChromaClient} from 'chromadb';
-import path           from 'path';
+import aiConfig       from './aiConfig.mjs';
 
-/**
- * Centralized configuration for the AI agent's memory database.
- * This defines the connection parameters and the name of the collection.
- * @type {{collectionName: string, host: string, port: number, path: string}}
- */
-const memoryDBConfig = {
-    collectionName: 'neo-agent-memory',
-    host          : 'localhost', // The hostname of the ChromaDB server
-    port          : 8001,        // The port the ChromaDB server is listening on
-    path          : path.resolve(process.cwd(), './chroma-memory') // The local persistence path for the server
-};
+const memoryDBConfig = aiConfig.memory;
 
 /**
  * Initializes and returns a ChromaDB client configured to connect to the agent's

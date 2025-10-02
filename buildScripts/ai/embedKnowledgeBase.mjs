@@ -1,5 +1,6 @@
 import {ChromaClient}       from 'chromadb';
 import {GoogleGenerativeAI} from '@google/generative-ai';
+import aiConfig             from './aiConfig.mjs';
 import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import path                 from 'path';
@@ -37,9 +38,7 @@ dotenv.config({
 class EmbedKnowledgeBase {
     static async run() {
         console.log('Starting knowledge base embedding...');
-        const projectRoot = process.cwd();
-
-        const knowledgeBasePath = path.resolve(projectRoot, 'dist/ai-knowledge-base.jsonl');
+        const knowledgeBasePath = aiConfig.knowledgeBase.path;
         if (!await fs.pathExists(knowledgeBasePath)) {
             throw new Error(`Knowledge base not found at ${knowledgeBasePath}. Please run createKnowledgeBase.mjs first.`);
         }
@@ -90,7 +89,7 @@ class EmbedKnowledgeBase {
         });
 
         const dbClient       = new ChromaClient();
-        const collectionName = 'neo_knowledge';
+        const collectionName = aiConfig.knowledgeBase.collectionName;
 
         // A dummy embedding function to satisfy the ChromaDB API, since we provide our own embeddings.
         const embeddingFunction = {
@@ -171,12 +170,12 @@ class EmbedKnowledgeBase {
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-        console.log('Initialized Google AI embedding model: text-embedding-004.');
+        const model = genAI.getGenerativeModel({ model: aiConfig.knowledgeBase.embeddingModel });
+        console.log(`Initialized Google AI embedding model: ${aiConfig.knowledgeBase.embeddingModel}.`);
 
         console.log('Embedding chunks...');
-        const batchSize  = 100;
-        const maxRetries = 5;
+        const batchSize  = aiConfig.knowledgeBase.batchSize;
+        const maxRetries = aiConfig.knowledgeBase.maxRetries;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             const batch        = chunksToProcess.slice(i, i + batchSize);
@@ -188,7 +187,7 @@ class EmbedKnowledgeBase {
             while (retries < maxRetries && !success) {
                 try {
                     const result = await model.batchEmbedContents({
-                        requests: textsToEmbed.map(text => ({ model: "text-embedding-004", content: { parts: [{ text }] } }))
+                        requests: textsToEmbed.map(text => ({ model: aiConfig.knowledgeBase.embeddingModel, content: { parts: [{ text }] } }))
                     });
                     const embeddings = result.embeddings.map(e => e.values);
 

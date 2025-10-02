@@ -1,6 +1,7 @@
 import {ChromaClient}       from 'chromadb';
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import {Command}            from 'commander/esm.mjs';
+import aiConfig             from './aiConfig.mjs';
 import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import path                 from 'path';
@@ -64,13 +65,13 @@ class QueryKnowledgeBase {
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+        const model = genAI.getGenerativeModel({ model: aiConfig.knowledgeBase.embeddingModel });
 
         let collection;
         try {
             const originalLog = console.warn;
             console.warn = () => {};
-            collection = await dbClient.getCollection({ name: 'neo_knowledge' });
+            collection = await dbClient.getCollection({ name: aiConfig.knowledgeBase.collectionName });
             console.warn = originalLog;
         } catch (err) {
             console.error('Could not connect to collection. Please run "npm run ai:build-kb" first.');
@@ -87,7 +88,7 @@ class QueryKnowledgeBase {
 
         const queryOptions = {
             queryEmbeddings: [queryEmbedding.embedding.values],
-            nResults       : 100 // Get a wider net for filtering
+            nResults       : aiConfig.knowledgeBase.nResults // Get a wider net for filtering
         };
 
         if (Object.keys(whereClause).length > 0) {
