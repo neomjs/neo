@@ -14,7 +14,7 @@ const program = new Command();
 
 program
     .name('neo-ai-add-memory')
-    .version('1.0.0')
+    .version(process.env.npm_package_version)
     .requiredOption('-p, --prompt <value>', 'The user prompt')
     .requiredOption('-r, --response <value>', 'The agent response')
     .requiredOption('-t, --thought <value>', 'The agent\'s thought process')

@@ -14,7 +14,7 @@ const program = new Command();
 
 program
     .name('neo-ai-query-memory')
-    .version('1.0.0')
+    .version(process.env.npm_package_version)
     .requiredOption('-q, --query <value>', 'The search query for the memory base')
     .option('-n, --n-results <value>', 'The number of results to return', 10)
     .parse(process.argv);

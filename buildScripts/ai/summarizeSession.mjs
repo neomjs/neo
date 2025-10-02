@@ -14,7 +14,7 @@ const program = new Command();
 
 program
     .name('neo-ai-summarize-session')
-    .version('1.0.0')
+    .version(process.env.npm_package_version)
     .requiredOption('-s, --session-id <value>', 'The ID of the session to summarize')
     .parse(process.argv);
 

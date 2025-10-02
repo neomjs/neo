@@ -19,7 +19,7 @@ const program = new Command();
 
 program
     .name('neo-ai-query')
-    .version('1.0.0') // Or from package.json
+    .version(process.env.npm_package_version)
     .option('-q, --query <value>', 'The search query for the knowledge base')
     .option('-t, --type <value>', 'The content type to query for. Choices: all, blog, guide, src, example', 'all')
     .parse(process.argv);

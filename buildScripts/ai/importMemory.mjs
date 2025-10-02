@@ -8,7 +8,7 @@ const program = new Command();
 
 program
     .name('neo-ai-import-memory')
-    .version('1.0.0')
+    .version(process.env.npm_package_version)
     .requiredOption('-f, --file <value>', 'The path to the memory backup file (.jsonl)')
     .parse(process.argv);
 
