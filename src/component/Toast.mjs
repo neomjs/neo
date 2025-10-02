@@ -54,7 +54,8 @@ class Toast extends Component {
         baseCls: ['neo-toast'],
         /**
          * If true makes the toast sticky and show a close icon
-         * @member {Boolean} closable=false
+         * @member {Boolean} closable_=false
+         * @reactive
          */
         closable_: false,
         /**
@@ -64,7 +65,8 @@ class Toast extends Component {
         /**
          * If set, it shows this icon in front of the text
          * e.g. 'fa fa-cog'
-         * @member {String|null} iconCls=null
+         * @member {String|null} iconCls_=null
+         * @reactive
          */
         iconCls_: null,
         /**
@@ -88,7 +90,8 @@ class Toast extends Component {
         /**
          * Describes the position of the toast, e.g. bl=bottom-left
          * This creates a cls `noe-toast-position`
-         * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position='tr'
+         * @member {'tl'|'tc'|'tr'|'bl'|'bc'|'br'} position_='tr'
+         * @reactive
          */
         position_: 'tr',
         /**

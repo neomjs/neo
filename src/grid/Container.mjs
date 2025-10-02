@@ -56,6 +56,7 @@ class GridContainer extends BaseContainer {
         /**
          * Configs for Neo.grid.Body
          * @member {Object|null} [body_={[isDescriptor]: true, merge: 'deep', value: null}]
+         * @reactive
          */
         body_: {
             [isDescriptor]: true,
@@ -81,6 +82,7 @@ class GridContainer extends BaseContainer {
         /**
          * Configs for Neo.grid.header.Toolbar
          * @member {Object|null} [headerToolbar_={[isDescriptor]: true, merge: 'deep', value: null}]
+         * @reactive
          */
         headerToolbar_: {
             [isDescriptor]: true,

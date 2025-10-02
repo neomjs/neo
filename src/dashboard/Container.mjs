@@ -23,6 +23,7 @@ class Container extends BaseContainer {
         baseCls: ['neo-dashboard', 'neo-container'],
         /**
          * @member {Boolean} sortable_=true
+         * @reactive
          */
         sortable_: true
     }
