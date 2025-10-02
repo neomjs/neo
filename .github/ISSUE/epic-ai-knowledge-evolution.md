@@ -34,7 +34,7 @@ This initiative is a key pillar for advanced workflows, alongside mandatory unit
 - **Done:** ticket-implement-memory-backup-and-restore.md
 
 ### Phase 2: The Recall Engine
-- **To Do:** ticket-create-memory-query-tool.md
+- **Done:** ticket-create-memory-query-tool.md
 - **To Do:** ticket-create-session-summarization-api.md
 - **To Do:** ticket-update-agent-workflow-for-memory.md
 

@@ -20,6 +20,7 @@
         "ai:export-memory"      : "node buildScripts/ai/exportMemory.mjs",
         "ai:import-memory"      : "node buildScripts/ai/importMemory.mjs",
         "ai:query"              : "node buildScripts/ai/queryKnowledgeBase.mjs",
+        "ai:query-memory"       : "node buildScripts/ai/queryMemory.mjs",
         "ai:server"             : "chroma run --path ./chroma",
         "ai:server-memory"      : "chroma run --path ./chroma-memory --port 8001",
         "ai:setup-memory-db"    : "node buildScripts/ai/setupMemoryDB.mjs",
