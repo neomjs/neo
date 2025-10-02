@@ -24,7 +24,12 @@ const aiConfig = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(process.cwd(), './chroma-memory')
+        path: path.resolve(process.cwd(), './chroma-memory'),
+        /**
+         * The path to store memory backups.
+         * @type {string}
+         */
+        backupPath: path.resolve(process.cwd(), 'dist/memory-backups')
     },
     /**
      * Configuration for the project's main knowledge base.

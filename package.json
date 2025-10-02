@@ -17,6 +17,8 @@
         "ai:build-kb"           : "npm run ai:create-kb && npm run ai:embed-kb",
         "ai:create-kb"          : "node buildScripts/ai/createKnowledgeBase.mjs",
         "ai:embed-kb"           : "node buildScripts/ai/embedKnowledgeBase.mjs",
+        "ai:export-memory"      : "node buildScripts/ai/exportMemory.mjs",
+        "ai:import-memory"      : "node buildScripts/ai/importMemory.mjs",
         "ai:query"              : "node buildScripts/ai/queryKnowledgeBase.mjs",
         "ai:server"             : "chroma run --path ./chroma",
         "ai:server-memory"      : "chroma run --path ./chroma-memory --port 8001",
