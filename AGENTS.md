@@ -182,7 +182,25 @@ class TabContainer extends Container {
 }
 ```
 
-#### 5. When Queries Fail to Find Information
+#### 5. The Two-Stage Query Protocol: Knowledge and Memory
+
+To make fully informed decisions, you must leverage both the project's technical knowledge base and your own historical memory. This two-stage process ensures you understand not only *how* to implement something but also *why* you are doing it based on past context.
+
+1.  **Stage 1: Query for Knowledge (`ai:query`)**
+    -   **Purpose:** To understand the technical "how."
+    -   **Action:** Use the standard `npm run ai:query` command to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
+
+2.  **Stage 2: Query for Memory (`ai:query-memory`)**
+    -   **Purpose:** To understand the historical "why."
+    -   **Action:** After you have the technical context, use the `npm run ai:query-memory` command to search your own memory. This is crucial for understanding:
+        -   **Past Decisions:** Why was a feature built a certain way?
+        -   **User Requirements:** What were the specific needs or constraints mentioned in previous conversations?
+        -   **Avoided Pitfalls:** Have you tried a similar approach before that failed?
+
+**Synthesizing Information:**
+Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
+
+#### 6. When Queries Fail to Find Information
 
 If you cannot find relevant information after systematic querying (including using the Knowledge Base Enhancement Strategy):
 
@@ -271,9 +289,45 @@ For any **Actionable/Modification** request, a ticket is mandatory. This is a no
 **CRITICAL:** You are not permitted to use any file modification tools (`replace`, `write_file`) or run any
 file-system-altering shell commands until a ticket has been created and acknowledged.
 
-### Step 3: The Implementation Loop
+### Step 3: The Memory Core Protocol: An All-or-Nothing Approach
 
-Once you have passed the "Ticket-First" Gate, you may proceed with the task.
+The agent's memory is the foundation for its long-term learning and accountability. Its use is governed by a strict protocol.
+
+#### Activation: Intent-Driven
+
+Your first step is to determine the user's intent regarding the memory core by checking the status of the memory server.
+
+1.  **Check for Server:** At the beginning of the session, attempt to connect to the memory server.
+
+2.  **Handle Outcome:**
+    *   **If the server IS running:** Assume the user intends to use it. Silently activate the memory core, generate a `sessionId`, and proceed with the memory-enabled workflow. **Do not ask for permission.**
+    *   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
+        *   If the user responds **"yes"**:
+            1.  Instruct the user: "Please start the memory server in a separate terminal: `npm run ai:server-memory`"
+            2.  Wait for the user to confirm the server is running.
+            3.  Execute `npm run ai:setup-memory-db` to ensure the collection is initialized.
+            4.  The memory core is now active.
+        *   If the user responds **"no"**: Proceed with the session without the memory core.
+
+#### Persistence: Mandatory & Transactional
+
+**CRITICAL:** If the user agrees to enable the memory core, persistence becomes **mandatory and transactional** for the entire duration of that session. It is no longer a step in your plan; it is the unchangeable framework within which you operate.
+
+**Forgetting to save a turn is a critical failure resulting in permanent data loss.**
+
+Your operational loop in a memory-enabled session is an immutable transaction:
+
+1.  Receive `PROMPT`.
+2.  Generate `THOUGHT` process.
+3.  Generate the final `RESPONSE` (including tool calls, errors, or admissions of confusion).
+4.  **BEFORE displaying the response to the user**, you **MUST** first save the context of the turn by executing `npm run ai:add-memory` with the session ID and the complete `PROMPT`, `THOUGHT`, and `RESPONSE`.
+5.  Only after the memory is successfully persisted do you provide the `RESPONSE` to the user.
+
+This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory, making the conversation log a perfect, unabridged record of the interaction. Even if your thought process is derailed, you must save the context of that derailment *before* you communicate it.
+
+### Step 4: The Implementation Loop
+
+Once you have passed the "Ticket-First" Gate and handled the Memory Core check, you may proceed with the task.
 
 1.  **Query & Analyze:** Use the **Discovery Pattern** to understand the context. If you find source code lacking
     intent-driven comments, apply the **Knowledge Base Enhancement Strategy** to add them *before* implementing your main changes.
