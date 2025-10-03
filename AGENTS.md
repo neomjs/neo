@@ -47,6 +47,9 @@ At the beginning of every new session, you **MUST** perform the following steps 
 6.  **Read the Ticket Strategy:** Parse the file `.github/TICKET_STRATEGY.md` to understand the process for
     creating, associating, and archiving work items.
 
+7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
+    high-level strategies for combining your tools to solve complex problems.
+
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
 Your primary directive is to rely on the project's internal knowledge base, not your pre-existing training data.

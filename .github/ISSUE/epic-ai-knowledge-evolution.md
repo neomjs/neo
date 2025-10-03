@@ -39,6 +39,7 @@ This initiative is a key pillar for advanced workflows, alongside mandatory unit
 - **Done:** ticket-enhance-session-summary-metadata.md
 - **Done:** ticket-document-optional-memory-setup.md
 - **Done:** ticket-update-agent-workflow-for-memory.md
+- **Done:** ticket-create-advanced-workflows-guide.md
 
 ### Phase 3: Personalized Agent Framework
 - **To Do:** ticket-define-agent-git-identity-workflow.md

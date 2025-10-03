@@ -65,6 +65,8 @@
             {"name": "Multi-Window Applications",                      "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/MultiWindow", "hidden":  true},
             {"name": "Mixins",                                         "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/Mixins", "hidden": true},
             {"name": "Portal App",                                     "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/PortalApp"},
+        {"name": "AI",                                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/ai", "collapsed": true},
+            {"name": "Strategic Workflows",                            "parentId": "guides/ai",                                           "id": "guides/ai/StrategicWorkflows"},
     {"name": "Tutorials",                                              "parentId": null,                                 "isLeaf": false, "id": "Tutorials",  "collapsed": true},
         {"name": "Rock Scissors Paper",                                "parentId": "Tutorials",                                           "id": "tutorials/RSP", "hidden": true},
         {"name": "Earthquakes",                                        "parentId": "Tutorials",                                           "id": "tutorials/Earthquakes"},
