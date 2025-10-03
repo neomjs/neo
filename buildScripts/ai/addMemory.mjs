@@ -15,9 +15,13 @@ const program = new Command();
 program
     .name('neo-ai-add-memory')
     .version(process.env.npm_package_version)
+    // The user's verbatim prompt to the agent.
     .requiredOption('-p, --prompt <value>', 'The user prompt')
+    // The agent's final, user-facing response.
     .requiredOption('-r, --response <value>', 'The agent response')
+    // The agent's internal thought process or reasoning that led to the response.
     .requiredOption('-t, --thought <value>', 'The agent\'s thought process')
+    // A unique identifier for the current session, used to group related memories.
     .option('-s, --session-id <value>', 'The current session ID', `session_${Date.now()}`)
     .parse(process.argv);
 

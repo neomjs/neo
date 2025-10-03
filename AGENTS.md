@@ -50,6 +50,16 @@ At the beginning of every new session, you **MUST** perform the following steps 
 7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
     high-level strategies for combining your tools to solve complex problems.
 
+8.  **Check for Memory Core:** Determine the user's intent regarding the memory core by checking the status of the memory server.
+    -   **If the server IS running:** Assume the user intends to use it. Silently activate the memory core, generate a `sessionId`, and proceed with the memory-enabled workflow. **Do not ask for permission.**
+    -   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
+        -   If the user responds **"yes"**:
+            1.  Instruct the user: "Please start the memory server in a separate terminal: `npm run ai:server-memory`"
+            2.  Wait for the user to confirm the server is running.
+            3.  Execute `npm run ai:setup-memory-db` to ensure the collection is initialized.
+            4.  The memory core is now active.
+        -   If the user responds **"no"**: Proceed with the session without the memory core.
+
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
 Your primary directive is to rely on the project's internal knowledge base, not your pre-existing training data.
@@ -295,22 +305,6 @@ file-system-altering shell commands until a ticket has been created and acknowle
 ### Step 3: The Memory Core Protocol: An All-or-Nothing Approach
 
 The agent's memory is the foundation for its long-term learning and accountability. Its use is governed by a strict protocol.
-
-#### Activation: Intent-Driven
-
-Your first step is to determine the user's intent regarding the memory core by checking the status of the memory server.
-
-1.  **Check for Server:** At the beginning of the session, attempt to connect to the memory server.
-
-2.  **Handle Outcome:**
-    *   **If the server IS running:** Assume the user intends to use it. Silently activate the memory core, generate a `sessionId`, and proceed with the memory-enabled workflow. **Do not ask for permission.**
-    *   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
-        *   If the user responds **"yes"**:
-            1.  Instruct the user: "Please start the memory server in a separate terminal: `npm run ai:server-memory`"
-            2.  Wait for the user to confirm the server is running.
-            3.  Execute `npm run ai:setup-memory-db` to ensure the collection is initialized.
-            4.  The memory core is now active.
-        *   If the user responds **"no"**: Proceed with the session without the memory core.
 
 #### Persistence: Mandatory & Transactional
 
