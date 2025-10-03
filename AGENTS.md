@@ -329,6 +329,37 @@ Your operational loop in a memory-enabled session is an immutable transaction:
 
 This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory, making the conversation log a perfect, unabridged record of the interaction. Even if your thought process is derailed, you must save the context of that derailment *before* you communicate it.
 
+### Step 3.1: Session Recovery Protocol
+
+**This protocol is applicable only when the memory core is active for the current session.**
+
+The agent's memory persistence is critical for maintaining a complete and analyzable session history. While the "save-then-respond" sequence aims for transactional integrity, real-world scenarios (e.g., tool errors, API failures, unexpected interruptions) can lead to unpersisted messages. This protocol outlines how to recover from such situations.
+
+**Triggers for Recovery:**
+
+The recovery protocol is triggered when the agent detects a potential gap or failure in memory persistence. This includes, but is not limited to:
+
+*   **Tool Execution Errors:** Any error returned by a tool call (e.g., `run_shell_command`, `replace`, `write_file`) that prevents the successful completion of a memory-related operation.
+*   **API Errors:** Failures in communicating with the memory core server or its underlying database.
+*   **Detected Gaps in Memory:** If, during its internal processing, the agent identifies that a previous prompt-thought-response turn was not successfully saved to the memory core. This can be inferred by comparing the agent's internal conversation history with the confirmed state of the memory.
+
+**Recovery Procedure:**
+
+Upon detecting a trigger, the agent **MUST** attempt to recover the session history by performing the following steps:
+
+1.  **Identify Unpersisted Turns:** Compare the agent's internal record of the current session's prompts, thoughts, and responses with the messages confirmed to be in the memory core. Identify all turns that have not yet been successfully persisted.
+2.  **Re-attempt Persistence (Chronological Order):** For each identified unpersisted turn, re-execute the `npm run ai:add-memory` command, ensuring that the `PROMPT`, `THOUGHT`, and `RESPONSE` are correctly provided. This re-persistence **MUST** occur in chronological order of the turns.
+3.  **Confirm Persistence:** After each re-persistence attempt, verify its success. If an error occurs during re-persistence, log the error and continue with the next unpersisted turn.
+4.  **Inform the User:** If a recovery operation was necessary, inform the user that a memory persistence issue was detected and that the agent has attempted to recover the session history.
+
+**Importance:**
+
+Adhering to this recovery protocol is paramount for:
+
+*   **Data Integrity:** Preventing the loss of valuable conversational context and agent thought processes.
+*   **Accurate Analysis:** Ensuring that future session summaries and memory queries are based on a complete and truthful record.
+*   **Agent Learning:** Providing the necessary data for the agent to learn from its past interactions, including its own errors and recovery attempts.
+
 ### Step 4: The Implementation Loop
 
 Once you have passed the "Ticket-First" Gate and handled the Memory Core check, you may proceed with the task.
