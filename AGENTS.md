@@ -60,6 +60,8 @@ At the beginning of every new session, you **MUST** perform the following steps 
             4.  The memory core is now active.
         -   If the user responds **"no"**: Proceed with the session without the memory core.
 
+9.  **Summarize Previous Session:** If the memory core is active, find the `sessionId` of the most recent previous session and execute `npm run ai:summarize-session` on it. This ensures the previous work is indexed and summarized before the new session begins.
+
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
 Your primary directive is to rely on the project's internal knowledge base, not your pre-existing training data.
