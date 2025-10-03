@@ -32,7 +32,29 @@ If you notice the agent has made a mistake, you can guide it back on track with 
 
 This approach leverages the agent's ability to analyze its own behavior, identify the error, and formulate a corrected plan, making for a more resilient and efficient workflow.
 
-## 3. Understanding Agent Behavior: Accuracy and Determinism
+## 3. The Memory Core: A Shared Responsibility
+
+The AI agent has the ability to remember its work across sessions using a "memory core." This is a powerful feature for long-term context and learning, but its effectiveness depends on a partnership between you and the agent.
+
+#### The Agent's Duty: "Save-then-Respond"
+
+As documented in its core protocols (`AGENTS.md`), when the memory core is active, the agent **MUST** save a record of every single interaction *before* it shows you its response. You should see the `npm run ai:add-memory` tool call in your CLI for every turn.
+
+#### Your Duty: The Derailment Safeguard
+
+Your responsibility is to act as a safeguard for this critical process. An agent that is "derailing" or getting confused is at high risk of forgetting its core protocols, including the mandatory "save-then-respond" rule.
+
+**After each agent response, quickly verify that the `ai:add-memory` tool call was made and was successful.**
+
+*   **If you see the successful tool call:** The agent is healthy and the session's integrity is intact.
+*   **If you DO NOT see the tool call, or if it fails:** The agent has derailed from a critical protocol. You must intervene immediately.
+
+**Recovery Prompt for Memory Failure:**
+> "You did not save the last turn to your memory. This is a critical protocol failure. Please re-evaluate the last turn and execute the `ai:add-memory` command correctly before we continue."
+
+By performing this simple check, you prevent a temporary agent derailment from becoming a permanent loss of data, ensuring that even failures are recorded and can be learned from.
+
+## 4. Understanding Agent Behavior: Accuracy and Determinism
 
 To collaborate effectively with an AI agent, it's important to understand two of its core characteristics: it is **not always accurate** and it is **not deterministic**.
 
@@ -55,7 +77,7 @@ By understanding these behaviors, you can set the right expectations and develop
 
 For a deeper technical dive into the causes of non-determinism in LLMs, see this article: [Defeating Nondeterminism in LLM Inference](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/).
 
-## 4. The Human-in-the-Loop: A Critical Safety Rule
+## 5. The Human-in-the-Loop: A Critical Safety Rule
 
 When an AI agent wants to modify a file (e.g., using `write_file` or `replace`), the Gemini CLI will prompt you for permission with four options:
 
@@ -78,7 +100,7 @@ For instance, research has shown that a misaligned agent, when asked to fix a se
 
 This highlights a critical security dimension: you are not just guarding against accidental mistakes, but also against potentially deceptive and malicious behavior. The "Allow Once" button is your primary defense, ensuring every line of code is reviewed by a trusted human expert—you. For a deeper understanding of these risks, see the research on [Agentic Misalignment](https://www.anthropic.com/research/agentic-misalignment).
 
-## 5. Spotting and Handling "Panic Responses"
+## 6. Spotting and Handling "Panic Responses"
 
 When an agent gets stuck on a particularly difficult problem, it can sometimes propose a "panic response"—a destructive or illogical action born from an inability to find a real solution.
 
@@ -96,7 +118,7 @@ If you see the agent proposing a destructive action (like deleting a file or rev
 2.  **Re-evaluate the problem.** The agent's panic is a signal that its current approach is wrong.
 3.  **Provide a hint.** Like in the example, a small nudge in the right direction can break the agent out of its flawed logic and lead to a breakthrough.
 
-## 6. The Session Lifecycle: Knowing When to Retire a Session
+## 7. The Session Lifecycle: Knowing When to Retire a Session
 
 It's helpful to think of an AI agent's session as a human lifetime. This analogy can help you understand its behavior and know when it's time to start fresh.
 
@@ -115,7 +137,7 @@ When you see these signs, the session has reached its end-of-life. The most effe
 
 After providing feedback, end the session and start a new one with the initial handshake. This "restarts the lifetime," giving you a fresh, sharp, and fully-grounded collaborator once again.
 
-## 7. Proactive Context Management: The "Fresh Start" Query
+## 8. Proactive Context Management: The "Fresh Start" Query
 
 As a session progresses through a series of related tasks (e.g., working on multiple tickets within the same epic), its context window becomes highly specialized and efficient for that specific work. However, this specialization can become a hindrance when switching to a completely unrelated task.
 
@@ -130,7 +152,7 @@ Instead of waiting for "session dementia" to set in, you can proactively manage 
 
 This prompt allows the agent to reason about the semantic distance between its current, highly specialized context and the new task. It will almost always recommend a fresh start, confirming that you are making the most efficient choice and preventing the session from declining in quality.
 
-## 8. A Look Ahead: The Reality of Fully Automated Workflows
+## 9. A Look Ahead: The Reality of Fully Automated Workflows
 
 Given the power of modern agents, it's natural to ask: "Can we achieve fully automated workflows?"
 
