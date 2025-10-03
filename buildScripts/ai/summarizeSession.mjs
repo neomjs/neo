@@ -69,14 +69,55 @@ class SummarizeSession {
         console.log(`Found ${memories.ids.length} memories to summarize.`);
 
         // 4. Aggregate content for summarization
-        const aggregatedContent = memories.documents.join('\n\n---\n\n');
-        const summaryPrompt = `Summarize the following development session. Identify the main goal, key decisions made, code that was modified, and the final outcome. Be concise and clear.\n\n---\n\n${aggregatedContent}`;
+        const aggregatedContent = memories.documents.join('\\n\\n---\\n\\n');
+        const summaryPrompt = `
+Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
+
+- "summary": (String) A detailed summary of the session. Identify the main goal, key decisions, modified code, and the final outcome.
+- "title": (String) A concise, descriptive title for the session (max 10 words).
+- "category": (String) Classify the task into one of the following: 'bugfix', 'feature', 'refactoring', 'documentation', 'new-app', 'analysis', 'other'.
+- "quality": (Number) A score from 0-100 rating the session's flow and focus. 100 is a perfect, focused session. 0 is a completely derailed or useless session.
+- "productivity": (Number) A score from 0-100 indicating if the session's primary goals were achieved. 100 means all goals were met. 0 means no goals were met.
+- "impact": (Number) A score from 0-100 estimating the significance of the changes made. 100 is a critical, high-impact change. 0 is a trivial or no-impact change.
+- "complexity": (Number) A score from 0-100 rating the task's complexity based on factors like file touchpoints, depth of changes (core vs. app-level), and cognitive load. A simple typo fix is < 10. A deep refactoring of a core module is > 90.
+- "technologies": (String[]) An array of key technologies, frameworks, or libraries involved (e.g., "neo.mjs", "chromadb", "nodejs").
+
+Do not include any markdown formatting (e.g., \`\`\`json) in your response.
+
+---
+
+${aggregatedContent}
+`;
 
         // 5. Generate summary
         const result = await model.generateContent(summaryPrompt);
-        const summary = result.response.text();
+        const responseText = result.response.text();
+        let summaryData;
 
-        console.log(`\n--- Generated Summary ---\n${summary}\n-------------------------\n`);
+        try {
+            summaryData = JSON.parse(responseText);
+        } catch (err) {
+            console.error('Error parsing JSON response from model:', err);
+            console.log('--- Raw Response ---');
+            console.log(responseText);
+            console.log('--------------------');
+            return;
+        }
+
+        const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
+
+        console.log(`\n--- Generated Summary ---
+Title: ${title}
+Category: ${category}
+Quality: ${quality}/100
+Productivity: ${productivity}/100
+Impact: ${impact}/100
+Complexity: ${complexity}/100
+Technologies: ${technologies.join(', ')}
+---
+${summary}
+-------------------------
+`);
 
         // 6. Store summary in the sessions collection
         const summaryId = `summary_${sessionId}`;
@@ -89,7 +130,14 @@ class SummarizeSession {
             metadatas: [{
                 sessionId: sessionId,
                 timestamp: new Date().toISOString(),
-                memoryCount: memories.ids.length
+                memoryCount: memories.ids.length,
+                title,
+                category,
+                quality,
+                productivity,
+                impact,
+                complexity,
+                technologies: technologies.join(',') // Store as comma-separated string
             }],
             documents: [summary]
         });
