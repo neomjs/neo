@@ -94,7 +94,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **To Do:** ticket-convert-state-provider-test.md
 - **To Do:** ticket-convert-state-providernesteddataconfigs-test.md
 - **To Do:** ticket-convert-vdom-advanced-test.md
-- **To Do:** ticket-convert-vdom-layout-cube-test.md
+- **Done:** ticket-convert-vdom-layout-cube-test.md
 - **To Do:** ticket-convert-vdom-table-container-test.md
 - **To Do:** ticket-convert-vdom-vdomasymmetricupdates-test.md
 - **To Do:** ticket-convert-vdom-vdomrealworldupdates-test.md

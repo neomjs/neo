@@ -1,27 +1,27 @@
-import { test, expect } from '@playwright/test';
-import VdomHelper from '../../../../../src/vdom/Helper.mjs';
-import Neo from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
+import { setup } from '../../../setup.mjs';
+
+// Call setup with the specific configuration for this test file
+setup({
+    neoConfig: {
+        useDomApiRenderer: false
+    }
+});
+
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../src/Neo.mjs';
+import * as core       from '../../../../../src/core/_export.mjs';
 import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 
-// tests are designed for this rendering mode
-// Neo.config.useDomApiRenderer = false;
-
-let oldVdom, vdom;
-
+/**
+ * @summary Verifies the VdomHelper's ability to handle wrapping and unwrapping of container items for cube layouts.
+ * This suite ensures that when items are dynamically wrapped or unwrapped in nested divs, the VdomHelper
+ * generates the correct sequence of deltas (insert, move, remove) to reflect the structural changes,
+ * including attribute modifications on the moved items.
+ */
 test.describe('vdom/layout/Cube', () => {
-    /**
-     * @summary Verifies the VdomHelper's ability to handle wrapping and unwrapping of container items for cube layouts.
-     * This suite ensures that when items are dynamically wrapped or unwrapped in nested divs, the VdomHelper
-     * generates the correct sequence of deltas (insert, move, remove) to reflect the structural changes,
-     * including attribute modifications on the moved items.
-     */
-    test.beforeEach(() => {
-        Neo.config.useDomApiRenderer = false;
-    });
-
     test('Wrap Container Items', () => {
-        oldVdom =
+        const oldVdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-component-1'},
             {id: 'neo-component-2'},
@@ -33,7 +33,7 @@ test.describe('vdom/layout/Cube', () => {
 
         let oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
-        vdom =
+        const vdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-vnode-1', cn: [
                 {id: 'neo-vnode-2', cn: [
@@ -47,7 +47,7 @@ test.describe('vdom/layout/Cube', () => {
             ]}
         ]};
 
-        let {deltas, vnode} = VdomHelper.update({vdom, vnode: oldVnode});
+        const {deltas, vnode} = VdomHelper.update({vdom, vnode: oldVnode});
 
         expect(deltas.length).toBe(7);
 
@@ -68,7 +68,7 @@ test.describe('vdom/layout/Cube', () => {
     });
 
     test('Unwrap Container Items', () => {
-        oldVdom =
+        const oldVdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-vnode-1', cn: [
                 {id: 'neo-vnode-2', cn: [
@@ -84,7 +84,7 @@ test.describe('vdom/layout/Cube', () => {
 
         let oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
-        vdom =
+        const vdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-component-1'},
             {id: 'neo-component-2'},
@@ -94,7 +94,7 @@ test.describe('vdom/layout/Cube', () => {
             {id: 'neo-component-6'}
         ]};
 
-        let {deltas, vnode} = VdomHelper.update({vdom, vnode: oldVnode});
+        const {deltas, vnode} = VdomHelper.update({vdom, vnode: oldVnode});
 
         expect(deltas.length).toBe(7);
 
@@ -110,7 +110,7 @@ test.describe('vdom/layout/Cube', () => {
     });
 
     test('Wrap Container Items & Change Item Attributes', () => {
-        oldVdom =
+        const oldVdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-component-1'},
             {id: 'neo-component-2'},
@@ -122,7 +122,7 @@ test.describe('vdom/layout/Cube', () => {
 
         let oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
-        vdom =
+        const vdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-vnode-1', cn: [
                 {id: 'neo-vnode-2', cn: [
@@ -159,7 +159,7 @@ test.describe('vdom/layout/Cube', () => {
     });
 
     test('Unwrap Container Items & Change Item Attributes', () => {
-        oldVdom =
+        const oldVdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-vnode-1', cn: [
                 {id: 'neo-vnode-2', cn: [
@@ -175,7 +175,7 @@ test.describe('vdom/layout/Cube', () => {
 
         let oldVnode = VdomHelper.create({vdom: oldVdom}).vnode;
 
-        vdom =
+        const vdom =
         {id: 'neo-container-1', cn: [
             {id: 'neo-component-1'},
             {id: 'neo-component-2'},
