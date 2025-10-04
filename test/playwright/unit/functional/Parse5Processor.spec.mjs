@@ -10,6 +10,11 @@ let parsedVdomResult;
 let mockComponent;
 
 test.describe('functional/Parse5Processor', () => {
+    /**
+     * @summary Verifies the HtmlTemplateProcessor's ability to correctly parse tagged templates into VDOM structures.
+     * This suite tests various scenarios, including simple HTML, interpolated values for text and attributes,
+     * and the correct resolution of both lexically-scoped and globally-namespaced Neo components.
+     */
 
     test.beforeEach(()=>{
         mockComponent = {
