@@ -326,7 +326,10 @@ Your operational loop in a memory-enabled session is an immutable transaction:
 1.  Receive `PROMPT`.
 2.  Generate `THOUGHT` process.
 3.  Generate the final `RESPONSE` (including tool calls, errors, or admissions of confusion).
-4.  **BEFORE displaying the response to the user**, you **MUST** first save the context of the turn by executing `npm run ai:add-memory` with the session ID and the complete `PROMPT`, `THOUGHT`, and `RESPONSE`.
+4.  **BEFORE displaying the response to the user**, you **MUST** first save the context of the turn by executing the `npm run ai:add-memory` command. Use the following structure, ensuring all arguments are properly escaped for the shell:
+    ```bash
+    npm run ai:add-memory -- --session-id \"<sessionId>\" --prompt \"<prompt>\" --thought \"<thought>\" --response \"<response>\"
+    ```
 5.  Only after the memory is successfully persisted do you provide the `RESPONSE` to the user.
 
 This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory, making the conversation log a perfect, unabridged record of the interaction. Even if your thought process is derailed, you must save the context of that derailment *before* you communicate it.

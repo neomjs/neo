@@ -46,6 +46,7 @@ This initiative is a key pillar for advanced workflows, alongside mandatory unit
 - **Done:** ticket-enhance-agent-session-initialization.md
 - **Done:** ticket-implement-session-recovery-protocol.md
 - **Done:** ticket-correct-agent-memory-protocol.md
+- **Done:** ticket-clarify-add-memory-command-in-agents-md.md
 
 ### Phase 3: Personalized Agent Framework
 - **To Do:** ticket-define-agent-git-identity-workflow.md
