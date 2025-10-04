@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import Neo from '../../../../src/Neo.mjs';
+import * as core from '../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
 import { createHierarchicalDataProxy } from '../../../../src/state/createHierarchicalDataProxy.mjs';
 import Effect from '../../../../src/core/Effect.mjs';
 import EffectManager from '../../../../src/core/EffectManager.mjs';
