@@ -62,9 +62,13 @@ class MockStateProvider extends Base {
         return this._parent || null;
     }
 }
-Neo.setupClass(MockStateProvider);
 
 test.describe('state/createHierarchicalDataProxy', () => {
+    
+    test.beforeEach(()=>{
+        Neo.setupClass(MockStateProvider);
+    });
+
     test('should resolve data from a single provider', () => {
         const provider = Neo.create(MockStateProvider, { data: { name: 'Neo', version: 10 } });
         let effectRunCount = 0;
