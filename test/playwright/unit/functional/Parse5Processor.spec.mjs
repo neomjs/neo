@@ -5,14 +5,18 @@ import HtmlTemplateProcessor from '../../../../src/functional/util/HtmlTemplateP
 import { html } from '../../../../src/functional/util/html.mjs';
 
 const processor = HtmlTemplateProcessor;
+let parsedVdomResult;
+let mockComponent;
 
 test.describe('functional/Parse5Processor', () => {
-    let parsedVdomResult;
-    const mockComponent = {
-        continueUpdateWithVdom: vdom => {
-            parsedVdomResult = vdom;
-        }
-    };
+
+    test.beforeEach(()=>{
+        mockComponent = {
+            continueUpdateWithVdom: vdom => {
+                parsedVdomResult = vdom;
+            }
+        };
+    });
 
     test('should parse a simple template with a single root node', async () => {
         const template = html`<div><p>Hello</p></div>`;
