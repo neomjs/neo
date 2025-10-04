@@ -65,9 +65,15 @@ class MockStateProvider extends Base {
 }
 
 test.describe('state/createHierarchicalDataProxy', () => {
+    /**
+     * @summary Verifies the functionality of createHierarchicalDataProxy for reactive state management.
+     * This suite tests the proxy's ability to resolve data from single and multiple (parent/child) state providers.
+     * It ensures that effects are correctly triggered when underlying data changes and that the proxy correctly
+     * handles nested data structures and property lookups that do not exist in the data hierarchy.
+     */
     
     test.beforeEach(()=>{
-        Neo.setupClass(MockStateProvider);
+        MockStateProvider = Neo.setupClass(MockStateProvider);
     });
 
     test('should resolve data from a single provider', () => {
