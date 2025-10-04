@@ -17,6 +17,7 @@
         "ai:build-kb"           : "npm run ai:create-kb && npm run ai:embed-kb",
         "ai:create-kb"          : "node buildScripts/ai/createKnowledgeBase.mjs",
         "ai:embed-kb"           : "node buildScripts/ai/embedKnowledgeBase.mjs",
+        "ai:get-last-session"   : "node buildScripts/ai/getLastSession.mjs",
         "ai:export-memory"      : "node buildScripts/ai/exportMemory.mjs",
         "ai:import-memory"      : "node buildScripts/ai/importMemory.mjs",
         "ai:query"              : "node buildScripts/ai/queryKnowledgeBase.mjs",
