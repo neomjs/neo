@@ -9,7 +9,7 @@ import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
 let oldVdom, vdom;
 
 test.describe('vdom/layout/Cube', () => {
-    test.beforeAll(() => {
+    test.beforeEach(() => {
         Neo.config.useDomApiRenderer = false;
     });
 
