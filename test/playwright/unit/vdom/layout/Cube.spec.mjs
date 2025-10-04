@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import VdomHelper from '../../../../../src/vdom/Helper.mjs';
 import Neo from '../../../../../src/Neo.mjs';
+import * as core from '../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
 import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
 
 // tests are designed for this rendering mode
