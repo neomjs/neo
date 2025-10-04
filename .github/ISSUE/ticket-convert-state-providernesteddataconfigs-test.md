@@ -2,8 +2,8 @@
 
 GH ticket id: #7289
 
-**Assignee:**
-**Status:** To Do
+**Assignee:** kart-u
+**Status:** Done
 
 **Parent Epic:** epic-enhance-workflow-with-mandatory-unit-testing.md
 

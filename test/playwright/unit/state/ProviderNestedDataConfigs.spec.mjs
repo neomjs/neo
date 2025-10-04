@@ -1,5 +1,3 @@
-// 1. Run the standard setup to adhere to project conventions
-// 2. Import the REAL Neo module
 import { setup } from '../../setup.mjs';
 
 setup({
@@ -8,23 +6,22 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
-import InstanceManager    from '../../../../src/manager/Instance.mjs';
-import Component          from '../../../../src/component/Base.mjs';
-import StateProvider      from '../../../../src/state/Provider.mjs';
-
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
+import Component       from '../../../../src/component/Base.mjs';
+import StateProvider   from '../../../../src/state/Provider.mjs';
 
 class MockComponent extends Component {
     static config = {
         className: 'Mock.Component',
-        appName: 'test-app',
-        user_: null,
+        appName  : 'test-app',
+        user_    : null,
         userName_: null
     }
 }
-Neo.setupClass(MockComponent);
+MockComponent = Neo.setupClass(MockComponent);
 
 // Helper function to convert a proxy to a plain object for deep comparison
 function proxyToObject(proxy) {
@@ -38,7 +35,6 @@ test.describe('State Provider Nested Data Configs', () => {
 
     //All tests are now reverted to their clean, original state
     test('State Provider should trigger parent effects when a leaf node changes (bubbling)', () => {
-        
         let effectRunCount = 0;
 
         const component = Neo.create(MockComponent, {
@@ -74,7 +70,6 @@ test.describe('State Provider Nested Data Configs', () => {
     });
 
     test('setData with a nested object should deep-merge and bubble reactivity', () => {
-
         const component = Neo.create(MockComponent, {
             stateProvider: {
                 data: {
