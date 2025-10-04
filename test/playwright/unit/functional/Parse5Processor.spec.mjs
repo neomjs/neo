@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
-import Neo from '../../../../src/Neo.mjs';
-import * as core from '../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
-import Button from '../../../../src/button/Base.mjs';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../src/Neo.mjs';
+import * as core             from '../../../../src/core/_export.mjs';
+import Button                from '../../../../src/button/Base.mjs';
 import HtmlTemplateProcessor from '../../../../src/functional/util/HtmlTemplateProcessor.mjs';
-import { html } from '../../../../src/functional/util/html.mjs';
+import {html}                from '../../../../src/functional/util/html.mjs';
 
 const processor = HtmlTemplateProcessor;
 let parsedVdomResult;
