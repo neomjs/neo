@@ -97,7 +97,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **Done:** ticket-convert-vdom-layout-cube-test.md
 - **To Do:** ticket-convert-vdom-table-container-test.md
 - **To Do:** ticket-convert-vdom-vdomasymmetricupdates-test.md
-- **To Do:** ticket-convert-vdom-vdomrealworldupdates-test.md
+- **Done:** ticket-convert-vdom-vdomrealworldupdates-test.md
 - **To Do:** ticket-convert-vdomcalendar-test.md
 - **To Do:** ticket-explore-test-file-indexing.md
 - **Done:** ticket-plan-remaining-siesta-migrations.md
