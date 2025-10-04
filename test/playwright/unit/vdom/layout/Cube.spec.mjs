@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import VdomHelper from '../../../../../src/vdom/Helper.mjs';
 import Neo from '../../../../../src/Neo.mjs';
-import * as core from '../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
+import * as core from '../../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
 import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
 
 // tests are designed for this rendering mode
@@ -10,6 +10,12 @@ import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
 let oldVdom, vdom;
 
 test.describe('vdom/layout/Cube', () => {
+    /**
+     * @summary Verifies the VdomHelper's ability to handle wrapping and unwrapping of container items for cube layouts.
+     * This suite ensures that when items are dynamically wrapped or unwrapped in nested divs, the VdomHelper
+     * generates the correct sequence of deltas (insert, move, remove) to reflect the structural changes,
+     * including attribute modifications on the moved items.
+     */
     test.beforeEach(() => {
         Neo.config.useDomApiRenderer = false;
     });
