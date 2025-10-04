@@ -133,8 +133,7 @@ Here’s how the intended workflow looks:
 
 1.  **Start your AI Agent**: From the repo root, launch your AI agent of choice (e.g., Gemini CLI).
     ```bash
-gemini
-    ```
+
 2.  **Give the Initial Handshake**: This is the most critical step. Your first prompt **must** direct the agent to its instructions.
     > **Your Prompt:** "follow the instructions inside @AGENTS.md"
 
