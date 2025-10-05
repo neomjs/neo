@@ -14,6 +14,7 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
 ### Phase 1: Foundational CLI Integration & Authentication
 - **Goal:** Ensure the agent can securely authenticate with the GitHub API via `gh` and perform basic read-only operations.
 - **Sub-Tasks:**
+    - `ticket-create-robust-gh-setup-script.md`: Create a robust script to verify `gh` installation, authentication, and version.
     - `ticket-setup-github-cli-authentication.md`: Document the process for setting up `gh` auth, likely using a `GH_TOKEN`.
     - `ticket-agent-can-list-issues-and-prs.md`: Implement agent capabilities to list open issues and pull requests.
 
