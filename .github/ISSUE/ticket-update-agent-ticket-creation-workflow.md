@@ -7,6 +7,7 @@ GH ticket id: #7369
 
 **Epic:** Integrate GitHub CLI to Streamline Contribution Workflow
 **Phase:** 2
+**Assignee:** nabeel001
 **Status:** To Do
 
 ## Description
