@@ -7,6 +7,7 @@ GH ticket id: #7371
 
 **Epic:** Integrate GitHub CLI to Streamline Contribution Workflow
 **Phase:** 3
+**Assignee:** pranjalarora98
 **Status:** To Do
 
 ## Description
