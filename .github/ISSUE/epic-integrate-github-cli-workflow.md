@@ -31,3 +31,10 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
     - `ticket-agent-can-diff-a-pr.md`: Use `gh pr diff <PR_NUMBER>` to get a quick overview of changes.
     - `ticket-agent-can-comment-on-pr.md`: Use `gh pr review --comment` or `gh issue comment` to provide feedback on PRs.
     - `ticket-define-pr-review-protocol-for-agent.md`: Create a clear protocol in `AGENTS.md` for how the agent should conduct reviews (e.g., be constructive, focus on coding guidelines, run tests).
+
+### Phase 4: Advanced Integration & Data Enrichment
+- **Goal:** Enhance the agent's contextual understanding by enriching the knowledge base and refining its data access strategies.
+- **Sub-Tasks:**
+    - `ticket-define-hybrid-api-vs-kb-workflow.md`: Formally document the hybrid strategy for using the GitHub API for real-time status and the local knowledge base for deep context.
+    - `ticket-sync-gh-issues-to-local.md`: Create a script to sync new GitHub issues to local markdown files.
+    - `ticket-add-github-comments-to-kb.md`: Enhance the knowledge base to include comments from GitHub issues and PRs.
