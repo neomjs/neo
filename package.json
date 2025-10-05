@@ -15,6 +15,7 @@
         "add-reactive-tags"     : "node ./buildScripts/addReactiveTags.mjs",
         "ai:add-memory"         : "node buildScripts/ai/addMemory.mjs",
         "ai:build-kb"           : "npm run ai:create-kb && npm run ai:embed-kb",
+        "ai:create-gh-issue"  : "node buildScripts/ai/createGhIssue.mjs",
         "ai:create-kb"          : "node buildScripts/ai/createKnowledgeBase.mjs",
         "ai:embed-kb"           : "node buildScripts/ai/embedKnowledgeBase.mjs",
         "ai:export-memory"      : "node buildScripts/ai/exportMemory.mjs",
