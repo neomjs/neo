@@ -50,7 +50,10 @@ At the beginning of every new session, you **MUST** perform the following steps 
 7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
     high-level strategies for combining your tools to solve complex problems.
 
-8.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/health`.
+8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/development/GitHubCLISetup.md` to understand the
+    setup of GitHub CLI with a personal access token.
+    
+9.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/health`.
     -   **If the server IS running:** Assume the user intends to use it.
         1.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
         2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
