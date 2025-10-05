@@ -18,8 +18,10 @@ and a `createVdom` method.
 ```javascript readonly
 import {defineComponent} from '../../src/functional/_export.mjs';
 
-const MyCoolButton = defineComponent({
-    className: 'My.CoolButton',
+export default defineComponent({
+    config: {
+        className: 'MyCoolButton'
+    },
 
     createVdom(config) {
         // We will build our VDOM here
@@ -30,8 +32,6 @@ const MyCoolButton = defineComponent({
         }
     }
 });
-
-export default MyCoolButton;
 ```
 
 ## 2. Adding Custom Configs
@@ -45,15 +45,13 @@ component's instance, so we can access our configs directly from it.
 ```javascript readonly
 import {defineComponent} from '../../src/functional/_export.mjs';
 
-const MyCoolButton = defineComponent({
-    className: 'My.CoolButton',
-
+export default defineComponent({
     // 1. Define the public API
     config: {
-        iconCls_: null,
-        text_   : 'Default Text'
+        className: 'MyCoolButton',
+        iconCls_ : null,
+        text_    : 'Default Text'
     },
-
     // 2. Use the configs in createVdom
     createVdom(config) {
         const {iconCls, text} = config;
@@ -73,8 +71,6 @@ const MyCoolButton = defineComponent({
         }
     }
 });
-
-export default MyCoolButton;
 ```
 
 ## 3. Handling User Events
@@ -85,24 +81,13 @@ component. The `addDomListeners` method in the `construct` hook allows us to lis
 ```javascript readonly
 import {defineComponent} from '../../src/functional/_export.mjs';
 
-const MyCoolButton = defineComponent({
-    className: 'My.CoolButton',
-
+export default defineComponent({
     config: {
-        handler_: null, // A function to call on click
-        iconCls_: null,
-        text_   : 'Default Text'
-    },
-
-    construct(config) {
-        // The super.construct call is important!
-        // It sets up the component's lifecycle and effects.
-        this.super(config);
-
-        this.addDomListeners({
-            click: this.onClick,
-            scope: this
-        });
+        className   : 'MyCoolButton',
+        domListeners: [{click: 'onClick'}],
+        handler_    : null, // A function to call on click
+        iconCls_    : null,
+        text_       : 'Default Text'
     },
 
     createVdom(config) {
@@ -114,8 +99,6 @@ const MyCoolButton = defineComponent({
         this.handler?.(this);
     }
 });
-
-export default MyCoolButton;
 ```
 
 ## 4. Using Your Custom Component
@@ -128,15 +111,12 @@ import Container         from '../container/Base.mjs';
 
 // 1. Define our custom button
 const MyCoolButton = defineComponent({
-    className: 'My.CoolButton',
     config: {
-        handler_: null,
-        iconCls_: null,
-        text_   : 'Default Text'
-    },
-    construct(config) {
-        this.super(config);
-        this.addDomListeners({click: this.onClick, scope: this});
+        className   : 'MyCoolButton',
+        domListeners: [{click: 'onClick'}],
+        handler_    : null,
+        iconCls_    : null,
+        text_       : 'Default Text',
     },
     createVdom(config) {
         const {iconCls, text} = config;
@@ -164,7 +144,7 @@ class MainView extends Container {
             iconCls: 'fa-star',
             text   : 'My Button!',
             handler(button) {
-                console.log('Button clicked!', button);
+                Neo.Main.log({value: `Button clicked: ${button.id}`});
                 button.text = 'Clicked!'; // It's reactive!
             }
         }]

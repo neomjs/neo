@@ -4,23 +4,24 @@ const appName = 'VdomRealWorldUpdatesTest';
 
 setup({
     neoConfig: {
-        useDomApiRenderer   : true,
-        unitTestMode        : true,
-        allowVdomUpdatesInTests: true
+        allowVdomUpdatesInTests: true,
+        unitTestMode           : true,
+        useDomApiRenderer      : true
     },
     appConfig: {
-        name: appName,
+        name             : appName,
         isMounted        : () => true,
         vnodeInitialising: false
     }
 });
 
-import { test, expect } from '@playwright/test';
-
-import Neo       from '../../../../src/Neo.mjs';
-import Component from '../../../../src/component/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
-import VdomHelper from '../../../../src/vdom/Helper.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import Container          from '../../../../src/container/Base.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 class TestGrandchild extends Component {
     static config = {
@@ -30,7 +31,7 @@ class TestGrandchild extends Component {
         text     : 'initial grandchild'
     }
 }
-Neo.setupClass(TestGrandchild);
+TestGrandchild = Neo.setupClass(TestGrandchild);
 
 class TestChild extends Container {
     static config = {
@@ -46,7 +47,7 @@ class TestChild extends Container {
         }
     }
 }
-Neo.setupClass(TestChild);
+TestChild = Neo.setupClass(TestChild);
 
 class TestParent extends Container {
     static config = {
@@ -75,7 +76,7 @@ class TestParent extends Container {
         }
     }
 }
-Neo.setupClass(TestParent);
+TestParent = Neo.setupClass(TestParent);
 
 class TestChildContainer extends Container {
     static config = {
@@ -86,7 +87,7 @@ class TestChildContainer extends Container {
         ]
     }
 }
-Neo.setupClass(TestChildContainer);
+TestChildContainer = Neo.setupClass(TestChildContainer);
 
 test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     let parent, child, grandchild, testRun = 0;
