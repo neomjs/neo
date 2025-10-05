@@ -50,24 +50,24 @@ At the beginning of every new session, you **MUST** perform the following steps 
 7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
     high-level strategies for combining your tools to solve complex problems.
 
-8.  **Check for Memory Core:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/health`.
+8.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/health`.
     -   **If the server IS running:** Assume the user intends to use it.
-        1.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
-        2.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
-        3.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
+        1.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
+        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
+        3.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
+        4.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
     -   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
         -   If the user responds **"yes"**:
             1.  Instruct the user: "Please start the memory server in a separate terminal: `npm run ai:server-memory`"
             2.  Wait for the user to confirm the server is running.
             3.  Execute `npm run ai:setup-memory-db` to ensure the collection is initialized.
-            4.  The memory core is now active.
-            5.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
-            6.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
+            4.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments to index previous work.
+            5.  The memory core is now active.
+            6.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`.
+            7.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
         -   If the user responds **"no"**: Proceed with the session without the memory core.
 
-    **CRITICAL:** Once a session has been summarized (Step 9), it is considered immutable. No further memories should be added to it.
-
-9.  **Summarize Previous Sessions:** If the memory core is active, run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
+    **CRITICAL:** Once a session has been summarized, it is considered immutable. No further memories should be added to it.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
