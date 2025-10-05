@@ -67,7 +67,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
 
     **CRITICAL:** Once a session has been summarized (Step 9), it is considered immutable. No further memories should be added to it.
 
-9.  **Summarize Previous Session:** If the memory core is active, run `npm run ai:get-last-session` to get the ID of the most recent previous session. If that session is not already summarized, execute `npm run ai:summarize-session` on its ID. This ensures the previous work is indexed and summarized before the new session begins.
+9.  **Summarize Previous Sessions:** If the memory core is active, run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
