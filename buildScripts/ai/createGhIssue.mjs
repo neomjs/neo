@@ -3,7 +3,7 @@ import {promises as fsp}           from 'fs';
 import os                          from 'os';
 import path                        from 'path';
 import {spawnSync}                 from 'child_process';
-import {Command}                   from 'commander/esm.mjs';
+import { Command }                 from 'commander/esm.mjs';
 
 /**
  * @summary Automates GitHub issue creation from local ticket markdown files.
@@ -18,7 +18,6 @@ const program = new Command();
 
 program
     .name('neo-ai-create-gh-issue')
-    .version(process.env.npm_package_version)
     .argument('<ticketPath>', 'Path to the local markdown ticket file')
     .option('-r, --repo <value>', 'Optional GitHub repository in owner/name format')
     .parse(process.argv);
@@ -74,7 +73,7 @@ if (!ticketPath) {
 
         console.log(`Created GitHub issue #${issueNumber}: ${issueUrl}`);
 
-        const updatedBody = prependIssueMetadata(frontmatterBlock, bodyContent, issueNumber, issueUrl);
+        const updatedBody = updateIssueMetadata(frontmatterBlock, bodyContent, issueNumber, issueUrl);
         const updatedContent = ensureTrailingNewline(updatedBody);
 
         const fileDir = path.dirname(absoluteTicketPath);
@@ -208,10 +207,18 @@ function extractIssueNumber(issueUrl, stdout, stderr) {
     throw new Error('Unable to determine issue number from GitHub CLI output.');
 }
 
-function prependIssueMetadata(frontmatterBlock, bodyContent, issueNumber, issueUrl) {
+function updateIssueMetadata(frontmatterBlock, bodyContent, issueNumber, issueUrl) {
+    const placeholderRegex = /GH ticket id: #\d+/;
     const cleanedBody = prepareBodyForIssue(bodyContent);
-    const metadata = `# GitHub Issue: #${issueNumber}\n# ${issueUrl}\n\n`;
 
+    if (placeholderRegex.test(cleanedBody)) {
+        const replacementText = `GH ticket id: #${issueNumber}\nGH ticket url: ${issueUrl}`;
+        const updatedBodyContent = cleanedBody.replace(placeholderRegex, replacementText);
+        return `${frontmatterBlock}${updatedBodyContent}`;
+    }
+
+    // Fallback to prepending if the placeholder is not found
+    const metadata = `# GitHub Issue: #${issueNumber}\n# ${issueUrl}\n\n`;
     return `${frontmatterBlock}${metadata}${cleanedBody}`;
 }
 
