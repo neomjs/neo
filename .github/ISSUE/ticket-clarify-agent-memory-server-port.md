@@ -3,7 +3,7 @@ title: Clarify Agent Memory Server Port in AGENTS.md
 labels: documentation, enhancement, AI
 ---
 
-GH ticket id: #(needs to be created)
+GH ticket id: #7361
 
 **Epic:** AI Knowledge Evolution
 **Phase:** 2
