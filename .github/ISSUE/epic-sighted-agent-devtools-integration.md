@@ -7,9 +7,14 @@ GH ticket id: #7385
 
 ## Scope
 
-This epic covers the integration of the Chrome DevTools Model Context Protocol (MCP) server into the neo.mjs development workflow. The primary goal is to give the AI agent 'sight' by allowing it to programmatically interact with a live browser instance. This will enable the agent to verify UI changes, debug rendering issues, inspect the DOM and CSS, analyze performance, and automate user flows, fundamentally transforming it from a 'blind' code generator into a 'sighted' development partner.
+This epic covers the integration of the Chrome DevTools Model Context Protocol (MCP) server into the neo.mjs development workflow. The primary goal is to give the AI agent 'sight' by allowing it to programmatically interact with a live browser instance. This will enable a new, interactive development workflow where the agent can:
 
-This initiative is a critical step towards building a more powerful and autonomous AI-native development environment.
+*   **Continuously verify UI changes:** Inspect the DOM and CSS in real-time during component development.
+*   **Generate meaningful Playwright tests:** Leverage its understanding of the UI to create robust Playwright tests.
+*   **Debug multi-threaded applications:** Investigate worker and shared worker console access for comprehensive debugging.
+*   **Analyze performance and automate user flows:** Utilize advanced DevTools capabilities for performance analysis and UI automation.
+
+This initiative is a critical step towards building a more powerful and autonomous AI-native development environment, transforming the agent from a 'blind' code generator into a 'sighted' development partner.
 
 ## Top-Level Items & Implementation Phases
 
@@ -24,3 +29,8 @@ This initiative is a critical step towards building a more powerful and autonomo
 ### Phase 1: Initial Integration & Verification
 - **Done:** ticket-configure-mcp-server.md
 - **To Do:** ticket-create-mcp-server-guide.md
+
+### Phase 2: 'Sighted' Development Workflow
+- **To Do:** ticket-define-sighted-development-workflow.md
+- **To Do:** ticket-investigate-worker-console-access-with-mcp.md
+- **To Do:** ticket-create-sighted-development-demo.md
