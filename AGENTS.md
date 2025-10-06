@@ -395,3 +395,69 @@ ensure your understanding is up-to-date.
 
 Furthermore, after pulling changes, the local knowledge base may be out of sync.
 You should run `npm run ai:build-kb` to re-embed the latest changes into the database.
+
+
+## Reviewing Pull Requests
+
+When you are asked to review a pull request, follow this workflow to fetch and check out the PR branch locally.
+
+### Steps
+
+1. **Ensure your current work is committed or stashed**  
+   Before switching branches, make sure you save your current work to prevent losing changes:
+   ```bash
+   git status
+   git add .
+   git commit -m "WIP: save changes"
+   # or stash changes
+   git stash
+   ```
+
+2. **Fetch and check out the pull request branch**
+   Use the GitHub CLI command:
+
+```bash
+   gh pr checkout <PR_NUMBER>
+```
+   Replace <PR_NUMBER> with the pull request number you are reviewing.
+
+3. Review and test the code locally
+   Once checked out, review the changes and run any tests or build commands necessary to validate the PR.
+
+4. Return to your previous branch
+
+   After review:
+   
+```bash
+   git checkout -
+```
+
+### Example Usage
+
+  If you are asked to:
+
+  “Review PR RealWorld app: your Profile => my articles #123”
+
+  You would run:
+  ```bash
+  gh pr checkout 123
+  ```
+
+  This will fetch and check out the branch for PR #123 so you can start reviewing.
+
+
+**Safety Notes**
+
+  Always commit or stash your changes before checking out a new branch to avoid losing work.
+
+  Ensure the GitHub CLI is installed by running:
+
+  ```bash
+  gh --version
+  ``` 
+  Install it if necessary:
+
+```bash
+  brew install gh     # MacOS
+  sudo apt install gh # Ubuntu/Debian
+```
