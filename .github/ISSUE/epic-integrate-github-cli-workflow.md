@@ -22,6 +22,7 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
 - **Goal:** Eliminate the manual synchronization between local markdown tickets and GitHub issues.
 - **Sub-Tasks:**
     - `ticket-create-gh-issue-from-md-ticket.md`: Create a script that uses `gh` to create a new GitHub issue from a local `.github/ISSUE/*.md` file, extracting the title and body.
+    - `ticket-refactor-create-gh-issue-to-use-fs-extra.md`: Refactor `createGhIssue.mjs` to use `fs-extra` for consistency.
     - `ticket-sync-gh-issue-id-to-md-ticket.md`: The script from the previous task should automatically edit the local markdown file to insert the newly created GitHub issue URL and ID.
     - `ticket-update-agent-ticket-creation-workflow.md`: Update `AGENTS.md` to instruct the agent to use this new automated workflow instead of prompting the user to do it manually.
 

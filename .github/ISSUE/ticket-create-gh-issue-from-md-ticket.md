@@ -8,7 +8,7 @@ GH ticket id: #7367
 **Epic:** Integrate GitHub CLI to Streamline Contribution Workflow
 **Phase:** 2
 **Assignee:** ksanjeev284
-**Status:** To Do
+**Status:** Done
 
 ## Description
 
