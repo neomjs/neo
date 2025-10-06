@@ -85,7 +85,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **Done:** ticket-convert-form-field-aftersetvaluesequence-test.md
 - **To Do:** ticket-convert-functional-button-test.md
 - **To Do:** ticket-convert-functional-htmltemplatecomponent-test.md
-- **To Do:** ticket-convert-functional-parse5processor-test.md
+- **Done:** ticket-convert-functional-parse5processor-test.md
 - **To Do:** ticket-convert-managerinstance-test.md
 - **To Do:** ticket-convert-neo-mixinstaticconfig-test.md
 - **To Do:** ticket-convert-rectangle-test.md
@@ -94,10 +94,10 @@ The primary goal is to prevent regressions, especially in the complex core modul
 - **To Do:** ticket-convert-state-provider-test.md
 - **To Do:** ticket-convert-state-providernesteddataconfigs-test.md
 - **To Do:** ticket-convert-vdom-advanced-test.md
-- **To Do:** ticket-convert-vdom-layout-cube-test.md
+- **Done:** ticket-convert-vdom-layout-cube-test.md
 - **To Do:** ticket-convert-vdom-table-container-test.md
 - **To Do:** ticket-convert-vdom-vdomasymmetricupdates-test.md
-- **To Do:** ticket-convert-vdom-vdomrealworldupdates-test.md
+- **Done:** ticket-convert-vdom-vdomrealworldupdates-test.md
 - **To Do:** ticket-convert-vdomcalendar-test.md
 - **To Do:** ticket-explore-test-file-indexing.md
 - **Done:** ticket-plan-remaining-siesta-migrations.md

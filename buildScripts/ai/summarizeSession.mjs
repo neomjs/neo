@@ -15,49 +15,90 @@ const program = new Command();
 program
     .name('neo-ai-summarize-session')
     .version(process.env.npm_package_version)
-    .requiredOption('-s, --session-id <value>', 'The ID of the session to summarize')
+    .option('-s, --session-id <value>', 'The ID of the session to summarize')
     .parse(process.argv);
 
 const opts = program.opts();
 
 /**
- * @summary Summarizes a given agent session and stores the summary in a dedicated database.
+ * @summary Summarizes agent sessions and stores the summaries in a dedicated database.
  *
- * This script implements the first step of a two-tiered memory system. It retrieves all
- * individual memories for a specific session, uses a generative model to create a
- * high-level summary, and then persists that summary to a `sessions` collection.
+ * This script implements the first step of a two-tiered memory system. It can operate in two modes:
+ * 1.  **Single Session Mode:** If a `--session-id` is provided, it retrieves all memories for that
+ *     specific session, uses a generative model to create a high-level summary, and then persists
+ *     that summary to a `sessions` collection.
+ * 2.  **Batch Mode:** If no `--session-id` is provided, it automatically finds all sessions that
+ *     have not yet been summarized, and processes each one sequentially.
+ *
  * This creates a fast, searchable index of past work.
  *
- * @see {@link .github/ISSUE/ticket-create-session-summarization-api.md}
+ * @see {@link https://github.com/neomjs/neo/issues/7325}
+ * @see {@link https://github.com/neomjs/neo/issues/7358}
  */
 class SummarizeSession {
-    static async run(sessionId) {
-        console.log(`Summarizing session: ${sessionId}...`);
-
-        // 1. Initialize clients
-        const memoryConfig = aiConfig.memory;
-        const sessionsConfig = aiConfig.sessions;
-        const dbClient = new ChromaClient({ host: memoryConfig.host, port: memoryConfig.port, ssl: false });
+    constructor() {
+        // Initialize clients and model once
+        const {host, port} = aiConfig.memory;
+        this.dbClient = new ChromaClient({ host, port, ssl: false });
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
 
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }); // Use a powerful model for summarization
+        const genAI         = new GoogleGenerativeAI(GEMINI_API_KEY);
+        this.model          = genAI.getGenerativeModel({model: 'gemini-2.5-flash'});
+        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.knowledgeBase.embeddingModel});
 
-        // 2. Get collections
-        let memoryCollection, sessionsCollection;
+        this.memoryCollection   = null;
+        this.sessionsCollection = null;
+    }
+
+    async initializeCollections() {
+        const memoryConfig   = aiConfig.memory;
+        const sessionsConfig = aiConfig.sessions;
         try {
-            memoryCollection = await dbClient.getCollection({ name: memoryConfig.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
-            sessionsCollection = await dbClient.getOrCreateCollection({ name: sessionsConfig.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+            this.memoryCollection   = await this.dbClient.getCollection({ name: memoryConfig.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+            this.sessionsCollection = await this.dbClient.getOrCreateCollection({ name: sessionsConfig.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
         } catch (err) {
             console.error(`Could not connect to collections. Please ensure the memory server is running (\`npm run ai:server-memory\`).`);
-            return;
+            throw err; // Re-throw to stop execution
+        }
+    }
+
+    async findUnsummarizedSessions() {
+        console.log('Searching for unsummarized sessions...');
+
+        // 1. Retrieve all memories
+        const memories = await this.memoryCollection.get({
+            include: ['metadatas']
+        });
+
+        if (memories.ids.length === 0) {
+            console.log('No memories found.');
+            return [];
         }
 
-        // 3. Retrieve all memories for the session
-        const memories = await memoryCollection.get({
-            where: { sessionId: sessionId },
+        // 2. Get all unique session IDs from memories
+        const sessionIds = [...new Set(memories.metadatas.map(m => m.sessionId))];
+
+        // 3. Get all existing summary IDs
+        const summaries = await this.sessionsCollection.get({
+            include: ['metadatas']
+        });
+        const summarizedSessionIds = new Set(summaries.metadatas.map(m => m.sessionId));
+
+        // 4. Filter out sessions that are already summarized
+        const unsummarized = sessionIds.filter(id => !summarizedSessionIds.has(id));
+
+        console.log(`Found ${unsummarized.length} unsummarized session(s).`);
+        return unsummarized;
+    }
+
+    async summarizeSession(sessionId) {
+        console.log(`\n--- Summarizing session: ${sessionId} ---`);
+
+        // 1. Retrieve all memories for the session
+        const memories = await this.memoryCollection.get({
+            where  : { sessionId: sessionId },
             include: ['documents', 'metadatas']
         });
 
@@ -68,8 +109,8 @@ class SummarizeSession {
 
         console.log(`Found ${memories.ids.length} memories to summarize.`);
 
-        // 4. Aggregate content for summarization
-        const aggregatedContent = memories.documents.join('\\n\\n---\\n\\n');
+        // 2. Aggregate content for summarization
+        const aggregatedContent = memories.documents.join('\n\n---\n\n');
         const summaryPrompt = `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
 
@@ -89,8 +130,8 @@ Do not include any markdown formatting (e.g., \`\`\`json) in your response.
 ${aggregatedContent}
 `;
 
-        // 5. Generate summary
-        const result = await model.generateContent(summaryPrompt);
+        // 3. Generate summary
+        const result = await this.model.generateContent(summaryPrompt);
         const responseText = result.response.text();
         let summaryData;
 
@@ -119,34 +160,48 @@ ${summary}
 -------------------------
 `);
 
-        // 6. Store summary in the sessions collection
-        const summaryId = `summary_${sessionId}`;
-        const embeddingResult = await genAI.getGenerativeModel({ model: aiConfig.knowledgeBase.embeddingModel }).embedContent(summary);
-        const embedding = embeddingResult.embedding.values;
+        // 4. Store summary in the sessions collection
+        const summaryId       = `summary_${sessionId}`;
+        const embeddingResult = await this.embeddingModel.embedContent(summary);
+        const embedding       = embeddingResult.embedding.values;
 
-        await sessionsCollection.upsert({
+        await this.sessionsCollection.upsert({
             ids: [summaryId],
             embeddings: [embedding],
             metadatas: [{
-                sessionId: sessionId,
-                timestamp: new Date().toISOString(),
-                memoryCount: memories.ids.length,
+                sessionId   : sessionId,
+                timestamp   : new Date().toISOString(),
+                memoryCount : memories.ids.length,
                 title,
                 category,
                 quality,
                 productivity,
                 impact,
                 complexity,
-                technologies: technologies.join(',') // Store as comma-separated string
+                technologies: technologies.join(',')
             }],
             documents: [summary]
         });
 
-        console.log(`Successfully saved summary for session ${sessionId} to collection "${sessionsConfig.collectionName}".`);
+        console.log(`Successfully saved summary for session ${sessionId} to collection "${aiConfig.sessions.collectionName}".`);
+    }
+
+    async run(sessionId) {
+        await this.initializeCollections();
+
+        if (sessionId) {
+            await this.summarizeSession(sessionId);
+        } else {
+            const sessionsToSummarize = await this.findUnsummarizedSessions();
+            for (const id of sessionsToSummarize) {
+                await this.summarizeSession(id);
+            }
+        }
     }
 }
 
-SummarizeSession.run(opts.sessionId).catch(err => {
-    console.error('Error summarizing session:', err);
+const summarizer = new SummarizeSession();
+summarizer.run(opts.sessionId).catch(err => {
+    console.error('Error summarizing session(s):', err);
     process.exit(1);
 });

@@ -50,24 +50,27 @@ At the beginning of every new session, you **MUST** perform the following steps 
 7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
     high-level strategies for combining your tools to solve complex problems.
 
-8.  **Check for Memory Core:** Determine the user's intent regarding the memory core by checking the status of the memory server.
+8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/development/GitHubCLISetup.md` to understand the
+    setup of GitHub CLI with a personal access token.
+    
+9.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/health`.
     -   **If the server IS running:** Assume the user intends to use it.
-        1.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
-        2.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
-        3.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
+        1.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
+        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
+        3.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
+        4.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
     -   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
         -   If the user responds **"yes"**:
             1.  Instruct the user: "Please start the memory server in a separate terminal: `npm run ai:server-memory`"
             2.  Wait for the user to confirm the server is running.
             3.  Execute `npm run ai:setup-memory-db` to ensure the collection is initialized.
-            4.  The memory core is now active.
-            5.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
-            6.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
+            4.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments to index previous work.
+            5.  The memory core is now active.
+            6.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`.
+            7.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
         -   If the user responds **"no"**: Proceed with the session without the memory core.
 
-    **CRITICAL:** Once a session has been summarized (Step 9), it is considered immutable. No further memories should be added to it.
-
-9.  **Summarize Previous Session:** If the memory core is active, run `npm run ai:get-last-session` to get the ID of the most recent previous session. If that session is not already summarized, execute `npm run ai:summarize-session` on its ID. This ensures the previous work is indexed and summarized before the new session begins.
+    **CRITICAL:** Once a session has been summarized, it is considered immutable. No further memories should be added to it.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
@@ -345,7 +348,7 @@ The agent's memory persistence is critical for maintaining a complete and analyz
 The recovery protocol is triggered when the agent detects a potential gap or failure in memory persistence. This includes, but is not limited to:
 
 *   **Tool Execution Errors:** Any error returned by a tool call (e.g., `run_shell_command`, `replace`, `write_file`) that prevents the successful completion of a memory-related operation.
-*   **API Errors:** Failures in communicating with the memory core server or its underlying database.
+*   **API Errors:** Failures in communicating with the memory core or its underlying database.
 *   **Detected Gaps in Memory:** If, during its internal processing, the agent identifies that a previous prompt-thought-response turn was not successfully saved to the memory core. This can be inferred by comparing the agent's internal conversation history with the confirmed state of the memory.
 
 **Recovery Procedure:**
@@ -461,3 +464,81 @@ When you are asked to review a pull request, follow this workflow to fetch and c
   brew install gh     # MacOS
   sudo apt install gh # Ubuntu/Debian
 ```
+## 6. Pull Request Review Protocol
+
+This section outlines the protocol for conducting pull request (PR) reviews to ensure feedback is consistent, constructive, and aligned with the Neo.mjs project's standards.
+
+### 6.1. General Guidelines
+- Always provide feedback in a **constructive and polite tone**.
+- Focus on helping contributors improve their code while maintaining the project's standards.
+- Avoid personal criticism; keep feedback objective, actionable, and specific.
+
+### 6.2. Verification Steps
+1. **Check Against Coding Guidelines:**
+   - Verify that the PR adheres to the project's coding standards as defined in `.github/CODING_GUIDELINES.md`.
+   - Pay special attention to JSDoc comments, formatting, naming conventions, and reactivity rules.
+
+2. **Run Tests:**
+   - Execute the project's test suite (e.g., `npm test`) to ensure no regressions are introduced.
+   - If tests fail, include the failure details in the review and suggest fixes.
+
+3. **Check Completeness:**
+   - Ensure the PR includes all necessary updates, such as documentation, tests, and examples.
+   - Verify that the PR description is clear and provides sufficient context for the changes.
+
+4. **Assess Code Quality:**
+   - Review the code for readability, maintainability, and adherence to Neo.mjs architectural principles.
+   - Ensure the code is free of unnecessary complexity and aligns with the framework's reactivity model.
+
+### 6.3. Standard Review Comment Format
+Use the following format for review comments to ensure clarity and consistency:
+
+1. **Summary of Findings:**
+   - Begin with a brief summary of the overall review, highlighting strengths and areas for improvement.
+
+2. **Line-by-Line Comments:**
+   - Provide specific feedback for each issue, referencing the relevant line(s) of code.
+   - Use the following structure:
+     - **What is the issue?**
+     - **Why is it an issue?**
+     - **How can it be improved?**
+
+### 6.4. Adding Comments via GitHub CLI
+
+To provide feedback directly on GitHub after reviewing a pull request, the agent can use the GitHub CLI commands `gh pr review` and `gh issue comment`. These commands allow the agent to add inline comments or general comments to a pull request efficiently.
+
+#### Using `gh pr review`
+The `gh pr review` command is used to add inline comments to specific lines of code in a pull request. This is particularly useful for providing detailed feedback on specific changes.
+
+**Steps:**
+1. Identify the pull request number (e.g., `PR_NUMBER`).
+2. Use the following command to add an inline comment:
+   ```bash
+   gh pr review <PR_NUMBER> --comment "<Your comment here>"
+   ```
+
+**Example:**
+```bash
+gh pr review 123 --comment "Consider refactoring this function to improve readability."
+```
+
+#### Using `gh issue comment`
+The `gh issue comment` command is used to add general comments to a pull request. This is useful for providing overall feedback or suggestions that are not tied to specific lines of code.
+
+**Steps:**
+1. Identify the pull request URL (e.g., `PR_URL`).
+2. Use the following command to add a general comment:
+   ```bash
+   gh issue comment <PR_URL> --body "<Your comment here>"
+   ```
+
+**Example:**
+```bash
+gh issue comment https://github.com/<user-name></user-name>/neo/pull/123 --body "Great work overall! I have added some inline comments for minor improvements."
+```
+
+#### Best Practices
+- Use `gh pr review` for specific, actionable feedback on code changes.
+- Use `gh issue comment` for high-level feedback or general suggestions.
+- Ensure comments are constructive, polite, and aligned with the project's coding standards.
+- Double-check the pull request number or URL before submitting comments to avoid errors.
