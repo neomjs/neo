@@ -8,6 +8,16 @@ import VDomUtil        from '../util/VDom.mjs';
 let DragZone;
 
 /**
+ * @summary A highly interactive circular component for displaying and arranging items in a radial layout.
+ *
+ * This component renders a central circle that can be expanded or collapsed on mouse interaction. When expanded,
+ * it reveals a series of items arranged in an outer circle. The component is flippable, showing a backside
+ * with additional actions. Items within the circle are draggable.
+ *
+ * This class is a sophisticated example of leveraging the framework's VDOM manipulation for complex animations
+ * and interactions. It demonstrates concepts like dynamic styling, event handling for custom drag-and-drop,
+ * and managing a collection of items within a non-standard layout.
+ *
  * @class Neo.component.Circle
  * @extends Neo.component.Base
  */
