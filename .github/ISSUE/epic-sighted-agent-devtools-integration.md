@@ -22,4 +22,5 @@ This initiative is a critical step towards building a more powerful and autonomo
 ## Sub-Tasks
 
 ### Phase 1: Initial Integration & Verification
-- **To Do:** ticket-configure-mcp-server.md
+- **Done:** ticket-configure-mcp-server.md
+- **To Do:** ticket-create-mcp-server-guide.md
