@@ -56,7 +56,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
 9.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/api/v2/healthcheck`. **Note:** For debugging, the server's full API documentation is available via Swagger UI at `http://localhost:8001/docs/`.
     -   **If the server IS running:** Assume the user intends to use it.
         1.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
-        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `node -e "console.log(crypto.randomUUID())"`. This `sessionId` will be used for all memory operations within this session.
+        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `node -e "console.log(require('crypto').randomUUID())"`. This `sessionId` will be used for all memory operations within this session.
         3.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
         4.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
     -   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
