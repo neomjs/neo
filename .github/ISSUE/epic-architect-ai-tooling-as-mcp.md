@@ -1,8 +1,8 @@
 # Epic: Architect AI Tooling as a Model Context Protocol (MCP) Servers
 
-GH ticket id: #XXXX
+GH ticket id: #7399
 
-**Assignee:** Gemini
+**Assignee:** tobiu
 **Status:** To Do
 
 ## Scope
@@ -39,10 +39,16 @@ https://discord.gg/6p8paPq
 - **To Do:** ticket-design-memory-mcp-api.md
 
 ### Phase 2: Implementation
-- **To Do:** ticket-implement-knowledge-mcp-server.md
-- **To Do:** ticket-implement-unit-tests-for-knowledge-mcp.md
-- **To Do:** ticket-implement-memory-mcp-server.md
-- **To Do:** ticket-implement-unit-tests-for-memory-mcp.md
+- **To Do:** ticket-implement-knowledge-server-scaffold.md
+- **To Do:** ticket-implement-knowledge-read-endpoints.md
+- **To Do:** ticket-implement-knowledge-query-endpoint.md
+- **To Do:** ticket-implement-knowledge-admin-endpoints.md
+- **To Do:** ticket-implement-memory-server-scaffold.md
+- **To Do:** ticket-implement-memory-read-endpoints.md
+- **To Do:** ticket-implement-memory-query-endpoints.md
+- **To Do:** ticket-implement-memory-create-endpoint.md
+- **To Do:** ticket-implement-memory-lifecycle-endpoints.md
+- **To Do:** ticket-implement-memory-admin-endpoints.md
 
 ### Phase 3: Integration & Documentation
 - **To Do:** ticket-update-agents-md-for-mcp.md

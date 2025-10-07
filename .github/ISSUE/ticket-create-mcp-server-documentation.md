@@ -23,3 +23,17 @@ This task involves creating a new guide in the `learn/guides/ai/` directory that
 3.  It provides clear instructions on how to start the Knowledge and Memory servers.
 4.  It documents the API for each server (or links to the API design documents).
 5.  It provides guidance on how a contributor could add new endpoints or extend the servers' functionality.
+
+---
+
+## Agent Instructions
+
+To work on this ticket, please start your session with the following prompt:
+
+> Please follow the instructions in @AGENTS.md.
+> 
+> Once you are initialized, I want to work on a sub-task for the "Architect AI Tooling as a Model Context Protocol (MCP) Servers" epic.
+> 
+> My task is to implement: **Create MCP Server Documentation for Human Developers**
+> 
+> You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-create-mcp-server-documentation.md before we begin.

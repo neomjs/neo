@@ -22,3 +22,17 @@ This task involves removing the old `npm run ai:query` and `npm run ai:query-mem
 2.  The "Query Command" and "Two-Stage Query Protocol" sections are updated to reflect the use of native tools.
 3.  The instructions are clear, concise, and easy for an agent to follow.
 4.  The session initialization instructions are updated to include starting the new MCP servers if they are not already running.
+
+---
+
+## Agent Instructions
+
+To work on this ticket, please start your session with the following prompt:
+
+> Please follow the instructions in @AGENTS.md.
+> 
+> Once you are initialized, I want to work on a sub-task for the "Architect AI Tooling as a Model Context Protocol (MCP) Servers" epic.
+> 
+> My task is to implement: **Update AGENTS.md for New MCP Server Architecture**
+> 
+> You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-update-agents-md-for-mcp.md before we begin.
