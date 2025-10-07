@@ -1,0 +1,23 @@
+---
+title: Clean Up Old AI Query npm Scripts
+labels: enhancement, AI, refactoring
+---
+
+GH ticket id: #XXXX
+
+**Epic:** Architect AI Tooling as a Model Context Protocol (MCP)
+**Phase:** 3
+**Assignee:**
+**Status:** To Do
+
+## Description
+
+As part of the transition to the new MCP server architecture, the old `npm` scripts used for direct command-line querying must be removed. The underlying logic in the script files will be refactored and reused by the new servers, but the `npm` scripts themselves will no longer be the agent's entry point.
+
+This cleanup will prevent confusion and ensure that all AI interactions proceed through the new, robust MCP servers.
+
+## Acceptance Criteria
+
+1.  The `ai:query` script is removed from the `scripts` section of `package.json`.
+2.  The `ai:query-memory` script is removed from the `scripts` section of `package.json`.
+3.  The `AGENTS.md` file is checked to ensure no references to the old scripts remain.
