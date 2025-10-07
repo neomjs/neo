@@ -1,17 +1,17 @@
-import { test, expect } from '@playwright/test';
-import Neo from '../../../../src/Neo.mjs';
-import * as core from '../../../../src/core/_export.mjs'; // CRITICAL: Required for Neo.mjs environment setup in Node.js
-import { createHierarchicalDataProxy } from '../../../../src/state/createHierarchicalDataProxy.mjs';
-import Effect from '../../../../src/core/Effect.mjs';
-import EffectManager from '../../../../src/core/EffectManager.mjs';
-import Config from '../../../../src/core/Config.mjs';
-import Base from '../../../../src/core/Base.mjs';
+import {test, expect}                from '@playwright/test';
+import Neo                           from '../../../../src/Neo.mjs';
+import * as core                     from '../../../../src/core/_export.mjs';
+import {createHierarchicalDataProxy} from '../../../../src/state/createHierarchicalDataProxy.mjs';
+import Effect                        from '../../../../src/core/Effect.mjs';
+import EffectManager                 from '../../../../src/core/EffectManager.mjs';
+import Config                        from '../../../../src/core/Config.mjs';
+import Base                          from '../../../../src/core/Base.mjs';
 
 // Mock StateProvider for testing purposes
 class MockStateProvider extends Base {
     static config = {
         className: 'Mock.State.Provider',
-        data_: null
+        data_    : null
     }
 
     #dataConfigs = {};
@@ -64,18 +64,15 @@ class MockStateProvider extends Base {
     }
 }
 
-test.describe('state/createHierarchicalDataProxy', () => {
-    /**
-     * @summary Verifies the functionality of createHierarchicalDataProxy for reactive state management.
-     * This suite tests the proxy's ability to resolve data from single and multiple (parent/child) state providers.
-     * It ensures that effects are correctly triggered when underlying data changes and that the proxy correctly
-     * handles nested data structures and property lookups that do not exist in the data hierarchy.
-     */
-    
-    test.beforeEach(()=>{
-        MockStateProvider = Neo.setupClass(MockStateProvider);
-    });
+MockStateProvider = Neo.setupClass(MockStateProvider);
 
+/**
+ * @summary Verifies the functionality of createHierarchicalDataProxy for reactive state management.
+ * This suite tests the proxy's ability to resolve data from single and multiple (parent/child) state providers.
+ * It ensures that effects are correctly triggered when underlying data changes and that the proxy correctly
+ * handles nested data structures and property lookups that do not exist in the data hierarchy.
+ */
+test.describe('state/createHierarchicalDataProxy', () => {
     test('should resolve data from a single provider', () => {
         const provider = Neo.create(MockStateProvider, { data: { name: 'Neo', version: 10 } });
         let effectRunCount = 0;
@@ -193,8 +190,8 @@ test.describe('state/createHierarchicalDataProxy', () => {
     });
 
     test('should not track dependencies when no effect is active', () => {
-        const provider = Neo.create(MockStateProvider, { data: { test: 123 } });
-        const proxy = createHierarchicalDataProxy(provider);
+        const provider = Neo.create(MockStateProvider, {data: {test: 123}});
+        const proxy    = createHierarchicalDataProxy(provider);
 
         // No active effect
         expect(EffectManager.getActiveEffect()).toBe(undefined);
