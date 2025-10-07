@@ -1,0 +1,39 @@
+name: Prevent Ticket Reopening
+on:
+  issues:
+    types: [reopened]
+
+jobs:
+  prevent-reopen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close and create new ticket
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            
+            // Close it again
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'closed'
+            });
+            
+            // Create new ticket
+            const newIssue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `${issue.title} (reopened from #${issue.number})`,
+              body: `Originally: #${issue.number}\n\n${issue.body}`,
+              labels: issue.labels.map(l => l.name)
+            });
+            
+            // Add comment explaining
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: `❌ Tickets cannot be reopened. Created new ticket: #${newIssue.data.number}`
+            });
