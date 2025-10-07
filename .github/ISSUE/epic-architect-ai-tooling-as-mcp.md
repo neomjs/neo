@@ -42,7 +42,6 @@ https://discord.gg/6p8paPq
 - **To Do:** ticket-implement-knowledge-server-scaffold.md
 - **To Do:** ticket-implement-knowledge-read-endpoints.md
 - **To Do:** ticket-implement-knowledge-query-endpoint.md
-- **To Do:** ticket-implement-knowledge-create-update-endpoint.md
 - **To Do:** ticket-implement-knowledge-admin-endpoints.md
 - **To Do:** ticket-implement-memory-server-scaffold.md
 - **To Do:** ticket-implement-memory-read-endpoints.md

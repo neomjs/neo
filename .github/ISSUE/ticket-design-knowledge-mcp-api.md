@@ -25,7 +25,7 @@ This design must define a comprehensive, resource-oriented API for managing the 
     - `GET /documents`: Lists all documents in the knowledge base.
     - `GET /documents/:id`: Retrieves a specific document by its ID.
     - `POST /documents/query`: The primary search endpoint.
-    - `POST /db/rebuild`: Triggers a full rebuild of the knowledge base.
+    - `POST /db/sync`: Triggers the delta update and synchronization process.
     - `DELETE /db`: Deletes the entire knowledge base collection.
 3.  The API design is formally documented in an OpenAPI 3.0 specification file (e.g., `openapi.yaml`).
 4.  The design is documented in a new guide within the `learn/guides/ai/` directory, ready for implementation.

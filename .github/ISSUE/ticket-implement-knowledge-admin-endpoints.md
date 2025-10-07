@@ -17,7 +17,7 @@ This ticket is for implementing the administrative endpoints for the Knowledge B
 
 ## Acceptance Criteria
 
-1.  The server is extended to implement the `POST /db/rebuild` endpoint, which triggers the asynchronous `npm run ai:build-kb` process.
+1.  The server is extended to implement the `POST /db/sync` endpoint, which triggers the asynchronous delta update and synchronization process (i.e., runs the `create` and `embed` scripts).
 2.  The server is extended to implement the `DELETE /db` endpoint, which clears the entire knowledge base collection from ChromaDB.
 3.  Both endpoints are protected or clearly marked as administrative, high-impact functions.
 4.  Appropriate error handling is implemented.
