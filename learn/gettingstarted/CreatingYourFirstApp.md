@@ -1,13 +1,5 @@
 The purpose of this tutorial is to give you a simple overview of the Neo.mjs workspace and app structure.
 
-## Table of Contents
-
-1. [Workspace vs. App](#workspace-vs-app)
-2. [Creating a Workspace and App](#creating-a-workspace-and-app)
-3. [Workspace Folder Structure](#workspace-folder-structure)
-4. [App Folder Structure](#app-folder-structure)
-5. [Example: add a custom component](#example-add-a-custom-component)
-
 ## Workspace vs. App
 
 A workspace is the top-level environment. You can think of it as a container that can hold multiple applications. Each application has its own code, but they can all live inside the same workspace.
@@ -16,7 +8,7 @@ A workspace is the top-level environment. You can think of it as a container tha
 
 To create a new workspace, open your terminal and run:
 
-```shell
+```bash readonly
 npx neo-app
 ```
 
@@ -29,20 +21,20 @@ From there, you can navigate into the `apps/` folder, open your application, and
 
 If you ever want to start the server again later, just run:
 
-```shell
+```bash readonly
 npm run server-start
 ```
 
 **Note:**  
 You can also create additional apps inside the same workspace later by running
 
-```
+```bash readonly
 npm run create-app
 ```
 
 or
 
-```
+```bash readonly
 npm run create-app-minimal
 ```
 
@@ -50,7 +42,7 @@ The minimal option starts with an empty viewport, while the default option inclu
 
 ## Workspace Folder Structure
 
-```plaintext
+```bash readonly
 ecommerce/
   apps/               # Applications you create live here
   buildScripts/       # Scripts for building bundles
@@ -68,7 +60,7 @@ ecommerce/
 
 ## App Folder Structure
 
-```plaintext
+```bash readonly
 dashboard/
   app.mjs            # Entry point that bootstraps the app
   index.html         # Main HTML file that loads the app
@@ -82,7 +74,7 @@ dashboard/
 Let’s add a simple button component to our app.  
 First, create a new file in the `view/` folder and name it `MyButton.mjs`:
 
-```JavaScript
+```javascript readonly
 import Button from "../../../node_modules/neo.mjs/src/button/Base.mjs";
 import Container from "../../../node_modules/neo.mjs/src/container/Base.mjs";
 
@@ -101,12 +93,13 @@ class MyButton extends Container {
 
 export default Neo.setupClass(MyButton);
 ```
-This component is just a **container** that holds a single **button**.  
 
-Now open ```Viewport.mjs``` and import the new component.  
-Add it to the ```items``` array right after the ```TabContainer```:
+This component is just a **container** that holds a single **button**.
 
-```JavaScript
+Now open `Viewport.mjs` and import the new component.  
+Add it to the `items` array right after the `TabContainer`:
+
+```javascript readonly
 import BaseViewport from "../../../node_modules/neo.mjs/src/container/Viewport.mjs";
 import Component from "../../../node_modules/neo.mjs/src/component/Base.mjs";
 import TabContainer from "../../../node_modules/neo.mjs/src/tab/Container.mjs";
@@ -157,16 +150,17 @@ export default Neo.setupClass(Viewport);
 ```
 
 ### How It Works
+
 Neo.mjs views are built from components. Some are **containers** (they can hold other components), and some are **regular components** (like buttons or tabs).  
 `Viewport` here is a container (`extends BaseViewport`), and inside it we declare its child components in the `items: []` array.
 
 In this example, the `Viewport` has two children:
 
 1. **TabContainer**:
-  A container with two tabs (`Tab 1` and `Tab 2`), each with its own header and content.
+   A container with two tabs (`Tab 1` and `Tab 2`), each with its own header and content.
 
 2. **MyButton**:
-  your custom component that contains a single button
+   your custom component that contains a single button
 
 **Summary:**  
 This `Viewport` holds **two children** — a tabbed UI and your own component.
