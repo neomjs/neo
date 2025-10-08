@@ -3,7 +3,7 @@ title: Clarify UUID Generation for Agent Memory
 labels: enhancement, AI
 ---
 
-GH ticket id: #XXXX
+GH ticket id: #7394
 
 **Epic:** AI Knowledge Evolution
 **Phase:** 2

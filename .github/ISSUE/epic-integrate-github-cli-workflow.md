@@ -25,6 +25,7 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
     - `ticket-refactor-create-gh-issue-to-use-fs-extra.md`: Refactor `createGhIssue.mjs` to use `fs-extra` for consistency.
     - `ticket-sync-gh-issue-id-to-md-ticket.md`: The script from the previous task should automatically edit the local markdown file to insert the newly created GitHub issue URL and ID.
     - `ticket-update-agent-ticket-creation-workflow.md`: Update `AGENTS.md` to instruct the agent to use this new automated workflow instead of prompting the user to do it manually.
+    - `ticket-implement-gh-action-prevent-reopen.md`: Implement a GitHub Action to automatically close reopened issues and create new ones.
 
 ### Phase 3: Enabling Agent-led PR Review
 - **Goal:** Empower the agent to fetch, review, and comment on pull requests from external contributors.
