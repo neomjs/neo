@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "servers": {
+    "neo-knowledge-base": {
+      "name": "Neo.mjs Knowledge Base",
+      "description": "AI knowledge base for querying Neo.mjs documentation, guides, examples, and source code",
+      "type": "transport",
+      "connection": {
+        "host": "localhost",
+        "port": 3000,
+        "protocol": "http"
+      },
+      "healthCheck": {
+        "url": "http://localhost:3000/api/health",
+        "method": "GET",
+        "timeout": 2000
+      },
+      "capabilities": ["tools", "resources"],
+      "tags": ["neo.mjs", "documentation", "search", "knowledge"],
+      "startup": {
+        "command": "npm",
+        "args": ["run", "ai:server"],
+        "cwd": ".",
+        "description": "Start the ChromaDB server for the knowledge base"
+      }
+    },
+    "neo-memory-core": {
+      "name": "Neo.mjs AI Memory Core",
+      "description": "Persistent memory system for AI agents working on Neo.mjs, storing conversation history and session context",
+      "type": "transport",
+      "connection": {
+        "host": "localhost",
+        "port": 8001,
+        "protocol": "http"
+      },
+      "healthCheck": {
+        "url": "http://localhost:8001/api/v2/healthcheck",
+        "method": "GET",
+        "timeout": 2000
+      },
+      "capabilities": ["tools", "resources"],
+      "tags": ["neo.mjs", "memory", "persistence", "sessions"],
+      "startup": {
+        "command": "npm",
+        "args": ["run", "ai:server-memory"],
+        "cwd": ".",
+        "description": "Start the ChromaDB server for AI agent memory"
+      }
+    },
+    "chrome-devtools": {
+      "name": "Chrome DevTools MCP Server",
+      "description": "Browser automation and debugging tools via Chrome DevTools Protocol",
+      "type": "command",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "capabilities": ["tools"],
+      "tags": ["browser", "debugging", "automation", "devtools"]
+    }
+  }
+}
