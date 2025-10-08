@@ -50,10 +50,13 @@ At the beginning of every new session, you **MUST** perform the following steps 
 7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
     high-level strategies for combining your tools to solve complex problems.
 
-8.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/health`.
+8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/development/GitHubCLISetup.md` to understand the
+    setup of GitHub CLI with a personal access token.
+    
+9.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/api/v2/healthcheck`. **Note:** For debugging, the server's full API documentation is available via Swagger UI at `http://localhost:8001/docs/`.
     -   **If the server IS running:** Assume the user intends to use it.
         1.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
-        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`. This `sessionId` will be used for all memory operations within this session.
+        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `node -e "console.log(require('crypto').randomUUID())"`. This `sessionId` will be used for all memory operations within this session.
         3.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
         4.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
     -   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
@@ -345,7 +348,7 @@ The agent's memory persistence is critical for maintaining a complete and analyz
 The recovery protocol is triggered when the agent detects a potential gap or failure in memory persistence. This includes, but is not limited to:
 
 *   **Tool Execution Errors:** Any error returned by a tool call (e.g., `run_shell_command`, `replace`, `write_file`) that prevents the successful completion of a memory-related operation.
-*   **API Errors:** Failures in communicating with the memory core server or its underlying database.
+*   **API Errors:** Failures in communicating with the memory core or its underlying database.
 *   **Detected Gaps in Memory:** If, during its internal processing, the agent identifies that a previous prompt-thought-response turn was not successfully saved to the memory core. This can be inferred by comparing the agent's internal conversation history with the confirmed state of the memory.
 
 **Recovery Procedure:**
@@ -395,3 +398,8 @@ ensure your understanding is up-to-date.
 
 Furthermore, after pulling changes, the local knowledge base may be out of sync.
 You should run `npm run ai:build-kb` to re-embed the latest changes into the database.
+
+
+## PR & Issues Workflow Reference
+
+If your task involves reviewing pull requests or working with GitHub issues (e.g., checking out PR branches, validating changes, or adding review/comments), refer to `learn/guides/ai/pr-workflow.md`.

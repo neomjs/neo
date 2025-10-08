@@ -1,0 +1,774 @@
+openapi: 3.0.3
+info:
+  title: Neo.mjs Memory Core MCP Server API
+  description: |
+    This API provides structured access to the AI agent's persistent memory system for the Neo.mjs project.
+    It replaces the CLI-based memory scripts with a formal, agent-agnostic REST interface.
+    
+    The Memory Core tracks two primary resources:
+    - **Memories**: Raw agent interaction data (prompt, thought, response) organized by session
+    - **Summaries**: High-level session summaries with structured metadata and quality metrics
+    
+    This server enables agents to maintain context across sessions, recall past work, and learn from history.
+  version: 1.0.0
+  contact:
+    name: Neo.mjs Project
+    url: https://github.com/neomjs/neo
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8001
+    description: Local development server (ChromaDB on port 8001)
+
+tags:
+  - name: Health
+    description: Server health and status endpoints
+  - name: Memories
+    description: Operations on raw agent interaction memories
+  - name: Summaries
+    description: Operations on session summaries
+  - name: Sessions
+    description: Session management and processing
+  - name: Database
+    description: Database-level operations (export, import, clear)
+
+paths:
+  /docs:
+    get:
+      summary: API Documentation
+      description: Serves the interactive Swagger UI for this API
+      tags: [Health]
+      responses:
+        '200':
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /healthcheck:
+    get:
+      summary: Health Check
+      description: Confirms the server is running and can connect to the ChromaDB instance
+      tags: [Health]
+      responses:
+        '200':
+          description: Server is healthy and database is accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Server is unhealthy or cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /memories:
+    post:
+      summary: Add New Memory
+      description: |
+        Stores a new agent interaction (prompt, thought, response) as a memory.
+        This is the primary endpoint for making agents stateful.
+      tags: [Memories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemoryRequest'
+      responses:
+        '201':
+          description: Memory successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Get Memories
+      description: |
+        Retrieves all memories for a specific session.
+        Returns memories in chronological order.
+      tags: [Memories]
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          description: The session ID to retrieve memories for
+          schema:
+            type: string
+            example: "session_1696800000000"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of memories to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          description: Number of memories to skip (for pagination)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Memories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoriesListResponse'
+        '400':
+          description: Invalid or missing sessionId parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /memories/query:
+    post:
+      summary: Search Memories
+      description: |
+        Performs semantic search across all raw memories using vector similarity.
+        Returns the most relevant past interactions.
+      tags: [Memories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryMemoriesRequest'
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryMemoriesResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /summaries:
+    get:
+      summary: Get All Summaries
+      description: |
+        Retrieves all session summaries, sorted by timestamp (newest first).
+        Supports pagination.
+      tags: [Summaries]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of summaries to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Number of summaries to skip (for pagination)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: category
+          in: query
+          required: false
+          description: Filter by category
+          schema:
+            type: string
+            enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
+      responses:
+        '200':
+          description: Summaries retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummariesListResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete All Summaries
+      description: |
+        Deletes all session summaries from the database.
+        This is useful for resetting the summary index while keeping raw memories intact.
+      tags: [Summaries]
+      responses:
+        '200':
+          description: All summaries deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /summaries/query:
+    post:
+      summary: Search Summaries
+      description: |
+        Performs semantic search across session summaries.
+        This is faster than searching raw memories and useful for finding past work by topic.
+      tags: [Summaries]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuerySummariesRequest'
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuerySummariesResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions/summarize:
+    post:
+      summary: Summarize Sessions
+      description: |
+        Triggers the session summarization process.
+        Can operate in two modes:
+        - Specific session: provide sessionId in body
+        - Batch mode: omit sessionId to summarize all unsummarized sessions
+      tags: [Sessions]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummarizeSessionRequest'
+      responses:
+        '200':
+          description: Summarization completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummarizeSessionResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/export:
+    get:
+      summary: Export Database
+      description: |
+        Exports the entire memory database (both memories and summaries) to a JSONL file.
+        Returns the file as a downloadable attachment.
+      tags: [Database]
+      parameters:
+        - name: include
+          in: query
+          required: false
+          description: Which collections to export
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [memories, summaries]
+            default: [memories, summaries]
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Database exported successfully
+          content:
+            application/x-jsonlines:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="memory-export-2025-10-08T12-00-00.jsonl"'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/import:
+    post:
+      summary: Import Database
+      description: |
+        Imports a previously exported JSONL file back into the database.
+        This can restore a backup or migrate memory from another environment.
+      tags: [Database]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The JSONL backup file to import
+                mode:
+                  type: string
+                  enum: [merge, replace]
+                  default: merge
+                  description: |
+                    - merge: Add new records, skip existing IDs
+                    - replace: Clear existing data and import
+              required:
+                - file
+      responses:
+        '200':
+          description: Import completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResponse'
+        '400':
+          description: Invalid file or request format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        database:
+          type: object
+          properties:
+            connected:
+              type: boolean
+              example: true
+            collections:
+              type: object
+              properties:
+                memories:
+                  type: string
+                  example: "neo-agent-memory"
+                summaries:
+                  type: string
+                  example: "neo-agent-sessions"
+        version:
+          type: string
+          example: "1.0.0"
+        uptime:
+          type: number
+          description: Server uptime in seconds
+          example: 3600
+
+    AddMemoryRequest:
+      type: object
+      required:
+        - prompt
+        - thought
+        - response
+      properties:
+        prompt:
+          type: string
+          description: The user's verbatim prompt to the agent
+          example: "How do I create a new Neo.mjs component?"
+        thought:
+          type: string
+          description: The agent's internal reasoning process
+          example: "The user needs guidance on component creation. I should reference the createComponent script and provide a step-by-step explanation."
+        response:
+          type: string
+          description: The agent's final, user-facing response
+          example: "To create a new Neo.mjs component, you can use the createComponent script..."
+        sessionId:
+          type: string
+          description: Session ID for grouping related memories (auto-generated if not provided)
+          example: "session_1696800000000"
+
+    MemoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique memory identifier
+          example: "mem_2025-10-08T12:00:00.000Z"
+        sessionId:
+          type: string
+          example: "session_1696800000000"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-08T12:00:00.000Z"
+        message:
+          type: string
+          example: "Memory successfully added"
+
+    MemoriesListResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          example: "session_1696800000000"
+        count:
+          type: integer
+          description: Number of memories returned
+          example: 15
+        total:
+          type: integer
+          description: Total memories for this session
+          example: 15
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Memory'
+
+    Memory:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "mem_2025-10-08T12:00:00.000Z"
+        sessionId:
+          type: string
+          example: "session_1696800000000"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-08T12:00:00.000Z"
+        prompt:
+          type: string
+          example: "How do I create a new Neo.mjs component?"
+        thought:
+          type: string
+          example: "The user needs guidance..."
+        response:
+          type: string
+          example: "To create a new Neo.mjs component..."
+        type:
+          type: string
+          example: "agent-interaction"
+
+    QueryMemoriesRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Natural language search query
+          example: "How did I implement the MCP server configuration?"
+        nResults:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of results to return
+        sessionId:
+          type: string
+          description: Optional filter to search within a specific session only
+
+    QueryMemoriesResponse:
+      type: object
+      properties:
+        query:
+          type: string
+          example: "How did I implement the MCP server configuration?"
+        count:
+          type: integer
+          example: 5
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemorySearchResult'
+
+    MemorySearchResult:
+      allOf:
+        - $ref: '#/components/schemas/Memory'
+        - type: object
+          properties:
+            distance:
+              type: number
+              description: Vector distance (lower is more relevant)
+              example: 0.1234
+            relevanceScore:
+              type: number
+              description: Normalized relevance score (0-1, higher is more relevant)
+              example: 0.8766
+
+    SummariesListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Number of summaries returned
+          example: 10
+        total:
+          type: integer
+          description: Total summaries in database
+          example: 50
+        summaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Summary'
+
+    Summary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "summary_session_1696800000000"
+        sessionId:
+          type: string
+          example: "session_1696800000000"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-08T12:00:00.000Z"
+        title:
+          type: string
+          example: "Implement MCP Server Configuration"
+        summary:
+          type: string
+          example: "Created agent-agnostic MCP server configuration..."
+        category:
+          type: string
+          enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
+          example: "feature"
+        memoryCount:
+          type: integer
+          description: Number of raw memories in this session
+          example: 15
+        quality:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Session quality score (0-100)
+          example: 85
+        productivity:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Productivity score (0-100)
+          example: 90
+        impact:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Impact score (0-100)
+          example: 75
+        complexity:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Complexity score (0-100)
+          example: 60
+        technologies:
+          type: array
+          items:
+            type: string
+          example: ["neo.mjs", "nodejs", "chromadb"]
+
+    QuerySummariesRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Natural language search query
+          example: "sessions where I worked on MCP servers"
+        nResults:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of results to return
+        category:
+          type: string
+          enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
+          description: Optional filter by category
+
+    QuerySummariesResponse:
+      type: object
+      properties:
+        query:
+          type: string
+          example: "sessions where I worked on MCP servers"
+        count:
+          type: integer
+          example: 3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SummarySearchResult'
+
+    SummarySearchResult:
+      allOf:
+        - $ref: '#/components/schemas/Summary'
+        - type: object
+          properties:
+            distance:
+              type: number
+              description: Vector distance (lower is more relevant)
+              example: 0.0987
+            relevanceScore:
+              type: number
+              description: Normalized relevance score (0-1, higher is more relevant)
+              example: 0.9013
+
+    SummarizeSessionRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: Optional specific session to summarize. If omitted, all unsummarized sessions will be processed.
+          example: "session_1696800000000"
+
+    SummarizeSessionResponse:
+      type: object
+      properties:
+        processed:
+          type: integer
+          description: Number of sessions summarized
+          example: 1
+        sessions:
+          type: array
+          items:
+            type: object
+            properties:
+              sessionId:
+                type: string
+                example: "session_1696800000000"
+              memoryCount:
+                type: integer
+                example: 15
+              summaryId:
+                type: string
+                example: "summary_session_1696800000000"
+              title:
+                type: string
+                example: "Implement MCP Server Configuration"
+
+    DeleteResponse:
+      type: object
+      properties:
+        deleted:
+          type: integer
+          description: Number of records deleted
+          example: 25
+        message:
+          type: string
+          example: "All summaries successfully deleted"
+
+    ImportResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+          description: Number of records imported
+          example: 150
+        skipped:
+          type: integer
+          description: Number of records skipped (if mode=merge)
+          example: 5
+        mode:
+          type: string
+          enum: [merge, replace]
+          example: "merge"
+        message:
+          type: string
+          example: "Database import completed successfully"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Database connection failed"
+        message:
+          type: string
+          example: "Could not connect to ChromaDB on localhost:8001"
+        code:
+          type: string
+          example: "DB_CONNECTION_ERROR"
