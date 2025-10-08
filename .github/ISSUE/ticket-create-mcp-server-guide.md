@@ -3,11 +3,11 @@ title: Create Guide for Chrome DevTools MCP Server
 labels: documentation, enhancement, AI, good first issue, help wanted
 ---
 
-GH ticket id: #ISSUENUMBER
+GH ticket id: #7387
 **Epic:** 'Sighted' Agent - Chrome DevTools Integration
 **Phase:** 1
 **Assignee:**
-**Status:** To Do
+**Status:** Done
 
 ## Description
 
