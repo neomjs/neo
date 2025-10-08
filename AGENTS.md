@@ -302,17 +302,43 @@ First, classify the user's request into one of two categories:
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to
 "let's do...", you must treat it as a new actionable request and start this protocol from Step 1.
 
-### Step 2: The "Ticket-First" Gate
+### 🚧 Step 2: The “Ticket-First” Gate  
+> ✅ *Updated October 2025 — integrates `npm run ai:create-gh-issue` workflow*
 
-For any **Actionable/Modification** request, a ticket is mandatory. This is a non-negotiable gate.
+This step ensures that every actionable request is tracked both **locally** (via markdown tickets) and **publicly** (via GitHub issues).
 
-1.  **Check for an Existing Ticket:** Does the request reference an existing ticket file in `.github/ISSUE/`?
-2.  **Create a New Ticket:** If no ticket exists, your immediate next action **MUST** be to create one.
-    -   Inform the user: "This is an actionable request. I will create a ticket to track this work, as per our workflow."
-    -   Follow the process in `.github/TICKET_STRATEGY.md` to create the ticket file.
+#### 1️⃣ Check for an Existing Ticket
 
-**CRITICAL:** You are not permitted to use any file modification tools (`replace`, `write_file`) or run any
-file-system-altering shell commands until a ticket has been created and acknowledged.
+Look for an existing `.md` ticket inside `.github/ISSUE/`.
+- If found, confirm it matches the task context.
+- If not found, create a new one.
+
+> 💬 *Note:* Do **not** execute any file modifications before a valid ticket file exists.
+
+---
+
+#### 2️⃣ Create a Local Ticket
+
+If no ticket exists:
+1. Create a `.md` file in `.github/ISSUE/` using a descriptive name.
+2. Include all mandatory fields:
+- Title
+- Description
+- Acceptance criteria
+- Assignee
+- Status
+3. Follow the markdown structure from `.github/TICKET_STRATEGY.md`.
+
+> 💬 *Comment:* Always pause for user acknowledgment after creating the ticket file.
+
+---
+
+#### 3️⃣ Create a GitHub Issue Automatically
+Once the local ticket is confirmed by the user, run the new **GitHub linking command**:
+
+```bash
+npm run ai:create-gh-issue -- --file .github/ISSUE/<TICKET_ID>.md
+```
 
 ### Step 3: The Memory Core Protocol: An All-or-Nothing Approach
 
