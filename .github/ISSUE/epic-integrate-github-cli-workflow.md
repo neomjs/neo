@@ -16,6 +16,7 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
 - **Sub-Tasks:**
     - `ticket-create-robust-gh-setup-script.md`: Create a robust script to verify `gh` installation, authentication, and version.
     - `ticket-setup-github-cli-authentication.md`: Document the process for setting up `gh` auth, likely using a `GH_TOKEN`.
+    - `ticket-refine-github-cli-guide.md`: Refine and integrate the GitHub CLI authentication guide.
     - `ticket-agent-can-list-issues-and-prs.md`: Implement agent capabilities to list open issues and pull requests.
 
 ### Phase 2: Automating the Ticket/Issue Workflow
