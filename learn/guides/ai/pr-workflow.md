@@ -142,3 +142,51 @@ gh issue comment https://github.com/<user-name>/neo/pull/123 --body "Great work 
 - Use `gh issue comment` for high-level feedback or general suggestions.
 - Ensure comments are constructive, polite, and aligned with the project's coding standards.
 - Double-check the pull request number or URL before submitting comments to avoid errors.
+
+## Listing GitHub issues and PRs
+This section provides instructions for the agent to check and summarize open GitHub issues and pull requests, giving an overview of ongoing work in the repository.
+
+### Using the `gh issue list` command
+The `gh issue list` command is used to get an overview of open issues and understand the current status of ongoing work in the repository.
+
+1. To list all open issues in the repository, run:
+   ```bash
+   gh issue list
+   ```
+
+2. To search for issues related to a specific topic or area, use the `--search` flag:
+   ```bash
+   gh issue list --search "dashboard"
+   ```
+
+Use the `gh issue list` command when asked questions like:
+- “Can you show me all ongoing issues?”
+- “Give me an overview of the current issues.”
+- “Show me issues about authentication.”
+- “Are there any issues related to the dashboard?”
+
+#### Best Practices
+- Summarize the issues for the user, highlighting titles and numbers.
+- Avoid returning raw command output unless explicitly requested.
+
+### Using the `gh pr list` command
+The `gh pr list` command is used to get the list of open pull requests from a repository. This can be used to get an overall understanding of the ongoing development work.
+
+1. To list all open pull requests in the repository, run:
+   ```bash
+   gh pr list
+   ```
+
+2. To search for pull requests related to a specific topic or area, use the `--search` flag:
+   ```bash
+   gh pr list --search "topic"
+   ```
+
+Use the `gh pr list` command when asked questions like:
+- “What pull requests are currently open?”
+- “Can you show me all ongoing PRs?”
+- “Show me PRs about authentication.”
+
+#### Best Practices
+- Summarize the PRs, including key details such as number, title, author, and status.
+- Provide a concise overview of active development without showing raw command output.
