@@ -29,6 +29,7 @@
         {"name": "Extending Classes",                                  "parentId": "GettingStarted",                                      "id": "gettingstarted/Extending"},
         {"name": "Config",                                             "parentId": "GettingStarted",                                      "id": "gettingstarted/Config"},
         {"name": "Shared Bindable Data",                               "parentId": "GettingStarted",                                      "id": "gettingstarted/ComponentModels"},
+        {"name": "Creating Your First App", "parentId": "GettingStarted", "id": "gettingstarted/CreatingYourFirstApp"},
     {"name": "Guides",                                                 "parentId": null,                                 "isLeaf": false, "id": "guides", "collapsed": true},
         {"name": "Fundamentals & Core Concepts",                       "parentId": "guides",                             "isLeaf": false, "id": "guides/fundamentals", "collapsed": true},
             {"name": "Application Bootstrap",                          "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ApplicationBootstrap"},
