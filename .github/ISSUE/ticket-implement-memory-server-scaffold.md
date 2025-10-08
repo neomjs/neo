@@ -18,7 +18,7 @@ This ticket must be completed before any other endpoint implementation tickets f
 
 ## Acceptance Criteria
 
-1.  A new Node.js server application is created (e.g., using Express.js) within a new `buildScripts/mcp/memory/` directory.
+1.  A new Node.js server application is created (e.g., using Express.js) within a new `ai/mcp/server/memory/` directory.
 2.  The server implements a `GET /healthcheck` endpoint that returns a 200 OK status if it can successfully connect to the ChromaDB instance on port 8001.
 3.  A new script, `npm run ai:server-memory-mcp`, is added to `package.json` to start the server.
 4.  The server uses a library (e.g., `swagger-ui-express`) to serve interactive API documentation from the OpenAPI specification file at a `/docs` endpoint.
