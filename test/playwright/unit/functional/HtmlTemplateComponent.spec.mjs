@@ -1,28 +1,24 @@
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../src/Neo.mjs';
-Neo.config.environment = 'development';
-import FunctionalBase        from '../../../../src/functional/component/Base.mjs';
-import VdomHelper            from '../../../../src/vdom/Helper.mjs';
-import {html}                from '../../../../src/functional/util/html.mjs';
+import { setup } from '../../setup.mjs';
 
-// IMPORTANT: This test file uses real components and expects them to render.
-// We need to enable unitTestMode for isolation, but also allow VDOM updates.
-Neo.config.unitTestMode = true;
-Neo.config.allowVdomUpdatesInTests = true;
-// This ensures that the VdomHelper uses the correct renderer for the assertions.
-Neo.config.useDomApiRenderer = true;
+setup({
+    appConfig: {
+        name: 'HtmlTemplateTest'
+    },
+    neoConfig: {
+        allowVdomUpdatesInTests: true,
+        useDomApiRenderer      : true
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import FunctionalBase from '../../../../src/functional/component/Base.mjs';
+import VdomHelper     from '../../../../src/vdom/Helper.mjs';
+import {html}         from '../../../../src/functional/util/html.mjs';
 
 Neo.vdom.Helper = VdomHelper;
 
-// Create a mock application context, as the component lifecycle requires it for updates.
 const appName = 'HtmlTemplateTest';
-Neo.apps = Neo.apps || {};
-Neo.apps[appName] = {
-    name             : appName,
-    fire             : Neo.emptyFn,
-    isMounted        : () => true,
-    vnodeInitialising: false
-};
 
 /**
  * @class TestComponent
@@ -94,6 +90,14 @@ class TestConditionalComponent extends FunctionalBase {
 TestConditionalComponent = Neo.setupClass(TestConditionalComponent);
 
 
+/**
+ * @summary Verifies the functionality of functional components using html-tagged template literals.
+ *
+ * This test suite ensures that functional components with `enableHtmlTemplates: true`
+ * can correctly parse an `html` template literal in their `render()` method to create a VDOM structure.
+ * It validates initial rendering, reactive updates from config changes, support for nested components
+ * within a template, and proper handling of conditional rendering logic.
+ */
 test.describe('functional/HtmlTemplateComponent', () => {
     let component;
 
