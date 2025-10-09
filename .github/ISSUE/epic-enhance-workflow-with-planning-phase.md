@@ -24,6 +24,7 @@ This will shift the agent's role from purely reactive execution to proactive par
 2.  **Define Project Vision:**
     *   **Sub-Tasks:**
         - **Done:** ticket-update-project-vision.md
+        - **Done:** ticket-refine-project-vision-with-core-concepts.md
 
 3.  **Update `AGENTS.md` with Planning Protocol:**
     *   Add a new major section to the agent guidelines detailing the "Roadmap-First" principle.
