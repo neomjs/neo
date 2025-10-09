@@ -3,7 +3,7 @@ title: 'Refine Project VISION.md with Core Architectural Concepts'
 labels: documentation
 ---
 
-GH ticket id: #7432
+GH ticket id: #7431
 
 **Epic:** Enhance Development Workflow with a Planning Phase
 **Assignee:** tobiu
