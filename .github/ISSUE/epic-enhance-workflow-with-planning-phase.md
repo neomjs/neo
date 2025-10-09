@@ -26,7 +26,11 @@ This will shift the agent's role from purely reactive execution to proactive par
         - **Done:** ticket-update-project-vision.md
         - **Done:** ticket-refine-project-vision-with-core-concepts.md
 
-3.  **Update `AGENTS.md` with Planning Protocol:**
+3.  **Refine Core Project Documentation:**
+    *   **Sub-Tasks:**
+        - **Done:** ticket-refine-core-project-docs.md
+
+4.  **Update `AGENTS.md` with Planning Protocol:**
     *   Add a new major section to the agent guidelines detailing the "Roadmap-First" principle.
     *   Instruct the agent on how to triage new, large-scale ideas against the `ROADMAP.md`.
     *   Define the process for adding new items to the roadmap's backlog and gating the creation of new epics until they are properly documented and prioritized within the roadmap.

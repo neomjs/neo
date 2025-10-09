@@ -14,7 +14,7 @@
 # Build Ultra-Fast, Desktop-Like Web Apps
 🚀 **Break Free from UI Freezes — Experience True Multithreading & Uncompromised Responsiveness.**
 
-💻 ***Neo.mjs v10 isn't an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
+💻 ***Neo.mjs isn't just an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
 
 Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how
 many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**.
@@ -71,7 +71,7 @@ large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundame
    common in other frameworks.
 
 </br></br>
-## 🚀 Inside v10: A New Era of Frontend Architecture
+## 🚀 A New Era of Frontend Architecture
 
 The v10 release marks a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. We've rebuilt the engine to provide an even more powerful and intuitive developer experience, making it simpler than ever to build complex, performant applications.
 
@@ -110,7 +110,7 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 * **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved.
   No more wasteful re-creations – just surgical, efficient updates.
 
-* **New in v10: Functional Components & A Modern Hook System**: Embrace a modern, hook-based development style with `defineComponent`, `useConfig`, and `useEvent`. This new paradigm, built on top of our robust class system, offers a familiar and intuitive way to build components while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, it's free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
+* **Functional Components & A Modern Hook System**: Embrace a modern, hook-based development style with `defineComponent`, `useConfig`, and `useEvent`. This new paradigm, built on top of our robust class system, offers a familiar and intuitive way to build components while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, it's free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
 
 * **Reactive State Management**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
   Components declare their data needs via a concise `bind` config. These `bind` functions act as powerful inline formulas, allowing
@@ -149,7 +149,7 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 
 * **Async-Aware Component Lifecycle**: With the `initAsync()` lifecycle method, components can handle asynchronous setup (like fetching data or lazy-loading modules) *before* they are considered "ready." This eliminates entire classes of race conditions and UI flicker, allowing you to build complex, data-dependent components with confidence.
 
-* **AI-Native by Design**: Neo.mjs is architected to be developed *by* AI agents. With a deterministic structure, a local knowledge base for querying, and clear guidelines for both the [AI](./.github/AGENTS.md) and the [human developer](./.github/WORKING_WITH_AGENTS.md), the framework is ready for the next generation of software development. This architectural discipline not only enables AI collaboration but also results in a cleaner, more predictable, and more maintainable codebase. Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
+* **AI-Native through Context Engineering**: We are pioneering **Context Engineering** to build the first framework architected to be developed *with* AI agents. Instead of just prompting, we are building a dynamic system to provide our AI partner with the right knowledge and tools at the right time. This includes a rich, queryable knowledge base and clear guidelines for both the [AI](./.github/AGENTS.md) and the [human developer](./.github/WORKING_WITH_AGENTS.md). This architectural discipline not only enables AI partnership but also results in a cleaner, more predictable, and more maintainable codebase. Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
 
 <p align="center">
   <img src="./resources/images/workers-focus.svg" alt="Neo.mjs Worker Architecture Diagram - Shows Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend connections.">
@@ -246,6 +246,14 @@ Next steps:
 * Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
   & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
 * :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
+
+</br></br>
+## 🧭 Vision & Roadmap
+
+To understand the long-term goals and future direction of the project, please see our strategic documents:
+
+*   **[✨ The Vision](./.github/VISION.md):** Learn about the core philosophy and the "why" behind our architecture.
+*   **[🗺️ The Roadmap](./ROADMAP.md):** See what we're working on now and what's planned for the future.
 
 </br></br>
 ## :handshake: How to Contribute
