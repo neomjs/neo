@@ -4,6 +4,16 @@ import os                          from 'os';
 import path                        from 'path';
 import {spawnSync}                 from 'child_process';
 import { Command }                 from 'commander/esm.mjs';
+import {
+    extractFrontmatter,
+    resolveTitle,
+    prepareBodyForIssue,
+    updateIssueMetadata,
+    buildRenamedFileName,
+    ensureTrailingNewline,
+    extractIssueUrl,
+    extractIssueNumber
+} from './util/ticketUtils.mjs';
 
 /**
  * @summary Automates GitHub issue creation from local ticket markdown files.
@@ -98,143 +108,6 @@ if (!ticketPath) {
     process.exit(1);
 });
 
-function extractFrontmatter(content) {
-    const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
-    const match = content.match(frontmatterRegex);
-
-    if (!match) {
-        return {
-            frontmatterBlock: '',
-            frontmatterData : {},
-            bodyContent     : content
-        };
-    }
-
-    const frontmatterRaw = match[1];
-    const data = {};
-
-    frontmatterRaw.split(/\r?\n/).forEach(line => {
-        const trimmed = line.trim();
-
-        if (!trimmed || trimmed.startsWith('#')) {
-            return;
-        }
-
-        const separatorIndex = trimmed.indexOf(':');
-
-        if (separatorIndex === -1) {
-            return;
-        }
-
-        const key = trimmed.slice(0, separatorIndex).trim();
-        let value = trimmed.slice(separatorIndex + 1).trim();
-
-        const firstChar = value.at(0);
-        const lastChar = value.at(-1);
-
-        if ((firstChar === '"' && lastChar === '"') || (firstChar === "'" && lastChar === "'")) {
-            value = value.slice(1, -1);
-        }
-
-        if (value.includes(',')) {
-            data[key] = value.split(',').map(entry => entry.trim());
-        } else {
-            data[key] = value;
-        }
-    });
-
-    const frontmatterBlock = match[0].replace(/\s*$/, '\n\n');
-    const bodyContent = content.slice(match[0].length);
-
-    return {frontmatterBlock, frontmatterData: data, bodyContent};
-}
-
-function resolveTitle(frontmatterData, bodyContent) {
-    const fromFrontmatter = typeof frontmatterData.title === 'string'
-        ? frontmatterData.title.trim()
-        : Array.isArray(frontmatterData.title) ? frontmatterData.title.join(' ').trim() : '';
-
-    if (fromFrontmatter) {
-        return fromFrontmatter;
-    }
-
-    const ticketHeaderMatch = bodyContent.match(/^#\s+Ticket:\s*(.+)$/m);
-
-    if (ticketHeaderMatch) {
-        return ticketHeaderMatch[1].trim();
-    }
-
-    const genericHeaderMatch = bodyContent.match(/^#\s+(.+)$/m);
-
-    if (genericHeaderMatch) {
-        return genericHeaderMatch[1].trim();
-    }
-
-    throw new Error('Unable to resolve ticket title from frontmatter or markdown headings.');
-}
-
-function prepareBodyForIssue(bodyContent) {
-    const withoutIssueHeader = bodyContent.replace(/^(# GitHub Issue:.*\r?\n# https?:\/\/[^\r\n]+\r?\n\r?\n)/, '');
-
-    return withoutIssueHeader.trimStart();
-}
-
-function extractIssueUrl(stdout, stderr) {
-    const combined = `${stdout ?? ''}\n${stderr ?? ''}`;
-    const urlMatch = combined.match(/https?:\/\/[^\s]+/);
-
-    if (!urlMatch) {
-        throw new Error('GitHub CLI output did not contain an issue URL.');
-    }
-
-    return urlMatch[0];
-}
-
-function extractIssueNumber(issueUrl, stdout, stderr) {
-    const numberFromUrl = issueUrl.match(/\/issues\/(\d+)/);
-
-    if (numberFromUrl) {
-        return numberFromUrl[1];
-    }
-
-    const combined = `${stdout ?? ''}\n${stderr ?? ''}`;
-    const inlineMatch = combined.match(/#(\d+)/);
-
-    if (inlineMatch) {
-        return inlineMatch[1];
-    }
-
-    throw new Error('Unable to determine issue number from GitHub CLI output.');
-}
-
-function updateIssueMetadata(frontmatterBlock, bodyContent, issueNumber, issueUrl) {
-    const placeholderRegex = /GH ticket id: #\d+/;
-    const cleanedBody = prepareBodyForIssue(bodyContent);
-
-    if (placeholderRegex.test(cleanedBody)) {
-        const replacementText = `GH ticket id: #${issueNumber}\nGH ticket url: ${issueUrl}`;
-        const updatedBodyContent = cleanedBody.replace(placeholderRegex, replacementText);
-        return `${frontmatterBlock}${updatedBodyContent}`;
-    }
-
-    // Fallback to prepending if the placeholder is not found
-    const metadata = `# GitHub Issue: #${issueNumber}\n# ${issueUrl}\n\n`;
-    return `${frontmatterBlock}${metadata}${cleanedBody}`;
-}
-
-function buildRenamedFileName(issueNumber, title) {
-    const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 120) || 'ticket';
-
-    return `gh${issueNumber}-${slug}.md`;
-}
-
-function ensureTrailingNewline(content) {
-    return content.endsWith('\n') ? content : `${content}\n`;
-}
 
 function pathsEqual(a, b) {
     return path.resolve(a) === path.resolve(b);
