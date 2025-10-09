@@ -1,29 +1,43 @@
 # Neo.mjs Project Roadmap
 
-## Vision
+This document outlines the high-level strategic direction and priorities for the Neo.mjs framework.
 
-To provide a robust, high-performance, and developer-friendly framework that leverages modern web technologies to their full potential, enhanced by a deeply integrated, stateful AI development partner.
+## Vision: The AI-Native Development Environment
 
-## Current Release Focus
+Our core vision is to create a truly **AI-native development environment**. We are evolving the framework and its surrounding tooling to empower both human developers and AI agents to collaborate seamlessly on building complex, high-performance web applications.
 
-This section outlines the major initiatives for the current development cycle, in order of priority.
+## Current Focus: Mastering Context Engineering
 
-1.  **Epic: AI Knowledge Evolution**
-    -   **Goal:** Transform the agent into a stateful, learning contributor with a persistent, local memory.
-    -   **Impact:** Fundamentally enhances the collaborative workflow, enabling faster, more context-aware development. This is the highest priority.
+As framed in our blog post, "[AI-Native, Not AI-Assisted](learn/blog/ai-native-platform-answers-questions.md)", our current development focus is not on the UI framework itself, but on the **tooling and infrastructure** that powers our AI-native workflows.
 
-2.  **Epic: Enhance Development Workflow with Mandatory Unit Testing**
-    -   **Goal:** Migrate all unit tests to a scriptable Node.js runner and integrate mandatory testing into the agent's workflow.
-    -   **Impact:** Ensures code stability, prevents regressions, and solidifies the framework's core APIs.
+We are focused on **Context Engineering**: the practice of building systems that provide AI agents with the most relevant, accurate, and comprehensive context to perform their tasks. This is the key to unlocking meaningful AI contributions and creating a smooth onboarding experience where agents can teach newcomers.
 
-3.  **Epic: Enhance Development Workflow with a Planning Phase**
-    -   **Goal:** Formalize the use of this roadmap to guide all major development efforts.
-    -   **Impact:** Ensures all work is aligned with long-term strategic goals.
+Our work in this area is organized around several key initiatives:
 
-## Next Up
+### 1. The AI Knowledge & Memory Foundation
+- **Goal:** To provide agents with comprehensive technical and historical context.
+- **Initiatives:**
+    - **Knowledge Base:** Following the v10.9 release, our RAG system has been enhanced to include all tickets and release notes, providing even deeper project insight.
+    - **Memory Core:** The initial implementation of the agent's long-term memory is complete, allowing it to learn from past interactions. ([Epic: AI Knowledge Evolution](.github/ISSUE/epic-ai-knowledge-evolution.md))
 
--   (To be determined)
+### 2. Professionalizing AI Tooling (MCP Servers)
+- **Goal:** To migrate our script-based tools into robust, professional-grade servers.
+- **Initiatives:**
+    - We are building **two distinct Model Context Protocol (MCP) servers**: one for the Knowledge Base and one for the Memory Core. This involves moving the logic from the original scripts into a formal server architecture, making our tools more reliable and accessible to any AI agent. ([Epic: Architect AI Tooling as MCP](.github/ISSUE/epic-architect-ai-tooling-as-mcp.md))
 
-## Backlog / Ideas
+### 3. Expanding Agent Capabilities
+- **Goal:** To give agents powerful new ways to interact with the development environment.
+- **Initiatives:**
+    - **Sighted Agent:** A major initiative to empower agents with the ability to "see" and interact with web pages via Chrome DevTools, enabling automated UI/UX testing and validation. ([Epic: Sighted Agent & DevTools Integration](.github/ISSUE/epic-sighted-agent-devtools-integration.md))
+    - **GitHub CLI Integration:** Deeply integrating the GitHub CLI to allow agents to automate PR reviews, issue creation, and other crucial repository interactions. ([Epic: Integrate GitHub CLI Workflow](.github/ISSUE/epic-integrate-github-cli-workflow.md))
 
--   (To be determined)
+### 4. Ensuring Code Quality & Stability
+- **Goal:** To maintain a stable and reliable codebase by enabling automated, scriptable testing for all contributors.
+- **Initiatives:**
+    - **Mandatory Unit Testing:** We are migrating our entire test suite from a browser-based harness (Siesta) to a Node.js-based runner (Playwright). The primary benefit is that tests can be run with a simple `npm test` command. This empowers AI agents to verify their own changes, and it unlocks future CI/CD integration (e.g., pre-commit hooks) to automatically prevent regressions. ([Epic: Enhance Workflow with Mandatory Unit Testing](.github/ISSUE/epic-enhance-workflow-with-mandatory-unit-testing.md))
+
+---
+
+## The Path to v11.0.0
+
+The completion of these foundational infrastructure projects will culminate in the `v11.0.0` release. The timing of this release is dependent on the progress made during Hacktoberfest and subsequent community contributions. After the event, we will assess the state of these epics to define a more concrete release schedule.
