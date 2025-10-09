@@ -27,7 +27,7 @@ This design must define a comprehensive, resource-oriented API for managing the 
     - `POST /documents/query`: The primary search endpoint.
     - `POST /db/sync`: Triggers the delta update and synchronization process.
     - `DELETE /db`: Deletes the entire knowledge base collection.
-3.  The API design is formally documented in an OpenAPI 3.0 specification file (e.g., `openapi.yaml`).
+3.  The API design is formally documented in an OpenAPI 3.0 specification file at `buildScripts/mcp/knowledge/openapi.yaml`.
 4.  The design is documented in a new guide within the `learn/guides/ai/` directory, ready for implementation.
 
 ---

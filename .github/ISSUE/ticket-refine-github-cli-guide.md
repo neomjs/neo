@@ -1,6 +1,6 @@
 # Ticket: Refine and Integrate GitHub CLI Guide
 
-GH ticket id: (will be assigned after creation)
+GH ticket id: #7418
 Labels: `hacktoberfest`, `good first issue`, `documentation`
 
 ## Description
