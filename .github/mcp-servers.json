@@ -7,11 +7,11 @@
       "type": "transport",
       "connection": {
         "host": "localhost",
-        "port": 3000,
+        "port": 8000,
         "protocol": "http"
       },
       "healthCheck": {
-        "url": "http://localhost:3000/api/health",
+        "url": "http://localhost:8000/api/v2/healthcheck",
         "method": "GET",
         "timeout": 2000
       },

@@ -34,9 +34,10 @@ https://discord.gg/6p8paPq
 ## Sub-Tasks
 
 ### Phase 1: Design & Foundation
-- **To Do:** ticket-define-agent-agnostic-mcp-config.md
+- **Done:** ticket-define-agent-agnostic-mcp-config.md
 - **To Do:** ticket-design-knowledge-mcp-api.md
-- **To Do:** ticket-design-memory-mcp-api.md
+- **Done:** ticket-design-memory-mcp-api.md
+- **Done:** ticket-mcp-config-align-knowledge-server.md
 
 ### Phase 2: Implementation
 - **To Do:** ticket-implement-knowledge-server-scaffold.md
