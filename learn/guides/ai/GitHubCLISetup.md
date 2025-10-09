@@ -41,6 +41,21 @@ export GH_TOKEN="your_fine_grained_token_here"
 ```powershell
 $env:GH_TOKEN = "your_fine_grained_token_here"
 ```
+### Adding Tokens to the `.env` File
+
+For a more permanent setup, you can store your tokens in a `.env` file instead of exporting them manually each time.
+
+1. In the **root directory** of the project, create a new file named `.env` (if it doesn’t already exist).  
+2. Add the token inside it as shown below:
+
+    ```bash
+    # .env
+    GH_TOKEN="your_fine_grained_token_here"
+    ```
+
+These environment variables are automatically loaded when the application starts, so you don’t need to export them in your terminal each time.
+
+> **Note:** The `.env` file is usually included in the `.gitignore` file by default, so your tokens will not be pushed to version control. If it’s not, make sure to add `.env` to `.gitignore` manually to keep your credentials safe.
 
 ### Verify authentication
 Run the following command to confirm your setup:
