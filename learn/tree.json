@@ -71,6 +71,7 @@
             {"name": "Agent-Agnostic MCP Configuration",               "parentId": "guides/ai",                                           "id": "guides/ai/AgentAgnosticMcpConfig"},
             {"name": "Memory Core MCP API",                            "parentId": "guides/ai",                                           "id": "guides/ai/MemoryCoreMcpApi"},
             {"name": "Chrome DevTools MCP Server",                     "parentId": "guides/ai",                                           "id": "guides/ai/ChromeDevToolsMcpServer"},
+            {"name": "GitHub CLI Setup",                               "parentId": "guides/ai",                                           "id": "guides/ai/GitHubCLISetup"},
     {"name": "Tutorials",                                              "parentId": null,                                 "isLeaf": false, "id": "Tutorials",  "collapsed": true},
         {"name": "Rock Scissors Paper",                                "parentId": "Tutorials",                                           "id": "tutorials/RSP", "hidden": true},
         {"name": "Earthquakes",                                        "parentId": "Tutorials",                                           "id": "tutorials/Earthquakes"},
