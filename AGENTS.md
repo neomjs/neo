@@ -50,7 +50,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
 7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
     high-level strategies for combining your tools to solve complex problems.
 
-8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/development/GitHubCLISetup.md` to understand the
+8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/ai/GitHubCLISetup.md` to understand the
     setup of GitHub CLI with a personal access token.
     
 9.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/api/v2/healthcheck`. **Note:** For debugging, the server's full API documentation is available via Swagger UI at `http://localhost:8001/docs/`.
