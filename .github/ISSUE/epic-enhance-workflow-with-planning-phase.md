@@ -19,6 +19,7 @@ This will shift the agent's role from purely reactive execution to proactive par
     *   Populate the initial version of the roadmap based on current project goals.
     *   **Sub-Tasks:**
         - **Done:** ticket-update-project-roadmap.md
+        - **Done:** ticket-refine-project-roadmap.md
 
 2.  **Update `AGENTS.md` with Planning Protocol:**
     *   Add a new major section to the agent guidelines detailing the "Roadmap-First" principle.

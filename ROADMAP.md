@@ -20,10 +20,14 @@ Our work in this area is organized around several key initiatives:
     - **Knowledge Base:** Following the v10.9 release, our RAG system has been enhanced to include all tickets and release notes, providing even deeper project insight.
     - **Memory Core:** The initial implementation of the agent's long-term memory is complete, allowing it to learn from past interactions. ([Epic: AI Knowledge Evolution](.github/ISSUE/epic-ai-knowledge-evolution.md))
 
-### 2. Professionalizing AI Tooling (MCP Servers)
-- **Goal:** To migrate our script-based tools into robust, professional-grade servers.
+### 2. Professionalizing AI Tooling (The 3 MCP Servers)
+- **Goal:** To migrate our script-based tools into a robust, professional-grade server architecture.
 - **Initiatives:**
-    - We are building **two distinct Model Context Protocol (MCP) servers**: one for the Knowledge Base and one for the Memory Core. This involves moving the logic from the original scripts into a formal server architecture, making our tools more reliable and accessible to any AI agent. ([Epic: Architect AI Tooling as MCP](.github/ISSUE/epic-architect-ai-tooling-as-mcp.md))
+    - We are building **three distinct Model Context Protocol (MCP) servers**:
+        1. A **Knowledge Base Server** for querying project-specific source code and documentation.
+        2. A **Memory Core Server** for providing agents with long-term conversational memory.
+        3. A **GitHub Sync Server** to manage the 2-way synchronization of issues and PRs.
+    - This involves moving the logic from the original scripts into a formal server architecture, making our tools more reliable and accessible to any AI agent. ([Epic: Architect AI Tooling as MCP](.github/ISSUE/epic-architect-ai-tooling-as-mcp.md))
 
 ### 3. Expanding Agent Capabilities
 - **Goal:** To give agents powerful new ways to interact with the development environment.
@@ -35,6 +39,11 @@ Our work in this area is organized around several key initiatives:
 - **Goal:** To maintain a stable and reliable codebase by enabling automated, scriptable testing for all contributors.
 - **Initiatives:**
     - **Mandatory Unit Testing:** We are migrating our entire test suite from a browser-based harness (Siesta) to a Node.js-based runner (Playwright). The primary benefit is that tests can be run with a simple `npm test` command. This empowers AI agents to verify their own changes, and it unlocks future CI/CD integration (e.g., pre-commit hooks) to automatically prevent regressions. ([Epic: Enhance Workflow with Mandatory Unit Testing](.github/ISSUE/epic-enhance-workflow-with-mandatory-unit-testing.md))
+
+### 5. Decoupling the AI Tooling Ecosystem
+- **Goal:** To evolve our general-purpose AI tools into standalone, reusable packages.
+- **Initiatives:**
+    - **Publish MCP Servers to npm (v11.1):** Following the initial implementation for v11, the **Memory Core** and **GitHub Sync** MCP servers will be published as independent packages to npm. This will be achieved by adding dedicated `package.json` files to their sub-folders within the `neo` repository. The Knowledge Base server will remain internal as it is tightly coupled with this project's source code. This strategy allows the general-purpose servers to be consumed via `npx` by the broader AI development community.
 
 ---
 
