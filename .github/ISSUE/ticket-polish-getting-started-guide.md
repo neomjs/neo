@@ -1,6 +1,6 @@
 # Ticket: Polish the new 'Getting Started' Guide
 
-GH ticket id: (will be assigned after creation)
+GH ticket id: #7417
 Parent epic: #7296
 Labels: `hacktoberfest`, `good first issue`, `documentation`
 
@@ -15,7 +15,7 @@ This is a great task to learn about the specifics of how the Neo.mjs documentati
 1.  **Remove Manual Table of Contents:** The file `learn/gettingstarted/CreatingYourFirstApp.md` currently has a manual Table of Contents at the top. The learning portal generates this automatically from the `##` headings, so this section should be removed.
 
 2.  **Correct Code Block Formatting:** The portal requires a special flag on all fenced code blocks to render them correctly.
-    *   For all shell/bash commands and folder structures, change the fence from ` `shell` or `plaintext` to ` `bash readonly`.
+    *   For all shell/bash commands and folder structures, change the fence from `shell` or `plaintext` to `bash readonly`.
     *   For all JavaScript code blocks, change the fence from `JavaScript` to `javascript readonly`.
 
 3.  **Add Guide to Navigation:** To make the guide appear in the left-hand navigation of the learning portal, add an entry for it in the `learn/tree.json` file. It should be placed within the "Getting Started" section. The entry should look something like this:
