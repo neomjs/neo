@@ -1,11 +1,13 @@
 # Sponsor the Future of Web Development
 
-Neo.mjs is building the platform for the next generation of web applications. Our vision is to democratize elite performance and create the first framework architected for a true AI partnership. By sponsoring Neo.mjs, you are not just supporting an open-source project; you are investing in a paradigm shift.
+Neo.mjs is building the next-generation platform for web applications. Our vision is to democratize elite performance and create the first architecture designed for a true AI partnership. By sponsoring Neo.mjs, you are not just supporting an open-source project; you are investing in a paradigm shift.
 
 Your sponsorship directly funds the ambitious goals outlined in our [**Project Vision**](.github/VISION.md) and accelerates our [**Roadmap**](ROADMAP.md).
 
+This is more than just a UI library; it's a "batteries-included" platform. Sponsoring Neo.mjs means supporting a cohesive ecosystem with hundreds of professional UI components—including a full-featured **Calendar**, **Grid**, and **Table**—a robust **data package**, integrated **view controllers**, **state providers**, and the only true multi-threaded architecture on the web today.
+
 ## What Your Sponsorship Funds
-Your contribution will directly support the development of groundbreaking features, including:
+Your contribution will directly support the development of this groundbreaking platform, including:
 -   **The Sighted Agent:** Empowering AI to see and interact with web pages for automated UI/UX testing.
 -   **AI-Native Tooling:** Building the open-source MCP servers that power our unique AI-driven workflow.
 -   **Core Performance Engineering:** Ensuring the "Off-the-Main-Thread" architecture remains best-in-class.
