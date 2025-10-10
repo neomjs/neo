@@ -18,6 +18,7 @@ To facilitate communication between the Playwright test runner and the component
 
 1.  Create a new file, e.g., `test/playwright/util/rma-helpers.mjs`.
 2.  This file should export the following asynchronous functions:
+    -   `loadModule(path)`: A wrapper around `Neo.worker.App.loadModule({path})`.
     -   `createComponent(config)`: A wrapper around `Neo.worker.App.createNeoInstance()`.
     -   `destroyComponent(id)`: A wrapper around `Neo.worker.App.destroyNeoInstance()`.
     -   `getComponentConfig(id, keyOrKeys)`: A wrapper around `Neo.worker.App.getConfigs()`.

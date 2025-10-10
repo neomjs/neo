@@ -49,7 +49,12 @@ Each test file must follow this structure:
 -   Store the returned component `id` for later use.
     ```javascript
     let componentId;
+
     test.beforeEach(async ({ page }) => {
+        // 1. Load the component's module into the app worker
+        await page.evaluate(() => loadModule('../../src/button/Base.mjs'));
+
+        // 2. Create an instance of the component
         componentId = await page.evaluate(() => createComponent({
             ntype: 'button', text: 'Click Me'
         }));
@@ -148,6 +153,7 @@ export default defineConfig({
 ## 6. Sub-Tasks
 
 ### Phase 1: Build the Test Harness
+
 - **Done:** ticket-add-loadmodule-rma-method.md
 - **To Do:** ticket-create-component-test-harness-config.md
 - **To Do:** ticket-create-empty-viewport-app.md
