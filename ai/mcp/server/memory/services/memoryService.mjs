@@ -1,7 +1,8 @@
-import chromaManager from './chromaManager.mjs';
+import chromaManager    from './chromaManager.mjs';
+import {embedText}      from './textEmbeddingService.mjs';
 
 /**
- * Retrieves all memories for a session, sorted chronologically, and returns a page of results.
+ * Retrieves all memories for a session and returns a paginated payload.
  * @param {Object} options
  * @param {String} options.sessionId
  * @param {Number} options.limit
@@ -30,11 +31,58 @@ export async function listMemories({sessionId, limit, offset}) {
         };
     }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    const total = records.length;
-    const slice = records.slice(offset, offset + limit);
+    const total    = records.length;
+    const paged    = records.slice(offset, offset + limit);
 
     return {
         total,
-        memories: slice
+        memories: paged
+    };
+}
+
+/**
+ * Executes a semantic search against the memory collection.
+ * @param {Object} options
+ * @param {String} options.query
+ * @param {Number} options.nResults
+ * @param {String} [options.sessionId]
+ * @returns {Promise<{count: number, memories: Object[]}>}
+ */
+export async function queryMemories({query, nResults, sessionId}) {
+    const collection = await chromaManager.getMemoryCollection();
+    const embedding  = await embedText(query);
+
+    const searchResult = await collection.query({
+        queryEmbeddings: [embedding],
+        nResults,
+        where          : sessionId ? {sessionId} : undefined,
+        include        : ['metadatas']
+    });
+
+    const ids        = searchResult.ids?.[0] || [];
+    const distances  = searchResult.distances?.[0] || [];
+    const metadatas  = searchResult.metadatas?.[0] || [];
+
+    const memories = ids.map((id, index) => {
+        const metadata = metadatas[index] || {};
+        const distance = Number(distances[index] ?? 0);
+        const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
+
+        return {
+            id,
+            sessionId : metadata.sessionId,
+            timestamp : metadata.timestamp,
+            prompt    : metadata.prompt,
+            thought   : metadata.thought,
+            response  : metadata.response,
+            type      : metadata.type,
+            distance,
+            relevanceScore
+        };
+    });
+
+    return {
+        count   : memories.length,
+        memories: memories
     };
 }
