@@ -148,6 +148,7 @@ export default defineConfig({
 ## 6. Sub-Tasks
 
 ### Phase 1: Build the Test Harness
+- **Done:** ticket-add-loadmodule-rma-method.md
 - **To Do:** ticket-create-component-test-harness-config.md
 - **To Do:** ticket-create-empty-viewport-app.md
 - **To Do:** ticket-create-rma-test-helpers.md

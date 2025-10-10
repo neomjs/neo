@@ -35,6 +35,7 @@ class App extends Base {
                 'destroyNeoInstance',
                 'fireEvent',
                 'getConfigs',
+                'loadModule',
                 'setConfigs',
                 'setGlobalConfig' // points to worker.Base: setGlobalConfig()
             ]
@@ -354,6 +355,24 @@ class App extends Base {
                     })
                 }
             }
+        }
+    }
+
+    /**
+     * @summary Remotely loads an ES module into the App Worker.
+     * @warning For component testing via Playwright ONLY. Do NOT use this in application code.
+     * This method relies on dynamic imports that are ignored by webpack and will fail in production builds.
+     * @param {Object} data
+     * @param {String} data.path The path to the module to load (e.g., '../../src/button/Base.mjs').
+     * @returns {Promise<Object>} A promise which resolves to an object like {success: true, path}
+     */
+    async loadModule({path}) {
+        try {
+            await import(/* webpackIgnore: true */ path);
+            return {success: true, path};
+        } catch (error) {
+            console.error(`Failed to load module via RMA: ${path}`, error);
+            return {success: false, path, error};
         }
     }
 
