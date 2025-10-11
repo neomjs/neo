@@ -7,7 +7,7 @@ import {embedText}      from './textEmbeddingService.mjs';
  * @param {String} options.sessionId
  * @param {Number} options.limit
  * @param {Number} options.offset
- * @returns {Promise<{total: number, memories: Object[]}>}
+ * @returns {Promise<{total: number, results: Object[]}>}
  */
 export async function listMemories({sessionId, limit, offset}) {
     const collection = await chromaManager.getMemoryCollection();
@@ -36,7 +36,7 @@ export async function listMemories({sessionId, limit, offset}) {
 
     return {
         total,
-        memories: paged
+        results: paged
     };
 }
 
@@ -46,7 +46,7 @@ export async function listMemories({sessionId, limit, offset}) {
  * @param {String} options.query
  * @param {Number} options.nResults
  * @param {String} [options.sessionId]
- * @returns {Promise<{count: number, memories: Object[]}>}
+ * @returns {Promise<{count: number, results: Object[]}>}
  */
 export async function queryMemories({query, nResults, sessionId}) {
     const collection = await chromaManager.getMemoryCollection();
@@ -82,7 +82,7 @@ export async function queryMemories({query, nResults, sessionId}) {
     });
 
     return {
-        count   : memories.length,
-        memories: memories
+        count  : memories.length,
+        results: memories
     };
 }

@@ -8,10 +8,10 @@ const router = Router();
  * GET /summaries
  */
 router.get('/summaries', asyncHandler(async (req, res) => {
-    let {limit = '50', offset = '0'} = req.query;
+    let {limit = 50, offset = 0} = req.query;
 
-    limit  = parseInt(limit, 10);
-    offset = parseInt(offset, 10);
+    limit  = Number(limit);
+    offset = Number(offset);
 
     if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
         const error = new Error('The "limit" query parameter must be between 1 and 1000.');
@@ -25,15 +25,15 @@ router.get('/summaries', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {total, summaries} = await listSummaries({
+    const {total, results} = await listSummaries({
         limit,
         offset
     });
 
     res.status(200).json({
-        count: summaries.length,
+        count: results.length,
         total,
-        summaries
+        results
     });
 }));
 
@@ -53,16 +53,16 @@ router.post('/summaries/query', asyncHandler(async (req, res) => {
     }
 
     if (category) {
-        const allowedCategories = ['bugfix', 'feature', 'refactoring', 'documentation', 'new-app', 'analysis', 'other'];
+        const allowedCategories = req.app?.locals?.summaryCategories;
 
-        if (!allowedCategories.includes(category)) {
+        if (Array.isArray(allowedCategories) && allowedCategories.length > 0 && !allowedCategories.includes(category)) {
             const error = new Error(`Invalid category "${category}". Supported categories: ${allowedCategories.join(', ')}`);
             error.status = 400;
             throw error;
         }
     }
 
-    const parsedResults = parseInt(nResults, 10);
+    const parsedResults = Number(nResults);
 
     if (Number.isNaN(parsedResults) || parsedResults < 1 || parsedResults > 100) {
         const error = new Error('The "nResults" value must be between 1 and 100.');
@@ -70,7 +70,7 @@ router.post('/summaries/query', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {count, summaries} = await querySummaries({
+    const {count, results} = await querySummaries({
         query,
         nResults: parsedResults,
         category
@@ -79,7 +79,7 @@ router.post('/summaries/query', asyncHandler(async (req, res) => {
     res.status(200).json({
         query,
         count,
-        results: summaries
+        results
     });
 }));
 
