@@ -1,0 +1,9 @@
+{
+    "appPath"         : "test/apps/component-test-app/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": [],
+    "themes"          : ["neo-theme-light"],
+    "useFallbackApi"  : false
+}
