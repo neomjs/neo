@@ -25,6 +25,9 @@ app.use('/', healthRouter);
 app.use('/', memoriesRouter);
 app.use('/', summariesRouter);
 
+// Provide shared config to routes
+app.locals.summaryCategories = serverConfig.summaryCategories;
+
 // 404 + Error handlers
 app.use(notFoundHandler);
 app.use(errorHandler);

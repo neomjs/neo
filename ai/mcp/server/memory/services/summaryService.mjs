@@ -6,7 +6,7 @@ import {embedText}     from './textEmbeddingService.mjs';
  * @param {Object} options
  * @param {Number} options.limit
  * @param {Number} options.offset
- * @returns {Promise<{total: number, summaries: Object[]}>}
+ * @returns {Promise<{total: number, results: Object[]}>}
  */
 export async function listSummaries({limit, offset}) {
     const collection = await chromaManager.getSummaryCollection();
@@ -43,7 +43,7 @@ export async function listSummaries({limit, offset}) {
 
     return {
         total,
-        summaries: paged
+        results: paged
     };
 }
 
@@ -53,7 +53,7 @@ export async function listSummaries({limit, offset}) {
  * @param {String} options.query
  * @param {Number} options.nResults
  * @param {String} [options.category]
- * @returns {Promise<{count: number, summaries: Object[]}>}
+ * @returns {Promise<{count: number, results: Object[]}>}
  */
 export async function querySummaries({query, nResults, category}) {
     const collection = await chromaManager.getSummaryCollection();
@@ -99,7 +99,7 @@ export async function querySummaries({query, nResults, category}) {
     });
 
     return {
-        count    : summaries.length,
-        summaries: summaries
+        count  : summaries.length,
+        results: summaries
     };
 }

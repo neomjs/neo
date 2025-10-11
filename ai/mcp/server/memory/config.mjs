@@ -14,7 +14,8 @@ const serverConfig = {
     port            : parseInt(process.env.MEMORY_MCP_PORT || '8010', 10),
     logFormat       : process.env.MEMORY_MCP_LOG_FORMAT || 'dev',
     openApiFilePath : path.resolve(cwd, 'buildScripts/mcp/memory/openapi.yaml'),
-    requestBodyLimit: process.env.MEMORY_MCP_BODY_LIMIT || '1mb'
+    requestBodyLimit: process.env.MEMORY_MCP_BODY_LIMIT || '1mb',
+    summaryCategories: ['bugfix', 'feature', 'refactoring', 'documentation', 'new-app', 'analysis', 'other']
 };
 
 export default serverConfig;

@@ -9,7 +9,7 @@ const router = Router();
  */
 router.get('/memories', asyncHandler(async (req, res) => {
     const {sessionId} = req.query;
-    let {limit = '100', offset = '0'} = req.query;
+    let {limit = 100, offset = 0} = req.query;
 
     if (!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0) {
         const error = new Error('The "sessionId" query parameter is required.');
@@ -17,8 +17,8 @@ router.get('/memories', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    limit  = parseInt(limit, 10);
-    offset = parseInt(offset, 10);
+    limit  = Number(limit);
+    offset = Number(offset);
 
     if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
         const error = new Error('The "limit" query parameter must be between 1 and 1000.');
@@ -32,7 +32,7 @@ router.get('/memories', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {total, memories} = await listMemories({
+    const {total, results} = await listMemories({
         sessionId,
         limit,
         offset
@@ -40,9 +40,9 @@ router.get('/memories', asyncHandler(async (req, res) => {
 
     res.status(200).json({
         sessionId,
-        count: memories.length,
+        count: results.length,
         total,
-        memories
+        results
     });
 }));
 
@@ -64,7 +64,7 @@ router.post('/memories/query', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const parsedResults = parseInt(nResults, 10);
+    const parsedResults = Number(nResults);
 
     if (Number.isNaN(parsedResults) || parsedResults < 1 || parsedResults > 100) {
         const error = new Error('The "nResults" value must be between 1 and 100.');
@@ -72,7 +72,7 @@ router.post('/memories/query', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {count, memories} = await queryMemories({
+    const {count, results} = await queryMemories({
         query,
         nResults: parsedResults,
         sessionId
@@ -81,7 +81,7 @@ router.post('/memories/query', asyncHandler(async (req, res) => {
     res.status(200).json({
         query,
         count,
-        results: memories
+        results
     });
 }));
 
