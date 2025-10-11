@@ -2,8 +2,8 @@
 
 GH ticket id: #7438
 
-**Assignee:**
-**Status:** To Do
+**Assignee:** Aki-07
+**Status:** Done
 
 **Parent Epic:** epic-migrate-component-tests-to-playwright.md
 

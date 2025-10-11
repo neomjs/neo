@@ -2,8 +2,8 @@
 
 GH ticket id: #7449
 
-**Assignee:** tobiu
-**Status:** To Do
+**Assignee:** Aki-07
+**Status:** Done
 
 **Parent Epic:** epic-enhance-neo-website-seo.md
 

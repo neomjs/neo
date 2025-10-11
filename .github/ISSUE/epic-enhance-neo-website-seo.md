@@ -46,6 +46,7 @@ This combination of a server-side deployment fix and a client-side management ad
 - **To Do:** ticket-fix-root-domain-seo-with-base-href.md
 - **To Do:** ticket-create-head-manager-addon.md
 - **To Do:** ticket-create-sitemap-generator-script.md
+- **To Do:** ticket-refactor-seo-generator-script.md
 - **To Do:** ticket-generate-sitemap-file.md
 - **To Do:** ticket-generate-llm-txt-file.md
 - **To Do:** ticket-create-update-robots-txt-for-seo.md
