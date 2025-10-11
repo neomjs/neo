@@ -17,10 +17,10 @@ export async function registerRmaHelpers(page) {
                 return Neo.worker.App.destroyNeoInstance(id);
             },
             async getComponentConfig(id, keyOrKeys) {
-                return Neo.worker.App.getConfigs(id, keyOrKeys);
+                return Neo.worker.App.getConfigs({id, keys: keyOrKeys});
             },
             async setComponentConfig(id, config) {
-                return Neo.worker.App.setConfigs(id, config);
+                return Neo.worker.App.setConfigs({id, ...config});
             }
         };
     });
