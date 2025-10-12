@@ -87,11 +87,26 @@ Each test file must follow this structure:
 ### 3.4. The "Full App" Architecture (Advanced Strategy)
 
 For highly complex integration tests where creating components dynamically is not feasible, a secondary strategy can be employed:
-1.  Create a dedicated test application within the `test/` directory (e.g., `test/apps/component-tests/app.mjs`).
+1.  Create a dedicated test application within the `test/playwright/component/apps/` directory (e.g., `test/playwright/component/apps/calendar-test-app/app.mjs`).
 2.  This app will contain the complex component setup.
 3.  The Playwright test will navigate to this app's URL and interact with the pre-rendered components.
 
 This approach should be used sparingly as it reduces test isolation.
+
+### 3.5. The "Hybrid" Strategy for Complex Components
+
+For complex, "app-like" components (e.g., `Neo.calendar.view.MainContainer`), a hybrid approach combining the two strategies above is most effective:
+
+1.  **High-Level Integration Test ("Full App"):**
+    -   Create a dedicated test harness in `test/playwright/component/apps/` that renders a basic configuration of the complex component.
+    -   Write a Playwright test that navigates to this app and performs high-level "smoke tests" (e.g., "does it render?", "do the main buttons work?"). This ensures the component's parts are integrated correctly.
+
+2.  **Granular Unit Tests ("Empty Viewport"):**
+    -   Create separate Playwright tests for the complex *sub-components* (e.g., `Neo.calendar.view.week.Component`).
+    -   These tests will use the standard "Empty Viewport" strategy, dynamically creating only the sub-component they need.
+    -   This allows for focused, isolated testing of the detailed logic within each part of the larger component.
+
+This hybrid strategy provides the best of both worlds: a top-level integration test for confidence and a suite of focused unit tests for precision.
 
 ## 4. Playwright Configuration
 
@@ -154,11 +169,13 @@ export default defineConfig({
 
 ### Phase 1: Build the Test Harness
 
+- **To Do:** ticket-poc-migrate-image-component-test.md
 - **Done:** ticket-add-loadmodule-rma-method.md
-- **To Do:** ticket-create-component-test-harness-config.md
-- **To Do:** ticket-create-empty-viewport-app.md
-- **To Do:** ticket-create-rma-test-helpers.md
+- **Done:** ticket-create-component-test-harness-config.md
+- **Done:** ticket-create-empty-viewport-app.md
+- **Done:** ticket-create-rma-test-helpers.md
 - **To Do:** ticket-migrate-first-component-test-button-base.md
+- **Done:** ticket-refactor-playwright-test-harness.md
 
 ### Phase 2: Component Test Migrations
 
@@ -169,4 +186,3 @@ export default defineConfig({
 - **To Do:** ticket-migrate-cmp-test-form-field-combobox.md
 - **To Do:** ticket-migrate-cmp-test-form-field-text.md
 - **To Do:** ticket-migrate-cmp-test-list-chip.md
-
