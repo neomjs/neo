@@ -50,8 +50,12 @@ https://discord.gg/6p8paPq
 - **To Do:** ticket-implement-memory-create-endpoint.md
 - **To Do:** ticket-implement-memory-lifecycle-endpoints.md
 - **To Do:** ticket-implement-memory-admin-endpoints.md
+- **To Do:** ticket-refine-memory-server-endpoints.md
 
 ### Phase 3: Integration & Documentation
 - **To Do:** ticket-update-agents-md-for-mcp.md
 - **To Do:** ticket-create-mcp-server-documentation.md
 - **To Do:** ticket-cleanup-old-ai-query-npm-scripts.md
+
+### Phase 4: Agent Protocol Refinements
+- **To Do:** ticket-hacktoberfest-implement-memory-protocol-fix.md
