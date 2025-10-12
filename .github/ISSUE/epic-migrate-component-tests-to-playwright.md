@@ -173,7 +173,7 @@ export default defineConfig({
 - **Done:** ticket-create-component-test-harness-config.md
 - **Done:** ticket-create-empty-viewport-app.md
 - **Done:** ticket-create-rma-test-helpers.md
-- **To Do:** ticket-migrate-first-component-test-button-base.md
+- **Done:** ticket-migrate-first-component-test-button-base.md
 - **Done:** ticket-refactor-playwright-test-harness.md
 - **Done:** ticket-poc-create-image-component-test.md
 - **Done:** ticket-refactor-playwright-configs.md
