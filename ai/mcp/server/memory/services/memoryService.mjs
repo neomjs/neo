@@ -7,7 +7,7 @@ import {embedText}      from './textEmbeddingService.mjs';
  * @param {String} options.sessionId
  * @param {Number} options.limit
  * @param {Number} options.offset
- * @returns {Promise<{total: number, results: Object[]}>}
+ * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
  */
 export async function listMemories({sessionId, limit, offset}) {
     const collection = await chromaManager.getMemoryCollection();
@@ -31,12 +31,14 @@ export async function listMemories({sessionId, limit, offset}) {
         };
     }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    const total    = records.length;
-    const paged    = records.slice(offset, offset + limit);
+    const total = records.length;
+    const memories = records.slice(offset, offset + limit);
 
     return {
+        sessionId,
+        count   : memories.length,
         total,
-        results: paged
+        memories
     };
 }
 
@@ -46,7 +48,7 @@ export async function listMemories({sessionId, limit, offset}) {
  * @param {String} options.query
  * @param {Number} options.nResults
  * @param {String} [options.sessionId]
- * @returns {Promise<{count: number, results: Object[]}>}
+ * @returns {Promise<{query: string, count: number, results: Object[]}>}
  */
 export async function queryMemories({query, nResults, sessionId}) {
     const collection = await chromaManager.getMemoryCollection();
@@ -82,6 +84,7 @@ export async function queryMemories({query, nResults, sessionId}) {
     });
 
     return {
+        query,
         count  : memories.length,
         results: memories
     };

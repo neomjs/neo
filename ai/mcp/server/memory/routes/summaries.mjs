@@ -10,8 +10,8 @@ const router = Router();
 router.get('/summaries', asyncHandler(async (req, res) => {
     let {limit = 50, offset = 0} = req.query;
 
-    limit  = Number(limit);
-    offset = Number(offset);
+    limit  = parseInt(limit, 10);
+    offset = parseInt(offset, 10);
 
     if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
         const error = new Error('The "limit" query parameter must be between 1 and 1000.');
@@ -25,16 +25,12 @@ router.get('/summaries', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {total, results} = await listSummaries({
+    const payload = await listSummaries({
         limit,
         offset
     });
 
-    res.status(200).json({
-        count: results.length,
-        total,
-        results
-    });
+    res.status(200).json(payload);
 }));
 
 router.post('/summaries/query', asyncHandler(async (req, res) => {
@@ -62,7 +58,7 @@ router.post('/summaries/query', asyncHandler(async (req, res) => {
         }
     }
 
-    const parsedResults = Number(nResults);
+    const parsedResults = parseInt(nResults, 10);
 
     if (Number.isNaN(parsedResults) || parsedResults < 1 || parsedResults > 100) {
         const error = new Error('The "nResults" value must be between 1 and 100.');
@@ -70,17 +66,13 @@ router.post('/summaries/query', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {count, results} = await querySummaries({
+    const payload = await querySummaries({
         query,
         nResults: parsedResults,
         category
     });
 
-    res.status(200).json({
-        query,
-        count,
-        results
-    });
+    res.status(200).json(payload);
 }));
 
 export default router;
