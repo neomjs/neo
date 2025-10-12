@@ -17,8 +17,8 @@ router.get('/memories', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    limit  = Number(limit);
-    offset = Number(offset);
+    limit  = parseInt(limit, 10);
+    offset = parseInt(offset, 10);
 
     if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
         const error = new Error('The "limit" query parameter must be between 1 and 1000.');
@@ -32,18 +32,13 @@ router.get('/memories', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {total, results} = await listMemories({
+    const payload = await listMemories({
         sessionId,
         limit,
         offset
     });
 
-    res.status(200).json({
-        sessionId,
-        count: results.length,
-        total,
-        results
-    });
+    res.status(200).json(payload);
 }));
 
 /**
@@ -64,7 +59,7 @@ router.post('/memories/query', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const parsedResults = Number(nResults);
+    const parsedResults = parseInt(nResults, 10);
 
     if (Number.isNaN(parsedResults) || parsedResults < 1 || parsedResults > 100) {
         const error = new Error('The "nResults" value must be between 1 and 100.');
@@ -72,17 +67,13 @@ router.post('/memories/query', asyncHandler(async (req, res) => {
         throw error;
     }
 
-    const {count, results} = await queryMemories({
+    const payload = await queryMemories({
         query,
         nResults: parsedResults,
         sessionId
     });
 
-    res.status(200).json({
-        query,
-        count,
-        results
-    });
+    res.status(200).json(payload);
 }));
 
 export default router;
