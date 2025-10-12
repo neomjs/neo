@@ -176,6 +176,7 @@ export default defineConfig({
 - **To Do:** ticket-migrate-first-component-test-button-base.md
 - **Done:** ticket-refactor-playwright-test-harness.md
 - **Done:** ticket-poc-create-image-component-test.md
+- **Done:** ticket-refactor-playwright-configs.md
 
 ### Phase 2: Component Test Migrations
 

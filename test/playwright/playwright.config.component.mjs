@@ -2,8 +2,9 @@ import {defineConfig, devices} from '@playwright/test';
 
 export default defineConfig({
     testDir      : './component',
-    fullyParallel: false,
-    workers      : 1,
+    outputDir    : './test-results/component',
+    fullyParallel: false, // CRITICAL
+    workers      : 1,     // CRITICAL
 
     reporter: [['list']],
 
@@ -13,8 +14,8 @@ export default defineConfig({
     },
 
     webServer: {
-        command          : 'npm run server-start',
-        url              : 'http://localhost:8080',
+        command            : 'npm run server-start',
+        url                : 'http://localhost:8080',
         reuseExistingServer: !process.env.CI
     },
 
