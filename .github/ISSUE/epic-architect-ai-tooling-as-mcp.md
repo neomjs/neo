@@ -57,6 +57,3 @@ https://discord.gg/6p8paPq
 - **To Do:** ticket-update-agents-md-for-mcp.md
 - **To Do:** ticket-create-mcp-server-documentation.md
 - **To Do:** ticket-cleanup-old-ai-query-npm-scripts.md
-
-### Phase 4: Agent Protocol Refinements
-- **To Do:** ticket-hacktoberfest-implement-memory-protocol-fix.md
