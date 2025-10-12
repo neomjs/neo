@@ -44,15 +44,16 @@ https://discord.gg/6p8paPq
 - **To Do:** ticket-implement-knowledge-read-endpoints.md
 - **To Do:** ticket-implement-knowledge-query-endpoint.md
 - **To Do:** ticket-implement-knowledge-admin-endpoints.md
-- **To Do:** ticket-implement-memory-server-scaffold.md
-- **To Do:** ticket-implement-memory-read-endpoints.md
-- **To Do:** ticket-implement-memory-query-endpoints.md
+- **Done:** ticket-implement-memory-server-scaffold.md
+- **Done:** ticket-implement-memory-read-endpoints.md
+- **Done:** ticket-implement-memory-query-endpoints.md
 - **To Do:** ticket-implement-memory-create-endpoint.md
 - **To Do:** ticket-implement-memory-lifecycle-endpoints.md
 - **To Do:** ticket-implement-memory-admin-endpoints.md
 - **To Do:** ticket-refine-memory-server-endpoints.md
 
 ### Phase 3: Integration & Documentation
+- **Done:** ticket-relocate-memory-api-spec.md
 - **To Do:** ticket-update-agents-md-for-mcp.md
 - **To Do:** ticket-create-mcp-server-documentation.md
 - **To Do:** ticket-cleanup-old-ai-query-npm-scripts.md
