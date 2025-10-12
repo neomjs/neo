@@ -44,6 +44,7 @@
         "inject-package-version": "node ./buildScripts/injectPackageVersion.mjs",
         "server-start"          : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                  : "playwright test -c test/playwright/playwright.config.mjs",
+        "test-components"       : "playwright test -c test/playwright/playwright.config.component.mjs",
         "watch-themes"          : "node ./buildScripts/watchThemes.mjs"
     },
     "keywords": [
