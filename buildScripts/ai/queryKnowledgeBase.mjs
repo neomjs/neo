@@ -83,7 +83,15 @@ class QueryKnowledgeBase {
 
         let whereClause = {};
         if (type && type !== 'all') {
-            whereClause = {type: type};
+            if (type === 'blog') {
+                // Blog content is stored as type: 'guide' with isBlog: true
+                whereClause = {
+                    type  : 'guide',
+                    isBlog: 'true'  // ChromaDB stores metadata as strings
+                };
+            } else {
+                whereClause = {type: type};
+            }
         }
 
         const queryOptions = {
