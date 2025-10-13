@@ -130,48 +130,48 @@ class CreateKnowledgeBase {
                 const filePath = path.join(learnBasePath, `${item.id}.md`);
 
                 if (await fs.pathExists(filePath)) {
-                    const
-                        content  = await fs.readFile(filePath, 'utf-8'),
-                        sections = content.split(sectionsRegex); // Split by markdown headings
+                        const
+                            content  = await fs.readFile(filePath, 'utf-8'),
+                            sections = content.split(sectionsRegex), // Split by markdown headings
+                            type     = item.parentId === 'Blog' ? 'blog' : 'guide';
 
-                    if (sections.length > 1) {
-                        sections.forEach(section => {
-                            if (section.trim() === '') return;
+                        if (sections.length > 1) {
+                            sections.forEach(section => {
+                                if (section.trim() === '') return;
 
-                            const
-                                headingMatch = section.match(/^#+\s(.*)/),
-                                heading      = headingMatch ? headingMatch[1] : item.name,
-                                chunkName    = `${item.name} - ${heading}`,
-                                chunk        = {
-                                    type   : 'guide',
+                                const
+                                    headingMatch = section.match(/^#+\s(.*)/),
+                                    heading      = headingMatch ? headingMatch[1] : item.name,
+                                    chunkName    = `${item.name} - ${heading}`;
+
+                                const chunk = {
+                                    type,
                                     kind   : 'guide',
                                     name   : chunkName,
                                     id     : item.id,
-                                    isBlog : item.parentId === 'Blog',
                                     content: section,
                                     source : filePath
                                 };
 
+                                chunk.hash = createContentHash(chunk);
+                                writeStream.write(JSON.stringify(chunk) + '\n');
+                                guideChunks++;
+                            });
+                        } else {
+                            // If no headings, add the whole file as one chunk
+                            const chunk = {
+                                type,
+                                kind   : 'guide',
+                                name   : item.name,
+                                id     : item.id,
+                                content,
+                                source : filePath
+                            };
+
                             chunk.hash = createContentHash(chunk);
                             writeStream.write(JSON.stringify(chunk) + '\n');
                             guideChunks++;
-                        });
-                    } else {
-                        // If no headings, add the whole file as one chunk
-                        const chunk = {
-                            type   : 'guide',
-                            kind   : 'guide',
-                            name   : item.name,
-                            id     : item.id,
-                            isBlog : item.parentId === 'Blog',
-                            content: content,
-                            source : filePath
-                        };
-
-                        chunk.hash = createContentHash(chunk);
-                        writeStream.write(JSON.stringify(chunk) + '\n');
-                        guideChunks++;
-                    }
+                        }
                 }
             }
         }

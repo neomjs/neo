@@ -83,15 +83,7 @@ class QueryKnowledgeBase {
 
         let whereClause = {};
         if (type && type !== 'all') {
-            if (type === 'blog') {
-                // Blog content is stored as type: 'guide' with isBlog: true
-                whereClause = {
-                    type  : 'guide',
-                    isBlog: 'true'  // ChromaDB stores metadata as strings
-                };
-            } else {
-                whereClause = {type: type};
-            }
+            whereClause = {type};
         }
 
         const queryOptions = {
@@ -129,9 +121,9 @@ class QueryKnowledgeBase {
                         if (fileName.includes(keywordSingular)) score += 30;
                         if (metadata.type === 'class' && nameLower.includes(keywordSingular)) score += 20;
                         if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) score += 20;
-                        if (metadata.type === 'guide') {
+                        if (metadata.type === 'guide' || metadata.type === 'blog') {
                             // Guides are the most authoritative source for how-to information.
-                            score += metadata.isBlog === 'true' ? 5 : 50;
+                            score += metadata.type === 'blog' ? 5 : 50;
                             if (nameLower.includes(keywordSingular)) score += 50;
                         }
                         const nameParts = nameLower.split('.');
