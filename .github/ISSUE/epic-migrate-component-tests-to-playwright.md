@@ -1,4 +1,4 @@
-# Epic: Migrate Component Tests from Siesta to Playwright (R&D)
+# Epic: Create Component Tests for Playwright (R&D)
 
 GH ticket id: #7435
 
@@ -7,7 +7,7 @@ GH ticket id: #7435
 
 ## 1. AI-Native Workflow
 
-This epic and its sub-tasks are designed to be executed using our new **AI-Native Workflow**. We strongly encourage contributors to leverage AI agents (like Gemini) to analyze the old Siesta tests and generate the new Playwright versions based on the guide below. This is a great opportunity to learn and participate in a cutting-edge development process.
+This epic and its sub-tasks are designed to be executed using our new **AI-Native Workflow**. We strongly encourage contributors to leverage AI agents (like Gemini) to analyze components and generate new Playwright tests based on the guide below. For some components, existing Siesta tests can be used as a reference, but for most, the tests will be created from scratch by analyzing the component's source code and examples. This is a great opportunity to learn and participate in a cutting-edge development process.
 
 For getting up to speed, please read:
 -   [**Working with Agents**](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md)
@@ -22,13 +22,13 @@ https://discord.gg/6p8paPq
 
 ## 2. Scope & Goal (Research & Development)
 
-This epic outlines the plan to migrate the entire suite of component tests from the browser-based Siesta harness to the Node.js-based Playwright runner. 
+This epic outlines the plan to create a comprehensive suite of component tests using the Node.js-based Playwright runner. While this includes migrating the few existing Siesta tests, the primary goal is to create new tests for all other components.
 
-This is an **R&D (Research & Development)** effort. The first contributors are not just migrating tests; they are pioneers helping to establish a new, modern component testing paradigm for the Neo.mjs project. The goal is to create a robust, isolated, and maintainable testing strategy that can be used for all future component development.
+This is an **R&D (Research & Development)** effort. The first contributors are not just creating tests; they are pioneers helping to establish a new, modern component testing paradigm for the Neo.mjs project. The goal is to create a robust, isolated, and maintainable testing strategy that can be used for all future component development.
 
-## 3. CRITICAL: The Migration Guide & Architecture
+## 3. CRITICAL: The Test Creation Guide & Architecture
 
-All contributors (human or AI) assigned to a component test migration **MUST** follow these instructions precisely.
+All contributors (human or AI) assigned to a component test creation task **MUST** follow these instructions precisely.
 
 ### 3.1. Core Concepts: The Worker Boundary
 
@@ -161,13 +161,54 @@ export default defineConfig({
 });
 ```
 
-## 5. Reference Material
+## 5. Debugging and Visualization Tips
+
+While the "Empty Viewport" architecture is great for isolation, it can feel like a "black box" during development. Here are some incredibly useful tips for "seeing" what your Playwright tests are doing.
+
+### Seeing the Browser (Headed Mode)
+
+By default, Playwright runs tests in a "headless" browser. To watch the test run in a real browser window, which is invaluable for debugging, use the `--headed` flag:
+
+```bash
+npx playwright test --headed
+```
+
+### Recording Videos
+
+Playwright can record a video of the test run. To enable video for all tests, you can temporarily modify `test/playwright/playwright.config.component.mjs`:
+
+```javascript
+// ...
+use: {
+    baseURL: 'http://localhost:8080',
+    trace: 'on-first-retry',
+    video: 'on' // Add this line
+},
+// ...
+```
+
+- `'on'`: Records a video for every test run.
+- `'retain-on-failure'`: Only keeps the video if the test fails.
+
+### Step-by-step Debugging (Trace Viewer)
+
+The current configuration (`trace: 'on-first-retry'`) automatically creates a detailed trace file if a test fails. This is the most powerful debugging tool.
+
+To view a trace, run the following command and open the generated URL:
+
+```bash
+npx playwright show-trace [path-to-the-generated-trace.zip]
+```
+
+The trace viewer provides a timeline with screenshots, DOM snapshots, actions, and console logs for every step of your test.
+
+## 6. Reference Material
 
 -   **Advanced Patterns:** For complex scenarios, the `benchmarks` repository contains excellent examples of advanced testing patterns. [Reference Link](https://github.com/neomjs/benchmarks)
 
-## 6. Sub-Tasks
+## 7. Sub-Tasks
 
-### Phase 1: Build the Test Harness
+### Phase 1: Build the Test Harness (Done)
 
 - **Done:** ticket-add-loadmodule-rma-method.md
 - **Done:** ticket-create-component-test-harness-config.md
@@ -178,12 +219,16 @@ export default defineConfig({
 - **Done:** ticket-poc-create-image-component-test.md
 - **Done:** ticket-refactor-playwright-configs.md
 
-### Phase 2: Component Test Migrations
-
-**This phase is blocked by the completion of Phase 1.**
+### Phase 2a: Component Test Migrations
 
 - **To Do:** ticket-migrate-cmp-test-component-base.md
 - **To Do:** ticket-migrate-cmp-test-component-dateselector.md
 - **To Do:** ticket-migrate-cmp-test-form-field-combobox.md
 - **To Do:** ticket-migrate-cmp-test-form-field-text.md
 - **To Do:** ticket-migrate-cmp-test-list-chip.md
+
+### Phase 2b: New Component Test Creation
+
+This section is for all new component tests created using the "Cookbook Epic".
+
+- **To Do:** 
