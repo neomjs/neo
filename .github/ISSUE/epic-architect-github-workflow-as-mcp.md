@@ -41,6 +41,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - **Goal:** Evolve the server from a REST API to a true MCP tool-providing server.
 - **Sub-Tasks:**
     - `ticket-refactor-to-mcp-tool-server.md`: Implement `tools/list` and `tools/call` endpoints to dynamically expose the server's capabilities.
+    - `ticket-enhance-tools-list-with-schema.md`: Enhance the `/tools/list` endpoint to include OpenAPI schema definitions for each tool's parameters and responses.
 
 ### Future Scope
 - Implementation of the API endpoints.

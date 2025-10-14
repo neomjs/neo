@@ -19,6 +19,51 @@ const serviceMapping = {
 };
 
 /**
+ * Converts OpenAPI parameters and requestBody into a JSON Schema inputSchema.
+ * @param {object} operation - The OpenAPI operation object.
+ * @returns {object} A JSON Schema object for the input.
+ */
+function buildInputSchema(operation) {
+    const schema = {
+        type: 'object',
+        properties: {},
+        required: []
+    };
+
+    // Handle parameters (path, query, header, cookie)
+    if (operation.parameters) {
+        for (const param of operation.parameters) {
+            schema.properties[param.name] = {
+                type: param.schema.type,
+                description: param.description
+            };
+            if (param.required) {
+                schema.required.push(param.name);
+            }
+        }
+    }
+
+    // Handle requestBody
+    if (operation.requestBody && operation.requestBody.content && operation.requestBody.content['application/json']) {
+        const requestBodySchema = operation.requestBody.content['application/json'].schema;
+        // Assuming requestBody is a simple object for now
+        if (requestBodySchema.properties) {
+            for (const [propName, propSchema] of Object.entries(requestBodySchema.properties)) {
+                schema.properties[propName] = {
+                    type: propSchema.type,
+                    description: propSchema.description
+                };
+                if (requestBodySchema.required && requestBodySchema.required.includes(propName)) {
+                    schema.required.push(propName);
+                }
+            }
+        }
+    }
+
+    return schema;
+}
+
+/**
  * Parses the openapi.yaml file to build a mapping of tool names to service functions.
  */
 function initializeToolMapping() {
@@ -34,9 +79,11 @@ function initializeToolMapping() {
         for (const [method, operation] of Object.entries(pathItem)) {
             if (operation.operationId) {
                 toolMapping[operation.operationId] = {
-                    path,
-                    method,
-                    description: operation.description,
+                    name: operation.operationId,
+                    title: operation.summary || operation.operationId,
+                    description: operation.description || operation.summary,
+                    inputSchema: buildInputSchema(operation),
+                    // outputSchema: buildOutputSchema(operation), // To be implemented later
                     handler: serviceMapping[operation.operationId]
                 };
             }
@@ -50,9 +97,11 @@ function initializeToolMapping() {
  */
 function listTools() {
     initializeToolMapping();
-    return Object.entries(toolMapping).map(([name, tool]) => ({
-        name: name,
-        description: tool.description
+    return Object.values(toolMapping).map(tool => ({
+        name: tool.name,
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema
     }));
 }
 
@@ -70,24 +119,20 @@ async function callTool(toolName, args) {
         throw new Error(`Tool "${toolName}" not found or not implemented.`);
     }
 
-    // Explicitly map arguments based on toolName
-    switch (toolName) {
-        case 'listLabels':
-            return tool.handler();
-        case 'listPullRequests':
-            return tool.handler(args);
-        case 'checkoutPullRequest':
-        case 'getPullRequestDiff':
-        case 'getConversation':
-            return tool.handler(args.prNumber);
-        case 'createComment':
-            return tool.handler(args.prNumber, args.body);
-        case 'addLabels':
-        case 'removeLabels':
-            return tool.handler(args.issueNumber, args.labels);
-        default:
-            throw new Error(`Unknown tool: ${toolName}`);
+    // Dynamically extract arguments based on the inputSchema
+    const handlerArgs = [];
+    const inputSchema = tool.inputSchema;
+
+    if (inputSchema && inputSchema.properties) {
+        for (const propName of Object.keys(inputSchema.properties)) {
+            // For now, we assume the order of properties in inputSchema.properties
+            // matches the order of arguments expected by the handler function.
+            // This is a simplification and might need refinement for complex cases.
+            handlerArgs.push(args[propName]);
+        }
     }
+
+    return tool.handler(...handlerArgs);
 }
 
 export {
