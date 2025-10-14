@@ -24,6 +24,7 @@
         "ai:query-memory"       : "node buildScripts/ai/queryMemory.mjs",
         "ai:verify-gh-setup"    : "node buildScripts/ai/verifyGhSetup.mjs",
         "ai:server"             : "chroma run --path ./chroma",
+        "ai:server-github-workflow-mcp": "node ai/mcp/server/github-workflow/index.mjs",
         "ai:server-memory"      : "chroma run --path ./chroma-memory --port 8001",
         "ai:server-memory-mcp"  : "node ai/mcp/server/memory/index.mjs",
         "ai:setup-memory-db"    : "node buildScripts/ai/setupMemoryDB.mjs",

@@ -24,6 +24,8 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - **Goal:** Establish the server's foundation and define the initial API for PR interactions.
 - **Sub-Tasks:**
     - `ticket-define-initial-openapi-spec.md`: Create and refine an `openapi.yaml` specification, focusing first on health checks and core PR operations (list, checkout, diff).
+    - `ticket-scaffold-github-workflow-server.md`: Scaffold the server structure, including directories, core files, and middleware, mirroring the memory server.
+    - `ticket-refine-healthcheck-for-github-workflow-server.md`: Implement a robust health check to verify `gh` installation, authentication, and version.
 
 ### Future Scope
 - Implementation of the API endpoints.

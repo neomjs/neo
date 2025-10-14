@@ -4,7 +4,7 @@ import morgan           from 'morgan';
 import swaggerUi        from 'swagger-ui-express';
 import yaml             from 'js-yaml';
 import healthRouter     from './routes/health.mjs';
-// import pullRequestsRouter from './routes/pullRequests.mjs'; // To be enabled later
+import pullRequestsRouter from './routes/pullRequests.mjs';
 import errorHandler     from './middleware/errorHandler.mjs';
 import notFoundHandler  from './middleware/notFoundHandler.mjs';
 import serverConfig     from './config.mjs';
@@ -21,7 +21,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument, {explorer: tr
 
 // Routes
 app.use('/', healthRouter);
-// app.use('/', pullRequestsRouter); // To be enabled later
+app.use('/', pullRequestsRouter);
 
 // 404 + Error handlers
 app.use(notFoundHandler);
