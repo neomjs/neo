@@ -22,6 +22,10 @@ tags:
     description: Server health and status endpoints
   - name: Pull Requests
     description: Operations related to GitHub Pull Requests
+  - name: Labels
+    description: Operations related to repository labels
+  - name: Issues
+    description: Operations related to repository issues and pull requests
 
 paths:
   /docs:
@@ -51,6 +55,25 @@ paths:
                 $ref: '#/components/schemas/HealthCheckResponse'
         '503':
           description: Server is unhealthy or `gh` CLI is not available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /labels:
+    get:
+      summary: List Repository Labels
+      description: Retrieves a list of all available labels in the repository.
+      tags: [Labels]
+      responses:
+        '200':
+          description: A list of repository labels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelListResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
           content:
             application/json:
               schema:
@@ -185,6 +208,19 @@ paths:
                   type: string
                   description: The content of the comment.
                   example: "This looks great!"
+      responses:
+        '201':
+          description: Comment created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error, e.g., `gh` command failed.
           content:
@@ -206,14 +242,92 @@ paths:
             type: integer
             example: 123
       responses:
-        '200':
-          description: The pull request conversation.
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PullRequestConversation'
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/labels:
+    post:
+      summary: Add labels to an issue or PR
+      description: Adds one or more labels to a specific issue or pull request.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - labels
+              properties:
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  example: ["bug", "enhancement"]
+      responses:
+        '200':
+          description: Labels added successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '404':
-          description: Pull request not found.
+          description: Issue or pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Remove labels from an issue or PR
+      description: Removes one or more labels from a specific issue or pull request.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - labels
+              properties:
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  example: ["bug", "enhancement"]
+      responses:
+        '200':
+          description: Labels removed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Issue or pull request not found.
           content:
             application/json:
               schema:
@@ -242,13 +356,36 @@ components:
             authenticated:
               type: boolean
               example: true
-        version:
+            versionOk:
+              type: boolean
+              example: true
+            version:
+              type: string
+              example: "2.81.0"
+            details:
+              type: array
+              items:
+                type: string
+
+    Label:
+      type: object
+      properties:
+        name:
           type: string
-          example: "1.0.0"
-        uptime:
-          type: number
-          description: Server uptime in seconds
-          example: 3600
+        description:
+          type: string
+        color:
+          type: string
+
+    LabelListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
 
     PullRequest:
       type: object
