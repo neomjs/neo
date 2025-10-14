@@ -70,9 +70,24 @@ async function callTool(toolName, args) {
         throw new Error(`Tool "${toolName}" not found or not implemented.`);
     }
 
-    // This is a simplified argument handling. A real implementation would be more robust.
-    const argValues = args ? Object.values(args) : [];
-    return tool.handler(...argValues);
+    // Explicitly map arguments based on toolName
+    switch (toolName) {
+        case 'listLabels':
+            return tool.handler();
+        case 'listPullRequests':
+            return tool.handler(args);
+        case 'checkoutPullRequest':
+        case 'getPullRequestDiff':
+        case 'getConversation':
+            return tool.handler(args.prNumber);
+        case 'createComment':
+            return tool.handler(args.prNumber, args.body);
+        case 'addLabels':
+        case 'removeLabels':
+            return tool.handler(args.issueNumber, args.labels);
+        default:
+            throw new Error(`Unknown tool: ${toolName}`);
+    }
 }
 
 export {
