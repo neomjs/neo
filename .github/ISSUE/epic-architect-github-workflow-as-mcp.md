@@ -27,6 +27,12 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-scaffold-github-workflow-server.md`: Scaffold the server structure, including directories, core files, and middleware, mirroring the memory server.
     - `ticket-refine-healthcheck-for-github-workflow-server.md`: Implement a robust health check to verify `gh` installation, authentication, and version.
 
+### Phase 2: API Implementation
+
+- **Goal:** Build out the backend logic to connect the OpenAPI endpoints to live `gh` commands.
+- **Sub-Tasks:**
+    - `ticket-implement-pull-request-api-endpoints.md`: Implement the core `pull-requests` endpoints (list, checkout, diff).
+
 ### Future Scope
 - Implementation of the API endpoints.
 - Integration of ticket and issue synchronization.

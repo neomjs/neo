@@ -1,23 +1,26 @@
 import {Router} from 'express';
 import asyncHandler from '../middleware/asyncHandler.mjs';
+import {checkoutPullRequest, getPullRequestDiff, listPullRequests} from '../services/pullRequestService.mjs';
 
 const router = Router();
 
-// Placeholder: GET /pull-requests
 router.get('/pull-requests', asyncHandler(async (req, res) => {
-    res.status(200).json({message: 'List of pull requests (to be implemented)'});
+    const limit = req.query.limit || 30;
+    const data = await listPullRequests(limit);
+    res.status(200).json(data);
 }));
 
-// Placeholder: POST /pull-requests/:pr_number/checkout
 router.post('/pull-requests/:pr_number/checkout', asyncHandler(async (req, res) => {
     const {pr_number} = req.params;
-    res.status(200).json({message: `Checked out PR #${pr_number} (to be implemented)`});
+    const result = await checkoutPullRequest(pr_number);
+    res.status(200).json(result);
 }));
 
 // Placeholder: GET /pull-requests/:pr_number/diff
 router.get('/pull-requests/:pr_number/diff', asyncHandler(async (req, res) => {
     const {pr_number} = req.params;
-    res.status(200).send(`Diff for PR #${pr_number} (to be implemented)`);
+    const diff = await getPullRequestDiff(pr_number);
+    res.status(200).send(diff);
 }));
 
 export default router;
