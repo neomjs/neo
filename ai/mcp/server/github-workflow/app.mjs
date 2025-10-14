@@ -7,6 +7,7 @@ import healthRouter     from './routes/health.mjs';
 import issuesRouter     from './routes/issues.mjs';
 import labelsRouter     from './routes/labels.mjs';
 import pullRequestsRouter from './routes/pullRequests.mjs';
+import toolsRouter      from './routes/tools.mjs';
 import errorHandler     from './middleware/errorHandler.mjs';
 import notFoundHandler  from './middleware/notFoundHandler.mjs';
 import serverConfig     from './config.mjs';
@@ -26,6 +27,7 @@ app.use('/', healthRouter);
 app.use('/', issuesRouter);
 app.use('/', labelsRouter);
 app.use('/', pullRequestsRouter);
+app.use('/', toolsRouter);
 
 // 404 + Error handlers
 app.use(notFoundHandler);

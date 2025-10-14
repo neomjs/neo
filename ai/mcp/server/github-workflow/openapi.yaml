@@ -63,6 +63,7 @@ paths:
   /labels:
     get:
       summary: List Repository Labels
+      operationId: listLabels
       description: Retrieves a list of all available labels in the repository.
       tags: [Labels]
       responses:
@@ -82,6 +83,7 @@ paths:
   /pull-requests:
     get:
       summary: List Pull Requests
+      operationId: listPullRequests
       description: Retrieves a list of open pull requests from the GitHub repository.
       tags: [Pull Requests]
       parameters:
@@ -119,6 +121,7 @@ paths:
   /pull-requests/{pr_number}/checkout:
     post:
       summary: Checkout PR Branch
+      operationId: checkoutPullRequest
       description: Checks out the branch for a given pull request locally using `gh pr checkout`.
       tags: [Pull Requests]
       parameters:
@@ -152,6 +155,7 @@ paths:
   /pull-requests/{pr_number}/diff:
     get:
       summary: Get PR Diff
+      operationId: getPullRequestDiff
       description: Retrieves the diff for a specific pull request using `gh pr diff`.
       tags: [Pull Requests]
       parameters:
@@ -185,6 +189,7 @@ paths:
   /pull-requests/{pr_number}/comments:
     post:
       summary: Create a PR Comment
+      operationId: createComment
       description: Adds a comment to a specific pull request.
       tags: [Pull Requests]
       parameters:
@@ -231,6 +236,7 @@ paths:
   /pull-requests/{pr_number}/conversation:
     get:
       summary: Get PR Conversation
+      operationId: getConversation
       description: Retrieves the full conversation for a pull request, including the title, body, and all comments.
       tags: [Pull Requests]
       parameters:
@@ -252,6 +258,7 @@ paths:
   /issues/{issue_number}/labels:
     post:
       summary: Add labels to an issue or PR
+      operationId: addLabels
       description: Adds one or more labels to a specific issue or pull request.
       tags: [Issues]
       parameters:
@@ -296,6 +303,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
       summary: Remove labels from an issue or PR
+      operationId: removeLabels
       description: Removes one or more labels from a specific issue or pull request.
       tags: [Issues]
       parameters:

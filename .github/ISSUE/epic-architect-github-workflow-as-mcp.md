@@ -37,6 +37,11 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-get-pr-conversation-history.md`: Implement an endpoint to retrieve the full conversation history for a PR.
     - `ticket-manage-repository-labels.md`: Implement endpoints for listing and managing repository labels.
 
+### Phase 3: MCP Refactoring
+- **Goal:** Evolve the server from a REST API to a true MCP tool-providing server.
+- **Sub-Tasks:**
+    - `ticket-refactor-to-mcp-tool-server.md`: Implement `tools/list` and `tools/call` endpoints to dynamically expose the server's capabilities.
+
 ### Future Scope
 - Implementation of the API endpoints.
 - Integration of ticket and issue synchronization.
