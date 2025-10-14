@@ -146,4 +146,6 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 
 ## 7. Sub-Tasks
 
+- **To Do:** ticket-component-testing-cookbook-component-label.md
+- **To Do:** ticket-component-testing-cookbook-component-video.md
 - **To Do:** ticket-component-testing-cookbook-form-field-password.md
