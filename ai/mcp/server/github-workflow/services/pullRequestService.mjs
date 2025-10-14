@@ -60,8 +60,33 @@ async function getPullRequestDiff(prNumber) {
     }
 }
 
+/**
+ * Creates a comment on a specific pull request.
+ * @param {number} prNumber - The number of the pull request.
+ * @param {string} body - The content of the comment.
+ * @returns {Promise<object>} A promise that resolves to a success message.
+ */
+async function createComment(prNumber, body) {
+    return new Promise((resolve, reject) => {
+        const command = `gh pr comment ${prNumber} --body-file -`;
+        const child = exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error creating comment on PR #${prNumber}:`, error);
+                reject(new Error(`Failed to create comment on PR #${prNumber}.`));
+                return;
+            }
+            resolve({message: `Successfully created comment on PR #${prNumber}`, details: stdout.trim()});
+        });
+
+        // Write the comment body to the stdin of the child process
+        child.stdin.write(body);
+        child.stdin.end();
+    });
+}
+
 export {
     listPullRequests,
     checkoutPullRequest,
-    getPullRequestDiff
+    getPullRequestDiff,
+    createComment
 };

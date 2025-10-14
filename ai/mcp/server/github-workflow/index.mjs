@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import app          from './app.mjs';
 import serverConfig from './config.mjs';
 

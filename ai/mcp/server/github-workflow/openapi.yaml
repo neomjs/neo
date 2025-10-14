@@ -159,6 +159,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /pull-requests/{pr_number}/comments:
+    post:
+      summary: Create a PR Comment
+      description: Adds a comment to a specific pull request.
+      tags: [Pull Requests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request to comment on.
+          schema:
+            type: integer
+            example: 123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+                  description: The content of the comment.
+                  example: "This looks great!"
+      responses:
+        '201':
+          description: Comment created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
