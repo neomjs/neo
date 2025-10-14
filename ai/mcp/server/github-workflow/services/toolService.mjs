@@ -64,6 +64,22 @@ function buildInputSchema(operation) {
 }
 
 /**
+ * Extracts the response schema from an OpenAPI operation.
+ * @param {object} operation - The OpenAPI operation object.
+ * @returns {object|null} A JSON Schema object for the output, or null if not found.
+ */
+function buildOutputSchema(operation) {
+    if (operation.responses && operation.responses['200'] && operation.responses['200'].content && operation.responses['200'].content['application/json']) {
+        return operation.responses['200'].content['application/json'].schema;
+    }
+    // For text/plain responses (like diff), we can return a simple string schema
+    if (operation.responses && operation.responses['200'] && operation.responses['200'].content && operation.responses['200'].content['text/plain']) {
+        return {type: 'string'};
+    }
+    return null;
+}
+
+/**
  * Parses the openapi.yaml file to build a mapping of tool names to service functions.
  */
 function initializeToolMapping() {
@@ -83,7 +99,7 @@ function initializeToolMapping() {
                     title: operation.summary || operation.operationId,
                     description: operation.description || operation.summary,
                     inputSchema: buildInputSchema(operation),
-                    // outputSchema: buildOutputSchema(operation), // To be implemented later
+                    outputSchema: buildOutputSchema(operation),
                     handler: serviceMapping[operation.operationId]
                 };
             }
@@ -101,7 +117,8 @@ function listTools() {
         name: tool.name,
         title: tool.title,
         description: tool.description,
-        inputSchema: tool.inputSchema
+        inputSchema: tool.inputSchema,
+        outputSchema: tool.outputSchema
     }));
 }
 
