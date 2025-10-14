@@ -34,6 +34,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-implement-pull-request-api-endpoints.md`: Implement the core `pull-requests` endpoints (list, checkout, diff).
     - `ticket-enhance-pr-listing-and-checkout.md`: Add state filtering to the PR list endpoint and improve the checkout response.
     - `ticket-implement-pr-comment-endpoint.md`: Implement an endpoint to allow commenting on pull requests.
+    - `ticket-get-pr-conversation-history.md`: Implement an endpoint to retrieve the full conversation history for a PR.
 
 ### Future Scope
 - Implementation of the API endpoints.

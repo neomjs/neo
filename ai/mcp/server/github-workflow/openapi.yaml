@@ -185,13 +185,33 @@ paths:
                   type: string
                   description: The content of the comment.
                   example: "This looks great!"
-      responses:
-        '201':
-          description: Comment created successfully.
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pull-requests/{pr_number}/conversation:
+    get:
+      summary: Get PR Conversation
+      description: Retrieves the full conversation for a pull request, including the title, body, and all comments.
+      tags: [Pull Requests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request.
+          schema:
+            type: integer
+            example: 123
+      responses:
+        '200':
+          description: The pull request conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequestConversation'
         '404':
           description: Pull request not found.
           content:
@@ -266,6 +286,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PullRequest'
+
+    PullRequestConversation:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              author:
+                type: object
+                properties:
+                  login:
+                    type: string
+              body:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
 
     SuccessResponse:
       type: object

@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import asyncHandler from '../middleware/asyncHandler.mjs';
-import {checkoutPullRequest, createComment, getPullRequestDiff, listPullRequests} from '../services/pullRequestService.mjs';
+import {checkoutPullRequest, createComment, getConversation, getPullRequestDiff, listPullRequests} from '../services/pullRequestService.mjs';
 
 const router = Router();
 
@@ -27,6 +27,12 @@ router.post('/pull-requests/:pr_number/comments', asyncHandler(async (req, res) 
     const {body} = req.body;
     const result = await createComment(pr_number, body);
     res.status(201).json(result);
+}));
+
+router.get('/pull-requests/:pr_number/conversation', asyncHandler(async (req, res) => {
+    const {pr_number} = req.params;
+    const conversation = await getConversation(pr_number);
+    res.status(200).json(conversation);
 }));
 
 export default router;

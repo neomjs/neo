@@ -84,9 +84,25 @@ async function createComment(prNumber, body) {
     });
 }
 
+/**
+ * Gets the full conversation for a specific pull request.
+ * @param {number} prNumber - The number of the pull request.
+ * @returns {Promise<object>} A promise that resolves to the conversation data.
+ */
+async function getConversation(prNumber) {
+    try {
+        const {stdout} = await execAsync(`gh pr view ${prNumber} --json title,body,comments`);
+        return JSON.parse(stdout);
+    } catch (error) {
+        console.error(`Error getting conversation for PR #${prNumber}:`, error);
+        throw new Error(`Failed to get conversation for PR #${prNumber}.`);
+    }
+}
+
 export {
     listPullRequests,
     checkoutPullRequest,
     getPullRequestDiff,
-    createComment
+    createComment,
+    getConversation
 };
