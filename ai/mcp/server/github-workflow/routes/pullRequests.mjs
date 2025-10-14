@@ -5,8 +5,8 @@ import {checkoutPullRequest, getPullRequestDiff, listPullRequests} from '../serv
 const router = Router();
 
 router.get('/pull-requests', asyncHandler(async (req, res) => {
-    const limit = req.query.limit || 30;
-    const data = await listPullRequests(limit);
+    const {limit, state} = req.query;
+    const data = await listPullRequests({limit, state});
     res.status(200).json(data);
 }));
 

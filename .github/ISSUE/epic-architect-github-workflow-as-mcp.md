@@ -32,6 +32,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - **Goal:** Build out the backend logic to connect the OpenAPI endpoints to live `gh` commands.
 - **Sub-Tasks:**
     - `ticket-implement-pull-request-api-endpoints.md`: Implement the core `pull-requests` endpoints (list, checkout, diff).
+    - `ticket-enhance-pr-listing-and-checkout.md`: Add state filtering to the PR list endpoint and improve the checkout response.
 
 ### Future Scope
 - Implementation of the API endpoints.
