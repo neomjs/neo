@@ -1,119 +1,13 @@
-import fs from 'fs';
-import yaml from 'js-yaml';
-import path from 'path';
-import {fileURLToPath} from 'url';
-import * as issueService from './issueService.mjs';
-import * as labelService from './labelService.mjs';
-import * as pullRequestService from './pullRequestService.mjs';
+import { tools } from './tools.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../openapi.yaml');
-
-let toolMapping = null;
-
-const serviceMapping = {
-    ...issueService,
-    ...labelService,
-    ...pullRequestService
-};
-
-/**
- * Converts OpenAPI parameters and requestBody into a JSON Schema inputSchema.
- * @param {object} operation - The OpenAPI operation object.
- * @returns {object} A JSON Schema object for the input.
- */
-function buildInputSchema(operation) {
-    const schema = {
-        type: 'object',
-        properties: {},
-        required: []
-    };
-
-    // Handle parameters (path, query, header, cookie)
-    if (operation.parameters) {
-        for (const param of operation.parameters) {
-            schema.properties[param.name] = {
-                type: param.schema.type,
-                description: param.description
-            };
-            if (param.required) {
-                schema.required.push(param.name);
-            }
-        }
-    }
-
-    // Handle requestBody
-    if (operation.requestBody && operation.requestBody.content && operation.requestBody.content['application/json']) {
-        const requestBodySchema = operation.requestBody.content['application/json'].schema;
-        // Assuming requestBody is a simple object for now
-        if (requestBodySchema.properties) {
-            for (const [propName, propSchema] of Object.entries(requestBodySchema.properties)) {
-                schema.properties[propName] = {
-                    type: propSchema.type,
-                    description: propSchema.description
-                };
-                if (requestBodySchema.required && requestBodySchema.required.includes(propName)) {
-                    schema.required.push(propName);
-                }
-            }
-        }
-    }
-
-    return schema;
-}
-
-/**
- * Extracts the response schema from an OpenAPI operation.
- * @param {object} operation - The OpenAPI operation object.
- * @returns {object|null} A JSON Schema object for the output, or null if not found.
- */
-function buildOutputSchema(operation) {
-    if (operation.responses && operation.responses['200'] && operation.responses['200'].content && operation.responses['200'].content['application/json']) {
-        return operation.responses['200'].content['application/json'].schema;
-    }
-    // For text/plain responses (like diff), we can return a simple string schema
-    if (operation.responses && operation.responses['200'] && operation.responses['200'].content && operation.responses['200'].content['text/plain']) {
-        return {type: 'string'};
-    }
-    return null;
-}
-
-/**
- * Parses the openapi.yaml file to build a mapping of tool names to service functions.
- */
-function initializeToolMapping() {
-    if (toolMapping) {
-        return;
-    }
-
-    toolMapping = {};
-
-    const openApiDocument = yaml.load(fs.readFileSync(openApiFilePath, 'utf8'));
-
-    for (const [path, pathItem] of Object.entries(openApiDocument.paths)) {
-        for (const [method, operation] of Object.entries(pathItem)) {
-            if (operation.operationId) {
-                toolMapping[operation.operationId] = {
-                    name: operation.operationId,
-                    title: operation.summary || operation.operationId,
-                    description: operation.description || operation.summary,
-                    inputSchema: buildInputSchema(operation),
-                    outputSchema: buildOutputSchema(operation),
-                    handler: serviceMapping[operation.operationId]
-                };
-            }
-        }
-    }
-}
+const toolMap = new Map(tools.map(tool => [tool.name, tool]));
 
 /**
  * Lists all available tools.
  * @returns {object[]} A list of tool definitions.
  */
 function listTools() {
-    initializeToolMapping();
-    return Object.values(toolMapping).map(tool => ({
+    return tools.map(tool => ({
         name: tool.name,
         title: tool.title,
         description: tool.description,
@@ -129,27 +23,13 @@ function listTools() {
  * @returns {Promise<any>} The result of the tool execution.
  */
 async function callTool(toolName, args) {
-    initializeToolMapping();
-    const tool = toolMapping[toolName];
+    const tool = toolMap.get(toolName);
 
     if (!tool || !tool.handler) {
         throw new Error(`Tool "${toolName}" not found or not implemented.`);
     }
 
-    // Dynamically extract arguments based on the inputSchema
-    const handlerArgs = [];
-    const inputSchema = tool.inputSchema;
-
-    if (inputSchema && inputSchema.properties) {
-        for (const propName of Object.keys(inputSchema.properties)) {
-            // For now, we assume the order of properties in inputSchema.properties
-            // matches the order of arguments expected by the handler function.
-            // This is a simplification and might need refinement for complex cases.
-            handlerArgs.push(args[propName]);
-        }
-    }
-
-    return tool.handler(...handlerArgs);
+    return tool.handler(args);
 }
 
 export {
