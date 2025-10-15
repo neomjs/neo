@@ -43,8 +43,13 @@ paths:
 
   /healthcheck:
     get:
-      summary: Health Check
-      description: Confirms the server is running and the `gh` CLI is accessible.
+      summary: Check GitHub CLI Health
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Verifies that the GitHub CLI (`gh`) is installed, authenticated, and 
+        meets the minimum version requirement. Use this to diagnose setup issues.
       tags: [Health]
       responses:
         '200':
