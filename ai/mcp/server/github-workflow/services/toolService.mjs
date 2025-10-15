@@ -12,9 +12,16 @@ const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
+// Internal cache for parsed tool definitions to avoid re-parsing OpenAPI on every call.
 let toolMapping = null;
+// Internal cache for tools formatted for the MCP 'tools/list' response, including JSON schemas.
 let allToolsForListing = null;
 
+/**
+ * Maps snake_case tool names (from OpenAPI operationId) to their corresponding
+ * service handler functions. This explicit mapping ensures clarity and allows
+ * for easy lookup of the correct function to execute a tool.
+ */
 const serviceMapping = {
     add_labels           : issueService.addLabels,
     checkout_pull_request: pullRequestService.checkoutPullRequest,
@@ -26,8 +33,17 @@ const serviceMapping = {
     remove_labels        : issueService.removeLabels
 };
 
+/**
+ * Dynamically constructs a Zod schema for a tool's input arguments based on its
+ * OpenAPI operation definition. This schema is used for robust runtime validation
+ * of incoming tool call arguments.
+ * @param {object} operation - The OpenAPI operation object.
+ * @returns {z.ZodObject} A Zod object schema representing the tool's input.
+ */
 function buildZodSchema(operation) {
     const shape = {};
+
+    // Process parameters defined in the OpenAPI operation (path, query, header, etc.).
     if (operation.parameters) {
         for (const param of operation.parameters) {
             let schema;
@@ -42,15 +58,19 @@ function buildZodSchema(operation) {
                     schema = z.boolean();
                     break;
                 default:
+                    // Fallback for unsupported or unknown schema types.
                     schema = z.any();
             }
+            // Mark schema as optional if not explicitly required.
             if (!param.required) {
                 schema = schema.optional();
             }
+            // Add description for better Zod schema introspection.
             shape[param.name] = schema.describe(param.description);
         }
     }
 
+    // Process request body properties, typically for POST/PUT operations.
     if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
         const { properties, required = [] } = operation.requestBody.content['application/json'].schema;
         for (const [propName, propSchema] of Object.entries(properties)) {
@@ -60,30 +80,55 @@ function buildZodSchema(operation) {
                     schema = z.string();
                     break;
                 case 'array':
-                    schema = z.array(z.string()); // Assuming array of strings for now
+                    // Currently assumes arrays of strings. This is a simplification
+                    // based on current OpenAPI spec usage and may need refinement
+                    // if other array item types are introduced.
+                    schema = z.array(z.string());
                     break;
                 default:
+                    // Fallback for unsupported or unknown schema types.
                     schema = z.any();
             }
+            // Mark schema as optional if not explicitly required in the request body.
             if (!required.includes(propName)) {
                 schema = schema.optional();
             }
+            // Add description for better Zod schema introspection.
             shape[propName] = schema.describe(propSchema.description);
         }
     }
     return z.object(shape);
 }
 
+/**
+ * Recursively resolves JSON references ($ref) within the OpenAPI document.
+ * This is crucial for building complete Zod schemas from potentially fragmented
+ * OpenAPI definitions (e.g., schemas defined in 'components').
+ * @param {object} doc - The full OpenAPI document.
+ * @param {string} ref - The JSON reference string (e.g., '#/components/schemas/MySchema').
+ * @returns {object} The resolved schema object.
+ */
 function resolveRef(doc, ref) {
-    const parts = ref.substring(2).split('/'); // remove '#/' and split
+    // Remove '#/' prefix and split the path into components.
+    const parts = ref.substring(2).split('/');
+    // Traverse the document object to find the referenced schema.
     return parts.reduce((acc, part) => acc[part], doc);
 }
 
+/**
+ * Recursively builds a Zod schema from an OpenAPI schema object, handling
+ * nested structures and JSON references. This is used for output schemas.
+ * @param {object} doc - The full OpenAPI document for reference resolution.
+ * @param {object} schema - The OpenAPI schema object (or a resolved reference).
+ * @returns {z.ZodType} A Zod schema representing the OpenAPI schema.
+ */
 function buildZodSchemaFromResponse(doc, schema) {
+    // If the schema is a reference, resolve it first.
     if (schema.$ref) {
         return buildZodSchemaFromResponse(doc, resolveRef(doc, schema.$ref));
     }
 
+    // Handle different OpenAPI schema types.
     if (schema.type === 'object') {
         const shape = {};
         if (schema.properties) {
@@ -93,6 +138,7 @@ function buildZodSchemaFromResponse(doc, schema) {
         }
         return z.object(shape);
     } else if (schema.type === 'array') {
+        // Recursively build schema for array items.
         return z.array(buildZodSchemaFromResponse(doc, schema.items));
     } else if (schema.type === 'string') {
         return z.string();
@@ -101,18 +147,30 @@ function buildZodSchemaFromResponse(doc, schema) {
     } else if (schema.type === 'boolean') {
         return z.boolean();
     } else {
+        // Fallback for unsupported or unknown schema types.
         return z.any();
     }
 }
 
+/**
+ * Constructs a Zod schema for a tool's output based on its OpenAPI operation's
+ * successful response (200 or 201). This schema is used to describe the expected
+ * output structure to clients.
+ * @param {object} doc - The full OpenAPI document for reference resolution.
+ * @param {object} operation - The OpenAPI operation object.
+ * @returns {z.ZodType|null} A Zod schema for the output, or null if no schema is defined.
+ */
 function buildOutputZodSchema(doc, operation) {
+    // Prioritize 200 OK, then 201 Created responses.
     const response = operation.responses?.['200'] || operation.responses?.['201'];
     const schema = response?.content?.['application/json']?.schema;
 
+    // If an application/json schema is found, build a Zod schema from it.
     if (schema) {
         return buildZodSchemaFromResponse(doc, schema);
     }
 
+    // Special handling for text/plain responses (e.g., diff output).
     if (response?.content?.['text/plain']) {
         return z.string();
     }
@@ -120,7 +178,13 @@ function buildOutputZodSchema(doc, operation) {
     return null;
 }
 
+/**
+ * Initializes the internal tool mapping and the list of tools for client discovery.
+ * This function is designed to be called lazily on the first request to avoid
+ * unnecessary parsing at startup.
+ */
 function initializeToolMapping() {
+    // Prevent re-initialization if already done.
     if (toolMapping) {
         return;
     }
@@ -128,26 +192,36 @@ function initializeToolMapping() {
     toolMapping        = {};
     allToolsForListing = [];
 
+    // Load and parse the OpenAPI specification.
     const openApiDocument = yaml.load(fs.readFileSync(openApiFilePath, 'utf8'));
 
+    // Iterate through all paths and operations defined in the OpenAPI document.
     for (const pathItem of Object.values(openApiDocument.paths)) {
         for (const operation of Object.values(pathItem)) {
+            // Only process operations that have an operationId, as these are considered tools.
             if (operation.operationId) {
                 const toolName = operation.operationId;
+
+                // Build Zod schema for input arguments and convert to JSON Schema for client discovery.
                 const inputZodSchema = buildZodSchema(operation);
                 const inputJsonSchema = zodToJsonSchema(inputZodSchema);
 
+                // Build Zod schema for output and convert to JSON Schema for client discovery.
                 const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
                 let outputJsonSchema = null;
                 if (outputZodSchema) {
                     outputJsonSchema = zodToJsonSchema(outputZodSchema);
                 }
 
+                // Extract argument names in order for positional argument mapping to service handlers.
+                // This is crucial because Zod validation returns an object, but service handlers
+                // might expect positional arguments. The order is derived from OpenAPI parameters.
                 const argNames = (operation.parameters || []).map(p => p.name);
                 if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
                     argNames.push(...Object.keys(operation.requestBody.content['application/json'].schema.properties));
                 }
 
+                // Store the internal tool definition for execution.
                 const tool = {
                     name       : toolName,
                     title      : operation.summary || toolName,
@@ -158,6 +232,7 @@ function initializeToolMapping() {
                 };
                 toolMapping[toolName] = tool;
 
+                // Store the client-facing tool definition for 'tools/list' response.
                 allToolsForListing.push({
                     name        : tool.name,
                     title       : tool.title,
@@ -171,9 +246,17 @@ function initializeToolMapping() {
     }
 }
 
+/**
+ * Provides a paginated list of available tools, formatted for MCP client discovery.
+ * @param {object} [options] - Pagination options.
+ * @param {number} [options.cursor=0] - The starting index for the list.
+ * @param {number} [options.limit] - The maximum number of tools to return. If not provided, all tools are returned.
+ * @returns {object} An object containing the list of tools and a nextCursor for pagination.
+ */
 function listTools({ cursor = 0, limit } = {}) {
     initializeToolMapping();
 
+    // If no limit is specified, return all tools without pagination.
     if (!limit) {
         return {
             tools     : allToolsForListing,
@@ -181,6 +264,7 @@ function listTools({ cursor = 0, limit } = {}) {
         };
     }
 
+    // Apply pagination based on cursor and limit.
     const start      = cursor;
     const end        = start + limit;
     const toolsSlice = allToolsForListing.slice(start, end);
@@ -192,20 +276,35 @@ function listTools({ cursor = 0, limit } = {}) {
     };
 }
 
+/**
+ * Executes a specific tool with the given arguments.
+ * This function performs input validation and maps arguments to the service handler.
+ * @param {string} toolName - The name of the tool to call (snake_case).
+ * @param {object} args - The arguments provided by the client for the tool call.
+ * @returns {Promise<any>} The result of the tool execution.
+ * @throws {Error} If the tool is not found, not implemented, or arguments are invalid.
+ */
 async function callTool(toolName, args) {
     initializeToolMapping();
     const tool = toolMapping[toolName];
 
+    // Ensure the tool exists and has a registered handler.
     if (!tool || !tool.handler) {
         throw new Error(`Tool "${toolName}" not found or not implemented.`);
     }
 
+    // Validate incoming arguments against the tool's Zod schema.
+    // This will throw an error if validation fails, which is caught by the MCP server.
     const validatedArgs = tool.zodSchema.parse(args);
 
+    // Special handling for 'list_pull_requests' as its handler expects a single object argument.
+    // This is a pragmatic solution for an inconsistent service handler signature.
     if (toolName === 'list_pull_requests') {
         return tool.handler(validatedArgs);
     }
 
+    // For other tools, map validated arguments to positional arguments for the handler.
+    // The order is determined by the 'argNames' extracted from OpenAPI.
     const handlerArgs = tool.argNames.map(name => validatedArgs[name]);
     return tool.handler(...handlerArgs);
 }
