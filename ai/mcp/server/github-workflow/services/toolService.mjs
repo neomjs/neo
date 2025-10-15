@@ -74,6 +74,52 @@ function buildZodSchema(operation) {
     return z.object(shape);
 }
 
+function resolveRef(doc, ref) {
+    const parts = ref.substring(2).split('/'); // remove '#/' and split
+    return parts.reduce((acc, part) => acc[part], doc);
+}
+
+function buildZodSchemaFromResponse(doc, schema) {
+    if (schema.$ref) {
+        return buildZodSchemaFromResponse(doc, resolveRef(doc, schema.$ref));
+    }
+
+    if (schema.type === 'object') {
+        const shape = {};
+        if (schema.properties) {
+            for (const [propName, propSchema] of Object.entries(schema.properties)) {
+                shape[propName] = buildZodSchemaFromResponse(doc, propSchema);
+            }
+        }
+        return z.object(shape);
+    } else if (schema.type === 'array') {
+        return z.array(buildZodSchemaFromResponse(doc, schema.items));
+    } else if (schema.type === 'string') {
+        return z.string();
+    } else if (schema.type === 'integer') {
+        return z.number().int();
+    } else if (schema.type === 'boolean') {
+        return z.boolean();
+    } else {
+        return z.any();
+    }
+}
+
+function buildOutputZodSchema(doc, operation) {
+    const response = operation.responses?.['200'] || operation.responses?.['201'];
+    const schema = response?.content?.['application/json']?.schema;
+
+    if (schema) {
+        return buildZodSchemaFromResponse(doc, schema);
+    }
+    
+    if (response?.content?.['text/plain']) {
+        return z.string();
+    }
+
+    return null;
+}
+
 function initializeToolMapping() {
     if (toolMapping) {
         return;
@@ -88,8 +134,14 @@ function initializeToolMapping() {
         for (const operation of Object.values(pathItem)) {
             if (operation.operationId) {
                 const toolName = operation.operationId;
-                const zodSchema = buildZodSchema(operation);
-                const jsonSchema = zodToJsonSchema(zodSchema);
+                const inputZodSchema = buildZodSchema(operation);
+                const inputJsonSchema = zodToJsonSchema(inputZodSchema);
+
+                const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
+                let outputJsonSchema = null;
+                if (outputZodSchema) {
+                    outputJsonSchema = zodToJsonSchema(outputZodSchema);
+                }
 
                 const argNames = (operation.parameters || []).map(p => p.name);
                 if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
@@ -100,7 +152,7 @@ function initializeToolMapping() {
                     name: toolName,
                     title: operation.summary || toolName,
                     description: operation.description || operation.summary,
-                    zodSchema: zodSchema,
+                    zodSchema: inputZodSchema,
                     argNames: argNames,
                     handler: serviceMapping[toolName]
                 };
@@ -110,7 +162,8 @@ function initializeToolMapping() {
                     name: tool.name,
                     title: tool.title,
                     description: tool.description,
-                    inputSchema: jsonSchema
+                    inputSchema: inputJsonSchema,
+                    outputSchema: outputJsonSchema
                 });
             }
         }
