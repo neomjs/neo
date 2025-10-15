@@ -275,7 +275,7 @@ function listTools({ cursor = 0, limit } = {}) {
     const start      = cursor;
     const end        = start + limit;
     const toolsSlice = allToolsForListing.slice(start, end);
-    const nextCursor = end < allToolsForListing.length ? end : null;
+    const nextCursor = end < allToolsForListing.length ? String(end) : null; // Specs do not accept numbers
 
     return {
         tools: toolsSlice,
