@@ -51,8 +51,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-add-mcp-tool-annotations.md`: Add Annotations to MCP Tool Definitions.
     - `ticket-refine-mcp-stdio.md`: Refine `mcp-stdio.mjs` for MCP Compliance and Clarity.
     - `ticket-fix-gemini-cli-mcp-compatibility.md`: Fix Gemini CLI Client Compatibility for MCP `tools/list` Response.
+    - `ticket-implement-conditional-omission.md`: Implement Conditional Omission of Optional Fields in MCP Tool Definitions.
 
 ### Future Scope
-- Implementation of the API endpoints.
 - Integration of ticket and issue synchronization.
-- Refactoring the agent to use the new server.

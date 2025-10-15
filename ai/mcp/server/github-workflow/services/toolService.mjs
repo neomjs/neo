@@ -176,8 +176,8 @@ function buildOutputZodSchema(doc, operation) {
         return z.object({ result: z.string().describe(response.description || '') }).required();
     }
 
-    // If no schema is found, return an empty object schema to satisfy the client.
-    return z.object({});
+    // If no schema is found, return null to indicate its absence.
+    return null;
 }
 
 /**
@@ -235,14 +235,19 @@ function initializeToolMapping() {
                 toolMapping[toolName] = tool;
 
                 // Store the client-facing tool definition for 'tools/list' response.
-                allToolsForListing.push({
+                const toolForListing = {
                     name        : tool.name,
                     title       : tool.title,
                     description : tool.description,
-                    inputSchema : inputJsonSchema,
-                    outputSchema: outputJsonSchema,
-                    annotations : operation['x-annotations'] || null
-                });
+                    inputSchema : inputJsonSchema
+                };
+                if (outputJsonSchema !== null) {
+                    toolForListing.outputSchema = outputJsonSchema;
+                }
+                if (operation['x-annotations'] !== null) {
+                    toolForListing.annotations = operation['x-annotations'];
+                }
+                allToolsForListing.push(toolForListing);
             }
         }
     }
