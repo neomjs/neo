@@ -38,6 +38,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-manage-repository-labels.md`: Implement endpoints for listing and managing repository labels.
 
 ### Phase 3: MCP Refactoring
+
 - **Goal:** Evolve the server from a REST API to a true MCP tool-providing server.
 - **Sub-Tasks:**
     - `ticket-refactor-to-mcp-tool-server.md`: Implement `tools/list` and `tools/call` endpoints to dynamically expose the server's capabilities.
@@ -45,9 +46,10 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-implement-mcp-stdio-server.md`: Implement a proper MCP-compliant server using a `stdio` transport.
     - `ticket-refactor-to-direct-mcp-tool-definitions.md`: Refactor to define tools directly in code, removing the OpenAPI dependency.
     - `ticket-implement-dynamic-tool-discovery.md`: Implement dynamic tool discovery via OpenAPI.
-    - `ticket-implement-mcp-input-validation.md`: Implement Input Schema Validation for MCP Tool Calls.
+    - `ticket-implement-zod-validation.md`: Implement Zod-based Validation with JSON Schema Conversion.
     - `ticket-add-mcp-output-schema.md`: Add outputSchema to MCP Tool Definitions.
     - `ticket-add-mcp-tool-annotations.md`: Add Annotations to MCP Tool Definitions.
+
 ### Future Scope
 - Implementation of the API endpoints.
 - Integration of ticket and issue synchronization.

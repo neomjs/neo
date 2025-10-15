@@ -1,7 +1,9 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { fileURLToPath } from 'url';
 import * as issueService from './issueService.mjs';
 import * as labelService from './labelService.mjs';
 import * as pullRequestService from './pullRequestService.mjs';
@@ -11,7 +13,7 @@ const __dirname = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 let toolMapping = null;
-let allTools = null;
+let allToolsForListing = null;
 
 const serviceMapping = {
     'list_labels': labelService.listLabels,
@@ -24,41 +26,52 @@ const serviceMapping = {
     'remove_labels': issueService.removeLabels
 };
 
-function buildInputSchema(operation) {
-    const schema = {
-        type: 'object',
-        properties: {},
-        required: []
-    };
-
+function buildZodSchema(operation) {
+    const shape = {};
     if (operation.parameters) {
         for (const param of operation.parameters) {
-            schema.properties[param.name] = {
-                type: param.schema.type,
-                description: param.description
-            };
-            if (param.required) {
-                schema.required.push(param.name);
+            let schema;
+            switch (param.schema.type) {
+                case 'integer':
+                    schema = z.number().int();
+                    break;
+                case 'string':
+                    schema = z.string();
+                    break;
+                case 'boolean':
+                    schema = z.boolean();
+                    break;
+                default:
+                    schema = z.any();
             }
+            if (!param.required) {
+                schema = schema.optional();
+            }
+            shape[param.name] = schema.describe(param.description);
         }
     }
 
-    if (operation.requestBody && operation.requestBody.content && operation.requestBody.content['application/json']) {
-        const requestBodySchema = operation.requestBody.content['application/json'].schema;
-        if (requestBodySchema.properties) {
-            for (const [propName, propSchema] of Object.entries(requestBodySchema.properties)) {
-                schema.properties[propName] = {
-                    type: propSchema.type,
-                    description: propSchema.description
-                };
-                if (requestBodySchema.required && requestBodySchema.required.includes(propName)) {
-                    schema.required.push(propName);
-                }
+    if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
+        const { properties, required = [] } = operation.requestBody.content['application/json'].schema;
+        for (const [propName, propSchema] of Object.entries(properties)) {
+            let schema;
+            switch (propSchema.type) {
+                case 'string':
+                    schema = z.string();
+                    break;
+                case 'array':
+                    schema = z.array(z.string()); // Assuming array of strings for now
+                    break;
+                default:
+                    schema = z.any();
             }
+            if (!required.includes(propName)) {
+                schema = schema.optional();
+            }
+            shape[propName] = schema.describe(propSchema.description);
         }
     }
-
-    return schema;
+    return z.object(shape);
 }
 
 function initializeToolMapping() {
@@ -67,7 +80,7 @@ function initializeToolMapping() {
     }
 
     toolMapping = {};
-    allTools = [];
+    allToolsForListing = [];
 
     const openApiDocument = yaml.load(fs.readFileSync(openApiFilePath, 'utf8'));
 
@@ -75,23 +88,30 @@ function initializeToolMapping() {
         for (const operation of Object.values(pathItem)) {
             if (operation.operationId) {
                 const toolName = operation.operationId;
+                const zodSchema = buildZodSchema(operation);
+                const jsonSchema = zodToJsonSchema(zodSchema);
+
                 const argNames = (operation.parameters || []).map(p => p.name);
-                if (operation.requestBody) {
-                    const props = Object.keys(operation.requestBody.content['application/json'].schema.properties);
-                    argNames.push(...props);
+                if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
+                    argNames.push(...Object.keys(operation.requestBody.content['application/json'].schema.properties));
                 }
 
                 const tool = {
                     name: toolName,
                     title: operation.summary || toolName,
                     description: operation.description || operation.summary,
-                    inputSchema: buildInputSchema(operation),
+                    zodSchema: zodSchema,
                     argNames: argNames,
                     handler: serviceMapping[toolName]
                 };
-
                 toolMapping[toolName] = tool;
-                allTools.push(tool);
+
+                allToolsForListing.push({
+                    name: tool.name,
+                    title: tool.title,
+                    description: tool.description,
+                    inputSchema: jsonSchema
+                });
             }
         }
     }
@@ -102,16 +122,16 @@ function listTools({ cursor = 0, limit } = {}) {
 
     if (!limit) {
         return {
-            tools: allTools,
+            tools: allToolsForListing,
             nextCursor: null
         };
     }
     
     const start = cursor;
     const end = start + limit;
-    const toolsSlice = allTools.slice(start, end);
+    const toolsSlice = allToolsForListing.slice(start, end);
 
-    const nextCursor = end < allTools.length ? end : null;
+    const nextCursor = end < allToolsForListing.length ? end : null;
 
     return {
         tools: toolsSlice,
@@ -127,11 +147,13 @@ async function callTool(toolName, args) {
         throw new Error(`Tool "${toolName}" not found or not implemented.`);
     }
 
+    const validatedArgs = tool.zodSchema.parse(args);
+
     if (toolName === 'list_pull_requests') {
-        return tool.handler(args);
+        return tool.handler(validatedArgs);
     }
 
-    const handlerArgs = tool.argNames.map(name => args[name]);
+    const handlerArgs = tool.argNames.map(name => validatedArgs[name]);
     return tool.handler(...handlerArgs);
 }
 
