@@ -7,17 +7,16 @@ import {
 
 import { listTools, callTool } from './services/toolService.mjs';
 
-const server = new Server(
-    {
-        name: 'neo-github-workflow',
-        version: '1.0.0',
-    },
-    {
-        capabilities: {
-            tools: {},
-        },
+const server = new Server({
+    name: 'neo-github-workflow',
+    version: '1.0.0',
+}, {
+    capabilities: {
+        tools: {
+            listChanged: false
+        }
     }
-);
+});
 
 // List all available tools from OpenAPI spec
 server.setRequestHandler(ListToolsRequestSchema, async (request) => {
@@ -25,11 +24,13 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
         const { cursor, limit } = request.params || {};
         const { tools, nextCursor } = listTools({ cursor, limit });
 
-        // Convert from your format to MCP format
         const mcpTools = tools.map(tool => ({
-            name: tool.name,
-            description: tool.description || tool.title,
-            inputSchema: tool.inputSchema
+            name        : tool.name,
+            title       : tool.title,
+            description : tool.description,
+            inputSchema : tool.inputSchema,
+            outputSchema: tool.outputSchema,
+            annotations : tool.annotations
         }));
 
         return { tools: mcpTools, nextCursor: nextCursor };
@@ -57,24 +58,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         return {
-            content: [
-                {
-                    type: 'text',
-                    text: responseText,
-                },
-            ],
+            content: [{
+                type: 'text',
+                text: responseText,
+            }],
             isError: false
         };
     } catch (error) {
         console.error(`[MCP] Error executing tool ${name}:`, error);
 
         return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Error executing ${name}: ${error.message}`,
-                },
-            ],
+            content: [{
+                type: 'text',
+                text: `Error executing ${name}: ${error.message}`,
+            }],
             isError: true,
         };
     }

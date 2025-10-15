@@ -8,22 +8,22 @@ import * as issueService from './issueService.mjs';
 import * as labelService from './labelService.mjs';
 import * as pullRequestService from './pullRequestService.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename      = fileURLToPath(import.meta.url);
+const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 let toolMapping = null;
 let allToolsForListing = null;
 
 const serviceMapping = {
-    'list_labels': labelService.listLabels,
-    'list_pull_requests': pullRequestService.listPullRequests,
-    'checkout_pull_request': pullRequestService.checkoutPullRequest,
-    'get_pull_request_diff': pullRequestService.getPullRequestDiff,
-    'create_comment': pullRequestService.createComment,
-    'get_conversation': pullRequestService.getConversation,
-    'add_labels': issueService.addLabels,
-    'remove_labels': issueService.removeLabels
+    add_labels           : issueService.addLabels,
+    checkout_pull_request: pullRequestService.checkoutPullRequest,
+    create_comment       : pullRequestService.createComment,
+    get_conversation     : pullRequestService.getConversation,
+    get_pull_request_diff: pullRequestService.getPullRequestDiff,
+    list_labels          : labelService.listLabels,
+    list_pull_requests   : pullRequestService.listPullRequests,
+    remove_labels        : issueService.removeLabels
 };
 
 function buildZodSchema(operation) {
@@ -112,7 +112,7 @@ function buildOutputZodSchema(doc, operation) {
     if (schema) {
         return buildZodSchemaFromResponse(doc, schema);
     }
-    
+
     if (response?.content?.['text/plain']) {
         return z.string();
     }
@@ -125,7 +125,7 @@ function initializeToolMapping() {
         return;
     }
 
-    toolMapping = {};
+    toolMapping        = {};
     allToolsForListing = [];
 
     const openApiDocument = yaml.load(fs.readFileSync(openApiFilePath, 'utf8'));
@@ -149,22 +149,22 @@ function initializeToolMapping() {
                 }
 
                 const tool = {
-                    name: toolName,
-                    title: operation.summary || toolName,
+                    name       : toolName,
+                    title      : operation.summary || toolName,
                     description: operation.description || operation.summary,
-                    zodSchema: inputZodSchema,
-                    argNames: argNames,
-                    handler: serviceMapping[toolName]
+                    zodSchema  : inputZodSchema,
+                    argNames,
+                    handler    : serviceMapping[toolName]
                 };
                 toolMapping[toolName] = tool;
 
                 allToolsForListing.push({
-                    name: tool.name,
-                    title: tool.title,
-                    description: tool.description,
-                    inputSchema: inputJsonSchema,
+                    name        : tool.name,
+                    title       : tool.title,
+                    description : tool.description,
+                    inputSchema : inputJsonSchema,
                     outputSchema: outputJsonSchema,
-                    annotations: operation['x-annotations'] || null
+                    annotations : operation['x-annotations'] || null
                 });
             }
         }
@@ -176,20 +176,19 @@ function listTools({ cursor = 0, limit } = {}) {
 
     if (!limit) {
         return {
-            tools: allToolsForListing,
+            tools     : allToolsForListing,
             nextCursor: null
         };
     }
-    
-    const start = cursor;
-    const end = start + limit;
-    const toolsSlice = allToolsForListing.slice(start, end);
 
+    const start      = cursor;
+    const end        = start + limit;
+    const toolsSlice = allToolsForListing.slice(start, end);
     const nextCursor = end < allToolsForListing.length ? end : null;
 
     return {
         tools: toolsSlice,
-        nextCursor: nextCursor
+        nextCursor
     };
 }
 
