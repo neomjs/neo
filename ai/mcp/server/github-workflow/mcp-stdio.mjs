@@ -20,9 +20,10 @@ const server = new Server(
 );
 
 // List all available tools from OpenAPI spec
-server.setRequestHandler(ListToolsRequestSchema, async () => {
+server.setRequestHandler(ListToolsRequestSchema, async (request) => {
     try {
-        const tools = listTools();
+        const { cursor, limit } = request.params || {};
+        const { tools, nextCursor } = listTools({ cursor, limit });
 
         // Convert from your format to MCP format
         const mcpTools = tools.map(tool => ({
@@ -31,10 +32,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             inputSchema: tool.inputSchema
         }));
 
-        return { tools: mcpTools };
+        return { tools: mcpTools, nextCursor: nextCursor };
     } catch (error) {
         console.error('[MCP] Error listing tools:', error);
-        return { tools: [] };
+        return { tools: [], nextCursor: null };
     }
 });
 
@@ -62,6 +63,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     text: responseText,
                 },
             ],
+            isError: false
         };
     } catch (error) {
         console.error(`[MCP] Error executing tool ${name}:`, error);

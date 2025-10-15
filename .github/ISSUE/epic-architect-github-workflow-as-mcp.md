@@ -44,6 +44,10 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-enhance-tools-list-with-schema.md`: Enhance the `/tools/list` endpoint to include OpenAPI schema definitions for each tool's parameters and responses.
     - `ticket-implement-mcp-stdio-server.md`: Implement a proper MCP-compliant server using a `stdio` transport.
     - `ticket-refactor-to-direct-mcp-tool-definitions.md`: Refactor to define tools directly in code, removing the OpenAPI dependency.
+    - `ticket-implement-dynamic-tool-discovery.md`: Implement dynamic tool discovery via OpenAPI.
+    - `ticket-implement-mcp-input-validation.md`: Implement Input Schema Validation for MCP Tool Calls.
+    - `ticket-add-mcp-output-schema.md`: Add outputSchema to MCP Tool Definitions.
+    - `ticket-add-mcp-tool-annotations.md`: Add Annotations to MCP Tool Definitions.
 ### Future Scope
 - Implementation of the API endpoints.
 - Integration of ticket and issue synchronization.
