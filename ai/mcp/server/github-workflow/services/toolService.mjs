@@ -139,16 +139,16 @@ function buildZodSchemaFromResponse(doc, schema) {
     } else if (schema.type === 'array') {
         zodSchema = z.array(buildZodSchemaFromResponse(doc, schema.items));
     } else if (schema.type === 'string') {
-        zodSchema = z.object({ result: z.string().describe(schema.description || '') }).required();
+        zodSchema = z.string();
     } else if (schema.type === 'integer') {
-        zodSchema = z.object({ result: z.number().int().describe(schema.description || '') }).required();
+        zodSchema = z.number().int();
     } else if (schema.type === 'boolean') {
-        zodSchema = z.object({ result: z.boolean().describe(schema.description || '') }).required();
+        zodSchema = z.boolean();
     } else {
         zodSchema = z.any();
     }
 
-    if (schema.description && !['string', 'integer', 'boolean'].includes(schema.type)) {
+    if (schema.description) {
         zodSchema = zodSchema.describe(schema.description);
     }
 
@@ -170,9 +170,9 @@ function buildOutputZodSchema(doc, operation) {
     if (schema) {
         return buildZodSchemaFromResponse(doc, schema);
     }
-    
+
     if (response?.content?.['text/plain']) {
-        // For text/plain, we still need to wrap it in an object for client compatibility
+        // For text/plain, we need to wrap it in an object for client compatibility
         return z.object({ result: z.string().describe(response.description || '') }).required();
     }
 
