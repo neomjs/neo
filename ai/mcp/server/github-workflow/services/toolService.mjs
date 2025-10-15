@@ -97,8 +97,15 @@ function initializeToolMapping() {
     }
 }
 
-function listTools({ cursor = 0, limit = 10 } = {}) {
+function listTools({ cursor = 0, limit } = {}) {
     initializeToolMapping();
+
+    if (!limit) {
+        return {
+            tools: allTools,
+            nextCursor: null
+        };
+    }
     
     const start = cursor;
     const end = start + limit;
