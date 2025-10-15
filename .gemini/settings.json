@@ -1,8 +1,12 @@
 {
-  "mcpServers": {
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"]
+    "mcpServers": {
+        "chrome-devtools": {
+            "command": "npx",
+            "args"   : ["-y", "chrome-devtools-mcp@latest"]
+        },
+        "neo-github-workflow": {
+            "command": "npm",
+            "args"   : ["run", "ai:server-github-workflow-mcp"]
+        }
     }
-  }
 }
