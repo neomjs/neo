@@ -7,7 +7,7 @@ GH ticket id: #7496
 **Epic:** #7378
 **Phase:** 3
 **Assignee:** tobiu
-**Status:** To Do
+**Status:** Done
 
 ## Description
 

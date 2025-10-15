@@ -163,7 +163,8 @@ function initializeToolMapping() {
                     title: tool.title,
                     description: tool.description,
                     inputSchema: inputJsonSchema,
-                    outputSchema: outputJsonSchema
+                    outputSchema: outputJsonSchema,
+                    annotations: operation['x-annotations'] || null
                 });
             }
         }

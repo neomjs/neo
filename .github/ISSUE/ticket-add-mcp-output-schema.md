@@ -1,6 +1,6 @@
 ---
 title: Add outputSchema to MCP Tool Definitions
-labels: enhancement, AI, MCP
+labels: enhancement, AI
 ---
 
 GH ticket id: #7495

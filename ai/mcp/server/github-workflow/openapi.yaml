@@ -64,6 +64,8 @@ paths:
     get:
       summary: List Repository Labels
       operationId: list_labels
+      x-annotations:
+        readOnlyHint: true
       description: Retrieves a list of all available labels in the repository.
       tags: [Labels]
       responses:
@@ -84,6 +86,8 @@ paths:
     get:
       summary: List Pull Requests
       operationId: list_pull_requests
+      x-annotations:
+        readOnlyHint: true
       description: Retrieves a list of open pull requests from the GitHub repository.
       tags: [Pull Requests]
       parameters:
@@ -122,6 +126,8 @@ paths:
     post:
       summary: Checkout PR Branch
       operationId: checkout_pull_request
+      x-annotations:
+        readOnlyHint: false
       description: Checks out the branch for a given pull request locally using `gh pr checkout`.
       tags: [Pull Requests]
       parameters:
@@ -156,6 +162,8 @@ paths:
     get:
       summary: Get PR Diff
       operationId: get_pull_request_diff
+      x-annotations:
+        readOnlyHint: true
       description: Retrieves the diff for a specific pull request using `gh pr diff`.
       tags: [Pull Requests]
       parameters:
@@ -190,6 +198,8 @@ paths:
     post:
       summary: Create a PR Comment
       operationId: create_comment
+      x-annotations:
+        readOnlyHint: false
       description: Adds a comment to a specific pull request.
       tags: [Pull Requests]
       parameters:
@@ -237,6 +247,8 @@ paths:
     get:
       summary: Get PR Conversation
       operationId: get_conversation
+      x-annotations:
+        readOnlyHint: true
       description: Retrieves the full conversation for a pull request, including the title, body, and all comments.
       tags: [Pull Requests]
       parameters:
@@ -259,6 +271,8 @@ paths:
     post:
       summary: Add labels to an issue or PR
       operationId: add_labels
+      x-annotations:
+        readOnlyHint: false
       description: Adds one or more labels to a specific issue or pull request.
       tags: [Issues]
       parameters:
@@ -304,6 +318,9 @@ paths:
     delete:
       summary: Remove labels from an issue or PR
       operationId: remove_labels
+      x-annotations:
+        readOnlyHint: false
+        destructiveHint: true
       description: Removes one or more labels from a specific issue or pull request.
       tags: [Issues]
       parameters:
