@@ -5,8 +5,8 @@
             "args"   : ["-y", "chrome-devtools-mcp@latest"]
         },
         "neo-github-workflow": {
-            "command": "npm",
-            "args"   : ["run", "ai:server-github-workflow-mcp"]
+            "command": "node",
+            "args"   : ["ai/mcp/server/github-workflow/mcp-stdio.mjs"]
         }
     }
 }

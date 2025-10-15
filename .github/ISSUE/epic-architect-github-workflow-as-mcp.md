@@ -50,6 +50,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-add-mcp-output-schema.md`: Add outputSchema to MCP Tool Definitions.
     - `ticket-add-mcp-tool-annotations.md`: Add Annotations to MCP Tool Definitions.
     - `ticket-refine-mcp-stdio.md`: Refine `mcp-stdio.mjs` for MCP Compliance and Clarity.
+    - `ticket-fix-gemini-cli-mcp-compatibility.md`: Fix Gemini CLI Client Compatibility for MCP `tools/list` Response.
 
 ### Future Scope
 - Implementation of the API endpoints.

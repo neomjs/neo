@@ -123,12 +123,11 @@ function resolveRef(doc, ref) {
  * @returns {z.ZodType} A Zod schema representing the OpenAPI schema.
  */
 function buildZodSchemaFromResponse(doc, schema) {
-    // If the schema is a reference, resolve it first.
     if (schema.$ref) {
         return buildZodSchemaFromResponse(doc, resolveRef(doc, schema.$ref));
     }
 
-    // Handle different OpenAPI schema types.
+    let zodSchema;
     if (schema.type === 'object') {
         const shape = {};
         if (schema.properties) {
@@ -136,20 +135,24 @@ function buildZodSchemaFromResponse(doc, schema) {
                 shape[propName] = buildZodSchemaFromResponse(doc, propSchema);
             }
         }
-        return z.object(shape);
+        zodSchema = z.object(shape);
     } else if (schema.type === 'array') {
-        // Recursively build schema for array items.
-        return z.array(buildZodSchemaFromResponse(doc, schema.items));
+        zodSchema = z.array(buildZodSchemaFromResponse(doc, schema.items));
     } else if (schema.type === 'string') {
-        return z.string();
+        zodSchema = z.object({ result: z.string().describe(schema.description || '') }).required();
     } else if (schema.type === 'integer') {
-        return z.number().int();
+        zodSchema = z.object({ result: z.number().int().describe(schema.description || '') }).required();
     } else if (schema.type === 'boolean') {
-        return z.boolean();
+        zodSchema = z.object({ result: z.boolean().describe(schema.description || '') }).required();
     } else {
-        // Fallback for unsupported or unknown schema types.
-        return z.any();
+        zodSchema = z.any();
     }
+
+    if (schema.description && !['string', 'integer', 'boolean'].includes(schema.type)) {
+        zodSchema = zodSchema.describe(schema.description);
+    }
+
+    return zodSchema;
 }
 
 /**
@@ -161,21 +164,20 @@ function buildZodSchemaFromResponse(doc, schema) {
  * @returns {z.ZodType|null} A Zod schema for the output, or null if no schema is defined.
  */
 function buildOutputZodSchema(doc, operation) {
-    // Prioritize 200 OK, then 201 Created responses.
     const response = operation.responses?.['200'] || operation.responses?.['201'];
     const schema = response?.content?.['application/json']?.schema;
 
-    // If an application/json schema is found, build a Zod schema from it.
     if (schema) {
         return buildZodSchemaFromResponse(doc, schema);
     }
-
-    // Special handling for text/plain responses (e.g., diff output).
+    
     if (response?.content?.['text/plain']) {
-        return z.string();
+        // For text/plain, we still need to wrap it in an object for client compatibility
+        return z.object({ result: z.string().describe(response.description || '') }).required();
     }
 
-    return null;
+    // If no schema is found, return an empty object schema to satisfy the client.
+    return z.object({});
 }
 
 /**

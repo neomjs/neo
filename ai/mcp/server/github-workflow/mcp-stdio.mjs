@@ -33,10 +33,16 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             annotations : tool.annotations
         }));
 
-        return { tools: mcpTools, nextCursor: nextCursor };
+        const result = { tools: mcpTools };
+
+        // `nextCursor` must not have a null or undefined value
+        if (nextCursor) {
+            result.nextCursor = nextCursor;
+        }
+        return result;
     } catch (error) {
         console.error('[MCP] Error listing tools:', error);
-        return { tools: [], nextCursor: null };
+        return { tools: [], nextCursor: null, error: error.message };
     }
 });
 
