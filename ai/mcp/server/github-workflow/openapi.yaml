@@ -471,6 +471,7 @@ components:
                 properties:
                   login:
                     type: string
+                    description: The GitHub username of the comment author.
               body:
                 type: string
               createdAt:
