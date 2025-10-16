@@ -6,6 +6,7 @@ labels: enhancement, AI
 Parent epic: #7501
 GH ticket id: #7502
 
+**Phase:** 1
 **Assignee:** tobiu
 **Status:** Done
 

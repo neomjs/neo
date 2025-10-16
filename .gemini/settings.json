@@ -7,6 +7,10 @@
         "neo-github-workflow": {
             "command": "node",
             "args"   : ["ai/mcp/server/github-workflow/mcp-stdio.mjs"]
+        },
+        "neo-knowledge-base": {
+            "command": "node",
+            "args"   : ["ai/mcp/server/knowledge-base/mcp-stdio.mjs"]
         }
     }
 }
