@@ -138,6 +138,79 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /documents:
+    get:
+      summary: List Documents
+      operationId: list_documents
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a paginated list of all documents from the knowledge base collection.
+      tags: [Documents]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of documents to return.
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          description: The number of documents to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: A paginated list of documents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /documents/{id}:
+    get:
+      summary: Get Document by ID
+      operationId: get_document_by_id
+      x-annotations:
+        readOnlyHint: true
+      description: Retrieves a single document from the collection by its unique ID.
+      tags: [Documents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the document to retrieve.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The requested document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '404':
+          description: Document not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
@@ -194,6 +267,26 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/QueryResultItem'
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+        metadata:
+          type: object
+        content:
+          type: string
+
+    DocumentListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
 
     SuccessResponse:
       type: object

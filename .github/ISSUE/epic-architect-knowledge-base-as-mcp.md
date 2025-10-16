@@ -35,3 +35,4 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-kb-implement-delete-db-service.md`: Implement the service to delete the ChromaDB collection.
     - `ticket-kb-implement-query-service.md`: Implement the service to query documents from the knowledge base.
     - `ticket-kb-implement-sync-service.md`: Implement the service to build and embed the knowledge base content.
+    - `ticket-kb-implement-document-services.md`: Implement services to list and retrieve individual documents.

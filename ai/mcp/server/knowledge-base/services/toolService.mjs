@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import * as healthService from './healthService.mjs';
 import * as databaseService from './databaseService.mjs';
 import * as queryService from './queryService.mjs';
+import * as documentService from './documentService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -26,15 +27,15 @@ const serviceMapping = {
     healthcheck    : healthService.healthcheck,
     sync_database  : databaseService.syncDatabase,
     delete_database: databaseService.deleteDatabase,
-    query_documents: queryService.queryDocuments
+    query_documents: queryService.queryDocuments,
+    list_documents: documentService.listDocuments,
+    get_document_by_id: documentService.getDocumentById
 };
 
 /**
  * Dynamically constructs a Zod schema for a tool's input arguments based on its
  * OpenAPI operation definition. This schema is used for robust runtime validation
  * of incoming tool call arguments.
- * @param {object} operation - The OpenAPI operation object.
- * @returns {z.ZodObject} A Zod object schema representing the tool's input.
  */
 function buildZodSchema(operation) {
     const shape = {};
@@ -311,7 +312,7 @@ async function callTool(toolName, args) {
     const validatedArgs = tool.zodSchema.parse(args);
 
     // Special handling for tools that expect a single object argument.
-    if (toolName === 'query_documents') {
+    if (['query_documents', 'list_documents', 'get_document_by_id'].includes(toolName)) {
         return tool.handler(validatedArgs);
     }
 
