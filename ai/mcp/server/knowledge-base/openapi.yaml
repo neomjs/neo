@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: Neo Knowledge Base MCP Server API
+  description: |
+    This API provides structured access to the Neo.mjs project's knowledge base. 
+    It enables AI agents to build, query, and manage the vector database containing 
+    source code, documentation, and learning materials.
+  version: 1.0.0
+  contact:
+    name: Neo.mjs Project
+    url: https://github.com/neomjs/neo
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8003
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Server health and status endpoints
+  - name: Database
+    description: Operations for managing the knowledge base lifecycle
+  - name: Documents
+    description: Operations for querying knowledge base documents
+
+paths:
+  /healthcheck:
+    get:
+      summary: Health Check
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Verifies that the server is running and can successfully connect to the
+        ChromaDB vector database.
+      tags: [Health]
+      responses:
+        '200':
+          description: Server is healthy and connected to the database.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Service Unavailable. The server is running but cannot connect to the database.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/sync:
+    post:
+      summary: Synchronize Database
+      operationId: sync_database
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Triggers the full knowledge base synchronization process. This is a long-running,
+        asynchronous operation that involves two main stages:
+        1.  **Build:** Parses all source files (code, guides, etc.) into a structured JSONL format.
+        2.  **Embed:** Calculates vector embeddings for each document chunk and upserts them 
+            into the ChromaDB collection, performing a diff to only update what has changed.
+      tags: [Database]
+      responses:
+        '202':
+          description: Accepted. The synchronization process has been started successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during synchronization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db:
+    delete:
+      summary: Delete Database Collection
+      operationId: delete_database
+      x-annotations:
+        readOnlyHint: false
+        destructiveHint: true
+      description: |
+        Permanently deletes the entire knowledge base collection from ChromaDB.
+        This is a destructive operation used for a clean reset.
+      tags: [Database]
+      responses:
+        '200':
+          description: The collection was successfully deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: An error occurred while deleting the collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /documents/query:
+    post:
+      summary: Query Documents
+      operationId: query_documents
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Performs a semantic search on the knowledge base using a natural language query.
+        Returns a scored and ranked list of the most relevant source files.
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Successfully retrieved and scored query results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Bad Request. The request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        database:
+          type: object
+          properties:
+            connected:
+              type: boolean
+              example: true
+            collectionName:
+              type: string
+              example: "neo-knowledge-base"
+            documentCount:
+              type: integer
+              example: 1234
+
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: The natural language search query.
+          example: "How do I use the Tab Container component?"
+        type:
+          type: string
+          description: The content type to filter by.
+          enum: [all, blog, guide, src, example, ticket, release]
+          default: all
+
+    QueryResultItem:
+      type: object
+      properties:
+        source:
+          type: string
+          description: The file path of the relevant document.
+        score:
+          type: string
+          description: The calculated relevance score.
+
+    QueryResponse:
+      type: object
+      properties:
+        topResult:
+          type: string
+          description: The file path of the highest-scoring result.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryResultItem'
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation completed successfully"
+        details:
+          type: string
+          description: Optional details about the operation.
+          example: "Knowledge base synchronization started."
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Database connection failed"
+        message:
+          type: string
+          example: "Could not connect to ChromaDB at the specified address."
+        code:
+          type: string
+          example: "DB_CONNECTION_ERROR"
