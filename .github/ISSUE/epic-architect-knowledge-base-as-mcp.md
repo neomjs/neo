@@ -3,7 +3,7 @@
 GH ticket id: #7501
 
 **Assignee:** tobiu
-**Status:** To Do
+**Status:** In Progress
 
 ## Scope
 
@@ -46,3 +46,9 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-kb-review-and-correct-database-service.md`: Review and correct the `databaseService` implementation to ensure full feature parity.
     - `ticket-kb-enhance-openapi-examples.md`: Enhance the OpenAPI spec with tool usage examples from AGENTS.md.
     - `ticket-kb-enhance-tool-manuals.md`: Expand tool descriptions into comprehensive in-spec manuals.
+
+### Phase 4: Bugfixes
+
+- **Goal:** Address bugs discovered during testing.
+- **Sub-Tasks:**
+    - `bug-kb-healthcheck-unstructured-content.md`: Fix the healthcheck tool to return structured content matching its schema.

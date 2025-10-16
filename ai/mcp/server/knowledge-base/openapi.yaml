@@ -338,6 +338,9 @@ components:
             collectionName:
               type: string
               example: "neo-knowledge-base"
+            collectionExists:
+              type: boolean
+              example: true
             documentCount:
               type: integer
               example: 1234
