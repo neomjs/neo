@@ -26,6 +26,8 @@ let allToolsForListing = null;
 const serviceMapping = {
     healthcheck    : healthService.healthcheck,
     sync_database  : databaseService.syncDatabase,
+    create_knowledge_base: databaseService.createKnowledgeBase,
+    embed_knowledge_base: databaseService.embedKnowledgeBase,
     delete_database: databaseService.deleteDatabase,
     query_documents: queryService.queryDocuments,
     list_documents: documentService.listDocuments,

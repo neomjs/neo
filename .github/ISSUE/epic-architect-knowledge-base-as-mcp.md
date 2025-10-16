@@ -42,3 +42,4 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - **Goal:** Improve the modularity and maintainability of the server code.
 - **Sub-Tasks:**
     - `ticket-kb-refactor-config.md`: Decouple the server from the shared `buildScripts` configuration.
+    - `ticket-kb-separate-create-embed.md`: Separate the monolithic sync service into distinct `create` and `embed` tools.

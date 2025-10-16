@@ -58,10 +58,7 @@ paths:
         readOnlyHint: false
       description: |
         Triggers the full knowledge base synchronization process. This is a long-running,
-        asynchronous operation that involves two main stages:
-        1.  **Build:** Parses all source files (code, guides, etc.) into a structured JSONL format.
-        2.  **Embed:** Calculates vector embeddings for each document chunk and upserts them 
-            into the ChromaDB collection, performing a diff to only update what has changed.
+        asynchronous operation that orchestrates the 'create' and 'embed' processes in sequence.
       tags: [Database]
       responses:
         '202':
@@ -72,6 +69,54 @@ paths:
                 $ref: '#/components/schemas/SuccessResponse'
         '500':
           description: Internal server error during synchronization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/create:
+    post:
+      summary: Create Knowledge Base
+      operationId: create_knowledge_base
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Creates (or overwrites) the knowledge base JSONL file from all source materials.
+        This is the first step in the synchronization process and does not affect the vector database.
+      tags: [Database]
+      responses:
+        '200':
+          description: The knowledge base file was created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during creation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/embed:
+    post:
+      summary: Embed Knowledge Base
+      operationId: embed_knowledge_base
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Embeds the content from the existing knowledge base JSONL file into the vector database.
+        This performs a diff and only adds, updates, or deletes what has changed.
+      tags: [Database]
+      responses:
+        '200':
+          description: The knowledge base was embedded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during embedding.
           content:
             application/json:
               schema:
