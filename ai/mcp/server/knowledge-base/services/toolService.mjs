@@ -6,6 +6,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { fileURLToPath } from 'url';
 import * as healthService from './healthService.mjs';
 import * as databaseService from './databaseService.mjs';
+import * as queryService from './queryService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -25,7 +26,7 @@ const serviceMapping = {
     healthcheck    : healthService.healthcheck,
     sync_database  : async () => 'sync_database not implemented',
     delete_database: databaseService.deleteDatabase,
-    query_documents: async () => 'query_documents not implemented'
+    query_documents: queryService.queryDocuments
 };
 
 /**
@@ -309,7 +310,12 @@ async function callTool(toolName, args) {
     // This will throw an error if validation fails, which is caught by the MCP server.
     const validatedArgs = tool.zodSchema.parse(args);
 
-    // Map validated arguments to positional arguments for the handler.
+    // Special handling for tools that expect a single object argument.
+    if (toolName === 'query_documents') {
+        return tool.handler(validatedArgs);
+    }
+
+    // For other tools, map validated arguments to positional arguments for the handler.
     const handlerArgs = tool.argNames.map(name => validatedArgs[name]);
     return tool.handler(...handlerArgs);
 }
