@@ -36,3 +36,9 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-kb-implement-query-service.md`: Implement the service to query documents from the knowledge base.
     - `ticket-kb-implement-sync-service.md`: Implement the service to build and embed the knowledge base content.
     - `ticket-kb-implement-document-services.md`: Implement services to list and retrieve individual documents.
+
+### Phase 3: Refactoring & Cleanup
+
+- **Goal:** Improve the modularity and maintainability of the server code.
+- **Sub-Tasks:**
+    - `ticket-kb-refactor-config.md`: Decouple the server from the shared `buildScripts` configuration.

@@ -1,5 +1,5 @@
 import { ChromaClient } from 'chromadb';
-import aiConfig from '../../../../buildScripts/ai/aiConfig.mjs';
+import aiConfig from '../../config.mjs';
 
 /**
  * Retrieves a paginated list of all documents from the knowledge base collection.

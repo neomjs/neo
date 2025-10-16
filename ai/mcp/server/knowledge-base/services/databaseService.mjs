@@ -1,6 +1,6 @@
 import { ChromaClient } from 'chromadb';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import aiConfig from '../../../../buildScripts/ai/aiConfig.mjs';
+import aiConfig from '../../config.mjs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import fs from 'fs-extra';
