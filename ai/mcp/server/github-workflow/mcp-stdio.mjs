@@ -56,29 +56,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await callTool(name, args);
 
         // Format the response based on the result type
-        let responseText;
-        if (typeof result === 'string') {
-            responseText = result;
+        let contentBlock;
+        let structuredContent = null;
+
+        if (typeof result === 'object' && result !== null) {
+            contentBlock = {
+                type: 'text',
+                text: JSON.stringify(result, null, 2)
+            };
+            structuredContent = result;
         } else {
-            responseText = JSON.stringify(result, null, 2);
+            contentBlock = {
+                type: 'text',
+                text: String(result)
+            };
         }
 
-        return {
-            content: [{
-                type: 'text',
-                text: responseText,
-            }],
+        const response = {
+            content: [contentBlock],
             isError: false
         };
+
+        if (structuredContent) {
+            response.structuredContent = structuredContent;
+        }
+
+        return response;
     } catch (error) {
         console.error(`[MCP] Error executing tool ${name}:`, error);
 
         return {
             content: [{
                 type: 'text',
-                text: `Error executing ${name}: ${error.message}`,
+                text: `Error executing ${name}: ${error.message}`
             }],
-            isError: true,
+            isError: true
         };
     }
 });

@@ -8,7 +8,7 @@ GH ticket id: #7514
 
 **Phase:** 4 (Bugfix)
 **Assignee:** tobiu
-**Status:** To Do
+**Status:** Done
 
 ## Description
 
