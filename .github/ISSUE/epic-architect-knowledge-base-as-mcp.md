@@ -44,3 +44,4 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-kb-refactor-config.md`: Decouple the server from the shared `buildScripts` configuration.
     - `ticket-kb-separate-create-embed.md`: Separate the monolithic sync service into distinct `create` and `embed` tools.
     - `ticket-kb-review-and-correct-database-service.md`: Review and correct the `databaseService` implementation to ensure full feature parity.
+    - `ticket-kb-enhance-openapi-examples.md`: Enhance the OpenAPI spec with tool usage examples from AGENTS.md.

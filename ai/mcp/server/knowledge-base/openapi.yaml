@@ -156,6 +156,22 @@ paths:
       description: |
         Performs a semantic search on the knowledge base using a natural language query.
         Returns a scored and ranked list of the most relevant source files.
+
+        **How to Interpret Query Results:**
+        The query tool will return a ranked list of source file paths. You should always start by reading the
+        top-ranked file. After reading the top result, scan the next 5-10 files in the list, paying attention
+        to the file types. Since `.md` guides often provide valuable conceptual context that `.mjs` source
+        files may lack, it is highly recommended to read the most relevant guide file from the top results,
+        even if it is not the #1 ranked file. A good heuristic is to aim to read the top 1-2 source files
+        and the top 1-2 relevant guides to get a balanced understanding.
+
+        **Query Strategies:**
+        1.  **Discovery Pattern (Broad to Narrow):** When you need to understand a new concept, start with
+            broad terms like `"benefits"` or `"architecture"`. Then, use the results to narrow your query to
+            specific implementations (e.g., `"Button component examples"`).
+        2.  **Targeted Content-Type Searching:** Use the `type` parameter to focus your search. For conceptual
+            explanations, use `type: 'guide'`. For concrete usage, use `type: 'example'`. For implementation
+            details, use `type: 'src'`.
       tags: [Documents]
       requestBody:
         required: true
@@ -163,6 +179,25 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/QueryRequest'
+            examples:
+              conceptual_query:
+                summary: Broad Conceptual Query
+                value:
+                  query: "framework benefits and architecture"
+              specific_component_query:
+                summary: Specific Component Query
+                value:
+                  query: "Button component examples"
+              targeted_guide_query:
+                summary: Targeted Content-Type Query
+                value:
+                  query: "state management"
+                  type: "guide"
+              targeted_source_query:
+                summary: Targeted Source Code Query
+                value:
+                  query: "afterSet hook"
+                  type: "src"
       responses:
         '200':
           description: Successfully retrieved and scored query results.
