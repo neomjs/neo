@@ -39,10 +39,11 @@ const serviceMapping = {
  * Dynamically constructs a Zod schema for a tool's input arguments based on its
  * OpenAPI operation definition. This schema is used for robust runtime validation
  * of incoming tool call arguments.
- * @param {object} operation - The OpenAPI operation object.
+ * @param {object} openApiDocument - The OpenAPI document object.
+ * @param {object} operation       - The OpenAPI operation object.
  * @returns {z.ZodObject} A Zod object schema representing the tool's input.
  */
-function buildZodSchema(operation) {
+function buildZodSchema(openApiDocument, operation) {
     const shape = {};
 
     // Process parameters defined in the OpenAPI operation (path, query, header, etc.).
@@ -73,30 +74,31 @@ function buildZodSchema(operation) {
     }
 
     // Process request body properties, typically for POST/PUT operations.
-    if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
-        const { properties, required = [] } = operation.requestBody.content['application/json'].schema;
-        for (const [propName, propSchema] of Object.entries(properties)) {
-            let schema;
-            switch (propSchema.type) {
-                case 'string':
-                    schema = z.string();
-                    break;
-                case 'array':
-                    // Currently assumes arrays of strings. This is a simplification
-                    // based on current OpenAPI spec usage and may need refinement
-                    // if other array item types are introduced.
-                    schema = z.array(z.string());
-                    break;
-                default:
-                    // Fallback for unsupported or unknown schema types.
-                    schema = z.any();
+    if (operation.requestBody?.content?.['application/json']?.schema) {
+        let requestBodySchema = operation.requestBody.content['application/json'].schema;
+        if (requestBodySchema.$ref) {
+            requestBodySchema = resolveRef(openApiDocument, requestBodySchema.$ref);
+        }
+
+        if (requestBodySchema.properties) {
+            const { properties, required = [] } = requestBodySchema;
+            for (const [propName, propSchema] of Object.entries(properties)) {
+                let schema;
+                switch (propSchema.type) {
+                    case 'string':
+                        schema = z.string();
+                        break;
+                    case 'array':
+                        schema = z.array(z.string());
+                        break;
+                    default:
+                        schema = z.any();
+                }
+                if (!required.includes(propName)) {
+                    schema = schema.optional();
+                }
+                shape[propName] = schema.describe(propSchema.description);
             }
-            // Mark schema as optional if not explicitly required in the request body.
-            if (!required.includes(propName)) {
-                schema = schema.optional();
-            }
-            // Add description for better Zod schema introspection.
-            shape[propName] = schema.describe(propSchema.description);
         }
     }
     return z.object(shape);
@@ -207,7 +209,7 @@ function initializeToolMapping() {
                 const toolName = operation.operationId;
 
                 // Build Zod schema for input arguments and convert to JSON Schema for client discovery.
-                const inputZodSchema = buildZodSchema(operation);
+                const inputZodSchema = buildZodSchema(openApiDocument, operation);
                 const inputJsonSchema = zodToJsonSchema(inputZodSchema);
 
                 // Build Zod schema for output and convert to JSON Schema for client discovery.

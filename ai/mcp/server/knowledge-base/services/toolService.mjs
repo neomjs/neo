@@ -24,22 +24,25 @@ let allToolsForListing = null;
  * for easy lookup of the correct function to execute a tool.
  */
 const serviceMapping = {
-    healthcheck    : healthService.healthcheck,
-    sync_database  : databaseService.syncDatabase,
+    healthcheck          : healthService.healthcheck,
+    sync_database        : databaseService.syncDatabase,
     create_knowledge_base: databaseService.createKnowledgeBase,
-    embed_knowledge_base: databaseService.embedKnowledgeBase,
-    delete_database: databaseService.deleteDatabase,
-    query_documents: queryService.queryDocuments,
-    list_documents: documentService.listDocuments,
-    get_document_by_id: documentService.getDocumentById
+    embed_knowledge_base : databaseService.embedKnowledgeBase,
+    delete_database      : databaseService.deleteDatabase,
+    query_documents      : queryService.queryDocuments,
+    list_documents       : documentService.listDocuments,
+    get_document_by_id   : documentService.getDocumentById
 };
 
 /**
  * Dynamically constructs a Zod schema for a tool's input arguments based on its
  * OpenAPI operation definition. This schema is used for robust runtime validation
  * of incoming tool call arguments.
+ * @param {object} openApiDocument - The OpenAPI document object.
+ * @param {object} operation       - The OpenAPI operation object.
+ * @returns {z.ZodObject} A Zod object schema representing the tool's input.
  */
-function buildZodSchema(operation) {
+function buildZodSchema(openApiDocument, operation) {
     const shape = {};
 
     // Process parameters defined in the OpenAPI operation (path, query, header, etc.).
@@ -71,12 +74,12 @@ function buildZodSchema(operation) {
 
     // Process request body properties, typically for POST/PUT operations.
     if (operation.requestBody?.content?.['application/json']?.schema) {
-        const requestBodySchema = operation.requestBody.content['application/json'].schema;
+        let requestBodySchema = operation.requestBody.content['application/json'].schema;
         if (requestBodySchema.$ref) {
-            // If the request body uses a ref, we'll handle it at a higher level
-            // For now, we assume simple properties here. A more robust solution
-            // would resolve this ref and build the schema accordingly.
-        } else if (requestBodySchema.properties) {
+            requestBodySchema = resolveRef(openApiDocument, requestBodySchema.$ref);
+        }
+
+        if (requestBodySchema.properties) {
             const { properties, required = [] } = requestBodySchema;
             for (const [propName, propSchema] of Object.entries(properties)) {
                 let schema;
@@ -205,12 +208,11 @@ function initializeToolMapping() {
                 const toolName = operation.operationId;
 
                 // Build Zod schema for input arguments and convert to JSON Schema for client discovery.
-                const inputZodSchema = buildZodSchema(operation);
+                const inputZodSchema = buildZodSchema(openApiDocument, operation);
                 const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
                     target: 'openApi3',
                     $refStrategy: 'none' // Inline all definitions
                 });
-
 
                 // Build Zod schema for output and convert to JSON Schema for client discovery.
                 const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);

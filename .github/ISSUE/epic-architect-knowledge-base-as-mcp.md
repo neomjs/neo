@@ -52,3 +52,4 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - **Goal:** Address bugs discovered during testing.
 - **Sub-Tasks:**
     - `bug-kb-healthcheck-unstructured-content.md`: Fix the healthcheck tool to return structured content matching its schema.
+    - `bug-kb-query-documents-input-mismatch.md`: Fix the input parameter mismatch for the `query_documents` tool.
