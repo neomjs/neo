@@ -35,6 +35,10 @@ paths:
       description: |
         Verifies that the server is running and can successfully connect to the
         ChromaDB vector database.
+
+        Use this tool as a first step to diagnose issues if other database-related
+        tools are failing. It provides a quick status check on the server and its
+        primary dependency.
       tags: [Health]
       responses:
         '200':
@@ -59,6 +63,10 @@ paths:
       description: |
         Triggers the full knowledge base synchronization process. This is a long-running,
         asynchronous operation that orchestrates the 'create' and 'embed' processes in sequence.
+
+        **When to Use:**
+        Use this tool when you want to rebuild the entire knowledge base from the latest
+        source files in one step. This is the most common way to update the database.
       tags: [Database]
       responses:
         '202':
@@ -83,6 +91,10 @@ paths:
       description: |
         Creates (or overwrites) the knowledge base JSONL file from all source materials.
         This is the first step in the synchronization process and does not affect the vector database.
+
+        **When to Use:**
+        Use this tool if you only need to generate the intermediate `ai-knowledge-base.jsonl` file
+        for inspection or debugging, without incurring the cost and time of embedding.
       tags: [Database]
       responses:
         '200':
@@ -107,6 +119,10 @@ paths:
       description: |
         Embeds the content from the existing knowledge base JSONL file into the vector database.
         This performs a diff and only adds, updates, or deletes what has changed.
+
+        **When to Use:**
+        Use this tool after manually verifying or modifying the `ai-knowledge-base.jsonl` file,
+        or if a previous embedding process was interrupted. It assumes the JSONL file is already correct.
       tags: [Database]
       responses:
         '200':
@@ -132,6 +148,10 @@ paths:
       description: |
         Permanently deletes the entire knowledge base collection from ChromaDB.
         This is a destructive operation used for a clean reset.
+
+        **Warning:**
+        This action cannot be undone. The entire knowledge base will need to be rebuilt from
+        scratch using the `create` and `embed` or `sync` tools.
       tags: [Database]
       responses:
         '200':
@@ -226,6 +246,11 @@ paths:
         readOnlyHint: true
       description: |
         Retrieves a paginated list of all documents from the knowledge base collection.
+
+        **When to Use:**
+        Use this tool for debugging or inspection to see the raw, chunked content that exists
+        within the vector database. It can be useful for verifying the output of the
+        `create` and `embed` processes.
       tags: [Documents]
       parameters:
         - name: limit
@@ -262,7 +287,12 @@ paths:
       operationId: get_document_by_id
       x-annotations:
         readOnlyHint: true
-      description: Retrieves a single document from the collection by its unique ID.
+      description: |
+        Retrieves a single document from the collection by its unique ID.
+
+        **When to Use:**
+        Use this tool to inspect a specific chunk of content from the database, for example,
+        after it has been identified by a `query` or `list` operation.
       tags: [Documents]
       parameters:
         - name: id
