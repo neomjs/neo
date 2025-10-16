@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { fileURLToPath } from 'url';
 import * as healthService from './healthService.mjs';
+import * as databaseService from './databaseService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -23,7 +24,7 @@ let allToolsForListing = null;
 const serviceMapping = {
     healthcheck    : healthService.healthcheck,
     sync_database  : async () => 'sync_database not implemented',
-    delete_database: async () => 'delete_database not implemented',
+    delete_database: databaseService.deleteDatabase,
     query_documents: async () => 'query_documents not implemented'
 };
 
