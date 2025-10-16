@@ -24,7 +24,7 @@ let allToolsForListing = null;
  */
 const serviceMapping = {
     healthcheck    : healthService.healthcheck,
-    sync_database  : async () => 'sync_database not implemented',
+    sync_database  : databaseService.syncDatabase,
     delete_database: databaseService.deleteDatabase,
     query_documents: queryService.queryDocuments
 };
