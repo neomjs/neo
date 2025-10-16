@@ -25,3 +25,10 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - **Sub-Tasks:**
     - `ticket-kb-design-api.md`: Design the comprehensive API for the Knowledge Base MCP Server.
     - `ticket-kb-scaffold-server.md`: Scaffold the server structure based on the `mcp-stdio.mjs` pattern.
+
+### Phase 2: API Implementation
+
+- **Goal:** Build out the backend logic to connect the OpenAPI endpoints to live service functions.
+- **Sub-Tasks:**
+    - `ticket-kb-implement-tool-service.md`: Implement the core tool service to dynamically load tools from the OpenAPI spec.
+    - `ticket-kb-implement-healthcheck-service.md`: Implement the healthcheck service to verify the connection to ChromaDB.
