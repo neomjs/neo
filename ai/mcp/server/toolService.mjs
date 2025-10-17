@@ -212,12 +212,13 @@ function initializeToolMapping() {
 
                 // Store the internal tool definition for execution.
                 const tool = {
-                    name       : toolName,
-                    title      : operation.summary || toolName,
-                    description: operation.description || operation.summary,
-                    zodSchema  : inputZodSchema,
+                    name           : toolName,
+                    title          : operation.summary || toolName,
+                    description    : operation.description || operation.summary,
+                    zodSchema      : inputZodSchema,
                     argNames,
-                    handler    : serviceMapping[toolName]
+                    handler        : serviceMapping[toolName],
+                    passAsObject: operation['x-pass-as-object'] === true
                 };
                 toolMapping[toolName] = tool;
 
@@ -298,8 +299,8 @@ async function callTool(toolName, args) {
     // This will throw an error if validation fails, which is caught by the MCP server.
     const validatedArgs = tool.zodSchema.parse(args);
 
-    // Special handling for tools that expect a single object argument.
-    if (['query_documents', 'list_documents', 'get_document_by_id', 'list_pull_requests'].includes(effectiveToolName)) {
+    // Use the passAsObject flag to determine how to call the handler.
+    if (tool.passAsObject) {
         return tool.handler(validatedArgs);
     }
 

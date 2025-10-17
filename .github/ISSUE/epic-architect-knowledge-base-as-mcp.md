@@ -48,6 +48,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `ticket-kb-enhance-tool-manuals.md`: Expand tool descriptions into comprehensive in-spec manuals.
     - `ticket-kb-refactor-tool-service.md`: Refactor `toolService.mjs` to reduce code duplication.
     - `ticket-kb-resilient-tool-service.md`: Make `toolService` resilient to server-prefixed tool names.
+    - `ticket-kb-openapi-driven-args.md`: Dynamically determine argument passing strategy from OpenAPI spec.
 
 ### Phase 4: Bugfixes
 

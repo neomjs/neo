@@ -91,6 +91,7 @@ paths:
     get:
       summary: List Pull Requests
       operationId: list_pull_requests
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: Retrieves a list of open pull requests from the GitHub repository.

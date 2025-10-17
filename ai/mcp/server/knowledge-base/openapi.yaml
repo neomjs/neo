@@ -171,6 +171,7 @@ paths:
     post:
       summary: Query Documents
       operationId: query_documents
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
@@ -242,6 +243,7 @@ paths:
     get:
       summary: List Documents
       operationId: list_documents
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
@@ -285,6 +287,7 @@ paths:
     get:
       summary: Get Document by ID
       operationId: get_document_by_id
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
