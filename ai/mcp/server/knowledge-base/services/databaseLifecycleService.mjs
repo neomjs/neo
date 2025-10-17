@@ -1,22 +1,45 @@
+import { ChromaClient } from 'chromadb';
 import { spawn } from 'child_process';
+import aiConfig from '../../config.mjs';
 
 // This will hold the child process object for the ChromaDB server
 let chromaProcess = null;
 
 /**
- * Starts the ChromaDB server as a background process.
+ * Checks if a ChromaDB instance is already running on the configured port.
+ * @returns {Promise<boolean>}
+ */
+async function isDbRunning() {
+    try {
+        const { host, port } = aiConfig.knowledgeBase;
+        const client = new ChromaClient({ host, port });
+        await client.heartbeat();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Starts the ChromaDB server as a background process, if not already running.
  * @returns {Promise<object>} A promise that resolves with the status.
  */
 async function start_database() {
     if (chromaProcess && !chromaProcess.killed) {
-        return { status: 'already_running', pid: chromaProcess.pid };
+        return { status: 'already_running', pid: chromaProcess.pid, detail: 'Server was started by this process.' };
+    }
+
+    if (await isDbRunning()) {
+        return { status: 'already_running', pid: null, detail: 'Server was started externally.' };
     }
 
     return new Promise((resolve, reject) => {
-        // Using 'spawn' to have detailed control over the child process
-        chromaProcess = spawn('chroma', ['run', '--path', './chroma'], {
-            detached: true, // Allows the child to run independently of the parent
-            stdio: 'ignore'   // We don't need to pipe stdio, detaching handles it
+        const { port } = aiConfig.knowledgeBase;
+        const args = ['run', '--path', './chroma', '--port', port.toString()];
+        
+        chromaProcess = spawn('chroma', args, {
+            detached: true,
+            stdio: 'ignore'
         });
 
         chromaProcess.on('spawn', () => {
@@ -30,18 +53,17 @@ async function start_database() {
             reject(err);
         });
 
-        // Un-reference the child process to allow the parent to exit independently
         chromaProcess.unref();
     });
 }
 
 /**
- * Stops the ChromaDB server process.
+ * Stops the ChromaDB server process if it was started by this server.
  * @returns {Promise<object>} A promise that resolves with the status.
  */
 async function stop_database() {
     if (!chromaProcess || chromaProcess.killed) {
-        return { status: 'not_running' };
+        return { status: 'not_running', detail: 'No process was started by this server.' };
     }
 
     return new Promise((resolve) => {
@@ -51,7 +73,6 @@ async function stop_database() {
             resolve({ status: 'stopped' });
         });
 
-        // Kill the entire process group to ensure all child processes are terminated
         process.kill(-chromaProcess.pid, 'SIGTERM');
     });
 }
@@ -62,9 +83,10 @@ async function stop_database() {
  */
 function get_database_status() {
     if (chromaProcess && !chromaProcess.killed) {
-        return { running: true, pid: chromaProcess.pid };
+        return { running: true, pid: chromaProcess.pid, managed: true };
     }
-    return { running: false, pid: null };
+    // Cannot determine status of externally managed process, healthcheck should be used.
+    return { running: false, pid: null, managed: false };
 }
 
 export {
