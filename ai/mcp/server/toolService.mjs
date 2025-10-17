@@ -212,22 +212,22 @@ function initializeToolMapping() {
 
                 // Store the internal tool definition for execution.
                 const tool = {
-                    name           : toolName,
-                    title          : operation.summary || toolName,
-                    description    : operation.description || operation.summary,
-                    zodSchema      : inputZodSchema,
+                    name        : toolName,
+                    title       : operation.summary || toolName,
+                    description : operation.description || operation.summary,
+                    zodSchema   : inputZodSchema,
                     argNames,
-                    handler        : serviceMapping[toolName],
+                    handler     : serviceMapping[toolName],
                     passAsObject: operation['x-pass-as-object'] === true
                 };
                 toolMapping[toolName] = tool;
 
                 // Store the client-facing tool definition for 'tools/list' response.
                 const toolForListing = {
-                    name        : tool.name,
-                    title       : tool.title,
-                    description : tool.description,
-                    inputSchema : inputJsonSchema
+                    name       : tool.name,
+                    title      : tool.title,
+                    description: tool.description,
+                    inputSchema: inputJsonSchema
                 };
                 if (outputJsonSchema !== null) {
                     toolForListing.outputSchema = outputJsonSchema;
@@ -310,7 +310,7 @@ async function callTool(toolName, args) {
 }
 
 function initialize(mapping, filePath) {
-    serviceMapping = mapping;
+    serviceMapping  = mapping;
     openApiFilePath = filePath;
 }
 
