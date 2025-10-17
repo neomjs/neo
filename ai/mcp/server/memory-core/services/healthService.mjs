@@ -1,4 +1,5 @@
 import chromaManager from './chromaManager.mjs';
+import aiConfig from '../../../../../buildScripts/ai/aiConfig.mjs';
 
 /**
  * Verifies that the server is running and can successfully connect to the
@@ -12,18 +13,16 @@ export async function buildHealthResponse() {
         let memoryCollection, summaryCollection;
         let memoryCount = 0, summaryCount = 0;
 
-        try {
-            memoryCollection = await chromaManager.getMemoryCollection();
+        // These calls will throw if the collection doesn't exist. We let the outer block catch it
+        // if it's a connection issue, but for "not found", we handle it gracefully.
+        memoryCollection = await chromaManager.getMemoryCollection().catch(() => null);
+        if (memoryCollection) {
             memoryCount = await memoryCollection.count();
-        } catch (e) {
-            // Collection does not exist, which is a valid state.
         }
 
-        try {
-            summaryCollection = await chromaManager.getSummaryCollection();
+        summaryCollection = await chromaManager.getSummaryCollection().catch(() => null);
+        if (summaryCollection) {
             summaryCount = await summaryCollection.count();
-        } catch (e) {
-            // Collection does not exist.
         }
 
         return {
