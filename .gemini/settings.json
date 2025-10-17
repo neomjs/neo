@@ -11,6 +11,10 @@
         "neo-knowledge-base": {
             "command": "node",
             "args"   : ["ai/mcp/server/knowledge-base/mcp-stdio.mjs"]
+        },
+        "neo-memory-core": {
+            "command": "node",
+            "args"   : ["ai/mcp/server/memory-core/mcp-stdio.mjs"]
         }
     }
 }
