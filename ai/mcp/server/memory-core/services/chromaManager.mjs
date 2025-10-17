@@ -1,5 +1,5 @@
 import {ChromaClient} from 'chromadb';
-import aiConfig       from '../../../../../buildScripts/ai/aiConfig.mjs';
+import aiConfig       from '../../config.mjs';
 
 /**
  * Simple manager around the Chroma client that lazily caches frequently used collections.

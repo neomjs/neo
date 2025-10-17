@@ -1,5 +1,5 @@
 import chromaManager from './chromaManager.mjs';
-import aiConfig from '../../../../../buildScripts/ai/aiConfig.mjs';
+import aiConfig from '../../config.mjs';
 
 /**
  * Verifies that the server is running and can successfully connect to the

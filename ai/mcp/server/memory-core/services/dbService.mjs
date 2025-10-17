@@ -1,5 +1,5 @@
 import chromaManager from './chromaManager.mjs';
-import aiConfig      from '../../../../../buildScripts/ai/aiConfig.mjs';
+import aiConfig      from '../../config.mjs';
 import fs            from 'fs-extra';
 import path          from 'path';
 import readline      from 'readline';
