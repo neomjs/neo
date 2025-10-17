@@ -280,11 +280,18 @@ function listTools({ cursor = 0, limit } = {}) {
  */
 async function callTool(toolName, args) {
     initializeToolMapping();
-    const tool = toolMapping[toolName];
+
+    // Handle server-prefixed tool names (e.g., "neo-knowledge-base__healthcheck")
+    const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
+    const effectiveToolName = lastDoubleUnderscoreIndex !== -1
+        ? toolName.substring(lastDoubleUnderscoreIndex + 2)
+        : toolName;
+
+    const tool = toolMapping[effectiveToolName];
 
     // Ensure the tool exists and has a registered handler.
     if (!tool || !tool.handler) {
-        throw new Error(`Tool "${toolName}" not found or not implemented.`);
+        throw new Error(`Tool "${effectiveToolName}" not found or not implemented.`);
     }
 
     // Validate incoming arguments against the tool's Zod schema.
@@ -292,7 +299,7 @@ async function callTool(toolName, args) {
     const validatedArgs = tool.zodSchema.parse(args);
 
     // Special handling for tools that expect a single object argument.
-    if (['query_documents', 'list_documents', 'get_document_by_id', 'list_pull_requests'].includes(toolName)) {
+    if (['query_documents', 'list_documents', 'get_document_by_id', 'list_pull_requests'].includes(effectiveToolName)) {
         return tool.handler(validatedArgs);
     }
 
