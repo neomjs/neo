@@ -1,6 +1,14 @@
 import chromaManager   from './chromaManager.mjs';
 import {embedText}     from './textEmbeddingService.mjs';
 
+export async function deleteAllSummaries() {
+    const collection = await chromaManager.getSummaryCollection();
+    const count = await collection.count();
+    await chromaManager.client.deleteCollection({ name: collection.name });
+    await chromaManager.getSummaryCollection(); // Re-creates it
+    return { deleted: count, message: 'All summaries successfully deleted' };
+}
+
 /**
  * Retrieves summaries in reverse chronological order.
  * @param {Object} options

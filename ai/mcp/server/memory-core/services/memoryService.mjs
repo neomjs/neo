@@ -1,5 +1,33 @@
+import {GoogleGenerativeAI} from '@google/generative-ai';
+import aiConfig from '../../../../../buildScripts/ai/aiConfig.mjs';
 import chromaManager    from './chromaManager.mjs';
 import {embedText}      from './textEmbeddingService.mjs';
+
+export async function addMemory({ prompt, response, thought, sessionId }) {
+    const collection = await chromaManager.getMemoryCollection();
+
+    const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
+    const timestamp = new Date().toISOString();
+    const memoryId = `mem_${timestamp}`;
+
+    const embedding = await embedText(combinedText);
+
+    await collection.add({
+        ids: [memoryId],
+        embeddings: [embedding],
+        metadatas: [{
+            prompt,
+            response,
+            thought,
+            sessionId,
+            timestamp,
+            type: 'agent-interaction'
+        }],
+        documents: [combinedText]
+    });
+
+    return { id: memoryId, sessionId, timestamp, message: "Memory successfully added" };
+}
 
 /**
  * Retrieves all memories for a session and returns a paginated payload.
