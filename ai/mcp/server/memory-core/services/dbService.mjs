@@ -1,53 +1,56 @@
-import {ChromaClient} from 'chromadb';
-import aiConfig       from '../../../../../buildScripts/ai/aiConfig.mjs';
-import fs             from 'fs-extra';
-import path           from 'path';
-import readline       from 'readline';
+import chromaManager from './chromaManager.mjs';
+import aiConfig      from '../../../../../buildScripts/ai/aiConfig.mjs';
+import fs            from 'fs-extra';
+import path          from 'path';
+import readline      from 'readline';
 
-async function getMemoryCollection() {
-    const {host, port, collectionName} = aiConfig.memory;
-    const dbClient = new ChromaClient({ host, port, ssl: false });
-    return await dbClient.getOrCreateCollection({ name: collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+async function exportCollection(collection, backupPath, filePrefix) {
+    console.log(`Fetching all documents from "${collection.name}"...`);
+    const data = await collection.get({ include: ["documents", "embeddings", "metadatas"] });
+    const count = data.ids.length;
+
+    if (count === 0) {
+        console.log(`No documents found in ${collection.name} to export.`);
+        return 0;
+    }
+
+    console.log(`Found ${count} documents in ${collection.name} to export.`);
+
+    await fs.ensureDir(backupPath);
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const backupFile = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
+    const writeStream = fs.createWriteStream(backupFile);
+
+    for (let i = 0; i < count; i++) {
+        const record = {
+            id: data.ids[i],
+            embedding: data.embeddings[i],
+            metadata: data.metadatas[i],
+            document: data.documents[i]
+        };
+        writeStream.write(JSON.stringify(record) + '\n');
+    }
+
+    writeStream.end();
+    console.log(`Successfully exported ${count} documents to: ${backupFile}`);
+    return count;
 }
 
 export async function exportDatabase({ include }) {
     console.log('Starting agent memory export...');
+    let memoryCount = 0, summaryCount = 0;
 
     if (include.includes('memories')) {
-        const collection = await getMemoryCollection();
-        const backupPath = aiConfig.memory.backupPath;
-
-        console.log(`Fetching all documents from "${collection.name}"...`);
-        const data = await collection.get({ include: ["documents", "embeddings", "metadatas"] });
-        const count = data.ids.length;
-
-        if (count === 0) {
-            console.log('No memories found to export.');
-            return;
-        }
-
-        console.log(`Found ${count} memories to export.`);
-
-        await fs.ensureDir(backupPath);
-        const timestamp = new Date().toISOString().replace(/:/g, '-');
-        const backupFile = path.join(backupPath, `memory-backup-${timestamp}.jsonl`);
-        const writeStream = fs.createWriteStream(backupFile);
-
-        for (let i = 0; i < count; i++) {
-            const record = {
-                id: data.ids[i],
-                embedding: data.embeddings[i],
-                metadata: data.metadatas[i],
-                document: data.documents[i]
-            };
-            writeStream.write(JSON.stringify(record) + '\n');
-        }
-
-        writeStream.end();
-
-        console.log(`Successfully exported ${count} memories to: ${backupFile}`);
-        return { message: `Successfully exported ${count} memories`, backupFile };
+        const collection = await chromaManager.getMemoryCollection();
+        memoryCount = await exportCollection(collection, aiConfig.memory.backupPath, 'memory-backup');
     }
+
+    if (include.includes('summaries')) {
+        const collection = await chromaManager.getSummaryCollection();
+        summaryCount = await exportCollection(collection, aiConfig.sessions.backupPath, 'summaries-backup');
+    }
+
+    return { message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.` };
 }
 
 export async function importDatabase({ file, mode }) {
@@ -58,12 +61,18 @@ export async function importDatabase({ file, mode }) {
         throw new Error(`Backup file not found at ${filePath}`);
     }
 
-    const collection = await getMemoryCollection();
+    // Determine which collection to import into based on filename
+    const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
+    const collection = isMemoryBackup 
+        ? await chromaManager.getMemoryCollection() 
+        : await chromaManager.getSummaryCollection();
 
     if (mode === 'replace') {
-        // Clear existing data - simplified, assumes we just clear and add
-        await collection.delete(); // This might not be the exact API, depends on chromadb version
-        console.log('Replaced mode: existing collection cleared.');
+        await chromaManager.client.deleteCollection({ name: collection.name });
+        const newCollection = isMemoryBackup 
+            ? await chromaManager.getMemoryCollection() 
+            : await chromaManager.getSummaryCollection();
+        console.log('Replaced mode: existing collection cleared and recreated.');
     }
 
     const fileStream = fs.createReadStream(filePath);
@@ -78,7 +87,7 @@ export async function importDatabase({ file, mode }) {
         return { message: 'No records found in backup file to import.' };
     }
 
-    console.log(`Importing ${records.length} memories...`);
+    console.log(`Importing ${records.length} documents into ${collection.name}...`);
 
     await collection.upsert({
         ids: records.map(r => r.id),
@@ -88,6 +97,6 @@ export async function importDatabase({ file, mode }) {
     });
 
     const count = await collection.count();
-    console.log(`Import complete. Collection "${collection.name}" now contains ${count} memories.`);
+    console.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
     return { imported: records.length, total: count, mode };
 }
