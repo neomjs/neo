@@ -23,9 +23,13 @@ This epic covers the migration of the Express-based `memory` server to a `stdio`
 
 ### Phase 2: Implementation
 
-- **Goal:** Connect the new server entry point to the existing business logic.
+- **Goal:** Implement the new `stdio`-based server and refactor for consistency.
 - **Sub-Tasks:**
     - `ticket-mc-implement-tool-service.md`: Implement the local `toolService.mjs` to connect OpenAPI `operationId`s to existing service functions.
+    - `ticket-mc-enhance-healthcheck.md`: Enhance the `healthcheck` tool to provide detailed collection status.
+    - `ticket-mc-refactor-dbservice.md`: Refactor `dbService` to use the shared `chromaManager`.
+    - `ticket-mc-use-central-config.md`: Update all services to use the centralized `aiConfig`.
+    - `ticket-mc-refactor-healthservice-try-catch.md`: Refactor `healthService` to remove redundant `try...catch` blocks.
 
 ### Phase 3: Cleanup
 
