@@ -3,13 +3,11 @@ info:
   title: Neo.mjs Memory Core MCP Server API
   description: |
     This API provides structured access to the AI agent's persistent memory system for the Neo.mjs project.
-    It replaces the CLI-based memory scripts with a formal, agent-agnostic REST interface.
-    
+    It enables agents to maintain context across sessions, recall past work, and learn from history.
+
     The Memory Core tracks two primary resources:
     - **Memories**: Raw agent interaction data (prompt, thought, response) organized by session
     - **Summaries**: High-level session summaries with structured metadata and quality metrics
-    
-    This server enables agents to maintain context across sessions, recall past work, and learn from history.
   version: 1.0.0
   contact:
     name: Neo.mjs Project
@@ -20,7 +18,7 @@ info:
 
 servers:
   - url: http://localhost:8001
-    description: Local development server (ChromaDB on port 8001)
+    description: Local development server
 
 tags:
   - name: Health
@@ -32,26 +30,20 @@ tags:
   - name: Sessions
     description: Session management and processing
   - name: Database
-    description: Database-level operations (export, import, clear)
+    description: Database-level operations
 
 paths:
-  /docs:
-    get:
-      summary: API Documentation
-      description: Serves the interactive Swagger UI for this API
-      tags: [Health]
-      responses:
-        '200':
-          description: Swagger UI HTML page
-          content:
-            text/html:
-              schema:
-                type: string
-
   /healthcheck:
     get:
       summary: Health Check
-      description: Confirms the server is running and can connect to the ChromaDB instance
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Confirms the server is running and can connect to the ChromaDB instance.
+        
+        **When to Use:**
+        Use this as a first-step diagnostic tool to ensure the memory system is operational before attempting other operations.
       tags: [Health]
       responses:
         '200':
@@ -70,9 +62,12 @@ paths:
   /memories:
     post:
       summary: Add New Memory
+      operationId: add_memory
+      x-pass-as-object: true
       description: |
         Stores a new agent interaction (prompt, thought, response) as a memory.
-        This is the primary endpoint for making agents stateful.
+
+        **CRITICAL:** This is the primary endpoint for making agents stateful and is a mandatory part of the "save-then-respond" loop. Forgetting to call this for every turn results in permanent data loss for the session.
       tags: [Memories]
       requestBody:
         required: true
@@ -99,12 +94,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
     get:
-      summary: Get Memories
+      summary: Get Session Memories
+      operationId: get_session_memories
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
       description: |
-        Retrieves all memories for a specific session.
-        Returns memories in chronological order.
+        Retrieves all memories for a specific session, in chronological order.
+
+        **When to Use:**
+        Useful for reviewing the full, unabridged history of a single work session, for example, during a session recovery operation.
       tags: [Memories]
       parameters:
         - name: sessionId
@@ -120,8 +120,6 @@ paths:
           description: Maximum number of memories to return
           schema:
             type: integer
-            minimum: 1
-            maximum: 1000
             default: 100
         - name: offset
           in: query
@@ -129,7 +127,6 @@ paths:
           description: Number of memories to skip (for pagination)
           schema:
             type: integer
-            minimum: 0
             default: 0
       responses:
         '200':
@@ -153,10 +150,16 @@ paths:
 
   /memories/query:
     post:
-      summary: Search Memories
+      summary: Search Raw Memories
+      operationId: query_raw_memories
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
       description: |
-        Performs semantic search across all raw memories using vector similarity.
-        Returns the most relevant past interactions.
+        Performs semantic search across all raw memories using vector similarity. This is Stage 2 of the Two-Stage Query Protocol.
+
+        **When to Use:**
+        After using the Knowledge Base to understand the technical "how," use this tool to search your own history to understand the "why." It helps you recall past decisions, user requirements, and approaches you may have already tried.
       tags: [Memories]
       requestBody:
         required: true
@@ -187,9 +190,15 @@ paths:
   /summaries:
     get:
       summary: Get All Summaries
+      operationId: get_all_summaries
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
       description: |
-        Retrieves all session summaries, sorted by timestamp (newest first).
-        Supports pagination.
+        Retrieves all session summaries, sorted by timestamp (newest first). Supports pagination and filtering by category.
+
+        **When to Use:**
+        Use this to get a high-level overview of past work or to find sessions related to a specific category of work (e.g., 'refactoring').
       tags: [Summaries]
       parameters:
         - name: limit
@@ -198,8 +207,6 @@ paths:
           description: Maximum number of summaries to return
           schema:
             type: integer
-            minimum: 1
-            maximum: 1000
             default: 50
         - name: offset
           in: query
@@ -207,7 +214,6 @@ paths:
           description: Number of summaries to skip (for pagination)
           schema:
             type: integer
-            minimum: 0
             default: 0
         - name: category
           in: query
@@ -229,12 +235,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
     delete:
       summary: Delete All Summaries
+      operationId: delete_all_summaries
+      x-annotations:
+        destructiveHint: true
       description: |
         Deletes all session summaries from the database.
-        This is useful for resetting the summary index while keeping raw memories intact.
+
+        **Warning:** This is a destructive operation. It is useful for resetting the summary index while keeping raw memories intact.
       tags: [Summaries]
       responses:
         '200':
@@ -253,9 +262,15 @@ paths:
   /summaries/query:
     post:
       summary: Search Summaries
+      operationId: query_summaries
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
       description: |
-        Performs semantic search across session summaries.
-        This is faster than searching raw memories and useful for finding past work by topic.
+        Performs semantic search across session summaries. This is faster than searching raw memories.
+
+        **When to Use:**
+        Use this for finding past work by topic or to quickly get context on a feature or bug you've worked on before.
       tags: [Summaries]
       requestBody:
         required: true
@@ -286,11 +301,14 @@ paths:
   /sessions/summarize:
     post:
       summary: Summarize Sessions
+      operationId: summarize_sessions
+      x-pass-as-object: true
       description: |
-        Triggers the session summarization process.
-        Can operate in two modes:
-        - Specific session: provide sessionId in body
-        - Batch mode: omit sessionId to summarize all unsummarized sessions
+        Triggers the session summarization process. This is a key step at the beginning of a new session to ensure all prior work is indexed and searchable.
+
+        **When to Use:**
+        - **Batch Mode (no sessionId):** Run at the start of a new session to summarize all previously unsummarized sessions.
+        - **Specific Mode (with sessionId):** Use to re-summarize a specific session if needed, though this is less common.
       tags: [Sessions]
       requestBody:
         required: false
@@ -312,7 +330,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Session not found
+          description: Session not found (in specific mode)
           content:
             application/json:
               schema:
@@ -327,9 +345,15 @@ paths:
   /db/export:
     get:
       summary: Export Database
+      operationId: export_database
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
       description: |
         Exports the entire memory database (both memories and summaries) to a JSONL file.
-        Returns the file as a downloadable attachment.
+
+        **When to Use:**
+        For creating backups or migrating memory data between environments.
       tags: [Database]
       parameters:
         - name: include
@@ -352,11 +376,6 @@ paths:
               schema:
                 type: string
                 format: binary
-          headers:
-            Content-Disposition:
-              schema:
-                type: string
-                example: 'attachment; filename="memory-export-2025-10-08T12-00-00.jsonl"'
         '503':
           description: Cannot connect to database
           content:
@@ -367,9 +386,13 @@ paths:
   /db/import:
     post:
       summary: Import Database
+      operationId: import_database
+      x-pass-as-object: true
       description: |
         Imports a previously exported JSONL file back into the database.
-        This can restore a backup or migrate memory from another environment.
+
+        **When to Use:**
+        To restore a backup or migrate memory from another environment.
       tags: [Database]
       requestBody:
         required: true
