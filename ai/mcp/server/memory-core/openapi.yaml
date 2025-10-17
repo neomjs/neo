@@ -452,11 +452,29 @@ components:
               type: object
               properties:
                 memories:
-                  type: string
-                  example: "neo-agent-memory"
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "neo-agent-memory"
+                    exists:
+                      type: boolean
+                      example: true
+                    count:
+                      type: integer
+                      example: 1234
                 summaries:
-                  type: string
-                  example: "neo-agent-sessions"
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "neo-agent-sessions"
+                    exists:
+                      type: boolean
+                      example: true
+                    count:
+                      type: integer
+                      example: 56
         version:
           type: string
           example: "1.0.0"

@@ -1,25 +1,58 @@
-import aiConfig      from '../../../../../buildScripts/ai/aiConfig.mjs';
 import chromaManager from './chromaManager.mjs';
 
 /**
- * Builds the payload returned by GET /healthcheck.
- * @returns {Promise<Object>}
+ * Verifies that the server is running and can successfully connect to the
+ * ChromaDB vector database, including checking for collection existence and counts.
+ * @returns {Promise<object>} A promise that resolves to the health check status object.
  */
 export async function buildHealthResponse() {
-    const {heartbeat, memoryCollection, summaryCollection} = await chromaManager.checkConnectivity();
+    try {
+        await chromaManager.client.heartbeat();
 
-    return {
-        status   : 'healthy',
-        timestamp: new Date().toISOString(),
-        database : {
-            host       : aiConfig.memory.host,
-            port       : aiConfig.memory.port,
-            heartbeat,
-            collections: {
-                memories : memoryCollection,
-                summaries: summaryCollection
+        let memoryCollection, summaryCollection;
+        let memoryCount = 0, summaryCount = 0;
+
+        try {
+            memoryCollection = await chromaManager.getMemoryCollection();
+            memoryCount = await memoryCollection.count();
+        } catch (e) {
+            // Collection does not exist, which is a valid state.
+        }
+
+        try {
+            summaryCollection = await chromaManager.getSummaryCollection();
+            summaryCount = await summaryCollection.count();
+        } catch (e) {
+            // Collection does not exist.
+        }
+
+        return {
+            status: "healthy",
+            database: {
+                connected: true,
+                collections: {
+                    memories: {
+                        name: aiConfig.memory.collectionName,
+                        exists: !!memoryCollection,
+                        count: memoryCount
+                    },
+                    summaries: {
+                        name: aiConfig.sessions.collectionName,
+                        exists: !!summaryCollection,
+                        count: summaryCount
+                    }
+                }
+            },
+            version: "1.0.0", // TODO: Should come from package.json
+            uptime: process.uptime()
+        };
+    } catch (error) {
+        return {
+            status: "unhealthy",
+            database: {
+                connected: false,
+                error: error.message
             }
-        },
-        uptime: process.uptime()
-    };
+        };
+    }
 }
