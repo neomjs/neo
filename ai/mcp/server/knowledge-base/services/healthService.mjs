@@ -1,5 +1,6 @@
 import { ChromaClient } from 'chromadb';
 import aiConfig from '../../config.mjs';
+import { get_database_status } from './databaseLifecycleService.mjs';
 
 /**
  * Verifies that the server is running and can successfully connect to the
@@ -9,6 +10,7 @@ import aiConfig from '../../config.mjs';
 async function healthcheck() {
     const dbClient = new ChromaClient();
     const collectionName = aiConfig.knowledgeBase.collectionName;
+    const processStatus = get_database_status();
 
     try {
         // The most reliable way to check the connection is to perform a lightweight operation.
@@ -34,18 +36,24 @@ async function healthcheck() {
         return {
             status: "healthy",
             database: {
-                connected: true,
-                collectionName: collectionName,
-                collectionExists: !!collection,
-                documentCount: documentCount
+                process: processStatus,
+                connection: {
+                    connected: true,
+                    collectionName: collectionName,
+                    collectionExists: !!collection,
+                    documentCount: documentCount
+                }
             }
         };
     } catch (error) {
         return {
             status: "unhealthy",
             database: {
-                connected: false,
-                error: error.message
+                process: processStatus,
+                connection: {
+                    connected: false,
+                    error: error.message
+                }
             }
         };
     }

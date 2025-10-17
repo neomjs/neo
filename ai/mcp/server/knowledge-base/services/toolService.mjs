@@ -4,6 +4,7 @@ import * as healthService from './healthService.mjs';
 import * as databaseService from './databaseService.mjs';
 import * as queryService from './queryService.mjs';
 import * as documentService from './documentService.mjs';
+import * as databaseLifecycleService from './databaseLifecycleService.mjs';
 import { initialize, listTools, callTool } from '../../toolService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,7 +19,9 @@ const serviceMapping = {
     delete_database      : databaseService.deleteDatabase,
     query_documents      : queryService.queryDocuments,
     list_documents       : documentService.listDocuments,
-    get_document_by_id   : documentService.getDocumentById
+    get_document_by_id   : documentService.getDocumentById,
+    start_database       : databaseLifecycleService.start_database,
+    stop_database        : databaseLifecycleService.stop_database
 };
 
 initialize(serviceMapping, openApiFilePath);
