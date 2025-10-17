@@ -16,3 +16,4 @@ Enhance the `knowledge-base` and `memory-core` MCP servers with tools that allow
 
 - `ticket-kb-add-db-tools.md`: Add `start/stop_database` tools to the Knowledge Base server.
 - `ticket-mc-add-db-tools.md`: Add `start/stop_database` tools to the Memory Core server.
+- `ticket-kb-make-start-hybrid-aware.md`: Make the `start_database` tool hybrid-aware.

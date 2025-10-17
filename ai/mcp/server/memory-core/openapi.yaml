@@ -23,6 +23,8 @@ servers:
 tags:
   - name: Health
     description: Server health and status endpoints
+  - name: "Database Lifecycle"
+    description: "Tools for starting and stopping the database process"
   - name: Memories
     description: Operations on raw agent interaction memories
   - name: Summaries
@@ -54,6 +56,54 @@ paths:
                 $ref: '#/components/schemas/HealthCheckResponse'
         '503':
           description: Server is unhealthy or cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/start:
+    post:
+      summary: Start Database
+      operationId: start_database
+      description: |
+        Starts the ChromaDB database instance for the Memory Core as a background process.
+
+        **When to Use:**
+        Use this tool if a `healthcheck` reveals that the database process is not running.
+      tags: ["Database Lifecycle"]
+      responses:
+        '200':
+          description: The database process was started successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLifecycleResponse'
+        '500':
+          description: The database process is already running or failed to start.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/stop:
+    post:
+      summary: Stop Database
+      operationId: stop_database
+      description: |
+        Stops the running ChromaDB database instance for the Memory Core.
+
+        **When to Use:**
+        Use this tool to shut down the database process at the end of a session to free up resources.
+      tags: ["Database Lifecycle"]
+      responses:
+        '200':
+          description: The database process was stopped successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLifecycleResponse'
+        '500':
+          description: The database process is not running or failed to stop.
           content:
             application/json:
               schema:
@@ -445,36 +495,48 @@ components:
         database:
           type: object
           properties:
-            connected:
-              type: boolean
-              example: true
-            collections:
+            process:
               type: object
               properties:
-                memories:
+                running:
+                  type: boolean
+                  example: true
+                pid:
+                  type: integer
+                  example: 12345
+            connection:
+              type: object
+              properties:
+                connected:
+                  type: boolean
+                  example: true
+                collections:
                   type: object
                   properties:
-                    name:
-                      type: string
-                      example: "neo-agent-memory"
-                    exists:
-                      type: boolean
-                      example: true
-                    count:
-                      type: integer
-                      example: 1234
-                summaries:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                      example: "neo-agent-sessions"
-                    exists:
-                      type: boolean
-                      example: true
-                    count:
-                      type: integer
-                      example: 56
+                    memories:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "neo-agent-memory"
+                        exists:
+                          type: boolean
+                          example: true
+                        count:
+                          type: integer
+                          example: 1234
+                    summaries:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "neo-agent-sessions"
+                        exists:
+                          type: boolean
+                          example: true
+                        count:
+                          type: integer
+                          example: 56
         version:
           type: string
           example: "1.0.0"
@@ -482,6 +544,18 @@ components:
           type: number
           description: Server uptime in seconds
           example: 3600
+
+    DatabaseLifecycleResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [started, stopped, already_running, not_running]
+        pid:
+          type: integer
+          nullable: true
+        detail:
+          type: string
 
     AddMemoryRequest:
       type: object

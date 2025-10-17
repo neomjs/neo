@@ -63,6 +63,16 @@ const aiConfig = {
      */
     knowledgeBase: {
         /**
+         * The hostname of the ChromaDB server for the knowledge base.
+         * @type {string}
+         */
+        host: 'localhost',
+        /**
+         * The port the ChromaDB server for the knowledge base is listening on.
+         * @type {number}
+         */
+        port: 8000,
+        /**
          * The path to the generated knowledge base JSONL file.
          * @type {string}
          */
