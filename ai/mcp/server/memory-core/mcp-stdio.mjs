@@ -1,8 +1,9 @@
-import {Server}               from '@modelcontextprotocol/sdk/server/index.js';
-import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
-import Neo                    from '../../../../src/Neo.mjs';
-import * as core              from '../../../../src/core/_export.mjs';
-import InstanceManager        from '../../../../src/manager/Instance.mjs';
+import {Server}                 from '@modelcontextprotocol/sdk/server/index.js';
+import {StdioServerTransport}   from '@modelcontextprotocol/sdk/server/stdio.js';
+import Neo                      from '../../../../src/Neo.mjs';
+import * as core                from '../../../../src/core/_export.mjs';
+import InstanceManager          from '../../../../src/manager/Instance.mjs';
+import DatabaseLifecycleService from './services/DatabaseLifecycleService.mjs'; // Import the service
 
 import {
     CallToolRequestSchema,
@@ -103,6 +104,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
+
+    // Subscribe to DatabaseLifecycleService events
+    DatabaseLifecycleService.on({
+        processActive: ({ pid, managedByService, detail }) => {
+            console.error(`[neo-memory-core MCP] ChromaDB process active: PID=${pid}, ManagedByService=${managedByService}, Detail=${detail}`);
+        },
+        processStopped: ({ pid, managedByService }) => {
+            console.error(`[neo-memory-core MCP] ChromaDB process stopped: PID=${pid}, ManagedByService=${managedByService}`);
+        }
+    });
 
     // Log to stderr (stdout is reserved for MCP protocol)
     console.error('[neo-memory-core MCP] Server started on stdio transport');

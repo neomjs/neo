@@ -1,9 +1,9 @@
-import {ChromaClient} from 'chromadb';
 import {spawn}        from 'child_process';
 import aiConfig       from '../../config.mjs';
 import logger         from '../../logger.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
 import ChromaManager  from './ChromaManager.mjs';
+import Observable     from '../../../../../src/core/Observable.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Memory Core.
@@ -12,6 +12,13 @@ import ChromaManager  from './ChromaManager.mjs';
  * @singleton
  */
 class DatabaseLifecycleService extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true;
+
     static config = {
         /**
          * @member {String} className='AI.mcp.server.memory.DatabaseLifecycleService'
@@ -54,7 +61,9 @@ class DatabaseLifecycleService extends Base {
         }
 
         if (await this.isDbRunning()) {
-            return { status: 'already_running', pid: null, detail: 'Server was started externally.' };
+            const result = { status: 'already_running', pid: null, detail: 'Server was started externally.' };
+            this.fire('processActive', { pid: null, managedByService: false, detail: result.detail });
+            return result;
         }
 
         return new Promise((resolve, reject) => {
@@ -69,7 +78,9 @@ class DatabaseLifecycleService extends Base {
             spawnedProcess.on('spawn', () => {
                 this.chromaProcess = spawnedProcess;
                 logger.log(`ChromaDB (Memory Core) process started with PID: ${this.chromaProcess.pid}`);
-                resolve({ status: 'started', pid: this.chromaProcess.pid });
+                const result = { status: 'started', pid: this.chromaProcess.pid };
+                this.fire('processActive', { pid: this.chromaProcess.pid, managedByService: true, detail: 'started by service' });
+                resolve(result);
             });
 
             spawnedProcess.on('error', (err) => {
@@ -92,10 +103,13 @@ class DatabaseLifecycleService extends Base {
         }
 
         return new Promise((resolve) => {
+            const pid = this.chromaProcess.pid;
             this.chromaProcess.on('exit', () => {
-                logger.log(`ChromaDB process with PID: ${this.chromaProcess.pid} has been stopped.`);
+                logger.log(`ChromaDB process with PID: ${pid} has been stopped.`);
                 this.chromaProcess = null;
-                resolve({ status: 'stopped' });
+                const result = { status: 'stopped' };
+                this.fire('processStopped', { pid: pid, managedByService: true });
+                resolve(result);
             });
 
             process.kill(-this.chromaProcess.pid, 'SIGTERM');
