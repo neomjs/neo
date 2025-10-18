@@ -1,9 +1,9 @@
-import { get_database_status } from './databaseLifecycleService.mjs';
 import aiConfig from '../../config.mjs';
 import chromaManager from './chromaManager.mjs';
+import DatabaseLifecycleService from './databaseLifecycleService.mjs';
 
 export async function buildHealthResponse() {
-    const processStatus = get_database_status();
+    const processStatus = DatabaseLifecycleService.getDatabaseStatus();
     try {
         await chromaManager.client.heartbeat();
 

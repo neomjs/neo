@@ -6,7 +6,7 @@ import * as healthService from './healthService.mjs';
 import * as memoryService from './memoryService.mjs';
 import * as sessionService from './sessionService.mjs';
 import * as summaryService from './summaryService.mjs';
-import * as databaseLifecycleService from './databaseLifecycleService.mjs';
+import DatabaseLifecycleService from './databaseLifecycleService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -23,8 +23,8 @@ const serviceMapping = {
     summarize_sessions  : sessionService.summarizeSessions,
     export_database     : dbService.exportDatabase,
     import_database     : dbService.importDatabase,
-    start_database      : databaseLifecycleService.start_database,
-    stop_database       : databaseLifecycleService.stop_database
+    start_database      : DatabaseLifecycleService.startDatabase,
+    stop_database       : DatabaseLifecycleService.stopDatabase
 };
 
 initialize(serviceMapping, openApiFilePath);
