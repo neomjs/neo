@@ -43,17 +43,7 @@ The goal of this phase is to refactor `ai/mcp/server/memory-core/services/chroma
     -   Assess the refactored `ChromaManager`. Does the class-based approach feel natural and beneficial? Or does it feel like unnecessary overhead?
     -   If the PoC is successful, it provides a strong signal to proceed with the full migration.
 
-## Phase 2: Enhance `toolService.mjs`
-**Status: To Do**
-
-This phase will focus on making the `toolService` class-aware.
-
-1.  **Update `toolService`:**
-    -   Modify `toolService.mjs` to recognize when a handler is a method on a Neo singleton.
-    -   The service mapping will be updated to store class names instead of function references.
-    -   The `callTool` function will be updated to get the singleton instance and call the method.
-
-## Phase 3: Migrate All Services
+## Phase 2: Migrate All Services
 **Status: To Do**
 
 This phase involves refactoring all remaining services in all three MCP servers (`knowledge-base`, `memory-core`, `github-workflow`).
