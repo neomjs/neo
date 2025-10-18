@@ -1,12 +1,12 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { initialize, listTools, callTool } from '../../toolService.mjs';
-import DatabaseService from './DatabaseService.mjs';
-import HealthService from './HealthService.mjs';
-import MemoryService from './MemoryService.mjs';
-import SessionService from './SessionService.mjs';
-import * as summaryService from './summaryService.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import path                              from 'path';
+import {fileURLToPath}                   from 'url';
+import {initialize, listTools, callTool} from '../../toolService.mjs';
+import DatabaseService                   from './DatabaseService.mjs';
+import DatabaseLifecycleService          from './DatabaseLifecycleService.mjs';
+import HealthService                     from './HealthService.mjs';
+import MemoryService                     from './MemoryService.mjs';
+import SessionService                    from './SessionService.mjs';
+import SummaryService                    from './SummaryService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -17,9 +17,9 @@ const serviceMapping = {
     add_memory          : MemoryService.addMemory,
     get_session_memories: MemoryService.listMemories,
     query_raw_memories  : MemoryService.queryMemories,
-    get_all_summaries   : summaryService.listSummaries,
-    delete_all_summaries: summaryService.deleteAllSummaries,
-    query_summaries     : summaryService.querySummaries,
+    get_all_summaries   : SummaryService.listSummaries,
+    delete_all_summaries: SummaryService.deleteAllSummaries,
+    query_summaries     : SummaryService.querySummaries,
     summarize_sessions  : SessionService.summarizeSessions,
     export_database     : DatabaseService.exportDatabase,
     import_database     : DatabaseService.importDatabase,

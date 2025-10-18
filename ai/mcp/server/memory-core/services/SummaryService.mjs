@@ -1,115 +1,143 @@
-import chromaManager   from './chromaManager.mjs';
-import {embedText}     from './textEmbeddingService.mjs';
-
-export async function deleteAllSummaries() {
-    const collection = await chromaManager.getSummaryCollection();
-    const count = await collection.count();
-    await chromaManager.client.deleteCollection({ name: collection.name });
-    await chromaManager.getSummaryCollection(); // Re-creates it
-    return { deleted: count, message: 'All summaries successfully deleted' };
-}
+import {embedText}   from './textEmbeddingService.mjs';
+import Base          from '../../../../../src/core/Base.mjs';
+import ChromaManager from './ChromaManager.mjs';
 
 /**
- * Retrieves summaries in reverse chronological order.
- * @param {Object} options
- * @param {Number} options.limit
- * @param {Number} options.offset
- * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
+ * Service for handling deleting, listing, and querying session summaries.
+ * @class AI.mcp.server.memory.SummaryService
+ * @extends Neo.core.Base
+ * @singleton
  */
-export async function listSummaries({limit, offset}) {
-    const collection = await chromaManager.getSummaryCollection();
+class SummaryService extends Base {
+    static config = {
+        /**
+         * @member {String} className='AI.mcp.server.memory.SummaryService'
+         * @protected
+         */
+        className: 'AI.mcp.server.memory.SummaryService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
 
-    const result = await collection.get({
-        include: ['metadatas', 'documents']
-    });
+    /**
+     * Deletes all session summaries.
+     * @returns {Promise<{deleted: number, message: string}>}
+     */
+    async deleteAllSummaries() {
+        const collection = await ChromaManager.getSummaryCollection();
+        const count      = await collection.count();
+        await ChromaManager.client.deleteCollection({ name: collection.name });
+        await ChromaManager.getSummaryCollection(); // Re-creates it
+        return { deleted: count, message: 'All summaries successfully deleted' };
+    }
 
-    const records = result.ids.map((id, index) => {
-        const metadata   = result.metadatas[index] || {};
-        const document   = result.documents?.[index] || '';
-        const techSource = metadata.technologies || '';
+    /**
+     * Retrieves summaries in reverse chronological order.
+     * @param {Object} options
+     * @param {Number} options.limit
+     * @param {Number} options.offset
+     * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
+     */
+    async listSummaries({limit, offset}) {
+        const collection = await ChromaManager.getSummaryCollection();
+
+        const result = await collection.get({
+            include: ['metadatas', 'documents']
+        });
+
+        const records = result.ids.map((id, index) => {
+            const metadata   = result.metadatas[index] || {};
+            const document   = result.documents?.[index] || '';
+            const techSource = metadata.technologies || '';
+
+            return {
+                id,
+                sessionId   : metadata.sessionId,
+                timestamp   : metadata.timestamp,
+                title       : metadata.title,
+                summary     : document,
+                category    : metadata.category,
+                memoryCount : Number(metadata.memoryCount) || 0,
+                quality     : Number(metadata.quality) || 0,
+                productivity: Number(metadata.productivity) || 0,
+                impact      : Number(metadata.impact) || 0,
+                complexity  : Number(metadata.complexity) || 0,
+                technologies: techSource
+                    ? techSource.split(',').map(item => item.trim()).filter(Boolean)
+                    : []
+            };
+        }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        const total     = records.length;
+        const summaries = records.slice(offset, offset + limit);
 
         return {
-            id,
-            sessionId  : metadata.sessionId,
-            timestamp  : metadata.timestamp,
-            title      : metadata.title,
-            summary    : document,
-            category   : metadata.category,
-            memoryCount: Number(metadata.memoryCount) || 0,
-            quality    : Number(metadata.quality) || 0,
-            productivity: Number(metadata.productivity) || 0,
-            impact     : Number(metadata.impact) || 0,
-            complexity : Number(metadata.complexity) || 0,
-            technologies: techSource
-                ? techSource.split(',').map(item => item.trim()).filter(Boolean)
-                : []
+            count: summaries.length,
+            total,
+            summaries
         };
-    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
 
-    const total     = records.length;
-    const summaries = records.slice(offset, offset + limit);
+    /**
+     * Executes a semantic search across all session summaries.
+     * @param {Object} options
+     * @param {String} options.query
+     * @param {Number} options.nResults
+     * @param {String} [options.category]
+     * @returns {Promise<{query: string, count: number, results: Object[]}>}
+     */
+    async querySummaries({query, nResults, category}) {
+        const collection = await ChromaManager.getSummaryCollection();
+        const embedding  = await embedText(query);
 
-    return {
-        count    : summaries.length,
-        total,
-        summaries
-    };
-}
+        const searchResult = await collection.query({
+            queryEmbeddings: [embedding],
+            nResults,
+            where          : category ? {category} : undefined,
+            include        : ['metadatas', 'documents']
+        });
 
-/**
- * Executes a semantic search across all session summaries.
- * @param {Object} options
- * @param {String} options.query
- * @param {Number} options.nResults
- * @param {String} [options.category]
- * @returns {Promise<{query: string, count: number, results: Object[]}>}
- */
-export async function querySummaries({query, nResults, category}) {
-    const collection = await chromaManager.getSummaryCollection();
-    const embedding  = await embedText(query);
+        const ids       = searchResult.ids?.[0] || [];
+        const distances = searchResult.distances?.[0] || [];
+        const metadatas = searchResult.metadatas?.[0] || [];
+        const documents = searchResult.documents?.[0] || [];
 
-    const searchResult = await collection.query({
-        queryEmbeddings: [embedding],
-        nResults,
-        where          : category ? {category} : undefined,
-        include        : ['metadatas', 'documents']
-    });
+        const summaries = ids.map((id, index) => {
+            const metadata       = metadatas[index] || {};
+            const document       = documents[index] || '';
+            const distance       = Number(distances[index] ?? 0);
+            const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
+            const techSource     = metadata.technologies || '';
 
-    const ids        = searchResult.ids?.[0] || [];
-    const distances  = searchResult.distances?.[0] || [];
-    const metadatas  = searchResult.metadatas?.[0] || [];
-    const documents  = searchResult.documents?.[0] || [];
-
-    const summaries = ids.map((id, index) => {
-        const metadata = metadatas[index] || {};
-        const document = documents[index] || '';
-        const distance = Number(distances[index] ?? 0);
-        const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
-        const techSource = metadata.technologies || '';
+            return {
+                id,
+                sessionId   : metadata.sessionId,
+                timestamp   : metadata.timestamp,
+                title       : metadata.title,
+                summary     : document,
+                category    : metadata.category,
+                memoryCount : Number(metadata.memoryCount) || 0,
+                quality     : Number(metadata.quality) || 0,
+                productivity: Number(metadata.productivity) || 0,
+                impact      : Number(metadata.impact) || 0,
+                complexity  : Number(metadata.complexity) || 0,
+                technologies: techSource
+                    ? techSource.split(',').map(item => item.trim()).filter(Boolean)
+                    : [],
+                distance,
+                relevanceScore
+            };
+        });
 
         return {
-            id,
-            sessionId  : metadata.sessionId,
-            timestamp  : metadata.timestamp,
-            title      : metadata.title,
-            summary    : document,
-            category   : metadata.category,
-            memoryCount: Number(metadata.memoryCount) || 0,
-            quality    : Number(metadata.quality) || 0,
-            productivity: Number(metadata.productivity) || 0,
-            impact     : Number(metadata.impact) || 0,
-            complexity : Number(metadata.complexity) || 0,
-            technologies: techSource
-                ? techSource.split(',').map(item => item.trim()).filter(Boolean)
-                : [],
-            distance,
-            relevanceScore
+            query,
+            count  : summaries.length,
+            results: summaries
         };
-    });
-
-    return {
-        query,
-        count  : summaries.length,
-        results: summaries
-    };
+    }
 }
+
+export default Neo.setupClass(SummaryService);
