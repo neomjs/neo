@@ -1,58 +1,85 @@
-import aiConfig from '../../config.mjs';
-import chromaManager from './chromaManager.mjs';
-import DatabaseLifecycleService from './databaseLifecycleService.mjs';
+import aiConfig                 from '../../config.mjs';
+import Base                     from '../../../../../src/core/Base.mjs';
+import ChromaManager            from './ChromaManager.mjs';
+import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
-export async function buildHealthResponse() {
-    const processStatus = DatabaseLifecycleService.getDatabaseStatus();
-    try {
-        await chromaManager.client.heartbeat();
+/**
+ * Service for providing the health status of the memory core server.
+ * @class AI.mcp.server.memory.HealthService
+ * @extends Neo.core.Base
+ * @singleton
+ */
+class HealthService extends Base {
+    static config = {
+        /**
+         * @member {String} className='AI.mcp.server.memory.HealthService'
+         * @protected
+         */
+        className: 'AI.mcp.server.memory.HealthService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
 
-        let memoryCollection, summaryCollection;
-        let memoryCount = 0, summaryCount = 0;
+    /**
+     * Builds the health response for the memory core server.
+     * @returns {Promise<object>}
+     */
+    async buildHealthResponse() {
+        const processStatus = DatabaseLifecycleService.getDatabaseStatus();
+        try {
+            await ChromaManager.client.heartbeat();
 
-        memoryCollection = await chromaManager.getMemoryCollection().catch(() => null);
-        if (memoryCollection) {
-            memoryCount = await memoryCollection.count();
-        }
+            let memoryCount = 0, summaryCount = 0;
 
-        summaryCollection = await chromaManager.getSummaryCollection().catch(() => null);
-        if (summaryCollection) {
-            summaryCount = await summaryCollection.count();
-        }
+            const memoryCollection = await ChromaManager.getMemoryCollection().catch(() => null);
+            if (memoryCollection) {
+                memoryCount = await memoryCollection.count();
+            }
 
-        return {
-            status: "healthy",
-            database: {
-                process: processStatus,
-                connection: {
-                    connected: true,
-                    collections: {
-                        memories: {
-                            name: aiConfig.memory.collectionName,
-                            exists: !!memoryCollection,
-                            count: memoryCount
-                        },
-                        summaries: {
-                            name: aiConfig.sessions.collectionName,
-                            exists: !!summaryCollection,
-                            count: summaryCount
+            const summaryCollection = await ChromaManager.getSummaryCollection().catch(() => null);
+            if (summaryCollection) {
+                summaryCount = await summaryCollection.count();
+            }
+
+            return {
+                status: "healthy",
+                database: {
+                    process: processStatus,
+                    connection: {
+                        connected: true,
+                        collections: {
+                            memories: {
+                                name  : aiConfig.memory.collectionName,
+                                exists: !!memoryCollection,
+                                count : memoryCount
+                            },
+                            summaries: {
+                                name  : aiConfig.sessions.collectionName,
+                                exists: !!summaryCollection,
+                                count : summaryCount
+                            }
                         }
                     }
+                },
+                version: "1.0.0", // TODO: Should come from package.json
+                uptime: process.uptime()
+            };
+        } catch (error) {
+            return {
+                status: "unhealthy",
+                database: {
+                    process: processStatus,
+                    connection: {
+                        connected: false,
+                        error    : error.message
+                    }
                 }
-            },
-            version: "1.0.0", // TODO: Should come from package.json
-            uptime: process.uptime()
-        };
-    } catch (error) {
-        return {
-            status: "unhealthy",
-            database: {
-                process: processStatus,
-                connection: {
-                    connected: false,
-                    error: error.message
-                }
-            }
-        };
+            };
+        }
     }
 }
+
+export default Neo.setupClass(HealthService);
