@@ -503,7 +503,11 @@ components:
                   example: true
                 pid:
                   type: integer
+                  nullable: true
                   example: 12345
+                managed:
+                  type: boolean
+                  example: true
             connection:
               type: object
               properties:

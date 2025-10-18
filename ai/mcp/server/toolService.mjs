@@ -106,12 +106,22 @@ function buildZodSchemaFromResponse(doc, schema) {
         return buildZodSchemaFromResponse(doc, resolveRef(doc, schema.$ref));
     }
 
+    if (schema.oneOf) {
+        const options = schema.oneOf.map(s => buildZodSchemaFromResponse(doc, s));
+        return z.union(options);
+    }
+
     let zodSchema;
     if (schema.type === 'object') {
         const shape = {};
         if (schema.properties) {
+            const required = schema.required || [];
             for (const [propName, propSchema] of Object.entries(schema.properties)) {
-                shape[propName] = buildZodSchemaFromResponse(doc, propSchema);
+                let propertySchema = buildZodSchemaFromResponse(doc, propSchema);
+                if (!required.includes(propName)) {
+                    propertySchema = propertySchema.optional();
+                }
+                shape[propName] = propertySchema;
             }
         }
         zodSchema = z.object(shape);
@@ -125,6 +135,10 @@ function buildZodSchemaFromResponse(doc, schema) {
         zodSchema = z.boolean();
     } else {
         zodSchema = z.any();
+    }
+
+    if (schema.nullable) {
+        zodSchema = zodSchema.nullable();
     }
 
     if (schema.description) {

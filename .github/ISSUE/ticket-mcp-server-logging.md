@@ -3,9 +3,8 @@ title: Implement Centralized Logger for MCP Servers
 labels: enhancement, AI
 ---
 
-GH ticket id: #(TBD)
+GH ticket id: #7534
 
-**Epic:** Architect AI Tooling as MCP
 **Assignee:** tobiu
 **Status:** Done
 
