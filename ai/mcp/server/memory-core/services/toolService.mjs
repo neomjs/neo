@@ -4,7 +4,7 @@ import { initialize, listTools, callTool } from '../../toolService.mjs';
 import DatabaseService from './DatabaseService.mjs';
 import HealthService from './HealthService.mjs';
 import MemoryService from './MemoryService.mjs';
-import * as sessionService from './sessionService.mjs';
+import SessionService from './SessionService.mjs';
 import * as summaryService from './summaryService.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
@@ -20,7 +20,7 @@ const serviceMapping = {
     get_all_summaries   : summaryService.listSummaries,
     delete_all_summaries: summaryService.deleteAllSummaries,
     query_summaries     : summaryService.querySummaries,
-    summarize_sessions  : sessionService.summarizeSessions,
+    summarize_sessions  : SessionService.summarizeSessions,
     export_database     : DatabaseService.exportDatabase,
     import_database     : DatabaseService.importDatabase,
     start_database      : DatabaseLifecycleService.startDatabase,

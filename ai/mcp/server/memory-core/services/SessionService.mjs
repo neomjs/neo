@@ -1,44 +1,107 @@
 import {ChromaClient}       from 'chromadb';
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../../config.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
 
-class SessionSummarizer {
-    constructor() {
+/**
+ * Service for handling adding, listing, and querying agent memories.
+ * @class AI.mcp.server.memory.SessionService
+ * @extends Neo.core.Base
+ * @singleton
+ */
+class SessionService extends Base {
+    static config = {
+        /**
+         * @member {String} className='AI.mcp.server.memory.SessionService'
+         * @protected
+         */
+        className: 'AI.mcp.server.memory.SessionService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {ChromaClient|null} dbClient_=null
+         * @protected
+         * @reactive
+         */
+        dbClient_: null,
+        /**
+         * @member {GoogleGenerativeAI|null} model_=null
+         * @protected
+         * @reactive
+         */
+        model_: null,
+        /**
+         * @member {GoogleGenerativeAI|null} embeddingModel_=null
+         * @protected
+         * @reactive
+         */
+        embeddingModel_: null,
+        /**
+         * @member {import('chromadb').Collection|null} memoryCollection_=null
+         * @protected
+         * @reactive
+         */
+        memoryCollection_: null,
+        /**
+         * @member {import('chromadb').Collection|null} sessionsCollection_=null
+         * @protected
+         * @reactive
+         */
+        sessionsCollection_: null
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
         const {host, port} = aiConfig.memory;
         this.dbClient = new ChromaClient({ host, port, ssl: false });
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
 
-        const genAI         = new GoogleGenerativeAI(GEMINI_API_KEY);
-        this.model          = genAI.getGenerativeModel({model: 'gemini-1.5-flash'});
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        this.model          = genAI.getGenerativeModel({model: 'gemini-2.5-flash'});
         this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.knowledgeBase.embeddingModel});
-
-        this.memoryCollection   = null;
-        this.sessionsCollection = null;
     }
 
-    async initializeCollections() {
-        const memoryConfig   = aiConfig.memory;
-        const sessionsConfig = aiConfig.sessions;
-        this.memoryCollection   = await this.dbClient.getCollection({ name: memoryConfig.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
-        this.sessionsCollection = await this.dbClient.getOrCreateCollection({ name: sessionsConfig.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        this.memoryCollection   = await this.dbClient.getCollection({ name: aiConfig.memory.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+        this.sessionsCollection = await this.dbClient.getOrCreateCollection({ name: aiConfig.sessions.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
     }
 
+    /**
+     * Finds sessions that have not yet been summarized.
+     * @returns {Promise<String[]>}
+     */
     async findUnsummarizedSessions() {
         const memories = await this.memoryCollection.get({ include: ['metadatas'] });
         if (memories.ids.length === 0) return [];
 
-        const sessionIds = [...new Set(memories.metadatas.map(m => m.sessionId))];
-        const summaries = await this.sessionsCollection.get({ include: ['metadatas'] });
+        const sessionIds           = [...new Set(memories.metadatas.map(m => m.sessionId))];
+        const summaries            = await this.sessionsCollection.get({include: ['metadatas']});
         const summarizedSessionIds = new Set(summaries.metadatas.map(m => m.sessionId));
 
         return sessionIds.filter(id => !summarizedSessionIds.has(id));
     }
 
+    /**
+     * Summarizes a single session.
+     * @param {String} sessionId
+     * @returns {Promise<object|null>}
+     */
     async summarizeSession(sessionId) {
         const memories = await this.memoryCollection.get({
-            where: { sessionId: sessionId },
+            where  : {sessionId: sessionId},
             include: ['documents', 'metadatas']
         });
 
@@ -57,17 +120,16 @@ Analyze the following development session and provide a structured summary in JS
 - "complexity": (Number) A score from 0-100 rating the task's complexity based on factors like file touchpoints, depth of changes (core vs. app-level), and cognitive load. A simple typo fix is < 10. A deep refactoring of a core module is > 90.
 - "technologies": (String[]) An array of key technologies, frameworks, or libraries involved (e.g., "neo.mjs", "chromadb", "nodejs").
 
-Do not include any markdown formatting (e.g., \
-json) in your response.
+Do not include any markdown formatting (e.g., \`json) in your response.
 
 ---
 
 ${aggregatedContent}
 `;
 
-        const result = await this.model.generateContent(summaryPrompt);
+        const result       = await this.model.generateContent(summaryPrompt);
         const responseText = result.response.text();
-        const summaryData = JSON.parse(responseText);
+        const summaryData  = JSON.parse(responseText);
 
         const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
 
@@ -87,22 +149,28 @@ ${aggregatedContent}
 
         return { sessionId, summaryId, title, memoryCount: memories.ids.length };
     }
-}
 
-export async function summarizeSessions({ sessionId }) {
-    const summarizer = new SessionSummarizer();
-    await summarizer.initializeCollections();
-    let processed = [];
+    /**
+     * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
+     * @param {Object} options
+     * @param {String} [options.sessionId]
+     * @returns {Promise<{processed: number, sessions: object[]}>}
+     */
+    async summarizeSessions({ sessionId }) {
+        let processed = [];
 
-    if (sessionId) {
-        const result = await summarizer.summarizeSession(sessionId);
-        if (result) processed.push(result);
-    } else {
-        const sessionsToSummarize = await summarizer.findUnsummarizedSessions();
-        for (const id of sessionsToSummarize) {
-            const result = await summarizer.summarizeSession(id);
+        if (sessionId) {
+            const result = await this.summarizeSession(sessionId);
             if (result) processed.push(result);
+        } else {
+            const sessionsToSummarize = await this.findUnsummarizedSessions();
+            for (const id of sessionsToSummarize) {
+                const result = await this.summarizeSession(id);
+                if (result) processed.push(result);
+            }
         }
+        return { processed: processed.length, sessions: processed };
     }
-    return { processed: processed.length, sessions: processed };
 }
+
+export default Neo.setupClass(SessionService);
