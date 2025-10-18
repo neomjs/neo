@@ -54,10 +54,10 @@ class SessionService extends Base {
     }
 
     /**
-     *
+     * @param {Object} config
      */
-    onConstructed() {
-        super.onConstructed();
+    construct(config) {
+        super.construct(config);
 
         const {host, port} = aiConfig.memory;
         this.dbClient = new ChromaClient({ host, port, ssl: false });

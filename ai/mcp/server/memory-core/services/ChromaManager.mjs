@@ -57,10 +57,10 @@ class ChromaManager extends Base {
     }
 
     /**
-     *
+     * @param {Object} config
      */
-    onConstructed() {
-        super.onConstructed();
+    construct(config) {
+        super.construct(config);
 
         // The client is created here, but the connection is established in initAsync
         const {host, port} = aiConfig.memory;
@@ -94,7 +94,6 @@ class ChromaManager extends Base {
      */
     async checkConnectivity() {
         const heartbeat = await this.client.heartbeat();
-
         const memory    = await this.getMemoryCollection();
         const summaries = await this.getSummaryCollection();
 
