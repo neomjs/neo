@@ -1,6 +1,7 @@
 import { ChromaClient } from 'chromadb';
 import { spawn } from 'child_process';
 import aiConfig from '../../config.mjs';
+import logger from '../../logger.mjs';
 
 // This will hold the child process object for the ChromaDB server
 let chromaProcess = null;
@@ -43,7 +44,7 @@ async function start_database() {
         });
 
         chromaProcess.on('spawn', () => {
-            console.log(`ChromaDB process started with PID: ${chromaProcess.pid}`);
+            logger.log(`ChromaDB process started with PID: ${chromaProcess.pid}`);
             resolve({ status: 'started', pid: chromaProcess.pid });
         });
 
@@ -68,7 +69,7 @@ async function stop_database() {
 
     return new Promise((resolve) => {
         chromaProcess.on('exit', () => {
-            console.log(`ChromaDB process with PID: ${chromaProcess.pid} has been stopped.`);
+            logger.log(`ChromaDB process with PID: ${chromaProcess.pid} has been stopped.`);
             chromaProcess = null;
             resolve({ status: 'stopped' });
         });

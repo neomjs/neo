@@ -2,6 +2,11 @@ import path from 'path';
 
 const aiConfig = {
     /**
+     * Global debug flag for all MCP servers.
+     * @type {boolean}
+     */
+    debug: false,
+    /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      * @returns {null}
      */

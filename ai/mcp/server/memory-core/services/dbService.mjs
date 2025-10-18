@@ -1,20 +1,21 @@
 import chromaManager from './chromaManager.mjs';
 import aiConfig      from '../../config.mjs';
 import fs            from 'fs-extra';
+import logger        from '../../logger.mjs';
 import path          from 'path';
 import readline      from 'readline';
 
 async function exportCollection(collection, backupPath, filePrefix) {
-    console.log(`Fetching all documents from "${collection.name}"...`);
+    logger.log(`Fetching all documents from "${collection.name}"...`);
     const data = await collection.get({ include: ["documents", "embeddings", "metadatas"] });
     const count = data.ids.length;
 
     if (count === 0) {
-        console.log(`No documents found in ${collection.name} to export.`);
+        logger.log(`No documents found in ${collection.name} to export.`);
         return 0;
     }
 
-    console.log(`Found ${count} documents in ${collection.name} to export.`);
+    logger.log(`Found ${count} documents in ${collection.name} to export.`);
 
     await fs.ensureDir(backupPath);
     const timestamp = new Date().toISOString().replace(/:/g, '-');
@@ -32,12 +33,12 @@ async function exportCollection(collection, backupPath, filePrefix) {
     }
 
     writeStream.end();
-    console.log(`Successfully exported ${count} documents to: ${backupFile}`);
+    logger.log(`Successfully exported ${count} documents to: ${backupFile}`);
     return count;
 }
 
 export async function exportDatabase({ include }) {
-    console.log('Starting agent memory export...');
+    logger.log('Starting agent memory export...');
     let memoryCount = 0, summaryCount = 0;
 
     if (include.includes('memories')) {
@@ -55,7 +56,7 @@ export async function exportDatabase({ include }) {
 
 export async function importDatabase({ file, mode }) {
     const filePath = file; // Assuming file object contains path
-    console.log(`Starting agent memory import from: ${filePath}`);
+    logger.log(`Starting agent memory import from: ${filePath}`);
 
     if (!await fs.pathExists(filePath)) {
         throw new Error(`Backup file not found at ${filePath}`);
@@ -72,7 +73,7 @@ export async function importDatabase({ file, mode }) {
         const newCollection = isMemoryBackup 
             ? await chromaManager.getMemoryCollection() 
             : await chromaManager.getSummaryCollection();
-        console.log('Replaced mode: existing collection cleared and recreated.');
+        logger.log('Replaced mode: existing collection cleared and recreated.');
     }
 
     const fileStream = fs.createReadStream(filePath);
@@ -87,7 +88,7 @@ export async function importDatabase({ file, mode }) {
         return { message: 'No records found in backup file to import.' };
     }
 
-    console.log(`Importing ${records.length} documents into ${collection.name}...`);
+    logger.log(`Importing ${records.length} documents into ${collection.name}...`);
 
     await collection.upsert({
         ids: records.map(r => r.id),
@@ -97,6 +98,6 @@ export async function importDatabase({ file, mode }) {
     });
 
     const count = await collection.count();
-    console.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
+    logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
     return { imported: records.length, total: count, mode };
 }

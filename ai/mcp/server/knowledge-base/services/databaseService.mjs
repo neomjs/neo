@@ -4,6 +4,7 @@ import aiConfig from '../../config.mjs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import fs from 'fs-extra';
+import logger from '../../logger.mjs';
 import path from 'path';
 import readline from 'readline';
 
@@ -49,7 +50,7 @@ function createContentHash(chunk) {
  * @returns {Promise<object>} A promise that resolves to a success message with the total chunk count.
  */
 async function createKnowledgeBase() {
-    console.log('Starting knowledge base file creation...');
+    logger.log('Starting knowledge base file creation...');
     const outputPath = aiConfig.knowledgeBase.path;
     await fs.ensureDir(path.dirname(outputPath));
     const writeStream = fs.createWriteStream(outputPath);
@@ -176,7 +177,7 @@ async function createKnowledgeBase() {
     return new Promise((resolve, reject) => {
         writeStream.on('finish', () => {
             const message = `Knowledge base file created with ${totalChunks} chunks.`;
-            console.log(message);
+            logger.log(message);
             resolve({ message });
         });
         writeStream.on('error', reject);
@@ -198,7 +199,7 @@ async function createKnowledgeBase() {
  * @returns {Promise<object>} A promise that resolves to a success message with the final document count.
  */
 async function embedKnowledgeBase() {
-    console.log('Starting knowledge base embedding...');
+    logger.log('Starting knowledge base embedding...');
     const knowledgeBasePath = aiConfig.knowledgeBase.path;
     if (!await fs.pathExists(knowledgeBasePath)) {
         throw new Error(`Knowledge base file not found at ${knowledgeBasePath}. Please run createKnowledgeBase first.`);
@@ -211,7 +212,7 @@ async function embedKnowledgeBase() {
     for await (const line of rl) {
         knowledgeBase.push(JSON.parse(line));
     }
-    console.log(`Loaded ${knowledgeBase.length} knowledge chunks from file.`);
+    logger.log(`Loaded ${knowledgeBase.length} knowledge chunks from file.`);
 
     // Build the inheritance map
     const classNameToDataMap = {};
@@ -247,7 +248,7 @@ async function embedKnowledgeBase() {
     const embeddingFunction = {
         generate: (texts) => {
             // This will not be called because we provide embeddings directly.
-            console.log('Dummy embedding function called. This should not happen.');
+            console.error('Dummy embedding function called. This should not happen.');
             return Promise.resolve(texts.map(() => []));
         }
     };
@@ -269,17 +270,17 @@ async function embedKnowledgeBase() {
 
     console.log = originalLog;
 
-    console.log(`Using collection: ${collectionName}`);
+    logger.log(`Using collection: ${collectionName}`);
 
     // 1. Fetch existing documents for comparison
-    console.log('Fetching existing documents from ChromaDB...');
+    logger.log('Fetching existing documents from ChromaDB...');
     const existingDocs = await collection.get({ include: ["metadatas"] });
     const existingDocsMap = new Map();
 
     existingDocs.ids.forEach((id, index) => {
         existingDocsMap.set(id, existingDocs.metadatas[index].hash);
     });
-    console.log(`Found ${existingDocsMap.size} existing documents.`);
+    logger.log(`Found ${existingDocsMap.size} existing documents.`);
 
     // 2. Prepare for diffing
     const chunksToProcess = [];
@@ -296,19 +297,19 @@ async function embedKnowledgeBase() {
 
     const idsToDelete = existingDocs.ids.filter(id => !allIds.has(id));
 
-    console.log(`${chunksToProcess.length} chunks to add or update.`);
-    console.log(`${idsToDelete.length} chunks to delete.`);
+    logger.log(`${chunksToProcess.length} chunks to add or update.`);
+    logger.log(`${idsToDelete.length} chunks to delete.`);
 
     // 4. Perform deletions
     if (idsToDelete.length > 0) {
         await collection.delete({ ids: idsToDelete });
-        console.log(`Deleted ${idsToDelete.length} stale chunks.`);
+        logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
     }
 
     // 5. Process additions and updates
     if (chunksToProcess.length === 0) {
         const message = 'No changes detected. Knowledge base is up to date.';
-        console.log(message);
+        logger.log(message);
         return { message };
     }
 
@@ -317,9 +318,9 @@ async function embedKnowledgeBase() {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: aiConfig.knowledgeBase.embeddingModel });
-    console.log(`Initialized Google AI embedding model: ${aiConfig.knowledgeBase.embeddingModel}.`);
+    logger.log(`Initialized Google AI embedding model: ${aiConfig.knowledgeBase.embeddingModel}.`);
 
-    console.log('Embedding chunks...');
+    logger.log('Embedding chunks...');
     const batchSize = aiConfig.knowledgeBase.batchSize;
     const maxRetries = aiConfig.knowledgeBase.maxRetries;
 
@@ -353,7 +354,7 @@ async function embedKnowledgeBase() {
                     embeddings: embeddings,
                     metadatas: metadatas
                 });
-                console.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
+                logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
                 success = true;
             } catch (err) {
                 retries++;
@@ -369,7 +370,7 @@ async function embedKnowledgeBase() {
 
     const count = await collection.count();
     const message = `Embedding complete. Collection now contains ${count} items.`;
-    console.log(message);
+    logger.log(message);
     return { message };
 }
 
@@ -380,7 +381,7 @@ async function embedKnowledgeBase() {
  * @returns {Promise<object>} A promise that resolves to the final success message from the embedding step.
  */
 async function syncDatabase() {
-    console.log('Starting full database synchronization...');
+    logger.log('Starting full database synchronization...');
     await createKnowledgeBase();
     return await embedKnowledgeBase();
 }
@@ -397,12 +398,12 @@ async function deleteDatabase() {
     try {
         await dbClient.deleteCollection({ name: collectionName });
         const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
-        console.log(message);
+        logger.log(message);
         return { message };
     } catch (error) {
         if (error.message.includes(`Collection ${collectionName} does not exist.`)) {
             const message = `Knowledge base collection '${collectionName}' did not exist. No action taken.`;
-            console.log(message);
+            logger.log(message);
             return { message };
         }
         throw error;
