@@ -1,37 +1,61 @@
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../../config.mjs';
-
-let embeddingModel = null;
-
-function getEmbeddingModel() {
-    if (embeddingModel) {
-        return embeddingModel;
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-        const error = new Error('The GEMINI_API_KEY environment variable must be set to use semantic search endpoints.');
-        error.status = 503;
-        error.code   = 'missing_gemini_api_key';
-        throw error;
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    embeddingModel = genAI.getGenerativeModel({model: aiConfig.knowledgeBase.embeddingModel});
-
-    return embeddingModel;
-}
+import Base                 from '../../../../../src/core/Base.mjs';
 
 /**
- * Creates an embedding vector for the provided text.
- * @param {String} text
- * @returns {Promise<number[]>}
+ * Service for creating embedding vectors for text.
+ * @class AI.mcp.server.memory.TextEmbeddingService
+ * @extends Neo.core.Base
+ * @singleton
  */
-export async function embedText(text) {
-    const model    = getEmbeddingModel();
-    const result   = await model.embedContent(text);
+class TextEmbeddingService extends Base {
+    static config = {
+        /**
+         * @member {String} className='AI.mcp.server.memory.TextEmbeddingService'
+         * @protected
+         */
+        className: 'AI.mcp.server.memory.TextEmbeddingService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {GoogleGenerativeAI|null} embeddingModel_=null
+         * @protected
+         * @reactive
+         */
+        embeddingModel_: null
+    }
 
-    return result.embedding.values;
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        const apiKey = process.env.GEMINI_API_KEY;
+
+        if (!apiKey) {
+            const error = new Error('The GEMINI_API_KEY environment variable must be set to use semantic search endpoints.');
+            error.status = 503;
+            error.code   = 'missing_gemini_api_key';
+            throw error;
+        }
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.knowledgeBase.embeddingModel});
+    }
+
+    /**
+     * Creates an embedding vector for the provided text.
+     * @param {String} text
+     * @returns {Promise<number[]>}
+     */
+    async embedText(text) {
+        const result = await this.embeddingModel.embedContent(text);
+        return result.embedding.values;
+    }
 }
+
+export default Neo.setupClass(TextEmbeddingService);

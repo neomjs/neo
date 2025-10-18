@@ -1,6 +1,6 @@
-import {embedText}   from './textEmbeddingService.mjs';
-import Base          from '../../../../../src/core/Base.mjs';
-import ChromaManager from './ChromaManager.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import ChromaManager        from './ChromaManager.mjs';
+import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
  * Service for handling deleting, listing, and querying session summaries.
@@ -91,7 +91,7 @@ class SummaryService extends Base {
      */
     async querySummaries({query, nResults, category}) {
         const collection = await ChromaManager.getSummaryCollection();
-        const embedding  = await embedText(query);
+        const embedding  = await TextEmbeddingService.embedText(query);
 
         const searchResult = await collection.query({
             queryEmbeddings: [embedding],

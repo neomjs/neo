@@ -1,6 +1,6 @@
-import {embedText}   from './textEmbeddingService.mjs';
-import Base          from '../../../../../src/core/Base.mjs';
-import ChromaManager from './ChromaManager.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import ChromaManager        from './ChromaManager.mjs';
+import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
@@ -36,7 +36,7 @@ class MemoryService extends Base {
         const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
         const timestamp    = new Date().toISOString();
         const memoryId     = `mem_${timestamp}`;
-        const embedding    = await embedText(combinedText);
+        const embedding    = await TextEmbeddingService.embedText(combinedText);
 
         await collection.add({
             ids: [memoryId],
@@ -106,7 +106,7 @@ class MemoryService extends Base {
      */
     async queryMemories({query, nResults, sessionId}) {
         const collection = await ChromaManager.getMemoryCollection();
-        const embedding  = await embedText(query);
+        const embedding  = await TextEmbeddingService.embedText(query);
 
         const searchResult = await collection.query({
             queryEmbeddings: [embedding],
