@@ -3,6 +3,7 @@ import {spawn}        from 'child_process';
 import aiConfig       from '../../config.mjs';
 import logger         from '../../logger.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
+import ChromaManager  from './ChromaManager.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Memory Core.
@@ -36,9 +37,7 @@ class DatabaseLifecycleService extends Base {
      */
     async isDbRunning() {
         try {
-            const { host, port } = aiConfig.memory;
-            const client = new ChromaClient({ host, port });
-            await client.heartbeat();
+            await ChromaManager.client.heartbeat();
             return true;
         } catch (e) {
             return false;
