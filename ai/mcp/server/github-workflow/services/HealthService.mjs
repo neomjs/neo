@@ -1,9 +1,9 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
+import aiConfig    from '../../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 
-const execAsync      = promisify(exec);
-const MIN_GH_VERSION = '2.0.0';
+const execAsync = promisify(exec);
 
 /**
  * Service for providing the health status of the GitHub workflow server.
@@ -40,14 +40,14 @@ class HealthService extends Base {
             const versionMatch = stdout.match(/gh version ([\d.]+)/);
             if (versionMatch) {
                 const currentVersion = versionMatch[1];
-                if (currentVersion >= MIN_GH_VERSION) {
+                if (currentVersion >= aiConfig.githubWorkflow.minGhVersion) {
                     return {installed: true, versionOk: true, version: currentVersion};
                 } else {
                     return {
                         installed: true,
                         versionOk: false,
                         version  : currentVersion,
-                        error    : `gh version (${currentVersion}) is outdated. Please upgrade to at least ${MIN_GH_VERSION}.`
+                        error    : `gh version (${currentVersion}) is outdated. Please upgrade to at least ${aiConfig.githubWorkflow.minGhVersion}.`
                     };
                 }
             }

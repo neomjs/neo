@@ -64,6 +64,16 @@ const aiConfig = {
         port: 8001
     },
     /**
+     * Configuration for the GitHub workflow server.
+     */
+    githubWorkflow: {
+        /**
+         * The minimum required version of the GitHub CLI (`gh`).
+         * @type {string}
+         */
+        minGhVersion: '2.0.0'
+    },
+    /**
      * Configuration for the project's main knowledge base.
      */
     knowledgeBase: {
