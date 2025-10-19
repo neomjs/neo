@@ -4,17 +4,17 @@ import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
- * @class AI.mcp.server.memory.MemoryService
+ * @class AI.mcp.server.memory-core.MemoryService
  * @extends Neo.core.Base
  * @singleton
  */
 class MemoryService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.MemoryService'
+         * @member {String} className='AI.mcp.server.memory-core.MemoryService'
          * @protected
          */
-        className: 'AI.mcp.server.memory.MemoryService',
+        className: 'AI.mcp.server.memory-core.MemoryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

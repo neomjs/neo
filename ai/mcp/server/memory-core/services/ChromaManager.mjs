@@ -4,17 +4,17 @@ import Base           from '../../../../../src/core/Base.mjs';
 
 /**
  * Simple manager around the Chroma client that lazily caches frequently used collections.
- * @class AI.mcp.server.memory.ChromaManager
+ * @class AI.mcp.server.memory-core.ChromaManager
  * @extends Neo.core.Base
  * @singleton
  */
 class ChromaManager extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.ChromaManager'
+         * @member {String} className='AI.mcp.server.memory-core.ChromaManager'
          * @protected
          */
-        className: 'AI.mcp.server.memory.ChromaManager',
+        className: 'AI.mcp.server.memory-core.ChromaManager',
         /**
          * @member {ChromaClient|null} client_=null
          * @protected

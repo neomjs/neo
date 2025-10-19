@@ -4,17 +4,17 @@ import Base           from '../../../../../src/core/Base.mjs';
 
 /**
  * Simple manager around the Chroma client that lazily caches the knowledge-base collection.
- * @class Neo.ai.mcp.server.knowledgebase.service.ChromaManager
+ * @class Neo.ai.mcp.server.knowledge-base.service.ChromaManager
  * @extends Neo.core.Base
  * @singleton
  */
 class ChromaManager extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledgebase.service.ChromaManager'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.ChromaManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledgebase.service.ChromaManager',
+        className: 'Neo.ai.mcp.server.knowledge-base.service.ChromaManager',
         /**
          * @member {ChromaClient|null} client_=null
          * @protected

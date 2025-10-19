@@ -4,17 +4,17 @@ import Base                 from '../../../../../src/core/Base.mjs';
 
 /**
  * Service for creating embedding vectors for text.
- * @class AI.mcp.server.memory.TextEmbeddingService
+ * @class AI.mcp.server.memory-core.TextEmbeddingService
  * @extends Neo.core.Base
  * @singleton
  */
 class TextEmbeddingService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.TextEmbeddingService'
+         * @member {String} className='AI.mcp.server.memory-core.TextEmbeddingService'
          * @protected
          */
-        className: 'AI.mcp.server.memory.TextEmbeddingService',
+        className: 'AI.mcp.server.memory-core.TextEmbeddingService',
         /**
          * @member {Boolean} singleton=true
          * @protected

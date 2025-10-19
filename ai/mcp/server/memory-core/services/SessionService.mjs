@@ -5,17 +5,17 @@ import Base                 from '../../../../../src/core/Base.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
- * @class AI.mcp.server.memory.SessionService
+ * @class AI.mcp.server.memory-core.SessionService
  * @extends Neo.core.Base
  * @singleton
  */
 class SessionService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.SessionService'
+         * @member {String} className='AI.mcp.server.memory-core.SessionService'
          * @protected
          */
-        className: 'AI.mcp.server.memory.SessionService',
+        className: 'AI.mcp.server.memory-core.SessionService',
         /**
          * @member {Boolean} singleton=true
          * @protected

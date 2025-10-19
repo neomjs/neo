@@ -8,17 +8,17 @@ import ChromaManager from './ChromaManager.mjs';
 
 /**
  * Service for exporting and importing memory core data.
- * @class AI.mcp.server.memory.DatabaseService
+ * @class AI.mcp.server.memory-core.DatabaseService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.DatabaseService'
+         * @member {String} className='AI.mcp.server.memory-core.DatabaseService'
          * @protected
          */
-        className: 'AI.mcp.server.memory.DatabaseService',
+        className: 'AI.mcp.server.memory-core.DatabaseService',
         /**
          * @member {Boolean} singleton=true
          * @protected

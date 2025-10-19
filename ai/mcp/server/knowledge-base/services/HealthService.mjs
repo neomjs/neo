@@ -5,17 +5,17 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
  * Service for providing the health status of the knowledge base server.
- * @class Neo.ai.mcp.server.knowledgebase.service.HealthService
+ * @class Neo.ai.mcp.server.knowledge-base.service.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledgebase.service.HealthService'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.HealthService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledgebase.service.HealthService',
+        className: 'Neo.ai.mcp.server.knowledge-base.service.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected

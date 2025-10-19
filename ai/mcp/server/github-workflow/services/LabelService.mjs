@@ -6,17 +6,17 @@ const execAsync = promisify(exec);
 
 /**
  * Service for interacting with GitHub labels via the `gh` CLI.
- * @class Neo.ai.mcp.server.github.LabelService
+ * @class Neo.ai.mcp.server.github-workflow.LabelService
  * @extends Neo.core.Base
  * @singleton
  */
 class LabelService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github.LabelService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.LabelService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github.LabelService',
+        className: 'Neo.ai.mcp.server.github-workflow.LabelService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -4,17 +4,17 @@ import ChromaManager from './ChromaManager.mjs';
 /**
  * This service provides methods for retrieving documents from the knowledge base.
  * It uses the ChromaManager to interact with the underlying ChromaDB collection.
- * @class Neo.ai.mcp.server.knowledgebase.service.DocumentService
+ * @class Neo.ai.mcp.server.knowledge-base.service.DocumentService
  * @extends Neo.core.Base
  * @singleton
  */
 class DocumentService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledgebase.service.DocumentService'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.DocumentService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledgebase.service.DocumentService',
+        className: 'Neo.ai.mcp.server.knowledge-base.service.DocumentService',
         /**
          * @member {Boolean} singleton=true
          * @protected

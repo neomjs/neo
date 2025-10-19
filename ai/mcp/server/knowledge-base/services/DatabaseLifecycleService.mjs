@@ -7,7 +7,7 @@ import Observable     from '../../../../../src/core/Observable.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Knowledge Base.
- * @class Neo.ai.mcp.server.knowledgebase.service.DatabaseLifecycleService
+ * @class Neo.ai.mcp.server.knowledge-base.service.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
@@ -21,10 +21,10 @@ class DatabaseLifecycleService extends Base {
 
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledgebase.service.DatabaseLifecycleService'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.DatabaseLifecycleService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledgebase.service.DatabaseLifecycleService',
+        className: 'Neo.ai.mcp.server.knowledge-base.service.DatabaseLifecycleService',
         /**
          * Holds the child process object for the ChromaDB server.
          * @member {ChildProcess|null} chromaProcess=null

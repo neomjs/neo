@@ -5,17 +5,17 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
  * Service for providing the health status of the memory core server.
- * @class AI.mcp.server.memory.HealthService
+ * @class AI.mcp.server.memory-core.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.HealthService'
+         * @member {String} className='AI.mcp.server.memory-core.HealthService'
          * @protected
          */
-        className: 'AI.mcp.server.memory.HealthService',
+        className: 'AI.mcp.server.memory-core.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -6,17 +6,17 @@ const execAsync = promisify(exec);
 
 /**
  * Service for interacting with GitHub Pull Requests via the `gh` CLI.
- * @class Neo.ai.mcp.server.github.PullRequestService
+ * @class Neo.ai.mcp.server.github-workflow.PullRequestService
  * @extends Neo.core.Base
  * @singleton
  */
 class PullRequestService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github.PullRequestService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.PullRequestService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github.PullRequestService',
+        className: 'Neo.ai.mcp.server.github-workflow.PullRequestService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -10,17 +10,17 @@ const execAsync = promisify(exec);
  * Its primary purpose is to verify the server's critical dependency: the GitHub CLI (`gh`).
  * It performs a series of checks for installation, authentication, and version compatibility,
  * then consolidates these checks into a single, comprehensive health status object.
- * @class Neo.ai.mcp.server.github.HealthService
+ * @class Neo.ai.mcp.server.github-workflow.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github.HealthService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.HealthService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github.HealthService',
+        className: 'Neo.ai.mcp.server.github-workflow.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected

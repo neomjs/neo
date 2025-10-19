@@ -7,7 +7,7 @@ import Observable     from '../../../../../src/core/Observable.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Memory Core.
- * @class AI.mcp.server.memory.DatabaseLifecycleService
+ * @class AI.mcp.server.memory-core.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
@@ -21,10 +21,10 @@ class DatabaseLifecycleService extends Base {
 
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory.DatabaseLifecycleService'
+         * @member {String} className='AI.mcp.server.memory-core.DatabaseLifecycleService'
          * @protected
          */
-        className: 'AI.mcp.server.memory.DatabaseLifecycleService',
+        className: 'AI.mcp.server.memory-core.DatabaseLifecycleService',
         /**
          * Holds the child process object for the ChromaDB server.
          * @member {ChildProcess|null} chromaProcess=null

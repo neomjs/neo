@@ -7,17 +7,17 @@ const execAsync = promisify(exec);
 /**
  * Service for interacting with GitHub issues via the `gh` CLI.
  * This service will be expanded to handle more complex 2-way synchronization in the future.
- * @class Neo.ai.mcp.server.github.IssueService
+ * @class Neo.ai.mcp.server.github-workflow.IssueService
  * @extends Neo.core.Base
  * @singleton
  */
 class IssueService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github.IssueService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.IssueService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github.IssueService',
+        className: 'Neo.ai.mcp.server.github-workflow.IssueService',
         /**
          * @member {Boolean} singleton=true
          * @protected
