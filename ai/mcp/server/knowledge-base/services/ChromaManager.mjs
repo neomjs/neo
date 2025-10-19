@@ -74,7 +74,7 @@ class ChromaManager extends Base {
      * @returns {Promise<{heartbeat: number, knowledgeBaseCollection: string}>}
      */
     async checkConnectivity() {
-        const heartbeat = await this.client.heartbeat();
+        const heartbeat  = await this.client.heartbeat();
         const collection = await this.getKnowledgeBaseCollection();
 
         return {

@@ -2,7 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import HealthService from './HealthService.mjs';
 import DatabaseService from './DatabaseService.mjs';
-import * as queryService from './queryService.mjs';
+import QueryService from './QueryService.mjs';
 import DocumentService from './DocumentService.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import { initialize, listTools, callTool } from '../../toolService.mjs';
@@ -17,7 +17,7 @@ const serviceMapping = {
     create_knowledge_base: DatabaseService.createKnowledgeBase,
     embed_knowledge_base : DatabaseService.embedKnowledgeBase,
     delete_database      : DatabaseService.deleteDatabase,
-    query_documents      : queryService.queryDocuments,
+    query_documents      : QueryService.queryDocuments,
     list_documents       : DocumentService.listDocuments,
     get_document_by_id   : DocumentService.getDocumentById,
     start_database       : DatabaseLifecycleService.start_database,
