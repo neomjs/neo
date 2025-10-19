@@ -1,14 +1,14 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import HealthService from './HealthService.mjs';
-import DatabaseService from './DatabaseService.mjs';
-import QueryService from './QueryService.mjs';
-import DocumentService from './DocumentService.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import { initialize, listTools, callTool } from '../../toolService.mjs';
+import path                              from 'path';
+import {fileURLToPath}                   from 'url';
+import DatabaseService                   from './DatabaseService.mjs';
+import DatabaseLifecycleService          from './DatabaseLifecycleService.mjs';
+import DocumentService                   from './DocumentService.mjs';
+import HealthService                     from './HealthService.mjs';
+import QueryService                      from './QueryService.mjs';
+import {initialize, listTools, callTool} from '../../toolService.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename      = fileURLToPath(import.meta.url);
+const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
