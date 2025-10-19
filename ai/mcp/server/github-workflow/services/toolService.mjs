@@ -2,7 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import HealthService from './HealthService.mjs';
 import IssueService from './IssueService.mjs';
-import * as labelService from './labelService.mjs';
+import LabelService from './LabelService.mjs';
 import * as pullRequestService from './pullRequestService.mjs';
 import { initialize, listTools, callTool } from '../../toolService.mjs';
 
@@ -17,7 +17,7 @@ const serviceMapping = {
     get_conversation     : pullRequestService.getConversation,
     get_pull_request_diff: pullRequestService.getPullRequestDiff,
     healthcheck          : HealthService.healthcheck,
-    list_labels          : labelService.listLabels,
+    list_labels          : LabelService.listLabels,
     list_pull_requests   : pullRequestService.listPullRequests,
     remove_labels        : IssueService.removeLabels
 };
