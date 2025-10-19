@@ -1,7 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as healthService from './healthService.mjs';
-import * as databaseService from './databaseService.mjs';
+import DatabaseService from './DatabaseService.mjs';
 import * as queryService from './queryService.mjs';
 import * as documentService from './documentService.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
@@ -13,10 +13,10 @@ const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
     healthcheck          : healthService.healthcheck,
-    sync_database        : databaseService.syncDatabase,
-    create_knowledge_base: databaseService.createKnowledgeBase,
-    embed_knowledge_base : databaseService.embedKnowledgeBase,
-    delete_database      : databaseService.deleteDatabase,
+    sync_database        : DatabaseService.syncDatabase,
+    create_knowledge_base: DatabaseService.createKnowledgeBase,
+    embed_knowledge_base : DatabaseService.embedKnowledgeBase,
+    delete_database      : DatabaseService.deleteDatabase,
     query_documents      : queryService.queryDocuments,
     list_documents       : documentService.listDocuments,
     get_document_by_id   : documentService.getDocumentById,
