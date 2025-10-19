@@ -1,6 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import * as healthService from './healthService.mjs';
+import HealthService from './HealthService.mjs';
 import * as issueService from './issueService.mjs';
 import * as labelService from './labelService.mjs';
 import * as pullRequestService from './pullRequestService.mjs';
@@ -16,7 +16,7 @@ const serviceMapping = {
     create_comment       : pullRequestService.createComment,
     get_conversation     : pullRequestService.getConversation,
     get_pull_request_diff: pullRequestService.getPullRequestDiff,
-    health_service       : healthService.buildHealthResponse(),
+    healthcheck          : HealthService.healthcheck,
     list_labels          : labelService.listLabels,
     list_pull_requests   : pullRequestService.listPullRequests,
     remove_labels        : issueService.removeLabels
