@@ -393,22 +393,36 @@ components:
                   example: true
                 pid:
                   type: integer
+                  nullable: true
                   example: 12345
+                managed:
+                  type: boolean
+                  example: true
             connection:
               type: object
               properties:
                 connected:
                   type: boolean
                   example: true
-                collectionName:
-                  type: string
-                  example: "neo-knowledge-base"
-                collectionExists:
-                  type: boolean
-                  example: true
-                documentCount:
-                  type: integer
-                  example: 1234
+                collection:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "neo-knowledge-base"
+                    exists:
+                      type: boolean
+                      example: true
+                    count:
+                      type: integer
+                      example: 1234
+        version:
+          type: string
+          example: "1.0.0"
+        uptime:
+          type: number
+          description: Server uptime in seconds
+          example: 3600
 
     DatabaseLifecycleResponse:
       type: object
