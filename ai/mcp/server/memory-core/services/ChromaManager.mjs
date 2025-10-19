@@ -111,10 +111,15 @@ class ChromaManager extends Base {
         if (!this.memoryCollection) {
             const {collectionName} = aiConfig.memory;
 
+            const originalWarn = console.warn;
+            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
+
             this.memoryCollection = await this.client.getCollection({
                 name             : collectionName,
                 embeddingFunction: aiConfig.dummyEmbeddingFunction
             });
+
+            console.warn = originalWarn;
         }
 
         return this.memoryCollection;
@@ -127,10 +132,15 @@ class ChromaManager extends Base {
         if (!this.summaryCollection) {
             const {collectionName} = aiConfig.sessions;
 
+            const originalWarn = console.warn;
+            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
+
             this.summaryCollection = await this.client.getOrCreateCollection({
                 name             : collectionName,
                 embeddingFunction: aiConfig.dummyEmbeddingFunction
             });
+
+            console.warn = originalWarn;
         }
 
         return this.summaryCollection;

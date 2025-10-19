@@ -90,10 +90,15 @@ class ChromaManager extends Base {
         if (!this.knowledgeBaseCollection) {
             const {collectionName} = aiConfig.knowledgeBase;
 
+            const originalWarn = console.warn;
+            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
+
             this.knowledgeBaseCollection = await this.client.getOrCreateCollection({
                 name             : collectionName,
                 embeddingFunction: aiConfig.dummyEmbeddingFunction
             });
+
+            console.warn = originalWarn;
         }
 
         return this.knowledgeBaseCollection;
