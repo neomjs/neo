@@ -46,7 +46,7 @@ const aiConfig = {
          * The name of the ChromaDB collection for the knowledge base.
          * @type {string}
          */
-        collectionName: 'neo_knowledge',
+        collectionName: 'neo-knowledge-base',
         /**
          * The name of the Google Generative AI model for text embeddings.
          * @type {string}
