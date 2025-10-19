@@ -67,7 +67,7 @@ class DatabaseLifecycleService extends Base {
         }
 
         return new Promise((resolve, reject) => {
-            const { port, path: dbPath } = aiConfig.memory;
+            const { port, path: dbPath } = aiConfig.memoryCore.memoryDb;
             const args = ['run', '--path', dbPath, '--port', port.toString()];
 
             const spawnedProcess = spawn('chroma', args, {

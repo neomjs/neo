@@ -52,12 +52,12 @@ class HealthService extends Base {
                         connected: true,
                         collections: {
                             memories: {
-                                name  : aiConfig.memory.collectionName,
+                                name  : aiConfig.memoryCore.memoryDb.collectionName,
                                 exists: !!memoryCollection,
                                 count : memoryCount
                             },
                             summaries: {
-                                name  : aiConfig.sessions.collectionName,
+                                name  : aiConfig.memoryCore.sessionDb.collectionName,
                                 exists: !!summaryCollection,
                                 count : summaryCount
                             }

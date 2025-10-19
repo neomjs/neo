@@ -63,7 +63,7 @@ class ChromaManager extends Base {
         super.construct(config);
 
         // The client is created here, but the connection is established in initAsync
-        const {host, port} = aiConfig.memory;
+        const {host, port} = aiConfig.memoryCore.memoryDb;
         this.client = new ChromaClient({host, port, ssl: false});
     }
 
@@ -109,7 +109,7 @@ class ChromaManager extends Base {
      */
     async getMemoryCollection() {
         if (!this.memoryCollection) {
-            const {collectionName} = aiConfig.memory;
+            const {collectionName} = aiConfig.memoryCore.memoryDb;
 
             const originalWarn = console.warn;
             console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
@@ -130,7 +130,7 @@ class ChromaManager extends Base {
      */
     async getSummaryCollection() {
         if (!this.summaryCollection) {
-            const {collectionName} = aiConfig.sessions;
+            const {collectionName} = aiConfig.memoryCore.sessionDb;
 
             const originalWarn = console.warn;
             console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client

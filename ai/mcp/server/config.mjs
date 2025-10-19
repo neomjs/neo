@@ -14,54 +14,59 @@ const aiConfig = {
         generate: () => null
     },
     /**
-     * Configuration for the AI agent's persistent memory database.
+     * Configuration for the Memory Core server.
      */
-    memory: {
+    memoryCore: {
         /**
-         * The name of the ChromaDB collection for agent memories.
-         * @type {string}
+         * Configuration for the AI agent's persistent memory database.
          */
-        collectionName: 'neo-agent-memory',
+        memoryDb: {
+            /**
+             * The name of the ChromaDB collection for agent memories.
+             * @type {string}
+             */
+            collectionName: 'neo-agent-memory',
+            /**
+             * The hostname of the ChromaDB server for agent memory.
+             * @type {string}
+             */
+            host: 'localhost',
+            /**
+             * The port the ChromaDB server for agent memory is listening on.
+             * @type {number}
+             */
+            port: 8001,
+            /**
+             * The local persistence path for the agent memory server.
+             * @type {string}
+             */
+            path: path.resolve(process.cwd(), './chroma-memory'),
+            /**
+             * The path to store memory backups.
+             * @type {string}
+             */
+            backupPath: path.resolve(process.cwd(), 'dist/memory-backups')
+        },
         /**
-         * The hostname of the ChromaDB server for agent memory.
-         * @type {string}
+         * Configuration for the AI agent's session summary database.
          */
-        host: 'localhost',
-        /**
-         * The port the ChromaDB server for agent memory is listening on.
-         * @type {number}
-         */
-        port: 8001,
-        /**
-         * The local persistence path for the agent memory server.
-         * @type {string}
-         */
-        path: path.resolve(process.cwd(), './chroma-memory'),
-        /**
-         * The path to store memory backups.
-         * @type {string}
-         */
-        backupPath: path.resolve(process.cwd(), 'dist/memory-backups')
-    },
-    /**
-     * Configuration for the AI agent's session summary database.
-     */
-    sessions: {
-        /**
-         * The name of the ChromaDB collection for session summaries.
-         * @type {string}
-         */
-        collectionName: 'neo-agent-sessions',
-        /**
-         * The hostname of the ChromaDB server for session summaries.
-         * @type {string}
-         */
-        host: 'localhost',
-        /**
-         * The port the ChromaDB server for session summaries is listening on.
-         * @type {number}
-         */
-        port: 8001
+        sessionDb: {
+            /**
+             * The name of the ChromaDB collection for session summaries.
+             * @type {string}
+             */
+            collectionName: 'neo-agent-sessions',
+            /**
+             * The hostname of the ChromaDB server for session summaries.
+             * @type {string}
+             */
+            host: 'localhost',
+            /**
+             * The port the ChromaDB server for session summaries is listening on.
+             * @type {number}
+             */
+            port: 8001
+        }
     },
     /**
      * Configuration for the GitHub workflow server.
