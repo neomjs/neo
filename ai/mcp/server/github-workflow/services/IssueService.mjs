@@ -38,7 +38,11 @@ class IssueService extends Base {
             return {message: `Successfully added labels to issue #${issueNumber}`, details: stdout.trim()};
         } catch (error) {
             console.error(`Error adding labels to issue #${issueNumber}:`, error);
-            throw new Error(`Failed to add labels to issue #${issueNumber}.`);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `gh issue edit ${issueNumber} --add-label failed with exit code ${error.code}`,
+                code   : 'GH_CLI_ERROR'
+            };
         }
     }
 
@@ -46,7 +50,7 @@ class IssueService extends Base {
      * Removes labels from an issue or pull request.
      * @param {number} issueNumber - The number of the issue or PR.
      * @param {string[]} labels - An array of labels to remove.
-     * @returns {Promise<object>} A promise that resolves to a success message.
+     * @returns {Promise<object>} A promise that resolves to a success or error object.
      */
     async removeLabels(issueNumber, labels) {
         const labelString = labels.join(',');
@@ -55,7 +59,11 @@ class IssueService extends Base {
             return {message: `Successfully removed labels from issue #${issueNumber}`, details: stdout.trim()};
         } catch (error) {
             console.error(`Error removing labels from issue #${issueNumber}:`, error);
-            throw new Error(`Failed to remove labels from issue #${issueNumber}.`);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `gh issue edit ${issueNumber} --remove-label failed with exit code ${error.code}`,
+                code   : 'GH_CLI_ERROR'
+            };
         }
     }
 }
