@@ -39,5 +39,5 @@ startup to handle unhealthy states gracefully.
 
 - Performance: Avoids redundant health checks
 - Resilience: Server doesn't crash on startup if `gh` missing
-- Recovery: User can run `gh auth login` and tools will work (via cache expiry)
+- Recovery: User can run `gh auth login` and tools will work
 - UX: Clear errors guide users to fix issues
