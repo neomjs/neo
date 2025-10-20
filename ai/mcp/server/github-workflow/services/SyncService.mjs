@@ -209,8 +209,15 @@ class SyncService extends Base {
      */
     async #pullFromGitHub(metadata) {
         logger.info('📥 Fetching issues from GitHub...');
-        const allIssues = await this.#ghCommand('issue list --limit 10000 --state all --json number,title,state,labels,assignees,milestone,createdAt,updatedAt,closedAt,url,author,body');
-        logger.info(`Found ${allIssues.length} issues`);
+        let allIssues = await this.#ghCommand('issue list --limit 10000 --state all --json number,title,state,labels,assignees,milestone,createdAt,updatedAt,closedAt,url,author,body');
+        logger.info(`Found ${allIssues.length} total issues`);
+
+        const startDate = new Date(issueSyncConfig.syncStartDate);
+        allIssues = allIssues.filter(issue => {
+            return new Date(issue.createdAt) >= startDate || new Date(issue.updatedAt) >= startDate;
+        });
+
+        logger.info(`Processing ${allIssues.length} issues since ${issueSyncConfig.syncStartDate}`);
 
         const newMetadata = {
             issues: {},
