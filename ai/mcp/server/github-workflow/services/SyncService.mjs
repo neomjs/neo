@@ -163,16 +163,15 @@ class SyncService extends Base {
 
         if (issue.state === 'CLOSED') {
             const closed = new Date(issue.closedAt);
-            let version = issueSyncConfig.releases[issueSyncConfig.releases.length - 1]?.version || 'unknown';
+            let version = this.releases.length > 0 ? this.releases[this.releases.length - 1].tagName : 'unknown';
 
             if (issue.milestone?.title) {
                 version = issue.milestone.title;
             } else {
-                for (const release of issueSyncConfig.releases) {
-                    if (closed >= new Date(release.cutoffDate)) {
-                        version = release.version;
-                        break;
-                    }
+                // Find the first release that was published after the issue was closed
+                const release = this.releases.find(r => new Date(r.publishedAt) > closed);
+                if (release) {
+                    version = release.tagName;
                 }
             }
             return path.join(issueSyncConfig.archiveDir, version, `${number}.md`);
