@@ -21,7 +21,41 @@ const aiConfig = {
          * The minimum required version of the GitHub CLI (`gh`).
          * @type {string}
          */
-        minGhVersion: '2.0.0'
+        minGhVersion: '2.0.0',
+        /**
+         * Configuration for the issue synchronization service.
+         */
+        issueSync: {
+            /**
+             * The path to the directory for active issues.
+             * @type {string}
+             */
+            issuesDir: path.resolve(process.cwd(), '.github', 'ISSUES'),
+            /**
+             * The path to the directory for archived issues.
+             * @type {string}
+             */
+            archiveDir: path.resolve(process.cwd(), '.github', 'ISSUE_ARCHIVE'),
+            /**
+             * The path to the synchronization metadata file.
+             * @type {string}
+             */
+            metadataFile: path.resolve(process.cwd(), '.github', '.sync-metadata.json'),
+            /**
+             * Labels that, when present on an issue, will cause it to be ignored and deleted locally.
+             * @type {string[]}
+             */
+            droppedLabels: ['dropped', 'wontfix', 'duplicate'],
+            /**
+             * The release schedule used for archiving closed issues. Must be sorted newest first.
+             * @type {Array<{version: string, cutoffDate: string}>}
+             */
+            releases: [
+                { version: 'v11.0', cutoffDate: '2025-11-01' },
+                { version: 'v10.9', cutoffDate: '2025-08-01' },
+                { version: 'v10.8', cutoffDate: '2025-05-01' },
+            ]
+        }
     },
     /**
      * Configuration for the project's main knowledge base.

@@ -1,3 +1,4 @@
+import aiConfig    from '../../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 import fs          from 'fs/promises';
 import matter      from 'gray-matter';
@@ -6,10 +7,7 @@ import {exec}      from 'child_process';
 import {promisify} from 'util';
 
 const execAsync = promisify(exec);
-
-const metadataPath = path.resolve(process.cwd(), '.github', '.sync-metadata.json');
-const issuesDir    = path.resolve(process.cwd(), '.github', 'ISSUES');
-const archiveDir   = path.resolve(process.cwd(), '.github', 'ISSUE_ARCHIVE');
+const issueSyncConfig = aiConfig.githubWorkflow.issueSync;
 
 /**
  * @class Neo.ai.mcp.server.github-workflow.SyncService
@@ -27,22 +25,7 @@ class SyncService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String[]} droppedLabels=['dropped', 'wontfix', 'duplicate']
-         * @protected
-         */
-        droppedLabels: ['dropped', 'wontfix', 'duplicate'],
-        /**
-         * Defines the release schedule for archiving. Newest first.
-         * @member {Object[]} releases
-         * @protected
-         */
-        releases: [
-            { version: 'v11.0', cutoffDate: '2025-11-01' },
-            { version: 'v10.9', cutoffDate: '2025-08-01' },
-            { version: 'v10.8', cutoffDate: '2025-05-01' },
-        ]
+        singleton: true
     }
 
     /**
@@ -145,30 +128,30 @@ class SyncService extends Base {
         const number = String(issue.number).padStart(4, '0');
         const labels = issue.labels.map(l => l.name.toLowerCase());
 
-        const isDropped = this.droppedLabels.some(label => labels.includes(label));
+        const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
         if (isDropped) {
             return null; // Dropped issues are not stored locally.
         }
 
         if (issue.state === 'OPEN') {
-            return path.join(issuesDir, `${number}.md`);
+            return path.join(issueSyncConfig.issuesDir, `${number}.md`);
         }
 
         if (issue.state === 'CLOSED') {
             const closed = new Date(issue.closedAt);
-            let version = this.releases[this.releases.length - 1]?.version || 'unknown';
+            let version = issueSyncConfig.releases[issueSyncConfig.releases.length - 1]?.version || 'unknown';
 
             if (issue.milestone?.title) {
                 version = issue.milestone.title;
             } else {
-                for (const release of this.releases) {
+                for (const release of issueSyncConfig.releases) {
                     if (closed >= new Date(release.cutoffDate)) {
                         version = release.version;
                         break;
                     }
                 }
             }
-            return path.join(archiveDir, version, `${number}.md`);
+            return path.join(issueSyncConfig.archiveDir, version, `${number}.md`);
         }
 
         return null;
@@ -181,7 +164,7 @@ class SyncService extends Base {
      */
     async #loadMetadata() {
         try {
-            const data = await fs.readFile(metadataPath, 'utf-8');
+            const data = await fs.readFile(issueSyncConfig.metadataFile, 'utf-8');
             return JSON.parse(data);
         } catch (error) {
             if (error.code === 'ENOENT') {
@@ -344,8 +327,8 @@ class SyncService extends Base {
             }
         };
 
-        await scanDir(issuesDir);
-        await scanDir(archiveDir);
+        await scanDir(issueSyncConfig.issuesDir);
+        await scanDir(issueSyncConfig.archiveDir);
 
         return localFiles;
     }
@@ -357,9 +340,9 @@ class SyncService extends Base {
      * @private
      */
     async #saveMetadata(metadata) {
-        const dir = path.dirname(metadataPath);
+        const dir = path.dirname(issueSyncConfig.metadataFile);
         await fs.mkdir(dir, { recursive: true });
-        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+        await fs.writeFile(issueSyncConfig.metadataFile, JSON.stringify(metadata, null, 2), 'utf-8');
     }
 }
 
