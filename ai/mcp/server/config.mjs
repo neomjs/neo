@@ -47,14 +47,10 @@ const aiConfig = {
              */
             droppedLabels: ['dropped', 'wontfix', 'duplicate'],
             /**
-             * The release schedule used for archiving closed issues. Must be sorted newest first.
-             * @type {Array<{version: string, cutoffDate: string}>}
+             * The date from which to start synchronizing issues and releases.
+             * @type {string}
              */
-            releases: [
-                { version: 'v11.0', cutoffDate: '2025-11-01' },
-                { version: 'v10.9', cutoffDate: '2025-08-01' },
-                { version: 'v10.8', cutoffDate: '2025-05-01' },
-            ]
+            syncStartDate: '2025-06-15T00:00:00Z'
         }
     },
     /**
