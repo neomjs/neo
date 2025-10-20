@@ -50,7 +50,12 @@ const aiConfig = {
              * The date from which to start synchronizing issues and releases.
              * @type {string}
              */
-            syncStartDate: '2025-06-15T00:00:00Z'
+            syncStartDate: '2025-06-15T00:00:00Z',
+            /**
+             * The path to the directory for release notes.
+             * @type {string}
+             */
+            releaseNotesDir: path.resolve(process.cwd(), '.github', 'RELEASE_NOTES')
         }
     },
     /**

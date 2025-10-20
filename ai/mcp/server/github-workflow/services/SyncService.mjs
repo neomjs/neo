@@ -50,7 +50,10 @@ class SyncService extends Base {
         // 2. Pull remote changes
         const newMetadata = await this.#pullFromGitHub(metadata);
 
-        // 3. Save metadata
+        // 3. Sync release notes
+        await this.#syncReleaseNotes();
+
+        // 4. Save metadata
         await this.#saveMetadata(newMetadata);
 
         const pushedCount = newMetadata.pushedCount || 0;
@@ -59,6 +62,27 @@ class SyncService extends Base {
         return {
             message: `Synchronization complete. Pushed ${pushedCount} local change(s).`
         };
+    }
+
+    /**
+     * Fetches release notes from GitHub and saves them as local Markdown files.
+     * @private
+     */
+    async #syncReleaseNotes() {
+        logger.info('📝 Syncing release notes...');
+        const releaseDir = issueSyncConfig.releaseNotesDir;
+        await fs.mkdir(releaseDir, { recursive: true });
+
+        for (const release of this.releases) {
+            try {
+                const releaseBody = await this.#ghCommand(`release view ${release.tagName} --json body -q .body`, false);
+                const filePath = path.join(releaseDir, `${release.tagName}.md`);
+                await fs.writeFile(filePath, releaseBody, 'utf-8');
+                logger.info(`✅ Synced release notes for ${release.tagName}`);
+            } catch (e) {
+                logger.warn(`⚠️ Could not sync release notes for ${release.tagName}.`);
+            }
+        }
     }
 
     /**
