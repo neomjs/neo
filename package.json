@@ -112,6 +112,7 @@
         "envinfo"                      : "^7.14.0",
         "esbuild"                      : "^0.25.10",
         "fs-extra"                     : "^11.3.2",
+        "gray-matter"                  : "^4.0.3",
         "highlightjs-line-numbers.js"  : "^2.9.0",
         "html-minifier-terser"         : "^7.2.0",
         "inquirer"                     : "^12.9.6",
