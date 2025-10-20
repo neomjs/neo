@@ -1,6 +1,7 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
 import Base        from '../../../../../src/core/Base.mjs';
+import logger      from '../../logger.mjs';
 
 const execAsync = promisify(exec);
 
@@ -46,7 +47,7 @@ class PullRequestService extends Base {
                 }))
             };
         } catch (error) {
-            console.error('Error fetching pull requests:', error);
+            logger.error('Error fetching pull requests:', error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh pr list failed with exit code ${error.code}`,
@@ -65,7 +66,7 @@ class PullRequestService extends Base {
             const {stdout} = await execAsync(`gh pr checkout ${prNumber}`);
             return {message: `Successfully checked out PR #${prNumber}`, details: stdout.trim()};
         } catch (error) {
-            console.error(`Error checking out PR #${prNumber}:`, error);
+            logger.error(`Error checking out PR #${prNumber}:`, error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
@@ -84,7 +85,7 @@ class PullRequestService extends Base {
             const {stdout} = await execAsync(`gh pr diff ${prNumber}`);
             return stdout;
         } catch (error) {
-            console.error(`Error getting diff for PR #${prNumber}:`, error);
+            logger.error(`Error getting diff for PR #${prNumber}:`, error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh pr diff ${prNumber} failed with exit code ${error.code}`,
@@ -104,7 +105,7 @@ class PullRequestService extends Base {
             const command = `gh pr comment ${prNumber} --body-file -`;
             const child = exec(command, (error, stdout, stderr) => {
                 if (error) {
-                    console.error(`Error creating comment on PR #${prNumber}:`, error);
+                    logger.error(`Error creating comment on PR #${prNumber}:`, error);
                     resolve({
                         error  : 'GitHub CLI command failed',
                         message: `gh pr comment ${prNumber} failed with exit code ${error.code}`,
@@ -131,7 +132,7 @@ class PullRequestService extends Base {
             const {stdout} = await execAsync(`gh pr view ${prNumber} --json title,body,comments`);
             return JSON.parse(stdout);
         } catch (error) {
-            console.error(`Error getting conversation for PR #${prNumber}:`, error);
+            logger.error(`Error getting conversation for PR #${prNumber}:`, error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh pr view ${prNumber} failed with exit code ${error.code}`,

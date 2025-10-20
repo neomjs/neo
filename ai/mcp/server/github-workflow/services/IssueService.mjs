@@ -1,6 +1,7 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
 import Base        from '../../../../../src/core/Base.mjs';
+import logger      from '../../logger.mjs';
 
 const execAsync = promisify(exec);
 
@@ -37,7 +38,7 @@ class IssueService extends Base {
             const {stdout} = await execAsync(`gh issue edit ${issueNumber} --add-label "${labelString}"`);
             return {message: `Successfully added labels to issue #${issueNumber}`, details: stdout.trim()};
         } catch (error) {
-            console.error(`Error adding labels to issue #${issueNumber}:`, error);
+            logger.error(`Error adding labels to issue #${issueNumber}:`, error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh issue edit ${issueNumber} --add-label failed with exit code ${error.code}`,
@@ -58,7 +59,7 @@ class IssueService extends Base {
             const {stdout} = await execAsync(`gh issue edit ${issueNumber} --remove-label "${labelString}"`);
             return {message: `Successfully removed labels from issue #${issueNumber}`, details: stdout.trim()};
         } catch (error) {
-            console.error(`Error removing labels from issue #${issueNumber}:`, error);
+            logger.error(`Error removing labels from issue #${issueNumber}:`, error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh issue edit ${issueNumber} --remove-label failed with exit code ${error.code}`,

@@ -1,16 +1,22 @@
 import aiConfig from './config.mjs';
 
 /**
- * A simple logger that only logs when the debug flag is enabled in the AI configuration.
- * This is to prevent logging to stdout in MCP servers, which can corrupt JSON-RPC messages.
- * stderr is fine.
+ * A simple logger that writes to stderr only when the global debug flag is enabled.
+ * This prevents corrupting the MCP stdio transport and keeps production output clean.
  */
-const logger = {
-    log: (...args) => {
+const logger = {};
+
+const createLogMethod = (level) => {
+    return (...args) => {
         if (aiConfig.debug) {
-            console.log(...args);
+            console.error(`[${level.toUpperCase()}]`, ...args);
         }
-    }
+    };
 };
+
+logger.debug = createLogMethod('debug');
+logger.info  = createLogMethod('info');
+logger.warn  = createLogMethod('warn');
+logger.error = createLogMethod('error');
 
 export default logger;

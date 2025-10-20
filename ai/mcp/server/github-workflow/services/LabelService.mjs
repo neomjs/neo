@@ -1,6 +1,7 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
 import Base        from '../../../../../src/core/Base.mjs';
+import logger      from '../../logger.mjs';
 
 const execAsync = promisify(exec);
 
@@ -37,7 +38,7 @@ class LabelService extends Base {
                 labels: labels
             };
         } catch (error) {
-            console.error('Error fetching labels:', error);
+            logger.error('Error fetching labels:', error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: `gh label list failed with exit code ${error.code}`,

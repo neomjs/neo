@@ -1,12 +1,13 @@
 import aiConfig    from '../../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 import fs          from 'fs/promises';
+import logger      from '../../logger.mjs';
 import matter      from 'gray-matter';
 import path        from 'path';
 import {exec}      from 'child_process';
 import {promisify} from 'util';
 
-const execAsync = promisify(exec);
+const execAsync       = promisify(exec);
 const issueSyncConfig = aiConfig.githubWorkflow.issueSync;
 
 /**
@@ -65,8 +66,8 @@ class SyncService extends Base {
             const { stdout } = await execAsync(`gh ${cmd}`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10 });
             return json ? JSON.parse(stdout) : stdout;
         } catch (error) {
-            console.error(`Error executing: gh ${cmd}`);
-            console.error(error.stderr || error.message);
+            logger.error(`Error executing: gh ${cmd}`);
+            logger.error(error.stderr || error.message);
             throw error;
         }
     }
@@ -184,9 +185,9 @@ class SyncService extends Base {
      * @private
      */
     async #pullFromGitHub(metadata) {
-        console.log('📥 Fetching issues from GitHub...');
+        logger.info('📥 Fetching issues from GitHub...');
         const allIssues = await this.#ghCommand('issue list --limit 10000 --state all --json number,title,state,labels,assignees,milestone,createdAt,updatedAt,closedAt,url,author,body');
-        console.log(`Found ${allIssues.length} issues`);
+        logger.info(`Found ${allIssues.length} issues`);
 
         const newMetadata = {
             issues: {},
@@ -205,7 +206,7 @@ class SyncService extends Base {
                 if (oldPath) {
                     try {
                         await fs.unlink(oldPath);
-                        console.log(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
+                        logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist, that's ok */ }
                 }
                 continue;
@@ -226,10 +227,10 @@ class SyncService extends Base {
                 if (oldIssue?.path && oldIssue.path !== targetPath) {
                     try {
                         await fs.unlink(oldIssue.path);
-                        console.log(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
+                        logger.info(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
                     } catch (e) { /* Old file might not exist */ }
                 } else {
-                    console.log(`✅ Updated #${issueNumber}: ${targetPath}`);
+                    logger.info(`✅ Updated #${issueNumber}: ${targetPath}`);
                 }
             }
 
@@ -251,9 +252,9 @@ class SyncService extends Base {
      * @private
      */
     async #pushToGitHub(metadata) {
-        console.log('📤 Checking for local changes to push...');
+        logger.info('📤 Checking for local changes to push...');
         if (!metadata.last_sync) {
-            console.log('✨ No previous sync found, skipping push.');
+            logger.info('✨ No previous sync found, skipping push.');
             return;
         }
 
@@ -269,7 +270,7 @@ class SyncService extends Base {
 
                 if (!issueNumber) continue;
 
-                console.log(`📝 Local changes detected for #${issueNumber}`);
+                logger.info(`📝 Local changes detected for #${issueNumber}`);
 
                 try {
                     const bodyWithoutComments = parsed.content.split('## Comments')[0].trim();
@@ -285,22 +286,22 @@ class SyncService extends Base {
                     await fs.writeFile(bodyFilePath, cleanBody, 'utf-8');
 
                     await this.#ghCommand(`issue edit ${issueNumber} --title "${title.replace(/"/g, '\\"')}" --body-file "${bodyFilePath}"`, false);
-                    
+
                     await fs.unlink(bodyFilePath);
 
-                    console.log(`✅ Updated GitHub issue #${issueNumber}`);
+                    logger.info(`✅ Updated GitHub issue #${issueNumber}`);
                     pushedCount++;
                 } catch (e) {
-                    console.warn(`⚠️ Could not push changes for #${issueNumber}. Issue may not exist on GitHub.`);
+                    logger.warn(`⚠️ Could not push changes for #${issueNumber}. Issue may not exist on GitHub.`);
                 }
             }
         }
 
         metadata.pushedCount = pushedCount;
         if (pushedCount > 0) {
-            console.log(`📤 Pushed ${pushedCount} local change(s) to GitHub`);
+            logger.info(`📤 Pushed ${pushedCount} local change(s) to GitHub`);
         } else {
-            console.log('✨ No local changes to push');
+            logger.info('✨ No local changes to push');
         }
     }
 
