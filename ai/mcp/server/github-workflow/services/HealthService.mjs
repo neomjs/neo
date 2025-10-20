@@ -30,6 +30,24 @@ class HealthService extends Base {
     }
 
     /**
+     * Checks if the user is properly authenticated with GitHub.
+     * @returns {Promise<{authenticated: boolean, error?: string}>}
+     * @private
+     */
+    async #checkGhAuth() {
+        try {
+            const { stdout } = await execAsync('gh auth status');
+            if (stdout.includes('Logged in to github.com')) {
+                return { authenticated: true };
+            } else {
+                return { authenticated: false, error: 'Not logged in to github.com. Please run `gh auth login`.' };
+            }
+        } catch (e) {
+            return { authenticated: false, error: 'Failed to check GitHub authentication status.' };
+        }
+    }
+
+    /**
      * Checks if the GitHub CLI is installed and if its version meets the minimum requirement.
      * This single check is more efficient than performing two separate commands.
      * @returns {Promise<{installed: boolean, versionOk: boolean, version: string|null, error?: string}>}
