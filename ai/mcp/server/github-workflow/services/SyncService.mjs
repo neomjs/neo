@@ -30,10 +30,18 @@ class SyncService extends Base {
     }
 
     /**
+     * @member {Array|null} releases=null
+     * @protected
+     */
+    releases = null;
+
+    /**
      * The main sync orchestration logic.
      * @returns {Promise<object>}
      */
     async runFullSync() {
+        await this.#fetchAndCacheReleases();
+
         const metadata = await this.#loadMetadata();
 
         // 1. Push local changes
@@ -51,6 +59,21 @@ class SyncService extends Base {
         return {
             message: `Synchronization complete. Pushed ${pushedCount} local change(s).`
         };
+    }
+
+    /**
+     * Fetches all releases from GitHub, filters them by the syncStartDate, and caches them.
+     * @private
+     */
+    async #fetchAndCacheReleases() {
+        logger.info('Fetching and caching releases...');
+        const allReleases = await this.#ghCommand('release list --json tagName,publishedAt --limit 1000');
+        
+        this.releases = allReleases
+            .filter(release => new Date(release.publishedAt) >= new Date(issueSyncConfig.syncStartDate))
+            .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+        logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
     }
 
     /**
