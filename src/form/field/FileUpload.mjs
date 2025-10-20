@@ -575,7 +575,6 @@ class FileUpload extends Field {
 
             // For stored documents, we need to tell the server the document
             // is not required.
-            case 'processing':
             case 'downloadable':
             case 'not-downloadable':
                 me.deleteDocument();
