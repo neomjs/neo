@@ -41,7 +41,6 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
 
         const result = { tools: mcpTools };
 
-        // `nextCursor` must not have a null or undefined value
         if (nextCursor) {
             result.nextCursor = nextCursor;
         }
@@ -58,6 +57,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     try {
         logger.debug(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
+
+        // Perform health check before tool execution (with caching)
+        try {
+            await HealthService.ensureHealthy();
+        } catch (healthError) {
+            logger.error(`[MCP] Health check failed for tool ${name}:`, healthError.message);
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Cannot execute ${name}: ${healthError.message}`
+                }],
+                isError: true
+            };
+        }
 
         const result = await callTool(name, args);
 
@@ -103,19 +116,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the stdio transport
 async function main() {
-    // Perform a health check before starting the server
+    // Perform initial health check (non-blocking)
     const health = await HealthService.healthcheck();
 
     if (health.status === 'unhealthy') {
-        logger.error('Server startup failed: Unhealthy environment.');
-        health.githubCli.details.forEach(detail => logger.error(detail));
-        process.exit(1);
+        logger.warn('⚠️  [Startup] GitHub CLI is not available. Server will start but tools will fail until resolved.');
+        health.githubCli.details.forEach(detail => logger.warn(`    ${detail}`));
+        logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
+    } else if (health.status === 'degraded') {
+        logger.warn('⚠️  [Startup] GitHub CLI is partially configured. Some operations may fail.');
+        health.githubCli.details.forEach(detail => logger.warn(`    ${detail}`));
+    } else {
+        logger.info('✅ [Startup] GitHub CLI health check passed');
     }
 
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    // Log to stderr (stdout is reserved for MCP protocol)
     logger.info('[neo-github-workflow MCP] Server started on stdio transport');
     logger.info('[neo-github-workflow MCP] Available tools loaded from OpenAPI spec');
 }
