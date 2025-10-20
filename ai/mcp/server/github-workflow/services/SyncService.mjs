@@ -92,7 +92,7 @@ class SyncService extends Base {
     async #fetchAndCacheReleases() {
         logger.info('Fetching and caching releases...');
         const allReleases = await this.#ghCommand('release list --json tagName,publishedAt --limit 1000');
-        
+
         this.releases = allReleases
             .filter(release => new Date(release.publishedAt) >= new Date(issueSyncConfig.syncStartDate))
             .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
@@ -217,7 +217,7 @@ class SyncService extends Base {
             if (error.code === 'ENOENT') {
                 return {
                     last_sync: null,
-                    issues: {}
+                    issues   : {}
                 };
             }
             throw error;
@@ -243,9 +243,9 @@ class SyncService extends Base {
         logger.info(`Processing ${allIssues.length} issues since ${issueSyncConfig.syncStartDate}`);
 
         const newMetadata = {
-            issues: {},
+            issues     : {},
             dropped_ids: [],
-            last_sync: new Date().toISOString(),
+            last_sync  : new Date().toISOString(),
             pushedCount: metadata.pushedCount || 0
         };
 
@@ -288,12 +288,12 @@ class SyncService extends Base {
             }
 
             newMetadata.issues[issueNumber] = {
-                state: issue.state,
-                path: targetPath,
-                updated: issue.updatedAt,
+                state    : issue.state,
+                path     : targetPath,
+                updated  : issue.updatedAt,
                 closed_at: issue.closedAt || null,
                 milestone: issue.milestone?.title || null,
-                title: issue.title
+                title    : issue.title
             };
         }
         return newMetadata;
@@ -317,8 +317,8 @@ class SyncService extends Base {
         for (const filePath of localFiles) {
             const stats = await fs.stat(filePath);
             if (stats.mtime > new Date(metadata.last_sync)) {
-                const content = await fs.readFile(filePath, 'utf-8');
-                const parsed = matter(content);
+                const content     = await fs.readFile(filePath, 'utf-8');
+                const parsed      = matter(content);
                 const issueNumber = parsed.data.id;
 
                 if (!issueNumber) continue;
@@ -327,8 +327,8 @@ class SyncService extends Base {
 
                 try {
                     const bodyWithoutComments = parsed.content.split('## Comments')[0].trim();
-                    const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
-                    const title = titleMatch ? titleMatch[1] : parsed.data.title;
+                    const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
+                    const title               = titleMatch ? titleMatch[1] : parsed.data.title;
 
                     const cleanBody = bodyWithoutComments
                         .replace(/^#\s+.+$/m, '')
