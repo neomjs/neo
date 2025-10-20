@@ -1,0 +1,31 @@
+---
+title: "Implement Release Note Synchronization"
+labels: enhancement, AI
+---
+
+GH ticket id: #7575
+
+**Epic:** #7564
+**Phase:** 1
+**Depends On:** #7571
+**Assignee:** tobiu
+**Status:** To Do
+
+## Description
+
+To create a complete local mirror of the project's history, we need to synchronize the release notes from GitHub to local Markdown files. This provides valuable context for the AI knowledge base and for developers working offline.
+
+## Acceptance Criteria
+
+1.  A new private method, `#syncReleaseNotes()`, is created in `SyncService.mjs`.
+2.  This method is orchestrated by the main `runFullSync()` method.
+3.  It uses `gh release list --json tagName,publishedAt` to get all releases.
+4.  It filters this list to include only releases published on or after the `syncStartDate`.
+5.  For each relevant release, it calls `gh release view <tagName>` to fetch the full, rendered release notes.
+6.  The body of each release note is saved as a local Markdown file in the `.github/RELEASE_NOTES/` directory (e.g., `.github/RELEASE_NOTES/v10.9.0.md`).
+
+## Benefits
+
+-   Provides a complete, local, and queryable archive of all project release notes.
+-   Enriches the AI knowledge base with high-level summaries of changes and new features for each version.
+-   Improves the agent's ability to understand the evolution of the codebase over time.
