@@ -11,6 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { listTools, callTool } from './services/toolService.mjs';
+import HealthService from './services/HealthService.mjs';
 
 const server = new Server({
     name: 'neo-github-workflow',
@@ -102,6 +103,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the stdio transport
 async function main() {
+    // Perform a health check before starting the server
+    const health = await HealthService.healthcheck();
+
+    if (health.status === 'unhealthy') {
+        logger.error('Server startup failed: Unhealthy environment.');
+        health.githubCli.details.forEach(detail => logger.error(detail));
+        process.exit(1);
+    }
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
