@@ -2,6 +2,7 @@ import {exec}      from 'child_process';
 import {promisify} from 'util';
 import aiConfig    from '../../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
+import semver      from 'semver';
 
 const execAsync = promisify(exec);
 
@@ -40,14 +41,16 @@ class HealthService extends Base {
             const versionMatch = stdout.match(/gh version ([\d.]+)/);
             if (versionMatch) {
                 const currentVersion = versionMatch[1];
-                if (currentVersion >= aiConfig.githubWorkflow.minGhVersion) {
+                const minVersion     = aiConfig.githubWorkflow.minGhVersion;
+
+                if (semver.gte(currentVersion, minVersion)) {
                     return {installed: true, versionOk: true, version: currentVersion};
                 } else {
                     return {
                         installed: true,
                         versionOk: false,
                         version  : currentVersion,
-                        error    : `gh version (${currentVersion}) is outdated. Please upgrade to at least ${aiConfig.githubWorkflow.minGhVersion}.`
+                        error    : `gh version (${currentVersion}) is outdated. Please upgrade to at least ${minVersion}.`
                     };
                 }
             }
