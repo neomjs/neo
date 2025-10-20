@@ -4,6 +4,7 @@ import HealthService                     from './HealthService.mjs';
 import IssueService                      from './IssueService.mjs';
 import LabelService                      from './LabelService.mjs';
 import PullRequestService                from './PullRequestService.mjs';
+import SyncService                       from './SyncService.mjs';
 import {initialize, listTools, callTool} from '../../toolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
@@ -19,7 +20,8 @@ const serviceMapping = {
     healthcheck          : HealthService.healthcheck,
     list_labels          : LabelService.listLabels,
     list_pull_requests   : PullRequestService.listPullRequests,
-    remove_labels        : IssueService.removeLabels
+    remove_labels        : IssueService.removeLabels,
+    sync_issues          : SyncService.runFullSync
 };
 
 initialize(serviceMapping, openApiFilePath);

@@ -370,6 +370,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sync-issues:
+    post:
+      summary: Sync GitHub Issues
+      operationId: sync_issues
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Triggers the bi-directional synchronization process for GitHub issues.
+        Pushes local Markdown file changes to GitHub and pulls the latest issue
+        and comment data from GitHub to the local files.
+      tags: [Issues]
+      responses:
+        '200':
+          description: Synchronization process completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during the sync process.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
