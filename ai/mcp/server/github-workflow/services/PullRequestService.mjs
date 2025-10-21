@@ -1,6 +1,8 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
 import Base        from '../../../../../src/core/Base.mjs';
+import GraphqlService from './GraphqlService.mjs';
+import aiConfig from '../../config.mjs';
 import logger      from '../../logger.mjs';
 
 const execAsync = promisify(exec);
@@ -34,24 +36,46 @@ class PullRequestService extends Base {
      */
     async listPullRequests(options = {}) {
         const {limit = 30, state = 'open'} = options;
-        
+
+        const query = `
+            query ListPullRequests($owner: String!, $repo: String!, $limit: Int!, $states: [PullRequestState!]) {
+                repository(owner: $owner, name: $repo) {
+                    pullRequests(first: $limit, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
+                        nodes {
+                            number
+                            title
+                            author {
+                                login
+                            }
+                            url
+                            state
+                            createdAt
+                        }
+                    }
+                }
+            }
+        `;
+
+        const variables = {
+            owner : aiConfig.githubWorkflow.owner,
+            repo  : aiConfig.githubWorkflow.repo,
+            limit,
+            states: state.toUpperCase()
+        };
+
         try {
-            const command = `gh pr list --state ${state} --limit ${limit} --json number,title,author,url,state,createdAt`;
-            const {stdout} = await execAsync(command);
-            const pullRequests = JSON.parse(stdout);
+            const data = await GraphqlService.query(query, variables);
+            const pullRequests = data.repository.pullRequests.nodes;
             return {
                 count: pullRequests.length,
-                pullRequests: pullRequests.map(pr => ({
-                    ...pr,
-                    author: pr.author.login
-                }))
+                pullRequests: pullRequests
             };
         } catch (error) {
-            logger.error('Error fetching pull requests:', error);
+            logger.error('Error fetching pull requests via GraphQL:', error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr list failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }
@@ -101,25 +125,45 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
     async createComment(prNumber, body) {
-        return new Promise((resolve) => {
-            const command = `gh pr comment ${prNumber} --body-file -`;
-            const child = exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    logger.error(`Error creating comment on PR #${prNumber}:`, error);
-                    resolve({
-                        error  : 'GitHub CLI command failed',
-                        message: `gh pr comment ${prNumber} failed with exit code ${error.code}`,
-                        code   : 'GH_CLI_ERROR'
-                    });
-                    return;
+        const idQuery = `
+            query GetPullRequestId($owner: String!, $repo: String!, $prNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $prNumber) {
+                        id
+                    }
                 }
-                resolve({message: `Successfully created comment on PR #${prNumber}`, details: stdout.trim()});
-            });
+            }
+        `;
 
-            // Write the comment body to the stdin of the child process
-            child.stdin.write(body);
-            child.stdin.end();
-        });
+        const idVariables = {
+            owner   : aiConfig.githubWorkflow.owner,
+            repo    : aiConfig.githubWorkflow.repo,
+            prNumber: prNumber
+        };
+
+        try {
+            const idData = await GraphqlService.query(idQuery, idVariables);
+            const subjectId = idData.repository.pullRequest.id;
+
+            const mutation = `
+                mutation AddComment($subjectId: ID!, $body: String!) {
+                    addComment(input: {subjectId: $subjectId, body: $body}) {
+                        clientMutationId
+                    }
+                }
+            `;
+
+            await GraphqlService.query(mutation, { subjectId, body });
+            return { message: `Successfully created comment on PR #${prNumber}` };
+
+        } catch (error) {
+            logger.error(`Error creating comment on PR #${prNumber} via GraphQL:`, error);
+            return {
+                error: 'GraphQL API request failed',
+                message: error.message,
+                code: 'GRAPHQL_API_ERROR'
+            };
+        }
     }
 
     /**
@@ -128,15 +172,41 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} A promise that resolves to the conversation data or a structured error.
      */
     async getConversation(prNumber) {
+        const query = `
+            query GetPullRequestConversation($owner: String!, $repo: String!, $prNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $prNumber) {
+                        title
+                        body
+                        comments(first: 100) { # Assuming max 100 comments
+                            nodes {
+                                author {
+                                    login
+                                }
+                                body
+                                createdAt
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        const variables = {
+            owner   : aiConfig.githubWorkflow.owner,
+            repo    : aiConfig.githubWorkflow.repo,
+            prNumber: prNumber
+        };
+
         try {
-            const {stdout} = await execAsync(`gh pr view ${prNumber} --json title,body,comments`);
-            return JSON.parse(stdout);
+            const data = await GraphqlService.query(query, variables);
+            return data.repository.pullRequest;
         } catch (error) {
-            logger.error(`Error getting conversation for PR #${prNumber}:`, error);
+            logger.error(`Error getting conversation for PR #${prNumber} via GraphQL:`, error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr view ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }
