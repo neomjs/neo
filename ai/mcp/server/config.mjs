@@ -55,7 +55,12 @@ const aiConfig = {
              * The path to the directory for release notes.
              * @type {string}
              */
-            releaseNotesDir: path.resolve(process.cwd(), '.github', 'RELEASE_NOTES')
+            releaseNotesDir: path.resolve(process.cwd(), '.github', 'RELEASE_NOTES'),
+            /**
+             * The default version directory to use for archiving issues when no release is found.
+             * @type {string}
+             */
+            defaultArchiveVersion: 'unversioned'
         }
     },
     /**

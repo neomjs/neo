@@ -97,6 +97,10 @@ class SyncService extends Base {
             .filter(release => new Date(release.publishedAt) >= new Date(issueSyncConfig.syncStartDate))
             .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
+        if (this.releases.length === 0) {
+            logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
+        }
+
         logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
     }
 
@@ -187,7 +191,7 @@ class SyncService extends Base {
 
         if (issue.state === 'CLOSED') {
             const closed = new Date(issue.closedAt);
-            let version = this.releases.length > 0 ? this.releases[this.releases.length - 1].tagName : 'unknown';
+            let version = this.releases.length > 0 ? this.releases[this.releases.length - 1].tagName : issueSyncConfig.defaultArchiveVersion;
 
             if (issue.milestone?.title) {
                 version = issue.milestone.title;
