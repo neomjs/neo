@@ -280,8 +280,8 @@ class SyncService extends Base {
      * @private
      */
     #getIssuePath(issue) {
-        const number = String(issue.number).padStart(issueSyncConfig.issueNumberPadding, '0');
-        const labels = issue.labels.map(l => l.name.toLowerCase());
+        const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
+        const labels   = issue.labels.map(l => l.name.toLowerCase());
 
         const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
         if (isDropped) {
@@ -289,7 +289,7 @@ class SyncService extends Base {
         }
 
         if (issue.state === 'OPEN') {
-            return path.join(issueSyncConfig.issuesDir, `${number}.md`);
+            return path.join(issueSyncConfig.issuesDir, filename);
         }
 
         if (issue.state === 'CLOSED') {
@@ -305,7 +305,7 @@ class SyncService extends Base {
                     version = release.tagName;
                 }
             }
-            return path.join(issueSyncConfig.archiveDir, version, `${number}.md`);
+            return path.join(issueSyncConfig.archiveDir, version, filename);
         }
 
         return null;
@@ -402,9 +402,14 @@ class SyncService extends Base {
                 } else if (oldIssue.path && oldIssue.path !== targetPath) {
                     stats.pulled.moved++;
                     try {
-                        await fs.unlink(oldIssue.path);
-                        logger.info(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
-                    } catch (e) { /* Old file might not exist */ }
+                        // Use rename to handle both directory moves and filename changes gracefully
+                        await fs.rename(oldIssue.path, targetPath);
+                        logger.info(`📦 Renamed/Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
+                    } catch (e) {
+                        // If rename fails (e.g., different devices), fall back to write and unlink
+                        logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
+                        await fs.unlink(oldIssue.path).catch(() => {}); // Best effort to delete old file
+                    }
                 } else {
                     stats.pulled.updated++;
                     logger.info(`✅ Updated #${issueNumber}: ${targetPath}`);

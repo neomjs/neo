@@ -62,10 +62,10 @@ const aiConfig = {
              */
             defaultArchiveVersion: 'unversioned',
             /**
-             * The number of characters to pad issue numbers with for filenames (e.g., 4 -> '0042.md').
-             * @type {number}
+             * A prefix for issue filenames to prevent them from starting with a number (e.g., 'issue-').
+             * @type {string}
              */
-            issueNumberPadding: 5,
+            issueFilenamePrefix: 'issue-',
             /**
              * The maximum number of issues to fetch from the GitHub API in a single sync.
              * @type {number}
