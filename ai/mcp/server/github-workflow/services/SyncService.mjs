@@ -222,20 +222,20 @@ class SyncService extends Base {
      */
     #formatIssueMarkdown(issue, comments) {
         const frontmatter = {
-            id            : issue.number,
-            title         : issue.title,
-            state         : issue.state,
-            labels        : issue.labels.map(l => l.name),
-            assignees     : issue.assignees.map(a => a.login),
-            created_at    : issue.createdAt,
-            updated_at    : issue.updatedAt,
-            github_url    : issue.url,
-            author        : issue.author.login,
-            comments_count: comments.length
+            id           : issue.number,
+            title        : issue.title,
+            state        : issue.state,
+            labels       : issue.labels.map(l => l.name),
+            assignees    : issue.assignees.map(a => a.login),
+            createdAt    : issue.createdAt,
+            updatedAt    : issue.updatedAt,
+            githubUrl    : issue.url,
+            author       : issue.author.login,
+            commentsCount: comments.length
         };
 
         if (issue.closedAt) {
-            frontmatter.closed_at = issue.closedAt;
+            frontmatter.closedAt = issue.closedAt;
         }
         if (issue.milestone) {
             frontmatter.milestone = issue.milestone.title;
@@ -415,7 +415,7 @@ class SyncService extends Base {
                 state    : issue.state,
                 path     : targetPath,
                 updated  : issue.updatedAt,
-                closed_at: issue.closedAt || null,
+                closedAt : issue.closedAt || null,
                 milestone: issue.milestone?.title || null,
                 title    : issue.title
             };
