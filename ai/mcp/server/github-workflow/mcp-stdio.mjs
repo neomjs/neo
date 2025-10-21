@@ -58,18 +58,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
         logger.debug(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
 
-        // Perform health check before tool execution (with caching)
-        try {
-            await HealthService.ensureHealthy();
-        } catch (healthError) {
-            logger.error(`[MCP] Health check failed for tool ${name}:`, healthError.message);
-            return {
-                content: [{
-                    type: 'text',
-                    text: `Cannot execute ${name}: ${healthError.message}`
-                }],
-                isError: true
-            };
+        if (!name.includes('healthcheck')) {
+            // Perform health check before tool execution (with caching)
+            try {
+                await HealthService.ensureHealthy();
+            } catch (healthError) {
+                logger.error(`[MCP] Health check failed for tool ${name}:`, healthError.message);
+                return {
+                    content: [{
+                        type: 'text',
+                        text: `Cannot execute ${name}: ${healthError.message}`
+                    }],
+                    isError: true
+                };
+            }
         }
 
         const result = await callTool(name, args);
