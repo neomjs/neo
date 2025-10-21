@@ -18,6 +18,12 @@ const aiConfig = {
      */
     githubWorkflow: {
         /**
+         * Cache duration for healthy health checks (in milliseconds).
+         * Unhealthy results are never cached.
+         * @type {number}
+         */
+        healthCheckCacheDuration: 5 * 60 * 1000, // 5 minutes
+        /**
          * The minimum required version of the GitHub CLI (`gh`).
          * @type {string}
          */
@@ -95,7 +101,30 @@ const aiConfig = {
              * The markdown delimiter used to separate the issue body from the comments section.
              * @type {string}
              */
-            commentSectionDelimiter: '## Comments'
+            commentSectionDelimiter: '## Comments',
+            /**
+             * Maximum number of labels to fetch per issue in GraphQL queries.
+             * @type {number}
+             */
+            maxLabelsPerIssue: 20,
+
+            /**
+             * Maximum number of assignees to fetch per issue in GraphQL queries.
+             * @type {number}
+             */
+            maxAssigneesPerIssue: 10,
+
+            /**
+             * Maximum number of comments to fetch per issue in GraphQL queries.
+             * @type {number}
+             */
+            maxCommentsPerIssue: 100,
+
+            /**
+             * Maximum number of sub-issues to fetch per issue in GraphQL queries.
+             * @type {number}
+             */
+            maxSubIssuesPerIssue: 50
         }
     },
     /**

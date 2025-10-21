@@ -1,13 +1,14 @@
-import aiConfig    from '../../config.mjs';
-import Base        from '../../../../../src/core/Base.mjs';
-import fs          from 'fs/promises';
-import logger      from '../../logger.mjs';
-import matter      from 'gray-matter';
-import path        from 'path';
-import {exec}      from 'child_process';
-import {promisify} from 'util';
+import aiConfig                                      from '../../config.mjs';
+import Base                                          from '../../../../../src/core/Base.mjs';
+import fs                                            from 'fs/promises';
+import logger                                        from '../../logger.mjs';
+import matter                                        from 'gray-matter';
+import path                                          from 'path';
+import GraphqlService                                from './GraphqlService.mjs';
+import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from './queries/issueQueries.mjs';
+import {GET_ISSUE_ID, UPDATE_ISSUE}                  from './queries/mutations.mjs';
+import {FETCH_RELEASES}                              from './queries/releaseQueries.mjs';
 
-const execAsync       = promisify(exec);
 const issueSyncConfig = aiConfig.githubWorkflow.issueSync;
 
 /**
@@ -136,12 +137,12 @@ class SyncService extends Base {
     }
 
     /**
-     * Fetches release notes from GitHub and saves them as local Markdown files.
+     * Saves release notes from GitHub as local Markdown files.
      * @returns {Promise<object>} Statistics about the operation ({count: number, synced: string[]}).
      * @private
      */
     async #syncReleaseNotes() {
-        logger.info('📝 Syncing release notes...');
+        logger.info('📄 Syncing release notes...');
         const releaseDir = issueSyncConfig.releaseNotesDir;
         await fs.mkdir(releaseDir, { recursive: true });
 
@@ -152,38 +153,64 @@ class SyncService extends Base {
 
         for (const release of this.releases) {
             try {
-                const releaseData = await this.#ghCommand(`release view ${release.tagName} --json body,name,publishedAt`);
                 const filePath = path.join(releaseDir, `${release.tagName}.md`);
 
                 const frontmatter = {
-                    tagName    : release.tagName,
-                    name       : releaseData.name,
-                    publishedAt: releaseData.publishedAt
+                    tagName     : release.tagName,
+                    name        : release.name,
+                    publishedAt : release.publishedAt,
+                    isPrerelease: release.isPrerelease || false,
+                    isDraft     : release.isDraft || false
                 };
 
-                const content = matter.stringify(releaseData.body, frontmatter);
+                // GraphQL returns 'description' not 'body'
+                const content = matter.stringify(release.description || '', frontmatter);
 
                 await fs.writeFile(filePath, content, 'utf-8');
                 logger.info(`✅ Synced release notes for ${release.tagName}`);
                 stats.count++;
                 stats.synced.push(release.tagName);
             } catch (e) {
-                logger.warn(`⚠️ Could not sync release notes for ${release.tagName}.`);
+                logger.warn(`⚠️ Could not sync release notes for ${release.tagName}: ${e.message}`);
             }
         }
         return stats;
     }
 
     /**
-     * Fetches all releases from GitHub, filters them by the syncStartDate, and caches them in `this.releases`.
+     * Fetches all releases from GitHub using GraphQL with automatic pagination.
      * @private
      */
     async #fetchAndCacheReleases() {
-        logger.info('Fetching and caching releases...');
-        const allReleases = await this.#ghCommand(`release list --json tagName,publishedAt --limit ${issueSyncConfig.maxReleases}`);
+        logger.info('Fetching and caching releases via GraphQL...');
 
+        let allReleases = [];
+        let hasNextPage = true;
+        let cursor      = null;
+        const maxReleases = issueSyncConfig.maxReleases;
+
+        // Paginate through all releases
+        while (hasNextPage && allReleases.length < maxReleases) {
+            const data = await GraphqlService.query(FETCH_RELEASES, {
+                owner: aiConfig.githubWorkflow.owner,
+                repo : aiConfig.githubWorkflow.repo,
+                limit: 100,
+                cursor
+            });
+
+            const releases = data.repository.releases;
+            allReleases.push(...releases.nodes);
+
+            hasNextPage = releases.pageInfo.hasNextPage;
+            cursor = releases.pageInfo.endCursor;
+
+            logger.debug(`Fetched ${releases.nodes.length} releases (total: ${allReleases.length})`);
+        }
+
+        // Filter by syncStartDate
+        const startDate = new Date(issueSyncConfig.syncStartDate);
         this.releases = allReleases
-            .filter(release => new Date(release.publishedAt) >= new Date(issueSyncConfig.syncStartDate))
+            .filter(release => new Date(release.publishedAt) >= startDate)
             .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
         if (this.releases.length === 0) {
@@ -191,26 +218,6 @@ class SyncService extends Base {
         }
 
         logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
-    }
-
-    /**
-     * Executes a gh CLI command.
-     * @param {string} cmd - The gh command to execute (without the leading 'gh').
-     * @param {boolean} [json=true] - Whether to parse the stdout as JSON.
-     * @returns {Promise<any>} The parsed JSON object or raw stdout string.
-     * @throws {Error} If the gh command fails.
-     * @private
-     */
-    async #ghCommand(cmd, json = true) {
-        try {
-            // Using a larger maxBuffer in case of large outputs (e.g., many issues)
-            const { stdout } = await execAsync(`gh ${cmd}`, { encoding: 'utf-8', maxBuffer: issueSyncConfig.maxGhOutputBuffer });
-            return json ? JSON.parse(stdout) : stdout;
-        } catch (error) {
-            logger.error(`Error executing: gh ${cmd}`);
-            logger.error(error.stderr || error.message);
-            throw error;
-        }
     }
 
     /**
@@ -225,13 +232,18 @@ class SyncService extends Base {
             id           : issue.number,
             title        : issue.title,
             state        : issue.state,
-            labels       : issue.labels.map(l => l.name),
-            assignees    : issue.assignees.map(a => a.login),
+            labels       : issue.labels.nodes.map(l => l.name),
+            assignees    : issue.assignees.nodes.map(a => a.login),
             createdAt    : issue.createdAt,
             updatedAt    : issue.updatedAt,
             githubUrl    : issue.url,
             author       : issue.author.login,
-            commentsCount: comments.length
+            commentsCount: comments.length,
+            // NEW: Add relationship tracking
+            parentIssue       : issue.parent ? issue.parent.number : null,
+            subIssues         : issue.subIssues?.nodes.map(sub => sub.number) || [],
+            subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
+            subIssuesTotal    : issue.subIssuesSummary?.total || 0
         };
 
         if (issue.closedAt) {
@@ -243,11 +255,25 @@ class SyncService extends Base {
 
         let body = `# ${issue.title}\n\n`;
         body += `**Reported by:** @${issue.author.login} on ${issue.createdAt.split('T')[0]}\n\n`;
+
+        // Add relationship section with clear delimiter
+        if (issue.parent || issue.subIssues?.nodes.length > 0) {
+            body += '---\n\n';
+            if (issue.parent) {
+                body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
+            }
+            if (issue.subIssues?.nodes.length > 0) {
+                body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
+                body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
+            }
+            body += '---\n\n';
+        }
+
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
 
         if (comments.length > 0) {
-            body += '## Comments\n\n';
+            body += issueSyncConfig.commentSectionDelimiter + '\n\n';
             for (const comment of comments) {
                 const date = comment.createdAt.split('T')[0];
                 const time = comment.createdAt.split('T')[1].substring(0, 5);
@@ -281,7 +307,11 @@ class SyncService extends Base {
      */
     #getIssuePath(issue) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
-        const labels   = issue.labels.map(l => l.name.toLowerCase());
+
+        // Handle both GraphQL (issue.labels.nodes) and potential direct array
+        const labels = issue.labels?.nodes
+            ? issue.labels.nodes.map(l => l.name.toLowerCase())
+            : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
 
         const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
         if (isDropped) {
@@ -294,7 +324,9 @@ class SyncService extends Base {
 
         if (issue.state === 'CLOSED') {
             const closed = new Date(issue.closedAt);
-            let version = this.releases.length > 0 ? this.releases[this.releases.length - 1].tagName : issueSyncConfig.defaultArchiveVersion;
+            let version = this.releases.length > 0
+                ? this.releases[this.releases.length - 1].tagName
+                : issueSyncConfig.defaultArchiveVersion;
 
             if (issue.milestone?.title) {
                 version = issue.milestone.title;
@@ -334,23 +366,54 @@ class SyncService extends Base {
     }
 
     /**
-     * Fetches all relevant issues from GitHub since the last sync, compares them to local metadata,
-     * and updates local Markdown files as needed (create, update, move, or drop).
-     * @param {object} metadata - The last known sync metadata.
-     * @returns {Promise<{newMetadata: object, stats: object}>} An object containing the newly generated
-     * metadata for the next sync and detailed statistics about the pull operation.
+     * Fetches all relevant issues from GitHub using GraphQL with automatic pagination.
+     * This single query fetches issues WITH their comments and relationships in one go!
+     * @param {object} metadata
+     * @returns {Promise<{newMetadata: object, stats: object}>}
      * @private
      */
     async #pullFromGitHub(metadata) {
-        logger.info('📥 Fetching issues from GitHub...');
-        let allIssues = await this.#ghCommand(`issue list --limit ${issueSyncConfig.maxIssues} --state all --json number,title,state,labels,assignees,milestone,createdAt,updatedAt,closedAt,url,author,body`);
+        logger.info('📥 Fetching issues from GitHub via GraphQL...');
+
+        let allIssues   = [];
+        let hasNextPage = true;
+        let cursor      = null;
+        let totalCost   = 0;
+        const maxIssues = issueSyncConfig.maxIssues;
+
+        // Paginate through all issues
+        while (hasNextPage && allIssues.length < maxIssues) {
+            const data = await GraphqlService.query(
+                FETCH_ISSUES_FOR_SYNC,
+                {
+                    owner : aiConfig.githubWorkflow.owner,
+                    repo  : aiConfig.githubWorkflow.repo,
+                    limit : 100,
+                    cursor,
+                    states: ['OPEN', 'CLOSED'],
+                    since : issueSyncConfig.syncStartDate,
+                    ...DEFAULT_QUERY_LIMITS
+                },
+                true // Enable sub-issues feature
+            );
+
+            const issues = data.repository.issues;
+            allIssues.push(...issues.nodes);
+
+            hasNextPage = issues.pageInfo.hasNextPage;
+            cursor = issues.pageInfo.endCursor;
+
+            // Monitor rate limit usage
+            totalCost += data.rateLimit.cost;
+            logger.debug(`Fetched ${issues.nodes.length} issues (total: ${allIssues.length}, cost: ${totalCost}, remaining: ${data.rateLimit.remaining})`);
+
+            // Safety check: If rate limit is getting low, warn
+            if (data.rateLimit.remaining < 500) {
+                logger.warn(`⚠️ GraphQL rate limit low: ${data.rateLimit.remaining} remaining, resets at ${data.rateLimit.resetAt}`);
+            }
+        }
+
         logger.info(`Found ${allIssues.length} total issues`);
-
-        const startDate = new Date(issueSyncConfig.syncStartDate);
-        allIssues = allIssues.filter(issue => {
-            return new Date(issue.createdAt) >= startDate || new Date(issue.updatedAt) >= startDate;
-        });
-
         logger.info(`Processing ${allIssues.length} issues since ${issueSyncConfig.syncStartDate}`);
 
         const newMetadata = {
@@ -364,6 +427,7 @@ class SyncService extends Base {
             dropped: { count: 0, issues: [] }
         };
 
+        // Process each issue
         for (const issue of allIssues) {
             const issueNumber = issue.number;
             const targetPath  = this.#getIssuePath(issue);
@@ -376,22 +440,22 @@ class SyncService extends Base {
                     try {
                         await fs.unlink(oldPath);
                         logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
-                    } catch (e) { /* File might not exist, that's ok */ }
+                    } catch (e) { /* File might not exist */ }
                 }
                 continue;
             }
 
             const oldIssue = metadata.issues[issueNumber];
             const needsUpdate = !oldIssue ||
-                                oldIssue.updated !== issue.updatedAt ||
-                                oldIssue.path !== targetPath;
+                oldIssue.updated !== issue.updatedAt ||
+                oldIssue.path !== targetPath;
 
             if (needsUpdate) {
                 stats.pulled.count++;
                 stats.pulled.issues.push(issueNumber);
 
-                const comments = await this.#ghCommand(`issue view ${issueNumber} --json comments --jq '.comments'`);
-                const markdown = this.#formatIssueMarkdown(issue, comments);
+                // Comments are already in issue.comments - no separate fetch needed!
+                const markdown = this.#formatIssueMarkdown(issue, issue.comments.nodes);
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
                 await fs.writeFile(targetPath, markdown, 'utf-8');
@@ -402,13 +466,11 @@ class SyncService extends Base {
                 } else if (oldIssue.path && oldIssue.path !== targetPath) {
                     stats.pulled.moved++;
                     try {
-                        // Use rename to handle both directory moves and filename changes gracefully
                         await fs.rename(oldIssue.path, targetPath);
                         logger.info(`📦 Renamed/Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
                     } catch (e) {
-                        // If rename fails (e.g., different devices), fall back to write and unlink
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
-                        await fs.unlink(oldIssue.path).catch(() => {}); // Best effort to delete old file
+                        await fs.unlink(oldIssue.path).catch(() => {});
                     }
                 } else {
                     stats.pulled.updated++;
@@ -425,19 +487,18 @@ class SyncService extends Base {
                 title    : issue.title
             };
         }
+
         return { newMetadata, stats };
     }
 
     /**
-     * Scans local Markdown files for modifications since the last sync and pushes
-     * changes (title and body) to the corresponding GitHub issues. It also tracks and
-     * skips issues that have previously failed to push.
-     * @param {object} metadata - The last known sync metadata.
-     * @returns {Promise<object>} Statistics about the push operation ({count: number, issues: number[], failures: number[]}).
+     * Pushes local changes to GitHub using GraphQL mutations.
+     * @param {object} metadata
+     * @returns {Promise<object>}
      * @private
      */
     async #pushToGitHub(metadata) {
-        logger.info('📤 Checking for local changes to push...');
+        logger.info('📤 Checking for local changes to push via GraphQL...');
         const stats = { count: 0, issues: [], failures: [] };
 
         if (!metadata.last_sync) {
@@ -445,7 +506,7 @@ class SyncService extends Base {
             return stats;
         }
 
-        const localFiles = await this.#scanLocalFiles();
+        const localFiles       = await this.#scanLocalFiles();
         const previousFailures = metadata.push_failures || [];
 
         for (const filePath of localFiles) {
@@ -466,6 +527,16 @@ class SyncService extends Base {
                 logger.info(`📝 Local changes detected for #${issueNumber}`);
 
                 try {
+                    // Step 1: Get the issue's GraphQL ID
+                    const idData = await GraphqlService.query(GET_ISSUE_ID, {
+                        owner : aiConfig.githubWorkflow.owner,
+                        repo  : aiConfig.githubWorkflow.repo,
+                        number: issueNumber
+                    });
+
+                    const issueId = idData.repository.issue.id;
+
+                    // Step 2: Prepare the updated content
                     const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
                     const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
                     const title               = titleMatch ? titleMatch[1] : parsed.data.title;
@@ -473,20 +544,21 @@ class SyncService extends Base {
                     const cleanBody = bodyWithoutComments
                         .replace(/^#\s+.+$/m, '')
                         .replace(/^\*\*Reported by:\*\*.+$/m, '')
+                        .replace(/^---\n\n[\s\S]*?^---\n\n/m, '') // Remove relationship section
                         .trim();
 
-                    const bodyFilePath = path.join(path.dirname(filePath), `${issueNumber}.body.tmp`);
-                    await fs.writeFile(bodyFilePath, cleanBody, 'utf-8');
+                    // Step 3: Execute the mutation
+                    await GraphqlService.query(UPDATE_ISSUE, {
+                        issueId,
+                        title,
+                        body: cleanBody
+                    });
 
-                    await this.#ghCommand(`issue edit ${issueNumber} --title "${title.replace(/"/g, '\\"')}" --body-file "${bodyFilePath}"`, false);
-
-                    await fs.unlink(bodyFilePath);
-
-                    logger.info(`✅ Updated GitHub issue #${issueNumber}`);
+                    logger.info(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
                     stats.count++;
                     stats.issues.push(issueNumber);
                 } catch (e) {
-                    logger.warn(`⚠️ Could not push changes for #${issueNumber}. Issue may not exist on GitHub. Error: ${e.stderr || e.message}`);
+                    logger.warn(`⚠️ Could not push changes for #${issueNumber}. Error: ${e.message}`);
                     stats.failures.push(issueNumber);
                 }
             }

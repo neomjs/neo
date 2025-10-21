@@ -69,19 +69,27 @@ class GraphqlService extends Base {
      * Executes a GraphQL query or mutation against the GitHub API.
      * @param {string} query The GraphQL query string.
      * @param {object} [variables={}] Optional variables for the query.
+     * @param {boolean} [enableSubIssues=false] Whether to enable sub-issues feature header
      * @returns {Promise<object>} The `data` object from the GraphQL response.
      * @throws {Error} If the request fails or the API returns errors.
      */
-    async query(query, variables = {}) {
+    async query(query, variables={}, enableSubIssues=false) {
         const token = await this.#getAuthToken();
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `bearer ${token}`
+        };
+
+        // Sub-issues require a feature flag header
+        if (enableSubIssues) {
+            headers['GraphQL-Features'] = 'sub_issues';
+        }
 
         const response = await fetch(this.apiUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `bearer ${token}`
-            },
-            body: JSON.stringify({ query, variables })
+            headers,
+            body  : JSON.stringify({query, variables})
         });
 
         if (!response.ok) {
