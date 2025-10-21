@@ -152,9 +152,18 @@ class SyncService extends Base {
 
         for (const release of this.releases) {
             try {
-                const releaseBody = await this.#ghCommand(`release view ${release.tagName} --json body -q .body`, false);
+                const releaseData = await this.#ghCommand(`release view ${release.tagName} --json body,name,publishedAt`);
                 const filePath = path.join(releaseDir, `${release.tagName}.md`);
-                await fs.writeFile(filePath, releaseBody, 'utf-8');
+
+                const frontmatter = {
+                    tagName    : release.tagName,
+                    name       : releaseData.name,
+                    publishedAt: releaseData.publishedAt
+                };
+
+                const content = matter.stringify(releaseData.body, frontmatter);
+
+                await fs.writeFile(filePath, content, 'utf-8');
                 logger.info(`✅ Synced release notes for ${release.tagName}`);
                 stats.count++;
                 stats.synced.push(release.tagName);
