@@ -40,27 +40,52 @@ class SyncService extends Base {
      * @returns {Promise<object>}
      */
     async runFullSync() {
+        const startTime = new Date();
+
         await this.#fetchAndCacheReleases();
 
         const metadata = await this.#loadMetadata();
 
         // 1. Push local changes
-        await this.#pushToGitHub(metadata);
+        const pushStats = await this.#pushToGitHub(metadata);
 
         // 2. Pull remote changes
-        const newMetadata = await this.#pullFromGitHub(metadata);
+        const { newMetadata, stats: pullStats } = await this.#pullFromGitHub(metadata);
 
         // 3. Sync release notes
-        await this.#syncReleaseNotes();
+        const releaseStats = await this.#syncReleaseNotes();
 
         // 4. Save metadata
         await this.#saveMetadata(newMetadata);
 
-        const pushedCount = newMetadata.pushedCount || 0;
-        delete newMetadata.pushedCount;
+        const endTime    = new Date();
+        const durationMs = endTime - startTime;
+
+        const finalStats = {
+            pushed  : pushStats,
+            pulled  : pullStats.pulled,
+            dropped : pullStats.dropped,
+            releases: releaseStats
+        };
+
+        const timing = {
+            startTime : startTime.toISOString(),
+            endTime   : endTime.toISOString(),
+            durationMs: durationMs
+        };
+
+        logger.info('✨ Sync Complete');
+        logger.info(`   Pushed:   ${finalStats.pushed.count} issues`);
+        logger.info(`   Pulled:   ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
+        logger.info(`   Dropped:  ${finalStats.dropped.count} issues`);
+        logger.info(`   Releases: ${finalStats.releases.count} synced`);
+        logger.info(`   Duration: ${Math.round(timing.durationMs / 1000)}s`);
 
         return {
-            message: `Synchronization complete. Pushed ${pushedCount} local change(s).`
+            success   : true,
+            summary   : "Synchronization complete",
+            statistics: finalStats,
+            timing    : timing
         };
     }
 
@@ -73,16 +98,24 @@ class SyncService extends Base {
         const releaseDir = issueSyncConfig.releaseNotesDir;
         await fs.mkdir(releaseDir, { recursive: true });
 
+        const stats = {
+            count : 0,
+            synced: []
+        };
+
         for (const release of this.releases) {
             try {
                 const releaseBody = await this.#ghCommand(`release view ${release.tagName} --json body -q .body`, false);
                 const filePath = path.join(releaseDir, `${release.tagName}.md`);
                 await fs.writeFile(filePath, releaseBody, 'utf-8');
                 logger.info(`✅ Synced release notes for ${release.tagName}`);
+                stats.count++;
+                stats.synced.push(release.tagName);
             } catch (e) {
                 logger.warn(`⚠️ Could not sync release notes for ${release.tagName}.`);
             }
         }
+        return stats;
     }
 
     /**
@@ -247,18 +280,22 @@ class SyncService extends Base {
         logger.info(`Processing ${allIssues.length} issues since ${issueSyncConfig.syncStartDate}`);
 
         const newMetadata = {
-            issues     : {},
-            dropped_ids: [],
-            last_sync  : new Date().toISOString(),
-            pushedCount: metadata.pushedCount || 0
+            issues   : {},
+            last_sync: new Date().toISOString()
+        };
+
+        const stats = {
+            pulled : { count: 0, created: 0, updated: 0, moved: 0, issues: [] },
+            dropped: { count: 0, issues: [] }
         };
 
         for (const issue of allIssues) {
             const issueNumber = issue.number;
-            const targetPath = this.#getIssuePath(issue);
+            const targetPath  = this.#getIssuePath(issue);
 
             if (!targetPath) {
-                newMetadata.dropped_ids.push(issueNumber);
+                stats.dropped.count++;
+                stats.dropped.issues.push(issueNumber);
                 const oldPath = metadata.issues[issueNumber]?.path;
                 if (oldPath) {
                     try {
@@ -271,22 +308,30 @@ class SyncService extends Base {
 
             const oldIssue = metadata.issues[issueNumber];
             const needsUpdate = !oldIssue ||
-                               oldIssue.updated !== issue.updatedAt ||
-                               oldIssue.path !== targetPath;
+                                oldIssue.updated !== issue.updatedAt ||
+                                oldIssue.path !== targetPath;
 
             if (needsUpdate) {
+                stats.pulled.count++;
+                stats.pulled.issues.push(issueNumber);
+
                 const comments = await this.#ghCommand(`issue view ${issueNumber} --json comments --jq '.comments'`);
                 const markdown = this.#formatIssueMarkdown(issue, comments);
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
                 await fs.writeFile(targetPath, markdown, 'utf-8');
 
-                if (oldIssue?.path && oldIssue.path !== targetPath) {
+                if (!oldIssue) {
+                    stats.pulled.created++;
+                    logger.info(`✨ Created #${issueNumber}: ${targetPath}`);
+                } else if (oldIssue.path && oldIssue.path !== targetPath) {
+                    stats.pulled.moved++;
                     try {
                         await fs.unlink(oldIssue.path);
                         logger.info(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
                     } catch (e) { /* Old file might not exist */ }
                 } else {
+                    stats.pulled.updated++;
                     logger.info(`✅ Updated #${issueNumber}: ${targetPath}`);
                 }
             }
@@ -300,7 +345,7 @@ class SyncService extends Base {
                 title    : issue.title
             };
         }
-        return newMetadata;
+        return { newMetadata, stats };
     }
 
     /**
@@ -310,17 +355,18 @@ class SyncService extends Base {
      */
     async #pushToGitHub(metadata) {
         logger.info('📤 Checking for local changes to push...');
+        const stats = { count: 0, issues: [] };
+
         if (!metadata.last_sync) {
             logger.info('✨ No previous sync found, skipping push.');
-            return;
+            return stats;
         }
 
         const localFiles = await this.#scanLocalFiles();
-        let pushedCount = 0;
 
         for (const filePath of localFiles) {
-            const stats = await fs.stat(filePath);
-            if (stats.mtime > new Date(metadata.last_sync)) {
+            const fileStats = await fs.stat(filePath);
+            if (fileStats.mtime > new Date(metadata.last_sync)) {
                 const content     = await fs.readFile(filePath, 'utf-8');
                 const parsed      = matter(content);
                 const issueNumber = parsed.data.id;
@@ -347,19 +393,20 @@ class SyncService extends Base {
                     await fs.unlink(bodyFilePath);
 
                     logger.info(`✅ Updated GitHub issue #${issueNumber}`);
-                    pushedCount++;
+                    stats.count++;
+                    stats.issues.push(issueNumber);
                 } catch (e) {
                     logger.warn(`⚠️ Could not push changes for #${issueNumber}. Issue may not exist on GitHub.`);
                 }
             }
         }
 
-        metadata.pushedCount = pushedCount;
-        if (pushedCount > 0) {
-            logger.info(`📤 Pushed ${pushedCount} local change(s) to GitHub`);
+        if (stats.count > 0) {
+            logger.info(`📤 Pushed ${stats.count} local change(s) to GitHub`);
         } else {
             logger.info('✨ No local changes to push');
         }
+        return stats;
     }
 
     /**

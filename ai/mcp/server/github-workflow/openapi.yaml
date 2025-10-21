@@ -387,7 +387,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/SyncIssuesResponse'
         '500':
           description: Internal server error during the sync process.
           content:
@@ -514,6 +514,116 @@ components:
           type: string
           description: Optional details from the CLI output.
           example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    SyncIssuesResponse:
+      type: object
+      required:
+        - success
+        - summary
+        - statistics
+        - timing
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: Whether the sync operation completed successfully
+        summary:
+          type: string
+          example: "Synchronization complete"
+          description: Human-readable summary of the sync operation
+        statistics:
+          type: object
+          required:
+            - pushed
+            - pulled
+            - dropped
+            - releases
+          properties:
+            pushed:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 2
+                  description: Number of local changes pushed to GitHub
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1234, 1235]
+                  description: Issue numbers that were pushed
+            pulled:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 15
+                  description: Total number of issues pulled from GitHub
+                created:
+                  type: integer
+                  example: 3
+                  description: Number of new issues created locally
+                updated:
+                  type: integer
+                  example: 12
+                  description: Number of existing issues updated locally
+                moved:
+                  type: integer
+                  example: 2
+                  description: Number of issues moved between directories
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1230, 1231, 1232]
+                  description: Issue numbers that were pulled
+            dropped:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 1
+                  description: Number of dropped issues removed locally
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [999]
+                  description: Issue numbers that were dropped
+            releases:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 5
+                  description: Number of release notes synced
+                synced:
+                  type: array
+                  items:
+                    type: string
+                  example: ['v11.0', 'v10.9', 'v10.8']
+                  description: Release version tags that were synced
+        timing:
+          type: object
+          required:
+            - startTime
+            - endTime
+            - durationMs
+          properties:
+            startTime:
+              type: string
+              format: date-time
+              example: "2025-10-21T10:00:00.000Z"
+              description: ISO timestamp when sync started
+            endTime:
+              type: string
+              format: date-time
+              example: "2025-10-21T10:02:30.000Z"
+              description: ISO timestamp when sync completed
+            durationMs:
+              type: integer
+              example: 150000
+              description: Total sync duration in milliseconds
 
     ErrorResponse:
       type: object
