@@ -11,6 +11,22 @@ const execAsync       = promisify(exec);
 const issueSyncConfig = aiConfig.githubWorkflow.issueSync;
 
 /**
+ * Orchestrates the bi-directional synchronization of GitHub issues with local Markdown files.
+ *
+ * This service is the core engine for the GitHub issue sync workflow. Its primary responsibilities include:
+ * - **State Management:** It maintains a persistent state via a `.sync-metadata.json` file to track
+ *   the last sync time and the status of each issue, enabling efficient delta-based updates.
+ * - **Conflict Resolution:** It employs a "push-then-pull" strategy to minimize merge conflicts.
+ *   Local changes are always pushed to GitHub before remote changes are pulled, ensuring local edits
+ *   are not accidentally overwritten.
+ * - **Data Transformation:** It fetches full issue data (including comments) from GitHub and formats it
+ *   into structured Markdown files with YAML frontmatter for easy parsing and editing.
+ * - **Local File Management:** It handles the creation, updating, moving (archiving), and deletion of
+ *   local issue files based on changes from GitHub.
+ * - **Release Awareness:** It fetches GitHub releases to intelligently archive closed issues into
+ *   versioned directories, providing historical context.
+ *
+ * The main entry point is the `runFullSync` method, which executes the entire orchestration sequence.
  * @class Neo.ai.mcp.server.github-workflow.SyncService
  * @extends Neo.core.Base
  * @singleton
@@ -36,8 +52,20 @@ class SyncService extends Base {
     releases = null;
 
     /**
-     * The main sync orchestration logic.
-     * @returns {Promise<object>}
+     * The main public entry point for the synchronization process.
+     *
+     * This method orchestrates the entire bi-directional sync workflow in a specific order
+     * to ensure data integrity and minimize conflicts:
+     * 1.  Fetches and caches GitHub release data to aid in archiving.
+     * 2.  Loads the persistent metadata from the last sync.
+     * 3.  **Pushes** any local changes (detected via file modification times) to GitHub.
+     * 4.  **Pulls** the latest changes from GitHub, updating local files.
+     * 5.  Syncs release notes into local Markdown files.
+     * 6.  Saves the updated metadata to disk for the next run.
+     *
+     * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
+     * information about all operations performed during the sync, conforming to the
+     * `SyncIssuesResponse` schema in the OpenAPI definition.
      */
     async runFullSync() {
         const startTime = new Date();
@@ -91,6 +119,7 @@ class SyncService extends Base {
 
     /**
      * Fetches release notes from GitHub and saves them as local Markdown files.
+     * @returns {Promise<object>} Statistics about the operation ({count: number, synced: string[]}).
      * @private
      */
     async #syncReleaseNotes() {
@@ -119,7 +148,7 @@ class SyncService extends Base {
     }
 
     /**
-     * Fetches all releases from GitHub, filters them by the syncStartDate, and caches them.
+     * Fetches all releases from GitHub, filters them by the syncStartDate, and caches them in `this.releases`.
      * @private
      */
     async #fetchAndCacheReleases() {
@@ -138,10 +167,11 @@ class SyncService extends Base {
     }
 
     /**
-     * Executes a gh CLI command. Can return parsed JSON or raw stdout.
-     * @param {String} cmd
-     * @param {boolean} [json=true] - Whether to parse the output as JSON.
-     * @returns {Promise<any>}
+     * Executes a gh CLI command.
+     * @param {string} cmd - The gh command to execute (without the leading 'gh').
+     * @param {boolean} [json=true] - Whether to parse the stdout as JSON.
+     * @returns {Promise<any>} The parsed JSON object or raw stdout string.
+     * @throws {Error} If the gh command fails.
      * @private
      */
     async #ghCommand(cmd, json = true) {
@@ -157,10 +187,10 @@ class SyncService extends Base {
     }
 
     /**
-     * Formats a GitHub issue and its comments into a Markdown string with YAML frontmatter.
-     * @param {object} issue
-     * @param {object[]} comments
-     * @returns {string}
+     * Formats a GitHub issue object and its comments into a single Markdown string with YAML frontmatter.
+     * @param {object} issue - The GitHub issue object from the API.
+     * @param {object[]} comments - An array of comment objects for the issue.
+     * @returns {string} The fully formatted Markdown string.
      * @private
      */
     #formatIssueMarkdown(issue, comments) {
@@ -204,9 +234,22 @@ class SyncService extends Base {
     }
 
     /**
-     * Determines the correct local file path for a given issue.
-     * @param {object} issue
-     * @returns {string|null}
+     * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
+     * labels (dropped), and milestone or closed date (for archiving).
+     * @param {object} issue - The GitHub issue object.
+     * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
+     * @example
+     * // For an open issue
+     * #getIssuePath({ number: 123, state: 'OPEN', labels: [] })
+     * // => '/path/to/project/.github/ISSUES/0123.md'
+     *
+     * // For a closed issue with a milestone
+     * #getIssuePath({ number: 456, state: 'CLOSED', milestone: { title: 'v11.0' }, labels: [], closedAt: '...' })
+     * // => '/path/to/project/.github/ISSUE_ARCHIVE/v11.0/0456.md'
+     *
+     * // For a dropped issue
+     * #getIssuePath({ number: 789, state: 'OPEN', labels: [{ name: 'wontfix' }] })
+     * // => null
      * @private
      */
     #getIssuePath(issue) {
@@ -242,8 +285,10 @@ class SyncService extends Base {
     }
 
     /**
-     * Loads the synchronization metadata file from disk.
-     * @returns {Promise<object>}
+     * Loads the synchronization metadata file from disk. If the file doesn't exist,
+     * it returns a default empty metadata object.
+     * @returns {Promise<object>} The parsed metadata object.
+     * @throws {Error} If reading the file fails for reasons other than not existing.
      * @private
      */
     async #loadMetadata() {
@@ -262,9 +307,11 @@ class SyncService extends Base {
     }
 
     /**
-     * Fetches all issues from GitHub and updates the local Markdown files.
-     * @param {object} metadata
-     * @returns {Promise<object>} The new metadata object.
+     * Fetches all relevant issues from GitHub since the last sync, compares them to local metadata,
+     * and updates local Markdown files as needed (create, update, move, or drop).
+     * @param {object} metadata - The last known sync metadata.
+     * @returns {Promise<{newMetadata: object, stats: object}>} An object containing the newly generated
+     * metadata for the next sync and detailed statistics about the pull operation.
      * @private
      */
     async #pullFromGitHub(metadata) {
@@ -349,8 +396,10 @@ class SyncService extends Base {
     }
 
     /**
-     * Scans local issue files for changes and pushes them to GitHub.
-     * @param {object} metadata
+     * Scans local Markdown files for modifications since the last sync and pushes
+     * changes (title and body) to the corresponding GitHub issues.
+     * @param {object} metadata - The last known sync metadata.
+     * @returns {Promise<object>} Statistics about the push operation ({count: number, issues: number[]}).
      * @private
      */
     async #pushToGitHub(metadata) {
@@ -410,8 +459,8 @@ class SyncService extends Base {
     }
 
     /**
-     * Recursively scans issue directories for .md files.
-     * @returns {Promise<string[]>} A list of absolute file paths.
+     * Recursively scans the configured issue and archive directories to find all local .md issue files.
+     * @returns {Promise<string[]>} A flat list of absolute file paths for all found issue files.
      * @private
      */
     async #scanLocalFiles() {
@@ -439,8 +488,9 @@ class SyncService extends Base {
     }
 
     /**
-     * Saves the synchronization metadata to disk.
-     * @param {object} metadata
+     * Saves the provided metadata object to the configured metadata file on disk,
+     * ensuring the directory exists.
+     * @param {object} metadata - The metadata object to serialize and save.
      * @returns {Promise<void>}
      * @private
      */
