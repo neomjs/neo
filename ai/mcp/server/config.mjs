@@ -23,6 +23,16 @@ const aiConfig = {
          */
         minGhVersion: '2.0.0',
         /**
+         * The owner of the GitHub repository.
+         * @type {string}
+         */
+        owner: 'neomjs',
+        /**
+         * The name of the GitHub repository.
+         * @type {string}
+         */
+        repo: 'neo',
+        /**
          * Configuration for the issue synchronization service.
          */
         issueSync: {

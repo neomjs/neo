@@ -1,13 +1,10 @@
-import {exec}      from 'child_process';
-import {promisify} from 'util';
-import Base        from '../../../../../src/core/Base.mjs';
-import logger      from '../../logger.mjs';
-
-const execAsync = promisify(exec);
+import Base           from '../../../../../src/core/Base.mjs';
+import GraphqlService from './GraphqlService.mjs';
+import aiConfig       from '../../config.mjs';
+import logger         from '../../logger.mjs';
 
 /**
- * Service for interacting with GitHub issues via the `gh` CLI.
- * This service will be expanded to handle more complex 2-way synchronization in the future.
+ * Service for interacting with GitHub issues via the GraphQL API.
  * @class Neo.ai.mcp.server.github-workflow.IssueService
  * @extends Neo.core.Base
  * @singleton
@@ -27,22 +24,77 @@ class IssueService extends Base {
     }
 
     /**
+     * Fetches the GraphQL node IDs for an issue and a set of labels.
+     * @param {number} issueNumber - The number of the issue or PR.
+     * @param {string[]} labelNames - An array of label names.
+     * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
+     * @private
+     */
+    async #getIds(issueNumber, labelNames) {
+        const query = `
+            query GetIds($owner: String!, $repo: String!, $issueNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                    issue(number: $issueNumber) {
+                        id
+                    }
+                    labels(first: 100) { # Assuming max 100 labels
+                        nodes {
+                            id
+                            name
+                        }
+                    }
+                }
+            }
+        `;
+
+        const variables = {
+            owner: aiConfig.githubWorkflow.owner,
+            repo: aiConfig.githubWorkflow.repo,
+            issueNumber
+        };
+
+        const data = await GraphqlService.query(query, variables);
+
+        const labelableId = data.repository.issue.id;
+        const repoLabels = data.repository.labels.nodes;
+        const labelIds = labelNames.map(name => {
+            const label = repoLabels.find(l => l.name === name);
+            return label ? label.id : null;
+        }).filter(Boolean);
+
+        if (!labelableId || labelIds.length !== labelNames.length) {
+            throw new Error(`Could not find issue #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
+        }
+
+        return { labelableId, labelIds };
+    }
+
+    /**
      * Adds labels to an issue or pull request.
      * @param {number} issueNumber - The number of the issue or PR.
      * @param {string[]} labels - An array of labels to add.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
     async addLabels(issueNumber, labels) {
-        const labelString = labels.join(',');
         try {
-            const {stdout} = await execAsync(`gh issue edit ${issueNumber} --add-label "${labelString}"`);
-            return {message: `Successfully added labels to issue #${issueNumber}`, details: stdout.trim()};
+            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+
+            const mutation = `
+                mutation AddLabels($labelableId: ID!, $labelIds: [ID!]!) {
+                    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+                        clientMutationId
+                    }
+                }
+            `;
+
+            await GraphqlService.query(mutation, { labelableId, labelIds });
+            return { message: `Successfully added labels to issue #${issueNumber}` };
         } catch (error) {
-            logger.error(`Error adding labels to issue #${issueNumber}:`, error);
+            logger.error(`Error adding labels to issue #${issueNumber} via GraphQL:`, error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `gh issue edit ${issueNumber} --add-label failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }
@@ -51,19 +103,28 @@ class IssueService extends Base {
      * Removes labels from an issue or pull request.
      * @param {number} issueNumber - The number of the issue or PR.
      * @param {string[]} labels - An array of labels to remove.
-     * @returns {Promise<object>} A promise that resolves to a success or error object.
+     * @returns {Promise<object>} A promise that resolves to a success message.
      */
     async removeLabels(issueNumber, labels) {
-        const labelString = labels.join(',');
         try {
-            const {stdout} = await execAsync(`gh issue edit ${issueNumber} --remove-label "${labelString}"`);
-            return {message: `Successfully removed labels from issue #${issueNumber}`, details: stdout.trim()};
+            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+
+            const mutation = `
+                mutation RemoveLabels($labelableId: ID!, $labelIds: [ID!]!) {
+                    removeLabelsFromLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+                        clientMutationId
+                    }
+                }
+            `;
+
+            await GraphqlService.query(mutation, { labelableId, labelIds });
+            return { message: `Successfully removed labels from issue #${issueNumber}` };
         } catch (error) {
-            logger.error(`Error removing labels from issue #${issueNumber}:`, error);
+            logger.error(`Error removing labels from issue #${issueNumber} via GraphQL:`, error);
             return {
-                error  : 'GitHub CLI command failed',
-                message: `gh issue edit ${issueNumber} --remove-label failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }
