@@ -66,6 +66,19 @@ class SyncService extends Base {
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync, conforming to the
      * `SyncIssuesResponse` schema in the OpenAPI definition.
+     * @example
+     * const result = await syncService.runFullSync();
+     * // result = {
+     * //   success: true,
+     * //   summary: "Synchronization complete",
+     * //   statistics: {
+     * //     pushed: { count: 2, issues: [1234, 1235] },
+     * //     pulled: { count: 15, created: 3, updated: 12, moved: 0, issues: [...] },
+     * //     dropped: { count: 1, issues: [999] },
+     * //     releases: { count: 5, synced: ['v11.0', ...] }
+     * //   },
+     * //   timing: { startTime: '...', endTime: '...', durationMs: 150000 }
+     * // }
      */
     async runFullSync() {
         const startTime = new Date();
