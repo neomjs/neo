@@ -552,6 +552,12 @@ components:
                     type: integer
                   example: [1234, 1235]
                   description: Issue numbers that were pushed
+                failures:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1236]
+                  description: Issue numbers that failed to push
             pulled:
               type: object
               properties:

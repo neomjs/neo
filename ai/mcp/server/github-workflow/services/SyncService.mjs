@@ -96,7 +96,12 @@ class SyncService extends Base {
         // 3. Sync release notes
         const releaseStats = await this.#syncReleaseNotes();
 
-        // 4. Save metadata
+        // 4. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
+        if (newMetadata.push_failures?.length > 0) {
+            newMetadata.push_failures = newMetadata.push_failures.filter(failedId => !newMetadata.issues[failedId]);
+        }
+
+        // 5. Save metadata
         await this.#saveMetadata(newMetadata);
 
         const endTime    = new Date();
@@ -340,8 +345,9 @@ class SyncService extends Base {
         logger.info(`Processing ${allIssues.length} issues since ${issueSyncConfig.syncStartDate}`);
 
         const newMetadata = {
-            issues   : {},
-            last_sync: new Date().toISOString()
+            issues       : {},
+            push_failures: metadata.push_failures || [],
+            last_sync    : new Date().toISOString()
         };
 
         const stats = {
@@ -410,14 +416,15 @@ class SyncService extends Base {
 
     /**
      * Scans local Markdown files for modifications since the last sync and pushes
-     * changes (title and body) to the corresponding GitHub issues.
+     * changes (title and body) to the corresponding GitHub issues. It also tracks and
+     * skips issues that have previously failed to push.
      * @param {object} metadata - The last known sync metadata.
-     * @returns {Promise<object>} Statistics about the push operation ({count: number, issues: number[]}).
+     * @returns {Promise<object>} Statistics about the push operation ({count: number, issues: number[], failures: number[]}).
      * @private
      */
     async #pushToGitHub(metadata) {
         logger.info('📤 Checking for local changes to push...');
-        const stats = { count: 0, issues: [] };
+        const stats = { count: 0, issues: [], failures: [] };
 
         if (!metadata.last_sync) {
             logger.info('✨ No previous sync found, skipping push.');
@@ -425,6 +432,7 @@ class SyncService extends Base {
         }
 
         const localFiles = await this.#scanLocalFiles();
+        const previousFailures = metadata.push_failures || [];
 
         for (const filePath of localFiles) {
             const fileStats = await fs.stat(filePath);
@@ -434,6 +442,12 @@ class SyncService extends Base {
                 const issueNumber = parsed.data.id;
 
                 if (!issueNumber) continue;
+
+                if (previousFailures.includes(issueNumber)) {
+                    logger.debug(`Skipping previously failed push for issue #${issueNumber}`);
+                    stats.failures.push(issueNumber);
+                    continue;
+                }
 
                 logger.info(`📝 Local changes detected for #${issueNumber}`);
 
@@ -458,16 +472,19 @@ class SyncService extends Base {
                     stats.count++;
                     stats.issues.push(issueNumber);
                 } catch (e) {
-                    logger.warn(`⚠️ Could not push changes for #${issueNumber}. Issue may not exist on GitHub.`);
+                    logger.warn(`⚠️ Could not push changes for #${issueNumber}. Issue may not exist on GitHub. Error: ${e.stderr || e.message}`);
+                    stats.failures.push(issueNumber);
                 }
             }
         }
 
         if (stats.count > 0) {
             logger.info(`📤 Pushed ${stats.count} local change(s) to GitHub`);
-        } else {
-            logger.info('✨ No local changes to push');
         }
+        if (stats.failures.length > 0) {
+            logger.warn(`⚠️ Encountered ${stats.failures.length} push failure(s).`);
+        }
+
         return stats;
     }
 
