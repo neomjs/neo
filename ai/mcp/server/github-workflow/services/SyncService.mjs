@@ -180,7 +180,7 @@ class SyncService extends Base {
      */
     async #fetchAndCacheReleases() {
         logger.info('Fetching and caching releases...');
-        const allReleases = await this.#ghCommand('release list --json tagName,publishedAt --limit 1000');
+        const allReleases = await this.#ghCommand(`release list --json tagName,publishedAt --limit ${issueSyncConfig.maxReleases}`);
 
         this.releases = allReleases
             .filter(release => new Date(release.publishedAt) >= new Date(issueSyncConfig.syncStartDate))
@@ -204,7 +204,7 @@ class SyncService extends Base {
     async #ghCommand(cmd, json = true) {
         try {
             // Using a larger maxBuffer in case of large outputs (e.g., many issues)
-            const { stdout } = await execAsync(`gh ${cmd}`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10 });
+            const { stdout } = await execAsync(`gh ${cmd}`, { encoding: 'utf-8', maxBuffer: issueSyncConfig.maxGhOutputBuffer });
             return json ? JSON.parse(stdout) : stdout;
         } catch (error) {
             logger.error(`Error executing: gh ${cmd}`);
@@ -280,7 +280,7 @@ class SyncService extends Base {
      * @private
      */
     #getIssuePath(issue) {
-        const number = String(issue.number).padStart(4, '0');
+        const number = String(issue.number).padStart(issueSyncConfig.issueNumberPadding, '0');
         const labels = issue.labels.map(l => l.name.toLowerCase());
 
         const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
@@ -343,7 +343,7 @@ class SyncService extends Base {
      */
     async #pullFromGitHub(metadata) {
         logger.info('📥 Fetching issues from GitHub...');
-        let allIssues = await this.#ghCommand('issue list --limit 10000 --state all --json number,title,state,labels,assignees,milestone,createdAt,updatedAt,closedAt,url,author,body');
+        let allIssues = await this.#ghCommand(`issue list --limit ${issueSyncConfig.maxIssues} --state all --json number,title,state,labels,assignees,milestone,createdAt,updatedAt,closedAt,url,author,body`);
         logger.info(`Found ${allIssues.length} total issues`);
 
         const startDate = new Date(issueSyncConfig.syncStartDate);
@@ -461,7 +461,7 @@ class SyncService extends Base {
                 logger.info(`📝 Local changes detected for #${issueNumber}`);
 
                 try {
-                    const bodyWithoutComments = parsed.content.split('## Comments')[0].trim();
+                    const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
                     const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
                     const title               = titleMatch ? titleMatch[1] : parsed.data.title;
 

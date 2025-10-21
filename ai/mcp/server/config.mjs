@@ -60,7 +60,32 @@ const aiConfig = {
              * The default version directory to use for archiving issues when no release is found.
              * @type {string}
              */
-            defaultArchiveVersion: 'unversioned'
+            defaultArchiveVersion: 'unversioned',
+            /**
+             * The number of characters to pad issue numbers with for filenames (e.g., 4 -> '0042.md').
+             * @type {number}
+             */
+            issueNumberPadding: 5,
+            /**
+             * The maximum number of issues to fetch from the GitHub API in a single sync.
+             * @type {number}
+             */
+            maxIssues: 10000,
+            /**
+             * The maximum number of releases to fetch from the GitHub API.
+             * @type {number}
+             */
+            maxReleases: 1000,
+            /**
+             * The maximum buffer size for the `gh` CLI command output.
+             * @type {number}
+             */
+            maxGhOutputBuffer: 10 * 1024 * 1024, // 10 MB
+            /**
+             * The markdown delimiter used to separate the issue body from the comments section.
+             * @type {string}
+             */
+            commentSectionDelimiter: '## Comments'
         }
     },
     /**
