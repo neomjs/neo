@@ -1,9 +1,9 @@
-import {exec}      from 'child_process';
-import {promisify} from 'util';
-import Base        from '../../../../../src/core/Base.mjs';
+import {exec}         from 'child_process';
+import {promisify}    from 'util';
+import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
-import aiConfig from '../../config.mjs';
-import logger      from '../../logger.mjs';
+import aiConfig       from '../../config.mjs';
+import logger         from '../../logger.mjs';
 
 const execAsync = promisify(exec);
 
