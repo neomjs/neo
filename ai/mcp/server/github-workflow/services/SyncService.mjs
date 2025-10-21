@@ -98,8 +98,8 @@ class SyncService extends Base {
         const releaseStats = await this.#syncReleaseNotes();
 
         // 4. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
-        if (newMetadata.push_failures?.length > 0) {
-            newMetadata.push_failures = newMetadata.push_failures.filter(failedId => !newMetadata.issues[failedId]);
+        if (newMetadata.pushFailures?.length > 0) {
+            newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
         }
 
         // 5. Save metadata
@@ -116,9 +116,9 @@ class SyncService extends Base {
         };
 
         const timing = {
-            startTime : startTime.toISOString(),
-            endTime   : endTime.toISOString(),
-            durationMs: durationMs
+            startTime: startTime.toISOString(),
+            endTime  : endTime.toISOString(),
+            durationMs
         };
 
         logger.info('✨ Sync Complete');
@@ -132,7 +132,7 @@ class SyncService extends Base {
             success   : true,
             summary   : "Synchronization complete",
             statistics: finalStats,
-            timing    : timing
+            timing
         };
     }
 
@@ -357,7 +357,7 @@ class SyncService extends Base {
         } catch (error) {
             if (error.code === 'ENOENT') {
                 return {
-                    last_sync: null,
+                    lastSync: null,
                     issues   : {}
                 };
             }
@@ -418,8 +418,8 @@ class SyncService extends Base {
 
         const newMetadata = {
             issues       : {},
-            push_failures: metadata.push_failures || [],
-            last_sync    : new Date().toISOString()
+            pushFailures: metadata.pushFailures || [],
+            lastSync    : new Date().toISOString()
         };
 
         const stats = {
@@ -501,17 +501,17 @@ class SyncService extends Base {
         logger.info('📤 Checking for local changes to push via GraphQL...');
         const stats = { count: 0, issues: [], failures: [] };
 
-        if (!metadata.last_sync) {
+        if (!metadata.lastSync) {
             logger.info('✨ No previous sync found, skipping push.');
             return stats;
         }
 
         const localFiles       = await this.#scanLocalFiles();
-        const previousFailures = metadata.push_failures || [];
+        const previousFailures = metadata.pushFailures || [];
 
         for (const filePath of localFiles) {
             const fileStats = await fs.stat(filePath);
-            if (fileStats.mtime > new Date(metadata.last_sync)) {
+            if (fileStats.mtime > new Date(metadata.lastSync)) {
                 const content     = await fs.readFile(filePath, 'utf-8');
                 const parsed      = matter(content);
                 const issueNumber = parsed.data.id;
