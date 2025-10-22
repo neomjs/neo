@@ -1,7 +1,7 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
 import Base        from '../../../../../src/core/Base.mjs';
-import logger      from '../../logger.mjs';
+import logger      from '../logger.mjs';
 
 const execAsync = promisify(exec);
 

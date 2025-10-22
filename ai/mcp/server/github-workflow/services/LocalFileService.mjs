@@ -1,7 +1,7 @@
 import aiConfig from '../config.mjs';
 import Base     from '../../../../../src/core/Base.mjs';
 import fs       from 'fs-extra';
-import logger   from '../../logger.mjs';
+import logger   from '../logger.mjs';
 import path     from 'path';
 
 /**

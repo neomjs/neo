@@ -3,7 +3,7 @@ import {promisify}    from 'util';
 import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig       from '../config.mjs';
-import logger         from '../../logger.mjs';
+import logger         from '../logger.mjs';
 import {
     ADD_COMMENT,
     DEFAULT_QUERY_LIMITS,

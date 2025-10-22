@@ -5,7 +5,7 @@ import ChromaManager          from './ChromaManager.mjs';
 import crypto                 from 'crypto';
 import dotenv                 from 'dotenv';
 import fs                     from 'fs-extra';
-import logger                 from '../../logger.mjs';
+import logger                 from '../logger.mjs';
 import path                   from 'path';
 import readline               from 'readline';
 

@@ -2,7 +2,7 @@ import {exec}      from 'child_process';
 import {promisify} from 'util';
 import aiConfig    from '../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
-import logger      from '../../logger.mjs';
+import logger      from '../logger.mjs';
 import semver      from 'semver';
 
 const execAsync = promisify(exec);

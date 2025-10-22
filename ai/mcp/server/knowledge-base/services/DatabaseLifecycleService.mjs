@@ -1,6 +1,6 @@
 import {spawn}        from 'child_process';
 import aiConfig       from '../config.mjs';
-import logger         from '../../logger.mjs';
+import logger         from '../logger.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
 import ChromaManager  from './ChromaManager.mjs';
 import Observable     from '../../../../../src/core/Observable.mjs';

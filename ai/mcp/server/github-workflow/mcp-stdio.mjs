@@ -3,7 +3,7 @@ import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import Neo                    from '../../../../src/Neo.mjs';
 import * as core              from '../../../../src/core/_export.mjs';
 import InstanceManager        from '../../../../src/manager/Instance.mjs';
-import logger                 from '../logger.mjs';
+import logger                 from './logger.mjs';
 
 import {
     CallToolRequestSchema,

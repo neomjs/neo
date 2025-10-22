@@ -1,6 +1,6 @@
 import aiConfig      from '../config.mjs';
 import fs            from 'fs-extra';
-import logger        from '../../logger.mjs';
+import logger        from '../logger.mjs';
 import path          from 'path';
 import readline      from 'readline';
 import Base          from '../../../../../src/core/Base.mjs';
