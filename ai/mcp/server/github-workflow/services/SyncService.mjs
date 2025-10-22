@@ -1,5 +1,6 @@
 import aiConfig                                      from '../config.mjs';
 import Base                                          from '../../../../../src/core/Base.mjs';
+import crypto                                        from 'crypto';
 import fs                                            from 'fs/promises';
 import logger                                        from '../logger.mjs';
 import matter                                        from 'gray-matter';
@@ -26,6 +27,8 @@ const issueSyncConfig = aiConfig.issueSync;
  *   local issue files based on changes from GitHub.
  * - **Release Awareness:** It fetches GitHub releases to intelligently archive closed issues into
  *   versioned directories, providing historical context.
+ * - **Content Hash Tracking:** Uses SHA-256 hashes to detect actual content changes, preventing
+ *   false updates from file system metadata changes (mtime).
  *
  * The main entry point is the `runFullSync` method, which executes the entire orchestration sequence.
  * @class Neo.ai.mcp.server.github-workflow.SyncService
@@ -59,7 +62,7 @@ class SyncService extends Base {
      * to ensure data integrity and minimize conflicts:
      * 1.  Fetches and caches GitHub release data to aid in archiving.
      * 2.  Loads the persistent metadata from the last sync.
-     * 3.  **Pushes** any local changes (detected via file modification times) to GitHub.
+     * 3.  **Pushes** any local changes (detected via content hash comparison) to GitHub.
      * 4.  **Pulls** the latest changes from GitHub, updating local files.
      * 5.  Syncs release notes into local Markdown files.
      * 6.  Saves the updated metadata to disk for the next run.
@@ -288,6 +291,16 @@ class SyncService extends Base {
     }
 
     /**
+     * Calculates a SHA-256 hash of the given content for change detection.
+     * @param {string} content - The content to hash.
+     * @returns {string} The hex-encoded hash.
+     * @private
+     */
+    #calculateContentHash(content) {
+        return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
      * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
      * labels (dropped), and milestone or closed date (for archiving).
      * @param {object} issue - The GitHub issue object.
@@ -395,7 +408,7 @@ class SyncService extends Base {
                     limit : 100,
                     cursor,
                     states: ['OPEN', 'CLOSED'],
-                    since : metadata.lastSync || issueSyncConfig.syncStartDate,
+                    since : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
                     ...DEFAULT_QUERY_LIMITS
                 },
                 true // Enable sub-issues feature
@@ -417,11 +430,10 @@ class SyncService extends Base {
             }
         }
 
-        logger.info(`Found ${allIssues.length} total issues`);
-        logger.info(`Processing ${allIssues.length} issues since ${issueSyncConfig.syncStartDate}`);
+        logger.info(`Found ${allIssues.length} issues updated since last sync`);
 
         const newMetadata = {
-            issues       : {},
+            issues       : { ...metadata.issues }, // Start with existing metadata
             pushFailures: metadata.pushFailures || [],
             lastSync    : new Date().toISOString()
         };
@@ -446,6 +458,8 @@ class SyncService extends Base {
                         logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist */ }
                 }
+                // Remove from metadata
+                delete newMetadata.issues[issueNumber];
                 continue;
             }
 
@@ -454,12 +468,15 @@ class SyncService extends Base {
                 oldIssue.updated !== issue.updatedAt ||
                 oldIssue.path !== targetPath;
 
+            let contentHash = oldIssue?.contentHash;
+
             if (needsUpdate) {
                 stats.pulled.count++;
                 stats.pulled.issues.push(issueNumber);
 
                 // Comments are already in issue.comments - no separate fetch needed!
                 const markdown = this.#formatIssueMarkdown(issue, issue.comments.nodes);
+                contentHash = this.#calculateContentHash(markdown);
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
                 await fs.writeFile(targetPath, markdown, 'utf-8');
@@ -471,7 +488,7 @@ class SyncService extends Base {
                     stats.pulled.moved++;
                     try {
                         await fs.rename(oldIssue.path, targetPath);
-                        logger.info(`📦 Renamed/Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
+                        logger.info(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
                     } catch (e) {
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
                         await fs.unlink(oldIssue.path).catch(() => {});
@@ -488,7 +505,8 @@ class SyncService extends Base {
                 updated  : issue.updatedAt,
                 closedAt : issue.closedAt || null,
                 milestone: issue.milestone?.title || null,
-                title    : issue.title
+                title    : issue.title,
+                contentHash // Store hash for push comparison
             };
         }
 
@@ -497,6 +515,7 @@ class SyncService extends Base {
 
     /**
      * Pushes local changes to GitHub using GraphQL mutations.
+     * Uses content hash comparison to detect actual changes and prevent false updates.
      * @param {object} metadata
      * @returns {Promise<object>}
      * @private
@@ -513,57 +532,79 @@ class SyncService extends Base {
         const localFiles       = await this.#scanLocalFiles();
         const previousFailures = metadata.pushFailures || [];
 
+        logger.debug(`Scanning ${localFiles.length} local files for changes...`);
+
         for (const filePath of localFiles) {
-            const fileStats = await fs.stat(filePath);
-            if (fileStats.mtime > new Date(metadata.lastSync)) {
-                const content     = await fs.readFile(filePath, 'utf-8');
-                const parsed      = matter(content);
+            try {
+                const content = await fs.readFile(filePath, 'utf-8');
+                const parsed = matter(content);
                 const issueNumber = parsed.data.id;
 
-                if (!issueNumber) continue;
+                if (!issueNumber) {
+                    logger.debug(`Skipping file without issue number: ${path.basename(filePath)}`);
+                    continue;
+                }
 
+                // Calculate current content hash
+                const currentHash = this.#calculateContentHash(content);
+                const oldIssue = metadata.issues[issueNumber];
+
+                // Skip if no metadata exists (shouldn't happen, but be safe)
+                if (!oldIssue) {
+                    logger.debug(`No metadata for #${issueNumber}, skipping push`);
+                    continue;
+                }
+
+                // Compare content hash - skip if unchanged
+                if (oldIssue.contentHash && oldIssue.contentHash === currentHash) {
+                    logger.debug(`No content change for #${issueNumber}, skipping`);
+                    continue;
+                }
+
+                // Skip previously failed pushes
                 if (previousFailures.includes(issueNumber)) {
                     logger.debug(`Skipping previously failed push for issue #${issueNumber}`);
                     stats.failures.push(issueNumber);
                     continue;
                 }
 
-                logger.info(`📝 Local changes detected for #${issueNumber}`);
+                logger.info(`📝 Content changed for #${issueNumber}`);
 
-                try {
-                    // Step 1: Get the issue's GraphQL ID
-                    const idData = await GraphqlService.query(GET_ISSUE_ID, {
-                        owner : aiConfig.owner,
-                        repo  : aiConfig.repo,
-                        number: issueNumber
-                    });
+                // Step 1: Get the issue's GraphQL ID
+                const idData = await GraphqlService.query(GET_ISSUE_ID, {
+                    owner : aiConfig.owner,
+                    repo  : aiConfig.repo,
+                    number: issueNumber
+                });
 
-                    const issueId = idData.repository.issue.id;
+                const issueId = idData.repository.issue.id;
 
-                    // Step 2: Prepare the updated content
-                    const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
-                    const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
-                    const title               = titleMatch ? titleMatch[1] : parsed.data.title;
+                // Step 2: Prepare the updated content
+                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
+                const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
+                const title = titleMatch ? titleMatch[1] : parsed.data.title;
 
-                    const cleanBody = bodyWithoutComments
-                        .replace(/^#\s+.+$/m, '')
-                        .replace(/^\*\*Reported by:\*\*.+$/m, '')
-                        .replace(/^---\n\n[\s\S]*?^---\n\n/m, '') // Remove relationship section
-                        .trim();
+                const cleanBody = bodyWithoutComments
+                    .replace(/^#\s+.+$/m, '')
+                    .replace(/^\*\*Reported by:\*\*.+$/m, '')
+                    .replace(/^---\n\n[\s\S]*?^---\n\n/m, '') // Remove relationship section
+                    .trim();
 
-                    // Step 3: Execute the mutation
-                    await GraphqlService.query(UPDATE_ISSUE, {
-                        issueId,
-                        title,
-                        body: cleanBody
-                    });
+                // Step 3: Execute the mutation
+                await GraphqlService.query(UPDATE_ISSUE, {
+                    issueId,
+                    title,
+                    body: cleanBody
+                });
 
-                    logger.info(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
-                    stats.count++;
-                    stats.issues.push(issueNumber);
-                } catch (e) {
-                    logger.warn(`⚠️ Could not push changes for #${issueNumber}. Error: ${e.message}`);
-                    stats.failures.push(issueNumber);
+                logger.info(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
+                stats.count++;
+                stats.issues.push(issueNumber);
+            } catch (e) {
+                logger.warn(`⚠️ Could not push changes for file ${path.basename(filePath)}. Error: ${e.message}`);
+                const parsed = matter(await fs.readFile(filePath, 'utf-8'));
+                if (parsed.data.id) {
+                    stats.failures.push(parsed.data.id);
                 }
             }
         }
