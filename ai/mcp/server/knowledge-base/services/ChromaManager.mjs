@@ -44,7 +44,7 @@ class ChromaManager extends Base {
      */
     construct(config) {
         super.construct(config);
-        const {host, port} = aiConfig.knowledgeBase;
+        const {host, port} = aiConfig;
         this.client = new ChromaClient({host, port, ssl: false});
     }
 
@@ -88,13 +88,11 @@ class ChromaManager extends Base {
      */
     async getKnowledgeBaseCollection() {
         if (!this.knowledgeBaseCollection) {
-            const {collectionName} = aiConfig.knowledgeBase;
-
             const originalWarn = console.warn;
             console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
 
             this.knowledgeBaseCollection = await this.client.getOrCreateCollection({
-                name             : collectionName,
+                name             : aiConfig.collectionName,
                 embeddingFunction: aiConfig.dummyEmbeddingFunction
             });
 

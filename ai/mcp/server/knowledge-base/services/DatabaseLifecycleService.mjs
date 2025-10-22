@@ -67,12 +67,12 @@ class DatabaseLifecycleService extends Base {
         }
 
         return new Promise((resolve, reject) => {
-            const { port, path: dbPath } = aiConfig.knowledgeBase;
+            const { port, path: dbPath } = aiConfig;
             const args = ['run', '--path', dbPath, '--port', port.toString()];
 
             const spawnedProcess = spawn('chroma', args, {
                 detached: true,
-                stdio: 'ignore'
+                stdio   : 'ignore'
             });
 
             spawnedProcess.on('spawn', () => {
