@@ -1,5 +1,5 @@
 import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../../config.mjs';
+import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 
 /**
@@ -44,7 +44,7 @@ class TextEmbeddingService extends Base {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.knowledgeBase.embeddingModel});
+        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
     }
 
     /**

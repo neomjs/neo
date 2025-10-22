@@ -1,5 +1,5 @@
 import {ChromaClient} from 'chromadb';
-import aiConfig       from '../../config.mjs';
+import aiConfig       from '../config.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
 
 /**

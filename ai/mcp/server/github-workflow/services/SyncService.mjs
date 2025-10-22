@@ -1,4 +1,4 @@
-import aiConfig                                      from '../../config.mjs';
+import aiConfig                                      from '../config.mjs';
 import Base                                          from '../../../../../src/core/Base.mjs';
 import fs                                            from 'fs/promises';
 import logger                                        from '../../logger.mjs';
@@ -9,7 +9,7 @@ import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from './queries/issueQuerie
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from './queries/mutations.mjs';
 import {FETCH_RELEASES}                              from './queries/releaseQueries.mjs';
 
-const issueSyncConfig = aiConfig.githubWorkflow.issueSync;
+const issueSyncConfig = aiConfig.issueSync;
 
 /**
  * Orchestrates the bi-directional synchronization of GitHub issues with local Markdown files.
@@ -192,8 +192,8 @@ class SyncService extends Base {
         // Paginate through all releases
         while (hasNextPage && allReleases.length < maxReleases) {
             const data = await GraphqlService.query(FETCH_RELEASES, {
-                owner: aiConfig.githubWorkflow.owner,
-                repo : aiConfig.githubWorkflow.repo,
+                owner: aiConfig.owner,
+                repo : aiConfig.repo,
                 limit: 100,
                 cursor
             });
@@ -386,8 +386,8 @@ class SyncService extends Base {
             const data = await GraphqlService.query(
                 FETCH_ISSUES_FOR_SYNC,
                 {
-                    owner : aiConfig.githubWorkflow.owner,
-                    repo  : aiConfig.githubWorkflow.repo,
+                    owner : aiConfig.owner,
+                    repo  : aiConfig.repo,
                     limit : 100,
                     cursor,
                     states: ['OPEN', 'CLOSED'],
@@ -529,8 +529,8 @@ class SyncService extends Base {
                 try {
                     // Step 1: Get the issue's GraphQL ID
                     const idData = await GraphqlService.query(GET_ISSUE_ID, {
-                        owner : aiConfig.githubWorkflow.owner,
-                        repo  : aiConfig.githubWorkflow.repo,
+                        owner : aiConfig.owner,
+                        repo  : aiConfig.repo,
                         number: issueNumber
                     });
 

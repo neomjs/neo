@@ -2,7 +2,7 @@ import {exec}         from 'child_process';
 import {promisify}    from 'util';
 import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
-import aiConfig       from '../../config.mjs';
+import aiConfig       from '../config.mjs';
 import logger         from '../../logger.mjs';
 
 const execAsync = promisify(exec);
@@ -57,8 +57,8 @@ class PullRequestService extends Base {
         `;
 
         const variables = {
-            owner : aiConfig.githubWorkflow.owner,
-            repo  : aiConfig.githubWorkflow.repo,
+            owner : aiConfig.owner,
+            repo  : aiConfig.repo,
             limit,
             states: state.toUpperCase()
         };
@@ -136,8 +136,8 @@ class PullRequestService extends Base {
         `;
 
         const idVariables = {
-            owner   : aiConfig.githubWorkflow.owner,
-            repo    : aiConfig.githubWorkflow.repo,
+            owner   : aiConfig.owner,
+            repo    : aiConfig.repo,
             prNumber: prNumber
         };
 
@@ -193,8 +193,8 @@ class PullRequestService extends Base {
         `;
 
         const variables = {
-            owner   : aiConfig.githubWorkflow.owner,
-            repo    : aiConfig.githubWorkflow.repo,
+            owner   : aiConfig.owner,
+            repo    : aiConfig.repo,
             prNumber: prNumber
         };
 

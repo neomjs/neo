@@ -1,6 +1,6 @@
 import {ChromaClient}       from 'chromadb';
 import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../../config.mjs';
+import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 
 /**
@@ -67,7 +67,7 @@ class SessionService extends Base {
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         this.model          = genAI.getGenerativeModel({model: 'gemini-2.5-flash'});
-        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.knowledgeBase.embeddingModel});
+        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
     }
 
     /**

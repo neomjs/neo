@@ -1,5 +1,5 @@
 import {spawn}        from 'child_process';
-import aiConfig       from '../../config.mjs';
+import aiConfig       from '../config.mjs';
 import logger         from '../../logger.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
 import ChromaManager  from './ChromaManager.mjs';
@@ -67,7 +67,7 @@ class DatabaseLifecycleService extends Base {
         }
 
         return new Promise((resolve, reject) => {
-            const { port, path: dbPath } = aiConfig.memoryCore.memoryDb;
+            const { port, path: dbPath } = aiConfig.memoryDb;
             const args = ['run', '--path', dbPath, '--port', port.toString()];
 
             const spawnedProcess = spawn('chroma', args, {

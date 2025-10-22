@@ -1,6 +1,6 @@
 import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
-import aiConfig       from '../../config.mjs';
+import aiConfig       from '../config.mjs';
 import logger         from '../../logger.mjs';
 
 /**
@@ -48,8 +48,8 @@ class IssueService extends Base {
         `;
 
         const variables = {
-            owner: aiConfig.githubWorkflow.owner,
-            repo: aiConfig.githubWorkflow.repo,
+            owner: aiConfig.owner,
+            repo: aiConfig.repo,
             issueNumber
         };
 

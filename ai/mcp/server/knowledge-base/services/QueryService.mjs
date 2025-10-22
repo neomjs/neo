@@ -1,5 +1,5 @@
 import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../../config.mjs';
+import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import dotenv               from 'dotenv';
@@ -53,7 +53,7 @@ class QueryService extends Base {
         }
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: aiConfig.knowledgeBase.embeddingModel });
+        const model = genAI.getGenerativeModel({ model: aiConfig.embeddingModel });
 
         const collection = await ChromaManager.getKnowledgeBaseCollection();
 
@@ -64,7 +64,7 @@ class QueryService extends Base {
 
         const queryOptions = {
             queryEmbeddings: [queryEmbedding.embedding.values],
-            nResults: aiConfig.knowledgeBase.nResults,
+            nResults: aiConfig.nResults,
             where: whereClause
         };
 

@@ -1,6 +1,6 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
-import aiConfig    from '../../config.mjs';
+import aiConfig    from '../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 import logger      from '../../logger.mjs';
 import semver      from 'semver';
@@ -130,7 +130,7 @@ class HealthService extends Base {
 
             if (versionMatch) {
                 const currentVersion = versionMatch[1];
-                const minVersion = aiConfig.githubWorkflow.minGhVersion;
+                const minVersion = aiConfig.minGhVersion;
 
                 // Use semantic versioning for accurate comparison.
                 // This prevents bugs where "2.9.0" would incorrectly compare as

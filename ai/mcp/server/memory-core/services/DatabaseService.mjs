@@ -1,4 +1,4 @@
-import aiConfig      from '../../config.mjs';
+import aiConfig      from '../config.mjs';
 import fs            from 'fs-extra';
 import logger        from '../../logger.mjs';
 import path          from 'path';

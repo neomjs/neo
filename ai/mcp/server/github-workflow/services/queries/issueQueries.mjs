@@ -9,9 +9,9 @@
  * @module Neo.ai.mcp.server.github-workflow.queries.issueQueries
  */
 
-import aiConfig from '../../../config.mjs';
+import aiConfig from '../../config.mjs';
 
-const issueSyncConfig = aiConfig.githubWorkflow.issueSync;
+const issueSyncConfig = aiConfig.issueSync;
 
 /**
  * Comprehensive query to fetch issues with all nested data needed for sync.

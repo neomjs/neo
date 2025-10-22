@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import aiConfig               from '../../config.mjs';
+import aiConfig               from '../config.mjs';
 import Base                   from '../../../../../src/core/Base.mjs';
 import ChromaManager          from './ChromaManager.mjs';
 import crypto                 from 'crypto';
@@ -89,7 +89,7 @@ class DatabaseService extends Base {
      */
     async createKnowledgeBase() {
         logger.log('Starting knowledge base file creation...');
-        const outputPath = aiConfig.knowledgeBase.path;
+        const outputPath = aiConfig.path;
         await fs.ensureDir(path.dirname(outputPath));
         const writeStream = fs.createWriteStream(outputPath);
         let totalChunks = 0;
@@ -244,7 +244,7 @@ class DatabaseService extends Base {
      */
     async embedKnowledgeBase() {
         logger.log('Starting knowledge base embedding...');
-        const knowledgeBasePath = aiConfig.knowledgeBase.path;
+        const knowledgeBasePath = aiConfig.path;
         if (!await fs.pathExists(knowledgeBasePath)) {
             throw new Error(`Knowledge base file not found at ${knowledgeBasePath}. Please run createKnowledgeBase first.`);
         }
@@ -324,12 +324,12 @@ class DatabaseService extends Base {
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: aiConfig.knowledgeBase.embeddingModel });
-        logger.log(`Initialized Google AI embedding model: ${aiConfig.knowledgeBase.embeddingModel}.`);
+        const model = genAI.getGenerativeModel({ model: aiConfig.embeddingModel });
+        logger.log(`Initialized Google AI embedding model: ${aiConfig.embeddingModel}.`);
 
         logger.log('Embedding chunks...');
-        const batchSize = aiConfig.knowledgeBase.batchSize;
-        const maxRetries = aiConfig.knowledgeBase.maxRetries;
+        const batchSize = aiConfig.batchSize;
+        const maxRetries = aiConfig.maxRetries;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             const batch = chunksToProcess.slice(i, i + batchSize);
@@ -341,7 +341,7 @@ class DatabaseService extends Base {
             while (retries < maxRetries && !success) {
                 try {
                     const result = await model.batchEmbedContents({
-                        requests: textsToEmbed.map(text => ({ model: aiConfig.knowledgeBase.embeddingModel, content: { parts: [{ text }] } }))
+                        requests: textsToEmbed.map(text => ({ model: aiConfig.embeddingModel, content: { parts: [{ text }] } }))
                     });
                     const embeddings = result.embeddings.map(e => e.values);
 
@@ -397,7 +397,7 @@ class DatabaseService extends Base {
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
     async deleteDatabase() {
-        const collectionName = aiConfig.knowledgeBase.collectionName;
+        const collectionName = aiConfig.collectionName;
         try {
             await ChromaManager.client.deleteCollection({ name: collectionName });
             const message = `Knowledge base collection '${collectionName}' deleted successfully.`;

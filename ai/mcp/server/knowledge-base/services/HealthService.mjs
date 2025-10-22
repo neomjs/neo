@@ -1,4 +1,4 @@
-import aiConfig                 from '../../config.mjs';
+import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
@@ -46,7 +46,7 @@ class HealthService extends Base {
                     connection: {
                         connected: true,
                         collection: {
-                            name:   aiConfig.knowledgeBase.collectionName,
+                            name:   aiConfig.collectionName,
                             exists: !!collection,
                             count:  collectionCount
                         }
