@@ -395,7 +395,7 @@ class SyncService extends Base {
                     limit : 100,
                     cursor,
                     states: ['OPEN', 'CLOSED'],
-                    since : issueSyncConfig.syncStartDate,
+                    since : metadata.lastSync || issueSyncConfig.syncStartDate,
                     ...DEFAULT_QUERY_LIMITS
                 },
                 true // Enable sub-issues feature
