@@ -42,7 +42,7 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} A promise that resolves to the list of pull requests or a structured error.
      */
     async listPullRequests(options = {}) {
-        const {limit = 30, state = 'open'} = options;
+        const {limit = aiConfig.pullRequest.defaults.limit, state = aiConfig.pullRequest.defaults.state} = options;
 
         const variables = {
             owner : aiConfig.owner,

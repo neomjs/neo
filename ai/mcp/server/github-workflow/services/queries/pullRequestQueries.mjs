@@ -26,6 +26,7 @@ export const FETCH_PULL_REQUESTS = `
           author {
             login
           }
+          state
         }
       }
     }

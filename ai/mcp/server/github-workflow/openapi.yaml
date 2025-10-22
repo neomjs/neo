@@ -453,8 +453,11 @@ components:
           type: string
           example: "feat: Add new component"
         author:
-          type: string
-          example: "some-contributor"
+          type: object
+          properties:
+            login:
+              type: string
+              example: "some-contributor"
         url:
           type: string
           format: uri
@@ -487,6 +490,12 @@ components:
           type: string
         body:
           type: string
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+              description: The GitHub username of the PR author.
         comments:
           type: array
           items:

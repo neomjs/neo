@@ -127,6 +127,26 @@ const config = {
      */
     pullRequest: {
         /**
+         * Default values for pull request queries.
+         */
+        defaults: {
+            /**
+             * The default number of pull requests to return.
+             * @type {number}
+             */
+            limit: 30,
+            /**
+             * The default state of pull requests to list.
+             * @type {string}
+             */
+            state: 'open'
+        },
+        /**
+         * The maximum number of pull requests that can be fetched in a single API call.
+         * @type {number}
+         */
+        maxLimit: 100,
+        /**
          * Maximum number of comments to fetch per pull request in GraphQL queries.
          * @type {number}
          */
