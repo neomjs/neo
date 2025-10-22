@@ -211,7 +211,7 @@ class SyncService extends Base {
         const startDate = new Date(issueSyncConfig.syncStartDate);
         this.releases = allReleases
             .filter(release => new Date(release.publishedAt) >= startDate)
-            .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+            .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
 
         if (this.releases.length === 0) {
             logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
@@ -318,26 +318,29 @@ class SyncService extends Base {
             return null; // Dropped issues are not stored locally.
         }
 
+        // OPEN issues are always in the main directory
         if (issue.state === 'OPEN') {
             return path.join(issueSyncConfig.issuesDir, filename);
         }
 
+        // Logic for CLOSED issues
         if (issue.state === 'CLOSED') {
-            const closed = new Date(issue.closedAt);
-            let version = this.releases.length > 0
-                ? this.releases[this.releases.length - 1].tagName
-                : issueSyncConfig.defaultArchiveVersion;
-
+            // If an issue has a milestone, it is explicitly archived under that version.
             if (issue.milestone?.title) {
-                version = issue.milestone.title;
-            } else {
-                // Find the first release that was published after the issue was closed
-                const release = this.releases.find(r => new Date(r.publishedAt) > closed);
-                if (release) {
-                    version = release.tagName;
-                }
+                return path.join(issueSyncConfig.archiveDir, issue.milestone.title, filename);
             }
-            return path.join(issueSyncConfig.archiveDir, version, filename);
+
+            // For issues without a milestone, find the next release that was published after it was closed.
+            const closed = new Date(issue.closedAt);
+            const release = this.releases.find(r => new Date(r.publishedAt) > closed);
+
+            // If a subsequent release exists, archive the issue under that release tag.
+            if (release) {
+                return path.join(issueSyncConfig.archiveDir, release.tagName, filename);
+            }
+
+            // If no subsequent release is found, the issue is recently closed and remains in the main issues directory.
+            return path.join(issueSyncConfig.issuesDir, filename);
         }
 
         return null;
