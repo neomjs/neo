@@ -370,10 +370,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /sync-issues:
+  /sync-all:
     post:
-      summary: Sync GitHub Issues
-      operationId: sync_issues
+      summary: Sync GitHub Issues & Releases
+      operationId: sync_all
       x-annotations:
         readOnlyHint: false
       description: |
