@@ -121,6 +121,16 @@ const config = {
          * @type {number}
          */
         maxSubIssuesPerIssue: 50
+    },
+    /**
+     * Configuration for pull request queries.
+     */
+    pullRequest: {
+        /**
+         * Maximum number of comments to fetch per pull request in GraphQL queries.
+         * @type {number}
+         */
+        maxCommentsPerPullRequest: 100
     }
 };
 

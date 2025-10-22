@@ -217,8 +217,8 @@ export const FETCH_SINGLE_ISSUE = `
  * These are pulled from config to avoid hardcoded magic numbers in queries.
  */
 export const DEFAULT_QUERY_LIMITS = {
-    maxLabels   : issueSyncConfig.maxLabelsPerIssue    ||  20,
-    maxAssignees: issueSyncConfig.maxAssigneesPerIssue ||  10,
-    maxComments : issueSyncConfig.maxCommentsPerIssue  || 100,
-    maxSubIssues: issueSyncConfig.maxSubIssuesPerIssue ||  50
+    maxLabels   : issueSyncConfig.maxLabelsPerIssue,
+    maxAssignees: issueSyncConfig.maxAssigneesPerIssue,
+    maxComments : issueSyncConfig.maxCommentsPerIssue,
+    maxSubIssues: issueSyncConfig.maxSubIssuesPerIssue
 };

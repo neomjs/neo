@@ -4,11 +4,18 @@ import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig       from '../config.mjs';
 import logger         from '../../logger.mjs';
+import {
+    ADD_COMMENT,
+    DEFAULT_QUERY_LIMITS,
+    FETCH_PULL_REQUESTS,
+    GET_CONVERSATION,
+    GET_PULL_REQUEST_ID
+} from './queries/pullRequestQueries.mjs';
 
 const execAsync = promisify(exec);
 
 /**
- * Service for interacting with GitHub Pull Requests via the `gh` CLI.
+ * Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
  * @class Neo.ai.mcp.server.github-workflow.PullRequestService
  * @extends Neo.core.Base
  * @singleton
@@ -37,25 +44,6 @@ class PullRequestService extends Base {
     async listPullRequests(options = {}) {
         const {limit = 30, state = 'open'} = options;
 
-        const query = `
-            query ListPullRequests($owner: String!, $repo: String!, $limit: Int!, $states: [PullRequestState!]) {
-                repository(owner: $owner, name: $repo) {
-                    pullRequests(first: $limit, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
-                        nodes {
-                            number
-                            title
-                            author {
-                                login
-                            }
-                            url
-                            state
-                            createdAt
-                        }
-                    }
-                }
-            }
-        `;
-
         const variables = {
             owner : aiConfig.owner,
             repo  : aiConfig.repo,
@@ -64,11 +52,11 @@ class PullRequestService extends Base {
         };
 
         try {
-            const data = await GraphqlService.query(query, variables);
+            const data = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
             const pullRequests = data.repository.pullRequests.nodes;
             return {
                 count: pullRequests.length,
-                pullRequests: pullRequests
+                pullRequests
             };
         } catch (error) {
             logger.error('Error fetching pull requests via GraphQL:', error);
@@ -125,35 +113,17 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
     async createComment(prNumber, body) {
-        const idQuery = `
-            query GetPullRequestId($owner: String!, $repo: String!, $prNumber: Int!) {
-                repository(owner: $owner, name: $repo) {
-                    pullRequest(number: $prNumber) {
-                        id
-                    }
-                }
-            }
-        `;
-
         const idVariables = {
             owner   : aiConfig.owner,
             repo    : aiConfig.repo,
-            prNumber: prNumber
+            prNumber
         };
 
         try {
-            const idData = await GraphqlService.query(idQuery, idVariables);
+            const idData    = await GraphqlService.query(GET_PULL_REQUEST_ID, idVariables);
             const subjectId = idData.repository.pullRequest.id;
 
-            const mutation = `
-                mutation AddComment($subjectId: ID!, $body: String!) {
-                    addComment(input: {subjectId: $subjectId, body: $body}) {
-                        clientMutationId
-                    }
-                }
-            `;
-
-            await GraphqlService.query(mutation, { subjectId, body });
+            await GraphqlService.query(ADD_COMMENT, { subjectId, body });
             return { message: `Successfully created comment on PR #${prNumber}` };
 
         } catch (error) {
@@ -172,34 +142,15 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} A promise that resolves to the conversation data or a structured error.
      */
     async getConversation(prNumber) {
-        const query = `
-            query GetPullRequestConversation($owner: String!, $repo: String!, $prNumber: Int!) {
-                repository(owner: $owner, name: $repo) {
-                    pullRequest(number: $prNumber) {
-                        title
-                        body
-                        comments(first: 100) { # Assuming max 100 comments
-                            nodes {
-                                author {
-                                    login
-                                }
-                                body
-                                createdAt
-                            }
-                        }
-                    }
-                }
-            }
-        `;
-
         const variables = {
-            owner   : aiConfig.owner,
-            repo    : aiConfig.repo,
-            prNumber: prNumber
+            owner      : aiConfig.owner,
+            repo       : aiConfig.repo,
+            prNumber,
+            maxComments: DEFAULT_QUERY_LIMITS.maxComments
         };
 
         try {
-            const data = await GraphqlService.query(query, variables);
+            const data = await GraphqlService.query(GET_CONVERSATION, variables);
             return data.repository.pullRequest;
         } catch (error) {
             logger.error(`Error getting conversation for PR #${prNumber} via GraphQL:`, error);

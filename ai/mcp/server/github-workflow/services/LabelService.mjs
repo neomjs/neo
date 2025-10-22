@@ -2,6 +2,7 @@ import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig       from '../config.mjs';
 import logger         from '../../logger.mjs';
+import {FETCH_LABELS} from './queries/labelQueries.mjs';
 
 /**
  * Service for interacting with GitHub labels via the GraphQL API.
@@ -28,31 +29,30 @@ class LabelService extends Base {
      * @returns {Promise<object>} A promise that resolves to the list of labels.
      */
     async listLabels() {
-        const query = `
-            query ListLabels($owner: String!, $repo: String!) {
-                repository(owner: $owner, name: $repo) {
-                    labels(first: 100) { # Assuming max 100 labels, add pagination if more are needed
-                        nodes {
-                            name
-                            description
-                            color
-                        }
-                    }
-                }
-            }
-        `;
-
-        const variables = {
-            owner: aiConfig.owner,
-            repo : aiConfig.repo
-        };
+        let allLabels   = [];
+        let hasNextPage = true;
+        let cursor      = null;
 
         try {
-            const data   = await GraphqlService.query(query, variables);
-            const labels = data.repository.labels.nodes;
+            while (hasNextPage) {
+                const variables = {
+                    owner : aiConfig.owner,
+                    repo  : aiConfig.repo,
+                    limit : 100,
+                    cursor
+                };
+
+                const data   = await GraphqlService.query(FETCH_LABELS, variables);
+                const labels = data.repository.labels;
+
+                allLabels.push(...labels.nodes);
+                hasNextPage = labels.pageInfo.hasNextPage;
+                cursor      = labels.pageInfo.endCursor;
+            }
+
             return {
-                count : labels.length,
-                labels: labels
+                count : allLabels.length,
+                labels: allLabels
             };
         } catch (error) {
             logger.error('Error fetching labels via GraphQL:', error);
