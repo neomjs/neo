@@ -4955,7 +4955,7 @@
     "7444": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7444.md",
-      "updated": "2025-10-13T10:17:12Z",
+      "updated": "2025-10-22T13:14:33Z",
       "closedAt": null,
       "milestone": null,
       "title": "Create Component Test form/field/Number.mjs in Playwright"
@@ -6095,8 +6095,72 @@
       "closedAt": null,
       "milestone": null,
       "title": "Epic: Automate MCP Server Startup and Reduce Agent Protocol"
+    },
+    "7605": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7605.md",
+      "updated": "2025-10-22T12:07:18Z",
+      "closedAt": "2025-10-22T12:07:18Z",
+      "milestone": null,
+      "title": "Add Configurable Prefix for Release Note Filenames"
+    },
+    "7606": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7606.md",
+      "updated": "2025-10-22T12:14:19Z",
+      "closedAt": "2025-10-22T12:14:19Z",
+      "milestone": null,
+      "title": "Rename `sync_issues` Tool to `sync_all` for Clarity"
+    },
+    "7607": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7607.md",
+      "updated": "2025-10-22T12:21:19Z",
+      "closedAt": "2025-10-22T12:20:57Z",
+      "milestone": null,
+      "title": "Add Release Name as H1 Header in Synced Release Note Files"
+    },
+    "7608": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7608.md",
+      "updated": "2025-10-22T12:30:41Z",
+      "closedAt": "2025-10-22T12:30:41Z",
+      "milestone": null,
+      "title": "Bug: `get_pull_request_diff` Fails Schema Validation Due to Raw String Output"
+    },
+    "7609": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7609.md",
+      "updated": "2025-10-22T12:53:25Z",
+      "closedAt": "2025-10-22T12:53:25Z",
+      "milestone": null,
+      "title": "New Tool: Get Local Issue by ID"
+    },
+    "7610": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7610.md",
+      "updated": "2025-10-22T13:13:44Z",
+      "closedAt": "2025-10-22T13:13:44Z",
+      "milestone": null,
+      "title": "Refactor `LocalFileService` to Remove `glob` Dependency"
+    },
+    "7611": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7611.md",
+      "updated": "2025-10-22T13:56:03Z",
+      "closedAt": "2025-10-22T13:56:03Z",
+      "milestone": null,
+      "title": "Decouple Logger by Duplicating into Each MCP Server"
+    },
+    "7612": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7612.md",
+      "updated": "2025-10-22T14:12:46Z",
+      "closedAt": "2025-10-22T14:12:46Z",
+      "milestone": null,
+      "title": "Implement Command-Line Debug Flag Override for MCP Servers"
     }
   },
   "pushFailures": [],
-  "lastSync": "2025-10-22T11:48:30.465Z"
+  "lastSync": "2025-10-22T20:52:23.103Z"
 }

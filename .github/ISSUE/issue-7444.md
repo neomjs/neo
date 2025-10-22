@@ -10,10 +10,10 @@ labels:
 assignees:
   - erbierc
 createdAt: '2025-10-10T16:58:38Z'
-updatedAt: '2025-10-13T10:17:12Z'
+updatedAt: '2025-10-22T13:14:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7444'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
@@ -57,4 +57,8 @@ i just noted that we have 2 tickets for `form.field.Text`. I will update this on
 some ideas: look into `src/form/field/Text.mjs` and `src/form/field/Number.mjs` to see how it works (point your agent to it). Use `npm run build-all`, unless you have already done it for your fork. then use `npm run server-start`, and you can open examples like `examples/form/field/number` inside your browser.
 
 as mentioned earlier, we can literally open 100+ additional tickets for component based testing alone.
+
+### @erbierc - 2025-10-22 13:14
+
+PR added: #7597 
 
