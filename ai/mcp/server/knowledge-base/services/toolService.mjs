@@ -12,16 +12,16 @@ const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
-    healthcheck          : HealthService.healthcheck,
-    sync_database        : DatabaseService.syncDatabase,
-    create_knowledge_base: DatabaseService.createKnowledgeBase,
-    embed_knowledge_base : DatabaseService.embedKnowledgeBase,
-    delete_database      : DatabaseService.deleteDatabase,
-    query_documents      : QueryService.queryDocuments,
-    list_documents       : DocumentService.listDocuments,
-    get_document_by_id   : DocumentService.getDocumentById,
-    start_database       : DatabaseLifecycleService.start_database,
-    stop_database        : DatabaseLifecycleService.stop_database
+    healthcheck          : HealthService.healthcheck.bind(HealthService),
+    sync_database        : DatabaseService.syncDatabase.bind(DatabaseService),
+    create_knowledge_base: DatabaseService.createKnowledgeBase.bind(DatabaseService),
+    embed_knowledge_base : DatabaseService.embedKnowledgeBase.bind(DatabaseService),
+    delete_database      : DatabaseService.deleteDatabase.bind(DatabaseService),
+    query_documents      : QueryService.queryDocuments.bind(QueryService),
+    list_documents       : DocumentService.listDocuments.bind(DocumentService),
+    get_document_by_id   : DocumentService.getDocumentById.bind(DocumentService),
+    start_database       : DatabaseLifecycleService.start_database.bind(DatabaseLifecycleService),
+    stop_database        : DatabaseLifecycleService.stop_database.bind(DatabaseLifecycleService)
 };
 
 initialize(serviceMapping, openApiFilePath);
