@@ -153,7 +153,7 @@ class SyncService extends Base {
 
         for (const release of this.releases) {
             try {
-                const filePath = path.join(releaseDir, `${release.tagName}.md`);
+                const filePath = path.join(releaseDir, `${issueSyncConfig.releaseFilenamePrefix}${release.tagName}.md`);
 
                 const frontmatter = {
                     tagName     : release.tagName,

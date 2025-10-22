@@ -79,6 +79,11 @@ const config = {
          */
         issueFilenamePrefix: 'issue-',
         /**
+         * A prefix for release note filenames (e.g., 'v').
+         * @type {string}
+         */
+        releaseFilenamePrefix: 'v',
+        /**
          * The maximum number of issues to fetch from the GitHub API in a single sync.
          * @type {number}
          */
