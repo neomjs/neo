@@ -164,7 +164,8 @@ class SyncService extends Base {
                 };
 
                 // GraphQL returns 'description' not 'body'
-                const content = matter.stringify(release.description || '', frontmatter);
+                const body = `# ${release.name}\n\n${release.description || ''}`;
+                const content = matter.stringify(body, frontmatter);
 
                 await fs.writeFile(filePath, content, 'utf-8');
                 logger.info(`✅ Synced release notes for ${release.tagName}`);
