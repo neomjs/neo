@@ -370,6 +370,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /issues/{issue_number}/content:
+    get:
+      summary: Get Local Issue Content by ID
+      operationId: get_local_issue_by_id
+      x-annotations:
+        readOnlyHint: true
+      description: Retrieves the full markdown content of a local issue file by its number, searching both active and archived issues.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue (e.g., "7608" or "#7608").
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The content and path of the issue file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalIssueResponse'
+        '404':
+          description: Issue file not found locally.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sync-all:
     post:
       summary: Sync GitHub Issues & Releases
@@ -656,3 +691,14 @@ components:
         code:
           type: string
           example: "GH_CLI_ERROR"
+
+    LocalIssueResponse:
+      type: object
+      properties:
+        filePath:
+          type: string
+          description: The absolute path to the found issue file.
+          example: /path/to/project/.github/ISSUES/issue-7608.md
+        content:
+          type: string
+          description: The full markdown content of the issue file.
