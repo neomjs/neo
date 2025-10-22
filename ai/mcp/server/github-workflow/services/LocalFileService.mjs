@@ -1,12 +1,8 @@
-import aiConfig       from '../config.mjs';
-import Base           from '../../../../../src/core/Base.mjs';
-import fs             from 'fs/promises';
-import glob           from 'glob';
-import logger         from '../../logger.mjs';
-import path           from 'path';
-import { promisify }  from 'util';
-
-const globAsync = promisify(glob);
+import aiConfig from '../config.mjs';
+import Base     from '../../../../../src/core/Base.mjs';
+import fs       from 'fs-extra';
+import logger   from '../../logger.mjs';
+import path     from 'path';
 
 /**
  * Service for local file system lookups related to the GitHub workflow.
@@ -35,22 +31,20 @@ class LocalFileService extends Base {
      */
     async getIssueById(issueNumber) {
         const normalizedId = issueNumber.startsWith('#') ? issueNumber.substring(1) : issueNumber;
-        const filename = `${aiConfig.issueSync.issueFilenamePrefix}${normalizedId}.md`;
+        const filename     = `${aiConfig.issueSync.issueFilenamePrefix}${normalizedId}.md`;
 
         try {
             // 1. Check the active issues directory first
             const activePath = path.join(aiConfig.issueSync.issuesDir, filename);
-            if (await this.#fileExists(activePath)) {
+            if (await fs.pathExists(activePath)) {
                 const content = await fs.readFile(activePath, 'utf-8');
                 return { filePath: activePath, content };
             }
 
             // 2. If not found, search the archive directory recursively
-            const archivePattern = path.join(aiConfig.issueSync.archiveDir, '**', filename);
-            const archiveFiles = await globAsync(archivePattern);
+            const archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveDir, filename);
 
-            if (archiveFiles.length > 0) {
-                const archivePath = archiveFiles[0]; // Use the first match
+            if (archivePath) {
                 const content = await fs.readFile(archivePath, 'utf-8');
                 return { filePath: archivePath, content };
             }
@@ -74,18 +68,33 @@ class LocalFileService extends Base {
     }
 
     /**
-     * Checks if a file exists at the given path.
-     * @param {string} filePath - The path to check.
-     * @returns {Promise<boolean>} True if the file exists, false otherwise.
+     * Recursively searches for a file within a directory and its subdirectories.
+     * @param {string} directory - The directory to start the search from.
+     * @param {string} filename - The name of the file to find.
+     * @returns {Promise<string|null>} The absolute path of the file if found, otherwise null.
      * @private
      */
-    async #fileExists(filePath) {
+    async #findFileRecursively(directory, filename) {
         try {
-            await fs.access(filePath);
-            return true;
-        } catch {
-            return false;
+            const entries = await fs.readdir(directory, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(directory, entry.name);
+
+                if (entry.isDirectory()) {
+                    const foundPath = await this.#findFileRecursively(fullPath, filename);
+                    if (foundPath) {
+                        return foundPath;
+                    }
+                } else if (entry.isFile() && entry.name === filename) {
+                    return fullPath;
+                }
+            }
+        } catch (e) {
+            // Directory might not exist, or other fs errors. Ignore and continue search.
+            logger.debug(`[LocalFileService] Error accessing directory ${directory}: ${e.message}`);
         }
+        return null;
     }
 }
 
