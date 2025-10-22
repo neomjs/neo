@@ -42,7 +42,7 @@ const config = {
          * The path to the directory for active issues.
          * @type {string}
          */
-        issuesDir: path.resolve(process.cwd(), '.github', 'ISSUES'),
+        issuesDir: path.resolve(process.cwd(), '.github', 'ISSUE'),
         /**
          * The path to the directory for archived issues.
          * @type {string}
