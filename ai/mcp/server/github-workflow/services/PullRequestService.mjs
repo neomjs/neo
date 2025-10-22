@@ -95,7 +95,7 @@ class PullRequestService extends Base {
     async getPullRequestDiff(prNumber) {
         try {
             const {stdout} = await execAsync(`gh pr diff ${prNumber}`);
-            return stdout;
+            return { result: stdout };
         } catch (error) {
             logger.error(`Error getting diff for PR #${prNumber}:`, error);
             return {
