@@ -103,7 +103,7 @@ class DatabaseService extends Base {
                 let chunk, type = sourceFile.includes('/examples/') ? 'example' : 'src';
                 if (item.kind === 'class') {
                     chunk = {
-                        type       : type,
+                        type,
                         kind       : 'class',
                         name       : item.longname,
                         description: item.comment,
@@ -112,7 +112,7 @@ class DatabaseService extends Base {
                     };
                 } else if (item.kind === 'member' && item.memberof) {
                     chunk = {
-                        type       : type,
+                        type,
                         kind       : 'config',
                         className  : item.memberof,
                         name       : item.name,
@@ -122,7 +122,7 @@ class DatabaseService extends Base {
                     };
                 } else if (item.kind === 'function' && item.memberof) {
                     chunk = {
-                        type       : type,
+                        type,
                         kind       : 'method',
                         className  : item.memberof,
                         name       : item.name,
@@ -328,7 +328,7 @@ class DatabaseService extends Base {
         logger.log(`Initialized Google AI embedding model: ${aiConfig.embeddingModel}.`);
 
         logger.log('Embedding chunks...');
-        const batchSize = aiConfig.batchSize;
+        const batchSize  = aiConfig.batchSize;
         const maxRetries = aiConfig.maxRetries;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {

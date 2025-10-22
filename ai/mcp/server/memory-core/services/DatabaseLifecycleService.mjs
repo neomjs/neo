@@ -108,7 +108,7 @@ class DatabaseLifecycleService extends Base {
                 logger.log(`ChromaDB process with PID: ${pid} has been stopped.`);
                 this.chromaProcess = null;
                 const result = { status: 'stopped' };
-                this.fire('processStopped', { pid: pid, managedByService: true });
+                this.fire('processStopped', { pid, managedByService: true });
                 resolve(result);
             });
 
