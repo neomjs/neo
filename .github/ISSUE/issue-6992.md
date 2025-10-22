@@ -1,0 +1,139 @@
+---
+id: 6992
+title: Functional Components
+state: OPEN
+labels:
+  - enhancement
+  - epic
+  - no auto close
+assignees: []
+createdAt: '2025-07-09T10:50:47Z'
+updatedAt: '2025-10-14T07:37:55Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/6992'
+author: tobiu
+commentsCount: 1
+parentIssue: null
+subIssues:
+  - 6993
+  - 6994
+  - 6995
+  - 6996
+  - 6997
+  - 7010
+  - 7011
+  - 7012
+  - 7013
+  - 7014
+  - 7015
+  - 7016
+  - 7017
+  - 7019
+  - 7021
+  - 7022
+  - 7027
+  - 7025
+  - 7024
+  - 7023
+  - 7026
+  - 7028
+  - 7042
+  - 7043
+  - 7046
+  - 7047
+  - 7050
+  - 7053
+  - 7054
+  - 7055
+  - 7057
+  - 7062
+  - 7069
+  - 7070
+  - 7071
+  - 7074
+  - 7075
+subIssuesCompleted: 33
+subIssuesTotal: 37
+---
+# Functional Components
+
+**Reported by:** @tobiu on 2025-07-09
+
+---
+
+**Sub-Issues:** #6993, #6994, #6995, #6996, #6997, #7010, #7011, #7012, #7013, #7014, #7015, #7016, #7017, #7019, #7021, #7022, #7027, #7025, #7024, #7023, #7026, #7028, #7042, #7043, #7046, #7047, #7050, #7053, #7054, #7055, #7057, #7062, #7069, #7070, #7071, #7074, #7075
+**Progress:** 33/37 completed (89%)
+
+---
+
+# Epic: Functional Components
+
+## Motivation
+
+This initiative will establish a new, lightweight base class for components. This class will bypass the traditional `items` array and `layout` system. Instead, it will be driven by a central `Effect` that calls a VDOM-generating method (e.g., `createVdom()`) to declaratively build the component's UI based on its current state. This aligns with the reactive patterns of other popular frameworks and provides a more intuitive and familiar entry point for those developers.
+
+This epic will be broken down into several sub-tickets to implement this new component architecture in an iterative and isolated manner.
+
+Functional Components are an addition to, and not a replacement for declarative component trees based on `container.Base`: `items`.
+
+---
+
+## Two Modes of Functional Component Definition
+
+Neo.mjs will offer two distinct ways to define functional components, catering to different developer preferences and needs. Both modes leverage the underlying `Neo.functional.component.Base` class and the `Neo.core.Effect` system for reactive rendering, but they provide different levels of abstraction and access to the framework's full power.
+
+### 1. Beginner Mode: Pure Function with Hooks (e.g., `Neo.functional.defineComponent`)
+
+This mode is designed for developers seeking a highly concise and familiar syntax, especially those coming from frameworks like React. Components are defined as plain JavaScript functions that return VDOM. State management is handled via dedicated hooks (e.g., `useConfig`).
+
+**Characteristics:**
+-   **Concise Syntax:** Focus on the VDOM rendering logic.
+-   **Hook-based State:** State and side effects are managed through `use` hooks.
+-   **Simplified API:** Abstracts away class boilerplate.
+-   **Tier 1 Reactivity:** Primarily leverages `Neo.core.Config` for reactive values and `Neo.core.Effect` for re-rendering.
+-   **No Lifecycle Hooks:** Does not expose `beforeGet`, `beforeSet`, or `afterSet` lifecycle hooks directly on the component definition, as these are tied to the class-based `static config` system.
+
+### 2. Medium Mode: Class-based Functional Component (Extending `Neo.functional.component.Base`)
+
+This mode provides direct access to the underlying `Neo.functional.component.Base` class, allowing developers to define components using `static config` properties. This offers a more explicit and powerful way to define reactive components within the Neo.mjs class system.
+
+**Characteristics:**
+-   **Explicit Configs:** State is defined via `static config` properties.
+-   **Full Two-Tier Reactivity:** Access to both `Neo.core.Config` (Tier 1) and the `autoGenerateGetSet` mechanism (Tier 2), including `afterSet` lifecycle hooks for imperative side effects.
+-   **Class-based Structure:** Familiar to developers comfortable with class-based component patterns.
+
+---
+
+Example usage:
+```javascript
+import {defineComponent, useConfig} from '../../../src/functional/_export.mjs';
+import Button                       from '../../../src/button/Base.mjs';
+
+export default defineComponent({
+    config: {
+        className: 'Neo.examples.functional.hostComponent.Component'
+    },
+    createVdom() {
+        const [count, setCount] = useConfig(0);
+
+        return {cn: [
+            {
+                tag : 'p',
+                text: `Button clicked ${count} times`
+            }, {
+                module : Button,
+                id     : 'myButtonModule',
+                theme  : 'neo-theme-neo-light',
+                text   : 'Click Me (Neo Button)',
+                handler: () => setCount(prev => prev + 1)
+            }
+        ]}
+    }
+});
+```
+
+## Comments
+
+### @github-actions - 2025-10-14 02:41
+
+This issue is stale because it has been open for 90 days with no activity.
+
