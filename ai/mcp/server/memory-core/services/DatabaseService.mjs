@@ -78,12 +78,12 @@ class DatabaseService extends Base {
 
         if (include.includes('memories')) {
             const collection = await ChromaManager.getMemoryCollection();
-            memoryCount = await this.#exportCollection(collection, aiConfig.memory.backupPath, 'memory-backup');
+            memoryCount = await this.#exportCollection(collection, aiConfig.memoryDb.backupPath, 'memory-backup');
         }
 
         if (include.includes('summaries')) {
             const collection = await ChromaManager.getSummaryCollection();
-            summaryCount = await this.#exportCollection(collection, aiConfig.sessions.backupPath, 'summaries-backup');
+            summaryCount = await this.#exportCollection(collection, aiConfig.sessionDb.backupPath, 'summaries-backup');
         }
 
         return { message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.` };

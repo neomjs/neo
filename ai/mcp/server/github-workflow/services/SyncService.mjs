@@ -202,7 +202,7 @@ class SyncService extends Base {
             allReleases.push(...releases.nodes);
 
             hasNextPage = releases.pageInfo.hasNextPage;
-            cursor = releases.pageInfo.endCursor;
+            cursor      = releases.pageInfo.endCursor;
 
             logger.debug(`Fetched ${releases.nodes.length} releases (total: ${allReleases.length})`);
         }

@@ -59,7 +59,7 @@ class SessionService extends Base {
     construct(config) {
         super.construct(config);
 
-        const {host, port} = aiConfig.memory;
+        const {host, port} = aiConfig.memoryDb;
         this.dbClient = new ChromaClient({ host, port, ssl: false });
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -75,8 +75,8 @@ class SessionService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        this.memoryCollection   = await this.dbClient.getCollection({ name: aiConfig.memory.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
-        this.sessionsCollection = await this.dbClient.getOrCreateCollection({ name: aiConfig.sessions.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+        this.memoryCollection   = await this.dbClient.getCollection({ name: aiConfig.memoryDb.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+        this.sessionsCollection = await this.dbClient.getOrCreateCollection({ name: aiConfig.sessionDb.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
     }
 
     /**

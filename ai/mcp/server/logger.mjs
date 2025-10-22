@@ -1,4 +1,4 @@
-import aiConfig from './config.mjs';
+import aiConfig from './github-workflow/config.mjs';
 
 /**
  * A simple logger that writes to stderr only when the global debug flag is enabled.
