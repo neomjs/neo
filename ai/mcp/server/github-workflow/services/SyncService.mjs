@@ -8,7 +8,7 @@ import path                                          from 'path';
 import GraphqlService                                from './GraphqlService.mjs';
 import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from './queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from './queries/mutations.mjs';
-import {FETCH_RELEASES}                              from './queries/releaseQueries.mjs';
+import {FETCH_RELEASES, FETCH_LATEST_RELEASE}        from './queries/releaseQueries.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
@@ -60,12 +60,13 @@ class SyncService extends Base {
      *
      * This method orchestrates the entire bi-directional sync workflow in a specific order
      * to ensure data integrity and minimize conflicts:
-     * 1.  Fetches and caches GitHub release data to aid in archiving.
-     * 2.  Loads the persistent metadata from the last sync.
+     * 1.  Loads the persistent metadata from the last sync.
+     * 2.  Fetches and caches GitHub release data, using the loaded metadata to perform a
+     *     quick check and avoid unnecessary fetches.
      * 3.  **Pushes** any local changes (detected via content hash comparison) to GitHub.
      * 4.  **Pulls** the latest changes from GitHub, updating local files.
      * 5.  Syncs release notes into local Markdown files.
-     * 6.  Saves the updated metadata to disk for the next run.
+     * 6.  Saves the updated metadata (including the new release cache) to disk for the next run.
      *
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync, conforming to the
@@ -87,9 +88,10 @@ class SyncService extends Base {
     async runFullSync() {
         const startTime = new Date();
 
-        await this.#fetchAndCacheReleases();
-
         const metadata = await this.#loadMetadata();
+
+        // Pass metadata to check cache
+        await this.#fetchAndCacheReleases(metadata);
 
         // 1. Push local changes
         const pushStats = await this.#pushToGitHub(metadata);
@@ -105,7 +107,11 @@ class SyncService extends Base {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
         }
 
-        // 5. Save metadata
+        // 5. Cache releases in metadata for next run
+        newMetadata.releases            = this.releases;
+        newMetadata.releasesLastFetched = new Date().toISOString();
+
+        // 6. Save metadata
         await this.#saveMetadata(newMetadata);
 
         const endTime    = new Date();
@@ -182,18 +188,55 @@ class SyncService extends Base {
     }
 
     /**
-     * Fetches all releases from GitHub using GraphQL with automatic pagination.
+     * Fetches releases from GitHub using an optimized two-phase approach.
+     *
+     * This optimization is necessary because the GitHub GraphQL `releases` endpoint does not
+     * support a `since` parameter, making simple delta-based fetching impossible.
+     *
+     * First, it performs a quick check to see if the latest release is already cached.
+     * If not, it performs a full, paginated fetch with an early-exit optimization that
+     * stops querying when it reaches releases older than the `syncStartDate`.
+     *
+     * @param {object} metadata The sync metadata containing the cached releases.
      * @private
      */
-    async #fetchAndCacheReleases() {
-        logger.info('Fetching and caching releases via GraphQL...');
+    async #fetchAndCacheReleases(metadata) {
+        logger.info('Checking for new releases...');
+
+        // Phase 1: Quick check against the cached latest release
+        if (metadata.releases && metadata.releases.length > 0) {
+            try {
+                const latestData = await GraphqlService.query(FETCH_LATEST_RELEASE, {
+                    owner: aiConfig.owner,
+                    repo : aiConfig.repo
+                });
+
+                const latestRelease = latestData.repository.latestRelease;
+                const cachedLatest  = metadata.releases[metadata.releases.length - 1]; // Releases are sorted ascending by date
+
+                if (latestRelease && cachedLatest &&
+                    latestRelease.tagName === cachedLatest.tagName &&
+                    latestRelease.publishedAt === cachedLatest.publishedAt) {
+                    logger.info(`✅ Releases are up-to-date (latest: ${latestRelease.tagName})`);
+                    this.releases = metadata.releases;
+                    return;
+                }
+
+                logger.info(`New release detected: ${latestRelease.tagName} (cached was: ${cachedLatest?.tagName})`);
+            } catch (e) {
+                logger.warn(`Could not check latest release, falling back to full fetch: ${e.message}`);
+            }
+        }
+
+        // Phase 2: Full fetch with early exit
+        logger.info('Fetching releases from GitHub via GraphQL...');
 
         let allReleases = [];
         let hasNextPage = true;
         let cursor      = null;
         const maxReleases = issueSyncConfig.maxReleases;
+        const startDate   = new Date(issueSyncConfig.syncStartDate);
 
-        // Paginate through all releases
         while (hasNextPage && allReleases.length < maxReleases) {
             const data = await GraphqlService.query(FETCH_RELEASES, {
                 owner: aiConfig.owner,
@@ -203,25 +246,41 @@ class SyncService extends Base {
             });
 
             const releases = data.repository.releases;
+
+            if (releases.nodes.length === 0) {
+                logger.debug('No more releases found in pagination.');
+                break;
+            }
+
+            // Check if oldest release in this batch is before our cutoff
+            const oldestInBatch = releases.nodes[releases.nodes.length - 1];
+            const oldestDate    = new Date(oldestInBatch.publishedAt);
+
+            // Add all releases from the batch for now; we will filter after the loop
             allReleases.push(...releases.nodes);
+
+            logger.debug(`Fetched ${releases.nodes.length} releases (total raw: ${allReleases.length})`);
+
+            // Early exit if oldest release in batch is before our cutoff
+            if (oldestDate < startDate) {
+                logger.info(`Reached releases published before ${issueSyncConfig.syncStartDate}, stopping pagination.`);
+                break;
+            }
 
             hasNextPage = releases.pageInfo.hasNextPage;
             cursor      = releases.pageInfo.endCursor;
-
-            logger.debug(`Fetched ${releases.nodes.length} releases (total: ${allReleases.length})`);
         }
 
-        // Filter by syncStartDate
-        const startDate = new Date(issueSyncConfig.syncStartDate);
+        // Now, filter and sort the collected releases
         this.releases = allReleases
             .filter(release => new Date(release.publishedAt) >= startDate)
             .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
 
         if (this.releases.length === 0) {
             logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
+        } else {
+            logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
         }
-
-        logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
     }
 
     /**

@@ -5,6 +5,31 @@
  */
 
 /**
+ * Query to fetch the single latest release.
+ * This is used for a quick check to see if the release cache is up-to-date.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ */
+export const FETCH_LATEST_RELEASE = `
+  query FetchLatestRelease(
+    $owner: String!
+    $repo: String!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      latestRelease {
+        tagName
+        name
+        publishedAt
+        isPrerelease
+        isDraft
+      }
+    }
+  }
+`;
+
+/**
  * Query to fetch releases with pagination support.
  *
  * This fetches release metadata including the description (release notes), which will be
