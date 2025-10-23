@@ -506,7 +506,7 @@ class SyncService extends Base {
             allIssues.push(...issues.nodes);
 
             hasNextPage = issues.pageInfo.hasNextPage;
-            cursor = issues.pageInfo.endCursor;
+            cursor      = issues.pageInfo.endCursor;
 
             // Monitor rate limit usage
             totalCost += data.rateLimit.cost;
@@ -521,7 +521,7 @@ class SyncService extends Base {
         logger.info(`Found ${allIssues.length} issues updated since last sync`);
 
         const newMetadata = {
-            issues       : { ...metadata.issues }, // Start with existing metadata
+            issues      : { ...metadata.issues }, // Start with existing metadata
             pushFailures: metadata.pushFailures || [],
             lastSync    : new Date().toISOString()
         };
