@@ -100,7 +100,7 @@ class SyncService extends Base {
         const { newMetadata, stats: pullStats } = await this.#pullFromGitHub(metadata);
 
         // 3. Sync release notes
-        const releaseStats = await this.#syncReleaseNotes();
+        const releaseStats = await this.#syncReleaseNotes(metadata);
 
         // 4. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
@@ -108,7 +108,16 @@ class SyncService extends Base {
         }
 
         // 5. Cache releases in metadata for next run
-        newMetadata.releases            = this.releases;
+        const releaseCache = {};
+        this.releases.forEach(release => {
+            releaseCache[release.tagName] = {
+                // Duplicating data to keep it simple, could be optimized
+                // to just store the hash if metadata size becomes an issue.
+                ...release,
+                contentHash: release.contentHash
+            };
+        });
+        newMetadata.releases            = releaseCache;
         newMetadata.releasesLastFetched = new Date().toISOString();
 
         // 6. Save metadata
@@ -146,11 +155,13 @@ class SyncService extends Base {
     }
 
     /**
-     * Saves release notes from GitHub as local Markdown files.
+     * Saves release notes from GitHub as local Markdown files, using content hashing to avoid
+     * unnecessary writes.
+     * @param {object} metadata The sync metadata containing cached release hashes.
      * @returns {Promise<object>} Statistics about the operation ({count: number, synced: string[]}).
      * @private
      */
-    async #syncReleaseNotes() {
+    async #syncReleaseNotes(metadata) {
         logger.info('📄 Syncing release notes...');
         const releaseDir = issueSyncConfig.releaseNotesDir;
         await fs.mkdir(releaseDir, { recursive: true });
@@ -159,6 +170,8 @@ class SyncService extends Base {
             count : 0,
             synced: []
         };
+
+        const cachedReleases = metadata.releases || {};
 
         for (const release of this.releases) {
             try {
@@ -173,8 +186,19 @@ class SyncService extends Base {
                 };
 
                 // GraphQL returns 'description' not 'body'
-                const body = `# ${release.name}\n\n${release.description || ''}`;
-                const content = matter.stringify(body, frontmatter);
+                const body        = `# ${release.name}\n\n${release.description || ''}`;
+                const content     = matter.stringify(body, frontmatter);
+                const currentHash = this.#calculateContentHash(content);
+
+                // Store the hash on the release object for the main loop to cache later
+                release.contentHash = currentHash;
+
+                const cachedRelease = cachedReleases[release.tagName];
+
+                if (cachedRelease && cachedRelease.contentHash === currentHash) {
+                    logger.debug(`Skipping release notes for ${release.tagName}, content unchanged.`);
+                    continue;
+                }
 
                 await fs.writeFile(filePath, content, 'utf-8');
                 logger.info(`✅ Synced release notes for ${release.tagName}`);
@@ -203,8 +227,11 @@ class SyncService extends Base {
     async #fetchAndCacheReleases(metadata) {
         logger.info('Checking for new releases...');
 
+        const cachedReleases     = metadata.releases || {};
+        const cachedReleaseArray = Object.values(cachedReleases);
+
         // Phase 1: Quick check against the cached latest release
-        if (metadata.releases && metadata.releases.length > 0) {
+        if (cachedReleaseArray.length > 0) {
             try {
                 const latestData = await GraphqlService.query(FETCH_LATEST_RELEASE, {
                     owner: aiConfig.owner,
@@ -212,13 +239,15 @@ class SyncService extends Base {
                 });
 
                 const latestRelease = latestData.repository.latestRelease;
-                const cachedLatest  = metadata.releases[metadata.releases.length - 1]; // Releases are sorted ascending by date
+                // Sort by date to find the latest
+                cachedReleaseArray.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+                const cachedLatest  = cachedReleaseArray[cachedReleaseArray.length - 1];
 
                 if (latestRelease && cachedLatest &&
                     latestRelease.tagName === cachedLatest.tagName &&
                     latestRelease.publishedAt === cachedLatest.publishedAt) {
                     logger.info(`✅ Releases are up-to-date (latest: ${latestRelease.tagName})`);
-                    this.releases = metadata.releases;
+                    this.releases = cachedReleaseArray;
                     return;
                 }
 
@@ -679,7 +708,10 @@ class SyncService extends Base {
     }
 
     /**
-     * Recursively scans the configured issue and archive directories to find all local .md issue files.
+     * Recursively scans the configured issue directory to find all local .md issue files.
+     * This operation is intentionally limited to the active issues directory as a performance
+     * optimization, based on the assumption that closed/archived issues are immutable and
+     * do not need to be checked for local changes to push.
      * @returns {Promise<string[]>} A flat list of absolute file paths for all found issue files.
      * @private
      */
@@ -702,7 +734,6 @@ class SyncService extends Base {
         };
 
         await scanDir(issueSyncConfig.issuesDir);
-        await scanDir(issueSyncConfig.archiveDir);
 
         return localFiles;
     }
