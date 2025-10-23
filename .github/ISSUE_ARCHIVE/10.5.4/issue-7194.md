@@ -7,7 +7,7 @@ state: CLOSED
 labels: []
 assignees: []
 createdAt: '2025-08-16T05:22:44Z'
-updatedAt: '2025-08-16T20:15:29Z'
+updatedAt: '2025-10-22T22:59:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7194'
 author: TomDakan
 commentsCount: 0

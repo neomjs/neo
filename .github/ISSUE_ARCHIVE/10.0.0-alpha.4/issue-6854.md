@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-06-22T20:43:53Z'
-updatedAt: '2025-06-22T20:46:25Z'
+updatedAt: '2025-10-22T22:55:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6854'
 author: tobiu
 commentsCount: 1
@@ -59,7 +59,6 @@ The structure could become:
   └── UsingTheseTopics.md
 ```
 This would make your learning content much more discoverable for LLM training while maintaining the same organizational structure within the moved directory.
-
 
 ## Comments
 

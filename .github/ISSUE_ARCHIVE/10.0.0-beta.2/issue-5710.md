@@ -7,7 +7,7 @@ labels:
   - no auto close
 assignees: []
 createdAt: '2024-08-06T07:53:57Z'
-updatedAt: '2025-06-29T11:55:16Z'
+updatedAt: '2025-10-22T22:55:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5710'
 author: tobiu
 commentsCount: 2
@@ -23,7 +23,6 @@ closedAt: '2025-06-29T11:55:16Z'
 
 started, but not finished:
 ![Screenshot 2024-08-06 at 09 53 10](https://github.com/user-attachments/assets/fb3c40e0-4a5f-4f55-8b96-e6059d24efab)
-
 
 ## Comments
 

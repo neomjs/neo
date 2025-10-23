@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-23T12:05:02Z'
-updatedAt: '2025-07-23T12:06:01Z'
+updatedAt: '2025-10-22T22:54:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7100'
 author: tobiu
 commentsCount: 0
@@ -61,5 +61,4 @@ The following configs, methods, and lifecycle logic must be moved from `src/comp
 -   `src/component/Abstract.mjs` (target for new logic)
 -   `src/component/Base.mjs` (source of logic to be moved)
 -   `src/functional/component/Base.mjs` to not pass data to createVdom() => performance => access via `config.data`
-
 

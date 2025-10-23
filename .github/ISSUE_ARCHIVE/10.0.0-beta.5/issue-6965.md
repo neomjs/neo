@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-06T18:41:11Z'
-updatedAt: '2025-07-06T19:11:34Z'
+updatedAt: '2025-10-22T22:56:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6965'
 author: tobiu
 commentsCount: 0
@@ -54,5 +54,4 @@ The `Neo.state.Provider` system allows for nested and hierarchical data structur
 *   **Automatic Dependency Tracking:** Eliminates the need for manual dependency declaration, simplifying binding logic and reducing potential errors.
 *   **Performance:** Optimized to efficiently traverse the provider hierarchy and interact with `Neo.core.Config` instances.
 *   **Foundation for Refactoring:** Lays the essential groundwork for refactoring `Neo.state.Provider` to fully utilize the new `Effect` system.
-
 

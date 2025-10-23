@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-10T16:38:20Z'
-updatedAt: '2025-10-13T21:06:18Z'
+updatedAt: '2025-10-22T22:51:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7435'
 author: tobiu
 commentsCount: 7
@@ -269,7 +269,7 @@ The trace viewer provides a timeline with screenshots, DOM snapshots, actions, a
 
 This section is for all new component tests created using the "Cookbook Epic".
 
-- **To Do:** 
+- **To Do:**
 
 ## Comments
 

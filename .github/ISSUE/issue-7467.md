@@ -11,7 +11,7 @@ labels:
 assignees:
   - harikrishna-au
 createdAt: '2025-10-12T11:08:06Z'
-updatedAt: '2025-10-13T09:35:29Z'
+updatedAt: '2025-10-22T22:52:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7467'
 author: tobiu
 commentsCount: 3
@@ -71,7 +71,7 @@ case 'blog':
     return source.includes('/learn/blog/');
 ```
 
-Given that the file path matches 
+Given that the file path matches
 
 ## Comments
 

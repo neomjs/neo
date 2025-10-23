@@ -6,7 +6,7 @@ labels:
   - enhancement
 assignees: []
 createdAt: '2025-07-27T00:22:34Z'
-updatedAt: '2025-07-27T00:24:21Z'
+updatedAt: '2025-10-22T22:58:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7115'
 author: tobiu
 commentsCount: 0
@@ -57,5 +57,5 @@ export function resolveCallback(fn, scope=this) {
 
 the SM must try to pass a matching view controller.
 
-@gplanansky 
+@gplanansky
 

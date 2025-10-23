@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-24T15:16:44Z'
-updatedAt: '2025-07-24T15:17:14Z'
+updatedAt: '2025-10-22T22:58:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7105'
 author: tobiu
 commentsCount: 0
@@ -29,5 +29,4 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsReact
 - Included a side-by-side code example to visually demonstrate the "memoization tax" in React versus the zero-optimization-needed model in Neo.mjs.
 - Added a section comparing React's ephemeral component lifecycle with Neo.mjs's stable, persistent instances and rich lifecycle hooks (`initAsync`, `afterSetMounted`).
 - Detailed the architectural advantages of Neo.mjs's `StateProvider` for surgical state subscriptions over React's Context API.
-
 

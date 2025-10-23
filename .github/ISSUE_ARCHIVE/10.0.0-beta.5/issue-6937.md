@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-04T12:14:58Z'
-updatedAt: '2025-07-04T16:57:27Z'
+updatedAt: '2025-10-22T22:56:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6937'
 author: tobiu
 commentsCount: 0
@@ -94,5 +94,4 @@ instance.style = { backgroundColor: 'red' };
 ```
 
 This provides a more intuitive, powerful, and declarative way to handle complex configurations at creation time without adding runtime overhead.
-
 

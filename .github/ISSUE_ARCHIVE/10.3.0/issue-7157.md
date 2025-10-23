@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-08-02T10:16:57Z'
-updatedAt: '2025-08-02T10:17:52Z'
+updatedAt: '2025-10-22T22:59:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7157'
 author: tobiu
 commentsCount: 0
@@ -46,5 +46,4 @@ To enhance the getting started experience for new developers by updating and cla
 - **Change**:
     -   Clarified that the `npx neo-app` script starts the development server by default.
     -   Added a new section introducing the "Four Environments" concept, linking directly to the detailed `learn/benefits/FourEnvironments.md` guide. This gives new users early insight into one of Neo.mjs's core architectural advantages.
-
 

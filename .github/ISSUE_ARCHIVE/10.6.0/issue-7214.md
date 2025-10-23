@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-09-18T16:06:18Z'
-updatedAt: '2025-09-19T12:22:44Z'
+updatedAt: '2025-10-22T23:04:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7214'
 author: tobiu
 commentsCount: 2
@@ -29,16 +29,6 @@ The architecture is based on a local Retrieval-Augmented Generation (RAG) patter
 2.  **Embedding**: The extracted knowledge is converted into vector embeddings and stored in a local ChromaDB database, managed by a local ChromaDB server.
 3.  **CLI Querying**: An `npm` script provides a command-line interface to query the database, find the most relevant source files for a natural language query, and print the results.
 
----
-
-## Prerequisites
-
-1.  **Node.js**: Ensure you have Node.js (v18 or later) installed.
-2.  **Python & pip**: Ensure you have Python (v3.8 or later) and pip installed. This is required to run the ChromaDB server.
-3.  **Google AI API Key**: You need a `GEMINI_API_KEY` from Google AI Studio to generate the embeddings.
-
----
-
 ## Step 1: Environment Configuration
 
 The build scripts require access to your Google AI API key.
@@ -49,24 +39,6 @@ The build scripts require access to your Google AI API key.
     GEMINI_API_KEY="YOUR_API_KEY_HERE"
     ```
 3.  **Add `.env` to your `.gitignore` file** to avoid committing your secret key.
-
----
-
-## Step 2: Add New Dependencies
-
-Add the following new dev dependencies to the `package.json` in the `neo` repository.
-
-```bash
-npm install --save-dev @google/generative-ai chromadb dotenv fs-extra yargs
-```
-
-*   `@google/generative-ai`: The official Google AI client for Node.js (for embeddings).
-*   `chromadb`: The client for the ChromaDB vector database.
-*   `dotenv`: To load the `GEMINI_API_KEY` from the `.env` file.
-*   `fs-extra`: Provides useful extensions to the native `fs` module.
-*   `yargs`: For parsing command-line arguments in our query script.
-
----
 
 ## Step 3: Install and Run ChromaDB Server
 
@@ -436,7 +408,6 @@ Add the following scripts to the `scripts` section of the `package.json` in the 
     npm run ai:query -- -q "Tell me about layouts"
     ```
     The script will output the most relevant source file(s) based on your query. You can then use this information to inform your next steps.
-
 
 ## Comments
 

@@ -6,7 +6,7 @@ labels:
   - enhancement
 assignees: []
 createdAt: '2025-07-01T19:54:03Z'
-updatedAt: '2025-07-01T20:32:45Z'
+updatedAt: '2025-10-22T22:56:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6933'
 author: tobiu
 commentsCount: 1
@@ -31,7 +31,6 @@ Currently, developers must rely on listening to the `mutate` event on the `Neo.d
 
 **Additional context**
 This enhancement is a prerequisite for enabling more seamless and idiomatic binding to individual record properties via `Neo.state.Provider` (as described in a separate feature request). It is crucial to implement this in a way that does not significantly increase the memory footprint or processing overhead for each `Neo.data.Record` instance, as records are often used in large quantities within collections.
-
 
 ## Comments
 

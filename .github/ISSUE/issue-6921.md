@@ -7,7 +7,7 @@ labels:
   - no auto close
 assignees: []
 createdAt: '2025-07-01T00:23:16Z'
-updatedAt: '2025-07-01T00:23:16Z'
+updatedAt: '2025-10-22T22:49:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6921'
 author: tobiu
 commentsCount: 0
@@ -66,5 +66,4 @@ myCollection.filters.findFirst('property', 'name');
 ```
 
 This enhancement would significantly improve the ergonomics and consistency of managing filters and sorters within Neo.mjs applications.
-
 

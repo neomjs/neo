@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-20T13:30:42Z'
-updatedAt: '2025-10-21T09:26:29Z'
+updatedAt: '2025-10-22T22:53:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7582'
 author: tobiu
 commentsCount: 0
@@ -36,6 +36,5 @@ The `SyncService` implementation contains several hardcoded "magic numbers" and 
     - `maxGhOutputBuffer` (e.g., `10 * 1024 * 1024`)
     - `maxIssues` (e.g., `10000`)
     - `maxReleases` (e.g., `1000`)
-    - `commentSectionDelimiter` (e.g., `'## Comments'`)
-2.  The `SyncService.mjs` file is refactored to import and use these new configuration values instead of the hardcoded numbers and strings.
+    - `commentSectionDelimiter` (e.g., `'
 

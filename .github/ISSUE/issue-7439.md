@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-10T16:50:37Z'
-updatedAt: '2025-10-12T14:10:24Z'
+updatedAt: '2025-10-22T22:52:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7439'
 author: tobiu
 commentsCount: 0
@@ -38,5 +38,4 @@ This task is to migrate the component test for `button/Base.mjs` from the Siesta
 2.  Follow the architectural guide outlined in the parent epic for component test migration.
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/button/Base.mjs`).
 4.  Ensure the new test runs successfully using the new component test harness.
-
 

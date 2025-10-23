@@ -10,7 +10,7 @@ labels:
 assignees:
   - harikrishna-au
 createdAt: '2025-10-10T16:51:58Z'
-updatedAt: '2025-10-13T10:06:48Z'
+updatedAt: '2025-10-22T22:52:01Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7440'
 author: tobiu
 commentsCount: 2
@@ -42,7 +42,6 @@ This task is to migrate the component test for `component/Base.mjs` from the Sie
 2.  Follow the architectural guide outlined in the parent epic for component test migration.
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/component/Base.mjs`).
 4.  Ensure the new test runs successfully via the component test runner.
-
 
 ## Comments
 

@@ -8,7 +8,7 @@ labels:
 assignees:
   - SarthakJain29
 createdAt: '2025-10-06T12:17:46Z'
-updatedAt: '2025-10-08T12:29:52Z'
+updatedAt: '2025-10-22T22:51:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7393'
 author: SarthakJain29
 commentsCount: 1
@@ -38,8 +38,7 @@ AGENTS.md should then just reference this new guide.
 
 This would improve maintainability and clarity for contributors.
 
-Parent: #7364 
-
+Parent: #7364
 
 ## Comments
 

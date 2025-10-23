@@ -7,7 +7,7 @@ labels:
   - stale
 assignees: []
 createdAt: '2025-07-17T12:12:04Z'
-updatedAt: '2025-10-16T02:43:39Z'
+updatedAt: '2025-10-22T22:49:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7078'
 author: tobiu
 commentsCount: 1
@@ -20,7 +20,7 @@ subIssuesTotal: 0
 
 **Reported by:** @tobiu on 2025-07-17
 
- ## Description
+## Description
  
  The project currently has hundreds of source files, and the order of top-level `import` statements is inconsistent. Manually sorting them is time-consuming and error-prone. A consistent import order improves code readability and maintainability.
  

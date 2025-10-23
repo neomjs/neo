@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2024-08-06T07:03:59Z'
-updatedAt: '2025-06-30T12:33:43Z'
+updatedAt: '2025-10-23T00:12:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5700'
 author: tobiu
 commentsCount: 0
@@ -26,5 +26,4 @@ subIssuesTotal: 0
 there is one example for "overriding ancestor configs", but placed below other headlines which have no content yet.
 
 ![Screenshot 2024-08-06 at 09 01 38](https://github.com/user-attachments/assets/cf64eb82-8a0a-4ae5-85c7-df8426504e11)
-
 

@@ -6,7 +6,7 @@ labels:
   - bug
 assignees: []
 createdAt: '2025-08-02T14:52:59Z'
-updatedAt: '2025-08-03T00:41:10Z'
+updatedAt: '2025-10-22T22:59:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7164'
 author: TomDakan
 commentsCount: 1
@@ -38,7 +38,6 @@ Doc should be formatted with mixed description/instruction sections and code sni
 ![Image](https://github.com/user-attachments/assets/995087ab-450e-4bbb-bd47-409c3eae9afd)
 
 Same behavior in desktop browser (Chrome and Firefox) and Chrome on Android.
-
 
 ## Comments
 

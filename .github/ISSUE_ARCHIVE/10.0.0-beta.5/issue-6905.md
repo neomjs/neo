@@ -6,7 +6,7 @@ labels:
   - enhancement
 assignees: []
 createdAt: '2025-06-30T01:21:29Z'
-updatedAt: '2025-07-08T21:04:15Z'
+updatedAt: '2025-10-22T22:56:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6905'
 author: tobiu
 commentsCount: 1
@@ -34,7 +34,6 @@ Modify the `applyMixins` function (or the `Neo.setupClass` process where mixins 
 *   **Improved Maintainability**: Configuration defaults and new configurable properties introduced by mixins are automatically applied.
 *   **Enhanced Developer Experience**: Mixins become more powerful and intuitive for sharing not just behavior, but also configurable state.
 *   **Consistency**: Aligns the mixin system more closely with the declarative nature of Neo.mjs's config system.
-
 
 ## Comments
 

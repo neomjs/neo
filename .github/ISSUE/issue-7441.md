@@ -10,7 +10,7 @@ labels:
 assignees:
   - Mahita07
 createdAt: '2025-10-10T16:53:29Z'
-updatedAt: '2025-10-11T11:48:14Z'
+updatedAt: '2025-10-22T22:52:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7441'
 author: tobiu
 commentsCount: 2
@@ -42,7 +42,6 @@ This task is to migrate the component test for `component/DateSelector.mjs` from
 2.  Follow the architectural guide outlined in the parent epic for component test migration.
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/component/DateSelector.mjs`).
 4.  Ensure the new test runs successfully via the component test runner.
-
 
 ## Comments
 

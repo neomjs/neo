@@ -6,7 +6,7 @@ labels:
   - enhancement
 assignees: []
 createdAt: '2025-08-16T05:21:11Z'
-updatedAt: '2025-08-16T20:15:45Z'
+updatedAt: '2025-10-22T22:59:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7193'
 author: TomDakan
 commentsCount: 0

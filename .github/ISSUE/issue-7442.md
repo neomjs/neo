@@ -10,7 +10,7 @@ labels:
 assignees:
   - Mahita07
 createdAt: '2025-10-10T16:54:51Z'
-updatedAt: '2025-10-11T11:51:29Z'
+updatedAt: '2025-10-22T22:52:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7442'
 author: tobiu
 commentsCount: 2
@@ -42,7 +42,6 @@ This task is to migrate the component test for `form/field/ComboBox.mjs` from th
 2.  Follow the architectural guide outlined in the parent epic for component test migration.
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/form/field/ComboBox.mjs`).
 4.  Ensure the new test runs successfully via the component test runner.
-
 
 ## Comments
 

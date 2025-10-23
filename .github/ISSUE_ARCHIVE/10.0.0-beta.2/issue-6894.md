@@ -6,7 +6,7 @@ labels:
   - enhancement
 assignees: []
 createdAt: '2025-06-29T14:26:37Z'
-updatedAt: '2025-06-29T15:25:46Z'
+updatedAt: '2025-10-22T22:55:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6894'
 author: tobiu
 commentsCount: 0

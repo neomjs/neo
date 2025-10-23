@@ -10,7 +10,7 @@ labels:
   - no auto close
 assignees: []
 createdAt: '2024-07-20T21:09:03Z'
-updatedAt: '2025-08-03T12:58:17Z'
+updatedAt: '2025-10-22T22:59:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5599'
 author: tobiu
 commentsCount: 2
@@ -30,7 +30,7 @@ In theory, PickerFields should use the Navigator, getting synthetic focus.
 
 however, we do get a real `onFocusLeave()` call, which unmounts the widget right away.
 
-@ExtAnimal 
+@ExtAnimal
 
 ## Comments
 

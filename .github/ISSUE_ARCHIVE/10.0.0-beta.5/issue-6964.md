@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-06T18:39:57Z'
-updatedAt: '2025-07-06T18:55:19Z'
+updatedAt: '2025-10-22T22:56:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6964'
 author: tobiu
 commentsCount: 0
@@ -58,5 +58,4 @@ As the framework evolves, there's a growing need for a standardized, efficient, 
 *   Provides a powerful, generic primitive for building reactive features.
 *   Improves the overall consistency and maintainability of the framework's reactivity model.
 *   Lays the groundwork for future enhancements in data binding, computed properties, and state management.
-
 

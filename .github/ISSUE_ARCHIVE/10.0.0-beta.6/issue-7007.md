@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-10T20:18:32Z'
-updatedAt: '2025-07-10T20:19:08Z'
+updatedAt: '2025-10-22T22:57:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7007'
 author: tobiu
 commentsCount: 0
@@ -34,5 +34,4 @@ The `Neo.state.createHierarchicalDataProxy` has been enhanced to directly expose
 ## Verification
 
 Verified that the example in `learn/guides/datahandling/StateProviders.md` now correctly binds directly to `data.stores.mySharedStore.count` and updates reactively when the store's count changes.
-
 

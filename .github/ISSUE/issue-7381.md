@@ -11,7 +11,7 @@ labels:
 assignees:
   - LemonDrop847
 createdAt: '2025-10-05T15:57:44Z'
-updatedAt: '2025-10-13T21:15:31Z'
+updatedAt: '2025-10-22T22:51:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7381'
 author: tobiu
 commentsCount: 3
@@ -41,7 +41,6 @@ To ensure all contributors have a consistent and functional environment for usin
 4.  It must run `gh auth status` to verify the user is logged in, and prompt them to run `gh auth login` if they are not.
 5.  It must check the `gh --version` against a minimum required version and instruct the user to upgrade if necessary.
 6.  The script should be added to `package.json` so it can be run easily (e.g., `npm run ai:verify-gh-setup`).
-
 
 ## Comments
 

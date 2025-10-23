@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-08-03T00:42:32Z'
-updatedAt: '2025-08-03T00:45:55Z'
+updatedAt: '2025-10-22T22:59:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7167'
 author: tobiu
 commentsCount: 0
@@ -23,5 +23,4 @@ closedAt: '2025-08-03T00:45:55Z'
 
 * I just noticed 3 spots, where v6 was used manually. I will replace them with v7 now.
 * This affected e.g. the learning section lab summaries.
-
 

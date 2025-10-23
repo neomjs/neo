@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-09T22:12:34Z'
-updatedAt: '2025-07-10T11:44:10Z'
+updatedAt: '2025-10-22T22:57:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7003'
 author: tobiu
 commentsCount: 0

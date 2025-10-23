@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-09T20:14:34Z'
-updatedAt: '2025-10-09T20:17:00Z'
+updatedAt: '2025-10-22T22:51:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7428'
 author: tobiu
 commentsCount: 0
@@ -32,6 +32,4 @@ As the first step in the "Enhance Development Workflow with a Planning Phase" ep
 The new roadmap provides a high-level strategic overview of the project's direction. It introduces "Context Engineering" as the primary theme for the current development cycle and frames the major ongoing epics as pillars of this initiative.
 
 The document also clarifies the path to the v11.0.0 release, tying it to the completion of these foundational infrastructure projects and acknowledging the flexible timeline due to community contributions via Hacktoberfest.
-
-
 

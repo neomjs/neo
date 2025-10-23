@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-08-01T14:14:18Z'
-updatedAt: '2025-08-01T14:15:13Z'
+updatedAt: '2025-10-22T22:59:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7154'
 author: tobiu
 commentsCount: 0
@@ -51,5 +51,4 @@ The `parse5` library, while robust for HTML, does not correctly parse self-closi
 -   The fix is implemented with a minimal performance footprint, avoiding large new dependencies in the development build.
 -   Standard HTML void elements are unaffected and continue to parse correctly.
 -   Unnecessary `acorn` and `astring` imports have been removed from the processor.
-
 

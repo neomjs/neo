@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-01T11:48:01Z'
-updatedAt: '2025-07-01T15:39:32Z'
+updatedAt: '2025-10-22T22:56:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6922'
 author: tobiu
 commentsCount: 0
@@ -57,5 +57,4 @@ The folder contains too many items now, so we need grouping.
        * Multi-Window Applications (Still hidden)
        * Mixins (Still hidden)
        * Portal App (At the very bottom, as discussed)
-
 

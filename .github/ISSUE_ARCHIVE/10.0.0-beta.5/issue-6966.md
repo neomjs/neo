@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-06T18:42:09Z'
-updatedAt: '2025-07-06T19:49:05Z'
+updatedAt: '2025-10-22T22:57:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6966'
 author: tobiu
 commentsCount: 1
@@ -57,7 +57,6 @@ This refactoring addresses these issues by leveraging the newly introduced `Effe
 
 *   **Two-Way Binding:** The two-way binding mechanism needs to be re-evaluated and adapted to the new `Effect` system.
 *   **Formulas:** The `formulas` config in `state.Provider` will need to be updated to leverage the new `Effect` system for its reactive computations.
-
 
 ## Comments
 

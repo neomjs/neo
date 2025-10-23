@@ -9,7 +9,7 @@ labels:
   - stale
 assignees: []
 createdAt: '2025-04-05T05:27:05Z'
-updatedAt: '2025-07-19T03:02:59Z'
+updatedAt: '2025-10-22T22:54:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6619'
 author: ahmad-su
 commentsCount: 5
@@ -30,13 +30,6 @@ When trying to build the `appworker` thread using the build script (`build-all` 
 - `EPERM: operation not permitted, stat 'D:\System Volume Information'` (when not running as administrator)  
 
 This occurs on Windows when building the Neo.mjs project.
-
----
-
-### Steps to Reproduce
-1. Run `npx neo-app@latest` or initiate a build using the generated script (`npm run build-all` or `npm run build-threads`).
-
----
 
 ### Cause
 The script (likely through `ContextModule.resolveDependencies`) tries to access restricted system folders like `D:\System Volume Information`, which is not permitted.

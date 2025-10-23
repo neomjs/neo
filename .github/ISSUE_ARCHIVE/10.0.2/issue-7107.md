@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-24T15:30:31Z'
-updatedAt: '2025-07-24T15:31:14Z'
+updatedAt: '2025-10-22T22:58:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7107'
 author: tobiu
 commentsCount: 0
@@ -27,5 +27,4 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsAngul
 - Sharpened the "Change Detection" section to better contrast Angular's broad, Zone.js-based approach with Neo.mjs's surgical, effect-based system.
 - Refined the "Developer Experience" section to more clearly articulate the benefits of Neo.mjs's "zero-builds" workflow versus Angular's prescriptive, build-heavy process.
 - Preserved existing valuable content while integrating these new, more focused points.
-
 

@@ -7,7 +7,7 @@ labels:
   - stale
 assignees: []
 createdAt: '2025-04-01T19:59:24Z'
-updatedAt: '2025-07-23T03:12:45Z'
+updatedAt: '2025-10-22T22:54:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6609'
 author: tobiu
 commentsCount: 3
@@ -35,7 +35,7 @@ Asking interested devs, who want to learn neo, to get an own key first would cre
 
 Creating an alternative first has a higher priority, but we need to get this addon functional again anyways.
 
-@maxrahder @gplanansky  
+@maxrahder @gplanansky
 
 ## Comments
 

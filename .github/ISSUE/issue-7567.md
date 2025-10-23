@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-20T11:24:16Z'
-updatedAt: '2025-10-20T11:59:56Z'
+updatedAt: '2025-10-22T22:53:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7567'
 author: tobiu
 commentsCount: 0
@@ -40,13 +40,5 @@ The sync logic will follow the "push-then-pull" model, so this push operation sh
 4.  For each file, it checks the file's modification time (`mtime`) against the `last_sync` timestamp in `.sync-metadata.json`.
 5.  If the local file is newer, the service parses the file to extract the title and body.
     - The title should be extracted from the main `#` heading.
-    - The body should be the content of the file, excluding the frontmatter and the `## Comments` section.
-6.  The service uses `gh issue edit <N> --title "..." --body "..."` to update the corresponding issue on GitHub.
-7.  Appropriate logging is added to indicate which issues are being pushed.
-
-## Benefits
-
--   Enables a true bi-directional workflow where local edits are reflected on GitHub.
--   Allows AI agents and developers to use local Markdown files as their primary editing surface.
--   Completes the core synchronization loop.
+    - The body should be the content of the file, excluding the frontmatter and the `
 

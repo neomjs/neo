@@ -10,7 +10,7 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-10-06T10:34:36Z'
-updatedAt: '2025-10-06T16:52:41Z'
+updatedAt: '2025-10-22T22:51:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7388'
 author: tobiu
 commentsCount: 1
@@ -39,7 +39,6 @@ This ticket is for defining the new interactive development workflow that levera
     b.  Use the MCP server to inspect the DOM and verify changes in real-time.
     c.  Use the insights from the DOM to generate meaningful Playwright tests.
 3.  The document serves as a blueprint for implementing the new workflow.
-
 
 ## Comments
 

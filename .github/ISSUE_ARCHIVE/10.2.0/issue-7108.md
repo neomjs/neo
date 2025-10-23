@@ -7,7 +7,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-07-24T15:37:04Z'
-updatedAt: '2025-07-28T11:02:37Z'
+updatedAt: '2025-10-22T22:58:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7108'
 author: tobiu
 commentsCount: 0
@@ -30,5 +30,4 @@ This ticket is to update the document to lead with the modern, functional approa
 - This new section should feature a code example of a simple view built with `defineComponent` and `createVdom`.
 - Reframe the existing content as "The Classic Approach: Class-Based Components".
 - Add a brief explanation of when to choose one approach over the other (e.g., functional for simple views, class-based for extending the component library or complex stateful logic).
-
 

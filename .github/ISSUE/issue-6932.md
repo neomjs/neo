@@ -10,7 +10,7 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2025-07-01T19:53:13Z'
-updatedAt: '2025-10-08T09:40:38Z'
+updatedAt: '2025-10-22T22:49:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6932'
 author: tobiu
 commentsCount: 1
@@ -39,7 +39,6 @@ The current alternative is to manually listen for changes on the record (if a me
 
 **Additional context**
 This feature is dependent on the implementation of granular change notifications within `Neo.data.Record`. It would significantly improve the developer experience for data-intensive applications, making it much easier to build reactive UIs that respond directly to changes in individual record fields.
-
 
 ## Comments
 

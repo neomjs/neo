@@ -6,7 +6,7 @@ labels:
   - enhancement
 assignees: []
 createdAt: '2025-07-01T19:52:02Z'
-updatedAt: '2025-07-28T11:20:42Z'
+updatedAt: '2025-10-22T22:58:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6931'
 author: tobiu
 commentsCount: 1
@@ -41,7 +41,6 @@ The current workaround involves manually proxying the store's reactive propertie
 
 **Additional context**
 This enhancement would significantly improve developer experience and reduce boilerplate when working with reactive stores and `Neo.state.Provider`, making the state management system even more powerful and intuitive.
-
 
 ## Comments
 
