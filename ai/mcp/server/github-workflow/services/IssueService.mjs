@@ -101,8 +101,25 @@ class IssueService extends Base {
      * @param {string[]} [options.labels=[]] - An array of labels to add to the issue.
      * @returns {Promise<object>} A promise that resolves to the new issue's data or a structured error.
      */
-    async createIssue({title, body = '', labels = []}) {
+    async createIssue({title, body = '', labels = [], assignees = []}) {
         logger.info(`Attempting to create GitHub issue: "${title}"`);
+
+        // Permission check is only required if we are trying to assign users.
+        if (assignees && assignees.length > 0) {
+            if (!this.writePermissions.includes(RepositoryService.viewerPermission)) {
+                const message = [
+                    `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
+                    `but one of [${this.writePermissions.join(', ')}] is required to assign issues.`
+                ].join('');
+
+                logger.warn(message);
+                return {
+                    error: 'Permission Denied',
+                    message,
+                    code: 'FORBIDDEN'
+                };
+            }
+        }
 
         const ghArgs = [
             'issue', 'create',
@@ -114,6 +131,12 @@ class IssueService extends Base {
         if (labels && labels.length > 0) {
             labels.forEach(label => {
                 ghArgs.push('--label', label);
+            });
+        }
+
+        if (assignees && assignees.length > 0) {
+            assignees.forEach(assignee => {
+                ghArgs.push('--assignee', assignee);
             });
         }
 

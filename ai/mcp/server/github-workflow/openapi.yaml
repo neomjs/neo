@@ -550,7 +550,13 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: An array of labels to add to the issue.
+                  description: (Optional) An array of labels to add to the issue.
+                  default: []
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: (Optional) An array of GitHub user logins to assign to the issue. Requires write permissions.
                   default: []
       responses:
         '201':
