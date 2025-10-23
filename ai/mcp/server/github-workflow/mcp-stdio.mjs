@@ -12,6 +12,7 @@ import {
 
 import { listTools, callTool } from './services/toolService.mjs';
 import HealthService from './services/HealthService.mjs';
+import RepositoryService from './services/RepositoryService.mjs';
 
 const server = new Server({
     name: 'neo-github-workflow',
@@ -130,6 +131,8 @@ async function main() {
         health.githubCli.details.forEach(detail => logger.warn(`    ${detail}`));
     } else {
         logger.info('✅ [Startup] GitHub CLI health check passed');
+        // Proactively fetch and cache viewer permission
+        await RepositoryService.fetchAndCacheViewerPermission();
     }
 
     const transport = new StdioServerTransport();

@@ -1,8 +1,8 @@
-import Base from '../../../../../src/core/Base.mjs';
-import GraphqlService from './GraphqlService.mjs';
-import aiConfig from '../config.mjs';
-import logger from '../logger.mjs';
-import { GET_VIEWER_PERMISSION } from './queries/repositoryQueries.mjs';
+import aiConfig                from '../config.mjs';
+import Base                    from '../../../../../src/core/Base.mjs';
+import GraphqlService          from './GraphqlService.mjs';
+import logger                  from '../logger.mjs';
+import {GET_VIEWER_PERMISSION} from './queries/repositoryQueries.mjs';
 
 /**
  * Service for interacting with the GitHub repository itself.
@@ -12,33 +12,59 @@ import { GET_VIEWER_PERMISSION } from './queries/repositoryQueries.mjs';
  */
 class RepositoryService extends Base {
     static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.RepositoryService'
+         * @protected
+         */
         className: 'Neo.ai.mcp.server.github-workflow.RepositoryService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
         singleton: true
     }
 
     /**
-     * Fetches the current user's permission level for the repository.
-     * @returns {Promise<object>} A promise that resolves to an object containing the permission level or a structured error.
+     * The permission level string for the current user (e.g., 'ADMIN', 'WRITE').
+     * This value is fetched and cached on server startup.
+     * @member {String|null} viewerPermission=null
      */
-    async getViewerPermission() {
+    viewerPermission = null;
+
+    /**
+     * Fetches the current user's permission level from the API and caches it.
+     * This method is intended for internal use at startup but can be called on demand.
+     * @returns {Promise<string|null>} The permission string or null on failure.
+     */
+    async fetchAndCacheViewerPermission() {
         const variables = {
             owner: aiConfig.owner,
-            repo: aiConfig.repo
+            repo : aiConfig.repo
         };
 
         try {
             const data = await GraphqlService.query(GET_VIEWER_PERMISSION, variables);
-            const permission = data.repository.viewerPermission;
-            logger.info(`Viewer permission for ${aiConfig.owner}/${aiConfig.repo}: ${permission}`);
-            return { permission };
+            this.viewerPermission = data.repository.viewerPermission;
+            logger.info(`Fetched and cached viewer permission: ${this.viewerPermission}`);
+            return this.viewerPermission;
         } catch (error) {
             logger.error('Error fetching viewer permission via GraphQL:', error);
-            return {
-                error: 'GraphQL API request failed',
-                message: error.message,
-                code: 'GRAPHQL_API_ERROR'
-            };
+            return null;
         }
+    }
+
+    /**
+     * Returns the cached permission level of the current user, wrapped in an object.
+     * @returns {Promise<object>} A promise that resolves to an object of the shape `{permission: '...'}`.
+     */
+    async getViewerPermission() {
+        if (!this.viewerPermission) {
+            // This can happen if the initial fetch on startup failed.
+            // We will try to fetch it again on demand.
+            logger.warn('Viewer permission not cached, attempting to fetch now...');
+            await this.fetchAndCacheViewerPermission();
+        }
+        return { permission: this.viewerPermission };
     }
 }
 
