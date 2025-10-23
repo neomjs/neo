@@ -37,10 +37,14 @@ class IssueService extends Base {
     }
 
     /**
-     * Assigns a GitHub issue to one or more users.
+     * Assigns one or more users to a GitHub issue, or clears all assignees.
+     * This method first verifies that the user has the required permissions (`WRITE`, `MAINTAIN`, or `ADMIN`)
+     * before attempting to modify the issue.
+     * - To add assignees, provide an array of GitHub logins.
+     * - To clear all assignees, provide an empty array.
      * @param {object} options
-     * @param {number} options.issue_number
-     * @param {string[]} options.assignees
+     * @param {number} options.issue_number The number of the issue to modify.
+     * @param {string[]} options.assignees An array of GitHub user logins to assign, or an empty array to clear all assignees.
      * @returns {Promise<object>}
      */
     async assignIssue({issue_number, assignees}) {
@@ -52,26 +56,35 @@ class IssueService extends Base {
 
             logger.warn(message);
             return {
-                error  : 'Permission Denied',
+                error: 'Permission Denied',
                 message,
-                code   : 'FORBIDDEN'
+                code : 'FORBIDDEN'
             };
         }
 
-        logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
-
         try {
-            const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags}`;
+            let command;
+            let successMessage;
+
+            if (assignees && assignees.length > 0) {
+                logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
+                const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
+                command             = `gh issue edit ${issue_number} ${assigneeFlags}`;
+                successMessage      = `Successfully assigned issue #${issue_number} to ${assignees.join(', ')}`;
+            } else {
+                logger.info(`Attempting to unassign all users from issue #${issue_number}`);
+                // Passing an empty string to --remove-assignee has been experimentally verified to clear all assignees.
+                command        = `gh issue edit ${issue_number} --remove-assignee ""`;
+                successMessage = `Successfully unassigned all users from issue #${issue_number}`;
+            }
 
             await execAsync(command);
 
-            const message = `Successfully assigned issue #${issue_number} to ${assignees.join(', ')}`;
-            logger.info(message);
-            return { message };
+            logger.info(successMessage);
+            return {message: successMessage};
 
         } catch (error) {
-            logger.error(`Error assigning issue #${issue_number}:`, error);
+            logger.error(`Error updating assignees for issue #${issue_number}:`, error);
             return {
                 error  : 'GitHub CLI command failed',
                 message: error.message,

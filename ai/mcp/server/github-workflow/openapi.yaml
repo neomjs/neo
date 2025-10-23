@@ -417,7 +417,8 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Assigns a GitHub issue to one or more users.
+        Assigns one or more users to a GitHub issue. 
+        To clear all assignees from an issue, pass an empty array `[]` for the `assignees` property.
 
         **Permission Required:**
         This is a restricted action. Before calling this tool, you **must** first use the `get_viewer_permission` tool to verify that you have `ADMIN`, `MAINTAIN`, or `WRITE` permissions.
