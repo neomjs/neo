@@ -1,16 +1,12 @@
-import {Server}                 from '@modelcontextprotocol/sdk/server/index.js';
-import {StdioServerTransport}   from '@modelcontextprotocol/sdk/server/stdio.js';
-import Neo                      from '../../../../src/Neo.mjs';
-import * as core                from '../../../../src/core/_export.mjs';
-import InstanceManager          from '../../../../src/manager/Instance.mjs';
-import DatabaseLifecycleService from './services/DatabaseLifecycleService.mjs'; // Import the service
-
-import {
-    CallToolRequestSchema,
-    ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-
-import { listTools, callTool } from './services/toolService.mjs';
+import {Server}                                        from '@modelcontextprotocol/sdk/server/index.js';
+import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
+import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import Neo                                             from '../../../../src/Neo.mjs';
+import * as core                                       from '../../../../src/core/_export.mjs';
+import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
+import DatabaseLifecycleService                        from './services/DatabaseLifecycleService.mjs';
+import logger                                          from './logger.mjs';
+import {listTools, callTool}                           from './services/toolService.mjs';
 
 const server = new Server({
     name: 'neo-memory-core',
@@ -46,7 +42,7 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
         }
         return result;
     } catch (error) {
-        console.error('[MCP] Error listing tools:', error);
+        logger.error('[MCP] Error listing tools:', error);
         return { tools: [], nextCursor: null, error: error.message };
     }
 });
@@ -56,7 +52,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
-        console.error(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
+        logger.error(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
 
         const result = await callTool(name, args);
 
@@ -88,7 +84,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return response;
     } catch (error) {
-        console.error(`[MCP] Error executing tool ${name}:`, error);
+        logger.error(`[MCP] Error executing tool ${name}:`, error);
 
         return {
             content: [{
@@ -108,19 +104,19 @@ async function main() {
     // Subscribe to DatabaseLifecycleService events
     DatabaseLifecycleService.on({
         processActive: ({ pid, managedByService, detail }) => {
-            console.error(`[neo-memory-core MCP] ChromaDB process active: PID=${pid}, ManagedByService=${managedByService}, Detail=${detail}`);
+            logger.info(`[neo-memory-core MCP] ChromaDB process active: PID=${pid}, ManagedByService=${managedByService}, Detail=${detail}`);
         },
         processStopped: ({ pid, managedByService }) => {
-            console.error(`[neo-memory-core MCP] ChromaDB process stopped: PID=${pid}, ManagedByService=${managedByService}`);
+            logger.info(`[neo-memory-core MCP] ChromaDB process stopped: PID=${pid}, ManagedByService=${managedByService}`);
         }
     });
 
     // Log to stderr (stdout is reserved for MCP protocol)
-    console.error('[neo-memory-core MCP] Server started on stdio transport');
-    console.error('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+    logger.info('[neo-memory-core MCP] Server started on stdio transport');
+    logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
 }
 
 main().catch((error) => {
-    console.error('[neo-memory-core MCP] Fatal error:', error);
+    logger.error('[neo-memory-core MCP] Fatal error:', error);
     process.exit(1);
 });
