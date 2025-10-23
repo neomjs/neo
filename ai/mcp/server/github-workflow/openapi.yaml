@@ -2,9 +2,10 @@ openapi: 3.0.3
 info:
   title: Neo.mjs GitHub Workflow MCP Server API
   description: |
-    This API provides structured access to the GitHub CLI (`gh`) to streamline and automate 
-    contribution workflows for the Neo.mjs project. It enables AI agents to interact with 
-    pull requests and issues programmatically.
+    This API provides structured access to the Neo.mjs GitHub repository, enabling the automation of contribution workflows. 
+    It uses a hybrid approach, leveraging both the GitHub CLI (`gh`) for simple, direct commands (e.g., checking out a PR) 
+    and the GitHub GraphQL API for complex data fetching and mutations (e.g., listing PRs, creating comments, syncing issues).
+    This allows AI agents to programmatically interact with pull requests and issues in a safe and efficient manner.
   version: 1.0.0
   contact:
     name: Neo.mjs Project
@@ -48,8 +49,10 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: |
-        Verifies that the GitHub CLI (`gh`) is installed, authenticated, and 
-        meets the minimum version requirement. Use this to diagnose setup issues.
+        Verifies that the GitHub CLI (`gh`) is installed, authenticated, and meets the minimum version requirement.
+
+        **When to Use:**
+        This should be the first tool you run if you suspect any issues with the GitHub Workflow MCP server. It provides a quick diagnostic check on the server's primary dependency.
       tags: [Health]
       responses:
         '200':
@@ -71,7 +74,11 @@ paths:
       operationId: list_labels
       x-annotations:
         readOnlyHint: true
-      description: Retrieves a list of all available labels in the repository.
+      description: |
+        Retrieves a list of all available labels in the repository.
+
+        **When to Use:**
+        This is a crucial discovery tool. Call it before using `create_issue` or `add_labels` to ensure you are using valid, existing label names.
       tags: [Labels]
       responses:
         '200':
@@ -94,7 +101,11 @@ paths:
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
-      description: Retrieves a list of open pull requests from the GitHub repository.
+      description: |
+        Retrieves a list of pull requests from the GitHub repository.
+
+        **When to Use:**
+        Use this tool to get a high-level overview of pending work or to find a specific pull request number for use in other tools like `get_pull_request_diff` or `checkout_pull_request`.
       tags: [Pull Requests]
       parameters:
         - name: limit
@@ -134,7 +145,12 @@ paths:
       operationId: checkout_pull_request
       x-annotations:
         readOnlyHint: false
-      description: Checks out the branch for a given pull request locally using `gh pr checkout`.
+      description: |
+        Checks out the branch for a given pull request locally using `gh pr checkout`.
+        This modifies the local filesystem to reflect the state of the pull request branch.
+
+        **When to Use:**
+        Use this tool when you need to locally inspect the code changes of a pull request, run tests, or perform a more detailed review.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -170,7 +186,12 @@ paths:
       operationId: get_pull_request_diff
       x-annotations:
         readOnlyHint: true
-      description: Retrieves the diff for a specific pull request using `gh pr diff`.
+      description: |
+        Retrieves the diff for a specific pull request using `gh pr diff`.
+        This provides a quick, read-only overview of the changes without checking out the branch.
+
+        **When to Use:**
+        Use this tool for a quick review of the changes in a pull request. For a more in-depth review, use `checkout_pull_request`.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -206,7 +227,11 @@ paths:
       operationId: create_comment
       x-annotations:
         readOnlyHint: false
-      description: Adds a comment to a specific pull request.
+      description: |
+        Adds a comment to a specific pull request.
+
+        **When to Use:**
+        Use this tool to add review comments, ask questions, or provide feedback on a pull request.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -255,7 +280,11 @@ paths:
       operationId: get_conversation
       x-annotations:
         readOnlyHint: true
-      description: Retrieves the full conversation for a pull request, including the title, body, and all comments.
+      description: |
+        Retrieves the full conversation for a pull request, including the title, body, and all comments.
+
+        **When to Use:**
+        Use this tool to get the complete context of a pull request, including the initial proposal and the full discussion history, which is essential for a comprehensive review.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -279,7 +308,11 @@ paths:
       operationId: add_labels
       x-annotations:
         readOnlyHint: false
-      description: Adds one or more labels to a specific issue or pull request.
+      description: |
+        Adds one or more labels to a specific issue or pull request.
+
+        **Important:** You must use the exact names of labels that already exist in the repository.
+        Use the `list_labels` tool to get a list of available labels if you are unsure.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -327,7 +360,11 @@ paths:
       x-annotations:
         readOnlyHint: false
         destructiveHint: true
-      description: Removes one or more labels from a specific issue or pull request.
+      description: |
+        Removes one or more labels from a specific issue or pull request.
+
+        **Important:** You must use the exact names of labels that already exist in the repository.
+        Use the `list_labels` tool to see which labels are currently on an issue or to verify their names.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -376,7 +413,13 @@ paths:
       operationId: get_local_issue_by_id
       x-annotations:
         readOnlyHint: true
-      description: Retrieves the full markdown content of a local issue file by its number, searching both active and archived issues.
+      description: |
+        Retrieves the full markdown content of a local issue file by its number, searching both active and archived issues.
+
+        **When to Use:**
+        Use this tool for a fast, offline-capable way to read the content of an issue that is already present on the local disk. This tool reads directly from the file system and does **not** access the GitHub API.
+
+        **Important:** The content returned reflects the state of the issue at the time of the last `sync_all` operation and may not be the most up-to-date version if remote changes have occurred since.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -412,7 +455,16 @@ paths:
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
-      description: Creates a new GitHub issue with the given title, body, and labels.
+      description: |
+        Creates a new issue on GitHub. This is the authoritative first step for creating a new ticket.
+
+        **Workflow:**
+        1. Call this tool (`create_issue`) to create the issue on GitHub.
+        2. Call the `sync_all` tool to create the corresponding local Markdown file.
+
+        **Important:**
+        The `labels` array must only contain labels that already exist in the repository.
+        If you are unsure about the available labels, use the `list_labels` tool first.
       tags: [Issues]
       requestBody:
         required: true
@@ -457,9 +509,15 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Triggers the bi-directional synchronization process for GitHub issues.
-        Pushes local Markdown file changes to GitHub and pulls the latest issue
-        and comment data from GitHub to the local files.
+        Triggers the full, bi-directional synchronization of GitHub issues and releases with the local filesystem.
+        This is a comprehensive operation that should be run after making remote changes (e.g., using `create_issue`) 
+        or before looking for local changes to push.
+
+        **Key Functions:**
+        - **Pulls remote changes:** Fetches the latest issue and release data from GitHub.
+        - **Creates local files:** If a new issue was created on GitHub (e.g., via the `create_issue` tool), this process will create the corresponding local `.md` file.
+        - **Pushes local changes:** Scans for modifications in local issue files (in the active `ISSUE` directory only) and pushes them to GitHub.
+        - **Efficient:** Uses a metadata cache and content hashing to ensure that only actual changes are pushed or pulled, making it fast for no-op runs.
       tags: [Issues]
       responses:
         '200':
