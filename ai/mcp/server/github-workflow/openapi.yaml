@@ -420,8 +420,8 @@ paths:
         Assigns one or more users to a GitHub issue. 
         To clear all assignees from an issue, pass an empty array `[]` for the `assignees` property.
 
-        **Permission Required:**
-        This is a restricted action. Before calling this tool, you **must** first use the `get_viewer_permission` tool to verify that you have `ADMIN`, `MAINTAIN`, or `WRITE` permissions.
+        **Permission Check:**
+        This tool performs an internal permission check. If the authenticated user does not have `ADMIN`, `MAINTAIN`, or `WRITE` permissions, the tool will return a `403 Forbidden` error.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -452,8 +452,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Unassign users from an issue
+      operationId: unassign_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+        destructiveHint: true
+      description: |
+        Removes one or more specified assignees from a GitHub issue.
+
+        **Permission Check:**
+        This tool performs an internal permission check. If the authenticated user does not have `ADMIN`, `MAINTAIN`, or `WRITE` permissions, the tool will return a `403 Forbidden` error.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue to unassign users from.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignees
+              properties:
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of GitHub user logins to unassign from the issue.
+                  example: ["some-contributor"]
+      responses:
+        '200':
+          description: Issue unassigned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '403':
-          description: Forbidden. The user does not have permission to assign issues.
+          description: Forbidden. The user does not have permission to unassign issues.
           content:
             application/json:
               schema:
@@ -470,6 +518,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
 
   /issues/{issue_number}/content:
     get:

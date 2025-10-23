@@ -27,7 +27,8 @@ const serviceMapping = {
     list_labels          : LabelService.listLabels.bind(LabelService),
     list_pull_requests   : PullRequestService.listPullRequests.bind(PullRequestService),
     remove_labels        : IssueService.removeLabels.bind(IssueService),
-    sync_all             : SyncService.runFullSync.bind(SyncService)
+    sync_all             : SyncService.runFullSync.bind(SyncService),
+    unassign_issue       : IssueService.unassignIssue.bind(IssueService)
 };
 
 initialize(serviceMapping, openApiFilePath);
