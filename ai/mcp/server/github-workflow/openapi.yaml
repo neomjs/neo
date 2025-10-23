@@ -964,7 +964,7 @@ components:
         filePath:
           type: string
           description: The absolute path to the found issue file.
-          example: /path/to/project/.github/ISSUES/issue-7608.md
+          example: /path/to/project/.github/ISSUE/issue-7608.md
         content:
           type: string
           description: The full markdown content of the issue file.
