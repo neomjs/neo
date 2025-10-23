@@ -1,16 +1,13 @@
-import Base from '../../../../../src/core/Base.mjs';
-import GraphqlService from './GraphqlService.mjs';
-import aiConfig from '../config.mjs';
-import logger from '../logger.mjs';
-import { spawn } from 'child_process';
-import os from 'os';
-import path from 'path';
-import { promises as fsp } from 'fs';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { spawn } from 'child_process';
-import { GET_ISSUE_AND_LABEL_IDS } from './queries/issueQueries.mjs';
-import { ADD_LABELS, REMOVE_LABELS } from './queries/mutations.mjs';
+import aiConfig                    from '../config.mjs';
+import Base                        from '../../../../../src/core/Base.mjs';
+import GraphqlService              from './GraphqlService.mjs';
+import logger                      from '../logger.mjs';
+import {exec}                      from 'child_process';
+import {promisify}                 from 'util';
+import {spawn}                     from 'child_process';
+import {GET_ISSUE_AND_LABEL_IDS}   from './queries/issueQueries.mjs';
+import {ADD_LABELS, REMOVE_LABELS} from './queries/mutations.mjs';
+import RepositoryService           from './RepositoryService.mjs';
 
 const execAsync = promisify(exec);
 
@@ -31,7 +28,56 @@ class IssueService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {String[]} writePermissions=['ADMIN', 'MAINTAIN', 'WRITE']
+         * @protected
+         */
+        writePermissions: ['ADMIN', 'MAINTAIN', 'WRITE']
+    }
+
+    /**
+     * Assigns a GitHub issue to one or more users.
+     * @param {object} options
+     * @param {number} options.issue_number
+     * @param {string[]} options.assignees
+     * @returns {Promise<object>}
+     */
+    async assignIssue({issue_number, assignees}) {
+        if (!this.writePermissions.includes(RepositoryService.viewerPermission)) {
+            const message = [
+                `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
+                `but one of [${this.writePermissions.join(', ')}] is required to assign issues.`
+            ].join('');
+
+            logger.warn(message);
+            return {
+                error  : 'Permission Denied',
+                message,
+                code   : 'FORBIDDEN'
+            };
+        }
+
+        logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
+
+        try {
+            const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
+            const command       = `gh issue edit ${issue_number} ${assigneeFlags}`;
+
+            await execAsync(command);
+
+            const message = `Successfully assigned issue #${issue_number} to ${assignees.join(', ')}`;
+            logger.info(message);
+            return { message };
+
+        } catch (error) {
+            logger.error(`Error assigning issue #${issue_number}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: error.message,
+                code   : 'GH_CLI_ERROR'
+            };
+        }
     }
 
     /**

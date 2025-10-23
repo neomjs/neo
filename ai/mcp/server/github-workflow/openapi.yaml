@@ -409,6 +409,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /issues/{issue_number}/assignees:
+    post:
+      summary: Assign an issue to users
+      operationId: assign_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Assigns a GitHub issue to one or more users.
+
+        **Permission Required:**
+        This is a restricted action. Before calling this tool, you **must** first use the `get_viewer_permission` tool to verify that you have `ADMIN`, `MAINTAIN`, or `WRITE` permissions.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue to assign.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignees
+              properties:
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of GitHub user logins to assign to the issue.
+                  example: ["tobiu", "some-contributor"]
+      responses:
+        '200':
+          description: Issue assigned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: Forbidden. The user does not have permission to assign issues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Issue not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /issues/{issue_number}/content:
     get:
       summary: Get Local Issue Content by ID
