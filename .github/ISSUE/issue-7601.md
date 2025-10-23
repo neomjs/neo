@@ -7,10 +7,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-10-22T09:36:50Z'
-updatedAt: '2025-10-22T09:36:50Z'
+updatedAt: '2025-10-23T12:43:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7601'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -40,4 +40,17 @@ This will ensure that the tool definitions provided to AI agents are always a pe
 3.  The script correctly reads the server configuration files.
 4.  The script merges the configuration values into the template to produce a final, valid OpenAPI specification.
 5.  The MCP server startup process is modified to either run this script or read the generated file, ensuring it always uses the dynamic spec.
+
+## Comments
+
+### @SarthakJain29 - 2025-10-23 08:20
+
+Hey, Would love to work on this!
+
+
+### @tobiu - 2025-10-23 12:43
+
+@SarthakJain29 Hi! Sorry, I did not flag this item as "low prio backlog". I would strongly recommend to pick a different one: not much to learn here (e.g. just wrapping yaml files into template literals and parsing the config vars), but the bigger problem is: the mcp server APIs are not stable yet => we will add more endpoints, fetch more fields etc., so it would just be a maintenance burden with frequent rewrites.
+
+Feel free to ping me inside the slack / discord general channels => there are huge areas with higher impacts / more to learn / more fun to work on.
 

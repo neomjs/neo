@@ -4,10 +4,9 @@ title: Create Node.js script to standardize and sort module imports
 state: OPEN
 labels:
   - enhancement
-  - stale
 assignees: []
 createdAt: '2025-07-17T12:12:04Z'
-updatedAt: '2025-10-22T22:49:45Z'
+updatedAt: '2025-10-23T02:44:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7078'
 author: tobiu
 commentsCount: 1
