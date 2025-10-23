@@ -94,6 +94,11 @@ const config = {
          */
         maxReleases: 1000,
         /**
+         * The number of releases to fetch per page in GraphQL queries.
+         * @type {number}
+         */
+        releaseQueryLimit: 50,
+        /**
          * The maximum buffer size for the `gh` CLI command output.
          * @type {number}
          */

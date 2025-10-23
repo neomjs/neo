@@ -241,7 +241,7 @@ class SyncService extends Base {
             const data = await GraphqlService.query(FETCH_RELEASES, {
                 owner: aiConfig.owner,
                 repo : aiConfig.repo,
-                limit: 100,
+                limit: issueSyncConfig.releaseQueryLimit,
                 cursor
             });
 
