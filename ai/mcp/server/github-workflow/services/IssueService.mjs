@@ -1,7 +1,9 @@
-import Base           from '../../../../../src/core/Base.mjs';
+import Base from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
-import aiConfig       from '../config.mjs';
-import logger         from '../logger.mjs';
+import aiConfig from '../config.mjs';
+import logger from '../logger.mjs';
+import { GET_ISSUE_AND_LABEL_IDS } from './queries/issueQueries.mjs';
+import { ADD_LABELS, REMOVE_LABELS } from './queries/mutations.mjs';
 
 /**
  * Service for interacting with GitHub issues via the GraphQL API.
@@ -31,29 +33,14 @@ class IssueService extends Base {
      * @private
      */
     async #getIds(issueNumber, labelNames) {
-        const query = `
-            query GetIds($owner: String!, $repo: String!, $issueNumber: Int!) {
-                repository(owner: $owner, name: $repo) {
-                    issue(number: $issueNumber) {
-                        id
-                    }
-                    labels(first: 100) { # Assuming max 100 labels
-                        nodes {
-                            id
-                            name
-                        }
-                    }
-                }
-            }
-        `;
-
         const variables = {
-            owner: aiConfig.owner,
-            repo: aiConfig.repo,
-            issueNumber
+            owner      : aiConfig.owner,
+            repo       : aiConfig.repo,
+            issueNumber,
+            maxLabels  : aiConfig.issueSync.maxRepoLabels
         };
 
-        const data = await GraphqlService.query(query, variables);
+        const data = await GraphqlService.query(GET_ISSUE_AND_LABEL_IDS, variables);
 
         const labelableId = data.repository.issue.id;
         const repoLabels = data.repository.labels.nodes;
@@ -79,15 +66,7 @@ class IssueService extends Base {
         try {
             const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
 
-            const mutation = `
-                mutation AddLabels($labelableId: ID!, $labelIds: [ID!]!) {
-                    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
-                        clientMutationId
-                    }
-                }
-            `;
-
-            await GraphqlService.query(mutation, { labelableId, labelIds });
+            await GraphqlService.query(ADD_LABELS, { labelableId, labelIds });
             return { message: `Successfully added labels to issue #${issueNumber}` };
         } catch (error) {
             logger.error(`Error adding labels to issue #${issueNumber} via GraphQL:`, error);
@@ -109,15 +88,7 @@ class IssueService extends Base {
         try {
             const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
 
-            const mutation = `
-                mutation RemoveLabels($labelableId: ID!, $labelIds: [ID!]!) {
-                    removeLabelsFromLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
-                        clientMutationId
-                    }
-                }
-            `;
-
-            await GraphqlService.query(mutation, { labelableId, labelIds });
+            await GraphqlService.query(REMOVE_LABELS, { labelableId, labelIds });
             return { message: `Successfully removed labels from issue #${issueNumber}` };
         } catch (error) {
             logger.error(`Error removing labels from issue #${issueNumber} via GraphQL:`, error);

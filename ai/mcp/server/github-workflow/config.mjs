@@ -113,19 +113,21 @@ const config = {
          * @type {number}
          */
         maxLabelsPerIssue: 20,
-
+        /**
+         * Maximum number of labels to fetch for the entire repository in GraphQL queries.
+         * @type {number}
+         */
+        maxRepoLabels: 100,
         /**
          * Maximum number of assignees to fetch per issue in GraphQL queries.
          * @type {number}
          */
         maxAssigneesPerIssue: 10,
-
         /**
          * Maximum number of comments to fetch per issue in GraphQL queries.
          * @type {number}
          */
         maxCommentsPerIssue: 100,
-
         /**
          * Maximum number of sub-issues to fetch per issue in GraphQL queries.
          * @type {number}

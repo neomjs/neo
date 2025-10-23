@@ -222,3 +222,29 @@ export const DEFAULT_QUERY_LIMITS = {
     maxComments : issueSyncConfig.maxCommentsPerIssue,
     maxSubIssues: issueSyncConfig.maxSubIssuesPerIssue
 };
+
+/**
+ * Fetches the GraphQL node ID for an issue and all labels in the repository.
+ * This is a utility query used by mutations that add/remove labels.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $issueNumber: Int!
+ * - $maxLabels: Int!
+ */
+export const GET_ISSUE_AND_LABEL_IDS = `
+    query GetIssueAndLabelIds($owner: String!, $repo: String!, $issueNumber: Int!, $maxLabels: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $issueNumber) {
+                id
+            }
+            labels(first: $maxLabels) {
+                nodes {
+                    id
+                    name
+                }
+            }
+        }
+    }
+`;

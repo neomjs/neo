@@ -65,3 +65,33 @@ export const UPDATE_ISSUE = `
     }
   }
 `;
+
+/**
+ * Mutation to add labels to a "labelable" item (issue or PR).
+ *
+ * Variables required:
+ * - $labelableId: ID! - The global GraphQL ID of the issue or PR
+ * - $labelIds: [ID!]! - An array of global GraphQL IDs for the labels to add
+ */
+export const ADD_LABELS = `
+    mutation AddLabels($labelableId: ID!, $labelIds: [ID!]!) {
+        addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+            clientMutationId
+        }
+    }
+`;
+
+/**
+ * Mutation to remove labels from a "labelable" item (issue or PR).
+ *
+ * Variables required:
+ * - $labelableId: ID! - The global GraphQL ID of the issue or PR
+ * - $labelIds: [ID!]! - An array of global GraphQL IDs for the labels to remove
+ */
+export const REMOVE_LABELS = `
+    mutation RemoveLabels($labelableId: ID!, $labelIds: [ID!]!) {
+        removeLabelsFromLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+            clientMutationId
+        }
+    }
+`;
