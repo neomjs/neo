@@ -321,17 +321,16 @@ class SyncService extends Base {
      */
     #formatIssueMarkdown(issue, comments) {
         const frontmatter = {
-            id           : issue.number,
-            title        : issue.title,
-            state        : issue.state,
-            labels       : issue.labels.nodes.map(l => l.name),
-            assignees    : issue.assignees.nodes.map(a => a.login),
-            createdAt    : issue.createdAt,
-            updatedAt    : issue.updatedAt,
-            githubUrl    : issue.url,
-            author       : issue.author.login,
-            commentsCount: comments.length,
-            // NEW: Add relationship tracking
+            id                : issue.number,
+            title             : issue.title,
+            state             : issue.state,
+            labels            : issue.labels.nodes.map(l => l.name),
+            assignees         : issue.assignees.nodes.map(a => a.login),
+            createdAt         : issue.createdAt,
+            updatedAt         : issue.updatedAt,
+            githubUrl         : issue.url,
+            author            : issue.author.login,
+            commentsCount     : comments.length,
             parentIssue       : issue.parent ? issue.parent.number : null,
             subIssues         : issue.subIssues?.nodes.map(sub => sub.number) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
@@ -624,8 +623,8 @@ class SyncService extends Base {
 
         for (const filePath of localFiles) {
             try {
-                const content = await fs.readFile(filePath, 'utf-8');
-                const parsed = matter(content);
+                const content     = await fs.readFile(filePath, 'utf-8');
+                const parsed      = matter(content);
                 const issueNumber = parsed.data.id;
 
                 if (!issueNumber) {
@@ -635,7 +634,7 @@ class SyncService extends Base {
 
                 // Calculate current content hash
                 const currentHash = this.#calculateContentHash(content);
-                const oldIssue = metadata.issues[issueNumber];
+                const oldIssue    = metadata.issues[issueNumber];
 
                 // Skip if no metadata exists (shouldn't happen, but be safe)
                 if (!oldIssue) {
@@ -669,8 +668,8 @@ class SyncService extends Base {
 
                 // Step 2: Prepare the updated content
                 const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
-                const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
-                const title = titleMatch ? titleMatch[1] : parsed.data.title;
+                const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
+                const title               = titleMatch ? titleMatch[1] : parsed.data.title;
 
                 const cleanBody = bodyWithoutComments
                     .replace(/^#\s+.+$/m, '')
