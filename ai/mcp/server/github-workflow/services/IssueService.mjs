@@ -2,8 +2,17 @@ import Base from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig from '../config.mjs';
 import logger from '../logger.mjs';
+import { spawn } from 'child_process';
+import os from 'os';
+import path from 'path';
+import { promises as fsp } from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { GET_ISSUE_AND_LABEL_IDS } from './queries/issueQueries.mjs';
 import { ADD_LABELS, REMOVE_LABELS } from './queries/mutations.mjs';
+
+const execAsync = promisify(exec);
 
 /**
  * Service for interacting with GitHub issues via the GraphQL API.
@@ -23,6 +32,71 @@ class IssueService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * Creates a new GitHub issue using the `gh` CLI.
+     * @param {object} options - The options for creating the issue.
+     * @param {string} options.title - The title of the issue.
+     * @param {string} [options.body=''] - The Markdown body of the issue.
+     * @param {string[]} [options.labels=[]] - An array of labels to add to the issue.
+     * @returns {Promise<object>} A promise that resolves to the new issue's data or a structured error.
+     */
+    async createIssue({title, body = '', labels = []}) {
+        logger.info(`Attempting to create GitHub issue: "${title}"`);
+
+        const ghArgs = [
+            'issue', 'create',
+            '--title', title,
+            '--body', body || 'No additional details provided.',
+            '--repo', `${aiConfig.owner}/${aiConfig.repo}`
+        ];
+
+        if (labels && labels.length > 0) {
+            labels.forEach(label => {
+                ghArgs.push('--label', label);
+            });
+        }
+
+        try {
+            const ghProcess = spawn('gh', ghArgs);
+
+            let stdout = '';
+            let stderr = '';
+
+            for await (const chunk of ghProcess.stdout) {
+                stdout += chunk;
+            }
+            for await (const chunk of ghProcess.stderr) {
+                stderr += chunk;
+            }
+
+            const exitCode = await new Promise(resolve => {
+                ghProcess.on('close', resolve);
+            });
+
+            if (exitCode !== 0) {
+                throw new Error(stderr || 'Failed to create GitHub issue.');
+            }
+
+            const issueUrl = stdout.trim();
+            const issueNumber = parseInt(issueUrl.split('/').pop(), 10);
+
+            if (!issueNumber) {
+                throw new Error('Could not parse issue number from gh CLI output.');
+            }
+
+            logger.info(`Successfully created GitHub issue #${issueNumber}: ${issueUrl}`);
+            return { issueNumber, url: issueUrl };
+
+        } catch (error) {
+            logger.error('Error creating GitHub issue:', error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: error.message,
+                code   : 'GH_CLI_ERROR'
+            };
+        }
     }
 
     /**

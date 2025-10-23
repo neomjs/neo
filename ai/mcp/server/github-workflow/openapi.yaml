@@ -405,6 +405,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /issues:
+    post:
+      summary: Create a new GitHub issue
+      operationId: create_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: Creates a new GitHub issue with the given title, body, and labels.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                  description: The title of the issue.
+                body:
+                  type: string
+                  description: The Markdown body of the issue.
+                  default: ""
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of labels to add to the issue.
+                  default: []
+      responses:
+        '201':
+          description: Issue created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIssueResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sync-all:
     post:
       summary: Sync GitHub Issues & Releases
@@ -691,6 +736,17 @@ components:
         code:
           type: string
           example: "GH_CLI_ERROR"
+
+    CreateIssueResponse:
+      type: object
+      properties:
+        issueNumber:
+          type: integer
+          description: The number of the newly created issue.
+        url:
+          type: string
+          format: uri
+          description: The URL of the newly created issue.
 
     LocalIssueResponse:
       type: object

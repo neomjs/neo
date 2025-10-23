@@ -16,6 +16,7 @@ const serviceMapping = {
     add_labels           : IssueService.addLabels.bind(IssueService),
     checkout_pull_request: PullRequestService.checkoutPullRequest.bind(PullRequestService),
     create_comment       : PullRequestService.createComment.bind(PullRequestService),
+    create_issue         : IssueService.createIssue.bind(IssueService),
     get_conversation     : PullRequestService.getConversation.bind(PullRequestService),
     get_local_issue_by_id: LocalFileService.getIssueById.bind(LocalFileService),
     get_pull_request_diff: PullRequestService.getPullRequestDiff.bind(PullRequestService),
