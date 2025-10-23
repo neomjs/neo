@@ -27,6 +27,8 @@ tags:
     description: Operations related to repository labels
   - name: Issues
     description: Operations related to repository issues and pull requests
+  - name: Repository
+    description: Operations related to the repository itself
 
 paths:
   /docs:
@@ -533,6 +535,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /repository/viewer-permission:
+    get:
+      summary: Get Viewer Permission
+      operationId: get_viewer_permission
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the permission level of the currently authenticated user (viewer) for the repository.
+
+        **When to Use:**
+        Call this tool to determine your capabilities before attempting a restricted action (e.g., assigning an issue, merging a PR). The agent is responsible for interpreting the returned permission level.
+
+        **Permission Levels:**
+        - `ADMIN`: Can read, write, and manage the repository.
+        - `MAINTAIN`: Can read, write, and manage issues and pull requests.
+        - `WRITE`: Can read and write to the repository.
+        - `TRIAGE`: Can manage issues and pull requests.
+        - `READ`: Can read the repository.
+      tags: [Repository]
+      responses:
+        '200':
+          description: The viewer's permission level for the repository.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewerPermissionResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
@@ -816,3 +851,12 @@ components:
         content:
           type: string
           description: The full markdown content of the issue file.
+
+    ViewerPermissionResponse:
+      type: object
+      properties:
+        permission:
+          type: string
+          description: The permission level of the viewer.
+          enum: [ADMIN, MAINTAIN, WRITE, TRIAGE, READ]
+          example: WRITE

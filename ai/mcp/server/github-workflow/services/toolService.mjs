@@ -3,8 +3,9 @@ import {fileURLToPath}                   from 'url';
 import HealthService                     from './HealthService.mjs';
 import IssueService                      from './IssueService.mjs';
 import LabelService                      from './LabelService.mjs';
-import LocalFileService                from './LocalFileService.mjs';
+import LocalFileService                  from './LocalFileService.mjs';
 import PullRequestService                from './PullRequestService.mjs';
+import RepositoryService                 from './RepositoryService.mjs';
 import SyncService                       from './SyncService.mjs';
 import {initialize, listTools, callTool} from '../../toolService.mjs';
 
@@ -20,6 +21,7 @@ const serviceMapping = {
     get_conversation     : PullRequestService.getConversation.bind(PullRequestService),
     get_local_issue_by_id: LocalFileService.getIssueById.bind(LocalFileService),
     get_pull_request_diff: PullRequestService.getPullRequestDiff.bind(PullRequestService),
+    get_viewer_permission: RepositoryService.getViewerPermission.bind(RepositoryService),
     healthcheck          : HealthService.healthcheck.bind(HealthService),
     list_labels          : LabelService.listLabels.bind(LabelService),
     list_pull_requests   : PullRequestService.listPullRequests.bind(PullRequestService),
