@@ -55,7 +55,7 @@ class DatabaseLifecycleService extends Base {
      * Starts the ChromaDB server as a background process, if not already running.
      * @returns {Promise<object>} A promise that resolves with the status.
      */
-    async start_database() {
+    async startDatabase() {
         if (this.chromaProcess && !this.chromaProcess.killed) {
             return { status: 'already_running', pid: this.chromaProcess.pid, detail: 'Server was started by this process.' };
         }
@@ -97,7 +97,7 @@ class DatabaseLifecycleService extends Base {
      * Stops the ChromaDB server process if it was started by this server.
      * @returns {Promise<object>} A promise that resolves with the status.
      */
-    async stop_database() {
+    async stopDatabase() {
         if (!this.chromaProcess || this.chromaProcess.killed) {
             return { status: 'not_running', detail: 'No process was started by this server.' };
         }

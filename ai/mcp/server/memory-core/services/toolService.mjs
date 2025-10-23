@@ -13,23 +13,20 @@ const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
-    healthcheck         : HealthService.buildHealthResponse.bind(HealthService),
-    add_memory          : MemoryService.addMemory.bind(MemoryService),
-    get_session_memories: MemoryService.listMemories.bind(MemoryService),
-    query_raw_memories  : MemoryService.queryMemories.bind(MemoryService),
-    get_all_summaries   : SummaryService.listSummaries.bind(SummaryService),
-    delete_all_summaries: SummaryService.deleteAllSummaries.bind(SummaryService),
-    query_summaries     : SummaryService.querySummaries.bind(SummaryService),
-    summarize_sessions  : SessionService.summarizeSessions.bind(SessionService),
-    export_database     : DatabaseService.exportDatabase.bind(DatabaseService),
-    import_database     : DatabaseService.importDatabase.bind(DatabaseService),
+    add_memory          : MemoryService           .addMemory.bind(MemoryService),
+    delete_all_summaries: SummaryService          .deleteAllSummaries.bind(SummaryService),
+    export_database     : DatabaseService         .exportDatabase.bind(DatabaseService),
+    get_all_summaries   : SummaryService          .listSummaries.bind(SummaryService),
+    get_session_memories: MemoryService           .listMemories.bind(MemoryService),
+    healthcheck         : HealthService           .buildHealthResponse.bind(HealthService),
+    import_database     : DatabaseService         .importDatabase.bind(DatabaseService),
+    query_raw_memories  : MemoryService           .queryMemories.bind(MemoryService),
+    query_summaries     : SummaryService          .querySummaries.bind(SummaryService),
     start_database      : DatabaseLifecycleService.startDatabase.bind(DatabaseLifecycleService),
-    stop_database       : DatabaseLifecycleService.stopDatabase.bind(DatabaseLifecycleService)
+    stop_database       : DatabaseLifecycleService.stopDatabase.bind(DatabaseLifecycleService),
+    summarize_sessions  : SessionService          .summarizeSessions.bind(SessionService)
 };
 
 initialize(serviceMapping, openApiFilePath);
 
-export {
-    listTools,
-    callTool
-};
+export {callTool, listTools};
