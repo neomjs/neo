@@ -7120,17 +7120,26 @@
       "contentHash": "23bb1d691689c2e8625373a8977b0d3ef38da9cbb26a78ab9e7a2e3360e00199"
     },
     "7635": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7635.md",
-      "updated": "2025-10-24T11:58:21Z",
-      "closedAt": null,
+      "updated": "2025-10-24T12:11:54Z",
+      "closedAt": "2025-10-24T12:11:54Z",
       "milestone": null,
       "title": "Refactor: Enhance Memory Core HealthService for Robustness and Diagnostics",
-      "contentHash": "9ca3183a0eaf76948954845041bdd5c5036936042770997d00cac485caf6beb9"
+      "contentHash": "2e012fb01fb1406bcc4016a7cc338b2ecc8a17efa47dcf08f2579d9d5ce89a03"
+    },
+    "7636": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7636.md",
+      "updated": "2025-10-24T12:23:17Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "Refactor: Implement Robust Startup Sequence and Health Checks in Memory Core",
+      "contentHash": "26d89f38b4d6ca99fd800d7a15a0773cb6e260971e10eebe0b954ebc1f4efb54"
     }
   },
   "pushFailures": [],
-  "lastSync": "2025-10-24T11:59:10.435Z",
+  "lastSync": "2025-10-24T12:23:26.298Z",
   "releases": {
     "10.0.0-alpha.1": {
       "tagName": "10.0.0-alpha.1",
@@ -7448,5 +7457,5 @@
       "contentHash": "67631aaa43bebb814a892699f984e08afab77a5a7b4d36f1751796b5040559ca"
     }
   },
-  "releasesLastFetched": "2025-10-24T11:59:10.469Z"
+  "releasesLastFetched": "2025-10-24T12:23:26.301Z"
 }
