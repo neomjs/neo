@@ -4,7 +4,6 @@ import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotoc
 import Neo                                             from '../../../../src/Neo.mjs';
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
-import DatabaseLifecycleService                        from './services/DatabaseLifecycleService.mjs';
 import logger                                          from './logger.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
@@ -100,16 +99,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-
-    // Subscribe to DatabaseLifecycleService events
-    DatabaseLifecycleService.on({
-        processActive: ({ pid, managedByService, detail }) => {
-            logger.info(`[neo-memory-core MCP] ChromaDB process active: PID=${pid}, ManagedByService=${managedByService}, Detail=${detail}`);
-        },
-        processStopped: ({ pid, managedByService }) => {
-            logger.info(`[neo-memory-core MCP] ChromaDB process stopped: PID=${pid}, ManagedByService=${managedByService}`);
-        }
-    });
 
     // Log to stderr (stdout is reserved for MCP protocol)
     logger.info('[neo-memory-core MCP] Server started on stdio transport');
