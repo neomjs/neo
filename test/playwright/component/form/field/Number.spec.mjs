@@ -71,11 +71,27 @@ test.describe('Neo.form.field.Number', () => {
         }, {id: componentId, minValue: NEW_MIN, maxValue: NEW_MAX});
 
         // Click up to reach maxValue
-        await spinUp.click();
+        await spinUp.click({ force: true });
         await expect(input).toHaveValue('1');
 
         // Click up again to wrap around to minValue (default is 0)
-        await spinUp.click();
+        await spinUp.click({ force: true });
         await expect(input).toHaveValue('0');
+    });
+
+    test('should wrap around when falling below minValue', async ({page}) => {
+        const numberField = page.locator(`#${componentId}`);
+        const input = numberField.locator('input');
+        const spinDown = numberField.locator('.neo-spin-button.neo-down');
+
+        const NEW_MIN = 0, NEW_MAX = 1;
+
+        await page.evaluate(({id, maxValue, minValue}) => {
+            return Neo.worker.App.setConfigs({id, maxValue, minValue});
+        }, {id: componentId, minValue: NEW_MIN, maxValue: NEW_MAX});
+
+        // Click down to reach wrap around to maxValue
+        await spinDown.click({ force: true });
+        await expect(input).toHaveValue('1');
     });
 });
