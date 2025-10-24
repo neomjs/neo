@@ -18,7 +18,7 @@ const serviceMapping = {
     export_database     : DatabaseService         .exportDatabase     .bind(DatabaseService),
     get_all_summaries   : SummaryService          .listSummaries      .bind(SummaryService),
     get_session_memories: MemoryService           .listMemories       .bind(MemoryService),
-    healthcheck         : HealthService           .buildHealthResponse.bind(HealthService),
+    healthcheck         : HealthService           .healthcheck.bind(HealthService),
     import_database     : DatabaseService         .importDatabase     .bind(DatabaseService),
     query_raw_memories  : MemoryService           .queryMemories      .bind(MemoryService),
     query_summaries     : SummaryService          .querySummaries     .bind(SummaryService),
