@@ -86,12 +86,10 @@ something, you must find the answer using the query tool.
 
 ### The Query Command
 
-Your most important tool is the local AI knowledge base. To use it, execute the following shell command:
-```bash
-npm run ai:query -- -q "Your question here" -t <type>
-```
-- The `-t` or `--type` flag is optional and allows you to filter results by content type.
-- Supported types are: `all` (default), `blog`, `example`, `guide`, `release`, `src`, `ticket`.
+Your most important tool is the local AI knowledge base. To use it, call the `query_documents` tool.
+
+- The `query` parameter is your natural language search query.
+- The `type` parameter is optional and allows you to filter results. Supported types are: `all` (default), `blog`, `example`, `guide`, `release`, `src` and `ticket`.
 
 ### How to Interpret Query Results
 
@@ -136,23 +134,23 @@ When you need to understand a new concept or feature area:
     `"benefits"`, `"concept"`, `"architecture"`, and `"vision"`. Prioritize reading files from the `learn/benefits`
     directory or top-level `README.md` and `.github/*.md` files if they appear in these initial results.
 2.  **Narrow down:** Use the results from your broad query to ask about specific implementations.
-    - `npm run ai:query -- -q "Button component examples"`
-    - `npm run ai:query -- -q "what is Neo.component.Base?"`
+    -   `query_documents(query='Button component examples')`
+    -   `query_documents(query='what is Neo.component.Base?')`
 3.  **Find related patterns:** Look for common conventions and approaches.
-    - `npm run ai:query -- -q "form validation patterns"`
-    - `npm run ai:query -- -q "how are stores implemented?"`
+    -   `query_documents(query='form validation patterns')`
+    -   `query_documents(query='how are stores implemented?')`
 
 #### 3. Targeted Content-Type Searching
 
-Use the `--type` (`-t`) flag to focus your search on specific types of content.
+Use the `type` parameter to focus your search on specific types of content.
 This is a powerful way to get more relevant results.
 
 -   **To find conceptual explanations:**
-    - `npm run ai:query -- -q "state management" -t guide`
+    -   `query_documents(query='state management', type='guide')`
 -   **To find concrete usage examples:**
-    - `npm run ai:query -- -q "Button component" -t example`
+    -   `query_documents(query='Button component', type='example')`
 -   **To dive deep into implementation details:**
-    - `npm run ai:query -- -q "afterSet hook" -t src`
+    -   `query_documents(query='afterSet hook', type='src')`
 
 **Strategy:** If a broad query returns too many source files and not enough conceptual documents, re-run the query with
 `-t guide`. Conversely, if you have read the guides but need to see the actual implementation,
@@ -211,13 +209,13 @@ class TabContainer extends Container {
 
 To make fully informed decisions, you must leverage both the project's technical knowledge base and your own historical memory. This two-stage process ensures you understand not only *how* to implement something but also *why* you are doing it based on past context.
 
-1.  **Stage 1: Query for Knowledge (`ai:query`)**
+1.  **Stage 1: Query for Knowledge (`query_documents`)**
     -   **Purpose:** To understand the technical "how."
-    -   **Action:** Use the standard `npm run ai:query` command to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
+    -   **Action:** Use the `query_documents` tool to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
 
-2.  **Stage 2: Query for Memory (`ai:query-memory`)**
+2.  **Stage 2: Query for Memory (`query_raw_memories`)**
     -   **Purpose:** To understand the historical "why."
-    -   **Action:** After you have the technical context, use the `npm run ai:query-memory` command to search your own memory. This is crucial for understanding:
+    -   **Action:** After you have the technical context, use the `query_raw_memories` tool to search your own memory. This is crucial for understanding:
         -   **Past Decisions:** Why was a feature built a certain way?
         -   **User Requirements:** What were the specific needs or constraints mentioned in previous conversations?
         -   **Avoided Pitfalls:** Have you tried a similar approach before that failed?
@@ -334,11 +332,7 @@ If no ticket exists:
 ---
 
 #### 3️⃣ Create a GitHub Issue Automatically
-Once the local ticket is confirmed by the user, run the new **GitHub linking command**:
-
-```bash
-npm run ai:create-gh-issue -- --file .github/ISSUE/<TICKET_ID>.md
-```
+Once the local ticket is confirmed by the user, use the `create_issue` tool, passing the `title`, `body`, and `labels` from the local ticket file.
 
 ### Step 3: The Memory Core Protocol: An All-or-Nothing Approach
 
@@ -355,10 +349,7 @@ Your operational loop in a memory-enabled session is an immutable transaction:
 1.  Receive `PROMPT`.
 2.  Generate `THOUGHT` process.
 3.  Generate the final `RESPONSE` (including tool calls, errors, or admissions of confusion).
-4.  **BEFORE displaying the response to the user**, you **MUST** first save the context of the turn by executing the `npm run ai:add-memory` command. Use the following structure, ensuring all arguments are properly escaped for the shell:
-    ```bash
-    npm run ai:add-memory -- --session-id \"<sessionId>\" --prompt \"<prompt>\" --thought \"<thought>\" --response \"<response>\"
-    ```
+4.  **BEFORE displaying the response to the user**, you **MUST** first save the context of the turn by calling the `add_memory` tool. Use the `sessionId`, `prompt`, `thought`, and `response` parameters.
 5.  Only after the memory is successfully persisted do you provide the `RESPONSE` to the user.
 
 This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory, making the conversation log a perfect, unabridged record of the interaction. Even if your thought process is derailed, you must save the context of that derailment *before* you communicate it.
@@ -382,7 +373,7 @@ The recovery protocol is triggered when the agent detects a potential gap or fai
 Upon detecting a trigger, the agent **MUST** attempt to recover the session history by performing the following steps:
 
 1.  **Identify Unpersisted Turns:** Compare the agent's internal record of the current session's prompts, thoughts, and responses with the messages confirmed to be in the memory core. Identify all turns that have not yet been successfully persisted.
-2.  **Re-attempt Persistence (Chronological Order):** For each identified unpersisted turn, re-execute the `npm run ai:add-memory` command, ensuring that the `PROMPT`, `THOUGHT`, and `RESPONSE` are correctly provided. This re-persistence **MUST** occur in chronological order of the turns.
+2.  **Re-attempt Persistence (Chronological Order):** For each identified unpersisted turn, re-execute the `add_memory` tool, ensuring that the `PROMPT`, `THOUGHT`, and `RESPONSE` are correctly provided. This re-persistence **MUST** occur in chronological order of the turns.
 3.  **Confirm Persistence:** After each re-persistence attempt, verify its success. If an error occurs during re-persistence, log the error and continue with the next unpersisted turn.
 4.  **Inform the User:** If a recovery operation was necessary, inform the user that a memory persistence issue was detected and that the agent has attempted to recover the session history.
 
@@ -423,7 +414,7 @@ should consider re-running your initialization steps (reading `structure.json`, 
 ensure your understanding is up-to-date.
 
 Furthermore, after pulling changes, the local knowledge base may be out of sync.
-You should run `npm run ai:build-kb` to re-embed the latest changes into the database.
+You should call the `sync_database` tool to re-embed the latest changes into the database.
 
 
 ## PR & Issues Workflow Reference
