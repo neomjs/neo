@@ -1,6 +1,9 @@
 # Getting Started with Neo on Windows
 
-Welcome! This guide will help you set up Neo on Windows using WSL (Windows Subsystem for Linux). Don't worry if you're new to this, we'll walk through everything step by step.
+Welcome! This guide provides a workaround for a known installation issue with **ChromaDB** on **x64 Windows** machines when setting up your AI development environment. 
+
+It’s designed to help you get things running smoothly, but note that this isn’t a general requirement for using the Neo.mjs framework. Don’t worry if you’re new, we’ll go through each step clearly and simply.
+
 
 ## What You'll Need
 
