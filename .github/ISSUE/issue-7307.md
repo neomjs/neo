@@ -7,13 +7,12 @@ labels:
   - good first issue
   - Blog Post
   - hacktoberfest
-assignees:
-  - Saksham-chourasia
+assignees: []
 createdAt: '2025-09-28T15:25:58Z'
-updatedAt: '2025-10-01T23:18:20Z'
+updatedAt: '2025-10-24T10:01:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7307'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
@@ -60,4 +59,8 @@ Thanks!
 Let me think about this one: it can work manually, but it is also an excellent fit for testing the new RAG/MCP knowledge base via the Agents.md file. My recommendation: with the knowledge base API in place, e.g. Gemini CLI should be capable to explain you the key concepts, and maybe even create example code.
 
 You can also join the Slack or Discord Channels for questions.
+
+### @tobiu - 2025-10-24 10:01
+
+Unassigning the ticket after 3 weeks of inactivity.
 

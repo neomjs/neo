@@ -1,20 +1,21 @@
 ---
 id: 7321
 title: Create Guide for Personalized Agent Identity
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
 assignees:
   - tobiu
 createdAt: '2025-10-01T21:11:39Z'
-updatedAt: '2025-10-01T21:11:39Z'
+updatedAt: '2025-10-24T09:53:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7321'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:53:17Z'
 ---
 # Create Guide for Personalized Agent Identity
 
@@ -40,4 +41,10 @@ This final ticket for the epic covers the creation of a guide for contributors o
     c.  **Dedicated Identity:** For advanced users who wish to create a separate GitHub account for their agent.
 4.  The necessary configuration steps (e.g., environment variables, local config files) are clearly documented.
 5.  This ensures that any contributor can leverage a stateful, accountable AI partner in a way that best fits their workflow.
+
+## Comments
+
+### @tobiu - 2025-10-24 09:53
+
+dropped.
 

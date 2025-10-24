@@ -1,7 +1,7 @@
 ---
 id: 7410
 title: 'MCP Server: Implement Memory Create Endpoint'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - nabeel001
 createdAt: '2025-10-07T10:26:38Z'
-updatedAt: '2025-10-08T09:36:00Z'
+updatedAt: '2025-10-24T09:21:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7410'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:21:47Z'
 ---
 # MCP Server: Implement Memory Create Endpoint
 
@@ -63,4 +64,14 @@ i would like to work on this. kindly assign this to me @tobiu
 ### @tobiu - 2025-10-08 09:35
 
 Sure. Hint: this is a phase 2 item of https://github.com/neomjs/neo/issues/7399 => it requires phase 1 to be completed before you can start working on it.
+
+### @tobiu - 2025-10-24 09:21
+
+Hi @nabeel001,
+
+Thank you for your interest in this ticket during Hacktoberfest.
+
+As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the core functionalities for this ticket have now been implemented as part of the main MCP server development.
+
+We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

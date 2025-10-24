@@ -7,13 +7,12 @@ labels:
   - good first issue
   - Blog Post
   - hacktoberfest
-assignees:
-  - Rupa-Rd
+assignees: []
 createdAt: '2025-09-28T12:50:27Z'
-updatedAt: '2025-09-29T09:46:51Z'
+updatedAt: '2025-10-24T10:04:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7298'
 author: tobiu
-commentsCount: 5
+commentsCount: 6
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
@@ -70,4 +69,8 @@ I just finished this one:
 https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md
 
 Hope it helps!
+
+### @tobiu - 2025-10-24 10:04
+
+unassigning the ticket after close to a month of inactivity.
 

@@ -1,7 +1,7 @@
 ---
 id: 7590
 title: 'Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-21T11:02:20Z'
-updatedAt: '2025-10-21T11:03:15Z'
+updatedAt: '2025-10-23T14:58:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7590'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - 7591
@@ -24,8 +24,9 @@ subIssues:
   - 7598
   - 7599
   - 7600
-subIssuesCompleted: 7
+subIssuesCompleted: 8
 subIssuesTotal: 8
+closedAt: '2025-10-23T14:58:03Z'
 ---
 # Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
 
@@ -34,7 +35,7 @@ subIssuesTotal: 8
 ---
 
 **Sub-Issues:** #7591, #7592, #7593, #7594, #7595, #7598, #7599, #7600
-**Progress:** 7/8 completed (87%)
+**Progress:** 8/8 completed (100%)
 
 ---
 
@@ -68,4 +69,10 @@ Operations that perform local Git repository manipulations (e.g., `gh pr checkou
     -   Remove the generic `#ghCommand` helper method from `SyncService`.
     -   Review all services to ensure no unnecessary `gh` calls remain.
     -   Update all relevant JSDoc comments and documentation to reflect the new GraphQL data access patterns.
+
+## Comments
+
+### @tobiu - 2025-10-23 14:58
+
+resolved.
 

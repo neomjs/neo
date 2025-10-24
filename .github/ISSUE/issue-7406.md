@@ -1,7 +1,7 @@
 ---
 id: 7406
 title: 'MCP Server: Implement Knowledge Admin Endpoints'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - tanmaytare
 createdAt: '2025-10-07T10:17:15Z'
-updatedAt: '2025-10-08T16:31:54Z'
+updatedAt: '2025-10-24T09:22:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7406'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:22:59Z'
 ---
 # MCP Server: Implement Knowledge Admin Endpoints
 
@@ -62,4 +63,14 @@ I want to work on this ,please assign to me
 ### @tobiu - 2025-10-08 16:31
 
 Hi, and thanks for your interest. Assigned. Please make sure to read the parent epic first: https://github.com/neomjs/neo/issues/7399
+
+### @tobiu - 2025-10-24 09:22
+
+Hi @tanmaytare,
+
+Thank you for your interest in this ticket during Hacktoberfest.
+
+As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the core functionalities for this ticket have now been implemented as part of the main MCP server development.
+
+We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

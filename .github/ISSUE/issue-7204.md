@@ -1,20 +1,21 @@
 ---
 id: 7204
 title: 'Phase 3: Dynamic Proxy Transitioning (Windowing)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:06:01Z'
-updatedAt: '2025-08-20T22:06:01Z'
+updatedAt: '2025-10-24T10:08:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7204'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T10:08:16Z'
 ---
 # Phase 3: Dynamic Proxy Transitioning (Windowing)
 
@@ -45,4 +46,10 @@ This phase builds directly on the live proxy from Phase 2, introducing a seamles
         - **Adapt the logic from `ViewportController.onAppDisconnect()`:** Instead of just re-inserting the widget into the layout, it will be moved into a new live in-page proxy created at the window's current position.
         - The popup window will be closed.
         - The drag operation will revert to moving the in-page proxy, allowing for re-sorting within the viewport.
+
+## Comments
+
+### @tobiu - 2025-10-24 10:08
+
+resolved.
 

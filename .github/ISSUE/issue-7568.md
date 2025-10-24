@@ -1,21 +1,22 @@
 ---
 id: 7568
 title: Refine Issue Creation to be API-First
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-20T11:26:42Z'
-updatedAt: '2025-10-20T12:48:21Z'
+updatedAt: '2025-10-24T09:31:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7568'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:31:57Z'
 ---
 # Refine Issue Creation to be API-First
 
@@ -44,4 +45,10 @@ This ticket proposes creating a new `create_issue` tool within the `github-workf
 -   **Input Validation:** Ensures all new tickets are valid at the point of creation (correct labels, assignees, etc.).
 -   **Simplified Agent Workflow:** The agent interacts with a structured tool call instead of raw file creation.
 -   **Single Source of Truth:** GitHub becomes the definitive source for new issue data.
+
+## Comments
+
+### @tobiu - 2025-10-24 09:31
+
+resolved with the new tooling
 

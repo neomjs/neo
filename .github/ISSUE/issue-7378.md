@@ -1,21 +1,22 @@
 ---
 id: 7378
 title: Enhance Knowledge Base to Include GitHub Comments
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - hacktoberfest
 assignees:
   - kart-u
 createdAt: '2025-10-05T13:11:43Z'
-updatedAt: '2025-10-08T17:34:57Z'
+updatedAt: '2025-10-24T09:41:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7378'
 author: tobiu
-commentsCount: 9
+commentsCount: 10
 parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:41:35Z'
 ---
 # Enhance Knowledge Base to Include GitHub Comments
 
@@ -579,4 +580,8 @@ now this is the question! from a technical perspective, the 2 way sync concept i
 https://github.com/neomjs/neo/blob/dev/.github/workflows/prevent-reopen.yml
 
 => this makes the sync concept a lot easier for us
+
+### @tobiu - 2025-10-24 09:41
+
+@kart-u: resolved, in a way => 2-way sync in place, so comments will get automatically added into the knowledge db (with their tickets).
 

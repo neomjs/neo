@@ -1,20 +1,21 @@
 ---
 id: 6996
 title: Encourage Pure VDOM Effects
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
 assignees: []
 createdAt: '2025-07-09T10:57:03Z'
-updatedAt: '2025-10-08T09:39:48Z'
+updatedAt: '2025-10-24T10:07:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6996'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T10:07:08Z'
 ---
 # Encourage Pure VDOM Effects
 
@@ -50,4 +51,8 @@ The `Neo.core.Effect` system automatically re-executes VDOM-generating methods w
 ### @github-actions - 2025-10-08 02:38
 
 This issue is stale because it has been open for 90 days with no activity.
+
+### @tobiu - 2025-10-24 10:07
+
+dropped
 

@@ -4,11 +4,11 @@ title: 'Task: Create Example for Deeply Nested Components'
 state: OPEN
 labels:
   - enhancement
-  - stale
+  - no auto close
 assignees:
   - tobiu
 createdAt: '2025-07-14T14:03:06Z'
-updatedAt: '2025-10-13T02:49:43Z'
+updatedAt: '2025-10-24T10:05:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7047'
 author: tobiu
 commentsCount: 1

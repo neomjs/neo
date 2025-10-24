@@ -1,7 +1,7 @@
 ---
 id: 7403
 title: 'MCP Server: Implement Knowledge Server Scaffold'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - thisis-gp
 createdAt: '2025-10-07T10:10:58Z'
-updatedAt: '2025-10-20T12:47:55Z'
+updatedAt: '2025-10-24T09:20:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7403'
 author: tobiu
-commentsCount: 9
+commentsCount: 10
 parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:20:25Z'
 ---
 # MCP Server: Implement Knowledge Server Scaffold
 
@@ -118,4 +119,14 @@ We should be good for the hacktoberfest scope: we still have the unit testing, c
 
 Hey @tobiu I'm happy to take care of this one since there doesn't seem to be any activity after 2 weeks.
 lmk if I can start working on this.
+
+### @tobiu - 2025-10-24 09:20
+
+Hi @thisis-gp and @MannXo,
+
+Thank you both for your interest in this ticket.
+
+As there has been no PR for this foundational task and the project's architecture has been evolving rapidly, the scaffold for the Knowledge Base MCP server has now been implemented.
+
+We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

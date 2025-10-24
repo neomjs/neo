@@ -12,10 +12,10 @@ labels:
 assignees:
   - Alachi24
 createdAt: '2025-10-14T16:13:58Z'
-updatedAt: '2025-10-14T19:55:54Z'
+updatedAt: '2025-10-23T19:17:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7488'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: 7475
 subIssues: []
 subIssuesCompleted: 0
@@ -78,4 +78,9 @@ This one is already reserved for @Alachi24.
 Hi @tobiu 
 I'd love to do this task for hacktoberfest.
 Can you kindly assign it to me?
+
+### @Alachi24 - 2025-10-23 19:17
+
+@tobiu 
+Please review the assigned task reference.
 

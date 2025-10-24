@@ -1,17 +1,17 @@
 ---
 id: 7564
 title: 'Epic: Implement Two-Way GitHub Synchronization for Issues'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-20T11:17:27Z'
-updatedAt: '2025-10-20T11:17:27Z'
+updatedAt: '2025-10-24T09:32:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7564'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - 7565
@@ -37,8 +37,9 @@ subIssues:
   - 7587
   - 7588
   - 7589
-subIssuesCompleted: 22
+subIssuesCompleted: 23
 subIssuesTotal: 23
+closedAt: '2025-10-24T09:32:21Z'
 ---
 # Epic: Implement Two-Way GitHub Synchronization for Issues
 
@@ -47,7 +48,7 @@ subIssuesTotal: 23
 ---
 
 **Sub-Issues:** #7565, #7566, #7567, #7568, #7569, #7570, #7571, #7572, #7573, #7574, #7575, #7576, #7578, #7579, #7580, #7581, #7582, #7583, #7584, #7585, #7587, #7588, #7589
-**Progress:** 22/23 completed (95%)
+**Progress:** 23/23 completed (100%)
 
 ---
 
@@ -77,4 +78,10 @@ Once the core issue synchronization is stable and robust, we will expand its cap
 -   **Pull Request Synchronization:** Implement a parallel sync mechanism for Pull Requests, storing their conversations, reviews, and diffs as local Markdown files in a `.github/PULL_REQUESTS/` directory.
 -   **Comment Push:** Investigate and implement a mechanism to push new comments from the local `.md` files back to GitHub. This is a complex task that requires careful parsing and state management.
 -   **Knowledge Base Integration:** Integrate the locally stored issue and PR files into the AI Knowledge Base build process, making them queryable for deep contextual understanding.
+
+## Comments
+
+### @tobiu - 2025-10-24 09:32
+
+epic resolved, there will be new tickets for the new mcp server.
 

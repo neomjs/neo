@@ -1,7 +1,7 @@
 ---
 id: 7342
 title: 'Hacktoberfest Mission: Train the AI - Test Its Memory! (1/5)'
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -10,14 +10,15 @@ labels:
 assignees:
   - kiransatdive
 createdAt: '2025-10-04T08:37:45Z'
-updatedAt: '2025-10-04T08:43:36Z'
+updatedAt: '2025-10-24T09:52:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7342'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:52:42Z'
 ---
 # Hacktoberfest Mission: Train the AI - Test Its Memory! (1/5)
 
@@ -97,4 +98,14 @@ I would like to work on this issue. Could you please assign it to me?
 ### @tobiu - 2025-10-04 08:43
 
 Sure. Feel free to join the Slack and / or Discord channels for questions.
+
+### @tobiu - 2025-10-24 09:52
+
+Hi @kiransatdive,
+
+Thank you for your interest in this ticket during Hacktoberfest.
+
+As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the memory-core has now become an own mcp-server, and we can create new testing tickets, once the agents file is updated.
+
+We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

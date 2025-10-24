@@ -1,7 +1,7 @@
 ---
 id: 7412
 title: 'MCP Server: Implement Memory Admin Endpoints'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - SarthakJain29
 createdAt: '2025-10-07T10:30:50Z'
-updatedAt: '2025-10-07T18:53:59Z'
+updatedAt: '2025-10-24T09:14:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7412'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:13:38Z'
 ---
 # MCP Server: Implement Memory Admin Endpoints
 
@@ -62,4 +63,16 @@ Hey! I would like to work on this issue.
 ### @tobiu - 2025-10-07 18:53
 
 Hi, and yes again. Be aware: this is a phase 2 item of the new epic. We need to resolve phase 1 first (there are still open items).
+
+### @tobiu - 2025-10-24 09:13
+
+Input from Gemini:
+
+> Hi @SarthakJain29,
+> 
+> Thank you for your interest in this ticket during Hacktoberfest.
+> 
+> As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the core functionalities for this ticket have now been implemented as part of the main MCP server development.
+> 
+> We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

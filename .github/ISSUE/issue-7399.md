@@ -1,7 +1,7 @@
 ---
 id: 7399
 title: Architect AI Tooling as a Model Context Protocol (MCP) Servers
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -11,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-07T09:26:04Z'
-updatedAt: '2025-10-12T11:20:25Z'
+updatedAt: '2025-10-24T09:27:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7399'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - 7400
@@ -22,7 +22,6 @@ subIssues:
   - 7402
   - 7403
   - 7404
-  - 7405
   - 7406
   - 7407
   - 7408
@@ -33,8 +32,9 @@ subIssues:
   - 7425
   - 7464
   - 7468
-subIssuesCompleted: 8
-subIssuesTotal: 16
+subIssuesCompleted: 15
+subIssuesTotal: 15
+closedAt: '2025-10-24T09:27:25Z'
 ---
 # Architect AI Tooling as a Model Context Protocol (MCP) Servers
 
@@ -42,8 +42,8 @@ subIssuesTotal: 16
 
 ---
 
-**Sub-Issues:** #7400, #7401, #7402, #7403, #7404, #7405, #7406, #7407, #7408, #7409, #7410, #7411, #7412, #7425, #7464, #7468
-**Progress:** 8/16 completed (50%)
+**Sub-Issues:** #7400, #7401, #7402, #7403, #7404, #7406, #7407, #7408, #7409, #7410, #7411, #7412, #7425, #7464, #7468
+**Progress:** 15/15 completed (100%)
 
 ---
 
@@ -119,4 +119,8 @@ FYI: https://geminicli.com/extensions/
 >   This new context is extremely valuable. It reframes the goal of the epic-architect-ai-tooling-as-mcp.md epic. We are not just refactoring scripts into servers; we are building full-fledged extensions for a specific, documented platform. The "Build your own" section mentioned on the main page will be a critical resource for our scaffolding tickets, as it will define what a complete, well-formed extension looks like.
 > 
 >   Thank you for this essential context update.
+
+### @tobiu - 2025-10-24 09:27
+
+resolved => inside the new servers
 

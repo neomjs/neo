@@ -1945,13 +1945,13 @@
       "contentHash": "c1ec8492a7a1372ee5150916298ac9442bda09be0b0557092f19691a9262d490"
     },
     "6996": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-6996.md",
-      "updated": "2025-10-08T09:39:48Z",
-      "closedAt": null,
+      "updated": "2025-10-24T10:07:09Z",
+      "closedAt": "2025-10-24T10:07:08Z",
       "milestone": null,
       "title": "Encourage Pure VDOM Effects",
-      "contentHash": "7f9fcc1c9f6cb4c63eca8473fcfd7a1b874fd99bdcd31db921d8a32036a36479"
+      "contentHash": "b620bc54e527ea364814894cb4c57ace02f26c74dfffbc638f261b1b4eb2c9b5"
     },
     "6997": {
       "state": "OPEN",
@@ -2406,11 +2406,11 @@
     "7047": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7047.md",
-      "updated": "2025-10-13T02:49:43Z",
+      "updated": "2025-10-24T10:05:50Z",
       "closedAt": null,
       "milestone": null,
       "title": "Task: Create Example for Deeply Nested Components",
-      "contentHash": "1f1460b67aa1562725baf3b7cf5633e24de4f90def3c10bfaa36515314f82398"
+      "contentHash": "32f2cbf57cdef0a76669e7e2cdeeee0add51a11b177359e05042fe496c67dba5"
     },
     "7048": {
       "state": "OPEN",
@@ -3754,13 +3754,13 @@
       "contentHash": "37479bd259e2ab7d293c029c2634e28c17ebd64c2d6b9f422d39fb47f222812f"
     },
     "7204": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7204.md",
-      "updated": "2025-08-20T22:06:01Z",
-      "closedAt": null,
+      "updated": "2025-10-24T10:08:16Z",
+      "closedAt": "2025-10-24T10:08:16Z",
       "milestone": null,
       "title": "Phase 3: Dynamic Proxy Transitioning (Windowing)",
-      "contentHash": "a6df673a93a3d6f8c8e93ca80f679669fb2ceeb4f6e2503d836e435f65f7a180"
+      "contentHash": "fdb48fe27feee4fda16934f219716e5e86d7b35e0784456c45b8cd9e467883d9"
     },
     "7205": {
       "state": "OPEN",
@@ -4294,13 +4294,13 @@
       "contentHash": "477e35a012a1dbd8a54ff91fd380e1f3e0391b766d0aa824b925f59942d938c8"
     },
     "7264": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7264.md",
-      "updated": "2025-10-09T22:44:28Z",
-      "closedAt": null,
+      "updated": "2025-10-24T10:03:19Z",
+      "closedAt": "2025-10-24T10:03:19Z",
       "milestone": null,
       "title": "Enhance Development Workflow with a Planning Phase",
-      "contentHash": "bf98c93b824319e53ede108c24259cc8ac06c53f809a6aa864f00afee0920155"
+      "contentHash": "58d015d3ded7bfbfe33092edf3892d75820444923766d8d242aaa738317972f2"
     },
     "7265": {
       "state": "CLOSED",
@@ -4602,11 +4602,11 @@
     "7298": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7298.md",
-      "updated": "2025-09-29T09:46:51Z",
+      "updated": "2025-10-24T10:04:38Z",
       "closedAt": null,
       "milestone": null,
       "title": "A Beginner's Guide to View Controllers",
-      "contentHash": "002f9ee9b9338cfd003bdd1d314605a2345a2c80a52bd26b4fed01b1f48257ab"
+      "contentHash": "636f6c4e0ea476782c9df508e01e2d15897985efd758967e0a851d6eaf56a8e0"
     },
     "7299": {
       "state": "CLOSED",
@@ -4665,29 +4665,29 @@
     "7305": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7305.md",
-      "updated": "2025-10-02T08:53:57Z",
+      "updated": "2025-10-24T09:59:46Z",
       "closedAt": null,
       "milestone": null,
       "title": "Test and Use the `createExample` Script to Build an `Image` Example",
-      "contentHash": "92d6a76a0945687ac4964cf8ba5c12c2cfdac0b27ef913ac97c2cc0034d68fc9"
+      "contentHash": "0daf715c380851546e40e156e60ebc40e74f6d20f509d4e8b464a9f7c433371d"
     },
     "7306": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7306.md",
-      "updated": "2025-10-01T23:14:21Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:54:55Z",
+      "closedAt": "2025-10-24T09:54:55Z",
       "milestone": null,
       "title": "Exploration Quest: Make the AI Aware of `buildScripts`",
-      "contentHash": "99f71e7e092543a8d0caa855de6eef8b7373e2e6f6f338b4de14af608897f7ee"
+      "contentHash": "2bcec1b6d34627318ef01187a98f0b8cab1d3e06534f295a4024d0d9e3f7dbf1"
     },
     "7307": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7307.md",
-      "updated": "2025-10-01T23:18:20Z",
+      "updated": "2025-10-24T10:01:35Z",
       "closedAt": null,
       "milestone": null,
       "title": "Re-framing the VDOM - Neo.mjs's Lightweight Messaging Protocol",
-      "contentHash": "76cff60a28fbdeb603b4357b7420ee333145515cea088d67ac1b035b6d592d76"
+      "contentHash": "54e314fa456fb58b28284ab8944fe8c2c04f5d3340e5f8543d1a0b7d2a5dc35d"
     },
     "7308": {
       "state": "CLOSED",
@@ -4744,13 +4744,13 @@
       "contentHash": "684952d1168fe74ed7eb903c97179e21c6ae17110616e575b4bed4de1bed2a5a"
     },
     "7316": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7316.md",
-      "updated": "2025-10-04T12:37:28Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:53:31Z",
+      "closedAt": "2025-10-24T09:53:31Z",
       "milestone": null,
       "title": "AI Knowledge Evolution",
-      "contentHash": "46838c546d81713ca22ea44e97a2f0b70c146df55dec5a2503b55729874c452c"
+      "contentHash": "0ebe2d316e46adc4d5f71e1457c9e99e519705ad43a5b102a76af6a35c739530"
     },
     "7317": {
       "state": "CLOSED",
@@ -4789,13 +4789,13 @@
       "contentHash": "64c118f59f91c8eecd19f542beda3798f2a9d6c9a6b817e7642f67aa6d757943"
     },
     "7321": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7321.md",
-      "updated": "2025-10-01T21:11:39Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:53:17Z",
+      "closedAt": "2025-10-24T09:53:17Z",
       "milestone": null,
       "title": "Create Guide for Personalized Agent Identity",
-      "contentHash": "5c5af09099a1c6939a75dbcf15e7b4b8b703ae90d8e13a7bcf68be4fe03cf972"
+      "contentHash": "5951e16459b755afd212e95ffb12abd25f530bd3383fb4721c8c9a7e0b94e6f5"
     },
     "7322": {
       "state": "CLOSED",
@@ -4845,11 +4845,11 @@
     "7328": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7328.md",
-      "updated": "2025-10-02T19:02:18Z",
+      "updated": "2025-10-24T10:00:56Z",
       "closedAt": null,
       "milestone": null,
       "title": "Create Guide: Neo.setupClass() Deep Dive",
-      "contentHash": "e6307ce6d96699f88692e1ef2b948ab5103c5aa8250809db99eb7f6a405f7513"
+      "contentHash": "f96bb6e629a70b25954ec714466d2db61f53d0716282e762bf0498d58d1fcd8c"
     },
     "7329": {
       "state": "CLOSED",
@@ -4933,31 +4933,31 @@
       "contentHash": "71beff87d6c03b60202ec80967b793cea6c0085ccaa1feb36f2b50864e9d7b0a"
     },
     "7342": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7342.md",
-      "updated": "2025-10-04T08:43:36Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:52:42Z",
+      "closedAt": "2025-10-24T09:52:42Z",
       "milestone": null,
       "title": "Hacktoberfest Mission: Train the AI - Test Its Memory! (1/5)",
-      "contentHash": "a371ba538dc1e9cdca6933ad524db983d3611e9e8f3738a44146df51e54fbbef"
+      "contentHash": "9e3d196bc5579a5c2ec9fadcacda9da2f04ae4362e5163a3fb839da0e149485f"
     },
     "7343": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7343.md",
-      "updated": "2025-10-06T19:34:56Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:52:10Z",
+      "closedAt": "2025-10-24T09:52:10Z",
       "milestone": null,
       "title": "Hacktoberfest Mission: Train the AI - Test Its Memory! (2/5)",
-      "contentHash": "9427daf21a8b8208d88eb72d2615127f6c9192f7a97ecdd737367c5fe70ac19f"
+      "contentHash": "7191173a47ee09b9180b89eb07608b5bffbefb62d1d2383edf4e9798390cbcc8"
     },
     "7344": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7344.md",
-      "updated": "2025-10-04T11:20:17Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:48:38Z",
+      "closedAt": "2025-10-24T09:48:38Z",
       "milestone": null,
       "title": "Hacktoberfest Mission: Train the AI - Test Its Memory! (3/5)",
-      "contentHash": "1c62864d8f6e46febcd093f3ff017bd71ac198dedc37a42243d24137329f02e8"
+      "contentHash": "883634f8831fe1b5b3d1c1b8276370dabb916862ffdcb0b20615d8de35f00e02"
     },
     "7345": {
       "state": "CLOSED",
@@ -5032,13 +5032,13 @@
       "contentHash": "565377a0b4984a57f7fceb74536a4442a2f8bb28e3dce1a31e5d2b705c99ec2f"
     },
     "7364": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7364.md",
-      "updated": "2025-10-08T14:15:12Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:47:01Z",
+      "closedAt": "2025-10-24T09:47:01Z",
       "milestone": null,
       "title": "Integrate GitHub CLI to Streamline Contribution Workflow",
-      "contentHash": "ef240c642f2feb39c7ded1e2c583c366e2b5e7f9b8ab215c39aa00a0ba6ba99f"
+      "contentHash": "d9b9b840425d25d543f2710c4cad82bb58324cef65a6294bda368845cf060136"
     },
     "7365": {
       "state": "CLOSED",
@@ -5077,13 +5077,13 @@
       "contentHash": "6457132073f77ab1f597e59088241e19b27ae305bf985d2790f89306e2981849"
     },
     "7369": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7369.md",
-      "updated": "2025-10-05T14:06:14Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:34:26Z",
+      "closedAt": "2025-10-24T09:34:26Z",
       "milestone": null,
       "title": "Update Agent Workflow to use Automated GitHub Issue Creation",
-      "contentHash": "1064ed579db22becdd189faa671586a91b629fcbfb41ff05f07cd837c7f19c0d"
+      "contentHash": "ddbf285ab09bc4a8b8a6a771a119283246faa8b8b79f40cfcf1a25983eed481d"
     },
     "7370": {
       "state": "CLOSED",
@@ -5095,13 +5095,13 @@
       "contentHash": "9b498d29046d0493b2dc7f0da8fee00491047c4d2c1f1bcc99deef1fe94d35f9"
     },
     "7371": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7371.md",
-      "updated": "2025-10-05T14:13:08Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:43:07Z",
+      "closedAt": "2025-10-24T09:43:07Z",
       "milestone": null,
       "title": "Enable Agent to Diff a Pull Request",
-      "contentHash": "4adbd3e2bc305a5c3e95e0cf43cc08ce4028d16e2f22ce8116599d12a6f68c58"
+      "contentHash": "0ac1aa95e2dac4c4ac9a83b3169aed819955ab320b2e5235e0ed4ea2a4e70049"
     },
     "7372": {
       "state": "CLOSED",
@@ -5113,22 +5113,22 @@
       "contentHash": "4003a31724d84a6728d8d91f8a5caa415aeffb1716ed4eb5ab68d8860571a356"
     },
     "7373": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7373.md",
-      "updated": "2025-10-05T11:45:31Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:46:01Z",
+      "closedAt": "2025-10-24T09:46:01Z",
       "milestone": null,
       "title": "Define a Clear Pull Request Review Protocol for the Agent",
-      "contentHash": "72f454b78003b305c8d17cbb7add4ca8cf07ea814ba043f29db0f853fa18a230"
+      "contentHash": "d839f2068da7f300f8e9ec928153c233c96753b4e6914ab09e048edbc9cfbd4b"
     },
     "7376": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7376.md",
-      "updated": "2025-10-05T14:17:49Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:39:53Z",
+      "closedAt": "2025-10-24T09:39:53Z",
       "milestone": null,
       "title": "Define Hybrid API vs. Knowledge Base Workflow for Agent",
-      "contentHash": "ec818083a7c99da4f9ffb1ff2ba672e3b2a0e87c78b4a55ad35aef752cf1789c"
+      "contentHash": "b9e62b340c0547440d780459cc5c87de8e85de8bdc6d277df4eb7857a3d8aa92"
     },
     "7377": {
       "state": "CLOSED",
@@ -5140,13 +5140,13 @@
       "contentHash": "e35f88143daf3ee71280c3228a11fe6b8c4f47bb8fb95726c658661997567a9a"
     },
     "7378": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7378.md",
-      "updated": "2025-10-08T17:34:57Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:41:35Z",
+      "closedAt": "2025-10-24T09:41:35Z",
       "milestone": null,
       "title": "Enhance Knowledge Base to Include GitHub Comments",
-      "contentHash": "ef2e27145122a285c1f666ddc0890bed934ce1bd282e84d0b0fade728de02ff0"
+      "contentHash": "76595d5352a021fddc62d31a2cbf107516034047b823e4d602ba48b02759554f"
     },
     "7381": {
       "state": "CLOSED",
@@ -5212,13 +5212,13 @@
       "contentHash": "c929eca78082d76784ea541acb1b5e3ff08d62e23b7e75aa1b543ff34c219596"
     },
     "7391": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7391.md",
-      "updated": "2025-10-06T11:58:06Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:29:45Z",
+      "closedAt": "2025-10-24T09:29:45Z",
       "milestone": null,
       "title": "Refactor createGhIssue.mjs to use fs-extra for consistency",
-      "contentHash": "df345a578009fc11a07678e6fcec8e465610b43d3f44c31a3ccb251d27c1529b"
+      "contentHash": "87f98ddf1ff6c3d6a56fbbcad638c44bb6ce56ffbf713652a3364e9e0d661c74"
     },
     "7393": {
       "state": "CLOSED",
@@ -5257,13 +5257,13 @@
       "contentHash": "f555bda348d637a98266ae4ac5ea7811badd4002a7346ea1f5a3d8504a7fa5a7"
     },
     "7399": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7399.md",
-      "updated": "2025-10-12T11:20:25Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:27:25Z",
+      "closedAt": "2025-10-24T09:27:25Z",
       "milestone": null,
       "title": "Architect AI Tooling as a Model Context Protocol (MCP) Servers",
-      "contentHash": "07b5daf493b954e8a4e5ca4ce75ccd638adc7c94a17e056847cc19b2f2ee2425"
+      "contentHash": "79383cbf8c8a73ce7d91ea377abafa6df6ddce1ab1e7d1ac129d79867ae61b08"
     },
     "7400": {
       "state": "CLOSED",
@@ -5275,13 +5275,13 @@
       "contentHash": "cc645771add0ac970067a6d63f9b79fca3d8c8895a58f2b44c99e61ecb96d2a5"
     },
     "7401": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7401.md",
-      "updated": "2025-10-09T19:23:42Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:26:20Z",
+      "closedAt": "2025-10-24T09:26:20Z",
       "milestone": null,
       "title": "Design Knowledge Base MCP Server API",
-      "contentHash": "8778b3c98879ddbc308c960ff22399d37ec49ed0710a326e431c36c8843c4d92"
+      "contentHash": "89212cfe7c9aa5d5b5dd34039c34195e7f2f31ec485c0b4228b52f50cb177284"
     },
     "7402": {
       "state": "CLOSED",
@@ -5293,22 +5293,22 @@
       "contentHash": "c5d65dce1e45a2a50704eac40206675908eb2cc41dbb3263dd8fc6856071a8d9"
     },
     "7403": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7403.md",
-      "updated": "2025-10-20T12:47:55Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:20:25Z",
+      "closedAt": "2025-10-24T09:20:25Z",
       "milestone": null,
       "title": "MCP Server: Implement Knowledge Server Scaffold",
-      "contentHash": "eb551d1fd31f9ee6ce4adb22eab5cf34aeb7714cd457bbab36bc1b6b9d0b5c4e"
+      "contentHash": "68b871f773b9addf3ccc14e7f10d068bedf291d5efdd1a32b9038ec67d5f462a"
     },
     "7404": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7404.md",
-      "updated": "2025-10-08T12:46:35Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:25:00Z",
+      "closedAt": "2025-10-24T09:24:59Z",
       "milestone": null,
       "title": "MCP Server: Implement Knowledge Read Endpoints",
-      "contentHash": "7714939d91785c8f63299735adf51fa99c7b84371078f1381e1ece516562e98c"
+      "contentHash": "11177c145a888f431d871c4f6c7c6e8df54761b449371657b93d3fc509117ba9"
     },
     "7405": {
       "state": "OPEN",
@@ -5320,13 +5320,13 @@
       "contentHash": "32e2ef8e7c55b9653ecb2de29b918edd4a041fd6163f27bb77acd9b2149b03a0"
     },
     "7406": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7406.md",
-      "updated": "2025-10-08T16:31:54Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:22:59Z",
+      "closedAt": "2025-10-24T09:22:59Z",
       "milestone": null,
       "title": "MCP Server: Implement Knowledge Admin Endpoints",
-      "contentHash": "149d1cfc3541b3c2bdff4191d003a3f489d23b15c38ac5de988e6b94d0301441"
+      "contentHash": "a9d68510bbad18e8fa02bb2d37c4c87469edb1d528cef122b765678511ae133f"
     },
     "7407": {
       "state": "CLOSED",
@@ -5356,31 +5356,31 @@
       "contentHash": "d358f3ffaadd6b5bcd1668a5a722415be5a4c7aacebec611d2808864b7e4b185"
     },
     "7410": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7410.md",
-      "updated": "2025-10-08T09:36:00Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:21:47Z",
+      "closedAt": "2025-10-24T09:21:47Z",
       "milestone": null,
       "title": "MCP Server: Implement Memory Create Endpoint",
-      "contentHash": "87ab6e0f36553c603f115b3762491a3ab0a666804a68d226f3547bc8e483e939"
+      "contentHash": "bcc9e9021da6c9b84b0d646b8956ac87fd6c9c3c2564ea96f6a49a77bb1f5d10"
     },
     "7411": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7411.md",
-      "updated": "2025-10-13T10:05:22Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:16:28Z",
+      "closedAt": "2025-10-24T09:16:28Z",
       "milestone": null,
       "title": "MCP Server: Implement Memory Lifecycle Endpoints",
-      "contentHash": "f2e95d626e0ee5ed38da71f614772f405a6455f52a6cb7d5f382ecfd2b36adad"
+      "contentHash": "315f103dd89cf9ff3bfaeb9dcca04f0ca283ac3b76a1a698f73bd847d004e6c3"
     },
     "7412": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7412.md",
-      "updated": "2025-10-07T18:53:59Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:14:18Z",
+      "closedAt": "2025-10-24T09:13:38Z",
       "milestone": null,
       "title": "MCP Server: Implement Memory Admin Endpoints",
-      "contentHash": "edd48ba499d9dad1632fd9850b787dea024d3414d3b36a24a07ba3a7d2ef47ef"
+      "contentHash": "cd6bca1a444aa6bb8ab0a08e8d989f6f5914d29d9c14d1a67d1f6a8d36511604"
     },
     "7413": {
       "state": "CLOSED",
@@ -5862,11 +5862,11 @@
     "7488": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7488.md",
-      "updated": "2025-10-14T19:55:54Z",
+      "updated": "2025-10-23T19:17:18Z",
       "closedAt": null,
       "milestone": null,
       "title": "Create Test Plan for component.Label",
-      "contentHash": "c7790c749c4ba967b6b85460d1e4a404a5b3b4f020a0b7b21d598bbe6e83df64"
+      "contentHash": "a45ac6d2a6921303ad3e44c1aa5f3e0a306d4dd8a1c26a79a191029f667637a2"
     },
     "7489": {
       "state": "OPEN",
@@ -6508,13 +6508,13 @@
       "contentHash": "6d7d425c71641c52021a6fdec9bee080fc6b0489ffdaa69d66a266f3a4078eb8"
     },
     "7564": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7564.md",
-      "updated": "2025-10-20T11:17:27Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:32:21Z",
+      "closedAt": "2025-10-24T09:32:21Z",
       "milestone": null,
       "title": "Epic: Implement Two-Way GitHub Synchronization for Issues",
-      "contentHash": "2cabe96e9dafb96c38b247e5c2bdb762298562f65feac5437a433c7aab82f221"
+      "contentHash": "15b0d3d8abe94ef2a8c3ac02c8c0eaef1e9e4c7c1ff493569fdf716a61b9e18c"
     },
     "7565": {
       "state": "CLOSED",
@@ -6544,13 +6544,13 @@
       "contentHash": "eb946b9cd9eff81a38470baa0c2d775e11e25ae86b7a3d58299a1e368fd238e7"
     },
     "7568": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7568.md",
-      "updated": "2025-10-20T12:48:21Z",
-      "closedAt": null,
+      "updated": "2025-10-24T09:31:57Z",
+      "closedAt": "2025-10-24T09:31:57Z",
       "milestone": null,
       "title": "Refine Issue Creation to be API-First",
-      "contentHash": "e3158b352eabb97c40802e81960e456519ed16d2fc29883f64fb048dc8ca61ca"
+      "contentHash": "887c21c7346c903ce3f8a9a60541028a1dad7d2a65b95f45784fe9535967e12c"
     },
     "7569": {
       "state": "CLOSED",
@@ -6733,13 +6733,13 @@
       "contentHash": "e671b9c779a1d76f598b7b67bc1d072dac4ba82780617c8655b13fb78848c439"
     },
     "7590": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7590.md",
-      "updated": "2025-10-21T11:03:15Z",
-      "closedAt": null,
+      "updated": "2025-10-23T14:58:03Z",
+      "closedAt": "2025-10-23T14:58:03Z",
       "milestone": null,
       "title": "Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API",
-      "contentHash": "d59a2b14c3d6d370d3d8f47b2b190b9caba91ba343fa7485dc5c956edb4a4f34"
+      "contentHash": "c3376c887a363f227ed91def1e1219ce4a4a8f101a2b17f1ac064c4c2e45f71e"
     },
     "7591": {
       "state": "CLOSED",
@@ -6778,13 +6778,13 @@
       "contentHash": "156bec87599bacfde629074f16ad831613be93c741db213ce4d19b0537c5b6e8"
     },
     "7595": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7595.md",
-      "updated": "2025-10-21T11:09:24Z",
-      "closedAt": null,
+      "updated": "2025-10-23T14:57:51Z",
+      "closedAt": "2025-10-23T14:57:51Z",
       "milestone": null,
       "title": "Finalize GraphQL Migration & Cleanup",
-      "contentHash": "c111fe6c12177c426cffd292bb3dc2767feaa3045488f0a7d3b2e1d399ecc257"
+      "contentHash": "a17a2ca6af7ff18c9276a70210973e51a3331091abce40e64e9d4be103f5324f"
     },
     "7596": {
       "state": "OPEN",
@@ -6992,10 +6992,145 @@
       "milestone": null,
       "title": "Optimize SyncService by Scoping Push and Hashing Releases",
       "contentHash": "4ee1bbfb863021cc034161f41bf63919d33418d938d8f9e562d9513cf769c50a"
+    },
+    "7621": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7621.md",
+      "updated": "2025-10-23T13:26:32Z",
+      "closedAt": "2025-10-23T13:26:31Z",
+      "milestone": null,
+      "title": "Refactor IssueService to Externalize GraphQL Queries",
+      "contentHash": "8300ebd46204d20c66023a08a362d7f1e04f8f21e2f878453353edf427d7e2f1"
+    },
+    "7622": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7622.md",
+      "updated": "2025-10-23T14:12:50Z",
+      "closedAt": "2025-10-23T14:12:50Z",
+      "milestone": null,
+      "title": "Create MCP Tool for GitHub Issue Creation",
+      "contentHash": "ff4102f0d661f38bdbfe58f91498d0aec29fca1405493dbbaceeadfe09fc60fd"
+    },
+    "7623": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7623.md",
+      "updated": "2025-10-23T14:31:59Z",
+      "closedAt": "2025-10-23T14:31:59Z",
+      "milestone": null,
+      "title": "Enhance GitHub Workflow OpenAPI Spec with Rich Descriptions",
+      "contentHash": "61e0ff9a25ff06e5f9a0be7be7b65f2b4b30e443b955830c34dedd60297b01fa"
+    },
+    "7624": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7624.md",
+      "updated": "2025-10-23T14:56:52Z",
+      "closedAt": "2025-10-23T14:56:52Z",
+      "milestone": null,
+      "title": "Create Generic `get_viewer_permission` Tool",
+      "contentHash": "9c99f08a1dc04d4404caf793de9c42f3329f8bf9bc0b5d6b8a501a87950ebb6d"
+    },
+    "7625": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7625.md",
+      "updated": "2025-10-23T15:53:12Z",
+      "closedAt": "2025-10-23T15:53:12Z",
+      "milestone": null,
+      "title": "Implement Tool to Assign Issues to Contributors",
+      "contentHash": "cbbefc03947e78080f9f7f9bc87f981cd6fd447ee93519ef64a532480dc5086d"
+    },
+    "7626": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7626.md",
+      "updated": "2025-10-23T15:19:06Z",
+      "closedAt": "2025-10-23T15:19:06Z",
+      "milestone": null,
+      "title": "Cache Viewer Permission on Server Startup",
+      "contentHash": "7784afd5e2833c5192ce9bcafa110ff795b5f3b9b73968b8a4af8535ce9bcfb0"
+    },
+    "7627": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7627.md",
+      "updated": "2025-10-23T15:45:05Z",
+      "closedAt": "2025-10-23T15:45:05Z",
+      "milestone": null,
+      "title": "Gemini CLI Test Issue for Unassignment",
+      "contentHash": "1ee76db80823d57d2996dd13e0214a130f6f4eebad012adcf43d53b43be55aa5"
+    },
+    "7628": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7628.md",
+      "updated": "2025-10-23T16:01:57Z",
+      "closedAt": "2025-10-23T16:01:57Z",
+      "milestone": null,
+      "title": "Enhance `create_issue` Tool to Support Assignees",
+      "contentHash": "e76e4ae3b0cc6f03a9b9e0184e88453868be2fff011a54a426e6f443abac6c1e"
+    },
+    "7629": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7629.md",
+      "updated": "2025-10-23T16:20:13Z",
+      "closedAt": "2025-10-23T16:20:13Z",
+      "milestone": null,
+      "title": "Implement `unassign_issue` Tool to Remove Specific Contributors",
+      "contentHash": "3cd7826d290f2c2538060987d20c0deacbf541344d46e7861c7f560b5dafb004"
+    },
+    "7630": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7630.md",
+      "updated": "2025-10-24T09:35:51Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "docs: Update AGENTS.md to Reflect MCP Server Architecture",
+      "contentHash": "a6bdcd46e34cf2010bbcef5b2e17a6531b94e67a878c5ff4e119709f0006feec"
+    },
+    "7631": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7631.md",
+      "updated": "2025-10-24T10:20:45Z",
+      "closedAt": "2025-10-24T10:20:45Z",
+      "milestone": null,
+      "title": "refactor: Remove obsolete buildScripts/ai directory",
+      "contentHash": "a5ba94ab1732c05f878e0f26c2ac1fabd881536ba668e2b2fc9f73a37f9bd1ac"
+    },
+    "7632": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7632.md",
+      "updated": "2025-10-24T10:15:43Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "feat(mcp): Add tool to manage GitHub issue relationships",
+      "contentHash": "b874cd1c73623124568e31fd3b904f7a12c7154b6b442e1550a8a9ab67f3dcc4"
+    },
+    "7633": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7633.md",
+      "updated": "2025-10-24T10:16:46Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "bug(mcp): list_labels tool fails with schema validation error",
+      "contentHash": "c3af34630ffde6847d4290065c2716048f8bec63b3e8acd0adf7397b67c31aaf"
+    },
+    "7634": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7634.md",
+      "updated": "2025-10-24T10:43:33Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "docs(AGENTS.md): Revise Core Principles & Initialization",
+      "contentHash": "23bb1d691689c2e8625373a8977b0d3ef38da9cbb26a78ab9e7a2e3360e00199"
+    },
+    "7635": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7635.md",
+      "updated": "2025-10-24T11:58:21Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "Refactor: Enhance Memory Core HealthService for Robustness and Diagnostics",
+      "contentHash": "9ca3183a0eaf76948954845041bdd5c5036936042770997d00cac485caf6beb9"
     }
   },
   "pushFailures": [],
-  "lastSync": "2025-10-23T12:50:06.045Z",
+  "lastSync": "2025-10-24T11:59:10.435Z",
   "releases": {
     "10.0.0-alpha.1": {
       "tagName": "10.0.0-alpha.1",
@@ -7313,5 +7448,5 @@
       "contentHash": "67631aaa43bebb814a892699f984e08afab77a5a7b4d36f1751796b5040559ca"
     }
   },
-  "releasesLastFetched": "2025-10-23T12:50:06.046Z"
+  "releasesLastFetched": "2025-10-24T11:59:10.469Z"
 }

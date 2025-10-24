@@ -10,10 +10,10 @@ labels:
 assignees:
   - Sandy-Legendary-Developer-07
 createdAt: '2025-09-28T14:07:14Z'
-updatedAt: '2025-10-02T08:53:57Z'
+updatedAt: '2025-10-24T09:59:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7305'
 author: tobiu
-commentsCount: 6
+commentsCount: 7
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
@@ -117,4 +117,10 @@ createConfigurationComponents() {
 
 
 ## Could you guide me how to document it? and also do I need to stage the newly created files using that command and commit, then push it , or just the docs needed?
+
+### @tobiu - 2025-10-24 09:59
+
+Hi @Sandy-Legendary-Developer-07,
+
+sorry for the delay, I did not see the comment before. In case you want to add the example into the repo, the process is: create a fork (if not done already), and from there inside the github ui, you have a "create pull request" button.
 

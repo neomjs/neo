@@ -1,7 +1,7 @@
 ---
 id: 7401
 title: Design Knowledge Base MCP Server API
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - Chesblaw
 createdAt: '2025-10-07T10:05:47Z'
-updatedAt: '2025-10-09T19:23:42Z'
+updatedAt: '2025-10-24T09:26:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7401'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:26:20Z'
 ---
 # Design Knowledge Base MCP Server API
 
@@ -71,4 +72,14 @@ To work on this ticket, please start your session with the following prompt:
 ### @tobiu - 2025-10-08 09:32
 
 Hi, and thanks for your interest. Sure, I can assign the ticket to you. Please look into the parent epic first, since it requires the new "AI Native" workflows: https://github.com/neomjs/neo/issues/7399
+
+### @tobiu - 2025-10-24 09:26
+
+Hi @Chesblaw,
+
+Thank you for your interest in this ticket during Hacktoberfest.
+
+As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the API for the Knowledge Base MCP server has now been designed and implemented.
+
+We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

@@ -1,7 +1,7 @@
 ---
 id: 7391
 title: Refactor createGhIssue.mjs to use fs-extra for consistency
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - divyanshkul
 createdAt: '2025-10-06T11:18:35Z'
-updatedAt: '2025-10-06T11:58:06Z'
+updatedAt: '2025-10-24T09:29:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7391'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:29:45Z'
 ---
 # Refactor createGhIssue.mjs to use fs-extra for consistency
 
@@ -64,4 +65,14 @@ After following the AGENTS.md instructions, just point the agent to:
 Feel free to join the chat channels:
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
+
+### @tobiu - 2025-10-24 09:29
+
+Hi @divyanshkul,
+
+Thank you for your interest in this ticket during Hacktoberfest.
+
+This ticket was for refactoring an old build script ('createGhIssue.mjs'). This script is now obsolete and has been replaced by the new GitHub Workflow MCP server.
+
+We're closing this ticket as it is no longer relevant. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 

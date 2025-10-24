@@ -1,7 +1,7 @@
 ---
 id: 7364
 title: Integrate GitHub CLI to Streamline Contribution Workflow
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -11,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-05T10:23:45Z'
-updatedAt: '2025-10-08T14:15:12Z'
+updatedAt: '2025-10-24T09:47:01Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7364'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - 7365
@@ -34,8 +34,9 @@ subIssues:
   - 7393
   - 7414
   - 7418
-subIssuesCompleted: 11
+subIssuesCompleted: 17
 subIssuesTotal: 17
+closedAt: '2025-10-24T09:47:01Z'
 ---
 # Integrate GitHub CLI to Streamline Contribution Workflow
 
@@ -44,7 +45,7 @@ subIssuesTotal: 17
 ---
 
 **Sub-Issues:** #7365, #7366, #7367, #7368, #7369, #7370, #7371, #7372, #7373, #7376, #7377, #7378, #7381, #7391, #7393, #7414, #7418
-**Progress:** 11/17 completed (64%)
+**Progress:** 17/17 completed (100%)
 
 ---
 
@@ -98,4 +99,8 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
+
+### @tobiu - 2025-10-24 09:47
+
+closing the epic, new items for the github-workflow mcp server will get added as new tickets / epics.
 

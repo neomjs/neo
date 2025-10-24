@@ -1,7 +1,7 @@
 ---
 id: 7404
 title: 'MCP Server: Implement Knowledge Read Endpoints'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,14 +11,15 @@ labels:
 assignees:
   - MannXo
 createdAt: '2025-10-07T10:12:56Z'
-updatedAt: '2025-10-08T12:46:35Z'
+updatedAt: '2025-10-24T09:25:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7404'
 author: tobiu
-commentsCount: 4
+commentsCount: 5
 parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:24:59Z'
 ---
 # MCP Server: Implement Knowledge Read Endpoints
 
@@ -77,4 +78,8 @@ I can take #7402 until then.
 ### @tobiu - 2025-10-08 12:46
 
 sounds good to me. hint: you need to add a comment to #7402, otherwise i can not assign it to you (github security policy).
+
+### @tobiu - 2025-10-24 09:24
+
+i think this one was resolved via a 2 tickets in 1 PR. logic got converted to the new servers.
 

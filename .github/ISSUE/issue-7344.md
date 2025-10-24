@@ -1,7 +1,7 @@
 ---
 id: 7344
 title: 'Hacktoberfest Mission: Train the AI - Test Its Memory! (3/5)'
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -10,14 +10,15 @@ labels:
 assignees:
   - PrakhyaDas
 createdAt: '2025-10-04T08:46:38Z'
-updatedAt: '2025-10-04T11:20:17Z'
+updatedAt: '2025-10-24T09:48:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7344'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T09:48:38Z'
 ---
 # Hacktoberfest Mission: Train the AI - Test Its Memory! (3/5)
 
@@ -98,4 +99,8 @@ That's it! Your PR will be a valuable piece of R&D that helps us build a truly i
 ### @tobiu - 2025-10-04 11:20
 
 Sure. Feel free to join the Slack and / or Discord channels for questions.
+
+### @tobiu - 2025-10-24 09:48
+
+closing the ticket (resolved).
 

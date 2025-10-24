@@ -8,13 +8,12 @@ labels:
   - help wanted
   - good first issue
   - hacktoberfest
-assignees:
-  - Maham802
+assignees: []
 createdAt: '2025-10-02T17:42:19Z'
-updatedAt: '2025-10-02T19:02:18Z'
+updatedAt: '2025-10-24T10:00:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7328'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
@@ -77,4 +76,8 @@ https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md
 https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 You can ask Gemini, to explain the internal logic to you in-depth (the Agents.md file reads it anyway every time when starting). This reduces the cognitive load a lot. You could even ask Gemini to write a draft of the Guide for you.
+
+### @tobiu - 2025-10-24 10:00
+
+Unassigning the ticket after 3 weeks of inactivity.
 
