@@ -724,6 +724,7 @@ components:
           type: string
         description:
           type: string
+          nullable: true
         color:
           type: string
 
