@@ -57,11 +57,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Format the response based on the result type
         let contentBlock;
-        let isServiceError    = false;
+        let isError           = false;
         let structuredContent = null;
 
         if (typeof result === 'object' && result !== null) {
-            isServiceError = 'error' in result;
+            isError = 'error' in result;
 
             contentBlock = {
                 type: 'text',
@@ -77,7 +77,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const response = {
             content: [contentBlock],
-            isError: isServiceError
+            isError
         };
 
         if (structuredContent) {
@@ -103,7 +103,6 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    // Log to stderr (stdout is reserved for MCP protocol)
     logger.info('[neo-knowledge-base MCP] Server started on stdio transport');
     logger.info('[neo-knowledge-base MCP] Available tools loaded from OpenAPI spec');
 }

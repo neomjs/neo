@@ -74,11 +74,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // Format the response based on the result type
         let contentBlock;
-        let isServiceError    = false;
+        let isError           = false;
         let structuredContent = null;
 
         if (typeof result === 'object' && result !== null) {
-            isServiceError = 'error' in result;
+            isError = 'error' in result;
 
             contentBlock = {
                 type: 'text',
@@ -94,7 +94,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const response = {
             content: [contentBlock],
-            isError: isServiceError
+            isError
         };
 
         if (structuredContent) {
