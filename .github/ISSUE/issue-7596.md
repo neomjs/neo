@@ -1,7 +1,7 @@
 ---
 id: 7596
 title: 'Bug: ChromaDB Fails on x64 Systems Without WSL'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - documentation
@@ -10,7 +10,7 @@ labels:
 assignees:
   - Alachi24
 createdAt: '2025-10-21T14:18:47Z'
-updatedAt: '2025-10-21T14:48:30Z'
+updatedAt: '2025-10-24T14:17:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7596'
 author: Alachi24
 commentsCount: 2
@@ -18,6 +18,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T14:17:43Z'
 ---
 # Bug: ChromaDB Fails on x64 Systems Without WSL
 

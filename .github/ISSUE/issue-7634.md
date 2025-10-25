@@ -6,9 +6,10 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-10-24T10:43:33Z'
-updatedAt: '2025-10-24T10:43:33Z'
+updatedAt: '2025-10-24T12:24:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7634'
 author: tobiu
 commentsCount: 0

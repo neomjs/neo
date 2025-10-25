@@ -1,13 +1,14 @@
 ---
 id: 7633
 title: 'bug(mcp): list_labels tool fails with schema validation error'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-10-24T10:16:46Z'
-updatedAt: '2025-10-24T10:16:46Z'
+updatedAt: '2025-10-24T12:41:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7633'
 author: tobiu
 commentsCount: 0
@@ -15,6 +16,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-24T12:41:07Z'
 ---
 # bug(mcp): list_labels tool fails with schema validation error
 

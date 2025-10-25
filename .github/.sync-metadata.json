@@ -4602,11 +4602,11 @@
     "7298": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7298.md",
-      "updated": "2025-10-24T10:04:38Z",
+      "updated": "2025-10-24T16:28:39Z",
       "closedAt": null,
       "milestone": null,
       "title": "A Beginner's Guide to View Controllers",
-      "contentHash": "636f6c4e0ea476782c9df508e01e2d15897985efd758967e0a851d6eaf56a8e0"
+      "contentHash": "5ed35a6cfa5dc080cc55a00d87964dd1cdc53d557cb123a13b1cd145634fdaf1"
     },
     "7299": {
       "state": "CLOSED",
@@ -6787,13 +6787,13 @@
       "contentHash": "a17a2ca6af7ff18c9276a70210973e51a3331091abce40e64e9d4be103f5324f"
     },
     "7596": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7596.md",
-      "updated": "2025-10-21T14:48:30Z",
-      "closedAt": null,
+      "updated": "2025-10-24T14:17:43Z",
+      "closedAt": "2025-10-24T14:17:43Z",
       "milestone": null,
       "title": "Bug: ChromaDB Fails on x64 Systems Without WSL",
-      "contentHash": "00347d9e6c9c696a6faa3557c26733d26ffe54595090f4d1a20310b6bd3f75ac"
+      "contentHash": "97ad990e2061d26c4e91db13d45e666e9133813bf163d0e0c47bdb4df02a8075"
     },
     "7598": {
       "state": "CLOSED",
@@ -7077,11 +7077,11 @@
     "7630": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7630.md",
-      "updated": "2025-10-24T09:35:51Z",
+      "updated": "2025-10-24T14:36:41Z",
       "closedAt": null,
       "milestone": null,
       "title": "docs: Update AGENTS.md to Reflect MCP Server Architecture",
-      "contentHash": "a6bdcd46e34cf2010bbcef5b2e17a6531b94e67a878c5ff4e119709f0006feec"
+      "contentHash": "3f0e3f90d1ed9bb04210512bb8f2fa5699223de3912289881ecd9bf13522a675"
     },
     "7631": {
       "state": "CLOSED",
@@ -7102,22 +7102,22 @@
       "contentHash": "b874cd1c73623124568e31fd3b904f7a12c7154b6b442e1550a8a9ab67f3dcc4"
     },
     "7633": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7633.md",
-      "updated": "2025-10-24T10:16:46Z",
-      "closedAt": null,
+      "updated": "2025-10-24T12:41:07Z",
+      "closedAt": "2025-10-24T12:41:07Z",
       "milestone": null,
       "title": "bug(mcp): list_labels tool fails with schema validation error",
-      "contentHash": "c3af34630ffde6847d4290065c2716048f8bec63b3e8acd0adf7397b67c31aaf"
+      "contentHash": "513f9cd4469b11ab9de86ccd03d7e918b0459c9801c3b69bea8c64caa9944798"
     },
     "7634": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7634.md",
-      "updated": "2025-10-24T10:43:33Z",
+      "updated": "2025-10-24T12:24:56Z",
       "closedAt": null,
       "milestone": null,
       "title": "docs(AGENTS.md): Revise Core Principles & Initialization",
-      "contentHash": "23bb1d691689c2e8625373a8977b0d3ef38da9cbb26a78ab9e7a2e3360e00199"
+      "contentHash": "a1fdb6a53e6ef9c28c54df5c7b51171c78d7831a4d81e9c168a1b59f8faafbe3"
     },
     "7635": {
       "state": "CLOSED",
@@ -7129,17 +7129,98 @@
       "contentHash": "2e012fb01fb1406bcc4016a7cc338b2ecc8a17efa47dcf08f2579d9d5ce89a03"
     },
     "7636": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7636.md",
-      "updated": "2025-10-24T12:23:17Z",
-      "closedAt": null,
+      "updated": "2025-10-24T12:26:13Z",
+      "closedAt": "2025-10-24T12:26:13Z",
       "milestone": null,
       "title": "Refactor: Implement Robust Startup Sequence and Health Checks in Memory Core",
-      "contentHash": "26d89f38b4d6ca99fd800d7a15a0773cb6e260971e10eebe0b954ebc1f4efb54"
+      "contentHash": "331ec0abc8e6316c35ad665143f3b2419ac5f5e80cfc0ac44574ba69d114a700"
+    },
+    "7637": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7637.md",
+      "updated": "2025-10-25T08:51:33Z",
+      "closedAt": "2025-10-25T08:51:33Z",
+      "milestone": null,
+      "title": "Fix: Race condition in async service initialization",
+      "contentHash": "bd6d2856baa04170b105d838080f9ea41d42b03d003828b0448fa2e1aed15fd6"
+    },
+    "7638": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7638.md",
+      "updated": "2025-10-25T09:05:56Z",
+      "closedAt": "2025-10-25T09:05:56Z",
+      "milestone": null,
+      "title": "Feat: Add startup summarization status to healthcheck",
+      "contentHash": "be50c7f4cee01bfe297a788deecb935d4c78b937ae522459249b7eb2a154ff9f"
+    },
+    "7639": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7639.md",
+      "updated": "2025-10-25T09:25:03Z",
+      "closedAt": "2025-10-25T09:25:03Z",
+      "milestone": null,
+      "title": "Chore: Improve `create_issue` tool to enforce proposal workflow",
+      "contentHash": "1d7dede9d57fedd4e5345bb4af08903d7087a8edacdc6f9b5bd9f2a8e6b4ed6d"
+    },
+    "7640": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7640.md",
+      "updated": "2025-10-25T09:50:17Z",
+      "closedAt": "2025-10-25T09:50:17Z",
+      "milestone": null,
+      "title": "Feat: Add agent identity and templating to `createComment` tool",
+      "contentHash": "49f529340880825d7d27cf3ad5380bba0ce190202e7a1820da91761ba1dae5d9"
+    },
+    "7641": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7641.md",
+      "updated": "2025-10-25T10:10:26Z",
+      "closedAt": "2025-10-25T10:10:09Z",
+      "milestone": null,
+      "title": "Refactor: Improve `createComment` with icon map and better formatting",
+      "contentHash": "4e67032656c84bcbab18f81b2efebb01b1d6ac0a0d42187c085dc91d1fb302ed"
+    },
+    "7642": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7642.md",
+      "updated": "2025-10-25T11:40:45Z",
+      "closedAt": "2025-10-25T11:40:45Z",
+      "milestone": null,
+      "title": "Refactor: Extract Release & Issue Syncers from SyncService",
+      "contentHash": "ddc60ac19ef78229b6d42ca0e62ca8f245dba33dcff0542f96db8fbc94e1dee1"
+    },
+    "7643": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7643.md",
+      "updated": "2025-10-25T10:24:23Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "Refactor: Implement MetadataManager for Sync Service",
+      "contentHash": "2e357d633d2c19886156bb8a02fd8227d5a6c0b57d7613d5267bfe242ce285a0"
+    },
+    "7644": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7644.md",
+      "updated": "2025-10-25T10:23:53Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "Feat: Implement PR Syncer for GitHub Workflow",
+      "contentHash": "307c75b548ab3eee4b685bb5c0cdbd2a745760b20a2d9c847aaf7cdd2ad7ff2e"
+    },
+    "7645": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7645.md",
+      "updated": "2025-10-25T10:25:22Z",
+      "closedAt": null,
+      "milestone": null,
+      "title": "Epic: Refactor and Extend GitHub Sync Service",
+      "contentHash": "78e9a9a1bc1418310a11450625bfdcbd1bada15cefe546079af1e66e11d8f027"
     }
   },
   "pushFailures": [],
-  "lastSync": "2025-10-24T12:23:26.298Z",
+  "lastSync": "2025-10-25T11:45:01.872Z",
   "releases": {
     "10.0.0-alpha.1": {
       "tagName": "10.0.0-alpha.1",
@@ -7457,5 +7538,5 @@
       "contentHash": "67631aaa43bebb814a892699f984e08afab77a5a7b4d36f1751796b5040559ca"
     }
   },
-  "releasesLastFetched": "2025-10-24T12:23:26.301Z"
+  "releasesLastFetched": "2025-10-25T11:45:01.886Z"
 }

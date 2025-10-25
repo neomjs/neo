@@ -6,12 +6,13 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-10-24T09:35:51Z'
-updatedAt: '2025-10-24T09:35:51Z'
+updatedAt: '2025-10-24T14:36:41Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7630'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
@@ -39,4 +40,11 @@ These workflows have been entirely superseded by the new MCP (Model Context Prot
 4.  Update the "Ticket-First" Gate section to describe the new workflow using the `create_issue` and `sync_all` tools.
 5.  Remove the now-obsolete "Hacktoberfest 2025 Onboarding Protocol".
 6.  Ensure the entire document reflects the new, streamlined, tool-based workflow.
+
+## Comments
+
+### @SarthakJain29 - 2025-10-24 14:36
+
+Hey I would like to work on this!
+Also if possible can you add the hacktoberfest label to this issue, thankyou.
 

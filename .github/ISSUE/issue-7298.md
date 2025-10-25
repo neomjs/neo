@@ -9,10 +9,10 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2025-09-28T12:50:27Z'
-updatedAt: '2025-10-24T10:04:38Z'
+updatedAt: '2025-10-24T16:28:39Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7298'
 author: tobiu
-commentsCount: 6
+commentsCount: 7
 parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
@@ -73,4 +73,9 @@ Hope it helps!
 ### @tobiu - 2025-10-24 10:04
 
 unassigning the ticket after close to a month of inactivity.
+
+### @sakirr05 - 2025-10-24 16:28
+
+heyy i would love to contribute on it, can you please assign it to me??
+
 
