@@ -381,7 +381,14 @@ components:
       properties:
         status:
           type: string
+          description: Overall health status of the server.
+          enum: [healthy, degraded, unhealthy]
           example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of when the health check was performed.
+          example: "2025-10-25T12:00:00Z"
         database:
           type: object
           properties:
@@ -390,38 +397,61 @@ components:
               properties:
                 running:
                   type: boolean
+                  description: True if the ChromaDB process is running.
                   example: true
                 pid:
                   type: integer
                   nullable: true
+                  description: Process ID of the ChromaDB server, if running.
                   example: 12345
                 managed:
                   type: boolean
+                  description: True if the ChromaDB process is managed by this server.
                   example: true
             connection:
               type: object
               properties:
                 connected:
                   type: boolean
+                  description: True if the server can connect to ChromaDB.
                   example: true
-                collection:
+                collections:
                   type: object
+                  nullable: true
                   properties:
-                    name:
-                      type: string
-                      example: "neo-knowledge-base"
-                    exists:
-                      type: boolean
-                      example: true
-                    count:
-                      type: integer
-                      example: 1234
+                    knowledgeBase:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "neo-knowledge-base"
+                        exists:
+                          type: boolean
+                          example: true
+                        count:
+                          type: integer
+                          example: 1234
+        features:
+          type: object
+          properties:
+            embedding:
+              type: boolean
+              description: "Indicates if the embedding feature is available (requires GEMINI_API_KEY)."
+              example: true
+        details:
+          type: array
+          items:
+            type: string
+          description: "A list of human-readable details about the system's status."
+          example:
+            - "ChromaDB is running and all collections are accessible"
+            - "All features are operational"
         version:
           type: string
           example: "1.0.0"
         uptime:
           type: number
-          description: Server uptime in seconds
+          description: Server uptime in seconds.
           example: 3600
 
     DatabaseLifecycleResponse:
