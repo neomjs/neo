@@ -14,6 +14,13 @@ import {
 
 const execAsync = promisify(exec);
 
+const AGENT_ICONS = {
+    gemini : '✦',
+    claude : '❋',
+    gpt    : '●',
+    default: '◆'
+};
+
 /**
  * Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
  * @class Neo.ai.mcp.server.github-workflow.PullRequestService
@@ -88,6 +95,21 @@ class PullRequestService extends Base {
     }
 
     /**
+     * Extracts the agent type from the agent string for icon selection.
+     * @param {string} agent - The full agent identifier (e.g., "Gemini 2.5 Pro", "Claude Sonnet 4.5", "Chat GPT 4")
+     * @returns {string} The agent type key for AGENT_ICONS lookup
+     */
+    getAgentType(agent) {
+        const agentLower = agent.toLowerCase();
+
+        if (agentLower.includes('gemini')) return 'gemini';
+        if (agentLower.includes('claude')) return 'claude';
+        if (agentLower.includes('gpt'))    return 'gpt';
+
+        return 'default';
+    }
+
+    /**
      * Gets the diff for a specific pull request.
      * @param {number} prNumber - The number of the pull request.
      * @returns {Promise<string|object>} A promise that resolves to the diff text or a structured error.
@@ -109,8 +131,11 @@ class PullRequestService extends Base {
     /**
      * Creates a comment on a specific pull request.
      * @param {number} prNumber - The number of the pull request.
-     * @param {string} body - The raw content of the comment, as the tool now handles formatting.
-     * @param {string} [agent] - The identity of the calling agent (e.g., "Gemini 2.5 pro").
+     * @param {string} body     - The raw content of the comment. The agent should provide
+     *                            any desired markdown formatting (e.g., blockquotes, code blocks).
+     *                            This tool will only add the agent header and icon prefix.
+     * @param {string} [agent]  - The identity of the calling agent (e.g., "Gemini 2.5 Pro", "Claude Sonnet 4.5").
+     *                            If provided, adds a formatted header with the appropriate icon.
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
     async createComment(prNumber, body, agent) {
@@ -123,17 +148,11 @@ class PullRequestService extends Base {
         let finalBody;
 
         if (agent) {
-            const header = `Input from ${agent}:\n\n`;
-            let icon = '';
+            const header          = `**Input from ${agent}:**\n\n`;
+            const prefixedBody    = AGENT_ICONS[this.getAgentType(agent)] + ' ' + body;
+            const blockquotedBody = prefixedBody.split('\n').map(line => `> ${line}`).join('\n');
 
-            if (agent.toLowerCase().includes('gemini')) {
-                icon = '✦ ';
-            } else if (agent.toLowerCase().includes('claude')) {
-                icon = '❋ ';
-            }
-            // The agent is expected to provide the body with any desired markdown (e.g., blockquotes).
-            // The tool's only job is to add the header and icon prefix.
-            finalBody = `${header}${icon}${body}`;
+            finalBody = `${header}${blockquotedBody}`;
         } else {
             finalBody = body; // Fallback to raw body if no agent is specified
         }
@@ -148,9 +167,9 @@ class PullRequestService extends Base {
         } catch (error) {
             logger.error(`Error creating comment on PR #${prNumber} via GraphQL:`, error);
             return {
-                error: 'GraphQL API request failed',
+                error  : 'GraphQL API request failed',
                 message: error.message,
-                code: 'GRAPHQL_API_ERROR'
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }
