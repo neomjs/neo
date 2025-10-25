@@ -37,6 +37,16 @@ class ReleaseSyncer extends Base {
     releases = null;
 
     /**
+     * Calculates a SHA-256 hash of the given content for change detection.
+     * @param {string} content - The content to hash.
+     * @returns {string} The hex-encoded hash.
+     * @private
+     */
+    #calculateContentHash(content) {
+        return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
      * Fetches releases from GitHub using an optimized two-phase approach.
      *
      * This optimization is necessary because the GitHub GraphQL `releases` endpoint does not
@@ -49,7 +59,7 @@ class ReleaseSyncer extends Base {
      * @param {object} metadata The sync metadata containing the cached releases.
      * @returns {Promise<void>}
      */
-    async fetchReleases(metadata) {
+    async fetchAndCacheReleases(metadata) {
         logger.info('Checking for new releases...');
 
         const cachedReleases     = metadata.releases || {};
@@ -191,16 +201,6 @@ class ReleaseSyncer extends Base {
             }
         }
         return stats;
-    }
-
-    /**
-     * Calculates a SHA-256 hash of the given content for change detection.
-     * @param {string} content - The content to hash.
-     * @returns {string} The hex-encoded hash.
-     * @private
-     */
-    #calculateContentHash(content) {
-        return crypto.createHash('sha256').update(content).digest('hex');
     }
 }
 

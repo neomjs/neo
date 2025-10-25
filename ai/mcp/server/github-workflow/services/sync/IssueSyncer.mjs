@@ -6,9 +6,9 @@ import logger                                        from '../../logger.mjs';
 import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
+import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
 import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
-import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
@@ -112,8 +112,9 @@ class IssueSyncer extends Base {
      * labels (dropped), and milestone or closed date (for archiving).
      * @param {object} issue - The GitHub issue object.
      * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
+     * @private
      */
-    getIssuePath(issue) {
+    #getIssuePath(issue) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
 
         // Handle both GraphQL (issue.labels.nodes) and potential direct array
@@ -217,7 +218,7 @@ class IssueSyncer extends Base {
         // Process each issue
         for (const issue of allIssues) {
             const issueNumber = issue.number;
-            const targetPath  = this.getIssuePath(issue);
+            const targetPath  = this.#getIssuePath(issue);
 
             if (!targetPath) {
                 stats.dropped.count++;
@@ -299,7 +300,7 @@ class IssueSyncer extends Base {
             return stats;
         }
 
-        const localFiles       = await this.scanLocalFiles();
+        const localFiles       = await this.#scanLocalFiles();
         const previousFailures = metadata.pushFailures || [];
 
         logger.debug(`Scanning ${localFiles.length} local files for changes...`);
@@ -395,8 +396,9 @@ class IssueSyncer extends Base {
      * optimization, based on the assumption that closed/archived issues are immutable and
      * do not need to be checked for local changes to push.
      * @returns {Promise<string[]>} A flat list of absolute file paths for all found issue files.
+     * @private
      */
-    async scanLocalFiles() {
+    async #scanLocalFiles() {
         const localFiles = [];
         const scanDir = async (dir) => {
             try {

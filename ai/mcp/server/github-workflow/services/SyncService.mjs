@@ -59,7 +59,7 @@ class SyncService extends Base {
         const metadata = await this.#loadMetadata();
 
         // Fetch releases first, as they are needed for issue archiving
-        await ReleaseSyncer.fetchReleases(metadata);
+        await ReleaseSyncer.fetchAndCacheReleases(metadata);
 
         // 1. Push local changes
         const pushStats = await IssueSyncer.pushToGitHub(metadata);
