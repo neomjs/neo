@@ -141,7 +141,7 @@ class IssueSyncer extends Base {
 
             // For issues without a milestone, find the next release that was published after it was closed.
             const closed = new Date(issue.closedAt);
-            const release = ReleaseSyncer.releases.find(r => new Date(r.publishedAt) > closed);
+            const release = Object.values(ReleaseSyncer.releases).find(r => new Date(r.publishedAt) > closed);
 
             // If a subsequent release exists, archive the issue under that release tag.
             if (release) {
