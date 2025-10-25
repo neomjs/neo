@@ -5,16 +5,16 @@
             "args"   : ["-y", "chrome-devtools-mcp@latest"]
         },
         "neo-github-workflow": {
-            "command": "node",
-            "args"   : ["ai/mcp/server/github-workflow/mcp-stdio.mjs"]
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-github-workflow"]
         },
         "neo-knowledge-base": {
-            "command": "node",
-            "args"   : ["ai/mcp/server/knowledge-base/mcp-stdio.mjs"]
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-knowledge-base"]
         },
         "neo-memory-core": {
-            "command": "node",
-            "args"   : ["ai/mcp/server/memory-core/mcp-stdio.mjs"]
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-memory-core"]
         }
     }
 }
