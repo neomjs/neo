@@ -55,4 +55,20 @@ const config = {
     nResults: 100
 };
 
+export const SCORE_WEIGHTS = {
+    BASE_INCREMENT: 1,
+    SOURCE_PATH_MATCH: 40,
+    FILE_NAME_MATCH: 30,
+    CLASS_NAME_MATCH: 20,
+    GUIDE_MATCH: 50,
+    BLOG_MATCH: 5,
+    NAME_PART_MATCH: 30,
+    TICKET_PENALTY: -70,
+    RELEASE_PENALTY: -50,
+    BASE_FILE_BONUS: 20,
+    RELEASE_EXACT_MATCH: 1000,
+    INHERITANCE_BOOST: 80,
+    INHERITANCE_DECAY: 0.6,
+};
+
 export default config;

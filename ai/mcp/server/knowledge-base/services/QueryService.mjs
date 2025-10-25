@@ -4,6 +4,7 @@ import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import dotenv               from 'dotenv';
 import path                 from 'path';
+import { SCORE_WEIGHTS } from '../config.mjs';
 
 const cwd = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -84,7 +85,7 @@ class QueryService extends Base {
         results.metadatas[0].forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
 
-            let score = (results.metadatas[0].length - index) * 1;
+            let score = (results.metadatas[0].length - index) * SCORE_WEIGHTS.BASE_INCREMENT;
             const sourcePath = metadata.source;
             const sourcePathLower = sourcePath.toLowerCase();
             const fileName = sourcePath.split('/').pop().toLowerCase();
@@ -95,33 +96,36 @@ class QueryService extends Base {
                 const keywordSingular = keyword.endsWith('s') ? keyword.slice(0, -1) : keyword;
 
                 if (keywordSingular.length > 2) {
-                    if (sourcePathLower.includes(`/${keywordSingular}/`)) score += 40;
-                    if (fileName.includes(keywordSingular)) score += 30;
-                    if (metadata.type === 'class' && nameLower.includes(keywordSingular)) score += 20;
-                    if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) score += 20;
-                    if (metadata.type === 'guide' || metadata.type === 'blog') {
-                        score += metadata.type === 'blog' ? 5 : 50;
-                        if (nameLower.includes(keywordSingular)) score += 50;
+                    if (sourcePathLower.includes(`/${keywordSingular}/`)) score += SCORE_WEIGHTS.SOURCE_PATH_MATCH;
+                    if (fileName.includes(keywordSingular)) score += SCORE_WEIGHTS.FILE_NAME_MATCH;
+                    if (metadata.type === 'class' && nameLower.includes(keywordSingular)) score += SCORE_WEIGHTS.CLASS_NAME_MATCH;
+                    if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) score += SCORE_WEIGHTS.CLASS_NAME_MATCH;
+
+                    if (metadata.type === 'guide') score += SCORE_WEIGHTS.GUIDE_MATCH;
+                    if (metadata.type === 'blog') {
+                        score += SCORE_WEIGHTS.BLOG_MATCH;
+                        if (nameLower.includes(keywordSingular)) score += SCORE_WEIGHTS.GUIDE_MATCH;
                     }
+
                     const nameParts = nameLower.split('.');
-                    if (nameParts.includes(keywordSingular)) score += 30;
+                    if (nameParts.includes(keywordSingular)) score += SCORE_WEIGHTS.NAME_PART_MATCH;
                 }
             });
 
-            if (metadata.type === 'ticket' && type === 'all') score -= 70;
-            if (metadata.type === 'release') score -= 50;
-            if (fileName.endsWith('base.mjs')) score += 20;
-            if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) score += 1000;
+            if (metadata.type === 'ticket' && type === 'all') score += SCORE_WEIGHTS.TICKET_PENALTY;
+            if (metadata.type === 'release') score += SCORE_WEIGHTS.RELEASE_PENALTY;
+            if (fileName.endsWith('base.mjs')) score += SCORE_WEIGHTS.BASE_FILE_BONUS;
+            if (metadata.type === 'release' && queryLower.startsWith('v') && nameLower === queryLower) score += SCORE_WEIGHTS.RELEASE_EXACT_MATCH;
 
             sourceScores[sourcePath] = (sourceScores[sourcePath] || 0) + score;
 
             const inheritanceChain = JSON.parse(metadata.inheritanceChain || '[]');
-            let boost = 80;
+            let boost = SCORE_WEIGHTS.INHERITANCE_BOOST;
             inheritanceChain.forEach(parent => {
                 if (parent.source) {
                     sourceScores[parent.source] = (sourceScores[parent.source] || 0) + boost;
                 }
-                boost = Math.floor(boost * 0.6);
+                boost = Math.floor(boost * SCORE_WEIGHTS.INHERITANCE_DECAY);
             });
         });
 
