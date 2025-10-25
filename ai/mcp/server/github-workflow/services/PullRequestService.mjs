@@ -134,8 +134,8 @@ class PullRequestService extends Base {
      * @param {string} body     - The raw content of the comment. The agent should provide
      *                            any desired markdown formatting (e.g., blockquotes, code blocks).
      *                            This tool will only add the agent header and icon prefix.
-     * @param {string} [agent]  - The identity of the calling agent (e.g., "Gemini 2.5 Pro", "Claude Sonnet 4.5").
-     *                            If provided, adds a formatted header with the appropriate icon.
+     * @param {string} agent    - The identity of the calling agent (e.g., "Gemini 2.5 Pro", "Claude Sonnet 4.5").
+     *                            Adds a formatted header with the appropriate icon.
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
     async createComment(prNumber, body, agent) {
@@ -145,28 +145,20 @@ class PullRequestService extends Base {
             prNumber
         };
 
-        let finalBody;
+        const header       = `**Input from ${agent}:**\n\n`;
+        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
+        const headingMatch = body.match(/^(#+\s*)(.*)$/);
+        let processedBody;
 
-        if (agent) {
-            const header       = `**Input from ${agent}:**\n\n`;
-            const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
-            const headingMatch = body.match(/^(#+\s*)(.*)$/); // Capture heading markers and content
-            let processedBody;
-
-            if (headingMatch) {
-                const headingMarkers = headingMatch[1]; // e.g., "### "
-                const headingContent = headingMatch[2]; // e.g., "Review: Approved"
-                processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
-            } else {
-                processedBody = `${agentIcon} ${body}`;
-            }
-
-            const blockquotedBody = processedBody.split('\n').map(line => `> ${line}`).join('\n');
-
-            finalBody = `${header}${blockquotedBody}`;
+        if (headingMatch) {
+            const headingMarkers = headingMatch[1];
+            const headingContent = headingMatch[2];
+            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
         } else {
-            finalBody = body; // Fallback to raw body if no agent is specified
+            processedBody = `${agentIcon} ${body}`;
         }
+
+        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
 
         try {
             const idData    = await GraphqlService.query(GET_PULL_REQUEST_ID, idVariables);

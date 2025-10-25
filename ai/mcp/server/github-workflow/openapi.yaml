@@ -251,6 +251,7 @@ paths:
               type: object
               required:
                 - body
+                - agent
               properties:
                 body:
                   type: string
