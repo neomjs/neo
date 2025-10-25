@@ -5,7 +5,7 @@ const config = {
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
-    debug: true,
+    debug: false,
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      * @returns {null}
