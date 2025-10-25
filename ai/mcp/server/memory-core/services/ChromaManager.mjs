@@ -16,44 +16,29 @@ class ChromaManager extends Base {
          */
         className: 'AI.mcp.server.memory-core.services.ChromaManager',
         /**
-         * @member {ChromaClient|null} client_=null
+         * @member {ChromaClient|null} client=null
          * @protected
-         * @reactive
          */
-        client_: null,
+        client: null,
         /**
-         * @member {Boolean} connected_=false
-         * @reactive
+         * @member {Boolean} connected=false
          */
-        connected_: false,
+        connected: false,
         /**
-         * @member {import('chromadb').Collection|null} memoryCollection_=null
+         * @member {import('chromadb').Collection|null} memoryCollection=null
          * @protected
-         * @reactive
          */
-        memoryCollection_: null,
+        memoryCollection: null,
         /**
          * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true,
         /**
-         * @member {import('chromadb').Collection|null} summaryCollection_=null
+         * @member {import('chromadb').Collection|null} summaryCollection=null
          * @protected
-         * @reactive
          */
-        summaryCollection_: null
-    }
-
-    /**
-     * Triggered after the connected config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetConnected(value, oldValue) {
-        // console.error(`[ChromaManager] ${value ? 'Connected' : 'Disconnected'}`); // Use logger instead
-        // this.fire?.('connectionChange', { connected: value }); // Not part of PoC yet
+        summaryCollection: null
     }
 
     /**

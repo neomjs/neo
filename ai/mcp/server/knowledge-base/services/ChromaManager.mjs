@@ -16,22 +16,19 @@ class ChromaManager extends Base {
          */
         className: 'Neo.ai.mcp.server.knowledge-base.services.ChromaManager',
         /**
-         * @member {ChromaClient|null} client_=null
+         * @member {ChromaClient|null} client=null
          * @protected
-         * @reactive
          */
-        client_: null,
+        client: null,
         /**
-         * @member {Boolean} connected_=false
-         * @reactive
+         * @member {Boolean} connected=false
          */
-        connected_: false,
+        connected: false,
         /**
-         * @member {import('chromadb').Collection|null} knowledgeBaseCollection_=null
+         * @member {import('chromadb').Collection|null} knowledgeBaseCollection=null
          * @protected
-         * @reactive
          */
-        knowledgeBaseCollection_: null,
+        knowledgeBaseCollection: null,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -44,6 +41,8 @@ class ChromaManager extends Base {
      */
     construct(config) {
         super.construct(config);
+
+        // The client is created here, but the connection is established in initAsync
         const {host, port} = aiConfig;
         this.client = new ChromaClient({host, port, ssl: false});
     }
