@@ -89,7 +89,7 @@ class DatabaseService extends Base {
      */
     async createKnowledgeBase() {
         logger.log('Starting knowledge base file creation...');
-        const outputPath = aiConfig.path;
+        const outputPath = aiConfig.dataPath;
         await fs.ensureDir(path.dirname(outputPath));
         const writeStream = fs.createWriteStream(outputPath);
         let totalChunks = 0;
@@ -244,7 +244,7 @@ class DatabaseService extends Base {
      */
     async embedKnowledgeBase() {
         logger.log('Starting knowledge base embedding...');
-        const knowledgeBasePath = aiConfig.path;
+        const knowledgeBasePath = aiConfig.dataPath;
         if (!await fs.pathExists(knowledgeBasePath)) {
             throw new Error(`Knowledge base file not found at ${knowledgeBasePath}. Please run createKnowledgeBase first.`);
         }

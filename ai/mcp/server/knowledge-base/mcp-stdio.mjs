@@ -5,7 +5,7 @@ import Neo                                             from '../../../../src/Neo
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
 import logger                                          from './logger.mjs';
-import ChromaManager                                   from './services/ChromaManager.mjs';
+import DatabaseLifecycleService                        from './services/DatabaseLifecycleService.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
@@ -104,7 +104,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  * Main startup sequence for the Knowledge Base MCP server.
  *
  * Performs the following steps:
- * 1. Wait for async services - ensures ChromaManager is initialized
+ * 1. Wait for async services - ensures DatabaseLifecycleService is initialized
  * 2. Health check - verifies ChromaDB connectivity
  * 3. Status reporting - logs detailed diagnostics
  * 4. Server startup - connects stdio transport
@@ -114,7 +114,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  */
 async function main() {
     // Wait for async services to initialize (fixes race condition)
-    await ChromaManager.ready();
+    await DatabaseLifecycleService.ready();
     // Perform initial health check (non-blocking)
     const health = await HealthService.healthcheck();
 

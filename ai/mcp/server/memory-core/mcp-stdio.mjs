@@ -4,7 +4,8 @@ import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotoc
 import Neo                                             from '../../../../src/Neo.mjs';
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
-import ChromaManager                                   from './services/ChromaManager.mjs';
+import Observable                                      from '../../../../src/core/Observable.mjs';
+import DatabaseLifecycleService                        from './services/DatabaseLifecycleService.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import SessionService                                  from './services/SessionService.mjs';
 import logger                                          from './logger.mjs';
@@ -157,7 +158,7 @@ async function summarizeSessionsOnStartup() {
  * Main startup sequence for the Memory Core MCP server.
  *
  * Performs the following steps:
- * 1. Wait for async services - ensures ChromaManager is initialized
+ * 1. Wait for async services - ensures DatabaseLifecycleService is initialized
  * 2. Health check - verifies ChromaDB connectivity
  * 3. Status reporting - logs detailed diagnostics
  * 4. Auto-summarization - processes unsummarized sessions (if healthy)
@@ -167,8 +168,8 @@ async function summarizeSessionsOnStartup() {
  * gracefully with helpful error messages until dependencies are resolved.
  */
 async function main() {
-    // Wait for async services to initialize (fixes race condition)
-    await ChromaManager.ready();
+    // Wait for async services to initialize
+    await DatabaseLifecycleService.ready();
     // Perform initial health check (non-blocking)
     const health = await HealthService.healthcheck();
 

@@ -1,8 +1,8 @@
-import {spawn}        from 'child_process';
-import aiConfig       from '../config.mjs';
-import logger         from '../logger.mjs';
-import Base           from '../../../../../src/core/Base.mjs';
-import ChromaManager  from './ChromaManager.mjs';
+import {spawn}       from 'child_process';
+import aiConfig      from '../config.mjs';
+import logger        from '../logger.mjs';
+import Base          from '../../../../../src/core/Base.mjs';
+import ChromaManager from './ChromaManager.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Knowledge Base.
@@ -11,6 +11,13 @@ import ChromaManager  from './ChromaManager.mjs';
  * @singleton
  */
 class DatabaseLifecycleService extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true;
+
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService'
@@ -28,6 +35,16 @@ class DatabaseLifecycleService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        await ChromaManager.ready();
+        await this.startDatabase();
     }
 
     /**

@@ -5,7 +5,7 @@ const config = {
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
-    debug: false,
+    debug: true,
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      * @returns {null}
@@ -24,10 +24,15 @@ const config = {
      */
     port: 8000,
     /**
+     * The local persistence path for the agent knowledge-base server.
+     * @type {string}
+     */
+    path: path.resolve(process.cwd(), 'chroma'),
+    /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}
      */
-    path: path.resolve(process.cwd(), 'dist/ai-knowledge-base.jsonl'),
+    dataPath: path.resolve(process.cwd(), 'dist/ai-knowledge-base.jsonl'),
     /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}

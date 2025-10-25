@@ -1,9 +1,8 @@
-import {spawn}        from 'child_process';
-import aiConfig       from '../config.mjs';
-import logger         from '../logger.mjs';
-import Base           from '../../../../../src/core/Base.mjs';
-import ChromaManager  from './ChromaManager.mjs';
-import Observable     from '../../../../../src/core/Observable.mjs';
+import {spawn}       from 'child_process';
+import aiConfig      from '../config.mjs';
+import logger        from '../logger.mjs';
+import Base          from '../../../../../src/core/Base.mjs';
+import ChromaManager from './ChromaManager.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Memory Core.
@@ -39,6 +38,16 @@ class DatabaseLifecycleService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        await ChromaManager.ready();
+        await this.startDatabase();
+    }
+
+    /**
      * Checks if a ChromaDB instance is already running on the configured port.
      * @returns {Promise<boolean>}
      */
@@ -65,6 +74,8 @@ class DatabaseLifecycleService extends Base {
             this.fire('processActive', { pid: null, managedByService: false, detail: result.detail });
             return result;
         }
+
+        logger.error('Starting ChromaDB (Memory Core) process...');
 
         return new Promise((resolve, reject) => {
             const { port, path: dbPath } = aiConfig.memoryDb;

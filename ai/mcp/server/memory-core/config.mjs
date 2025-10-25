@@ -5,7 +5,7 @@ const config = {
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
-    debug: false,
+    debug: true,
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      * @returns {null}
@@ -41,7 +41,7 @@ const config = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(process.cwd(), './chroma-memory'),
+        path: path.resolve(process.cwd(), 'chroma-memory'),
         /**
          * The path to store memory backups.
          * @type {string}

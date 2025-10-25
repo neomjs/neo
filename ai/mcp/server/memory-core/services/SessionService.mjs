@@ -1,7 +1,8 @@
-import {ChromaClient}       from 'chromadb';
-import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
+import {GoogleGenerativeAI}     from '@google/generative-ai';
+import aiConfig                 from '../config.mjs';
+import Base                     from '../../../../../src/core/Base.mjs';
+import ChromaManager            from './ChromaManager.mjs';
+import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
@@ -21,12 +22,6 @@ class SessionService extends Base {
          * @protected
          */
         singleton: true,
-        /**
-         * @member {ChromaClient|null} dbClient_=null
-         * @protected
-         * @reactive
-         */
-        dbClient_: null,
         /**
          * @member {GoogleGenerativeAI|null} model_=null
          * @protected
@@ -59,9 +54,6 @@ class SessionService extends Base {
     construct(config) {
         super.construct(config);
 
-        const {host, port} = aiConfig.memoryDb;
-        this.dbClient = new ChromaClient({ host, port, ssl: false });
-
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
 
@@ -75,8 +67,13 @@ class SessionService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        this.memoryCollection   = await this.dbClient.getCollection({ name: aiConfig.memoryDb.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
-        this.sessionsCollection = await this.dbClient.getOrCreateCollection({ name: aiConfig.sessionDb.collectionName, embeddingFunction: aiConfig.dummyEmbeddingFunction });
+
+        // Wait for DatabaseLifecycleService to ensure ChromaDB is available
+        await DatabaseLifecycleService.ready();
+
+        // Use ChromaManager instead of direct client access
+        this.memoryCollection   = await ChromaManager.getMemoryCollection();
+        this.sessionsCollection = await ChromaManager.getSummaryCollection();
     }
 
     /**

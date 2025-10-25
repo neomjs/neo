@@ -19,6 +19,7 @@ const createLogMethod = (level) => {
 
 logger.debug = createLogMethod('debug');
 logger.info  = createLogMethod('info');
+logger.log   = createLogMethod('log');
 logger.warn  = createLogMethod('warn');
 logger.error = createLogMethod('error');
 

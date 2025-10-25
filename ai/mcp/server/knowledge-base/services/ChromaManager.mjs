@@ -1,5 +1,6 @@
 import {ChromaClient} from 'chromadb';
 import aiConfig       from '../config.mjs';
+import logger         from '../logger.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
 
 /**
@@ -57,14 +58,17 @@ class ChromaManager extends Base {
 
     /**
      * Establishes connection to ChromaDB.
+     * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
         try {
             await this.client.heartbeat();
             this.connected = true;
+            return true;
         } catch (e) {
             this.connected = false;
-            throw e;
+            logger.debug('[ChromaManager] ChromaDB not accessible:', e.message);
+            return false;
         }
     }
 
