@@ -71,16 +71,7 @@ class SyncService extends Base {
         }
 
         // 5. Cache releases in metadata for next run
-        const releaseCache = {};
-        ReleaseSyncer.releases.forEach(release => {
-            releaseCache[release.tagName] = {
-                // Duplicating data to keep it simple, could be optimized
-                // to just store the hash if metadata size becomes an issue.
-                ...release,
-                contentHash: release.contentHash
-            };
-        });
-        newMetadata.releases            = releaseCache;
+        newMetadata.releases            = ReleaseSyncer.releases;
         newMetadata.releasesLastFetched = new Date().toISOString();
 
         // 6. Save metadata

@@ -31,7 +31,7 @@ class ReleaseSyncer extends Base {
     }
 
     /**
-     * @member {Array|null} releases=null
+     * @member {Object} releases=null
      * @protected
      */
     releases = null;
@@ -82,7 +82,7 @@ class ReleaseSyncer extends Base {
                     latestRelease.tagName === cachedLatest.tagName &&
                     latestRelease.publishedAt === cachedLatest.publishedAt) {
                     logger.info(`✅ Releases are up-to-date (latest: ${latestRelease.tagName})`);
-                    this.releases = cachedReleaseArray;
+                    this.releases = cachedReleases;
                     return;
                 }
 
@@ -136,9 +136,14 @@ class ReleaseSyncer extends Base {
         }
 
         // Now, filter and sort the collected releases
-        this.releases = allReleases
+        const filteredAndSortedReleases = allReleases
             .filter(release => new Date(release.publishedAt) >= startDate)
             .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+
+        this.releases = {};
+        filteredAndSortedReleases.forEach(release => {
+            this.releases[release.tagName] = release;
+        });
 
         if (this.releases.length === 0) {
             logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
@@ -165,7 +170,7 @@ class ReleaseSyncer extends Base {
 
         const cachedReleases = metadata.releases || {};
 
-        for (const release of this.releases) {
+        for (const release of Object.values(this.releases)) {
             try {
                 const filePath = path.join(releaseDir, `${issueSyncConfig.releaseFilenamePrefix}${release.tagName}.md`);
 
