@@ -4,15 +4,15 @@
             "command": "npx",
             "args"   : ["-y", "chrome-devtools-mcp@latest"]
         },
-        "neo-github-workflow": {
+        "neo.mjs-github-workflow": {
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-github-workflow"]
         },
-        "neo-knowledge-base": {
+        "neo.mjs-knowledge-base": {
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-knowledge-base"]
         },
-        "neo-memory-core": {
+        "neo.mjs-memory-core": {
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-memory-core"]
         }
