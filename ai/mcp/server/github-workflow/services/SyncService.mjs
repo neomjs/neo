@@ -1,34 +1,23 @@
-import aiConfig                                      from '../config.mjs';
-import Base                                          from '../../../../../src/core/Base.mjs';
-import crypto                                        from 'crypto';
-import fs                                            from 'fs/promises';
-import logger                                        from '../logger.mjs';
-import matter                                        from 'gray-matter';
-import path                                          from 'path';
-import GraphqlService                                from './GraphqlService.mjs';
-import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from './queries/issueQueries.mjs';
-import {GET_ISSUE_ID, UPDATE_ISSUE}                  from './queries/mutations.mjs';
-import {FETCH_RELEASES, FETCH_LATEST_RELEASE}        from './queries/releaseQueries.mjs';
+import aiConfig      from '../config.mjs';
+import Base          from '../../../../../src/core/Base.mjs';
+import fs            from 'fs/promises';
+import logger        from '../logger.mjs';
+import path          from 'path';
+import IssueSyncer   from './sync/IssueSyncer.mjs';
+import ReleaseSyncer from './sync/ReleaseSyncer.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
- * Orchestrates the bi-directional synchronization of GitHub issues with local Markdown files.
+ * Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
  *
- * This service is the core engine for the GitHub issue sync workflow. Its primary responsibilities include:
+ * This service is the core engine for the GitHub sync workflow. Its primary responsibilities include:
  * - **State Management:** It maintains a persistent state via a `.sync-metadata.json` file to track
- *   the last sync time and the status of each issue, enabling efficient delta-based updates.
- * - **Conflict Resolution:** It employs a "push-then-pull" strategy to minimize merge conflicts.
- *   Local changes are always pushed to GitHub before remote changes are pulled, ensuring local edits
- *   are not accidentally overwritten.
- * - **Data Transformation:** It fetches full issue data (including comments) from GitHub and formats it
- *   into structured Markdown files with YAML frontmatter for easy parsing and editing.
- * - **Local File Management:** It handles the creation, updating, moving (archiving), and deletion of
- *   local issue files based on changes from GitHub.
- * - **Release Awareness:** It fetches GitHub releases to intelligently archive closed issues into
- *   versioned directories, providing historical context.
- * - **Content Hash Tracking:** Uses SHA-256 hashes to detect actual content changes, preventing
- *   false updates from file system metadata changes (mtime).
+ *   the last sync time and the status of each item, enabling efficient delta-based updates.
+ * - **Orchestration:** It calls specialized syncer modules (`IssueSyncer`, `ReleaseSyncer`) in the
+ *   correct order to ensure data integrity and minimize conflicts (e.g., push-then-pull).
+ * - **Metadata Management:** It loads the metadata at the start of a sync and saves the updated
+ *   metadata, including new cache objects from the syncers, at the end.
  *
  * The main entry point is the `runFullSync` method, which executes the entire orchestration sequence.
  * @class Neo.ai.mcp.server.github-workflow.SyncService
@@ -50,57 +39,36 @@ class SyncService extends Base {
     }
 
     /**
-     * @member {Array|null} releases=null
-     * @protected
-     */
-    releases = null;
-
-    /**
      * The main public entry point for the synchronization process.
      *
      * This method orchestrates the entire bi-directional sync workflow in a specific order
      * to ensure data integrity and minimize conflicts:
      * 1.  Loads the persistent metadata from the last sync.
-     * 2.  Fetches and caches GitHub release data, using the loaded metadata to perform a
-     *     quick check and avoid unnecessary fetches.
-     * 3.  **Pushes** any local changes (detected via content hash comparison) to GitHub.
-     * 4.  **Pulls** the latest changes from GitHub, updating local files.
-     * 5.  Syncs release notes into local Markdown files.
-     * 6.  Saves the updated metadata (including the new release cache) to disk for the next run.
+     * 2.  Fetches and caches GitHub release data via `ReleaseSyncer`.
+     * 3.  **Pushes** any local issue changes to GitHub via `IssueSyncer`.
+     * 4.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
+     * 5.  Syncs release notes into local Markdown files via `ReleaseSyncer`.
+     * 6.  Saves the updated metadata (including new release and issue data) to disk.
      *
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
-     * information about all operations performed during the sync, conforming to the
-     * `SyncIssuesResponse` schema in the OpenAPI definition.
-     * @example
-     * const result = await syncService.runFullSync();
-     * // result = {
-     * //   success: true,
-     * //   summary: "Synchronization complete",
-     * //   statistics: {
-     * //     pushed: { count: 2, issues: [1234, 1235] },
-     * //     pulled: { count: 15, created: 3, updated: 12, moved: 0, issues: [...] },
-     * //     dropped: { count: 1, issues: [999] },
-     * //     releases: { count: 5, synced: ['v11.0', ...] }
-     * //   },
-     * //   timing: { startTime: '...', endTime: '...', durationMs: 150000 }
-     * // }
+     * information about all operations performed during the sync.
      */
     async runFullSync() {
         const startTime = new Date();
 
         const metadata = await this.#loadMetadata();
 
-        // Pass metadata to check cache
-        await this.#fetchAndCacheReleases(metadata);
+        // Fetch releases first, as they are needed for issue archiving
+        await ReleaseSyncer.fetchReleases(metadata);
 
         // 1. Push local changes
-        const pushStats = await this.#pushToGitHub(metadata);
+        const pushStats = await IssueSyncer.pushToGitHub(metadata);
 
         // 2. Pull remote changes
-        const { newMetadata, stats: pullStats } = await this.#pullFromGitHub(metadata);
+        const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
 
         // 3. Sync release notes
-        const releaseStats = await this.#syncReleaseNotes(metadata);
+        const releaseStats = await ReleaseSyncer.syncNotes(metadata);
 
         // 4. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
@@ -109,7 +77,7 @@ class SyncService extends Base {
 
         // 5. Cache releases in metadata for next run
         const releaseCache = {};
-        this.releases.forEach(release => {
+        ReleaseSyncer.releases.forEach(release => {
             releaseCache[release.tagName] = {
                 // Duplicating data to keep it simple, could be optimized
                 // to just store the hash if metadata size becomes an issue.
@@ -155,299 +123,6 @@ class SyncService extends Base {
     }
 
     /**
-     * Saves release notes from GitHub as local Markdown files, using content hashing to avoid
-     * unnecessary writes.
-     * @param {object} metadata The sync metadata containing cached release hashes.
-     * @returns {Promise<object>} Statistics about the operation ({count: number, synced: string[]}).
-     * @private
-     */
-    async #syncReleaseNotes(metadata) {
-        logger.info('📄 Syncing release notes...');
-        const releaseDir = issueSyncConfig.releaseNotesDir;
-        await fs.mkdir(releaseDir, { recursive: true });
-
-        const stats = {
-            count : 0,
-            synced: []
-        };
-
-        const cachedReleases = metadata.releases || {};
-
-        for (const release of this.releases) {
-            try {
-                const filePath = path.join(releaseDir, `${issueSyncConfig.releaseFilenamePrefix}${release.tagName}.md`);
-
-                const frontmatter = {
-                    tagName     : release.tagName,
-                    name        : release.name,
-                    publishedAt : release.publishedAt,
-                    isPrerelease: release.isPrerelease || false,
-                    isDraft     : release.isDraft || false
-                };
-
-                // GraphQL returns 'description' not 'body'
-                const body        = `# ${release.name}\n\n${release.description || ''}`;
-                const content     = matter.stringify(body, frontmatter);
-                const currentHash = this.#calculateContentHash(content);
-
-                // Store the hash on the release object for the main loop to cache later
-                release.contentHash = currentHash;
-
-                const cachedRelease = cachedReleases[release.tagName];
-
-                if (cachedRelease && cachedRelease.contentHash === currentHash) {
-                    logger.debug(`Skipping release notes for ${release.tagName}, content unchanged.`);
-                    continue;
-                }
-
-                await fs.writeFile(filePath, content, 'utf-8');
-                logger.info(`✅ Synced release notes for ${release.tagName}`);
-                stats.count++;
-                stats.synced.push(release.tagName);
-            } catch (e) {
-                logger.warn(`⚠️ Could not sync release notes for ${release.tagName}: ${e.message}`);
-            }
-        }
-        return stats;
-    }
-
-    /**
-     * Fetches releases from GitHub using an optimized two-phase approach.
-     *
-     * This optimization is necessary because the GitHub GraphQL `releases` endpoint does not
-     * support a `since` parameter, making simple delta-based fetching impossible.
-     *
-     * First, it performs a quick check to see if the latest release is already cached.
-     * If not, it performs a full, paginated fetch with an early-exit optimization that
-     * stops querying when it reaches releases older than the `syncStartDate`.
-     *
-     * @param {object} metadata The sync metadata containing the cached releases.
-     * @private
-     */
-    async #fetchAndCacheReleases(metadata) {
-        logger.info('Checking for new releases...');
-
-        const cachedReleases     = metadata.releases || {};
-        const cachedReleaseArray = Object.values(cachedReleases);
-
-        // Phase 1: Quick check against the cached latest release
-        if (cachedReleaseArray.length > 0) {
-            try {
-                const latestData = await GraphqlService.query(FETCH_LATEST_RELEASE, {
-                    owner: aiConfig.owner,
-                    repo : aiConfig.repo
-                });
-
-                const latestRelease = latestData.repository.latestRelease;
-                // Sort by date to find the latest
-                cachedReleaseArray.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
-                const cachedLatest  = cachedReleaseArray[cachedReleaseArray.length - 1];
-
-                if (latestRelease && cachedLatest &&
-                    latestRelease.tagName === cachedLatest.tagName &&
-                    latestRelease.publishedAt === cachedLatest.publishedAt) {
-                    logger.info(`✅ Releases are up-to-date (latest: ${latestRelease.tagName})`);
-                    this.releases = cachedReleaseArray;
-                    return;
-                }
-
-                logger.info(`New release detected: ${latestRelease.tagName} (cached was: ${cachedLatest?.tagName})`);
-            } catch (e) {
-                logger.warn(`Could not check latest release, falling back to full fetch: ${e.message}`);
-            }
-        }
-
-        // Phase 2: Full fetch with early exit
-        logger.info('Fetching releases from GitHub via GraphQL...');
-
-        let allReleases = [];
-        let hasNextPage = true;
-        let cursor      = null;
-        const maxReleases = issueSyncConfig.maxReleases;
-        const startDate   = new Date(issueSyncConfig.syncStartDate);
-
-        while (hasNextPage && allReleases.length < maxReleases) {
-            const data = await GraphqlService.query(FETCH_RELEASES, {
-                owner: aiConfig.owner,
-                repo : aiConfig.repo,
-                limit: issueSyncConfig.releaseQueryLimit,
-                cursor
-            });
-
-            const releases = data.repository.releases;
-
-            if (releases.nodes.length === 0) {
-                logger.debug('No more releases found in pagination.');
-                break;
-            }
-
-            // Check if oldest release in this batch is before our cutoff
-            const oldestInBatch = releases.nodes[releases.nodes.length - 1];
-            const oldestDate    = new Date(oldestInBatch.publishedAt);
-
-            // Add all releases from the batch for now; we will filter after the loop
-            allReleases.push(...releases.nodes);
-
-            logger.debug(`Fetched ${releases.nodes.length} releases (total raw: ${allReleases.length})`);
-
-            // Early exit if oldest release in batch is before our cutoff
-            if (oldestDate < startDate) {
-                logger.info(`Reached releases published before ${issueSyncConfig.syncStartDate}, stopping pagination.`);
-                break;
-            }
-
-            hasNextPage = releases.pageInfo.hasNextPage;
-            cursor      = releases.pageInfo.endCursor;
-        }
-
-        // Now, filter and sort the collected releases
-        this.releases = allReleases
-            .filter(release => new Date(release.publishedAt) >= startDate)
-            .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
-
-        if (this.releases.length === 0) {
-            logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
-        } else {
-            logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
-        }
-    }
-
-    /**
-     * Formats a GitHub issue object and its comments into a single Markdown string with YAML frontmatter.
-     * @param {object} issue - The GitHub issue object from the API.
-     * @param {object[]} comments - An array of comment objects for the issue.
-     * @returns {string} The fully formatted Markdown string.
-     * @private
-     */
-    #formatIssueMarkdown(issue, comments) {
-        const frontmatter = {
-            id                : issue.number,
-            title             : issue.title,
-            state             : issue.state,
-            labels            : issue.labels.nodes.map(l => l.name),
-            assignees         : issue.assignees.nodes.map(a => a.login),
-            createdAt         : issue.createdAt,
-            updatedAt         : issue.updatedAt,
-            githubUrl         : issue.url,
-            author            : issue.author.login,
-            commentsCount     : comments.length,
-            parentIssue       : issue.parent ? issue.parent.number : null,
-            subIssues         : issue.subIssues?.nodes.map(sub => sub.number) || [],
-            subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
-            subIssuesTotal    : issue.subIssuesSummary?.total || 0
-        };
-
-        if (issue.closedAt) {
-            frontmatter.closedAt = issue.closedAt;
-        }
-        if (issue.milestone) {
-            frontmatter.milestone = issue.milestone.title;
-        }
-
-        let body = `# ${issue.title}\n\n`;
-        body += `**Reported by:** @${issue.author.login} on ${issue.createdAt.split('T')[0]}\n\n`;
-
-        // Add relationship section with clear delimiter
-        if (issue.parent || issue.subIssues?.nodes.length > 0) {
-            body += '---\n\n';
-            if (issue.parent) {
-                body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
-            }
-            if (issue.subIssues?.nodes.length > 0) {
-                body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
-                body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
-            }
-            body += '---\n\n';
-        }
-
-        body += issue.body || '*(No description provided)*';
-        body += '\n\n';
-
-        if (comments.length > 0) {
-            body += issueSyncConfig.commentSectionDelimiter + '\n\n';
-            for (const comment of comments) {
-                const date = comment.createdAt.split('T')[0];
-                const time = comment.createdAt.split('T')[1].substring(0, 5);
-                body += `### @${comment.author.login} - ${date} ${time}\n\n`;
-                body += comment.body;
-                body += '\n\n';
-            }
-        }
-
-        return matter.stringify(body, frontmatter);
-    }
-
-    /**
-     * Calculates a SHA-256 hash of the given content for change detection.
-     * @param {string} content - The content to hash.
-     * @returns {string} The hex-encoded hash.
-     * @private
-     */
-    #calculateContentHash(content) {
-        return crypto.createHash('sha256').update(content).digest('hex');
-    }
-
-    /**
-     * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
-     * labels (dropped), and milestone or closed date (for archiving).
-     * @param {object} issue - The GitHub issue object.
-     * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
-     * @example
-     * // For an open issue
-     * #getIssuePath({ number: 123, state: 'OPEN', labels: [] })
-     * // => '/path/to/project/.github/ISSUES/0123.md'
-     *
-     * // For a closed issue with a milestone
-     * #getIssuePath({ number: 456, state: 'CLOSED', milestone: { title: 'v11.0' }, labels: [], closedAt: '...' })
-     * // => '/path/to/project/.github/ISSUE_ARCHIVE/v11.0/0456.md'
-     *
-     * // For a dropped issue
-     * #getIssuePath({ number: 789, state: 'OPEN', labels: [{ name: 'wontfix' }] })
-     * // => null
-     * @private
-     */
-    #getIssuePath(issue) {
-        const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
-
-        // Handle both GraphQL (issue.labels.nodes) and potential direct array
-        const labels = issue.labels?.nodes
-            ? issue.labels.nodes.map(l => l.name.toLowerCase())
-            : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
-
-        const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
-        if (isDropped) {
-            return null; // Dropped issues are not stored locally.
-        }
-
-        // OPEN issues are always in the main directory
-        if (issue.state === 'OPEN') {
-            return path.join(issueSyncConfig.issuesDir, filename);
-        }
-
-        // Logic for CLOSED issues
-        if (issue.state === 'CLOSED') {
-            // If an issue has a milestone, it is explicitly archived under that version.
-            if (issue.milestone?.title) {
-                return path.join(issueSyncConfig.archiveDir, issue.milestone.title, filename);
-            }
-
-            // For issues without a milestone, find the next release that was published after it was closed.
-            const closed = new Date(issue.closedAt);
-            const release = this.releases.find(r => new Date(r.publishedAt) > closed);
-
-            // If a subsequent release exists, archive the issue under that release tag.
-            if (release) {
-                return path.join(issueSyncConfig.archiveDir, release.tagName, filename);
-            }
-
-            // If no subsequent release is found, the issue is recently closed and remains in the main issues directory.
-            return path.join(issueSyncConfig.issuesDir, filename);
-        }
-
-        return null;
-    }
-
-    /**
      * Loads the synchronization metadata file from disk. If the file doesn't exist,
      * it returns a default empty metadata object.
      * @returns {Promise<object>} The parsed metadata object.
@@ -467,274 +142,6 @@ class SyncService extends Base {
             }
             throw error;
         }
-    }
-
-    /**
-     * Fetches all relevant issues from GitHub using GraphQL with automatic pagination.
-     * This single query fetches issues WITH their comments and relationships in one go!
-     * @param {object} metadata
-     * @returns {Promise<{newMetadata: object, stats: object}>}
-     * @private
-     */
-    async #pullFromGitHub(metadata) {
-        logger.info('📥 Fetching issues from GitHub via GraphQL...');
-
-        let allIssues   = [];
-        let hasNextPage = true;
-        let cursor      = null;
-        let totalCost   = 0;
-        const maxIssues = issueSyncConfig.maxIssues;
-
-        // Paginate through all issues
-        while (hasNextPage && allIssues.length < maxIssues) {
-            const data = await GraphqlService.query(
-                FETCH_ISSUES_FOR_SYNC,
-                {
-                    owner : aiConfig.owner,
-                    repo  : aiConfig.repo,
-                    limit : 100,
-                    cursor,
-                    states: ['OPEN', 'CLOSED'],
-                    since : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
-                    ...DEFAULT_QUERY_LIMITS
-                },
-                true // Enable sub-issues feature
-            );
-
-            const issues = data.repository.issues;
-            allIssues.push(...issues.nodes);
-
-            hasNextPage = issues.pageInfo.hasNextPage;
-            cursor      = issues.pageInfo.endCursor;
-
-            // Monitor rate limit usage
-            totalCost += data.rateLimit.cost;
-            logger.debug(`Fetched ${issues.nodes.length} issues (total: ${allIssues.length}, cost: ${totalCost}, remaining: ${data.rateLimit.remaining})`);
-
-            // Safety check: If rate limit is getting low, warn
-            if (data.rateLimit.remaining < 500) {
-                logger.warn(`⚠️ GraphQL rate limit low: ${data.rateLimit.remaining} remaining, resets at ${data.rateLimit.resetAt}`);
-            }
-        }
-
-        logger.info(`Found ${allIssues.length} issues updated since last sync`);
-
-        const newMetadata = {
-            issues      : { ...metadata.issues }, // Start with existing metadata
-            pushFailures: metadata.pushFailures || [],
-            lastSync    : new Date().toISOString()
-        };
-
-        const stats = {
-            pulled : { count: 0, created: 0, updated: 0, moved: 0, issues: [] },
-            dropped: { count: 0, issues: [] }
-        };
-
-        // Process each issue
-        for (const issue of allIssues) {
-            const issueNumber = issue.number;
-            const targetPath  = this.#getIssuePath(issue);
-
-            if (!targetPath) {
-                stats.dropped.count++;
-                stats.dropped.issues.push(issueNumber);
-                const oldPath = metadata.issues[issueNumber]?.path;
-                if (oldPath) {
-                    try {
-                        await fs.unlink(oldPath);
-                        logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
-                    } catch (e) { /* File might not exist */ }
-                }
-                // Remove from metadata
-                delete newMetadata.issues[issueNumber];
-                continue;
-            }
-
-            const oldIssue = metadata.issues[issueNumber];
-            const needsUpdate = !oldIssue ||
-                oldIssue.updated !== issue.updatedAt ||
-                oldIssue.path !== targetPath;
-
-            let contentHash = oldIssue?.contentHash;
-
-            if (needsUpdate) {
-                stats.pulled.count++;
-                stats.pulled.issues.push(issueNumber);
-
-                // Comments are already in issue.comments - no separate fetch needed!
-                const markdown = this.#formatIssueMarkdown(issue, issue.comments.nodes);
-                contentHash = this.#calculateContentHash(markdown);
-
-                await fs.mkdir(path.dirname(targetPath), { recursive: true });
-                await fs.writeFile(targetPath, markdown, 'utf-8');
-
-                if (!oldIssue) {
-                    stats.pulled.created++;
-                    logger.info(`✨ Created #${issueNumber}: ${targetPath}`);
-                } else if (oldIssue.path && oldIssue.path !== targetPath) {
-                    stats.pulled.moved++;
-                    try {
-                        await fs.rename(oldIssue.path, targetPath);
-                        logger.info(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
-                    } catch (e) {
-                        logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
-                        await fs.unlink(oldIssue.path).catch(() => {});
-                    }
-                } else {
-                    stats.pulled.updated++;
-                    logger.info(`✅ Updated #${issueNumber}: ${targetPath}`);
-                }
-            }
-
-            newMetadata.issues[issueNumber] = {
-                state    : issue.state,
-                path     : targetPath,
-                updated  : issue.updatedAt,
-                closedAt : issue.closedAt || null,
-                milestone: issue.milestone?.title || null,
-                title    : issue.title,
-                contentHash // Store hash for push comparison
-            };
-        }
-
-        return { newMetadata, stats };
-    }
-
-    /**
-     * Pushes local changes to GitHub using GraphQL mutations.
-     * Uses content hash comparison to detect actual changes and prevent false updates.
-     * @param {object} metadata
-     * @returns {Promise<object>}
-     * @private
-     */
-    async #pushToGitHub(metadata) {
-        logger.info('📤 Checking for local changes to push via GraphQL...');
-        const stats = { count: 0, issues: [], failures: [] };
-
-        if (!metadata.lastSync) {
-            logger.info('✨ No previous sync found, skipping push.');
-            return stats;
-        }
-
-        const localFiles       = await this.#scanLocalFiles();
-        const previousFailures = metadata.pushFailures || [];
-
-        logger.debug(`Scanning ${localFiles.length} local files for changes...`);
-
-        for (const filePath of localFiles) {
-            try {
-                const content     = await fs.readFile(filePath, 'utf-8');
-                const parsed      = matter(content);
-                const issueNumber = parsed.data.id;
-
-                if (!issueNumber) {
-                    logger.debug(`Skipping file without issue number: ${path.basename(filePath)}`);
-                    continue;
-                }
-
-                // Calculate current content hash
-                const currentHash = this.#calculateContentHash(content);
-                const oldIssue    = metadata.issues[issueNumber];
-
-                // Skip if no metadata exists (shouldn't happen, but be safe)
-                if (!oldIssue) {
-                    logger.debug(`No metadata for #${issueNumber}, skipping push`);
-                    continue;
-                }
-
-                // Compare content hash - skip if unchanged
-                if (oldIssue.contentHash && oldIssue.contentHash === currentHash) {
-                    logger.debug(`No content change for #${issueNumber}, skipping`);
-                    continue;
-                }
-
-                // Skip previously failed pushes
-                if (previousFailures.includes(issueNumber)) {
-                    logger.debug(`Skipping previously failed push for issue #${issueNumber}`);
-                    stats.failures.push(issueNumber);
-                    continue;
-                }
-
-                logger.info(`📝 Content changed for #${issueNumber}`);
-
-                // Step 1: Get the issue's GraphQL ID
-                const idData = await GraphqlService.query(GET_ISSUE_ID, {
-                    owner : aiConfig.owner,
-                    repo  : aiConfig.repo,
-                    number: issueNumber
-                });
-
-                const issueId = idData.repository.issue.id;
-
-                // Step 2: Prepare the updated content
-                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
-                const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
-                const title               = titleMatch ? titleMatch[1] : parsed.data.title;
-
-                const cleanBody = bodyWithoutComments
-                    .replace(/^#\s+.+$/m, '')
-                    .replace(/^\*\*Reported by:\*\*.+$/m, '')
-                    .replace(/^---\n\n[\s\S]*?^---\n\n/m, '') // Remove relationship section
-                    .trim();
-
-                // Step 3: Execute the mutation
-                await GraphqlService.query(UPDATE_ISSUE, {
-                    issueId,
-                    title,
-                    body: cleanBody
-                });
-
-                logger.info(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
-                stats.count++;
-                stats.issues.push(issueNumber);
-            } catch (e) {
-                logger.warn(`⚠️ Could not push changes for file ${path.basename(filePath)}. Error: ${e.message}`);
-                const parsed = matter(await fs.readFile(filePath, 'utf-8'));
-                if (parsed.data.id) {
-                    stats.failures.push(parsed.data.id);
-                }
-            }
-        }
-
-        if (stats.count > 0) {
-            logger.info(`📤 Pushed ${stats.count} local change(s) to GitHub`);
-        }
-        if (stats.failures.length > 0) {
-            logger.warn(`⚠️ Encountered ${stats.failures.length} push failure(s).`);
-        }
-
-        return stats;
-    }
-
-    /**
-     * Recursively scans the configured issue directory to find all local .md issue files.
-     * This operation is intentionally limited to the active issues directory as a performance
-     * optimization, based on the assumption that closed/archived issues are immutable and
-     * do not need to be checked for local changes to push.
-     * @returns {Promise<string[]>} A flat list of absolute file paths for all found issue files.
-     * @private
-     */
-    async #scanLocalFiles() {
-        const localFiles = [];
-        const scanDir = async (dir) => {
-            try {
-                const entries = await fs.readdir(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const fullPath = path.join(dir, entry.name);
-                    if (entry.isDirectory()) {
-                        await scanDir(fullPath);
-                    } else if (entry.isFile() && entry.name.endsWith('.md')) {
-                        localFiles.push(fullPath);
-                    }
-                }
-            } catch (e) {
-                // Directory doesn't exist yet, which is fine.
-            }
-        };
-
-        await scanDir(issueSyncConfig.issuesDir);
-
-        return localFiles;
     }
 
     /**
