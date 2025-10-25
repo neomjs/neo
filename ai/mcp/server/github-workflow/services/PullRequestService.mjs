@@ -148,9 +148,20 @@ class PullRequestService extends Base {
         let finalBody;
 
         if (agent) {
-            const header          = `**Input from ${agent}:**\n\n`;
-            const prefixedBody    = AGENT_ICONS[this.getAgentType(agent)] + ' ' + body;
-            const blockquotedBody = prefixedBody.split('\n').map(line => `> ${line}`).join('\n');
+            const header       = `**Input from ${agent}:**\n\n`;
+            const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
+            const headingMatch = body.match(/^(#+\s*)(.*)$/); // Capture heading markers and content
+            let processedBody;
+
+            if (headingMatch) {
+                const headingMarkers = headingMatch[1]; // e.g., "### "
+                const headingContent = headingMatch[2]; // e.g., "Review: Approved"
+                processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
+            } else {
+                processedBody = `${agentIcon} ${body}`;
+            }
+
+            const blockquotedBody = processedBody.split('\n').map(line => `> ${line}`).join('\n');
 
             finalBody = `${header}${blockquotedBody}`;
         } else {
