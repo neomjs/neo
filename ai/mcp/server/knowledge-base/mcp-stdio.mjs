@@ -5,6 +5,8 @@ import Neo                                             from '../../../../src/Neo
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
 import logger                                          from './logger.mjs';
+import ChromaManager                                   from './services/ChromaManager.mjs';
+import HealthService                                   from './services/HealthService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 const server = new Server({
@@ -98,8 +100,55 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 });
 
-// Start the stdio transport
+/**
+ * Main startup sequence for the Knowledge Base MCP server.
+ *
+ * Performs the following steps:
+ * 1. Wait for async services - ensures ChromaManager is initialized
+ * 2. Health check - verifies ChromaDB connectivity
+ * 3. Status reporting - logs detailed diagnostics
+ * 4. Server startup - connects stdio transport
+ *
+ * The server starts even if ChromaDB is unavailable, but tools will fail
+ * gracefully with helpful error messages until dependencies are resolved.
+ */
 async function main() {
+    // Wait for async services to initialize (fixes race condition)
+    await ChromaManager.ready();
+    // Perform initial health check (non-blocking)
+    const health = await HealthService.healthcheck();
+
+    // Report status based on health check results
+    if (health.status === 'unhealthy') {
+        logger.warn('⚠️  [Startup] Knowledge Base is unhealthy. Server will start but tools will fail until resolved.');
+        health.details.forEach(detail => logger.warn(`    ${detail}`));
+
+        // Provide helpful guidance based on process status
+        if (!health.database.process.running) {
+            logger.warn('    💡 Tip: Use the start_database tool after server starts, or run:');
+            logger.warn(`       chroma run --path ${process.env.CHROMA_DATA_PATH || './data/chroma'} --port ${process.env.CHROMA_PORT || '8000'}`);
+        }
+        logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
+    } else if (health.status === 'degraded') {
+        logger.warn('⚠️  [Startup] Knowledge Base is degraded. Some features may be unavailable.');
+        health.details.forEach(detail => logger.warn(`    ${detail}`));
+
+        logger.info('✅ [Startup] ChromaDB connectivity confirmed');
+        if (health.database.connection.collections) {
+            logger.info(`   - Knowledge Base: ${health.database.connection.collections.knowledgeBase.count}`);
+        }
+    } else {
+        // Fully healthy - log success and collection stats
+        logger.info('✅ [Startup] Knowledge Base health check passed');
+        if (health.database.connection.collections) {
+            logger.info(`   - Knowledge Base: ${health.database.connection.collections.knowledgeBase.count}`);
+        }
+
+        // For this scope, we leave the fully healthy logic empty.
+        // A follow-up ticket will address specific actions for a healthy state.
+    }
+
+    // Start the stdio transport
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
