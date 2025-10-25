@@ -4,6 +4,7 @@ import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotoc
 import Neo                                             from '../../../../src/Neo.mjs';
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
+import ChromaManager                                   from './services/ChromaManager.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import SessionService                                  from './services/SessionService.mjs';
 import logger                                          from './logger.mjs';
@@ -155,6 +156,9 @@ async function summarizeSessionsOnStartup() {
  * gracefully with helpful error messages until dependencies are resolved.
  */
 async function main() {
+    // Wait for async services to initialize
+    await ChromaManager.ready();
+
     // Perform initial health check (non-blocking)
     const health = await HealthService.healthcheck();
 

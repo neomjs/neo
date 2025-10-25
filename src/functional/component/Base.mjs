@@ -102,6 +102,8 @@ class FunctionalBase extends Abstract {
      * @protected
      */
     afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue);
+
         const me = this;
 
         if (value && me.missedReadyState) {

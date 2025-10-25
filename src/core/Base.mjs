@@ -130,8 +130,7 @@ class Base {
         /**
          * The config will get set to `true` once the Promise of `async initAsync()` is resolved.
          * You can use `afterSetIsReady()` to get notified once the ready state is reached.
-         * Since not all classes use the Observable mixin, Neo will not fire an event.
-         * method body.
+         * For observable classes, this will also fire a `ready` event.
          * @member {Boolean} isReady_=false
          * @reactive
          */
@@ -166,6 +165,18 @@ class Base {
      * @private
      */
     #configs = {};
+    /**
+     * A promise that resolves when the instance is fully initialized (after initAsync() completes).
+     * @member {Promise<void>|null} #readyPromise
+     * @private
+     */
+    #readyPromise = null;
+    /**
+     * A resolver function for the ready promise.
+     * @member {Function|null} #readyResolver
+     * @private
+     */
+    #readyResolver = null;
     /**
      * Internal cache for all config subscription cleanup functions.
      * @member {Function[]} #configSubscriptionCleanups=[]
@@ -252,6 +263,11 @@ class Base {
          */
         intercept(me, 'destroy', me.isDestroyedCheck, me);
 
+        // Storing a resolver to execute inside `afterSetIsReady`.
+        me.#readyPromise = new Promise(resolve => {
+            me.#readyResolver = resolve
+        });
+
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
             await me.initAsync();
@@ -286,6 +302,24 @@ class Base {
                 Neo.idMap ??= {};
                 Neo.idMap[value] = me
             }
+        }
+    }
+
+    /**
+     * Triggered after the isReady config gets changed.
+     * Resolves the ready() promise and fires the ready event for observable classes.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsReady(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            me.#readyResolver?.();
+
+            // We can only fire the event in case the Observable mixin is included.
+            me.getStaticConfig('observable') && me.fire('ready')
         }
     }
 
@@ -782,6 +816,16 @@ class Base {
 
             me.processConfigs(forceAssign)
         }
+    }
+
+    /**
+     * Returns a promise that resolves when the instance is fully initialized (after initAsync).
+     * Use case: alternative way to subscribe to the ready state, especially for classes which are not observable.
+     * @example: await ChromaManager.ready();
+     * @returns {Promise<void>}
+     */
+    ready() {
+        return this.#readyPromise;
     }
 
     /**
