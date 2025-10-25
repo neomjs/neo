@@ -1,0 +1,48 @@
+---
+id: 7650
+title: >-
+  Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related
+  Commits
+state: OPEN
+labels:
+  - enhancement
+  - ai
+assignees:
+  - tobiu
+createdAt: '2025-10-25T17:29:01Z'
+updatedAt: '2025-10-25T17:29:17Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7650'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+---
+# Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related Commits
+
+**Reported by:** @tobiu on 2025-10-25
+
+This ticket proposes an enhancement to the local issue synchronization process to include more comprehensive information from GitHub issues, specifically timeline events and related commits. This will provide a richer and more complete historical context within the local Markdown issue files.
+
+**Motivation:**
+GitHub issue pages display a wealth of information beyond just the issue description and comments, including:
+*   Assignment changes (self-assigned, unassigned)
+*   Label additions/removals
+*   Parent/sub-issue relationships
+*   References to commits (even without a direct PR link, e.g., via commit messages containing issue IDs)
+*   Issue state changes (opened, closed, reopened)
+
+Currently, our local Markdown tickets only capture a subset of this information. Integrating these timeline events and related commits will make the local tickets more self-contained and valuable for understanding the full history and context of an issue without needing to constantly refer back to GitHub.
+
+**Proposed Changes:**
+
+1.  **Extend GraphQL Queries:**
+    *   Modify the `FETCH_ISSUES_FOR_SYNC` query in `issueQueries.mjs` to fetch `timelineItems` (including events like `AssignedEvent`, `LabeledEvent`, `ClosedEvent`, `ReferencedEvent` for commits/PRs) and potentially `linkedPullRequests` with their associated commit details.
+
+2.  **Update `#formatIssueMarkdown` Method:**
+    *   Enhance the `#formatIssueMarkdown` method in `IssueSyncer.mjs` to parse and format the newly fetched timeline events and commit information.
+    *   Introduce new sections within the Markdown body (e.g., "Activity Log" or "Related Commits") to present this information clearly and chronologically.
+
+This enhancement will significantly improve the utility and completeness of our local issue tracking.
+
