@@ -3,28 +3,20 @@ import aiConfig       from '../config.mjs';
 import logger         from '../logger.mjs';
 import Base           from '../../../../../src/core/Base.mjs';
 import ChromaManager  from './ChromaManager.mjs';
-import Observable     from '../../../../../src/core/Observable.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Knowledge Base.
- * @class Neo.ai.mcp.server.knowledge-base.service.DatabaseLifecycleService
+ * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseLifecycleService extends Base {
-    /**
-     * True automatically applies the core.Observable mixin
-     * @member {Boolean} observable=true
-     * @static
-     */
-    static observable = true;
-
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.DatabaseLifecycleService'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.service.DatabaseLifecycleService',
+        className: 'Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService',
         /**
          * Holds the child process object for the ChromaDB server.
          * @member {ChildProcess|null} chromaProcess=null
@@ -120,7 +112,7 @@ class DatabaseLifecycleService extends Base {
      * Gets the status of the ChromaDB process.
      * @returns {object} The status of the ChromaDB process.
      */
-    get_database_status() {
+    getDatabaseStatus() {
         if (this.chromaProcess && !this.chromaProcess.killed) {
             return { running: true, pid: this.chromaProcess.pid, managed: true };
         }

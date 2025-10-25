@@ -6,17 +6,17 @@ import {FETCH_LABELS} from './queries/labelQueries.mjs';
 
 /**
  * Service for interacting with GitHub labels via the GraphQL API.
- * @class Neo.ai.mcp.server.github-workflow.LabelService
+ * @class Neo.ai.mcp.server.github-workflow.services.LabelService
  * @extends Neo.core.Base
  * @singleton
  */
 class LabelService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.LabelService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.LabelService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.LabelService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.LabelService',
         /**
          * @member {Boolean} singleton=true
          * @protected

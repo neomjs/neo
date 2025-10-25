@@ -32,17 +32,17 @@ const sectionsRegex = /(?=^#+\s)/m;
  *
  * The service provides methods for the full lifecycle of the knowledge base, from creation and
  * synchronization to deletion.
- * @class Neo.ai.mcp.server.knowledge-base.service.DatabaseService
+ * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.DatabaseService'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.DatabaseService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.service.DatabaseService',
+        className: 'Neo.ai.mcp.server.knowledge-base.services.DatabaseService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -4,17 +4,17 @@ import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
  * Service for handling deleting, listing, and querying session summaries.
- * @class AI.mcp.server.memory-core.SummaryService
+ * @class AI.mcp.server.memory-core.services.SummaryService
  * @extends Neo.core.Base
  * @singleton
  */
 class SummaryService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.SummaryService'
+         * @member {String} className='AI.mcp.server.memory-core.services.SummaryService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.SummaryService',
+        className: 'AI.mcp.server.memory-core.services.SummaryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

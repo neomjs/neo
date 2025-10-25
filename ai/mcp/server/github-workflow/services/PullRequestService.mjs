@@ -23,17 +23,17 @@ const AGENT_ICONS = {
 
 /**
  * Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
- * @class Neo.ai.mcp.server.github-workflow.PullRequestService
+ * @class Neo.ai.mcp.server.github-workflow.services.PullRequestService
  * @extends Neo.core.Base
  * @singleton
  */
 class PullRequestService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.PullRequestService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.PullRequestService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.PullRequestService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.PullRequestService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -21,17 +21,17 @@ import logger                   from '../logger.mjs';
  * when ChromaDB is not available, while failing gracefully at the tool-call level with helpful
  * error messages to guide users toward resolution.
  *
- * @class AI.mcp.server.memory-core.HealthService
+ * @class AI.mcp.server.memory-core.services.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.HealthService'
+         * @member {String} className='AI.mcp.server.memory-core.services.HealthService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.HealthService',
+        className: 'AI.mcp.server.memory-core.services.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -15,17 +15,17 @@ import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
  *   and save the updated metadata at the end.
  *
  * The main entry point is the `runFullSync` method, which executes the entire orchestration sequence.
- * @class Neo.ai.mcp.server.github-workflow.SyncService
+ * @class Neo.ai.mcp.server.github-workflow.services.SyncService
  * @extends Neo.core.Base
  * @singleton
  */
 class SyncService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.SyncService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.SyncService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.SyncService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.SyncService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -6,17 +6,17 @@ import path     from 'path';
 
 /**
  * Service for local file system lookups related to the GitHub workflow.
- * @class Neo.ai.mcp.server.github-workflow.LocalFileService
+ * @class Neo.ai.mcp.server.github-workflow.services.LocalFileService
  * @extends Neo.core.Base
  * @singleton
  */
 class LocalFileService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.LocalFileService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.LocalFileService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.LocalFileService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.LocalFileService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -6,17 +6,17 @@ import {GET_VIEWER_PERMISSION} from './queries/repositoryQueries.mjs';
 
 /**
  * Service for interacting with the GitHub repository itself.
- * @class Neo.ai.mcp.server.github-workflow.RepositoryService
+ * @class Neo.ai.mcp.server.github-workflow.services.RepositoryService
  * @extends Neo.core.Base
  * @singleton
  */
 class RepositoryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.RepositoryService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.RepositoryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.RepositoryService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.RepositoryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -13,17 +13,17 @@ const execAsync = promisify(exec);
 
 /**
  * Service for interacting with GitHub issues via the GraphQL API.
- * @class Neo.ai.mcp.server.github-workflow.IssueService
+ * @class Neo.ai.mcp.server.github-workflow.services.IssueService
  * @extends Neo.core.Base
  * @singleton
  */
 class IssueService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.IssueService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.IssueService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.IssueService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.IssueService',
         /**
          * @member {Boolean} singleton=true
          * @protected

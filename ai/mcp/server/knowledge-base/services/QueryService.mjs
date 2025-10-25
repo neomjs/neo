@@ -17,17 +17,17 @@ dotenv.config({
  * It takes a natural language query, generates an embedding for it, and queries the
  * ChromaDB vector store. It then applies a sophisticated scoring and ranking algorithm
  * to the results to provide the most relevant source files to the user.
- * @class Neo.ai.mcp.server.knowledge-base.service.QueryService
+ * @class Neo.ai.mcp.server.knowledge-base.services.QueryService
  * @extends Neo.core.Base
  * @singleton
  */
 class QueryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.service.QueryService'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.QueryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.service.QueryService',
+        className: 'Neo.ai.mcp.server.knowledge-base.services.QueryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

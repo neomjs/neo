@@ -12,17 +12,17 @@ const execAsync = promisify(exec);
  * It handles fetching the auth token from the `gh` CLI, caching it, and attaching it to
  * all outgoing requests. It also provides a generic `query` method for executing
  * GraphQL operations and basic error handling.
- * @class Neo.ai.mcp.server.github-workflow.GraphqlService
+ * @class Neo.ai.mcp.server.github-workflow.services.GraphqlService
  * @extends Neo.core.Base
  * @singleton
  */
 class GraphqlService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.GraphqlService'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.GraphqlService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.GraphqlService',
+        className: 'Neo.ai.mcp.server.github-workflow.services.GraphqlService',
         /**
          * @member {Boolean} singleton=true
          * @protected
