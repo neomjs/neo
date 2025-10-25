@@ -72,6 +72,22 @@ class HealthService extends Base {
     #previousStatus = null;
 
     /**
+     * Tracks whether startup summarization has been attempted.
+     * This helps agents understand if they need to manually trigger summarization.
+     * Values: 'pending', 'completed', 'failed', 'skipped', null (if not yet attempted)
+     * @member {string|null} #startupSummarizationStatus
+     * @private
+     */
+    #startupSummarizationStatus = null;
+
+    /**
+     * Details about the startup summarization attempt
+     * @member {Object|null} #startupSummarizationDetails
+     * @private
+     */
+    #startupSummarizationDetails = null;
+
+    /**
      * Checks if ChromaDB is running and accessible.
      *
      * Intent: This is the most critical check. Without ChromaDB running, no memory
@@ -188,21 +204,25 @@ class HealthService extends Base {
      */
     async #performHealthCheck() {
         const payload = {
-            status: 'healthy',
+            status   : 'healthy',
             timestamp: new Date().toISOString(),
-            database: {
+            database : {
                 process: DatabaseLifecycleService.getDatabaseStatus(),
                 connection: {
-                    connected: false,
+                    connected  : false,
                     collections: null
                 }
             },
             features: {
                 summarization: false
             },
+            startup: {
+                summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
+                summarizationDetails: this.#startupSummarizationDetails
+            },
             details: [],
             version: '1.0.0',
-            uptime: process.uptime()
+            uptime : process.uptime()
         };
 
         // Step 1: Check ChromaDB connectivity
@@ -346,6 +366,20 @@ class HealthService extends Base {
             const statusMsg = health.status === 'unhealthy' ? 'not available' : 'not fully operational';
             throw new Error(`Memory Core is ${statusMsg}:\n  - ${details}`);
         }
+    }
+
+    /**
+     * Records the result of startup summarization attempt.
+     * Called by the startup sequence in mcp-stdio.mjs
+     * @param {string} status - One of: 'completed', 'failed', 'skipped'
+     * @param {Object} details - Additional information about the summarization
+     */
+    recordStartupSummarization(status, details = null) {
+        this.#startupSummarizationStatus  = status;
+        this.#startupSummarizationDetails = details;
+
+        // Clear the cache to ensure next healthcheck returns updated info
+        this.clearCache();
     }
 
     /**

@@ -555,6 +555,26 @@ components:
               type: boolean
               description: "Indicates if the summarization feature is available (requires GEMINI_API_KEY)."
               example: true
+        startup:
+          type: object
+          description: "Provides status on asynchronous tasks performed at server startup."
+          properties:
+            summarizationStatus:
+              type: string
+              enum: [not_attempted, skipped, completed, failed]
+              description: "The status of the automatic session summarization attempt at startup."
+              example: "completed"
+            summarizationDetails:
+              type: object
+              nullable: true
+              description: "Details about the summarization result, present if status is 'completed' or 'failed'."
+              example:
+                processed: 2
+                sessions:
+                  - title: "Implement MCP Server Configuration"
+                    memoryCount: 15
+                  - title: "Debugged UI Rendering Issue"
+                    memoryCount: 25
         details:
           type: array
           items:

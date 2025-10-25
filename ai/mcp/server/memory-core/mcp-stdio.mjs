@@ -120,45 +120,52 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 /**
  * Proactively summarizes unsummarized sessions on startup.
  * Runs asynchronously to avoid blocking server startup.
- * 
+ * Records the result in HealthService so agents can see what happened.
+ *
  * @returns {Promise<void>}
  */
 async function summarizeSessionsOnStartup() {
     logger.info('[Startup] Checking for unsummarized sessions...');
-    
+
     try {
         const result = await SessionService.summarizeSessions({});
-        
+
         if (result.processed > 0) {
             logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
             result.sessions.forEach(session => {
                 logger.info(`   - ${session.title} (${session.memoryCount} memories)`);
             });
+            HealthService.recordStartupSummarization('completed', {
+                processed: result.processed,
+                sessions : result.sessions.map(s => ({ title: s.title, memoryCount: s.memoryCount }))
+            });
         } else {
             logger.info('[Startup] No unsummarized sessions found');
+            HealthService.recordStartupSummarization('completed', { processed: 0 });
         }
     } catch (error) {
         logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
         logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
+        HealthService.recordStartupSummarization('failed', { error: error.message });
     }
 }
 
 /**
  * Main startup sequence for the Memory Core MCP server.
- * 
+ *
  * Performs the following steps:
- * 1. Health check - verifies ChromaDB connectivity
- * 2. Status reporting - logs detailed diagnostics
- * 3. Auto-summarization - processes unsummarized sessions (if healthy)
- * 4. Server startup - connects stdio transport
- * 
+ * 1. Wait for async services - ensures ChromaManager is initialized
+ * 2. Health check - verifies ChromaDB connectivity
+ * 3. Status reporting - logs detailed diagnostics
+ * 4. Auto-summarization - processes unsummarized sessions (if healthy)
+ * 5. Server startup - connects stdio transport
+ *
  * The server starts even if ChromaDB is unavailable, but tools will fail
  * gracefully with helpful error messages until dependencies are resolved.
  */
 async function main() {
-    // Wait for async services to initialize
+    // Wait for async services to initialize (fixes race condition)
     await ChromaManager.ready();
-
     // Perform initial health check (non-blocking)
     const health = await HealthService.healthcheck();
 
@@ -166,7 +173,7 @@ async function main() {
     if (health.status === 'unhealthy') {
         logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
         health.details.forEach(detail => logger.warn(`    ${detail}`));
-        
+
         // Provide helpful guidance based on process status
         if (!health.database.process.running) {
             logger.warn('    💡 Tip: Use the start_database tool after server starts, or run:');
@@ -176,7 +183,7 @@ async function main() {
     } else if (health.status === 'degraded') {
         logger.warn('⚠️  [Startup] Memory Core is degraded. Some features may be unavailable.');
         health.details.forEach(detail => logger.warn(`    ${detail}`));
-        
+
         // Still proceed with summarization if ChromaDB is accessible, even without API key
         // This allows the user to see what would be summarized
         logger.info('✅ [Startup] ChromaDB connectivity confirmed');
@@ -191,7 +198,7 @@ async function main() {
             logger.info(`   - Memories: ${health.database.connection.collections.memories.count}`);
             logger.info(`   - Summaries: ${health.database.connection.collections.summaries.count}`);
         }
-        
+
         // Only auto-summarize if we're fully healthy
         if (health.features.summarization) {
             // Run summarization asynchronously (non-blocking)
@@ -201,6 +208,7 @@ async function main() {
         } else {
             logger.warn('⚠️  [Startup] GEMINI_API_KEY not set - skipping automatic session summarization');
             logger.warn('    Set GEMINI_API_KEY environment variable to enable summarization features');
+            HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
         }
     }
 
