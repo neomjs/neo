@@ -230,10 +230,10 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Adds a comment to a specific pull request.
+        Adds a formatted comment to a specific pull request. The tool automatically adds a header indicating the AI agent source and prefixes the comment with a special icon.
 
         **When to Use:**
-        Use this tool to add review comments, ask questions, or provide feedback on a pull request.
+        Use this tool to add review comments, ask questions, or provide feedback on a pull request. Provide the raw comment content in the `body` parameter.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -254,8 +254,12 @@ paths:
               properties:
                 body:
                   type: string
-                  description: The content of the comment.
+                  description: The raw, unformatted content of the comment. The tool will handle templating.
                   example: "This looks great!"
+                agent:
+                  type: string
+                  description: Your agent identity (e.g., "Gemini 2.5 pro"). Used to format the comment header.
+                  example: "Gemini 2.5 pro"
       responses:
         '201':
           description: Comment created successfully.

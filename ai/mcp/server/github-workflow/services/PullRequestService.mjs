@@ -109,21 +109,40 @@ class PullRequestService extends Base {
     /**
      * Creates a comment on a specific pull request.
      * @param {number} prNumber - The number of the pull request.
-     * @param {string} body - The content of the comment.
+     * @param {string} body - The raw content of the comment, as the tool now handles formatting.
+     * @param {string} [agent] - The identity of the calling agent (e.g., "Gemini 2.5 pro").
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
-    async createComment(prNumber, body) {
+    async createComment(prNumber, body, agent) {
         const idVariables = {
             owner   : aiConfig.owner,
             repo    : aiConfig.repo,
             prNumber
         };
 
+        let finalBody;
+
+        if (agent) {
+            const header = `Input from ${agent}:\n\n`;
+            let icon = '';
+
+            if (agent.toLowerCase().includes('gemini')) {
+                icon = '✦ ';
+            } else if (agent.toLowerCase().includes('claude')) {
+                icon = '❋ ';
+            }
+            // The agent is expected to provide the body with any desired markdown (e.g., blockquotes).
+            // The tool's only job is to add the header and icon prefix.
+            finalBody = `${header}${icon}${body}`;
+        } else {
+            finalBody = body; // Fallback to raw body if no agent is specified
+        }
+
         try {
             const idData    = await GraphqlService.query(GET_PULL_REQUEST_ID, idVariables);
             const subjectId = idData.repository.pullRequest.id;
 
-            await GraphqlService.query(ADD_COMMENT, { subjectId, body });
+            await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
             return { message: `Successfully created comment on PR #${prNumber}` };
 
         } catch (error) {
