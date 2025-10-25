@@ -95,9 +95,9 @@ class ReleaseSyncer extends Base {
         // Phase 2: Full fetch with early exit
         logger.info('Fetching releases from GitHub via GraphQL...');
 
-        let allReleases = [];
-        let hasNextPage = true;
-        let cursor      = null;
+        let allReleases   = [];
+        let hasNextPage   = true;
+        let cursor        = null;
         const maxReleases = issueSyncConfig.maxReleases;
         const startDate   = new Date(issueSyncConfig.syncStartDate);
 
