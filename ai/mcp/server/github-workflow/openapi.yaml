@@ -572,12 +572,15 @@ paths:
         Creates a new issue on GitHub. This is the authoritative first step for creating a new ticket.
 
         **Workflow:**
-        1. Call this tool (`create_issue`) to create the issue on GitHub.
-        2. Call the `sync_all` tool to create the corresponding local Markdown file.
+        1. **Formulate:** Determine the appropriate `title`, `body`, and `labels` for the issue.
+        2. **Call Tool:** Call the `create_issue` tool with the complete content. The user will approve/decline the final tool call. Do NOT ask for confirmation beforehand.
+        3. **Sync:** After the issue is created, call the `sync_all` tool to create the corresponding local Markdown file.
 
-        **Important:**
-        The `labels` array must only contain labels that already exist in the repository.
-        If you are unsure about the available labels, use the `list_labels` tool first.
+        **Labeling Rules (VERY IMPORTANT):**
+        - You MUST include the `ai` label on all tickets you create.
+        - You SHOULD also include one of the primary labels (`epic`, `enhancement`, `bug`) whenever applicable. Most tickets will fit into one of these categories.
+        - For other cases, like `documentation`, use the most appropriate label.
+        - Before using any labels, verify they exist by using the `list_labels` tool.
       tags: [Issues]
       requestBody:
         required: true
