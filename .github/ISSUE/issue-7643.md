@@ -1,14 +1,14 @@
 ---
 id: 7643
 title: 'Refactor: Implement MetadataManager for Sync Service'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
 assignees:
   - tobiu
 createdAt: '2025-10-25T10:22:30Z'
-updatedAt: '2025-10-25T10:24:23Z'
+updatedAt: '2025-10-25T12:26:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7643'
 author: tobiu
 commentsCount: 0
@@ -16,6 +16,7 @@ parentIssue: 7645
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-25T12:26:51Z'
 ---
 # Refactor: Implement MetadataManager for Sync Service
 
