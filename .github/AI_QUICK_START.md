@@ -5,6 +5,8 @@ for the Neo.mjs repository.
 
 ## 1. Prerequisites
 
+**AI Tooling on Windows:** The AI tooling for this project requires a Linux environment due to a third-party dependency (ChromaDB). If you are on Windows, you **MUST** use the Windows Subsystem for Linux (WSL). Please follow the [AI Tooling WSL Setup Guide](../learn/guides/ai/AiToolingWslSetup.md) before proceeding.
+
 Before you begin, ensure you have the following:
 
 1.  **Google Account**: You'll need one to access Google AI Studio for an API key, which is required to build the knowledge base. If you don't have one, you can create it at [accounts.google.com](https://accounts.google.com).

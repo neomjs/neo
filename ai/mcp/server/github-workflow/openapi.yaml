@@ -578,8 +578,9 @@ paths:
 
         **Workflow:**
         1. **Formulate:** Determine the appropriate `title`, `body`, and `labels` for the issue.
-        2. **Call Tool:** Call the `create_issue` tool with the complete content. The user will approve/decline the final tool call. Do NOT ask for confirmation beforehand.
-        3. **Sync:** After the issue is created, call the `sync_all` tool to create the corresponding local Markdown file.
+        2. **Call Tool:** Call the `create_issue` tool with the complete content.
+
+        After the issue is created on GitHub, you can get a local copy of it by running the `sync_all` tool at an appropriate time, such as when you are ready to push other local changes or when you want to refresh your local environment.
 
         **Labeling Rules (VERY IMPORTANT):**
         - You MUST include the `ai` label on all tickets you create.

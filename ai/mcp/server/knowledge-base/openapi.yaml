@@ -243,6 +243,11 @@ paths:
         2.  **Targeted Content-Type Searching:** Use the `type` parameter to focus your search. For conceptual
             explanations, use `type: 'guide'`. For concrete usage, use `type: 'example'`. For implementation
             details, use `type: 'src'`.
+
+        **Handling Failures:**
+        If this tool fails or throws an error, it may indicate a problem with this server. You should:
+        1.  Run the `healthcheck` tool for this server to diagnose the issue.
+        2.  If the server is unhealthy, consult the setup guide at `.github/AI_QUICK_START.md` to ensure the environment is configured correctly.
       tags: [Documents]
       requestBody:
         required: true

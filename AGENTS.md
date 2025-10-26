@@ -242,33 +242,10 @@ lifecycle methods, and integration with container components.
 - Use patterns from other frameworks inappropriately
 - Create code based on assumptions or training data
 
-### Handling Technical Failures
 
-If a query search returns no results, do not guess. Rephrase your query. Try to be more specific or use different
-keywords based on the knowledge you've gathered from reading the core files.
-
-If the `npm run ai:query` command itself fails or throws an error, consult the setup guide at `.github/AI_QUICK_START.md`
-to ensure the environment is configured correctly and the knowledge base is properly built.
 
 ## 4. Development Workflow: Triage and Gating Protocol
 
-### Hacktoberfest 2025 Onboarding Protocol (Temporary)
-
-**For the duration of October 2025, the following protocol is active for any user initiating a session related to Hacktoberfest contribution.**
-
-When a user expresses intent to contribute for Hacktoberfest, you **MUST** initiate a brief, conversational onboarding process before proceeding with any other task. Your goal is to guide them to a suitable first contribution that matches their skills and interests.
-
-1.  **Acknowledge and Welcome:** Start with a brief, welcoming message acknowledging their interest in contributing for Hacktoberfest.
-2.  **Ask About Background:** Inquire about their background to understand their perspective. e.g., *"To help find the perfect first contribution for you, could you tell me a bit about your background? Are you a professional developer, a student, a designer, a technical writer, or coming from another field?"*
-3.  **Ask About Interests:** Inquire about what kind of contribution they are most interested in making. e.g., *"And what kind of contribution are you most interested in making? Are you looking to write code, improve UI/UX design, enhance documentation, write a blog post about your experience, or something else?"*
-4.  **Synthesize and Recommend:** Based on their answers, recommend one of the contribution paths or a specific starter ticket.
-    *   *Example for a Designer:* "That's fantastic. We believe design is a critical part of a great framework. A high-impact contribution would be to review one of our existing apps, like the `Covid` app, and propose UI/UX improvements. You could create mockups or simply open an issue with detailed feedback. Would that be a good starting point for you?"
-    *   *Example for a Technical Writer:* "Excellent. Clear writing is incredibly valuable. A great first task would be to tackle our ticket for creating a new 'Getting Started' guide. It involves replacing an old, outdated guide with fresh, clear content. Does that sound like a good fit?"
-    *   *Example for a Senior Developer:* "That's great. Given your experience, you might be interested in exploring the framework's core. A great place to start would be to add intent-driven JSDoc comments to a foundational class like `Neo.component.Base`. This has a huge impact on the AI's knowledge. Does that sound interesting?"
-    *   *Example for a Junior Developer:* "Awesome. A perfect first contribution would be to build a new component example. We have a ticket to create a new example for `Neo.component.Toast` that would let you get hands-on with the UI components right away. Would you like to start there?"
-5.  **Proceed to Standard Workflow:** Once the user has agreed on a direction, you may then proceed with the standard "Ticket-First" Gate protocol.
-
----
 
 ### Step 1: Triage the Request
 
@@ -285,39 +262,11 @@ First, classify the user's request into one of two categories:
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to
 "let's do...", you must treat it as a new actionable request and start this protocol from Step 1.
 
-### 🚧 Step 2: The “Ticket-First” Gate  
-> ✅ *Updated October 2025 — integrates `npm run ai:create-gh-issue` workflow*
+### 🚧 Step 2: The “Ticket-First” Gate
 
-This step ensures that every actionable request is tracked both **locally** (via markdown tickets) and **publicly** (via GitHub issues).
+For any actionable request that requires modifying the repository, you **MUST** ensure a GitHub issue exists for the task *before* you begin implementation. This is a critical gating protocol.
 
-#### 1️⃣ Check for an Existing Ticket
-
-Look for an existing `.md` ticket inside `.github/ISSUE/`.
-- If found, confirm it matches the task context.
-- If not found, create a new one.
-
-> 💬 *Note:* Do **not** execute any file modifications before a valid ticket file exists.
-
----
-
-#### 2️⃣ Create a Local Ticket
-
-If no ticket exists:
-1. Create a `.md` file in `.github/ISSUE/` using a descriptive name.
-2. Include all mandatory fields:
-- Title
-- Description
-- Acceptance criteria
-- Assignee
-- Status
-3. Follow the markdown structure from `.github/TICKET_STRATEGY.md`.
-
-> 💬 *Comment:* Always pause for user acknowledgment after creating the ticket file.
-
----
-
-#### 3️⃣ Create a GitHub Issue Automatically
-Once the local ticket is confirmed by the user, use the `create_issue` tool, passing the `title`, `body`, and `labels` from the local ticket file.
+To create a new issue, you **MUST** use the `create_issue` tool. The tool's own documentation contains the complete, up-to-date workflow. You are required to follow the workflow described in the tool's documentation.
 
 ### Step 3: The Memory Core Protocol: Consolidating a "Turn"
 

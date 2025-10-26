@@ -1,8 +1,10 @@
-# Getting Started with Neo on Windows
+# Setting up the AI Development Environment on Windows with WSL
 
-Welcome! This guide provides a workaround for a known installation issue with **ChromaDB** on **x64 Windows** machines when setting up your AI development environment. 
+> **IMPORTANT NOTE:** The Neo.mjs framework runs perfectly on native Windows. This guide is **only** for setting up the AI development environment, which includes tools like the local Knowledge Base and Memory Core. These tools rely on the ChromaDB vector database, which has a known installation issue on native Windows (see [chroma-core/chroma#5188](https://github.com/chroma-core/chroma/issues/5188)).
+> 
+> The following instructions use the Windows Subsystem for Linux (WSL) as a robust workaround for this third-party dependency issue.
 
-It’s designed to help you get things running smoothly, but note that this isn’t a general requirement for using the Neo.mjs framework. Don’t worry if you’re new, we’ll go through each step clearly and simply.
+This guide provides a step-by-step walkthrough for setting up your AI development environment on Windows using WSL. This is the recommended approach to avoid a known installation issue with the ChromaDB vector database on native x64 Windows.
 
 
 ## What You'll Need
