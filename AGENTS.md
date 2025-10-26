@@ -53,24 +53,9 @@ At the beginning of every new session, you **MUST** perform the following steps 
 8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/ai/GitHubCLISetup.md` to understand the
     setup of GitHub CLI with a personal access token.
     
-9.  **Check for Memory Core and Initialize:** Determine the user's intent regarding the memory core by checking the status of the memory server (which runs on port 8001). You can do this by executing a health check, e.g., `curl --max-time 1 -s http://localhost:8001/api/v2/healthcheck`. **Note:** For debugging, the server's full API documentation is available via Swagger UI at `http://localhost:8001/docs/`.
-    -   **If the server IS running:** Assume the user intends to use it.
-        1.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments. This will automatically find and summarize all previous sessions that have not yet been summarized, ensuring that all prior work is indexed before the new session begins.
-        2.  **Generate New Session ID:** Generate a new, unique `sessionId` using `node -e "console.log(require('crypto').randomUUID())"`. This `sessionId` will be used for all memory operations within this session.
-        3.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
-        4.  Silently activate the memory core and proceed with the memory-enabled workflow. **Do not ask for permission.**
-    -   **If the server is NOT running:** The user's intent is unclear. You **MUST** ask for clarification: "The memory core server is not running. Would you like to enable it for this session? (yes/no)"
-        -   If the user responds **"yes"**:
-            1.  Instruct the user: "Please start the memory server in a separate terminal: `npm run ai:server-memory`"
-            2.  Wait for the user to confirm the server is running.
-            3.  Execute `npm run ai:setup-memory-db` to ensure the collection is initialized.
-            4.  **Summarize Previous Sessions:** Run `npm run ai:summarize-session` without any arguments to index previous work.
-            5.  The memory core is now active.
-            6.  **Generate New Session ID:** Generate a new, unique `sessionId` using `crypto.randomUUID()`.
-            7.  **Persist Initial Context:** Immediately save the context of the first turn (the user's prompt and this "enabling memory" response) to the memory core.
-        -   If the user responds **"no"**: Proceed with the session without the memory core.
-
-    **CRITICAL:** Once a session has been summarized, it is considered immutable. No further memories should be added to it.
+9.  **Check for Memory Core:** At the beginning of your session, you **MUST** check if the Memory Core is active by using the `healthcheck` tool for the `neo.mjs-memory-core` server.
+    -   **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save the context of every turn in the conversation. The server automatically handles all session management.
+    -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
@@ -334,25 +319,21 @@ If no ticket exists:
 #### 3️⃣ Create a GitHub Issue Automatically
 Once the local ticket is confirmed by the user, use the `create_issue` tool, passing the `title`, `body`, and `labels` from the local ticket file.
 
-### Step 3: The Memory Core Protocol: An All-or-Nothing Approach
+### Step 3: The Memory Core Protocol: The "Save-Then-Respond" Loop
 
-The agent's memory is the foundation for its long-term learning and accountability. Its use is governed by a strict protocol.
+If the Memory Core is active (see Session Initialization), its use is **mandatory and transactional** for the entire session.
 
-#### Persistence: Mandatory & Transactional
+**CRITICAL: Forgetting to save a turn is a critical failure resulting in permanent data loss.**
 
-**CRITICAL:** If the user agrees to enable the memory core, persistence becomes **mandatory and transactional** for the entire duration of that session. It is no longer a step in your plan; it is the unchangeable framework within which you operate.
-
-**Forgetting to save a turn is a critical failure resulting in permanent data loss.**
-
-Your operational loop in a memory-enabled session is an immutable transaction:
+Your operational loop is an immutable transaction:
 
 1.  Receive `PROMPT`.
 2.  Generate `THOUGHT` process.
-3.  Generate the final `RESPONSE` (including tool calls, errors, or admissions of confusion).
-4.  **BEFORE displaying the response to the user**, you **MUST** first save the context of the turn by calling the `add_memory` tool. Use the `sessionId`, `prompt`, `thought`, and `response` parameters.
-5.  Only after the memory is successfully persisted do you provide the `RESPONSE` to the user.
+3.  Generate the final `RESPONSE`.
+4.  **BEFORE** responding to the user, you **MUST** first save the context by calling the `add_memory` tool with the `prompt`, `thought`, and `response`.
+5.  You only provide the `RESPONSE` to the user after the memory is successfully persisted.
 
-This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory, making the conversation log a perfect, unabridged record of the interaction. Even if your thought process is derailed, you must save the context of that derailment *before* you communicate it.
+This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory.
 
 ### Step 3.1: Session Recovery Protocol
 
