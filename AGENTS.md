@@ -330,6 +330,8 @@ A single **turn** encompasses the entire agent process from receiving a user's `
 
 Instead of saving multiple "sub-turns", you **MUST** consolidate the entire interaction into a single memory at the very end of your process.
 
+**Pre-Flight Check:** Before executing any significant file modification (e.g., `replace`, `write_file`), you **MUST** add a "Pre-Flight Check" to your `thought` process. This involves explicitly stating your intention to save the consolidated turn *before* executing the file change. This acts as a mandatory cognitive checkpoint to ensure the save mandate is not forgotten.
+
 **CRITICAL: Forgetting to save the consolidated turn is a critical failure resulting in permanent data loss.**
 
 Your operational loop is an immutable transaction:
@@ -345,7 +347,9 @@ Your operational loop is an immutable transaction:
 
 This **"consolidate-then-save"** approach ensures that each memory is a rich, complete, and honest record of the entire problem-solving process for a single user query.
 
-### Step 3.1: Session Recovery Protocol
+### Step 3.1: Protocol for Recovering from Un-savable Turns
+
+A turn can be prematurely aborted by a hard tool or API error before the "Consolidate-Then-Save" step is reached. This results in an "un-savable turn" and a gap in the memory. This protocol is the critical safety net for this failure mode.
 
 **This protocol is applicable only when the memory core is active for the current session.**
 
