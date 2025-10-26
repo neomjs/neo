@@ -32,6 +32,7 @@
         {"name": "Creating Your First App", "parentId": "GettingStarted", "id": "gettingstarted/CreatingYourFirstApp"},
     {"name": "Guides",                                                 "parentId": null,                                 "isLeaf": false, "id": "guides", "collapsed": true},
         {"name": "Fundamentals & Core Concepts",                       "parentId": "guides",                             "isLeaf": false, "id": "guides/fundamentals", "collapsed": true},
+            {"name": "Codebase Overview",                              "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/CodebaseOverview"},
             {"name": "Application Bootstrap",                          "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ApplicationBootstrap"},
             {"name": "Instance Lifecycle",                             "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/InstanceLifecycle"},
             {"name": "Declarative Component Trees VS Imperative Vdom", "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom"},
