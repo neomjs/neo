@@ -370,6 +370,4 @@ Furthermore, after pulling changes, the local knowledge base may be out of sync.
 You should call the `sync_database` tool to re-embed the latest changes into the database.
 
 
-## PR & Issues Workflow Reference
 
-If your task involves reviewing pull requests or working with GitHub issues (e.g., checking out PR branches, validating changes, or adding review/comments), refer to `learn/guides/ai/pr-workflow.md`.

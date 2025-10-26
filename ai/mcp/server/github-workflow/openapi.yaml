@@ -107,7 +107,20 @@ paths:
         Retrieves a list of pull requests from the GitHub repository.
 
         **When to Use:**
-        Use this tool to get a high-level overview of pending work or to find a specific pull request number for use in other tools like `get_pull_request_diff` or `checkout_pull_request`.
+        - To get a high-level overview of pending work (using the default `state: 'open'`).
+        - To research historical context by looking at past work (e.g., using `state: 'closed'` or `state: 'merged'`).
+        - To find a specific pull request number for use in other tools.
+        - When the user asks questions like:
+          - "What pull requests are currently open?"
+          - "Show me recently merged PRs."
+
+        **Best Practices:**
+        - After calling this tool, summarize the list of PRs for the user.
+        - Highlight key details such as the PR number, title, author, and state.
+        - Avoid showing the raw JSON output to the user unless they explicitly ask for it.
+
+        **Future Enhancements:**
+        Note that a future feature will sync PR conversations to local markdown files, providing a more detailed way to review historical PRs. For now, this tool is the primary way to browse PR history.
       tags: [Pull Requests]
       parameters:
         - name: limit
@@ -153,6 +166,14 @@ paths:
 
         **When to Use:**
         Use this tool when you need to locally inspect the code changes of a pull request, run tests, or perform a more detailed review.
+
+        **Workflow:**
+        1. **Ensure your current work is committed or stashed.** Before switching branches, make sure you save your current work to prevent losing changes (e.g., using `git stash`).
+        2. **Check out the pull request branch** using this tool.
+        3. **Review and test the code locally.**
+        4. **Return to your previous branch** when you are done (e.g., using `git checkout -`).
+
+        **Safety Note:** Always commit or stash your changes before checking out a new branch to avoid losing work.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
@@ -230,10 +251,18 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Adds a formatted comment to a specific pull request. The tool automatically adds a header indicating the AI agent source and prefixes the comment with a special icon.
+        Adds a final review comment to a pull request, either approving it or requesting changes. This is the primary tool for summarizing the outcome of a PR review.
+
+        The tool automatically adds a header indicating the AI agent source and prefixes the comment with a special icon.
 
         **When to Use:**
-        Use this tool to add review comments, ask questions, or provide feedback on a pull request. Provide the raw comment content in the `body` parameter.
+        This tool is for providing a conclusive, final review on a pull request.
+
+        - **To Approve a PR:** Use this tool to leave a comment indicating your approval (e.g., "LGTM, thanks for the contribution!").
+        - **To Request Changes:** Use this tool to provide a clear, actionable list of changes required for the PR to be approved. This should be a summary of your findings after a detailed review.
+
+        **Note on Inline Comments:**
+        While this tool is for the final, summary comment, detailed line-by-line feedback should be provided through other means if available. This tool provides the final verdict.
       tags: [Pull Requests]
       parameters:
         - name: pr_number
