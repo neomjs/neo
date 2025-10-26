@@ -319,21 +319,31 @@ If no ticket exists:
 #### 3️⃣ Create a GitHub Issue Automatically
 Once the local ticket is confirmed by the user, use the `create_issue` tool, passing the `title`, `body`, and `labels` from the local ticket file.
 
-### Step 3: The Memory Core Protocol: The "Save-Then-Respond" Loop
+### Step 3: The Memory Core Protocol: Consolidating a "Turn"
 
-If the Memory Core is active (see Session Initialization), its use is **mandatory and transactional** for the entire session.
+If the Memory Core is active, its use is **mandatory and transactional**. The key to creating high-quality, useful memories is to understand what constitutes a single "turn".
 
-**CRITICAL: Forgetting to save a turn is a critical failure resulting in permanent data loss.**
+#### Defining a "Turn"
+A single **turn** encompasses the entire agent process from receiving a user's `PROMPT` to delivering the final `RESPONSE` that awaits the next user prompt. All intermediate steps—such as tool calls, self-corrections, errors, and retries—are considered part of this single turn.
+
+#### The "Consolidate-Then-Save" Protocol
+
+Instead of saving multiple "sub-turns", you **MUST** consolidate the entire interaction into a single memory at the very end of your process.
+
+**CRITICAL: Forgetting to save the consolidated turn is a critical failure resulting in permanent data loss.**
 
 Your operational loop is an immutable transaction:
 
 1.  Receive `PROMPT`.
-2.  Generate `THOUGHT` process.
-3.  Generate the final `RESPONSE`.
-4.  **BEFORE** responding to the user, you **MUST** first save the context by calling the `add_memory` tool with the `prompt`, `thought`, and `response`.
-5.  You only provide the `RESPONSE` to the user after the memory is successfully persisted.
+2.  Begin your `THOUGHT` process. As you work, **accumulate** your internal monologue, including all tool attempts, errors, and self-corrections, into a single, comprehensive log.
+3.  As you generate responses (e.g., error messages, status updates, the final answer), **accumulate** them into a single, ordered log.
+4.  At the end of your process, just **BEFORE** delivering the final response to the user, you **MUST** save the entire consolidated turn by calling the `add_memory` tool **once**.
+    *   `prompt`: The original user prompt.
+    *   `thought`: The complete, accumulated log of your internal monologue.
+    *   `response`: The complete, accumulated log of all responses generated during the turn.
+5.  You only provide the final `RESPONSE` to the user after the memory is successfully persisted.
 
-This **"save-then-respond"** sequence ensures that every piece of information the user sees is guaranteed to be in your long-term memory.
+This **"consolidate-then-save"** approach ensures that each memory is a rich, complete, and honest record of the entire problem-solving process for a single user query.
 
 ### Step 3.1: Session Recovery Protocol
 
