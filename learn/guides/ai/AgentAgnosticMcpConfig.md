@@ -201,16 +201,24 @@ The existing `.gemini/settings.json` file can reference this configuration:
 
 ```json
 {
-  "mcpServers": {
-    "neo-knowledge-base": {
-      "command": "node",
-      "args": ["buildScripts/ai/mcpAdapter.mjs", "neo-knowledge-base"]
-    },
-    "neo-memory-core": {
-      "command": "node", 
-      "args": ["buildScripts/ai/mcpAdapter.mjs", "neo-memory-core"]
+    "mcpServers": {
+        "chrome-devtools": {
+            "command": "npx",
+            "args"   : ["-y", "chrome-devtools-mcp@latest"]
+        },
+        "neo.mjs-github-workflow": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-github-workflow"]
+        },
+        "neo.mjs-knowledge-base": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-knowledge-base"]
+        },
+        "neo.mjs-memory-core": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-memory-core"]
+        }
     }
-  }
 }
 ```
 

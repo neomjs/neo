@@ -1,14 +1,14 @@
 ## GitHub CLI Setup
 
 ### Overview
-This guide explains how to set up the GitHub CLI using a Personal Access Token (PAT). It enables automattion of common repository tasks securely, such as reading issues, commenting on PRs, and checking out branches.
+This guide explains how to set up the GitHub CLI using a Personal Access Token (PAT). It enables automation of common repository tasks securely, such as reading issues, commenting on PRs, and checking out branches.
 By following the steps below, you ensure secure authentication while adhering to the principle of least privilege.
 
 ### Personal Access Tokens (PATs)
 
 GitHub provides **Fine-Grained PATs**, which are **repository-specific tokens** that allow limiting actions (such as viewing issues or commenting on PRs).
 
-> Fine-grained PATs are recommended for security and follow the principle of least privilege, giving the token only the minimum scopes it needs to perform specific actions.
+> Fine-grained PATs are recommended for security and follow the principle of the least privilege, giving the token only the minimum scopes it needs to perform specific actions.
 
 ### Creating a Fine-Grained PAT
 

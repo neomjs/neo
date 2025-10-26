@@ -52,17 +52,8 @@ At the beginning of every new session, you **MUST** perform the following steps 
 5.  **Read the Coding Guidelines:** Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and
     documentation changes adhere to the project's established standards, paying special attention to the
     JSDoc rules for configs.
-
-6.  **Read the Ticket Strategy:** Parse the file `.github/TICKET_STRATEGY.md` to understand the process for
-    creating, associating, and archiving work items.
-
-7.  **Read the Strategic Workflows Guide:** Parse the file `learn/guides/ai/StrategicWorkflows.md` to understand the
-    high-level strategies for combining your tools to solve complex problems.
-
-8.  **Read the Github CLI Setup Guide:** Parse the file `learn/guides/ai/GitHubCLISetup.md` to understand the
-    setup of GitHub CLI with a personal access token.
     
-9.  **Check for Memory Core:** At the beginning of your session, you **MUST** check if the Memory Core is active by using the `healthcheck` tool for the `neo.mjs-memory-core` server.
+6.  **Check for Memory Core:** At the beginning of your session, you **MUST** check if the Memory Core is active by using the `healthcheck` tool for the `neo.mjs-memory-core` server.
     -   **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save the context of every turn in the conversation. The server automatically handles all session management.
     -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools.
 
@@ -251,10 +242,7 @@ lifecycle methods, and integration with container components.
 - Use patterns from other frameworks inappropriately
 - Create code based on assumptions or training data
 
-
-
 ## 4. Development Workflow: Triage and Gating Protocol
-
 
 ### Step 1: Triage the Request
 
@@ -364,10 +352,7 @@ to the project's long-term maintainability.
 
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you
 should consider re-running your initialization steps (reading `structure.json`, `Neo.mjs`, and `core/Base.mjs`) to
-ensure your understanding is up-to-date.
+ensure your understanding is up to date.
 
 Furthermore, after pulling changes, the local knowledge base may be out of sync.
 You should call the `sync_database` tool to re-embed the latest changes into the database.
-
-
-
