@@ -315,12 +315,11 @@ Each example is self-contained and demonstrates one concept clearly.
 - AmCharts integration
 - Gallery and Helix components
 
-**RealWorld** (`apps/RealWorld/` and `apps/RealWorld2/`):
+**RealWorld** (`apps/RealWorld/`):
 - Standard benchmark application (Conduit clone)
 - Demonstrates full CRUD operations
 - Routing and navigation
 - Authentication and state management
-- Two versions (class-based and functional)
 
 ---
 
