@@ -73,174 +73,13 @@ something, you must find the answer using the query tool.
 
 Your most important tool is the local AI knowledge base. To use it, call the `query_documents` tool.
 
-- The `query` parameter is your natural language search query.
-- The `type` parameter is optional and allows you to filter results. Supported types are: `all` (default), `blog`, `example`, `guide`, `release`, `src` and `ticket`.
+**Critical**: The `query_documents` tool is self-documenting. Read its description carefully for:
+- How to interpret results
+- Query strategies for different scenarios
+- Content type filtering
+- Handling edge cases
 
-### How to Interpret Query Results
-
-The query tool will return a ranked list of source file paths based on relevance. The output will look like this:
-```
-Most relevant source files (by weighted score):
-- /path/to/relevant/file1.mjs (Score: 350)
-- /path/to/relevant/file2.md (Score: 210)
-- /path/to/relevant/file3.mjs (Score: 150)
-
-Top result: /path/to/relevant/file1.mjs
-```
-You should always start by reading the top-ranked file. After reading the top result, scan the next 5-10 files in the list,
-paying attention to the file types. Since `.md` guides often provide valuable conceptual context that `.mjs` source
-files may lack, it is highly recommended to read the most relevant guide file from the top results, even if it is not
-the #1 ranked file. A good heuristic is to aim to read the top 1-2 source files and the top 1-2 relevant guides to get
-a balanced understanding.
-
-- **Prioritize Content Types:** Always prioritize `guide` and `src` results for implementation details and current best
-  practices. Treat `blog` results as sources for historical and conceptual context; their code examples may be outdated.
-
-### Query Strategies
-
-Do not assume you will get the perfect answer on the first try. Use a systematic approach to querying.
-
-#### 1. Strategy for High-Level Conceptual Questions
-
-When asked a broad, high-level, or conceptual question (e.g., "what makes this framework stand out?"), you must use a
-more guided approach to find the most important "pillar content".
-
-1.  **Consult the Information Architecture:** Before formulating a query, read the file `learn/tree.json`.
-    This file defines the intended structure of the learning content.
-2.  **Identify Key Concepts:** Use the top-level categories in the tree (e.g., "Benefits", "Fundamentals") to identify
-    the most important concepts.
-3.  **Formulate Initial Query:** Base your first query on these high-level concepts to ensure you start your exploration
-    from the project's intended information architecture.
-
-#### 2. Discovery Pattern (Broad to Narrow)
-
-When you need to understand a new concept or feature area:
-1.  **Query Foundational Concepts First:** Always begin a broad inquiry by querying for foundational terms like
-    `"benefits"`, `"concept"`, `"architecture"`, and `"vision"`. Prioritize reading files from the `learn/benefits`
-    directory or top-level `README.md` and `.github/*.md` files if they appear in these initial results.
-2.  **Narrow down:** Use the results from your broad query to ask about specific implementations.
-    -   `query_documents(query='Button component examples')`
-    -   `query_documents(query='what is Neo.component.Base?')`
-3.  **Find related patterns:** Look for common conventions and approaches.
-    -   `query_documents(query='form validation patterns')`
-    -   `query_documents(query='how are stores implemented?')`
-
-#### 3. Targeted Content-Type Searching
-
-Use the `type` parameter to focus your search on specific types of content.
-This is a powerful way to get more relevant results.
-
--   **To find conceptual explanations:**
-    -   `query_documents(query='state management', type='guide')`
--   **To find concrete usage examples:**
-    -   `query_documents(query='Button component', type='example')`
--   **To dive deep into implementation details:**
-    -   `query_documents(query='afterSet hook', type='src')`
-
-**Strategy:** If a broad query returns too many source files and not enough conceptual documents, re-run the query with
-`-t guide`. Conversely, if you have read the guides but need to see the actual implementation,
-re-run with `-t src` or `-t example`.
-
-#### 4. Knowledge Base Enhancement Strategy: Contributing Queryable, Intent-Driven Comments
-
-When analyzing source files (e.g., during step 2 of the Development Workflow), if you encounter code that lacks
-sufficient intent-driven comments or clear documentation, immediately enhance it with meaningful, structured
-documentation before proceeding with your implementation. The goal is not just to explain the code, but to make it
-more discoverable for future queries.
-
-1.  **Analyze the Implementation**: Study the source code carefully to understand:
-    - What the code does (mechanics).
-    - Why it does it (intent).
-    - How it fits into the broader architecture.
-    - What patterns it follows.
-
-2.  **Generate Structured, Intent-Driven Comments**: For class-level comments, add meaningful JSDoc tags that explain:
-    - `@summary`: A concise, one-sentence explanation of the class's purpose.
-    - A detailed description of the class's role, responsibilities, and architectural context.
-    - `@see`: Links to other relevant classes, guides, or examples.
-
-3.  **Anticipate Future Queries**: After documenting the class's purpose, think like a user. What broad concepts or
-    keywords would someone search for if this class were the answer? Explicitly include these concepts in the
-    class description. This acts as a "semantic signpost" that makes the class more discoverable. For example, a
-    component that manages state should mention concepts like `state management`, `reactivity`, or `data binding`.
-
-4.  **Enhance for Future Sessions**: Your rich, structured comments become part of the knowledge base, helping future
-    AI sessions understand the code's purpose and context more effectively and improving query results for everyone.
-
-**Example of a Good Query-Driven Class Comment:**
-```javascript
-/**
- * @summary Manages a tabbed interface with a header toolbar and a content body.
- *
- * This class acts as the main orchestrator for a tabbed view. It uses a flexbox layout to arrange its
- * two primary children: a `Neo.tab.header.Toolbar` for the tab buttons and a `Neo.tab.BodyContainer`.
- * The `BodyContainer` is configured with a `card` layout. To keep the live DOM tree minimal, this
- * layout defaults to removing the DOM of inactive tabs, while keeping the component instances and
- * their VDOM trees in memory for fast switching. This behavior can be changed via the `removeInactiveCards` config.
- *
- * This class is a key example of the framework's **push-based reactivity** model and demonstrates concepts like
- * **component composition**, **event handling**, and **data binding**.
- *
- * @see Neo.examples.tab.Container
- * @class Neo.tab.Container
- * @extends Neo.container.Base
- */
-class TabContainer extends Container {
-    // Implementation details...
-}
-```
-
-#### 5. The Two-Stage Query Protocol: Knowledge and Memory
-
-To make fully informed decisions, you must leverage both the project's technical knowledge base and your own historical memory. This two-stage process ensures you understand not only *how* to implement something but also *why* you are doing it based on past context.
-
-1.  **Stage 1: Query for Knowledge (`query_documents`)**
-    -   **Purpose:** To understand the technical "how."
-    -   **Action:** Use the `query_documents` tool to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
-
-2.  **Stage 2: Query for Memory (`query_raw_memories`)**
-    -   **Purpose:** To understand the historical "why."
-    -   **Action:** After you have the technical context, use the `query_raw_memories` tool to search your own memory. This is crucial for understanding:
-        -   **Past Decisions:** Why was a feature built a certain way?
-        -   **User Requirements:** What were the specific needs or constraints mentioned in previous conversations?
-        -   **Avoided Pitfalls:** Have you tried a similar approach before that failed?
-
-**Synthesizing Information:**
-Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
-
-#### 6. When Queries Fail to Find Information
-
-If you cannot find relevant information after systematic querying (including using the Knowledge Base Enhancement Strategy):
-
-1. **Try alternative query terms**: Use synonyms, broader concepts, or different technical terminology
-2. **Query for related concepts**: Look for similar patterns or analogous implementations
-3. **Check fundamental concepts**: Ensure you understand the basic architecture before seeking specific solutions
-
-If queries consistently return no relevant results for your task:
-
-**STOP implementation and document the gap:**
-- Clearly describe what you were trying to accomplish
-- List the queries you attempted
-- Explain why existing results were insufficient
-- Suggest what type of documentation would help (guide, example, architectural explanation)
-
-**Example escalation:**
-```
-Unable to find information about: "implementing custom layout managers in Neo.mjs"
-
-Queries attempted:
-- "custom layout manager"
-- "layout implementation patterns"
-- "extending layout base class"
-
-Gap identified: Need learning guide covering layout manager development patterns,
-lifecycle methods, and integration with container components.
-```
-
-**Do NOT:**
-- Implement solutions based on incomplete information
-- Use patterns from other frameworks inappropriately
-- Create code based on assumptions or training data
+The tool contains complete guidance on effective querying. Follow its documented patterns.
 
 ## 4. Development Workflow: Triage and Gating Protocol
 
@@ -259,7 +98,7 @@ First, classify the user's request into one of two categories:
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to
 "let's do...", you must treat it as a new actionable request and start this protocol from Step 1.
 
-### 🚧 Step 2: The “Ticket-First” Gate
+### Step 2: The “Ticket-First” Gate
 
 For any actionable request that requires modifying the repository, you **MUST** ensure a GitHub issue exists for the task *before* you begin implementation. This is a critical gating protocol.
 
