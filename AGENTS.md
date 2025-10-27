@@ -39,9 +39,9 @@ At the beginning of every new session, you **MUST** perform the following steps 
     - The distinction between class namespaces (e.g., `Neo.component.Base`) and `ntype` shortcuts (e.g., `'button'`).
 
 3.  **Read the Base Class (`src/core/Base.mjs`):** This is the foundation for all components and classes. Focus on:
-    - The `static config` system: **CRITICAL:** You must deeply understand the difference between **reactive configs**
+    - The `static config` system: Understanding the difference between **reactive configs**
       (e.g., `myConfig_`), which generate `before/afterSet` hooks and are fundamental to the framework's reactivity,
-      and **non-reactive configs**, which are applied to the prototype. Misinterpreting this is a critical failure.
+      and **non-reactive configs**, which are applied to the prototype, is essential for working with the framework.
       The trailing underscore is the key indicator.
     - The instance lifecycle: `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
     - The reactivity hooks: `beforeGet*`, `beforeSet*`, `afterSet*`.
@@ -54,8 +54,8 @@ At the beginning of every new session, you **MUST** perform the following steps 
     JSDoc rules for configs.
     
 6.  **Check for Memory Core:** At the beginning of your session, you **MUST** check if the Memory Core is active by using the `healthcheck` tool for the `neo.mjs-memory-core` server.
-    -   **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save the context of every turn in the conversation. The server automatically handles all session management.
-    -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools.
+    -   **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save every turn. This creates a queryable history of your work that enables learning from past sessions and pattern recognition across time.
+    -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
 
@@ -80,6 +80,80 @@ Your most important tool is the local AI knowledge base. To use it, call the `qu
 - Handling edge cases
 
 The tool contains complete guidance on effective querying. Follow its documented patterns.
+
+### Knowledge Base Enhancement Strategy: Contributing Queryable, Intent-Driven Comments
+
+When analyzing source files, if you encounter code that lacks sufficient intent-driven comments or clear documentation,
+immediately enhance it with meaningful, structured documentation before proceeding with your implementation.
+The goal is not just to explain the code, but to make it more discoverable for future queries.
+
+1.  **Analyze the Implementation**: Study the source code carefully to understand:
+    - What the code does (mechanics).
+    - Why it does it (intent).
+    - How it fits into the broader architecture.
+    - What patterns it follows.
+
+2.  **Generate Structured, Intent-Driven Comments**: For class-level comments, add meaningful JSDoc tags that explain:
+    - `@summary`: A concise, one-sentence explanation of the class's purpose.
+    - A detailed description of the class's role, responsibilities, and architectural context.
+    - `@see`: Links to other relevant classes, guides, or examples.
+
+3.  **Anticipate Future Queries**: After documenting the class's purpose, think like a user. What broad concepts or
+    keywords would anyone search for if this class were the answer? Explicitly include these concepts in the
+    class description. This acts as a "semantic signpost" that makes the class more discoverable. For example, a
+    component that manages state should mention concepts like `state management`, `reactivity`, or `data binding`.
+
+4.  **Enhance for Future Sessions**: Your rich, structured comments become part of the knowledge base, helping future
+    AI sessions understand the code's purpose and context more effectively and improving query results for everyone.
+
+**Example of a Good Query-Driven Class Comment:**
+```javascript
+/**
+ * @summary Manages a tabbed interface with a header toolbar and a content body.
+ *
+ * This class acts as the main orchestrator for a tabbed view. It uses a flexbox layout to arrange its
+ * two primary children: a `Neo.tab.header.Toolbar` for the tab buttons and a `Neo.tab.BodyContainer`.
+ * The `BodyContainer` is configured with a `card` layout. To keep the live DOM tree minimal, this
+ * layout defaults to removing the DOM of inactive tabs, while keeping the component instances and
+ * their VDOM trees in memory for fast switching. This behavior can be changed via the `removeInactiveCards` config.
+ *
+ * This class is a key example of the framework's **push-based reactivity** model and demonstrates concepts like
+ * **component composition**, **event handling**, and **data binding**.
+ *
+ * @see Neo.examples.tab.Container
+ * @class Neo.tab.Container
+ * @extends Neo.container.Base
+ */
+class TabContainer extends Container {
+    // Implementation details...
+}
+```
+
+### The Two-Stage Query Protocol: Knowledge and Memory
+
+To make fully informed decisions, you must leverage both the project's technical knowledge base and your own historical memory. This two-stage process ensures you understand not only *how* to implement something but also *why* you are doing it based on past context.
+
+1.  **Stage 1: Query for Knowledge (`query_documents`)**
+    -   **Purpose:** To understand the technical "how."
+    -   **Action:** Use the `query_documents` tool to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
+
+2.  **Stage 2: Query for Memory**
+    -   **Purpose:** To understand the historical "why."
+    -   **Action:** Use memory queries to search your past work:
+        -   `query_raw_memories`: Search specific turn-by-turn interactions.
+        -   `query_summaries`: Search high-level session summaries for patterns.
+
+    **When to use summaries vs. raw memories:**
+    - Use `query_summaries` first to find relevant past sessions (faster, high-level).
+    - Use `query_raw_memories` to dive into specific implementation details from those sessions.
+
+    **Learning from past performance:**
+    - Query for similar tasks: "refactoring worker architecture"
+    - Check quality/productivity scores to see if you struggled before.
+    - Review what worked (high scores) and what failed (low scores).
+
+**Synthesizing Information:**
+Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
 
 ## 4. Development Workflow: Triage and Gating Protocol
 
@@ -115,7 +189,18 @@ A single **turn** encompasses the entire agent process from receiving a user's `
 
 Instead of saving multiple "sub-turns", you **MUST** consolidate the entire interaction into a single memory at the very end of your process.
 
-**Pre-Flight Check:** Before executing any significant file modification (e.g., `replace`, `write_file`), you **MUST** add a "Pre-Flight Check" to your `thought` process. This involves explicitly stating your intention to save the consolidated turn *before* executing the file change. This acts as a mandatory cognitive checkpoint to ensure the save mandate is not forgotten.
+**Pre-Flight Check Triggers:**
+
+You **MUST** execute a Pre-Flight Check before calling any of these tools:
+- `replace` (modifying file content)
+- `write_file` (creating or overwriting files)
+- `run_shell_command` (when the command modifies repository state)
+- Any other tool that changes files in the repository
+
+The Pre-Flight Check consists of explicitly stating in your internal thought process:
+"Pre-Flight Check: Before executing [TOOL_NAME], I will save the consolidated turn after completion."
+
+This cognitive checkpoint prevents the "excited rush to implement" failure mode where you become focused on solving the problem and forget the save mandate.
 
 **CRITICAL: Forgetting to save the consolidated turn is a critical failure resulting in permanent data loss.**
 
