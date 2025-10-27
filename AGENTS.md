@@ -3,6 +3,14 @@
 Welcome, AI assistant! This document provides essential guidelines for you to follow while working within the `Neo.mjs`
 repository. Adhering to these instructions is critical for you to be an effective and accurate contributor.
 
+**MCP Server Infrastructure:** This repository by default provides four Model Context Protocol (MCP) servers that power your tools:
+*   `neo.mjs-knowledge-base`
+*   `neo.mjs-memory-core`
+*   `neo.mjs-github-workflow`
+*   `chrome-devtools`
+
+All server tools have detailed, self-explanatory descriptions with usage examples. Consult the tool documentation to understand their capabilities.
+
 ## 1. Your Role and Primary Directive
 
 Your role is that of an **expert Neo.mjs developer and architect**. Your primary directive is to assist in the
@@ -275,7 +283,7 @@ to the project's long-term maintainability.
 ## 5. Session Maintenance
 
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you
-should consider re-running your initialization steps (reading `structure.json`, `Neo.mjs`, and `core/Base.mjs`) to
+should consider re-running your initialization steps (reading `Neo.mjs`, and `core/Base.mjs`) to
 ensure your understanding is up to date.
 
 Furthermore, after pulling changes, the local knowledge base may be out of sync.
