@@ -18,7 +18,12 @@ Neo.mjs is not a library. It's a **comprehensive web platform** with:
 
 The documentation lines count. They contain intent, architectural rationale, and usage patterns—knowledge that's as valuable as the code itself for understanding the platform.
 
-This scale is comparable to mature platforms like Ember or Angular. It represents a decade of architectural thinking about how web applications *should* work—and how AI agents *should* collaborate with them.
+**Note:** These metrics exclude:
+- The `/dist` directory (production builds, which would triple these numbers)
+- Markdown files in `/learn` (~100 files of guides, tutorials, and blog posts)
+- Generated documentation outputs
+
+This is not a small library—it's a comprehensive platform with more source code than many established frameworks. It represents a decade of architectural thinking about how web applications *should* work—and how AI agents *should* collaborate with them.
 
 ---
 
@@ -62,8 +67,8 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 ```javascript
 {
     tag: 'div',
-        cls: ['neo-container'],
-        cn: [/* children */]
+    cls: ['neo-container'],
+    cn: [/* children */]
 }
 ```
 
@@ -497,4 +502,6 @@ If you're coming from other frameworks, here are the key mental shifts:
 
 ## Remember
 
-This is a **158,000-line platform**, not a 5k-line library. Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.
+This is a **132,000-line knowledge base**, not a 5k-line library. And that's just the indexed source and JSDoc—it excludes the `/dist` production builds (which would triple it) and ~100 markdown files of learning content in `/learn`.
+
+Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.
