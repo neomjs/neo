@@ -86,12 +86,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (typeof result === 'object' && result !== null) {
             isError = 'error' in result;
 
-            contentBlock = {
-                type: 'text',
-                text: JSON.stringify(result, null, 2)
-            };
-            structuredContent = result;
+            if (isError) {
+                // For errors, provide a descriptive text message and no structured content.
+                contentBlock = {
+                    type: 'text',
+                    text: `Tool Error: ${result.error || 'Unknown Error'}. Message: ${result.message || 'No message provided.'}`
+                };
+            } else {
+                // For successful results, stringify for text content and set structured content.
+                contentBlock = {
+                    type: 'text',
+                    text: JSON.stringify(result, null, 2)
+                };
+                structuredContent = result;
+            }
         } else {
+            // For simple string results.
             contentBlock = {
                 type: 'text',
                 text: String(result)
