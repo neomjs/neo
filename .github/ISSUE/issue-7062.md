@@ -8,12 +8,12 @@ labels:
   - good first issue
   - hacktoberfest
 assignees:
-  - tobiu
+  - ad1tyayadav
 createdAt: '2025-07-15T17:42:05Z'
-updatedAt: '2025-10-14T07:37:12Z'
+updatedAt: '2025-10-26T13:27:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7062'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
@@ -38,4 +38,18 @@ subIssuesTotal: 0
 ### @github-actions - 2025-10-14 02:41
 
 This issue is stale because it has been open for 90 days with no activity.
+
+### @ad1tyayadav - 2025-10-26 13:23
+
+assign me
+
+
+### @tobiu - 2025-10-26 13:27
+
+Thanks for your interest. For this one I recommend to look into:
+https://github.com/neomjs/neo/blob/dev/src/component/Base.mjs#L1144
+https://github.com/neomjs/neo/blob/dev/src/container/Base.mjs#L476
+
+I would also recommend the "AI Native" workflows and let agents figure out the details, e.g. what could get moved into:
+https://github.com/neomjs/neo/blob/dev/src/component/Abstract.mjs#L284
 

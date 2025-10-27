@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-10-24T10:14:15Z'
-updatedAt: '2025-10-24T10:20:45Z'
+updatedAt: '2025-10-26T10:09:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7631'
 author: tobiu
 commentsCount: 0

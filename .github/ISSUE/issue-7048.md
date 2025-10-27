@@ -1,17 +1,17 @@
 ---
 id: 7048
 title: 'Epic: Refactor and Enhance the Email App'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
 assignees:
   - tobiu
 createdAt: '2025-07-14T14:05:01Z'
-updatedAt: '2025-10-13T02:49:41Z'
+updatedAt: '2025-10-27T02:58:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7048'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - 7049
@@ -21,6 +21,7 @@ subIssues:
   - 7058
 subIssuesCompleted: 5
 subIssuesTotal: 5
+closedAt: '2025-10-27T02:58:08Z'
 ---
 # Epic: Refactor and Enhance the Email App
 
@@ -80,4 +81,8 @@ This will serve as a powerful learning resource and a compelling demonstration o
 ### @github-actions - 2025-10-13 02:49
 
 This issue is stale because it has been open for 90 days with no activity.
+
+### @github-actions - 2025-10-27 02:58
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
 
