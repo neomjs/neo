@@ -256,40 +256,42 @@ paths:
            - `guide` and `src`: Current best practices and implementation
            - `blog`: Historical context (code examples may be outdated)
            - `example`: Concrete usage patterns
-           - `ticket`: Historical decisions and problem-solving context
+           - `ticket`: Can be historical context (**closed tickets**) or potential work items (**open tickets**). Distinguish between them carefully.
         
         ## Query Strategies
-        
-        ### Strategy 1: Broad to Narrow (Discovery Pattern)
-        When learning about a new concept:
-        1. Start broad: `"benefits"`, `"architecture"`, `"fundamentals"`
-        2. Read results from `learn/benefits/` or top-level `.md` files.
-        3. Narrow down: `"Button component examples"`, `"afterSet hook"`
-        4. Find patterns: `"form validation patterns"`, `"store implementation"`
-        
-        ### Strategy 2: High-Level Conceptual Questions
-        For architectural or "big picture" questions:
-        1. Check `learn/tree.json` for content structure.
-        2. Use top-level categories: "Benefits", "Fundamentals".
-        3. Query using those concepts first.
-        4. Drill down into specific implementations.
-        
-        ### Strategy 3: Targeted Content-Type Searching
-        Use the `type` parameter to focus results:
-        - Conceptual understanding: `type='guide'`
-        - Usage examples: `type='example'`
-        - Implementation details: `type='src'`
-        - Historical context: `type='ticket'` or `type='blog'`
-        
-        **Pro tip**: If a broad query returns too many source files and not enough guides, re-run with `type='guide'`. If you need implementation after reading guides, re-run with `type='src'`.
-        
+
+        ### The Discovery Pattern: Broad to Narrow
+        When learning about a new concept or feature area:
+
+        1.  **Start Broad:** Query foundational concepts first.
+            - For high-level questions, consult `learn/tree.json` to identify key concepts.
+            - Use terms like `"benefits"`, `"architecture"`, `"fundamentals"`.
+            - Prioritize reading guides from top-level directories.
+
+        2.  **Narrow to Specifics:** Use broad results to formulate targeted queries.
+            - `query_documents(query='Button component examples')`
+            - `query_documents(query='what is Neo.component.Base?')`
+
+        3.  **Filter by Type:** Use the `type` parameter for focused results.
+            - Conceptual: `type='guide'`
+            - Usage examples: `type='example'`
+            - Implementation: `type='src'`
+            - Historical context: `type='ticket'` or `type='blog'`
+
         ## When Queries Return No Results
-        
-        If systematic querying still yields no relevant information, **STOP and document the gap**:
-        1. Clearly describe what you were trying to accomplish.
-        2. List the queries you attempted.
-        3. Explain why existing results were insufficient.
-        4. Suggest what type of documentation would help (e.g., a guide, an example, or an architectural explanation).
+
+        If queries consistently return no relevant results for your task:
+
+        **Pause and document the gap:**
+        - Clearly describe what you were trying to accomplish
+        - List the queries you attempted (show your work)
+        - Explain why existing results were insufficient
+        - Consult with the user about next steps
+
+        **Before implementing based on assumptions:**
+        - Explain the knowledge gap you've identified
+        - Propose your approach and its basis (general software patterns, analogous Neo.mjs patterns, etc.)
+        - Get explicit user approval to proceed
 
         ## Handling Failures
         
@@ -541,7 +543,7 @@ components:
             - `src`: Source code implementation
             - `example`: Working examples and demos
             - `blog`: Historical context and evolution (code may be outdated)
-            - `ticket`: Past issues, decisions, and problem-solving
+            - `ticket`: Issues from GitHub. Can be open (potential work) or closed (historical context).
             - `release`: Release notes and changelogs
           enum: [all, blog, guide, src, example, ticket, release]
           default: all
