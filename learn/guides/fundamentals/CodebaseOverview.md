@@ -1,5 +1,7 @@
 # Codebase Overview: Neo.mjs - The AI-Native Web Platform
 
+> **Note for Readers:** This guide is primarily written for AI agents working with the Neo.mjs codebase and is part of their required session initialization. However, it also serves as a comprehensive overview for human developers seeking to understand the platform's scale, architecture, and design philosophy. References to "querying" refer to the AI Knowledge Base system available to agents.
+
 ## Understanding the Scale (State of October 2025)
 
 Neo.mjs is not a library. It's a **comprehensive web platform** with:
