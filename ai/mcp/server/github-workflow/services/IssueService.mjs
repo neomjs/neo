@@ -5,7 +5,7 @@ import logger                      from '../logger.mjs';
 import {exec}                      from 'child_process';
 import {promisify}                 from 'util';
 import {spawn}                     from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS}   from './queries/issueQueries.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS}   from './queries/issueQueries.mjs';
 import {ADD_LABELS, REMOVE_LABELS} from './queries/mutations.mjs';
 import RepositoryService           from './RepositoryService.mjs';
 
@@ -310,6 +310,77 @@ class IssueService extends Base {
             return { message: `Successfully removed labels from issue #${issueNumber}` };
         } catch (error) {
             logger.error(`Error removing labels from issue #${issueNumber} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Lists issues from the repository using the GraphQL API.
+     * Supports basic pagination and state filtering. Label and assignee
+     * filters are applied client-side to keep the GraphQL query simple and
+     * compatible with the existing sync query.
+     *
+     * @param {object} options
+     * @param {number} [options.limit=30]
+     * @param {string} [options.state='open']
+     * @param {string[]|string} [options.labels]
+     * @param {string} [options.assignee]
+     * @param {string} [options.cursor]
+     * @returns {Promise<object>}
+     */
+    async listIssues(options = {}) {
+        const {
+            limit = 30,
+            state = 'open',
+            labels = null,
+            assignee = null,
+            cursor = null
+        } = options;
+
+        // normalize state to uppercase array (GraphQL expects IssueState enum values)
+        const states = state ? (Array.isArray(state) ? state.map(s => s.toUpperCase()) : [state.toUpperCase()]) : undefined;
+
+        const variables = {
+            owner     : aiConfig.owner,
+            repo      : aiConfig.repo,
+            limit,
+            cursor,
+            states,
+            since     : null,
+            ...DEFAULT_QUERY_LIMITS
+        };
+
+        try {
+            const data = await GraphqlService.query(FETCH_ISSUES_FOR_SYNC, variables);
+            let issues = data.repository.issues.nodes || [];
+
+            // client-side label filtering if requested
+            if (labels) {
+                const labelList = Array.isArray(labels) ? labels : String(labels).split(',').map(s => s.trim()).filter(Boolean);
+                issues = issues.filter(issue => {
+                    const issueLabels = (issue.labels && issue.labels.nodes || []).map(l => l.name);
+                    return labelList.every(l => issueLabels.includes(l));
+                });
+            }
+
+            // client-side assignee filtering if requested
+            if (assignee) {
+                issues = issues.filter(issue => {
+                    const assignees = (issue.assignees && issue.assignees.nodes || []).map(a => a.login);
+                    return assignees.includes(assignee);
+                });
+            }
+
+            return {
+                count: issues.length,
+                issues
+            };
+        } catch (error) {
+            logger.error('Error fetching issues via GraphQL:', error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,

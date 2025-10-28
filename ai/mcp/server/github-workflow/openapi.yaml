@@ -596,6 +596,63 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /issues:
+    get:
+      summary: List Issues
+      operationId: list_issues
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a list of issues from the repository. Supports basic filters such as `limit`, `state`, `labels`, and `assignee`.
+
+        **When to Use:**
+        - To find open work items or review recent closed issues.
+        - To look up issue numbers for use in other tools.
+      tags: [Issues]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of issues to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter issues by state.
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: labels
+          in: query
+          required: false
+          description: Comma separated list of labels to filter by (all labels must be present on the issue).
+          schema:
+            type: string
+        - name: assignee
+          in: query
+          required: false
+          description: Filter issues by a single assignee login.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of issues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueListResponse'
+        '500':
+          description: Internal server error, e.g., GraphQL failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
     post:
       summary: Create a new GitHub issue
       operationId: create_issue
@@ -1016,3 +1073,52 @@ components:
           description: The permission level of the viewer.
           enum: [ADMIN, MAINTAIN, WRITE, TRIAGE, READ]
           example: WRITE
+
+    Issue:
+      type: object
+      properties:
+        number:
+          type: integer
+          example: 7608
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+          example: OPEN
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+        url:
+          type: string
+          format: uri
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+        assignees:
+          type: array
+          items:
+            type: object
+            properties:
+              login:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    IssueListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
