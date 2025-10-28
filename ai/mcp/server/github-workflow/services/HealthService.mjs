@@ -85,12 +85,15 @@ class HealthService extends Base {
      */
     async #checkGhAuth() {
         try {
-            const { stdout } = await execAsync('gh auth status');
+            // Some platforms or gh versions may write status information to stderr
+            // instead of stdout. Capture both and check the combined output.
+            const { stdout, stderr } = await execAsync('gh auth status');
+            const out = `${stdout || ''}\n${stderr || ''}`;
 
             // The `gh auth status` command outputs information about the logged-in account.
             // We specifically check for "Logged in to github.com" to confirm the user
             // is authenticated to the correct GitHub instance (not enterprise).
-            if (stdout.includes('Logged in to github.com')) {
+            if (out.includes('Logged in to github.com')) {
                 return { authenticated: true };
             } else {
                 return {
@@ -99,12 +102,11 @@ class HealthService extends Base {
                 };
             }
         } catch (e) {
-            // The command failing typically means `gh` is not authenticated.
-            // This is a common scenario when the user first installs `gh` or their
-            // authentication token has expired.
+            // The command failing typically means `gh` is not installed or not
+            // available in PATH for child processes. Provide an actionable message.
             return {
                 authenticated: false,
-                error        : 'GitHub CLI is not authenticated. Please run `gh auth login`.'
+                error        : 'GitHub CLI is not authenticated or not available. Please run `gh auth login`.'
             };
         }
     }
@@ -125,8 +127,10 @@ class HealthService extends Base {
      */
     async #checkGhVersion() {
         try {
-            const { stdout }   = await execAsync('gh --version');
-            const versionMatch = stdout.match(/gh version ([\d.]+)/);
+            // Capture both stdout and stderr for robustness across environments
+            const { stdout, stderr } = await execAsync('gh --version');
+            const out = `${stdout || ''}\n${stderr || ''}`;
+            const versionMatch = out.match(/gh version ([\d.]+)/);
 
             if (versionMatch) {
                 const currentVersion = versionMatch[1];
