@@ -42,28 +42,72 @@ class ScrollSync extends Base {
     }
 
     /**
+     * @member {Boolean} isTouching=false
+     * @protected
+     */
+    isTouching = false
+    /**
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
     registrations = new Map()
 
     /**
-     * @param {String} fromId
-     * @param {String} toId
-     * @param {String} direction
+     * Sets up the addon by adding global touch event listeners to the document body.
+     * @param {Object} config
      */
-    addScrollListener(fromId, toId, direction) {
-        let listener = this.onScroll.bind(this, toId, direction);
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        document.body.addEventListener('touchstart', me.onTouchStart.bind(me), {passive: true});
+        document.body.addEventListener('touchend',   me.onTouchEnd  .bind(me), {passive: true});
+        document.body.addEventListener('touchcancel',me.onTouchEnd  .bind(me), {passive: true})
+    }
+
+    /**
+     * Sets the isTouching flag to true when a touch interaction starts.
+     */
+    onTouchStart() {
+        this.isTouching = true;
+    }
+
+    /**
+     * Sets the isTouching flag to false when a touch interaction ends.
+     */
+    onTouchEnd() {
+        this.isTouching = false;
+    }
+
+    /**
+     * Creates and attaches a scroll event listener to a DOM node.
+     * @param {String} fromId      - The ID of the DOM node to listen to for scroll events.
+     * @param {String} toId        - The ID of the DOM node to scroll when the event is fired.
+     * @param {String} direction   - The scroll direction to sync ('vertical', 'horizontal', or 'both').
+     * @param {Boolean} isSyncBack - True if this listener is for the sync back in a two-way binding.
+     * @returns {Function|null} The created listener function, or null if the element does not exist.
+     */
+    addScrollListener(fromId, toId, direction, isSyncBack) {
+        let listener = this.onScroll.bind(this, toId, direction, isSyncBack);
         DomAccess.getElement(fromId)?.addEventListener('scroll', listener);
         return listener
     }
 
     /**
+     * The main event handler for scroll events.
+     * It programmatically scrolls the target node (`toId`) based on the scroll position of the source node (`event.target`).
+     * It will prevent the sync back call during a touch interaction to avoid feedback loops.
      * @param {String} toId
      * @param {String} direction
+     * @param {Boolean} isSyncBack
      * @param {Event}  event
      */
-    onScroll(toId, direction, event) {
+    onScroll(toId, direction, isSyncBack, event) {
+        if (this.isTouching && isSyncBack) {
+            return
+        }
+
         let node                    = DomAccess.getElement(toId),
             {scrollLeft, scrollTop} = event.target;
 
@@ -117,13 +161,13 @@ class ScrollSync extends Base {
         };
 
         registration.listeners.push({
-            listener: me.addScrollListener(fromId, toId, direction),
+            listener: me.addScrollListener(fromId, toId, direction, false),
             fromId
         });
 
         if (twoWay) {
             registration.listeners.push({
-                listener: me.addScrollListener(toId, fromId, direction),
+                listener: me.addScrollListener(toId, fromId, direction, true),
                 fromId  : toId
             })
         }
@@ -148,7 +192,7 @@ class ScrollSync extends Base {
             });
 
             // Remove the registration from the map to prevent memory leaks.
-            me.registrations.delete(id);
+            me.registrations.delete(id)
         }
     }
 }
