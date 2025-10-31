@@ -103,7 +103,7 @@ class ChromaManager extends Base {
             const originalWarn = console.warn;
             console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
 
-            this.memoryCollection = await this.client.getCollection({
+            this.memoryCollection = await this.client.getOrCreateCollection({
                 name             : collectionName,
                 embeddingFunction: aiConfig.dummyEmbeddingFunction
             });
