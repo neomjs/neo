@@ -565,16 +565,43 @@ components:
               description: "The status of the automatic session summarization attempt at startup."
               example: "completed"
             summarizationDetails:
-              type: object
               nullable: true
-              description: "Details about the summarization result, present if status is 'completed' or 'failed'."
+              description: "Details about the summarization result. The structure depends on the value of summarizationStatus."
+              anyOf:
+                - type: object
+                  description: "Present when status is 'completed'. Contains the number of sessions processed and details for each."
+                  properties:
+                    processed:
+                      type: integer
+                      example: 2
+                    sessions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          title:
+                            type: string
+                            example: "Implement MCP Server Configuration"
+                          memoryCount:
+                            type: integer
+                            example: 15
+                - type: object
+                  description: "Present when status is 'failed'. Contains the error message."
+                  properties:
+                    error:
+                      type: string
+                      example: "Failed to connect to Gemini API."
+                - type: object
+                  description: "Present when status is 'skipped'. Contains the reason for skipping."
+                  properties:
+                    reason:
+                      type: string
+                      example: "GEMINI_API_KEY not set"
               example:
                 processed: 2
                 sessions:
                   - title: "Implement MCP Server Configuration"
                     memoryCount: 15
-                  - title: "Debugged UI Rendering Issue"
-                    memoryCount: 25
         details:
           type: array
           items:
