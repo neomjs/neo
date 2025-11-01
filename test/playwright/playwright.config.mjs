@@ -7,7 +7,7 @@ const __dirname  = path.dirname(__filename);
 
 export default defineConfig({
     testDir      : __dirname,
-    testMatch    : [/unit\/.*\.mjs/, /component\/specs\/.*\.mjs/],
+    testMatch    : [/unit\/.*\.mjs/, /component\/specs\/.*\.mjs/, /mcp\/.*\.mjs/],
     outputDir    : path.join(__dirname, 'test-results/all'),
     fullyParallel: false,
     forbidOnly   : !!process.env.CI,
