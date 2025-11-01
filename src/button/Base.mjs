@@ -1,5 +1,6 @@
-import Component from '../component/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
+import Component      from '../component/Base.mjs';
+import NeoArray       from '../util/Array.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
  * @class Neo.button.Base
@@ -52,12 +53,29 @@ class Button extends Component {
          */
         editRoute: true,
         /**
-         * Shortcut for domListeners={click:handler}
-         * A string based value assumes that the handlerFn lives inside a controller.Component
-         * @member {Function|String|null} handler_=null
+         * Shortcut for domListeners={click:handler}.
+         * A string-based value assumes that the handlerFn lives inside a controller.Component.
+         *
+         * This config uses a custom `isEqual` function to ensure proper reactivity.
+         * When the handler is a function, it's often a closure that changes on each render
+         * (e.g., in recycled components like grid cells). The default deep comparison
+         * (`Neo.isEqual`) would incorrectly treat structurally identical functions as unchanged,
+         * preventing updates. The custom `isEqual` forces an update for new function instances,
+         * while performing a standard equality check for string-based handlers.
+         * @member {Function|String|null} handler_
          * @reactive
          */
-        handler_: null,
+        handler_: {
+            [isDescriptor]: true,
+            value         : null,
+
+            isEqual: (a, b) => {
+                if (Neo.isFunction(a) && Neo.isFunction(b)) {
+                    return false
+                }
+                return a === b
+            }
+        },
         /**
          * The scope (this pointer) inside the handler function.
          * Points to the button instance by default.
