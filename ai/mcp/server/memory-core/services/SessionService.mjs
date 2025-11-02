@@ -3,6 +3,7 @@ import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import logger                   from '../logger.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
@@ -84,7 +85,7 @@ class SessionService extends Base {
         const memories = await this.memoryCollection.get({ include: ['metadatas'] });
         if (memories.ids.length === 0) return [];
 
-        const sessionIds           = [...new Set(memories.metadatas.map(m => m.sessionId))];
+        const sessionIds           = [...new Set(memories.metadatas.map(m => m.sessionId).filter(Boolean))];
         const summaries            = await this.sessionsCollection.get({include: ['metadatas']});
         const summarizedSessionIds = new Set(summaries.metadatas.map(m => m.sessionId));
 
@@ -97,6 +98,11 @@ class SessionService extends Base {
      * @returns {Promise<object|null>}
      */
     async summarizeSession(sessionId) {
+        if (!sessionId) {
+            logger.warn('summarizeSession called without a sessionId, opting out.');
+            return null;
+        }
+
         const memories = await this.memoryCollection.get({
             where  : {sessionId: sessionId},
             include: ['documents', 'metadatas']

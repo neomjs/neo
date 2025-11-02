@@ -64,6 +64,10 @@ class MemoryService extends Base {
      * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
      */
     async listMemories({sessionId, limit, offset}) {
+        if (!sessionId) {
+            return { sessionId, count: 0, total: 0, memories: [] };
+        }
+
         const collection = await ChromaManager.getMemoryCollection();
 
         const result = await collection.get({
@@ -108,12 +112,17 @@ class MemoryService extends Base {
         const collection = await ChromaManager.getMemoryCollection();
         const embedding  = await TextEmbeddingService.embedText(query);
 
-        const searchResult = await collection.query({
+        const queryArgs = {
             queryEmbeddings: [embedding],
             nResults,
-            where          : sessionId ? {sessionId} : undefined,
             include        : ['metadatas']
-        });
+        };
+
+        if (sessionId) {
+            queryArgs.where = {sessionId};
+        }
+
+        const searchResult = await collection.query(queryArgs);
 
         const ids       = searchResult.ids?.[0] || [];
         const distances = searchResult.distances?.[0] || [];
