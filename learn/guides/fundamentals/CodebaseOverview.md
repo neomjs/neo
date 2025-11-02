@@ -137,7 +137,7 @@ Neo.create(Effect, {
 ### Component System (Two Models)
 
 **Class-based Components**: Full framework features
-- Reactive configs with `beforeSet`/`afterSet` hooks
+- Reactive configs with `beforeGet`/`beforeSet`/`afterSet` hooks
 - Mixins for composable behavior
 - Full inheritance chain
 - Instance lifecycle management
