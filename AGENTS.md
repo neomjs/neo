@@ -63,6 +63,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
     
 6.  **Check for Memory Core:** At the beginning of your session, you **MUST** check if the Memory Core is active by using the `healthcheck` tool for the `neo.mjs-memory-core` server.
     -   **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save every turn. This creates a queryable history of your work that enables learning from past sessions and pattern recognition across time.
+        - **CRITICAL:** The initialization process itself is your first turn. **Before** you send your first response to the user (e.g., "I am ready"), you **MUST** call `add_memory` to save this initialization turn.
     -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 
 ## 3. The Knowledge Base: Your Primary Source of Truth
