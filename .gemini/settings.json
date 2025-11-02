@@ -1,4 +1,7 @@
 {
+    "context": {
+        "fileName": ["AGENTS.md", "GEMINI.md"]
+    },
     "mcpServers": {
         "chrome-devtools": {
             "command": "npx",
