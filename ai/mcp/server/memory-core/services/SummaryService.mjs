@@ -93,12 +93,17 @@ class SummaryService extends Base {
         const collection = await ChromaManager.getSummaryCollection();
         const embedding  = await TextEmbeddingService.embedText(query);
 
-        const searchResult = await collection.query({
+        const queryArgs = {
             queryEmbeddings: [embedding],
             nResults,
-            where          : category ? {category} : undefined,
             include        : ['metadatas', 'documents']
-        });
+        };
+
+        if (category) {
+            queryArgs.where = {category};
+        }
+
+        const searchResult = await collection.query(queryArgs);
 
         const ids       = searchResult.ids?.[0] || [];
         const distances = searchResult.distances?.[0] || [];
