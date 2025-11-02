@@ -183,7 +183,7 @@ First, classify the user's request into one of two categories:
 
 ### Step 2: The “Ticket-First” Gate
 
-For any actionable request that requires modifying the repository, you **MUST** ensure a GitHub issue exists for the task *before* you begin implementation. This is a critical gating protocol.
+For any actionable request that requires modifying the repository, you **MUST** ensure a GitHub issue exists for the task *before* you begin implementation. This is a critical gating protocol. This applies to **all** files within the repository, including documentation, configuration, and even this `AGENTS.md` file itself. There are no exceptions.
 
 To create a new issue, you **MUST** use the `create_issue` tool. The tool's own documentation contains the complete, up-to-date workflow. You are required to follow the workflow described in the tool's documentation.
 
