@@ -514,6 +514,11 @@ components:
                 managed:
                   type: boolean
                   example: true
+                strategy:
+                  type: string
+                  enum: [managed, external, unknown]
+                  description: "Indicates how the ChromaDB process is managed (e.g., by this service or externally)."
+                  example: "managed"
             connection:
               type: object
               properties:

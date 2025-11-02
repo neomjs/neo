@@ -265,9 +265,16 @@ class HealthService extends Base {
 
         // If we made it here with no errors, report success
         if (payload.status === 'healthy') {
-            payload.details.push('ChromaDB is running and all collections are accessible');
+            if (payload.database.process.managed) {
+                payload.details.push('Connected to a server-managed ChromaDB instance');
+            } else {
+                payload.details.push('Connected to an externally managed ChromaDB instance');
+            }
             payload.details.push('All features are operational');
         }
+
+        // Add strategy for clarity
+        payload.database.process.strategy = payload.database.process.managed ? 'managed' : 'external';
 
         return payload;
     }
