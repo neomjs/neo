@@ -99,11 +99,11 @@ class HealthService extends Base {
     async #checkChromaConnection() {
         try {
             await ChromaManager.client.heartbeat();
-            return { running: true };
+            return {running: true};
         } catch (e) {
             return {
                 running: false,
-                error: `ChromaDB is not accessible at ${aiConfig.memoryDb.host}:${aiConfig.memoryDb.port}. Please start ChromaDB or use the start_database tool.`
+                error  : `ChromaDB is not accessible at ${aiConfig.memoryDb.host}:${aiConfig.memoryDb.port}. Please start ChromaDB or use the start_database tool.`
             };
         }
     }
@@ -120,7 +120,7 @@ class HealthService extends Base {
      */
     async #checkCollections() {
         const result = {
-            memories: null,
+            memories : null,
             summaries: null
         };
 
@@ -130,15 +130,15 @@ class HealthService extends Base {
             if (memoryCollection) {
                 const count = await memoryCollection.count();
                 result.memories = {
-                    name: aiConfig.memoryDb.collectionName,
+                    name  : aiConfig.memoryDb.collectionName,
                     exists: true,
                     count
                 };
             } else {
                 result.memories = {
-                    name: aiConfig.memoryDb.collectionName,
+                    name  : aiConfig.memoryDb.collectionName,
                     exists: false,
-                    count: 0
+                    count : 0
                 };
             }
 
@@ -147,15 +147,15 @@ class HealthService extends Base {
             if (summaryCollection) {
                 const count = await summaryCollection.count();
                 result.summaries = {
-                    name: aiConfig.sessionDb.collectionName,
+                    name  : aiConfig.sessionDb.collectionName,
                     exists: true,
                     count
                 };
             } else {
                 result.summaries = {
-                    name: aiConfig.sessionDb.collectionName,
+                    name  : aiConfig.sessionDb.collectionName,
                     exists: false,
-                    count: 0
+                    count : 0
                 };
             }
 
@@ -238,7 +238,7 @@ class HealthService extends Base {
         // Step 2: Check collections
         const collectionsCheck = await this.#checkCollections();
         payload.database.connection.collections = {
-            memories: collectionsCheck.memories,
+            memories : collectionsCheck.memories,
             summaries: collectionsCheck.summaries
         };
 

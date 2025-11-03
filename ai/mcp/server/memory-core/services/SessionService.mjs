@@ -3,6 +3,7 @@ import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import HealthService            from './HealthService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
@@ -56,7 +57,12 @@ class SessionService extends Base {
         super.construct(config);
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
+        if (!GEMINI_API_KEY) {
+            logger.warn('⚠️  [Startup] GEMINI_API_KEY not set - skipping automatic session summarization');
+            logger.warn('    Set GEMINI_API_KEY environment variable to enable summarization features');
+            HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
+            return;
+        };
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         this.model          = genAI.getGenerativeModel({model: 'gemini-2.5-flash'});
@@ -75,6 +81,35 @@ class SessionService extends Base {
         // Use ChromaManager instead of direct client access
         this.memoryCollection   = await ChromaManager.getMemoryCollection();
         this.sessionsCollection = await ChromaManager.getSummaryCollection();
+
+        // Do not proceed with summarization if the API key is missing.
+        if (!this.model) {
+            return;
+        }
+
+        logger.info('[Startup] Checking for unsummarized sessions...');
+
+        try {
+            const result = await this.summarizeSessions({});
+
+            if (result.processed > 0) {
+                logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
+                result.sessions.forEach(session => {
+                    logger.info(`   - ${session.title} (${session.memoryCount} memories)`);
+                });
+                HealthService.recordStartupSummarization('completed', {
+                    processed: result.processed,
+                    sessions : result.sessions.map(s => ({ title: s.title, memoryCount: s.memoryCount }))
+                });
+            } else {
+                logger.info('[Startup] No unsummarized sessions found');
+                HealthService.recordStartupSummarization('completed', { processed: 0 });
+            }
+        } catch (error) {
+            logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
+            logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
+            HealthService.recordStartupSummarization('failed', { error: error.message });
+        }
     }
 
     /**
