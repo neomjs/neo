@@ -166,18 +166,23 @@ A complete form management system that goes beyond HTML forms:
 
 ### Data Layer
 
-**Neo.data.Model**: Record-level data
-- Schema definition with validation
-- Field transformations
-- Computed properties
-- Dirty state tracking
+A highly optimized and flexible data layer designed for performance with large datasets.
 
-**Neo.data.Store**: Collection management
-- Filtering (client-side and remote)
-- Sorting (multi-field)
-- Grouping
-- Pagination
-- Remote loading via proxies
+**Neo.data.Model**: The blueprint for your data records.
+- Defines the schema for records, including field names, types, and default values.
+- Supports calculated fields and data validation rules.
+- Can be configured to track modifications to fields (`trackModifiedFields`).
+
+**Neo.collection.Base**: The foundation for data collections.
+- Provides powerful client-side filtering and sorting capabilities.
+- Manages items with a key-based map for fast lookups.
+- Fires mutation events for observing changes.
+
+**Neo.data.Store**: A powerful collection manager for records, which extends `Neo.collection.Base`.
+- Can be loaded with raw JavaScript objects for maximum performance.
+- Uses a `RecordFactory` to create lightweight, reactive record instances **on-demand** when data is accessed. This lazy-instantiation approach is extremely memory-efficient.
+- Inherits filtering and sorting from `collection.Base` and adds support for remote operations (e.g., remote filtering, pagination).
+- Supports loading data from remote APIs.
 
 **Neo.state.Provider**: Hierarchical state
 - Application-wide state management
