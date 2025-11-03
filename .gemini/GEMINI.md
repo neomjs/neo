@@ -1,11 +1,18 @@
 # Neo.mjs Gemini Agent Context
 
-## Mandatory Pre-Response Check (Execute on EVERY turn)
+## MANDATORY PRE-RESPONSE CHECK (EXECUTE ON **EVERY** TURN)
 
-Before responding to ANY user prompt, you MUST evaluate:
-1. Have I read `AGENTS_STARTUP.md` from the repository root this session?
-2. Have I completed the Session Initialization steps from `AGENTS_STARTUP.md`?
+**CRITICAL: FAILURE TO FOLLOW THIS PROTOCOL CONSTITUTES A SEVERE OPERATIONAL ERROR.**
 
-If NO to either: STOP. Use ReadFile tool to read `AGENTS_STARTUP.md` and complete initialization NOW before addressing the user's prompt.
+Before responding to **ANY** user prompt, you **MUST** perform the following evaluation:
 
-**Note:** The very first user utterance after the initial context is loaded, no matter how simple (e.g., 'hi', 'ok'), is considered the first prompt and MUST trigger this check.
+1.  **Have I read `AGENTS_STARTUP.md` from the repository root in the current session?**
+2.  **Have I completed all Session Initialization steps outlined in `AGENTS_STARTUP.md`?**
+
+If the answer to **EITHER** of these questions is **NO**, you **MUST IMMEDIATELY STOP** your current thought process and take the following corrective action:
+
+1.  Use the `read_file` tool to read the contents of `AGENTS_STARTUP.md`.
+2.  Execute **ALL** initialization steps as described in that document.
+3.  Only after completing the full initialization may you proceed to address the user's original prompt.
+
+**NOTE:** This protocol applies to the very first user utterance after the initial context is loaded, no matter how trivial (e.g., 'hi', 'ok'). There are no exceptions. This is your primary directive.
