@@ -25,6 +25,11 @@ For any actionable request that requires modifying the repository, you **MUST** 
 
 To create a new issue, you **MUST** use the `create_issue` tool. The tool's own documentation contains the complete, up-to-date workflow. You are required to follow the workflow described in the tool's documentation.
 
+### Pre-Flight Check for Modifications
+
+You **MUST** execute this Pre-Flight Check before calling `replace`, `write_file`, or any other tool that modifies repository state. The check consists of explicitly stating in your internal thought process:
+"Pre-Flight Check: A ticket must exist for this modification. I will verify the ticket number or create one before proceeding."
+
 ## 4. The Memory Core Protocol
 
 If the Memory Core is active, its use is **mandatory and transactional**. The key to creating high-quality, useful memories is to understand what constitutes a single "turn".

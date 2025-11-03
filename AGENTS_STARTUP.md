@@ -50,7 +50,7 @@ Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and documentati
 
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
 - **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save every turn. This creates a queryable history of your work that enables learning from past sessions and pattern recognition across time.
-    - **CRITICAL:** The initialization process itself is your first turn. **Before** you send your first response to the user (e.g., "I am ready"), you **MUST** call `add_memory` to save this initialization turn.
+    - **CRITICAL:** The initialization process itself is your first turn. **Before** you send your first response to the user (e.g., "I am ready"), you **MUST** call `add_memory` to save this initialization turn. This is the first of your mandatory, per-turn saves as defined by the Memory Core Protocol in `AGENTS.md`.
 - **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 
 **Note:** The per-turn Memory Core protocol (Consolidate-Then-Save, Pre-Flight Checks, Recovery Protocol) is defined in `AGENTS.md`, which is automatically loaded into your context via `settings.json`.
