@@ -1,13 +1,14 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import aiConfig               from '../config.mjs';
-import Base                   from '../../../../../src/core/Base.mjs';
-import ChromaManager          from './ChromaManager.mjs';
-import crypto                 from 'crypto';
-import dotenv                 from 'dotenv';
-import fs                     from 'fs-extra';
-import logger                 from '../logger.mjs';
-import path                   from 'path';
-import readline               from 'readline';
+import {GoogleGenerativeAI}     from '@google/generative-ai';
+import aiConfig                 from '../config.mjs';
+import Base                     from '../../../../../src/core/Base.mjs';
+import ChromaManager            from './ChromaManager.mjs';
+import crypto                   from 'crypto';
+import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import dotenv                   from 'dotenv';
+import fs                       from 'fs-extra';
+import logger                   from '../logger.mjs';
+import path                     from 'path';
+import readline                 from 'readline';
 
 const cwd       = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -21,17 +22,19 @@ const sectionsRegex = /(?=^#+\s)/m;
 
 /**
  * This service is the core engine for building and maintaining the AI's knowledge base.
- * It orchestrates the entire ETL (Extract, Transform, Load) process for knowledge:
- * 1.  **Extract:** It reads from diverse source-of-truth files across the repository, including
- *     JSDoc comments, Markdown guides, release notes, and ticket archives (`createKnowledgeBase`).
- * 2.  **Transform:** It parses, structures, and enriches this raw data into a unified JSONL format,
- *     pre-calculating metadata like inheritance chains to optimize query performance.
- * 3.  **Load:** It generates vector embeddings for the structured content and upserts them into the
- *     ChromaDB vector database, performing an intelligent diff to only process new or changed
- *     information (`embedKnowledgeBase`).
+ * It orchestrates the entire ETL (Extract, Transform, Load) process for knowledge and
+ * ensures the database is synchronized on application startup.
  *
- * The service provides methods for the full lifecycle of the knowledge base, from creation and
- * synchronization to deletion.
+ * ### Key Responsibilities:
+ * 1.  **Autonomous Startup:** On initialization, it automatically checks if the knowledge base
+ *     is synchronized with the source files and runs the necessary embedding or creation
+ *     processes to bring it up-to-date.
+ * 2.  **ETL Pipeline:**
+ *     - **Extract:** Reads from diverse source-of-truth files (`createKnowledgeBase`).
+ *     - **Transform:** Parses and structures data into a unified JSONL format.
+ *     - **Load:** Generates vector embeddings and upserts them into ChromaDB (`embedKnowledgeBase`).
+ * 3.  **Lifecycle Management:** Provides methods for the full lifecycle of the knowledge base,
+ *     from creation and synchronization to deletion.
  * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
  * @extends Neo.core.Base
  * @singleton
@@ -48,6 +51,49 @@ class DatabaseService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * Orchestrates the automated startup synchronization of the knowledge base.
+     *
+     * This method is called automatically by the framework after the service is constructed.
+     * It ensures that the knowledge base is ready and up-to-date before the application
+     * proceeds.
+     *
+     * The logic is as follows:
+     * 1. It first waits for the underlying database connection to be ready.
+     * 2. It then checks for the existence of the `ai-knowledge-base.jsonl` file.
+     * 3. If the file does not exist, it triggers a full `syncDatabase()` (create + embed).
+     * 4. If the file exists, it triggers `embedKnowledgeBase()` to process any new or changed content.
+     *
+     * This entire process is awaited via the `ready()` promise on the service, ensuring
+     * that dependent services or startup sequences only proceed once the knowledge base is
+     * fully initialized.
+     * @protected
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        // Wait for ChromaDB to be available
+        await DatabaseLifecycleService.ready();
+
+        logger.info('[Startup] Checking knowledge base status...');
+        const knowledgeBasePath = aiConfig.dataPath;
+        const kbExists          = await fs.pathExists(knowledgeBasePath);
+
+        try {
+            if (!kbExists) {
+                logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
+                await this.syncDatabase();
+                logger.info('✅ [Startup] Full synchronization complete.');
+            } else {
+                logger.info('[Startup] Knowledge base file found. Starting embedding process...');
+                await this.embedKnowledgeBase();
+                logger.info('✅ [Startup] Embedding process complete.');
+            }
+        } catch (error) {
+            logger.warn('⚠️  [Startup] Knowledge base synchronization/embedding failed:', error.message);
+        }
     }
 
     /**

@@ -5,7 +5,7 @@ import Neo                                             from '../../../../src/Neo
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
 import logger                                          from './logger.mjs';
-import DatabaseLifecycleService                        from './services/DatabaseLifecycleService.mjs';
+import DatabaseService                                 from './services/DatabaseService.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
@@ -114,17 +114,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
  * Main startup sequence for the Knowledge Base MCP server.
  *
  * Performs the following steps:
- * 1. Wait for async services - ensures DatabaseLifecycleService is initialized
- * 2. Health check - verifies ChromaDB connectivity
- * 3. Status reporting - logs detailed diagnostics
- * 4. Server startup - connects stdio transport
+ * 1. Wait for async services - ensures DatabaseService is initialized and synchronized.
+ * 2. Health check - verifies ChromaDB connectivity after the sync process.
+ * 3. Status reporting - logs detailed diagnostics.
+ * 4. Server startup - connects stdio transport.
  *
  * The server starts even if ChromaDB is unavailable, but tools will fail
  * gracefully with helpful error messages until dependencies are resolved.
  */
 async function main() {
-    // Wait for async services to initialize (fixes race condition)
-    await DatabaseLifecycleService.ready();
+    // Wait for async services to initialize.
+    // DatabaseService.ready() will internally wait for the DB lifecycle.
+    await DatabaseService.ready();
+
     // Perform initial health check (non-blocking)
     const health = await HealthService.healthcheck();
 
@@ -153,9 +155,6 @@ async function main() {
         if (health.database.connection.collections) {
             logger.info(`   - Knowledge Base: ${health.database.connection.collections.knowledgeBase.count}`);
         }
-
-        // For this scope, we leave the fully healthy logic empty.
-        // A follow-up ticket will address specific actions for a healthy state.
     }
 
     // Start the stdio transport
