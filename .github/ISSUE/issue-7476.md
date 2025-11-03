@@ -1,7 +1,7 @@
 ---
 id: 7476
 title: Create Test Plan for form.field.Password
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - help wanted
@@ -10,16 +10,17 @@ labels:
   - ai
   - testing
 assignees:
-  - JuyaoHuang
+  - ad1tyayadav
 createdAt: '2025-10-13T20:46:10Z'
-updatedAt: '2025-10-15T10:26:02Z'
+updatedAt: '2025-10-27T13:57:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7476'
 author: tobiu
-commentsCount: 7
+commentsCount: 9
 parentIssue: 7475
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-27T13:57:00Z'
 ---
 # Create Test Plan for form.field.Password
 
@@ -958,4 +959,15 @@ maybe a stupid question, but did you use `npm i` first?
 
 Unfortunately, after this confirmation, **running npm run build-all still results in the exact same Webpack 5 build error related to the missing Node.js core module polyfills that I posted earlier.**
 It seems the root cause is indeed the build configuration. I'm looking forward to your guidance on how to fix the Webpack setup. Thank you!
+
+### @ad1tyayadav - 2025-10-27 13:13
+
+@tobiu I'm working on this
+
+### @tobiu - 2025-10-27 13:23
+
+@JuyaoHuang Sorry, this one fell under the radar (i am quite busy with pushing for v11). I don't have windows, so i can sadly not help much with debugging OS related issues outside Mac OS. Maybe this one could be an option:
+https://github.com/neomjs/neo/blob/dev/learn/guides/ai/AiToolingWslSetup.md
+
+For now, we can re-assign the ticket.
 

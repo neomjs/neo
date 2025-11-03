@@ -1,7 +1,7 @@
 ---
 id: 7405
 title: 'MCP Server: Implement Knowledge Query Endpoint'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,24 +11,19 @@ labels:
 assignees:
   - Mahita07
 createdAt: '2025-10-07T10:14:42Z'
-updatedAt: '2025-10-08T09:38:52Z'
+updatedAt: '2025-11-02T12:30:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7405'
 author: tobiu
-commentsCount: 2
-parentIssue: 7399
+commentsCount: 3
+parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-02T12:30:27Z'
 ---
 # MCP Server: Implement Knowledge Query Endpoint
 
 **Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 This ticket is for implementing the core search functionality of the Knowledge Base MCP server. This involves exposing the refactored query logic via the `POST /documents/query` endpoint.
 
@@ -63,4 +58,8 @@ To work on this ticket, please start your session with the following prompt:
 ### @tobiu - 2025-10-08 09:38
 
 Sure and thx!
+
+### @tobiu - 2025-11-02 12:30
+
+already resolved
 

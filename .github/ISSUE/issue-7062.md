@@ -1,7 +1,7 @@
 ---
 id: 7062
 title: 'functional.component.Base: enhance the `destroy()` signature'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -10,7 +10,7 @@ labels:
 assignees:
   - ad1tyayadav
 createdAt: '2025-07-15T17:42:05Z'
-updatedAt: '2025-10-26T13:27:42Z'
+updatedAt: '2025-10-27T10:45:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7062'
 author: tobiu
 commentsCount: 3
@@ -18,6 +18,7 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-27T10:45:02Z'
 ---
 # functional.component.Base: enhance the `destroy()` signature
 

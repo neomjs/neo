@@ -1,6 +1,6 @@
 ---
 id: 7435
-title: Migrate Component Tests from Siesta to Playwright (R&D)
+title: Create Component Tests in Playwright (and migrate existing tests from Siesta)
 state: OPEN
 labels:
   - help wanted
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-10T16:38:20Z'
-updatedAt: '2025-10-22T22:51:57Z'
+updatedAt: '2025-10-27T13:59:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7435'
 author: tobiu
 commentsCount: 7
@@ -29,17 +29,18 @@ subIssues:
   - 7469
   - 7470
   - 7471
-subIssuesCompleted: 7
-subIssuesTotal: 13
+  - 7677
+subIssuesCompleted: 9
+subIssuesTotal: 14
 ---
-# Migrate Component Tests from Siesta to Playwright (R&D)
+# Create Component Tests in Playwright (and migrate existing tests from Siesta)
 
 **Reported by:** @tobiu on 2025-10-10
 
 ---
 
-**Sub-Issues:** #7436, #7437, #7438, #7439, #7440, #7441, #7442, #7443, #7444, #7445, #7469, #7470, #7471
-**Progress:** 7/13 completed (53%)
+**Sub-Issues:** #7436, #7437, #7438, #7439, #7440, #7441, #7442, #7443, #7444, #7445, #7469, #7470, #7471, #7677
+**Progress:** 9/14 completed (64%)
 
 ---
 

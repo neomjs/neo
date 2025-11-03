@@ -1,7 +1,7 @@
 ---
 id: 7671
 title: 'Refactor: Polish Agent Protocols in AGENTS.md'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-27T09:05:42Z'
-updatedAt: '2025-10-27T09:14:25Z'
+updatedAt: '2025-10-27T10:11:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7671'
 author: tobiu
 commentsCount: 0
@@ -17,6 +17,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-10-27T10:11:28Z'
 ---
 # Refactor: Polish Agent Protocols in AGENTS.md
 

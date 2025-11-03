@@ -1,20 +1,23 @@
 ---
 id: 7663
 title: 'Feat: Implement GitHub API-based ''list_issues'' Tool'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
+  - hacktoberfest
   - ai
-assignees: []
+assignees:
+  - MannXo
 createdAt: '2025-10-26T12:11:26Z'
-updatedAt: '2025-10-26T12:11:26Z'
+updatedAt: '2025-11-01T18:22:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7663'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-01T18:22:03Z'
 ---
 # Feat: Implement GitHub API-based 'list_issues' Tool
 
@@ -39,4 +42,14 @@ Consider parameters such as `limit`, `state` (e.g., `open`, `closed`, `all`), an
 
 **Documentation:**
 The tool's description in `openapi.yaml` should be comprehensive and self-explanatory, following the guidelines established in #7659.
+
+## Comments
+
+### @MannXo - 2025-10-27 12:27
+
+Can I work on this one @tobiu ?
+
+### @tobiu - 2025-10-27 12:56
+
+@MannXo Sure. This one should be quite straight forward. Hint: all 3 MCP servers should now be fully functional, and I updated the AGENTS.md file => with a fresh/updated fork definitely worth some testing.
 

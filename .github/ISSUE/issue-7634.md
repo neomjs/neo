@@ -1,7 +1,7 @@
 ---
 id: 7634
 title: 'docs(AGENTS.md): Revise Core Principles & Initialization'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-24T10:43:33Z'
-updatedAt: '2025-10-24T12:24:56Z'
+updatedAt: '2025-11-02T09:31:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7634'
 author: tobiu
 commentsCount: 0
@@ -17,6 +17,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-02T09:31:27Z'
 ---
 # docs(AGENTS.md): Revise Core Principles & Initialization
 

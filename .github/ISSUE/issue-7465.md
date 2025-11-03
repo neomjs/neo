@@ -1,14 +1,14 @@
 ---
 id: 7465
 title: 'Hacktoberfest Mission: Implement the Memory Protocol Fix'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-11T18:47:34Z'
-updatedAt: '2025-10-11T18:57:19Z'
+updatedAt: '2025-11-02T09:28:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7465'
 author: tobiu
 commentsCount: 0
@@ -16,6 +16,7 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-02T09:28:51Z'
 ---
 # Hacktoberfest Mission: Implement the Memory Protocol Fix
 

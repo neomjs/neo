@@ -1,7 +1,7 @@
 ---
 id: 7296
 title: 'Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs'
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -9,7 +9,7 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2025-09-28T12:23:36Z'
-updatedAt: '2025-10-04T14:22:01Z'
+updatedAt: '2025-11-02T09:30:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7296'
 author: tobiu
 commentsCount: 3
@@ -32,8 +32,9 @@ subIssues:
   - 7465
   - 7467
   - 7474
-subIssuesCompleted: 7
+subIssuesCompleted: 17
 subIssuesTotal: 17
+closedAt: '2025-11-02T09:30:37Z'
 ---
 # Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
 
@@ -42,7 +43,7 @@ subIssuesTotal: 17
 ---
 
 **Sub-Issues:** #7297, #7298, #7299, #7301, #7305, #7306, #7307, #7328, #7342, #7343, #7344, #7345, #7346, #7417, #7465, #7467, #7474
-**Progress:** 7/17 completed (41%)
+**Progress:** 17/17 completed (100%)
 
 ---
 

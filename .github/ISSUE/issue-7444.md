@@ -1,7 +1,7 @@
 ---
 id: 7444
 title: Create Component Test form/field/Number.mjs in Playwright
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -10,7 +10,7 @@ labels:
 assignees:
   - erbierc
 createdAt: '2025-10-10T16:58:38Z'
-updatedAt: '2025-10-22T13:14:33Z'
+updatedAt: '2025-11-02T12:29:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7444'
 author: tobiu
 commentsCount: 4
@@ -18,6 +18,7 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-02T12:29:18Z'
 ---
 # Create Component Test form/field/Number.mjs in Playwright
 
@@ -25,7 +26,7 @@ subIssuesTotal: 0
 
 ---
 
-**Parent Issue:** #7435 - Migrate Component Tests from Siesta to Playwright (R&D)
+**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
 
 ---
 

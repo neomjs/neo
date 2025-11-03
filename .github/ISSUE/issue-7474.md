@@ -1,7 +1,7 @@
 ---
 id: 7474
 title: Improve AI Query Scoring to Boost Content Matches
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,7 +11,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-13T09:20:44Z'
-updatedAt: '2025-10-13T09:22:02Z'
+updatedAt: '2025-11-02T09:29:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7474'
 author: tobiu
 commentsCount: 1
@@ -19,6 +19,7 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-02T09:29:29Z'
 ---
 # Improve AI Query Scoring to Boost Content Matches
 

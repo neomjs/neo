@@ -9,10 +9,10 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2025-07-07T23:52:22Z'
-updatedAt: '2025-10-08T09:44:42Z'
+updatedAt: '2025-10-30T18:56:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6984'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -67,4 +67,8 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @tobiu - 2025-10-08 09:44
 
 this one could get refined to via the ai native workflows into new subs, and based on it fits the `hacktoberfest` scope.
+
+### @shrvansudhakara - 2025-10-30 18:56
+
+@tobiu I'd like to work on this, pls assign.
 
