@@ -36,11 +36,8 @@ Before you begin, ensure you have the following:
 ## 2. What is an AI Agent?
 
 For this workflow, an "AI agent" is a terminal-based AI assistant capable of executing local shell commands.
-This is different from web-based chat interfaces (like ChatGPT or the Gemini web UI) because it allows the AI
-to directly interact with your codebase, run scripts, and access the local knowledge base.
 
-You can use any CLI-based AI agent that you are comfortable with. The following sections will show you how to set up
-the knowledge base, and then provide an optional guide for configuring the Gemini CLI as one possible agent.
+**Current Support:** This guide focuses on the Gemini CLI setup. Support for other agents (Claude Code, Aider, etc.) is planned. The core infrastructure (MCP servers, knowledge base) is agent-agnostic, but the configuration files in `.gemini/` are Gemini-specific.
 
 ## 3. Setup the AI Environment (Required)
 
@@ -50,7 +47,7 @@ Gemini model, so a Gemini API key is required regardless of which AI agent you c
 ### A Note on Cost
 
 This entire process uses the free tier of the Google Gemini API. The free tier is generous and more than sufficient for
-this development workflow, typically allowing up to **60 queries per minute** for the embedding model used here.
+this development workflow, typically allowing up to 60 queries per minute for the embedding model used here.
 You can check your specific limits in the Google AI Studio.
 
 ### Step 3.1: Obtain a Gemini API Key
@@ -73,64 +70,100 @@ The API key authenticates your requests to Google's Gemini models.
     ```
     This file is already listed in `.gitignore` to prevent you from accidentally committing your key.
 
-### Step 3.3: Start the AI Servers
+### Step 3.3: Initial Knowledge Base Setup
 
-The AI tooling now leverages Model Context Protocol (MCP) servers that automatically manage the ChromaDB instances for both the knowledge base and agent memories. You no longer need to manually build the knowledge base or initialize the memory collection.
+The first time you use the AI tooling, the knowledge base needs to be embedded. The MCP servers will handle this automatically when launched by your AI agent (e.g., Gemini CLI).
 
-1.  **Start the AI Servers**: In a new terminal window, run the following command. This will start all necessary MCP servers.
-    ```bash
-    npm run ai:server-all
-    ```
-    Keep this process running in the background. The servers will automatically create and embed the knowledge base, and manage the memory core.
+**Optional - For Debugging Only**: If you want to manually verify the knowledge base embedding or troubleshoot ChromaDB issues, you can run:
+```bash
+npm run ai:server-all
+```
+This will start the servers directly so you can see their logs. However, this is **not required** for normal usage - your AI agent will start them automatically.
 
-    **Note**: If you wish to run the ChromaDB instances in separate terminals to view their logs or errors, you can still use `npm run ai:server` (for the knowledge base) and `npm run ai:server-memory` (for the memory core) individually. However, this is optional, as `npm run ai:server-all` handles everything.
+**Subsequent Sessions:**
+- The MCP servers are automatically started by the Gemini CLI when you run `gemini`
+- The knowledge base is cached - full embedding only runs on first launch
+- File changes are detected and incrementally updated
+- **You do not need to manually start servers** unless debugging
 
-## 4. Configuring an Agent (Optional Example: Gemini CLI)
+### Step 3.4: Verify the Setup
 
-Once the AI servers are running, you can interact with them using any terminal-based AI agent. This is an optional step showing how to install the Gemini CLI.
+After starting the servers, the knowledge base will be embedded automatically. This process takes 2-5 minutes on the first run (depending on your hardware).
 
+**How to verify it's ready:**
+The agent will perform a healthcheck on the `neo.mjs-knowledge-base` server during its initialization. If the healthcheck is successful, you can assume the embedding is complete.
+
+**Troubleshooting:** If you see errors about missing API keys, verify your `.env` file contains a valid `GEMINI_API_KEY`.
+
+## 4. Installing the Gemini CLI Agent
+
+To interact with the AI servers, install the Gemini CLI:
 ```bash
 npm i -g @google/gemini-cli
 ```
 
-## 5. The AI-Native Workflow: A Partnership
+## 5. Understanding the Configuration Files
 
-The goal of this system is to create a powerful partnership between you and the AI agent. To facilitate this, we use a system of configuration and guide files that automate the agent's setup and define its behavior.
+The agent's behavior is controlled by several configuration files:
 
-### Agent Configuration and Behavior
+### Core Configuration (`.gemini/` directory)
+- **`settings.json`**: Defines context files and MCP servers for the session
+- **`GEMINI.md`**: Provides initialization checkpoint for the agent
 
-The agent's behavior is primarily controlled by the following files:
+### Agent Guidelines (Repository root)
+- **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
+- **`AGENTS.md`**: Per-turn operational mandates (automatically loaded via settings.json)
 
--   **`.gemini/settings.json`**: This file is the entry point for the agent's configuration. It tells the agent which files to load into its context at the beginning of a session, and also defines the Model Context Protocol (MCP) servers to be used for the session.
--   **`.gemini/GEMINI.md`**: This file provides the initial instructions for the agent, including the mandatory pre-response check to ensure it has completed the session initialization.
--   **`AGENTS_STARTUP.md`**: This guide contains the detailed, step-by-step instructions for the agent's session initialization. It ensures the agent has a foundational understanding of the Neo.mjs architecture before it begins any task.
--   **`AGENTS.md`**: This is the rulebook for the **AI**. It contains the critical "per-turn" instructions, protocols, and constraints the agent must follow to be an effective contributor. This includes the "Ticket-First" gate and the Memory Core protocol.
--   **`WORKING_WITH_AGENTS.md`**: This is the playbook for **you**, the human developer. It provides essential strategies for guiding the agent, handling common issues, and maximizing its performance.
+### Developer Guide (Repository root)
+- **`WORKING_WITH_AGENTS.md`**: Your playbook for working effectively with AI agents
 
-**Note on Agent Specificity**: The `.gemini/settings.json` and `.gemini/GEMINI.md` files are specific to the Gemini CLI. Other AI agents may use different configuration files or methods to achieve similar results.
+**Important:** Before starting your first session, read [WORKING_WITH_AGENTS.md]() to understand how to guide the agent effectively.
 
-Your first step before starting a session should be to familiarize yourself with the `WORKING_WITH_AGENTS.md` guide.
+## 6. Your First Agent Session
 
-### The Automated Workflow in Action
+Once the Gemini CLI is installed:
 
-Here’s how the intended workflow looks with the automated setup:
+1. **Start the agent** from the repository root:
+   ```bash
+   gemini
+   ```
 
-1.  **Start your AI Agent**: From the repo root, launch your AI agent of choice (e.g., Gemini CLI).
-    ```bash
-    gemini
-    ```
-2.  **Give a High-Level Prompt**: The agent will automatically perform its initialization based on the configuration files. Once it's ready, you can give it a goal.
-    > **Your Prompt:** "Explain the Neo.mjs two-tier reactivity model and provide a simple code example."
+2. **Give a high-level prompt**, for example:
+   > "Explain the Neo.mjs two-tier reactivity model with a code example."
+   
+   After you provide the first prompt, the agent will perform its initialization sequence:
+   - Read AGENTS_STARTUP.md
+   - Load core Neo.mjs files (Neo.mjs, Base.mjs, CodebaseOverview.md)
+   - Check the Memory Core status
+   - Confirm it's ready
 
-3.  **The AI Takes Over**: An agent following the `AGENTS.md` protocol will then:
-    *   **Formulate a query**: It will determine that "reactivity" is the key concept.
-    *   **Execute the tool**: It will use the `neo.mjs-knowledge-base` MCP server's `query_documents` tool to query the knowledge base for "reactivity".
-    *   **Synthesize the answer**: After getting the paths to the most relevant guides and source files, it will read them and use that fresh, accurate context to generate a comprehensive explanation.
+3. **The agent autonomously**:
+   - Queries the knowledge base for "reactivity"
+   - Reads relevant source files
+   - Synthesizes an accurate answer from the codebase
 
-This is the crucial difference: you are delegating the *research* task to the AI, making it a true partner that can autonomously navigate and understand your codebase.
+This is the key difference: you delegate *research* to the agent, making it a true partner that can autonomously navigate and understand your codebase.
 
-## 6. Common Troubleshooting
--   **API Key Errors**: If queries fail with authentication issues, try regenerating the key in Google AI Studio or
-    check your usage quotas.
--   **`gemini` Command Not Found**: If you installed the Gemini CLI but the command isn't found, ensure your system's
-    PATH includes the global npm binaries directory. You can find this directory by running `npm bin -g`.
+## 7. Common Troubleshooting
+
+### MCP Server Issues
+- **"Connection refused" errors**: Ensure `npm run ai:server-all` is running
+- **Empty query results**: The knowledge base may still be embedding - wait for completion
+- **ChromaDB errors on Windows**: Verify you're running in WSL (see Prerequisites)
+
+### API Key Issues
+- **Authentication errors**: Regenerate your key at Google AI Studio
+- **Rate limit errors**: You've exceeded the free tier quota - wait or upgrade
+- **"Invalid API key" errors**: Check `.env` file has correct format: `GEMINI_API_KEY="your-key-here"`
+
+### Agent Behavior Issues
+- **Agent doesn't initialize**: Check that `.gemini/GEMINI.md` and `AGENTS_STARTUP.md` exist
+- **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo.mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
+- **Agent makes incorrect assumptions**: It may be hallucinating - remind it to query the knowledge base
+
+### Installation Issues
+- **`gemini` command not found**: Add npm global binaries to PATH
+  ```bash
+  npm bin -g
+  # Add the output directory to your PATH
+  ```
