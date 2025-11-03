@@ -42,7 +42,7 @@ to directly interact with your codebase, run scripts, and access the local knowl
 You can use any CLI-based AI agent that you are comfortable with. The following sections will show you how to set up
 the knowledge base, and then provide an optional guide for configuring the Gemini CLI as one possible agent.
 
-## 3. Setup & Build the Knowledge Base (Required)
+## 3. Setup the AI Environment (Required)
 
 This section covers the mandatory steps to create the local vector database. The embedding process uses a Google
 Gemini model, so a Gemini API key is required regardless of which AI agent you choose for chatting.
@@ -73,87 +73,64 @@ The API key authenticates your requests to Google's Gemini models.
     ```
     This file is already listed in `.gitignore` to prevent you from accidentally committing your key.
 
-### Step 3.3: Build the Knowledge Base
+### Step 3.3: Start the AI Servers
 
-With the configuration in place, you can now build the local vector database.
+The AI tooling now leverages Model Context Protocol (MCP) servers that automatically manage the ChromaDB instances for both the knowledge base and agent memories. You no longer need to manually build the knowledge base or initialize the memory collection.
 
-1.  **Start the AI Server**: In a new terminal window, start the ChromaDB server. Keep this process running in the background.
+1.  **Start the AI Servers**: In a new terminal window, run the following command. This will start all necessary MCP servers.
     ```bash
-    npm run ai:server
+    npm run ai:server-all
     ```
-2.  **Build the Knowledge Base**: In another terminal, run the following commands sequentially. This may take a few
-    minutes on the first run.
-    ```bash
-    # 1. Generates docs/output/structure.json for codebase mapping
-    npm run generate-docs-json
+    Keep this process running in the background. The servers will automatically create and embed the knowledge base, and manage the memory core.
 
-    # 2. Creates, embeds, and stores all content in the local ChromaDB
-    npm run ai:build-kb
-    ```
+    **Note**: If you wish to run the ChromaDB instances in separate terminals to view their logs or errors, you can still use `npm run ai:server` (for the knowledge base) and `npm run ai:server-memory` (for the memory core) individually. However, this is optional, as `npm run ai:server-all` handles everything.
 
-## 4. Optional: Enable Agent Memory Core
+## 4. Configuring an Agent (Optional Example: Gemini CLI)
 
-To give your AI agent a persistent memory of past interactions, you can enable the optional memory core. This allows the agent to recall previous conversations, decisions, and thought processes, leading to more informed and consistent responses.
-
-### Step 4.1: Start the Memory Server
-
-In a new terminal window, start the dedicated ChromaDB server for agent memories. Keep this process running in the background.
-
-```bash
-npm run ai:server-memory
-```
-
-### Step 4.2: Initialize the Memory Collection
-
-In another terminal, run the following command to create the necessary collection in the memory database.
-
-```bash
-npm run ai:setup-memory-db
-```
-
-## 5. Configuring an Agent (Optional Example: Gemini CLI)
-
-Once the knowledge base is built, you can interact with it using any terminal-based AI agent. This is an optional
-step showing how to install the Gemini CLI.
+Once the AI servers are running, you can interact with them using any terminal-based AI agent. This is an optional step showing how to install the Gemini CLI.
 
 ```bash
 npm i -g @google/gemini-cli
 ```
 
-## 6. The AI-Native Workflow: A Partnership
+## 5. The AI-Native Workflow: A Partnership
 
-The goal of this system is to create a powerful partnership between you and the AI agent. To facilitate this, we use a dual-guide system:
+The goal of this system is to create a powerful partnership between you and the AI agent. To facilitate this, we use a system of configuration and guide files that automate the agent's setup and define its behavior.
 
--   **`AGENTS.md`**: This is the rulebook for the **AI**. It contains the critical instructions, protocols, and constraints the agent must follow to be an effective contributor.
+### Agent Configuration and Behavior
+
+The agent's behavior is primarily controlled by the following files:
+
+-   **`.gemini/settings.json`**: This file is the entry point for the agent's configuration. It tells the agent which files to load into its context at the beginning of a session, and also defines the Model Context Protocol (MCP) servers to be used for the session.
+-   **`.gemini/GEMINI.md`**: This file provides the initial instructions for the agent, including the mandatory pre-response check to ensure it has completed the session initialization.
+-   **`AGENTS_STARTUP.md`**: This guide contains the detailed, step-by-step instructions for the agent's session initialization. It ensures the agent has a foundational understanding of the Neo.mjs architecture before it begins any task.
+-   **`AGENTS.md`**: This is the rulebook for the **AI**. It contains the critical "per-turn" instructions, protocols, and constraints the agent must follow to be an effective contributor. This includes the "Ticket-First" gate and the Memory Core protocol.
 -   **`WORKING_WITH_AGENTS.md`**: This is the playbook for **you**, the human developer. It provides essential strategies for guiding the agent, handling common issues, and maximizing its performance.
+
+**Note on Agent Specificity**: The `.gemini/settings.json` and `.gemini/GEMINI.md` files are specific to the Gemini CLI. Other AI agents may use different configuration files or methods to achieve similar results.
 
 Your first step before starting a session should be to familiarize yourself with the `WORKING_WITH_AGENTS.md` guide.
 
-### The Workflow in Action
+### The Automated Workflow in Action
 
-Here’s how the intended workflow looks:
+Here’s how the intended workflow looks with the automated setup:
 
 1.  **Start your AI Agent**: From the repo root, launch your AI agent of choice (e.g., Gemini CLI).
     ```bash
     gemini
     ```
-2.  **Give the Initial Handshake**: This is the most critical step. Your first prompt **must** direct the agent to its instructions.
-    > **Your Prompt:** "follow the instructions inside @AGENTS.md"
-
-3.  **Give a High-Level Prompt**: Once the agent has completed its initialization, you can give it a goal.
+2.  **Give a High-Level Prompt**: The agent will automatically perform its initialization based on the configuration files. Once it's ready, you can give it a goal.
     > **Your Prompt:** "Explain the Neo.mjs two-tier reactivity model and provide a simple code example."
 
-4.  **The AI Takes Over**: An agent following the `AGENTS.md` protocol will then:
+3.  **The AI Takes Over**: An agent following the `AGENTS.md` protocol will then:
     *   **Formulate a query**: It will determine that "reactivity" is the key concept.
-    *   **Execute the tool**: It will run `npm run ai:query -- -q "reactivity" -t guide` on its own.
+    *   **Execute the tool**: It will use the `neo.mjs-knowledge-base` MCP server's `query_documents` tool to query the knowledge base for "reactivity".
     *   **Synthesize the answer**: After getting the paths to the most relevant guides and source files, it will read them and use that fresh, accurate context to generate a comprehensive explanation.
 
 This is the crucial difference: you are delegating the *research* task to the AI, making it a true partner that can autonomously navigate and understand your codebase.
 
-## 7. Common Troubleshooting
+## 6. Common Troubleshooting
 -   **API Key Errors**: If queries fail with authentication issues, try regenerating the key in Google AI Studio or
     check your usage quotas.
 -   **`gemini` Command Not Found**: If you installed the Gemini CLI but the command isn't found, ensure your system's
     PATH includes the global npm binaries directory. You can find this directory by running `npm bin -g`.
--   **Memory Issues during Build**: The `ai:build-kb` script can be memory-intensive. If it fails, you can try increasing
-    the heap size available to Node.js: `node --max-old-space-size=4096 ./buildScripts/ai/embedKnowledgeBase.mjs`.
