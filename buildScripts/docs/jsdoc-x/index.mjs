@@ -1,14 +1,31 @@
 import {run as runJSDoc} from './runner.mjs';
 import {transform}       from './transformer.mjs';
-import {glob}            from 'glob';
+import fg                from 'fast-glob';
 import path              from 'path';
 import fs                from 'fs/promises';
 
+/**
+ * Fast glob with optimized settings for documentation files
+ * @param {string|string[]} globs - Glob patterns
+ * @returns {Promise<string[]>} - Array of matching file paths
+ */
 async function promiseGlobFiles(globs) {
-    const fileArrays = await Promise.all(
-        globs.map(pattern => glob(pattern))
-    );
-    return fileArrays.flat();
+    const patterns = Array.isArray(globs) ? globs : [globs];
+
+    return fg(patterns, {
+        absolute: false,
+        onlyFiles: true,
+        unique: true,
+        dot: false,
+        ignore: [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/docs/output/**'
+        ],
+        caseSensitiveMatch: false,
+        // Only match .mjs files (all relevant neo.mjs files use this extension)
+        extglob: true
+    });
 }
 
 /**
@@ -49,7 +66,13 @@ export async function parse(options) {
     }
 
     if (hasFiles) {
-        opts.files = await promiseGlobFiles(Array.isArray(opts.files) ? opts.files : [opts.files]);
+        opts.files = await promiseGlobFiles(opts.files);
+
+        if (opts.files.length === 0) {
+            throw new Error('No files matched the provided glob patterns.');
+        }
+
+        console.log(`Found ${opts.files.length} files to process`);
     }
 
     // The original had a temp file for source, that can be added here if needed.
