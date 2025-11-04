@@ -1,7 +1,7 @@
-import fs       from 'fs-extra';
+import fs                 from 'fs-extra';
 import {parse, writeJSON} from './jsdoc-x/index.mjs';
-import {marked} from 'marked';
-import path     from 'path';
+import {marked}           from 'marked';
+import path               from 'path';
 
 console.log('Starting JSDoc documentation generation...');
 const totalStartTime = new Date();
