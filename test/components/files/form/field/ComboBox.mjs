@@ -2,7 +2,7 @@ StartTest(t => {
     let testId, inputField;
 
     async function setup(config = {}) {
-        testId = await Neo.worker.App.createNeoInstance(Neo.merge({
+        testId = (await Neo.worker.App.createNeoInstance(Neo.merge({
             ntype        : 'combobox',
             labelPosition: 'inline',
             labelText    : 'US States',
@@ -24,7 +24,7 @@ StartTest(t => {
                     }]
                 }
             }
-        }, config))
+        }, config))).id;
 
         // Wait for input element to be present
         await t.waitForSelector(`#${testId} input.neo-textfield-input:not(.neo-typeahead-input)`);
