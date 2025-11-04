@@ -8,8 +8,8 @@ test.beforeEach(async ({page}) => {
     await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
     await page.waitForSelector('#component-test-viewport');
 
-    componentId = await page.evaluate(({MIN, MAX}) => {
-        return Neo.worker.App.createNeoInstance({
+    componentId = await page.evaluate(async ({MIN, MAX}) => {
+        const result = await Neo.worker.App.createNeoInstance({
             importPath     : '../form/field/Number.mjs',
             ntype          : 'numberfield',
             parentId       : 'component-test-viewport',
@@ -19,11 +19,14 @@ test.beforeEach(async ({page}) => {
             useSpinButtons : true,
             minValue       : MIN,
             maxValue       : MAX,
-            value          : MIN 
+            value          : MIN
         });
-    },{MIN, MAX});
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+        return result.id;
+    }, {MIN, MAX});
 });
-
 
 test.afterEach(async ({page}) => {
     if (componentId) {

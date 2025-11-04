@@ -10,14 +10,18 @@ test.beforeEach(async ({page}) => {
 
     await page.waitForSelector('#component-test-viewport');
 
-    componentId = await page.evaluate(({SRC, ALT}) => {
-        return Neo.worker.App.createNeoInstance({
+    componentId = await page.evaluate(async ({SRC, ALT}) => {
+        const result = await Neo.worker.App.createNeoInstance({
             importPath: '../component/Image.mjs', // path is relative to the App worker
             ntype     : 'image',
             parentId  : 'component-test-viewport',
             src       : SRC,
             alt       : ALT
         });
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+        return result.id;
     }, {SRC, ALT});
 });
 

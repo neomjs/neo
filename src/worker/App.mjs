@@ -105,7 +105,7 @@ class App extends Base {
      *         autoInitVnode: true,
      *         autoMount    : true,
      *         text         : 'Hi Nige!'
-     *     }).then(id => console.log(id))
+     *     }).then(result => console.log(result.id))
      *
      * Inserting a component into a container
      * @example:
@@ -114,50 +114,55 @@ class App extends Base {
      *         parentId   : 'neo-container-3',
      *         parentIndex: 0
      *         text       : 'Hi Nige!'
-     *     }).then(id => console.log(id))
+     *     }).then(result => console.log(result.id))
      *
      * @param {Object} config
      * @param {String} [config.importPath] you can lazy load missing classes via this config. dev mode only.
      * @param {String} [config.parentId] passing a parentId will put your instance into a container
      * @param {Number} [config.parentIndex] if a parentId is passed, but no index, neo will use add()
-     * @returns {String} the instance id
+     * @returns {Object}
      */
     async createNeoInstance(config) {
-        if (config.importPath) {
-            await import(/* webpackIgnore: true */ config.importPath);
-            delete config.importPath
-        }
-
-        let appName   = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
-            Container = Neo.container?.Base,
-            index, instance, parent;
-
-        config = {appName, ...config};
-
-        if (config.parentId) {
-            parent = Neo.getComponent(config.parentId);
-
-            if (Container && parent && parent instanceof Container) {
-                index = config.parentIndex;
-
-                delete config.parentId;
-                delete config.parentIndex;
-
-                if (Neo.isNumber(index)) {
-                    instance = parent.insert(index, config)
-                } else {
-                    instance = parent.add(config)
-                }
+        try {
+            if (config.importPath) {
+                await import(/* webpackIgnore: true */ config.importPath);
+                delete config.importPath
             }
-        } else {
-            // default parentId='document.body' => we want it to get shown
-            config.autoInitVnode = true;
-            config.autoMount     = true;
 
-            instance = Neo[config.ntype ? 'ntype' : 'create'](config)
+            let appName   = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
+                Container = Neo.container?.Base,
+                index, instance, parent;
+
+            config = {appName, ...config};
+
+            if (config.parentId) {
+                parent = Neo.getComponent(config.parentId);
+
+                if (Container && parent && parent instanceof Container) {
+                    index = config.parentIndex;
+
+                    delete config.parentId;
+                    delete config.parentIndex;
+
+                    if (Neo.isNumber(index)) {
+                        instance = parent.insert(index, config)
+                    } else {
+                        instance = parent.add(config)
+                    }
+                }
+            } else {
+                // default parentId='document.body' => we want it to get shown
+                config.autoInitVnode = true;
+                config.autoMount     = true;
+
+                instance = Neo[config.ntype ? 'ntype' : 'create'](config)
+            }
+
+            return {success: true, id: instance.id}
+        } catch (error) {
+            console.error('Error in createNeoInstance:', error);
+            return {success: false, error: {className: error.name, message: error.message, stack: error.stack}}
         }
-
-        return instance.id
     }
 
     /**
@@ -173,30 +178,35 @@ class App extends Base {
      * Remote method to use inside main threads for destroying neo based class instances.
      *
      * @example:
-     *     Neo.worker.App.destroyNeoInstance('neo-button-3').then(success => console.log(success))
+     *     Neo.worker.App.destroyNeoInstance('neo-button-3').then(result => console.log(result.success))
      *
      * @param {String} id
-     * @returns {Boolean} returns true, in case the instance was found
+     * @returns {Object} returns true, in case the instance was found
      */
     destroyNeoInstance(id) {
-        let instance = Neo.get(id),
-            parent;
+        try {
+            let instance = Neo.get(id),
+                parent;
 
-        if (instance) {
-            if (instance.parentId) {
-                parent = Neo.getComponent(instance.parentId);
+            if (instance) {
+                if (instance.parentId) {
+                    parent = Neo.getComponent(instance.parentId);
 
-                if (parent) {
-                    parent.remove(instance);
-                    return true
+                    if (parent) {
+                        parent.remove(instance);
+                        return {success: true}
+                    }
                 }
+
+                instance.destroy(true, true);
+                return {success: true}
             }
 
-            instance.destroy(true, true);
-            return true
+            return {success: false, error: {message: `Instance with id ${id} not found`}};
+        } catch (error) {
+            console.error(`Error in destroyNeoInstance for id: ${id}`, error);
+            return {success: false, error: {className: error.name, message: error.message, stack: error.stack}}
         }
-
-        return false
     }
 
     /**
@@ -519,18 +529,23 @@ class App extends Base {
      * Set configs of any app realm based Neo instance from main
      * @param {Object} data
      * @param {String} data.id
+     * @returns {Object}
      */
     setConfigs(data) {
-        let instance = Neo.get(data.id);
+        try {
+            let instance = Neo.get(data.id);
 
-        if (instance) {
-            delete data.id;
-            instance.set(data);
+            if (instance) {
+                delete data.id;
+                instance.set(data);
+                return {success: true}
+            }
 
-            return true
+            return {success: false, error: {message: `Instance with id ${data.id} not found`}}
+        } catch (error) {
+            console.error(`Error in setConfigs for id: ${data.id}`, error);
+            return {success: false, error: {className: error.name, message: error.message, stack: error.stack}}
         }
-
-        return false
     }
 
     /**

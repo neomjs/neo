@@ -36,9 +36,15 @@ test.describe('ChipListComponent', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
         await page.waitForSelector('#component-test-viewport');
-        componentId = await page.evaluate((config) => {
+        const result = await page.evaluate((config) => {
             return Neo.worker.App.createNeoInstance(config);
         }, config);
+
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+
+        componentId = result.id;
     });
 
     test.afterEach(async ({page}) => {

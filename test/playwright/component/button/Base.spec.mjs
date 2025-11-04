@@ -25,9 +25,15 @@ test.describe('Neo.button.Base', () => {
             text      : 'Hello Playwright'
         };
 
-        buttonId = await page.evaluate((config) => {
+        const result = await page.evaluate((config) => {
             return Neo.worker.App.createNeoInstance(config);
         }, buttonConfig);
+
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+
+        buttonId = result.id;
 
         const button = page.locator(`#${buttonId}`);
         await expect(button).toBeVisible();
@@ -48,9 +54,15 @@ test.describe('Neo.button.Base', () => {
             isLoading : 'Loading...'
         };
 
-        buttonId = await page.evaluate((config) => {
+        const result = await page.evaluate((config) => {
             return Neo.worker.App.createNeoInstance(config);
         }, buttonConfig);
+
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+
+        buttonId = result.id;
 
         const button = page.locator(`#${buttonId}`);
         const spinner = button.locator('.fa-spinner');
