@@ -2,12 +2,12 @@ StartTest(t => {
     let fieldComponent, inputField, testId;
 
     async function setup(config = {}) {
-        testId = await Neo.worker.App.createNeoInstance(Neo.merge({
+        testId = (await Neo.worker.App.createNeoInstance(Neo.merge({
             ntype     : 'textfield',
             labelText : 'My label',
             labelWidth: 80,
             width     : 300
-        }, config))
+        }, config))).id;
 
         // Wait for input element to be present
         await t.waitForSelector(`#${testId} input.neo-textfield-input`);
