@@ -1,11 +1,10 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 setup();
 
-import { test, expect } from '@playwright/test';
-
-import Neo   from '../../../../src/Neo.mjs';
-import Base  from '../../../../src/core/Base.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import Base           from '../../../../src/core/Base.mjs';
 
 class TestComponent extends Base {
     static config = {

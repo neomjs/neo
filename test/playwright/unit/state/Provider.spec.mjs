@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 const appName = 'StateProviderTest';
 
@@ -12,13 +12,12 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
-import Neo           from '../../../../src/Neo.mjs';
-import Component     from '../../../../src/component/Base.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import Component       from '../../../../src/component/Base.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
-import StateProvider from '../../../../src/state/Provider.mjs';
-import Store         from '../../../../src/data/Store.mjs';
+import StateProvider   from '../../../../src/state/Provider.mjs';
+import Store           from '../../../../src/data/Store.mjs';
 
 // Mock Component for testing purposes
 class MockComponent extends Component {

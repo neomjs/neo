@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 const appName = 'EffectBatchingTest';
 
@@ -8,12 +8,11 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
-import Neo           from '../../../../src/Neo.mjs';
-import * as core     from '../../../../src/core/_export.mjs';
-import Effect        from '../../../../src/core/Effect.mjs';
-import EffectManager from '../../../../src/core/EffectManager.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import Effect         from '../../../../src/core/Effect.mjs';
+import EffectManager  from '../../../../src/core/EffectManager.mjs';
 
 /**
  * @summary This test suite verifies the batching behavior of effects within Neo.mjs.

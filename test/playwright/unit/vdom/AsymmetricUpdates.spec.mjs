@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 const appName = 'VdomAsymmetricUpdatesTest';
 
@@ -11,8 +11,7 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
+import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import ComponentManager   from '../../../../src/manager/Component.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';

@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import Neo              from '../../../../src/Neo.mjs';
-import Base             from '../../../../src/core/Base.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import Base           from '../../../../src/core/Base.mjs';
 
 test.describe('neo/MixinStaticConfig', () => {
     test('should merge static configs from mixins', () => {

@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 setup({
     appConfig: {
@@ -6,13 +6,12 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
-import Neo           from '../../../../src/Neo.mjs';
-import * as core     from '../../../../src/core/_export.mjs';
-import Effect        from '../../../../src/core/Effect.mjs';
-import EffectManager from '../../../../src/core/EffectManager.mjs';
-import Config        from '../../../../src/core/Config.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import Effect         from '../../../../src/core/Effect.mjs';
+import EffectManager  from '../../../../src/core/EffectManager.mjs';
+import Config         from '../../../../src/core/Config.mjs';
 
 test.describe('Neo.core.Effect', () => {
     test('EffectManager should manage active effects', () => {

@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 const appName = 'CollectionBaseTest';
 
@@ -8,8 +8,7 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
+import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import Collection      from '../../../../src/collection/Base.mjs';

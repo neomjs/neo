@@ -1,4 +1,4 @@
-import { setup } from '../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 const appName = 'VdomCalendarTest';
 
@@ -12,11 +12,11 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../src/Neo.mjs';
-import * as core       from '../../../src/core/_export.mjs';
-import StringFromVnode from '../../../src/vdom/util/StringFromVnode.mjs';
-import VdomHelper      from '../../../src/vdom/Helper.mjs';
-import VDomUtil        from '../../../src/util/VDom.mjs';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import StringFromVnode from '../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../src/vdom/Helper.mjs';
+import VDomUtil        from '../../../../src/util/VDom.mjs';
 
 test.describe('VdomCalendar', () => {
     // tests are designed for this rendering mode

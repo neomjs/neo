@@ -1,4 +1,4 @@
-import { setup } from '../../../setup.mjs';
+import {setup} from '../../../setup.mjs';
 
 // Call setup with the specific configuration for this test file
 setup({

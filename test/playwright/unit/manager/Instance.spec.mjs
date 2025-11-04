@@ -1,12 +1,12 @@
-import { setup } from '../setup.mjs';
+import { setup } from '../../setup.mjs';
 
 setup();
 
 import { test, expect } from '@playwright/test';
 
-import Neo             from '../../../src/Neo.mjs';
-import * as core       from '../../../src/core/_export.mjs';
-import InstanceManager from '../../../src/manager/Instance.mjs';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../src/manager/Instance.mjs';
 
 /**
  * @summary Tests the InstanceManager functionality for tracking Neo.mjs instances.

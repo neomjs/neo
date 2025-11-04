@@ -1,4 +1,4 @@
-import { setup } from '../setup.mjs';
+import { setup } from '../../setup.mjs';
 
 const appName = 'RectangleTest';
 
@@ -9,9 +9,9 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../src/Neo.mjs';
-import * as core      from '../../../src/core/_export.mjs';
-import Rectangle      from '../../../src/util/Rectangle.mjs';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import Rectangle      from '../../../../src/util/Rectangle.mjs';
 
 test.describe('Rectangle', () => {
     test('contains', () => {

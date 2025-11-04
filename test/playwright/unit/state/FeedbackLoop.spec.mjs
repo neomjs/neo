@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 const appName = 'FeedbackLoopTest';
 
@@ -12,8 +12,7 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
+import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';

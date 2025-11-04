@@ -1,4 +1,4 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 // tests are designed for this rendering mode
 setup({
@@ -7,11 +7,10 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-
-import Neo                from '../../../../src/Neo.mjs';
-import StringFromVnode    from '../../../../src/vdom/util/StringFromVnode.mjs';
-import VdomHelper         from '../../../../src/vdom/Helper.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import StringFromVnode from '../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../src/vdom/Helper.mjs';
 
 let deltas, output, vdom, vnode;
 

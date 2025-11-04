@@ -1,9 +1,8 @@
-import { setup } from '../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 setup();
 
-import { test, expect } from '@playwright/test';
-
+import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import Base           from '../../../../src/core/Base.mjs';
 import {isDescriptor} from '../../../../src/core/ConfigSymbols.mjs';
