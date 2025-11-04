@@ -1,24 +1,24 @@
 StartTest(t => {
     t.it('Checking colliding style updates', async t => {
-        const containerId = await Neo.worker.App.createNeoInstance({
+        const containerId = (await Neo.worker.App.createNeoInstance({
             ntype : 'container',
             height: 250,
             style : {backgroundColor: 'red'},
             width : 300
-        });
+        })).id;
 
         t.is(containerId, 'neo-container-1');
 
         await t.waitForSelector('.neo-container');
         t.diag('Container got rendered.');
 
-        const componentId = await Neo.worker.App.createNeoInstance({
+        const componentId = (await Neo.worker.App.createNeoInstance({
             ntype   : 'component',
             height  : 150,
             parentId: containerId,
             style   : {backgroundColor: 'blue'},
             width   : 150
-        });
+        })).id;
 
         t.is(componentId, 'neo-component-1');
         t.diag('Component got rendered.');
@@ -45,22 +45,22 @@ StartTest(t => {
     });
 
     t.it('Checking colliding vdom updates', async t => {
-        const toolbarId = await Neo.worker.App.createNeoInstance({
+        const toolbarId = (await Neo.worker.App.createNeoInstance({
             ntype : 'toolbar',
             height: 200,
             width : 300
-        });
+        })).id;
 
         t.is(toolbarId, 'neo-toolbar-1');
 
         await t.waitForSelector('.neo-toolbar');
         t.diag('Toolbar got rendered.');
 
-        const buttonId = await Neo.worker.App.createNeoInstance({
+        const buttonId = (await Neo.worker.App.createNeoInstance({
             ntype   : 'button',
             parentId: toolbarId,
             text    : 'hello'
-        });
+        })).id;
 
         t.is(buttonId, 'neo-button-1');
 
