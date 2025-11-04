@@ -13,8 +13,12 @@ globalThis.DOMRect = class DOMRect {
         this.height = height || 0;
         this.top = this.y;
         this.left = this.x;
-        this.right = this.x + this.width;
-        this.bottom = this.y + this.height;
+    }
+    get right() {
+        return this.x + this.width;
+    }
+    get bottom() {
+        return this.y + this.height;
     }
     static fromRect(other) {
         return new DOMRect(other.x, other.y, other.width, other.height);
