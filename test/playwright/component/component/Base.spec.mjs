@@ -162,33 +162,29 @@ test.describe('Neo.component.Base', () => {
         // t.diag('Button got vnodeInitialized.');
 
         // t.diag('Child update before parent update');
-        await page.evaluate(async (id) => {
-            await Neo.worker.App.setConfigs({id, text: 'world'});
-        }, buttonId);
-        await page.evaluate(async (id) => {
-            await Neo.worker.App.setConfigs({id, height: 300});
-        }, toolbarId);
+        await page.evaluate(async ({buttonId, toolbarId}) => {
+            Neo.worker.App.setConfigs({id: buttonId, text: 'world'});
+            Neo.worker.App.setConfigs({id: toolbarId, height: 300});
+        }, {buttonId, toolbarId});
 
-        await page.waitForTimeout(100);
+        await page.waitForTimeout(200);
 
         const toolbarHeight = await page.locator(`#${toolbarId}`).evaluate(el => el.style.height);
-        const buttonText = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);
+        const buttonText    = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);
 
         expect(toolbarHeight).toBe('300px');
         expect(buttonText).toBe('world');
 
         // t.diag('Parent update before child update');
-        await page.evaluate(async (id) => {
-            await Neo.worker.App.setConfigs({id, height: 200});
-        }, toolbarId);
-        await page.evaluate(async (id) => {
-            await Neo.worker.App.setConfigs({id, text: 'hello'});
-        }, buttonId);
+        await page.evaluate(async ({buttonId, toolbarId}) => {
+            Neo.worker.App.setConfigs({id: toolbarId, height: 200});
+            Neo.worker.App.setConfigs({id: buttonId, text: 'hello'});
+        }, {buttonId, toolbarId});
 
-        await page.waitForTimeout(100);
+        await page.waitForTimeout(200);
 
         const toolbarHeight2 = await page.locator(`#${toolbarId}`).evaluate(el => el.style.height);
-        const buttonText2 = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);
+        const buttonText2    = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);
 
         expect(toolbarHeight2).toBe('200px');
         expect(buttonText2).toBe('hello');
