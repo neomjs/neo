@@ -1,6 +1,5 @@
 import fs       from 'fs-extra';
-import helper   from 'neo-jsdoc-x/src/lib/helper.js';
-import jsdocx   from 'neo-jsdoc-x';
+import {parse, writeJSON} from './jsdoc-x/index.mjs';
 import {marked} from 'marked';
 import path     from 'path';
 
@@ -219,7 +218,7 @@ function generateStructure(target, parentId, docs) {
 console.log('Start default jsdocx parsing.');
 const startDateDefault = new Date();
 
-jsdocx.parse(options)
+parse(options)
     .then(function (docs) {
         console.log('Default jsdocx parsing done.');
         const processTimeDefault = (Math.round((new Date - startDateDefault) * 100) / 100000).toFixed(2);
@@ -356,7 +355,7 @@ jsdocx.parse(options)
             }
         }
 
-        helper.writeJSON({
+        writeJSON({
             path  : './docs/output/all.json',
             indent: 0,
             force : true
@@ -381,7 +380,7 @@ jsdocx.parse(options)
                 path   = 'src/' + path + '.json';
             }
 
-            helper.writeJSON({
+            writeJSON({
                 path  : './docs/output/' + path,
                 indent: 0,
                 force : true
@@ -430,7 +429,7 @@ jsdocx.parse(options)
 
         // console.log(neoStructure);
 
-        helper.writeJSON({
+        writeJSON({
             path  : './docs/output/structure.json',
             indent: 0,
             force : true
