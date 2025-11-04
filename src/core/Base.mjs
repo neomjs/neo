@@ -261,7 +261,7 @@ class Base {
          * So, we are intercepting the top-most `destroy()` call to check for the flag there.
          * Rationale: `destroy()` must only get called once.
          */
-        intercept(me, 'destroy', me.isDestroyedCheck, me);
+        intercept(me, 'destroy', me.#preDestroyHook, me);
 
         // Storing a resolver to execute inside `afterSetIsReady`.
         me.#readyPromise = new Promise(resolve => {
@@ -484,8 +484,6 @@ class Base {
     destroy() {
         let me = this;
 
-        me.isDestroying = true;
-
         me.#timeoutIds.forEach(id => {
             clearTimeout(id)
         });
@@ -613,14 +611,6 @@ class Base {
                 Base.sendRemotes(className, remote)
             }
         }
-    }
-
-    /**
-     * Intercepts destroy() calls to ensure they will only get called once
-     * @returns {Boolean}
-     */
-    isDestroyedCheck() {
-        return !this.isDestroyed
     }
 
     /**
@@ -788,6 +778,16 @@ class Base {
                 })
             })
         }
+    }
+
+    /**
+     * Intercepts destroy() calls to ensure they will only get called once
+     * @returns {Boolean}
+     * @private
+     */
+    #preDestroyHook() {
+        this.isDestroying = true;
+        return !this.isDestroyed
     }
 
     /**
