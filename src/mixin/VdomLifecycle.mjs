@@ -146,7 +146,7 @@ class VdomLifecycle extends Base {
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        oldValue !== undefined && this.syncVnodeTree()
+        value && this.syncVnodeTree()
     }
 
     /**
@@ -156,9 +156,7 @@ class VdomLifecycle extends Base {
      * @protected
      */
     afterSetVnodeInitialized(value, oldValue) {
-        if (value === true) {
-            this.fire('vnodeInitialized', this.id)
-        }
+        value && this.fire('vnodeInitialized', this.id)
     }
 
     /**
@@ -324,7 +322,7 @@ class VdomLifecycle extends Base {
      * @returns {Boolean}
      */
     hasUpdateCollision(updateDepth, distance) {
-        return updateDepth === -1 ? true : distance <= updateDepth
+        return updateDepth === -1 ? true : distance < updateDepth
     }
 
     /**
@@ -625,7 +623,7 @@ class VdomLifecycle extends Base {
         let me                         = this,
             {mounted, parentId, vnode} = me;
 
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
+        if (me.isVdomUpdating || !me.vnodeInitialized || me.silentVdomUpdate) {
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
             me.needsVdomUpdate = true
         } else {
@@ -675,6 +673,4 @@ class VdomLifecycle extends Base {
     }
 }
 
-Neo.setupClass(VdomLifecycle);
-
-export default VdomLifecycle;
+export default Neo.setupClass(VdomLifecycle);

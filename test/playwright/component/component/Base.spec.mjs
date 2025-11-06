@@ -67,7 +67,10 @@ test.describe('Neo.component.Base', () => {
         expect(containerId).toBe('neo-container-1');
 
         await page.waitForSelector('.neo-container');
-        // t.diag('Container got rendered.');
+
+        const initialContainerBgColor = await page.locator(`#${containerId}`).evaluate(el => el.style.backgroundColor);
+
+        expect(initialContainerBgColor).toBe('red');
 
         const componentResult = await page.evaluate(async (containerId) => {
             return Neo.worker.App.createNeoInstance({
@@ -86,15 +89,16 @@ test.describe('Neo.component.Base', () => {
         componentId = componentResult.id;
 
         expect(componentId).toBe('neo-component-1');
-        // t.diag('Component got rendered.');
+
+        const initialComponentBgColor = await page.locator(`#${componentId}`).evaluate(el => el.style.backgroundColor);
+
+        expect(initialComponentBgColor).toBe('blue');
 
         // t.diag('Child update before parent update');
-        await page.evaluate(async (id) => {
-            await Neo.worker.App.setConfigs({id, style: {backgroundColor: 'green'}});
-        }, componentId);
-        await page.evaluate(async (id) => {
-            await Neo.worker.App.setConfigs({id, style: {backgroundColor: 'orange'}});
-        }, containerId);
+        await page.evaluate(async ({componentId, containerId}) => {
+            Neo.worker.App.setConfigs({id: componentId, style: {backgroundColor: 'green'}});
+            Neo.worker.App.setConfigs({id: containerId, style: {backgroundColor: 'orange'}});
+        }, {componentId, containerId});
 
         await page.waitForTimeout(100);
 

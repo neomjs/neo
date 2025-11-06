@@ -195,9 +195,9 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
     });
 
     test('Should not detect a collision if updateDepth is insufficient', () => {
-        const grandchildVdom = { id: 'grandchild-1', text: 'grandchild' };
-        const childVdom = { id: 'child-1', cn: [{ componentId: 'grandchild-1' }] };
-        const parentVdom = { id: 'parent-1', cn: [{ componentId: 'child-1' }] };
+        const grandchildVdom = {id: 'grandchild-1', text: 'grandchild'};
+        const childVdom      = {id: 'child-1', cn: [{componentId: 'grandchild-1'}]};
+        const parentVdom     = {id: 'parent-1', cn: [{componentId: 'child-1'}]};
 
         let grandchild = createMockComponent('grandchild-1', 'child-1', grandchildVdom);
         createMockComponent('child-1', 'parent-1', childVdom);
@@ -260,10 +260,9 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
         expect(deltas.length).toBe(2);
 
         const gcSpanVnode = oldAsymmetricVnode.childNodes[0].childNodes[0].childNodes[0];
-        const c3Vnode = oldAsymmetricVnode.childNodes[2];
-
-        const delta1 = deltas.find(d => d.id === gcSpanVnode.id);
-        const delta2 = deltas.find(d => d.id === c3Vnode.id);
+        const c3Vnode     = oldAsymmetricVnode.childNodes[2];
+        const delta1      = deltas.find(d => d.id === gcSpanVnode.id);
+        const delta2      = deltas.find(d => d.id === c3Vnode.id);
 
         expect(delta1).toBeTruthy();
         expect(delta1.textContent).toBe('Updated GC');
