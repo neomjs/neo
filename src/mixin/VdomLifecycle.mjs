@@ -156,7 +156,15 @@ class VdomLifecycle extends Base {
      * @protected
      */
     afterSetVnodeInitialized(value, oldValue) {
-        value && this.fire('vnodeInitialized', this.id)
+        let me = this;
+
+        if (value) {
+            me.fire('vnodeInitialized', me.id);
+
+            if (me.needsVdomUpdate) {
+                me.update()
+            }
+        }
     }
 
     /**

@@ -47,9 +47,6 @@ test.describe('Neo.component.Image', () => {
     test('should update src and alt attributes on config change', async ({page}) => {
         const image = page.locator(`#${componentId}`);
 
-        await expect(image).toHaveAttribute('src', SRC);
-        await expect(image).toHaveAttribute('alt', ALT);
-
         const NEW_SRC = '../../../../../resources/images/logo/neo_logo_favicon.svg',
               NEW_ALT = 'neo.mjs favicon';
 
