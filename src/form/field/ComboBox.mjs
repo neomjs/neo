@@ -745,7 +745,6 @@ class ComboBox extends Picker {
         if (me.typeAhead) {
             if (!me.value && value?.length > 0) {
                 const search = value.toLocaleLowerCase();
-                let match = null;
 
                 for (let i = 0; i < store.count; i++) {
                     const r = store.getAt(i);

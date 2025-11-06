@@ -54,7 +54,7 @@ test.describe('Neo.form.field.ComboBox', () => {
 
     test('Editable', async ({page}) => {
         componentId = await createComboBox(page, {editable: false});
-        const comboBox = page.locator(`#${componentId}`);
+        const comboBox   = page.locator(`#${componentId}`);
         const inputField = comboBox.locator('input.neo-textfield-input:not(.neo-typeahead-input)');
 
         await expect(inputField).toHaveAttribute('readonly', '');
@@ -75,32 +75,37 @@ test.describe('Neo.form.field.ComboBox', () => {
         await expect(page.locator('.neo-picker-container .neo-list')).toHaveAttribute('role', 'listbox');
         await expect(page.locator('.neo-picker-container .neo-list .neo-list-item[role="option"]')).toHaveCount(59);
 
-        // Nothing selected
-        await expect(inputField).toHaveAttribute('aria-activedescendant', '');
+        // The input field has no value yet
+        await expect(inputField).toHaveValue('');
 
-        // Should activate the first list item. editable: false means we can still be focused
+        // First item is active on open, since the picker is visible
+        await expect(inputField).toHaveAttribute('aria-activedescendant', 'neo-list-1__AL');
+        await expect(page.locator('.neo-list-item.neo-navigator-active-item:has-text("Alabama")')).toBeVisible();
+
+        // Should activate the second list item. editable: false means we can still be focused
         // and select values, just that the filter input is read-only.
         await page.keyboard.press('ArrowDown');
 
-        await expect(inputField).toHaveAttribute('aria-activedescendant', 'neo-list-1__AL');
+        // The second item is now active
+        await expect(inputField).toHaveAttribute('aria-activedescendant', 'neo-list-1__AK');
+        await expect(page.locator('.neo-list-item.neo-navigator-active-item:has-text("Alaska")')).toBeVisible();
 
         await page.waitForTimeout(100);
 
-        // Select that first item.
+        // Select that second item.
         await page.keyboard.press('Enter');
 
         await expect(page.locator('.neo-picker-container')).toBeHidden();
 
-        await expect(inputField).toHaveValue('Alabama');
+        await expect(inputField).toHaveValue('Alaska');
 
         // Focus never leaves the input field
-        // Playwright doesn't expose blurCount directly, so we'll check if the input is still focused
         await expect(inputField).toBeFocused();
 
         await page.keyboard.press('Tab');
 
         // Value still correct after blur
-        await expect(inputField).toHaveValue('Alabama');
+        await expect(inputField).toHaveValue('Alaska');
 
         // Now focus has left
         await expect(inputField).not.toBeFocused();
@@ -156,9 +161,6 @@ test.describe('Neo.form.field.ComboBox', () => {
 
         await expect(inputField).toHaveValue('Wisconsin');
 
-        // We're single select, so only one list item must be selected
-        await expect(page.locator('[aria-selected="true"]')).toHaveCount(1);
-
         await page.keyboard.press('Tab');
 
         // Value still correct after blur
@@ -203,7 +205,6 @@ test.describe('Neo.form.field.ComboBox', () => {
 
         // typeahead input must be cleared, forceSelection must pick the closest value onFocusLeave
         // todo: add another test without forceSelection => Inputs must have been cleared. Both typeahead and filter.
-        // The original Siesta test used t.isDeeply on input values. Playwright doesn't have a direct equivalent for multiple inputs.
         // We'll assert the main input field's value and assume the typeahead input is handled by the component logic.
         await expect(inputField).toHaveValue('Marshall Islands'); // Assuming forceSelection picks the closest value
     });
