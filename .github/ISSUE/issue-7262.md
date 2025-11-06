@@ -1,17 +1,17 @@
 ---
 id: 7262
 title: Enhance Development Workflow with Mandatory Unit Testing
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
 assignees:
   - tobiu
 createdAt: '2025-09-27T11:14:32Z'
-updatedAt: '2025-09-27T18:15:26Z'
+updatedAt: '2025-11-04T10:56:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7262'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - 7256
@@ -21,7 +21,6 @@ subIssues:
   - 7255
   - 7254
   - 7263
-  - 7266
   - 7267
   - 7268
   - 7269
@@ -50,8 +49,9 @@ subIssues:
   - 7292
   - 7293
   - 7294
-subIssuesCompleted: 33
-subIssuesTotal: 36
+subIssuesCompleted: 35
+subIssuesTotal: 35
+closedAt: '2025-11-04T10:56:27Z'
 ---
 # Enhance Development Workflow with Mandatory Unit Testing
 
@@ -59,8 +59,8 @@ subIssuesTotal: 36
 
 ---
 
-**Sub-Issues:** #7256, #7261, #7260, #7258, #7255, #7254, #7263, #7266, #7267, #7268, #7269, #7270, #7271, #7272, #7273, #7274, #7275, #7276, #7277, #7278, #7279, #7280, #7281, #7282, #7283, #7284, #7285, #7286, #7287, #7288, #7289, #7290, #7291, #7292, #7293, #7294
-**Progress:** 33/36 completed (91%)
+**Sub-Issues:** #7256, #7261, #7260, #7258, #7255, #7254, #7263, #7267, #7268, #7269, #7270, #7271, #7272, #7273, #7274, #7275, #7276, #7277, #7278, #7279, #7280, #7281, #7282, #7283, #7284, #7285, #7286, #7287, #7288, #7289, #7290, #7291, #7292, #7293, #7294
+**Progress:** 35/35 completed (100%)
 
 ---
 
@@ -118,4 +118,10 @@ The primary goal is to prevent regressions, especially in the complex core modul
     class MyTestClass extends Base { /* ... */ }
     Neo.setupClass(MyTestClass); // Missing re-assignment
     ```
+
+## Comments
+
+### @tobiu - 2025-11-04 10:56
+
+resolved.
 

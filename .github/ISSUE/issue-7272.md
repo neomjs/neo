@@ -1,23 +1,24 @@
 ---
 id: 7272
 title: Convert VdomCalendar.mjs Test from Siesta to Playwright
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
   - good first issue
   - hacktoberfest
 assignees:
-  - kart-u
+  - tobiu
 createdAt: '2025-09-27T12:47:58Z'
-updatedAt: '2025-10-07T19:23:42Z'
+updatedAt: '2025-11-04T09:14:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7272'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-04T09:14:17Z'
 ---
 # Convert VdomCalendar.mjs Test from Siesta to Playwright
 
@@ -47,4 +48,8 @@ hello @tobiu  I would like to work on this , can you please assign it to me??
 ### @tobiu - 2025-10-07 19:23
 
 Let me think: the original siesta test for this one contained a real-world, but extremely huge vdom object. Optionally(!) you could ask the agent to shorten it, by keeping relevant parts that we want to test.
+
+### @tobiu - 2025-11-04 09:13
+
+@kart-u grabbing this one, since i want to remove siesta soon.
 

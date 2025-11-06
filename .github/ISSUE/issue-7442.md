@@ -1,16 +1,16 @@
 ---
 id: 7442
 title: Convert Component Test form/field/ComboBox.mjs to Playwright
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
   - hacktoberfest
   - ai
 assignees:
-  - Mahita07
+  - tobiu
 createdAt: '2025-10-10T16:54:51Z'
-updatedAt: '2025-10-22T22:52:03Z'
+updatedAt: '2025-11-04T20:21:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7442'
 author: tobiu
 commentsCount: 2
@@ -18,6 +18,7 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-04T20:21:51Z'
 ---
 # Convert Component Test form/field/ComboBox.mjs to Playwright
 
@@ -25,7 +26,7 @@ subIssuesTotal: 0
 
 ---
 
-**Parent Issue:** #7435 - Migrate Component Tests from Siesta to Playwright (R&D)
+**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
 
 ---
 

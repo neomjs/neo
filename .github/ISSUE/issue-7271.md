@@ -1,16 +1,16 @@
 ---
 id: 7271
 title: Convert Rectangle.mjs Test from Siesta to Playwright
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
   - good first issue
   - hacktoberfest
 assignees:
-  - kart-u
+  - tobiu
 createdAt: '2025-09-27T12:40:54Z'
-updatedAt: '2025-10-07T19:21:11Z'
+updatedAt: '2025-11-04T10:55:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7271'
 author: tobiu
 commentsCount: 2
@@ -18,6 +18,7 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-04T10:55:27Z'
 ---
 # Convert Rectangle.mjs Test from Siesta to Playwright
 
