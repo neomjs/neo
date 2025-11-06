@@ -316,7 +316,11 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Checks if a given updateDepth & distance would result in an update collision
+     * Checks if a given updateDepth & distance would result in an update collision.
+     * The check must use `<` because `updateDepth` is 1-based.
+     * - `updateDepth: 1` means the update is scoped to the component itself.
+     * - A direct child is at `distance: 1`.
+     * Therefore, an update with depth 1 should NOT collide with a child at distance 1 (1 < 1 is false).
      * @param {Number} updateDepth
      * @param {Number} distance
      * @returns {Boolean}
