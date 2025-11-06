@@ -159,7 +159,12 @@ test.describe('Neo.component.Base', () => {
         expect(buttonId).toBe('neo-button-1');
 
         await page.waitForSelector('.neo-button');
-        // t.diag('Button got vnodeInitialized.');
+
+        const initialToolbarHeight = await page.locator(`#${toolbarId}`).evaluate(el => el.style.height);
+        const initialButtonText    = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);
+
+        expect(initialToolbarHeight).toBe('200px');
+        expect(initialButtonText).toBe('hello');
 
         // t.diag('Child update before parent update');
         await page.evaluate(async ({buttonId, toolbarId}) => {
@@ -167,7 +172,7 @@ test.describe('Neo.component.Base', () => {
             Neo.worker.App.setConfigs({id: toolbarId, height: 300});
         }, {buttonId, toolbarId});
 
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(50);
 
         const toolbarHeight = await page.locator(`#${toolbarId}`).evaluate(el => el.style.height);
         const buttonText    = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);
@@ -181,7 +186,7 @@ test.describe('Neo.component.Base', () => {
             Neo.worker.App.setConfigs({id: buttonId, text: 'hello'});
         }, {buttonId, toolbarId});
 
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(50);
 
         const toolbarHeight2 = await page.locator(`#${toolbarId}`).evaluate(el => el.style.height);
         const buttonText2    = await page.locator(`#${buttonId}`).evaluate(el => el.firstChild.innerHTML);

@@ -1,6 +1,5 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import NeoArray         from '../util/Array.mjs';
 import TreeBuilder      from '../util/vdom/TreeBuilder.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
@@ -306,7 +305,7 @@ class VdomLifecycle extends Base {
      * @returns {Boolean}
      */
     hasUpdateCollision(updateDepth, distance) {
-        return updateDepth === -1 ? true : distance < updateDepth
+        return updateDepth === -1 ? true : distance <= updateDepth
     }
 
     /**
