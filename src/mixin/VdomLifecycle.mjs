@@ -96,7 +96,14 @@ class VdomLifecycle extends Base {
             cloneOnGet    : 'none',
             isEqual       : (a, b) => a === b, // vnode trees can be huge, and will get compared by the vdom worker.
             value         : null,
-        }
+        },
+        /**
+         * True after the component initVnode() method was called. Also fires the vnodeInitialized event.
+         * @member {Boolean} vnodeInitialized_=false
+         * @protected
+         * @reactive
+         */
+        vnodeInitialized_: false
     }
 
     /**
@@ -140,6 +147,18 @@ class VdomLifecycle extends Base {
      */
     afterSetVnode(value, oldValue) {
         oldValue !== undefined && this.syncVnodeTree()
+    }
+
+    /**
+     * Triggered after the vnodeInitialized config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetVnodeInitialized(value, oldValue) {
+        if (value === true) {
+            this.fire('vnodeInitialized', this.id)
+        }
     }
 
     /**
@@ -465,8 +484,7 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            me._vnodeInitialized = true; // silent update
-            me.fire('vnodeInitialized', me.id);
+            me.vnodeInitialized = true;
 
             if (autoMount) {
                 me.mounted = true;
@@ -567,12 +585,8 @@ class VdomLifecycle extends Base {
                 // silent update
                 component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
-                if (!component.vnodeInitialized) {
-                    component._vnodeInitialized = true;
-                    component.fire('vnodeInitialized', component.id)
-                }
-
-                component.mounted = true
+                component.vnodeInitialized = true;
+                component.mounted          = true
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }
