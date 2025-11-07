@@ -664,7 +664,8 @@ paths:
 
         **Workflow:**
         1. **Formulate:** Determine the appropriate `title`, `body`, and `labels` for the issue.
-        2. **Call Tool:** Call the `create_issue` tool with the complete content.
+        2. **Propose to User:** Before calling the tool, you MUST output the proposed `title`, `labels`, and `body` in a clear format for the user to review.
+        3. **Call Tool:** Immediately after proposing, call the `create_issue` tool. The user can review the content and approve/deny the tool call itself.
 
         After the issue is created on GitHub, you can get a local copy of it by running the `sync_all` tool at an appropriate time, such as when you are ready to push other local changes or when you want to refresh your local environment.
 
