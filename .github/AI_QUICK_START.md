@@ -108,7 +108,6 @@ The agent's behavior is controlled by several configuration files:
 
 ### Core Configuration (`.gemini/` directory)
 - **`settings.json`**: Defines context files and MCP servers for the session
-- **`GEMINI.md`**: Provides initialization checkpoint for the agent
 
 ### Agent Guidelines (Repository root)
 - **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
@@ -128,26 +127,35 @@ Once the Gemini CLI is installed:
    gemini
    ```
 
-2. **Give a high-level prompt**, for example:
+2. **Follow the initialization instructions in AGENTS_STARTUP.md**:
+
+   The agent **will not** automatically initialize itself on startup. You must explicitly instruct it to do so:
+
+   > "Read and follow all instructions in @AGENTS_STARTUP.md"
+
+   The agent will then:
+    - Read the AGENTS_STARTUP.md file
+    - Load core Neo.mjs files (Neo.mjs, Base.mjs, CodebaseOverview.md)
+    - Check the Memory Core status
+    - Confirm it's ready for work
+
+   **Important:** This initialization step is required at the start of every new session. Without it, the agent will not
+   have proper context about the codebase structure and operational guidelines.
+
+3. **Give your actual prompt**, for example:
    > "Explain the Neo.mjs two-tier reactivity model with a code example."
-   
-   After you provide the first prompt, the agent will perform its initialization sequence:
-   - Read AGENTS_STARTUP.md
-   - Load core Neo.mjs files (Neo.mjs, Base.mjs, CodebaseOverview.md)
-   - Check the Memory Core status
-   - Confirm it's ready
 
-3. **The agent autonomously**:
-   - Queries the knowledge base for "reactivity"
-   - Reads relevant source files
-   - Synthesizes an accurate answer from the codebase
+   The agent will now autonomously:
+    - Query the knowledge base for "reactivity"
+    - Read relevant source files
+    - Synthesize an accurate answer from the codebase
 
-This is the key difference: you delegate *research* to the agent, making it a true partner that can autonomously navigate and understand your codebase.
+This is the key difference: you delegate *research* to the agent, making it a true partner that can autonomously navigate
+and understand your codebase.
 
 ## 7. Common Troubleshooting
 
 ### MCP Server Issues
-- **"Connection refused" errors**: Ensure `npm run ai:server-all` is running
 - **Empty query results**: The knowledge base may still be embedding - wait for completion
 - **ChromaDB errors on Windows**: Verify you're running in WSL (see Prerequisites)
 
@@ -157,7 +165,7 @@ This is the key difference: you delegate *research* to the agent, making it a tr
 - **"Invalid API key" errors**: Check `.env` file has correct format: `GEMINI_API_KEY="your-key-here"`
 
 ### Agent Behavior Issues
-- **Agent doesn't initialize**: Check that `.gemini/GEMINI.md` and `AGENTS_STARTUP.md` exist
+- **Agent doesn't initialize**: Check that `AGENTS_STARTUP.md` exists
 - **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo.mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
 - **Agent makes incorrect assumptions**: It may be hallucinating - remind it to query the knowledge base
 

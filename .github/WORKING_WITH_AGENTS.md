@@ -8,7 +8,7 @@ To ensure the AI agent has the correct context and adheres to the project's spec
 
 Your very first prompt to the agent should be:
 
-> follow the instructions inside @AGENTS.md
+> Read and follow all instructions inside @AGENTS_STARTUP.md
 
 Upon receiving this command, the agent will perform its initialization sequence, which includes reading the codebase structure, core classes, and coding guidelines. This grounding process is critical for its ability to provide accurate and relevant assistance.
 
@@ -38,19 +38,19 @@ The AI agent has the ability to remember its work across sessions using a "memor
 
 #### The Agent's Duty: "Save-then-Respond"
 
-As documented in its core protocols (`AGENTS.md`), when the memory core is active, the agent **MUST** save a record of every single interaction *before* it shows you its response. You should see the `npm run ai:add-memory` tool call in your CLI for every turn.
+As documented in its core protocols (`AGENTS.md`), when the memory core is active, the agent **MUST** save a record of every single interaction *before* it shows you its response. You should see the `add_memory` tool call in your CLI for every turn.
 
 #### Your Duty: The Derailment Safeguard
 
 Your responsibility is to act as a safeguard for this critical process. An agent that is "derailing" or getting confused is at high risk of forgetting its core protocols, including the mandatory "save-then-respond" rule.
 
-**After each agent response, quickly verify that the `ai:add-memory` tool call was made and was successful.**
+**After each agent response, quickly verify that the `add_memory` tool call was made and was successful.**
 
 *   **If you see the successful tool call:** The agent is healthy and the session's integrity is intact.
 *   **If you DO NOT see the tool call, or if it fails:** The agent has derailed from a critical protocol. You must intervene immediately.
 
 **Recovery Prompt for Memory Failure:**
-> "You did not save the last turn to your memory. This is a critical protocol failure. Please re-evaluate the last turn and execute the `ai:add-memory` command correctly before we continue."
+> "You did not save the last turn to your memory. This is a critical protocol failure. Please re-evaluate the last turn and execute the `add_memory` tool correctly before we continue."
 
 By performing this simple check, you prevent a temporary agent derailment from becoming a permanent loss of data, ensuring that even failures are recorded and can be learned from.
 
@@ -79,18 +79,18 @@ For a deeper technical dive into the causes of non-determinism in LLMs, see this
 
 ## 5. The Human-in-the-Loop: A Critical Safety Rule
 
-When an AI agent wants to modify a file (e.g., using `write_file` or `replace`), the Gemini CLI will prompt you for permission with four options:
+When an AI agent wants to modify a file (e.g., using `write_file` or `replace`), your agent CLI will prompt you for permission. The exact options vary by tool, but typically include:
 
 1.  **Yes, allow once**
-2.  **Yes, allow always**
+2.  **Yes, allow always** (or similar auto-approval option)
 3.  **Modify with external editor**
 4.  **No, suggest changes**
 
-**Golden Rule: Never use "Yes, allow always" for file modifications.**
+**Golden Rule: Never use "Yes, allow always" or any auto-approval option for file modifications.**
 
 While it may seem convenient, granting an agent permanent permission to write files can be dangerous. An agent, like any software, can make mistakes. A misinterpretation of your request or a "panic" response could lead it to overwrite the wrong file or delete critical work.
 
-By choosing **"Yes, allow once"** for every change, you act as a crucial human-in-the-loop, providing a final safeguard before any action is taken. This ensures that you have the final say on every modification to your codebase, protecting you from irreversible errors.
+By choosing **"Yes, allow once"** (or your CLI's equivalent) for every change, you act as a crucial human-in-the-loop, providing a final safeguard before any action is taken. This ensures that you have the final say on every modification to your codebase, protecting you from irreversible errors.
 
 ### A Note on Security: Agentic Misalignment
 
@@ -122,7 +122,7 @@ If you see the agent proposing a destructive action (like deleting a file or rev
 
 It's helpful to think of an AI agent's session as a human lifetime. This analogy can help you understand its behavior and know when it's time to start fresh.
 
-1.  **Childhood (The Beginning):** A new session is like a child—motivated and eager to learn, but completely clueless about the specifics of the Neo.mjs project. Your first instruction to follow `AGENTS.md` is the start of its education.
+1.  **Childhood (The Beginning):** A new session is like a child—motivated and eager to learn, but completely clueless about the specifics of the Neo.mjs project. Your first instruction to follow `AGENTS_STARTUP.md` is the start of its education.
 
 2.  **Adulthood (The Sweet Spot):** As you guide the agent and it uses the knowledge base, the core concepts will "click." It enters an "adult" phase where it is incredibly productive, understands the context, and effectively assists with complex tasks. This is the sweet spot of your collaboration.
 
