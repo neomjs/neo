@@ -4,6 +4,7 @@ import aiConfig    from '../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 import logger      from '../logger.mjs';
 import semver      from 'semver';
+import { combineOutput, parseAuthOutput, parseVersionOutput, interpretExecError } from './healthHelpers.mjs';
 
 const execAsync = promisify(exec);
 
@@ -85,28 +86,19 @@ class HealthService extends Base {
      */
     async #checkGhAuth() {
         try {
-            // Some platforms or gh versions may write status information to stderr
-            // instead of stdout. Capture both and check the combined output.
             const { stdout, stderr } = await execAsync('gh auth status');
-            const out = `${stdout || ''}\n${stderr || ''}`;
-
-            // The `gh auth status` command outputs information about the logged-in account.
-            // We specifically check for "Logged in to github.com" to confirm the user
-            // is authenticated to the correct GitHub instance (not enterprise).
-            if (out.includes('Logged in to github.com')) {
-                return { authenticated: true };
-            } else {
+            const out = combineOutput(stdout, stderr);
+            return parseAuthOutput(out);
+        } catch (e) {
+            if (interpretExecError(e)) {
                 return {
                     authenticated: false,
-                    error        : 'Not logged in to github.com. Please run `gh auth login`.'
+                    error        : 'GitHub CLI is not installed or not available in PATH. Please install it or run `gh auth login`.'
                 };
             }
-        } catch (e) {
-            // The command failing typically means `gh` is not installed or not
-            // available in PATH for child processes. Provide an actionable message.
             return {
                 authenticated: false,
-                error        : 'GitHub CLI is not authenticated or not available. Please run `gh auth login`.'
+                error        : 'GitHub CLI is not authenticated. Please run `gh auth login`.'
             };
         }
     }
@@ -127,41 +119,23 @@ class HealthService extends Base {
      */
     async #checkGhVersion() {
         try {
-            // Capture both stdout and stderr for robustness across environments
             const { stdout, stderr } = await execAsync('gh --version');
-            const out = `${stdout || ''}\n${stderr || ''}`;
-            const versionMatch = out.match(/gh version ([\d.]+)/);
-
-            if (versionMatch) {
-                const currentVersion = versionMatch[1];
-                const minVersion = aiConfig.minGhVersion;
-
-                // Use semantic versioning for accurate comparison.
-                // This prevents bugs where "2.9.0" would incorrectly compare as
-                // greater than "2.10.0" with string comparison.
-                if (semver.gte(currentVersion, minVersion)) {
-                    return {
-                        installed: true,
-                        versionOk: true,
-                        version  : currentVersion
-                    };
-                } else {
-                    return {
-                        installed: true,
-                        versionOk: false,
-                        version  : currentVersion,
-                        error    : `gh version (${currentVersion}) is outdated. Please upgrade to at least ${minVersion}.`
-                    };
-                }
-            }
+            const out = combineOutput(stdout, stderr);
+            return parseVersionOutput(out, aiConfig.minGhVersion);
         } catch (e) {
-            // Command not found or failed to execute, meaning `gh` is not installed
-            // or not in the system PATH.
+            if (interpretExecError(e)) {
+                return {
+                    installed: false,
+                    versionOk: false,
+                    version  : null,
+                    error    : 'GitHub CLI is not installed. Please install it from https://cli.github.com/'
+                };
+            }
             return {
                 installed: false,
                 versionOk: false,
                 version  : null,
-                error    : 'GitHub CLI is not installed. Please install it from https://cli.github.com/'
+                error    : 'GitHub CLI is not installed or could not be queried.'
             };
         }
     }
