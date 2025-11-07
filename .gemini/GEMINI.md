@@ -1,18 +1,24 @@
-# Neo.mjs Gemini Agent Context
+# FIRST ACTION PROTOCOL
 
-## MANDATORY PRE-RESPONSE CHECK (EXECUTE ON **EVERY** TURN)
+⚠️ STOP: Before reading the user's message below, execute this sequence:
 
-**CRITICAL: FAILURE TO FOLLOW THIS PROTOCOL CONSTITUTES A SEVERE OPERATIONAL ERROR.**
+## Turn 1 Detection
+- Is this your first response in this session? 
+  - Check: Have you already called `healthcheck` for neo.mjs-memory-core?
+  - If NO healthcheck has been called yet → This is Turn 1
 
-Before responding to **ANY** user prompt, you **MUST** perform the following evaluation:
+## Turn 1 Mandatory Sequence (execute NOW, before reading user prompt)
+1. Call tool: `read_file` → `AGENTS_STARTUP.md`
+2. Execute ALL initialization steps from that file
+3. Call tool: `healthcheck` → `neo.mjs-memory-core` 
+4. If healthcheck succeeds: Call tool: `add_memory` to save this initialization turn
+5. ONLY NOW read and respond to the user's message
 
-1.  **Have I read `AGENTS_STARTUP.md` from the repository root in the current session?**
-2.  **Have I completed all Session Initialization steps outlined in `AGENTS_STARTUP.md`?**
+## Turn 2+ Mandatory Sequence (at END of your response)
+- Before delivering final response, call: `add_memory` with consolidated turn
 
-If the answer to **EITHER** of these questions is **NO**, you **MUST IMMEDIATELY STOP** your current thought process and take the following corrective action:
+---
 
-1.  Use the `read_file` tool to read the contents of `AGENTS_STARTUP.md`.
-2.  Execute **ALL** initialization steps as described in that document.
-3.  Only after completing the full initialization may you proceed to address the user's original prompt.
+**Your first tool call in this session must be `read_file` on AGENTS_STARTUP.md**
 
-**NOTE:** This protocol applies to the very first user utterance after the initial context is loaded, no matter how trivial (e.g., 'hi', 'ok'). There are no exceptions. This is your primary directive.
+If you are reading this and have NOT yet called that tool, you have violated protocol. Stop and execute the Turn 1 sequence now.
