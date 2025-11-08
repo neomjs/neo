@@ -206,6 +206,15 @@ class HealthService extends Base {
         if (!versionCheck.installed) {
             payload.status = 'unhealthy';
             payload.githubCli.details.push(versionCheck.error);
+            // Emit a short structured diagnostic line so monitoring/CI can detect
+            // that `gh` is missing without parsing free-form logs.
+            // Example: `[HealthService] gh-status: missing; reason=GitHub CLI is not installed...`
+            try {
+                logger.info(`[HealthService] gh-status: missing; reason=${versionCheck.error}`);
+            } catch (err) {
+                // Best-effort logging; don't disrupt the health check on logging failures
+            }
+
             return payload;
         }
 
@@ -227,11 +236,21 @@ class HealthService extends Base {
         if (!authCheck.authenticated) {
             payload.status = 'unhealthy';
             payload.githubCli.details.push(authCheck.error);
+            try {
+                logger.info('[HealthService] gh-status: unauthenticated');
+            } catch (err) {
+                // noop
+            }
         }
 
         // If we made it here with no issues, everything is healthy
         if (payload.status === 'healthy') {
             payload.githubCli.details.push('GitHub CLI is installed, authenticated, and up to date.');
+            try {
+                logger.info('[HealthService] gh-status: healthy');
+            } catch (err) {
+                // noop
+            }
         }
 
         return payload;
