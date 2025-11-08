@@ -487,6 +487,22 @@ class App extends Base {
     }
 
     /**
+     *
+     * @param {Object}  msg
+     * @param {Object}  msg.data
+     * @param {Boolean} msg.data.hidden
+     * @param {String}  msg.data.visibilityState
+     * @param {Number}  msg.data.windowId
+     */
+    onVisibilityChange(msg) {
+        Object.values(Neo.apps).forEach(app => {
+            if (app.windowId === msg.data.windowId) {
+                app.fire('visibilitychange', msg.data)
+            }
+        })
+    }
+
+    /**
      * @param {Object} data
      */
     onWindowPositionChange(data) {

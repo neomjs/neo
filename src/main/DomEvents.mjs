@@ -129,6 +129,7 @@ class DomEvents extends Base {
 
         document.addEventListener('DOMContentLoaded',  me.onDomContentLoaded .bind(me));
         document.addEventListener('selectionchange',   me.onSelectionChange  .bind(me));
+        document.addEventListener('visibilitychange',  me.onVisibilitychange .bind(me));
         window  .addEventListener('orientationchange', me.onOrientationChange.bind(me));
         window  .addEventListener('hashchange',        me.onHashChange       .bind(me));
 
@@ -664,6 +665,20 @@ class DomEvents extends Base {
             target   : targetData,
             timeStamp: event.timeStamp,
             type     : 'selectionchange'
+        })
+    }
+
+    /**
+     * @param {Event} event
+     */
+    onVisibilitychange(event) {
+        Neo.worker.Manager.sendMessage('app', {
+            action: 'visibilityChange',
+            data  : {
+                hidden         : document.hidden,
+                visibilityState: document.visibilityState,
+                windowId       : Neo.worker.Manager.windowId
+            }
         })
     }
 
