@@ -210,7 +210,9 @@ class MagicMoveText extends Component {
         me.addDomListeners({
             resize: me.onResize,
             scope : me
-        })
+        });
+
+        me.app?.on('visibilitychange', me.onVisibilityChange, me)
     }
 
     /**
@@ -465,6 +467,29 @@ class MagicMoveText extends Component {
             }
         } else {
             me.initialResizeEvent = false
+        }
+    }
+
+    /**
+     * Triggered when switching browser tabs or minimizing the browser
+     * @param {Object}  data
+     * @param {Boolean} data.hidden
+     * @param {String}  data.visibilityState
+     * @param {Number}  data.windowId
+     */
+    onVisibilityChange(data) {
+        let me = this;
+
+        if (me.autoCycle) {
+            if (data.hidden) {
+                me.startAutoCycle(false)
+            } else {
+                me.isRetrying    = false;
+                me.measureCache  = {};
+                me.previousChars = [];
+
+                me.startAutoCycle()
+            }
         }
     }
 
