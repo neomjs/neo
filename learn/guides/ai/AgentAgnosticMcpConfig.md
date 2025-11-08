@@ -4,200 +4,56 @@ This guide explains the agent-agnostic Model Context Protocol (MCP) server confi
 
 ## Overview
 
-The Neo.mjs project provides multiple AI services through MCP servers:
+The Neo.mjs project provides multiple AI services through MCP (Model Context Protocol) servers. These servers give AI agents the tools and context needed to perform complex software engineering tasks. The primary servers include:
 
-- **Knowledge Base Server**: Provides semantic search across the entire codebase, documentation, guides, and examples
-- **Memory Core Server**: Offers persistent memory for AI agents, storing conversation history and session context
-- **Chrome DevTools Server**: Enables browser automation and debugging capabilities
+- **Knowledge Base Server**: Provides semantic search across the entire codebase, documentation, guides, and examples.
+- **Memory Core Server**: Offers persistent memory for AI agents, storing conversation history and session context.
+- **GitHub Workflow Server**: Enables interaction with the GitHub repository, including managing issues and pull requests.
+- **Chrome DevTools Server**: Allows for browser automation and debugging capabilities.
 
-To ensure these services are accessible to any AI agent (not just those from specific vendors), Neo.mjs uses a standardized, agent-agnostic configuration format.
+To ensure these services are accessible to any AI agent, the project uses a simple, standardized configuration format that allows an agent's client environment to launch and communicate with these servers. This guide outlines the schema for this configuration and explains how it enables an "agent-agnostic" approach to tooling.
 
-## Configuration File Location
+## Configuration Principle
 
-The MCP server configuration is located at:
+Instead of a single, centralized configuration file, the principle is that each agent's client environment has its own configuration for launching MCP servers. This allows for flexibility while maintaining a common pattern.
+
+For example, the Gemini CLI uses the following file:
 ```
-.github/mcp-servers.json
+.gemini/settings.json
 ```
+This file contains a definition for each MCP server, specifying the command needed to start it.
 
-This location follows the convention of placing CI/CD and development tooling configuration in the `.github/` directory.
+## The Lifecycle Protocol
 
-## Discovery Protocol
+The agent's client environment (e.g., the Gemini CLI) is responsible for managing the server lifecycle. The protocol is straightforward:
 
-AI agents should follow this discovery protocol:
+1.  **Read Configuration**: On startup, the client reads its configuration file (e.g., `.gemini/settings.json`).
+2.  **Launch Servers**: For each server defined in the `mcpServers` section, the client executes the specified `command` with its `args` as a separate process.
+3.  **Establish Communication**: The client communicates with the launched server process over standard input/output (stdio). The MCP SDK handles the complexities of this communication channel.
+4.  **Discover Tools**: Once the channel is established, the agent can then use tools like `ListTools` to discover the server's capabilities directly through the established MCP channel.
 
-1. **Locate the Configuration**: Look for `.github/mcp-servers.json` in the project root
-2. **Parse the Configuration**: Read the JSON file and extract server definitions
-3. **Check Server Availability**: Use the `healthCheck` configuration to verify if servers are running
-4. **Start Missing Servers**: Use the `startup` commands to launch any required servers that aren't running
-5. **Connect to Servers**: Use the `connection` details to establish MCP connections
+This approach removes the burden of health checks, port management, and connection protocols from the agent, which can simply focus on using the provided tools.
 
 ## Configuration Schema
 
-The configuration file uses the following structure:
-
-### Root Object
-```json
-{
-  "version": "1.0.0",
-  "servers": { /* server definitions */ }
-}
-```
+The configuration schema is minimal and focuses only on how to launch the server process. However, it is part of a broader conceptual schema for defining servers.
 
 ### Server Definition
-Each server in the `servers` object has the following properties:
+A server can be defined with the following properties. While the current implementation primarily uses `command` and `args`, the other properties are valuable for documentation, discovery, and potential future enhancements.
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `name` | string | ✓ | Human-readable name of the server |
-| `description` | string | ✓ | Description of what the server provides |
-| `type` | enum | ✓ | Connection type: `"command"`, `"stdio"`, or `"transport"` |
-| `command` | string | * | Command to execute (required for `type: "command"`) |
-| `args` | array | | Arguments to pass to the command |
-| `connection` | object | * | Connection details (required for `type: "transport"`) |
-| `healthCheck` | object | | Health check configuration |
-| `capabilities` | array | | MCP capabilities: `["resources", "tools", "prompts", "logging"]` |
-| `tags` | array | | Tags for categorizing servers |
-| `startup` | object | | Information about how to start the server |
+|---|---|---|---|
+| `name` | string | ✓ | Human-readable name of the server. |
+| `description` | string | | A brief explanation of what the server provides. |
+| `command` | string | ✓ | The command to execute to start the server (e.g., `npm`, `npx`). |
+| `args` | array | ✓ | An array of string arguments to pass to the command. |
+| `type` | enum | | Defines the transport protocol for communication. While our current servers implicitly use `stdio` (managed by the SDK and client), other valid types from the MCP specification include `streamable-http` or `sse`. This property is key for a client to know how to communicate with the server. |
+| `instructions` | string | | Human-readable instructions for manual setup or troubleshooting if the server fails to start automatically. |
+| `capabilities` | array | | Declares the MCP capabilities the server supports, e.g., `["tools", "resources"]`. |
+| `tags` | array | | Keywords for categorizing the server, useful for discovery in UIs. |
 
-### Connection Object
-For servers with `type: "transport"`:
-
-```json
-{
-  "host": "localhost",
-  "port": 8001,
-  "protocol": "http"
-}
-```
-
-### Health Check Object
-```json
-{
-  "url": "http://localhost:8001/api/v2/healthcheck",
-  "method": "GET",
-  "timeout": 2000
-}
-```
-
-### Startup Object
-```json
-{
-  "command": "npm",
-  "args": ["run", "ai:server-memory"],
-  "cwd": ".",
-  "description": "Start the ChromaDB server for AI agent memory"
-}
-```
-
-## Example Implementation
-
-Here's how an AI agent might use this configuration:
-
-### 1. Discovery Phase
-```javascript
-import fs from 'fs';
-import path from 'path';
-
-// Load the configuration
-const configPath = path.join(process.cwd(), '.github/mcp-servers.json');
-const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-console.log(`Found ${Object.keys(config.servers).length} MCP servers`);
-```
-
-### 2. Health Check Phase
-```javascript
-async function checkServerHealth(server) {
-    if (!server.healthCheck) return false;
-    
-    try {
-        const response = await fetch(server.healthCheck.url, {
-            method: server.healthCheck.method || 'GET',
-            signal: AbortSignal.timeout(server.healthCheck.timeout || 5000)
-        });
-        return response.ok;
-    } catch (error) {
-        return false;
-    }
-}
-
-// Check if the memory server is running
-const memoryServer = config.servers['neo-memory-core'];
-const isMemoryRunning = await checkServerHealth(memoryServer);
-```
-
-### 3. Server Startup Phase
-```javascript
-import { spawn } from 'child_process';
-
-async function startServer(server) {
-    if (!server.startup) {
-        throw new Error('Server startup configuration missing');
-    }
-    
-    const { command, args = [], cwd = '.' } = server.startup;
-    
-    return new Promise((resolve, reject) => {
-        const process = spawn(command, args, { 
-            cwd, 
-            stdio: ['pipe', 'pipe', 'pipe'] 
-        });
-        
-        process.on('spawn', () => {
-            console.log(`Started ${server.name}`);
-            resolve(process);
-        });
-        
-        process.on('error', reject);
-    });
-}
-
-// Start the memory server if not running
-if (!isMemoryRunning) {
-    await startServer(memoryServer);
-    
-    // Wait for server to be ready
-    while (!(await checkServerHealth(memoryServer))) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-}
-```
-
-### 4. MCP Connection Phase
-```javascript
-// Connect to the server using MCP protocol
-const mcpClient = new MCPClient({
-    host: memoryServer.connection.host,
-    port: memoryServer.connection.port,
-    protocol: memoryServer.connection.protocol
-});
-
-await mcpClient.connect();
-```
-
-## Current Server Configurations
-
-### Neo.mjs Knowledge Base
-- **Purpose**: Semantic search across documentation, guides, examples, and source code
-- **Port**: 3000
-- **Startup**: `npm run ai:server`
-- **Health Check**: `http://localhost:3000/api/health`
-
-### Neo.mjs Memory Core
-- **Purpose**: Persistent memory for AI agents, conversation history, session context
-- **Port**: 8001  
-- **Startup**: `npm run ai:server-memory`
-- **Health Check**: `http://localhost:8001/api/v2/healthcheck`
-
-### Chrome DevTools
-- **Purpose**: Browser automation and debugging tools
-- **Type**: Command-based (not transport)
-- **Command**: `npx -y chrome-devtools-mcp@latest`
-
-## Integration with Existing Agent Configurations
-
-### Gemini CLI Integration
-The existing `.gemini/settings.json` file can reference this configuration:
+### Example (`.gemini/settings.json`)
+The following is a practical, minimal implementation of this schema used by the Gemini CLI. It focuses purely on the properties needed to launch the servers.
 
 ```json
 {
@@ -222,35 +78,26 @@ The existing `.gemini/settings.json` file can reference this configuration:
 }
 ```
 
-This approach allows vendor-specific clients to leverage the standardized configuration while maintaining their own connection patterns.
+## Server-Side Implementation: The SDK-First Approach
 
-## Benefits
+The simplicity of the client-side configuration is made possible by the server-side architecture, which is built using the `@modelcontextprotocol/sdk`.
 
-1. **Agent Independence**: Any AI agent can discover and use Neo.mjs AI services
-2. **Centralized Configuration**: Single source of truth for all MCP server definitions
-3. **Standardized Discovery**: Predictable location and format for configuration
-4. **Health Monitoring**: Built-in health check capabilities
-5. **Startup Automation**: Automatic server startup when needed
-6. **Version Tracking**: Configuration versioning for backward compatibility
+Key components of a server include:
 
-## Migration from Shell-Based Tools
+1.  **`StdioServerTransport`**: Instead of listening on an HTTP port, servers use this transport from the SDK to communicate over the standard input/output of their process. This eliminates the need for port management and network configuration.
 
-The existing npm scripts (`ai:query`, `ai:query-memory`, etc.) will eventually be replaced by direct MCP communication, providing:
+2.  **`openapi.yaml`**: Each server has an OpenAPI 3 specification that defines the tools it provides. The `operationId` of each path becomes the tool's name, and the schema and description are used to generate the tool manifest for the agent. This provides a structured, language-agnostic way to define capabilities.
 
-- **Structured Data Exchange**: JSON instead of parsing stdout
-- **Better Error Handling**: Proper error codes and messages
-- **Real-time Capabilities**: Streaming and real-time updates
-- **Cross-Platform Compatibility**: No shell-specific dependencies
+3.  **`toolService.mjs`**: A generic service reads the `openapi.yaml` file and maps the `operationId` of each tool to its actual JavaScript implementation. This decouples the tool definition from its implementation.
 
-## Future Extensions
+This architecture allows each MCP server to be a self-contained, standalone application whose lifecycle can be managed by any client environment capable of spawning a process and communicating over stdio.
 
-This configuration system is designed to be extensible:
+## Benefits of the New Approach
 
-- **Additional Servers**: New MCP servers can be easily added
-- **Custom Capabilities**: Server-specific capabilities can be defined
-- **Environment Variants**: Different configurations for development, staging, production
-- **Authentication**: Future support for authentication mechanisms
-- **Load Balancing**: Support for multiple instances of the same server type
+1.  **Simplified Client Configuration**: The agent's client only needs to know how to start a process, not how to connect to a network service.
+2.  **Robustness**: Eliminates network-related issues like port conflicts. Communication is handled by the robust MCP SDK.
+3.  **True Agnosticism**: Any agent client can run the servers as long as it can read a simple JSON config and spawn a child process.
+4.  **Single Source of Truth**: The `openapi.yaml` file in each server is the definitive source for the tools it provides, ensuring consistency.
 
 ## See Also
 
