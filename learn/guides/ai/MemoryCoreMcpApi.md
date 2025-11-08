@@ -1,18 +1,19 @@
 # Memory Core MCP Server API Design
 
-This guide documents the design of the Memory Core Model Context Protocol (MCP) server API for Neo.mjs. This server provides a structured, agent-agnostic interface for AI agents to maintain persistent memory across sessions.
+This guide documents the design of the Memory Core Model Context Protocol (MCP) server for Neo.mjs. This server provides a structured, agent-agnostic interface for AI agents to maintain persistent memory across sessions by exposing a collection of tools.
 
 ## Overview
 
-The Memory Core MCP server replaces the current shell-based memory scripts (`ai:add-memory`, `ai:query-memory`, `ai:summarize-session`, `ai:export-memory`, `ai:import-memory`) with a formal REST API. This provides:
+The Memory Core MCP server replaces the original shell-based memory scripts (`ai:add-memory`, `ai:query-memory`, etc.) with a formal set of tools. This provides:
 
-- **Structured Communication**: JSON requests/responses instead of parsing stdout
-- **Better Error Handling**: Proper HTTP status codes and error messages
-- **Platform Independence**: No shell-specific dependencies
-- **Real-time Capabilities**: Potential for streaming and websockets
-- **Interactive Documentation**: Built-in Swagger UI
+- **Structured Communication**: JSON-based tool calls and responses instead of parsing stdout.
+- **Better Error Handling**: Clear error messages within the tool response.
+- **Platform Independence**: No shell-specific dependencies.
+- **Type Safety**: Tool inputs and outputs are defined by a schema.
 
 ## Architecture
+
+The server is built using the `@modelcontextprotocol/sdk` and communicates with the client environment (e.g., Gemini CLI) over standard input/output (stdio). It no longer operates as an HTTP web server. The API is defined as a collection of tools in an `openapi.yaml` specification, which provides the single source of truth for the server's capabilities.
 
 ### Data Model
 
@@ -51,417 +52,192 @@ Stores high-level session summaries with structured metadata:
 }
 ```
 
-### API Structure
+### Available Tools
 
-The API follows RESTful principles with resource-oriented endpoints:
+The server exposes the following tools, which are derived from its OpenAPI specification:
 
-| Resource | Endpoints | Purpose |
-|----------|-----------|---------|
-| Health | `GET /healthcheck`, `GET /docs` | Server status and documentation |
-| Memories | `POST /memories`, `GET /memories`, `POST /memories/query` | Raw interaction storage and retrieval |
-| Summaries | `GET /summaries`, `DELETE /summaries`, `POST /summaries/query` | Session summary management |
-| Sessions | `POST /sessions/summarize` | Session processing |
-| Database | `GET /db/export`, `POST /db/import` | Backup and restore operations |
+| Tool Name | Description |
+| :--- | :--- |
+| **Health** | |
+| `healthcheck` | Confirms the server is running and can connect to the ChromaDB instance. |
+| **Database Lifecycle** | |
+| `start_database` | Starts the ChromaDB database instance as a background process. |
+| `stop_database` | Stops the running ChromaDB database instance. |
+| **Memories** | |
+| `add_memory` | Stores a new agent interaction (prompt, thought, response) as a memory. |
+| `get_session_memories` | Retrieves all memories for a specific session, in chronological order. |
+| `query_raw_memories` | Performs semantic search across all raw memories using vector similarity. |
+| **Summaries** | |
+| `get_all_summaries` | Retrieves all session summaries, sorted by timestamp. |
+| `delete_all_summaries` | Deletes all session summaries from the database. |
+| `query_summaries` | Performs semantic search across session summaries. |
+| **Sessions** | |
+| `summarize_sessions` | Triggers the session summarization process. |
+| **Database** | |
+| `export_database` | Exports the entire memory database to a JSONL file. |
+| `import_database` | Imports a previously exported JSONL file back into the database. |
 
-## Endpoint Specifications
+## Tool Specifications
 
-### Health Endpoints
+This section details the parameters and behavior of each tool exposed by the Memory Core server.
 
-#### `GET /docs`
-Serves the interactive Swagger UI for API exploration and testing.
+### Health Tools
 
-**Response**: HTML page with embedded Swagger UI
+#### `healthcheck`
+Confirms server health and database connectivity. This tool takes no parameters.
 
-#### `GET /healthcheck`
-Confirms server health and database connectivity.
+### Database Lifecycle Tools
 
-**Response 200**:
-```json
-{
-  "status": "healthy",
-  "database": {
-    "connected": true,
-    "collections": {
-      "memories": "neo-agent-memory",
-      "summaries": "neo-agent-sessions"
-    }
-  },
-  "version": "1.0.0",
-  "uptime": 3600
-}
-```
+#### `start_database`
+Starts the ChromaDB database instance as a background process. This tool takes no parameters.
 
-### Memory Endpoints
+#### `stop_database`
+Stops the running ChromaDB database instance. This tool takes no parameters.
 
-#### `POST /memories`
+### Memory Tools
+
+#### `add_memory`
 Adds a new agent interaction to the memory store.
 
-**Request Body**:
-```json
-{
-  "prompt": "How do I create a new Neo.mjs component?",
-  "thought": "The user needs guidance on component creation...",
-  "response": "To create a new Neo.mjs component, you can use...",
-  "sessionId": "session_1696800000000"
-}
-```
-
-**Response 201**:
-```json
-{
-  "id": "mem_2025-10-08T12:00:00.000Z",
-  "sessionId": "session_1696800000000",
-  "timestamp": "2025-10-08T12:00:00.000Z",
-  "message": "Memory successfully added"
-}
-```
+**Parameters**:
+- `prompt` (string, required): The user's verbatim prompt.
+- `thought` (string, required): The agent's internal reasoning.
+- `response` (string, required): The agent's final response.
+- `sessionId` (string, optional): The session ID. If not provided, one is generated.
 
 **Migration from CLI**:
-```bash
-# Old way
-npm run ai:add-memory -- -p "prompt" -t "thought" -r "response" -s "sessionId"
+- **Old way**: `npm run ai:add-memory -- -p "..."`
+- **New way**: `call_tool('add_memory', {prompt: "...", thought: "...", ...})`
 
-# New way
-curl -X POST http://localhost:8001/memories \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "prompt", "thought": "thought", "response": "response", "sessionId": "sessionId"}'
-```
-
-#### `GET /memories?sessionId={id}`
+#### `get_session_memories`
 Retrieves all memories for a specific session.
 
-**Query Parameters**:
-- `sessionId` (required): The session to retrieve memories for
-- `limit` (optional): Maximum memories to return (default: 100)
-- `offset` (optional): Pagination offset (default: 0)
+**Parameters**:
+- `sessionId` (string, required): The session to retrieve memories for.
+- `limit` (integer, optional): Maximum memories to return (default: 100).
+- `offset` (integer, optional): Pagination offset (default: 0).
 
-**Response 200**:
-```json
-{
-  "sessionId": "session_1696800000000",
-  "count": 15,
-  "total": 15,
-  "memories": [
-    {
-      "id": "mem_2025-10-08T12:00:00.000Z",
-      "sessionId": "session_1696800000000",
-      "timestamp": "2025-10-08T12:00:00.000Z",
-      "prompt": "...",
-      "thought": "...",
-      "response": "...",
-      "type": "agent-interaction"
-    }
-  ]
-}
-```
-
-#### `POST /memories/query`
+#### `query_raw_memories`
 Performs semantic search across all memories.
 
-**Request Body**:
-```json
-{
-  "query": "How did I implement the MCP server configuration?",
-  "nResults": 10,
-  "sessionId": "session_1696800000000"
-}
-```
-
-**Response 200**:
-```json
-{
-  "query": "How did I implement the MCP server configuration?",
-  "count": 5,
-  "results": [
-    {
-      "id": "mem_2025-10-08T12:00:00.000Z",
-      "sessionId": "session_1696800000000",
-      "timestamp": "2025-10-08T12:00:00.000Z",
-      "prompt": "...",
-      "thought": "...",
-      "response": "...",
-      "type": "agent-interaction",
-      "distance": 0.1234,
-      "relevanceScore": 0.8766
-    }
-  ]
-}
-```
+**Parameters**:
+- `query` (string, required): The natural language search query.
+- `nResults` (integer, optional): Number of results to return (default: 10).
+- `sessionId` (string, optional): An optional session ID to scope the search.
 
 **Migration from CLI**:
-```bash
-# Old way
-npm run ai:query-memory -- -q "search query" -n 10
+- **Old way**: `npm run ai:query-memory -- -q "search query"`
+- **New way**: `call_tool('query_raw_memories', {query: "search query"})`
 
-# New way
-curl -X POST http://localhost:8001/memories/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "search query", "nResults": 10}'
-```
+### Summary Tools
 
-### Summary Endpoints
-
-#### `GET /summaries`
+#### `get_all_summaries`
 Lists all session summaries with optional filtering.
 
-**Query Parameters**:
-- `limit` (optional): Maximum summaries to return (default: 50)
-- `offset` (optional): Pagination offset (default: 0)
-- `category` (optional): Filter by category (`bugfix`, `feature`, `refactoring`, etc.)
+**Parameters**:
+- `limit` (integer, optional): Maximum summaries to return (default: 50).
+- `offset` (integer, optional): Pagination offset (default: 0).
+- `category` (string, optional): Filter by category (`bugfix`, `feature`, etc.).
 
-**Response 200**:
-```json
-{
-  "count": 10,
-  "total": 50,
-  "summaries": [
-    {
-      "id": "summary_session_1696800000000",
-      "sessionId": "session_1696800000000",
-      "timestamp": "2025-10-08T12:00:00.000Z",
-      "title": "Implement MCP Server Configuration",
-      "summary": "Created agent-agnostic MCP server configuration...",
-      "category": "feature",
-      "memoryCount": 15,
-      "quality": 85,
-      "productivity": 90,
-      "impact": 75,
-      "complexity": 60,
-      "technologies": ["neo.mjs", "nodejs", "chromadb"]
-    }
-  ]
-}
-```
-
-#### `POST /summaries/query`
+#### `query_summaries`
 Searches session summaries semantically.
 
-**Request Body**:
-```json
-{
-  "query": "sessions where I worked on MCP servers",
-  "nResults": 10,
-  "category": "feature"
-}
-```
+**Parameters**:
+- `query` (string, required): The natural language search query.
+- `nResults` (integer, optional): Number of results to return (default: 10).
+- `category` (string, optional): Filter by category.
 
-**Response 200**:
-```json
-{
-  "query": "sessions where I worked on MCP servers",
-  "count": 3,
-  "results": [
-    {
-      "id": "summary_session_1696800000000",
-      "sessionId": "session_1696800000000",
-      "title": "Implement MCP Server Configuration",
-      "summary": "...",
-      "category": "feature",
-      "quality": 85,
-      "distance": 0.0987,
-      "relevanceScore": 0.9013
-    }
-  ]
-}
-```
+#### `delete_all_summaries`
+Deletes all session summaries (raw memories are preserved). This tool takes no parameters.
 
-#### `DELETE /summaries`
-Deletes all session summaries (raw memories are preserved).
+### Session Tools
 
-**Response 200**:
-```json
-{
-  "deleted": 25,
-  "message": "All summaries successfully deleted"
-}
-```
+#### `summarize_sessions`
+Triggers the session summarization process.
 
-### Session Endpoints
-
-#### `POST /sessions/summarize`
-Triggers session summarization process.
-
-**Request Body** (optional):
-```json
-{
-  "sessionId": "session_1696800000000"
-}
-```
-
-If `sessionId` is omitted, all unsummarized sessions will be processed in batch mode.
-
-**Response 200**:
-```json
-{
-  "processed": 1,
-  "sessions": [
-    {
-      "sessionId": "session_1696800000000",
-      "memoryCount": 15,
-      "summaryId": "summary_session_1696800000000",
-      "title": "Implement MCP Server Configuration"
-    }
-  ]
-}
-```
+**Parameters**:
+- `sessionId` (string, optional): If provided, only this session will be summarized. If omitted, all unsummarized sessions are processed in batch.
 
 **Migration from CLI**:
-```bash
-# Old way - specific session
-npm run ai:summarize-session -- -s "session_1696800000000"
+- **Old way**: `npm run ai:summarize-session`
+- **New way**: `call_tool('summarize_sessions', {})`
 
-# New way
-curl -X POST http://localhost:8001/sessions/summarize \
-  -H "Content-Type: application/json" \
-  -d '{"sessionId": "session_1696800000000"}'
+### Database Tools
 
-# Old way - batch mode
-npm run ai:summarize-session
-
-# New way
-curl -X POST http://localhost:8001/sessions/summarize \
-  -H "Content-Type: application/json"
-```
-
-### Database Endpoints
-
-#### `GET /db/export`
+#### `export_database`
 Exports the entire memory database to a JSONL file.
 
-**Query Parameters**:
-- `include` (optional): Collections to export (`memories`, `summaries`, or both)
-
-**Response 200**:
-- Content-Type: `application/x-jsonlines`
-- Content-Disposition: `attachment; filename="memory-export-2025-10-08T12-00-00.jsonl"`
-- Body: JSONL file with all records
+**Parameters**:
+- `include` (array, optional): Collections to export (`memories`, `summaries`, or both).
 
 **Migration from CLI**:
-```bash
-# Old way
-npm run ai:export-memory
+- **Old way**: `npm run ai:export-memory`
+- **New way**: `call_tool('export_database', {})`
 
-# New way
-curl -O -J http://localhost:8001/db/export
-```
-
-#### `POST /db/import`
+#### `import_database`
 Imports a previously exported JSONL file.
 
-**Request**:
-- Content-Type: `multipart/form-data`
-- Body: File upload with optional `mode` parameter
-
-**Form Fields**:
-- `file`: The JSONL backup file
-- `mode`: `merge` (default) or `replace`
-
-**Response 200**:
-```json
-{
-  "imported": 150,
-  "skipped": 5,
-  "mode": "merge",
-  "message": "Database import completed successfully"
-}
-```
+**Parameters**:
+- `file` (string, required): The path to the JSONL backup file.
+- `mode` (string, optional): `merge` (default) or `replace`.
 
 **Migration from CLI**:
-```bash
-# Old way
-npm run ai:import-memory -- --file path/to/backup.jsonl
-
-# New way
-curl -X POST http://localhost:8001/db/import \
-  -F "file=@path/to/backup.jsonl" \
-  -F "mode=merge"
-```
+- **Old way**: `npm run ai:import-memory -- --file ...`
+- **New way**: `call_tool('import_database', {file: "path/to/file.jsonl"})`
 
 ## Error Handling
 
-All endpoints use standard HTTP status codes:
+The server no longer uses HTTP status codes. Instead, errors are communicated within the `CallToolResponse` object. If a tool call fails, the response will have `isError: true` and the `content` will contain a descriptive error message.
 
-| Status | Meaning | Example |
-|--------|---------|---------|
-| 200 | Success | Data retrieved successfully |
-| 201 | Created | Memory added successfully |
-| 400 | Bad Request | Invalid JSON or missing required fields |
-| 404 | Not Found | Session does not exist |
-| 503 | Service Unavailable | Cannot connect to ChromaDB |
-
-**Error Response Format**:
+**Example Error Response**:
 ```json
 {
-  "error": "Database connection failed",
-  "message": "Could not connect to ChromaDB on localhost:8001",
-  "code": "DB_CONNECTION_ERROR"
+  "content": [
+    {
+      "type": "text",
+      "text": "Tool Error: Database connection failed. Message: Could not connect to ChromaDB."
+    }
+  ],
+  "isError": true
 }
 ```
 
 ## Implementation Considerations
 
 ### Authentication & Authorization
-The initial implementation runs on `localhost:8001` with no authentication. Future versions should consider:
+The initial implementation runs locally with no authentication. Future versions should consider:
 - API key authentication for remote access
 - Rate limiting to prevent abuse
 - Role-based access control for multi-user scenarios
 
 ### Performance Optimizations
-- **Pagination**: Implemented for all list endpoints to handle large datasets
-- **Caching**: Consider caching frequently accessed summaries
-- **Batch Operations**: The summarization endpoint already supports batch mode
-- **Streaming**: Future enhancement for large exports
+- **Pagination**: Implemented for all list-based tools to handle large datasets.
+- **Caching**: Consider caching frequently accessed summaries.
+- **Batch Operations**: The `summarize_sessions` tool supports batch mode.
+- **Streaming**: Future enhancement for large exports.
 
 ### Database Consistency
-- **Atomic Operations**: Use transactions where supported by ChromaDB
-- **Validation**: Validate all inputs before database operations
-- **Idempotency**: Memory IDs are timestamp-based, preventing duplicates
+- **Atomic Operations**: Use transactions where supported by the database.
+- **Validation**: Validate all inputs before database operations.
+- **Idempotency**: Ensure operations are idempotent where appropriate.
 
 ### Monitoring & Logging
-- **Health Checks**: The `/healthcheck` endpoint should be monitored
-- **Request Logging**: Log all API requests with timing information
-- **Error Tracking**: Capture and log all errors with stack traces
-- **Metrics**: Track memory growth, query performance, and summarization success rates
-
-## Migration Path
-
-The transition from CLI scripts to the MCP API will be gradual:
-
-### Phase 1: API Design (Current)
-- ✅ Design resource-oriented API structure
-- ✅ Create OpenAPI 3.0 specification
-- ✅ Document endpoints and data models
-
-### Phase 2: Implementation
-1. Create Express.js server scaffold
-2. Implement core endpoints (POST /memories, GET /memories, POST /memories/query)
-3. Implement summary endpoints
-4. Implement session and database endpoints
-5. Add Swagger UI documentation
-
-### Phase 3: Integration
-1. Update AGENTS.md to reference new API
-2. Create helper utilities for common operations
-3. Deprecate CLI scripts with warnings
-4. Update all documentation and examples
-
-### Phase 4: Cleanup
-1. Remove old CLI scripts
-2. Remove npm script entries
-3. Archive old documentation
+- **Health Checks**: The `healthcheck` tool should be monitored periodically.
+- **Request Logging**: Log all tool calls with timing information.
+- **Error Tracking**: Capture and log all errors with stack traces.
+- **Metrics**: Track memory growth, query performance, and summarization success rates.
 
 ## OpenAPI Specification
 
 The complete API specification is available in OpenAPI 3.0 format at:
 ```
-buildScripts/mcp/memory/openapi.yaml
+ai/mcp/server/memory-core/openapi.yaml
 ```
 
 This specification can be:
-- Used to generate client libraries in multiple languages
-- Imported into API development tools (Postman, Insomnia)
-- Served by the `/docs` endpoint for interactive exploration
-- Used for automated API testing
+- Used to generate client libraries in multiple languages.
+- Imported into API development tools (Postman, Insomnia).
+- Used for automated API testing.
 
 ## Related Resources
 
@@ -469,10 +245,3 @@ This specification can be:
 - [Agent-Agnostic MCP Configuration](./AgentAgnosticMcpConfig.md)
 - [Knowledge Base MCP Server API Design](./KnowledgeBaseMcpApi.md) (coming soon)
 - [Strategic AI Workflows](./StrategicWorkflows.md)
-
-## See Also
-
-- **Epic**: `.github/ISSUE/epic-architect-ai-tooling-as-mcp.md`
-- **Design Ticket**: `.github/ISSUE/ticket-design-memory-mcp-api.md`
-- **Current Scripts**: `buildScripts/ai/*.mjs`
-- **Configuration**: `buildScripts/ai/aiConfig.mjs`
