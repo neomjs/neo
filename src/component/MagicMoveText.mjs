@@ -109,6 +109,12 @@ class MagicMoveText extends Component {
      */
     intervalId = null
     /**
+     * Internal flag to prevent infinite retry loops in case of errors
+     * @member {Boolean} isRetrying=false
+     * @protected
+     */
+    isRetrying = false
+    /**
      * Internal flag which gets set to true while the animated char transitions are running
      * @member {Boolean} isTransitioning=false
      * @protected
@@ -252,20 +258,34 @@ class MagicMoveText extends Component {
         }
 
         if (value) {
-            me.chars = [];
-            measureElement.cn = [];
+            try {
+                me.chars = [];
+                measureElement.cn = [];
 
-            value?.split('').forEach(char => {
-                me.chars.push({name: char});
+                value?.split('').forEach(char => {
+                    me.chars.push({name: char});
+                    measureElement.cn.push({tag: 'span', text: char})
+                });
 
-                measureElement.cn.push({tag: 'span', text: char})
-            });
+                if (me.mounted) {
+                    await me.measureChars()
+                }
 
-            if (me.mounted) {
-                await me.measureChars()
+                await me.updateChars()
+            } catch (e) {
+                if (!me.isRetrying) {
+                    me.isRetrying    = true;
+                    me.measureCache  = {};
+                    me.previousChars = [];
+
+                    // Reset a transitioning state
+                    me.vdom.cn[0].cn.length = 0;
+
+                    await me.afterSetText(value, oldValue)
+                }
             }
 
-            await me.updateChars()
+            me.isRetrying = false
         }
     }
 
@@ -350,7 +370,6 @@ class MagicMoveText extends Component {
             me.chars[index].top  = `${rect.top  - parentRect.top }px`;
         });
 
-        //measureWrapper.removeDom = true;
         await me.promiseUpdate()
     }
 
@@ -366,7 +385,6 @@ class MagicMoveText extends Component {
         me.contentWidth  = rect.width;
 
         me.measureCache = {};
-
 
         if (!me.initialResizeEvent) {
             if (!me.isTransitioning) {
