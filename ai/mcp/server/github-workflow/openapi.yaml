@@ -937,6 +937,7 @@ components:
             - pushed
             - pulled
             - dropped
+            - reconciled
             - releases
           properties:
             pushed:
@@ -996,6 +997,19 @@ components:
                     type: integer
                   example: [999]
                   description: Issue numbers that were dropped
+            reconciled:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 5
+                  description: Number of closed issues moved to archives during reconciliation
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1200, 1201, 1202, 1203, 1204]
+                  description: Issue numbers that were reconciled and archived
             releases:
               type: object
               properties:

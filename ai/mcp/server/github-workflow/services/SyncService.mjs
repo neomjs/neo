@@ -40,10 +40,11 @@ class SyncService extends Base {
      * to ensure data integrity and minimize conflicts:
      * 1.  Loads the persistent metadata from the last sync via `MetadataManager`.
      * 2.  Fetches and caches GitHub release data via `ReleaseSyncer`.
-     * 3.  **Pushes** any local issue changes to GitHub via `IssueSyncer`.
-     * 4.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
-     * 5.  Syncs release notes into local Markdown files via `ReleaseSyncer`.
-     * 6.  Saves the updated, pruned metadata to disk via `MetadataManager`.
+     * 3.  Reconciles closed issue locations (archives stale issues) via `IssueSyncer`.
+     * 4.  **Pushes** any local issue changes to GitHub via `IssueSyncer`.
+     * 5.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
+     * 6.  Syncs release notes into local Markdown files via `ReleaseSyncer`.
+     * 7.  Saves the updated, pruned metadata to disk via `MetadataManager`.
      *
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync.
@@ -53,38 +54,42 @@ class SyncService extends Base {
 
         const metadata = await MetadataManager.load();
 
-        // Fetch releases first, as they are needed for issue archiving
+        // 1. Fetch releases first, as they are needed for issue archiving
         await ReleaseSyncer.fetchAndCacheReleases(metadata);
 
-        // 1. Push local changes
+        // 2. Reconcile closed issue locations - archive stale closed issues before pull
+        const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+
+        // 3. Push local changes
         const pushStats = await IssueSyncer.pushToGitHub(metadata);
 
-        // 2. Pull remote changes
+        // 4. Pull remote changes
         const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
 
-        // 3. Sync release notes
+        // 5. Sync release notes
         const releaseStats = await ReleaseSyncer.syncNotes(metadata);
 
-        // 4. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
+        // 6. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
         }
 
-        // 5. Cache releases in metadata for next run
+        // 7. Cache releases in metadata for next run
         newMetadata.releases            = ReleaseSyncer.releases;
         newMetadata.releasesLastFetched = new Date().toISOString();
 
-        // 6. Save metadata
+        // 8. Save metadata
         await MetadataManager.save(newMetadata);
 
         const endTime    = new Date();
         const durationMs = endTime - startTime;
 
         const finalStats = {
-            pushed  : pushStats,
-            pulled  : pullStats.pulled,
-            dropped : pullStats.dropped,
-            releases: releaseStats
+            reconciled: reconcileStats,
+            pushed    : pushStats,
+            pulled    : pullStats.pulled,
+            dropped   : pullStats.dropped,
+            releases  : releaseStats
         };
 
         const timing = {
@@ -94,11 +99,12 @@ class SyncService extends Base {
         };
 
         logger.info('✨ Sync Complete');
-        logger.info(`   Pushed:   ${finalStats.pushed.count} issues`);
-        logger.info(`   Pulled:   ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
-        logger.info(`   Dropped:  ${finalStats.dropped.count} issues`);
-        logger.info(`   Releases: ${finalStats.releases.count} synced`);
-        logger.info(`   Duration: ${Math.round(timing.durationMs / 1000)}s`);
+        logger.info(`   Reconciled: ${finalStats.reconciled.count} issues archived`);
+        logger.info(`   Pushed:     ${finalStats.pushed.count} issues`);
+        logger.info(`   Pulled:     ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
+        logger.info(`   Dropped:    ${finalStats.dropped.count} issues`);
+        logger.info(`   Releases:   ${finalStats.releases.count} synced`);
+        logger.info(`   Duration:   ${Math.round(timing.durationMs / 1000)}s`);
 
         return {
             success   : true,

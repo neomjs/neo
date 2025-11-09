@@ -283,40 +283,6 @@ class IssueSyncer extends Base {
             };
         }
 
-        // Phase 2: Reconcile locations for issues in the active directory.
-        // This is for archiving stale issues that haven't been updated but should be archived.
-        logger.info('Reconciling active issue file locations...');
-        for (const issueNumber in newMetadata.issues) {
-            const issueData = newMetadata.issues[issueNumber];
-
-            // ONLY check issues currently in the active folder. This is the critical safety guard.
-            if (issueData.path.startsWith(issueSyncConfig.issuesDir)) {
-                const correctPath = this.#getIssuePath({
-                    number   : issueNumber,
-                    state    : issueData.state,
-                    labels   : [], // Labels for dropping are handled on pull, not needed here.
-                    milestone: issueData.milestone ? { title: issueData.milestone } : null,
-                    closedAt : issueData.closedAt
-                });
-
-                // Check if the issue should be moved to an archive
-                if (correctPath && issueData.path !== correctPath) {
-                    logger.info(`Mismatched path for active issue #${issueNumber}. Expected: ${correctPath}, Found: ${issueData.path}`);
-                    try {
-                        await fs.mkdir(path.dirname(correctPath), { recursive: true });
-                        await fs.rename(issueData.path, correctPath);
-                        logger.info(`📦 Moved #${issueNumber}: ${issueData.path} → ${correctPath}`);
-
-                        newMetadata.issues[issueNumber].path = correctPath;
-                        stats.pulled.moved = (stats.pulled.moved || 0) + 1;
-
-                    } catch (e) {
-                        logger.warn(`Could not move #${issueNumber} during reconciliation. Error: ${e.message}`);
-                    }
-                }
-            }
-        }
-
         return { newMetadata, stats };
     }
 
@@ -420,6 +386,98 @@ class IssueSyncer extends Base {
         }
         if (stats.failures.length > 0) {
             logger.warn(`⚠️ Encountered ${stats.failures.length} push failure(s).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * Reconciles the locations of closed issues in the active directory.
+     * This handles the case where a new release is created but issues weren't updated,
+     * so they didn't get moved during the pull operation (delta sync limitation).
+     *
+     * CRITICAL: This method ONLY processes issues that are:
+     * 1. Currently in the active issues directory (not already archived)
+     * 2. In a CLOSED state
+     * 3. Should be archived based on milestone or release date
+     *
+     * @param {object} metadata - The current metadata object
+     * @returns {Promise<object>} Stats about reconciled issues
+     */
+    async reconcileClosedIssueLocations(metadata) {
+        logger.info('🔄 Reconciling closed issue locations...');
+
+        const stats = { count: 0, issues: [] };
+
+        // Ensure releases are loaded
+        if (!ReleaseSyncer.releases || Object.keys(ReleaseSyncer.releases).length === 0) {
+            logger.warn('No releases available for reconciliation, skipping.');
+            return stats;
+        }
+
+        for (const issueNumber in metadata.issues) {
+            const issueData = metadata.issues[issueNumber];
+
+            // CRITICAL: Only process issues in the active directory
+            if (!issueData.path.startsWith(issueSyncConfig.issuesDir)) {
+                continue; // Already archived, skip it
+            }
+
+            // Only process CLOSED issues
+            if (issueData.state !== 'CLOSED') {
+                continue;
+            }
+
+            // Calculate where this closed issue SHOULD be
+            const correctPath = this.#getIssuePath({
+                number   : parseInt(issueNumber),
+                state    : issueData.state,
+                labels   : [], // Dropped labels are already handled, not relevant here
+                milestone: issueData.milestone ? { title: issueData.milestone } : null,
+                closedAt : issueData.closedAt
+            });
+
+            // If the correct path is null, the issue should be dropped (shouldn't happen here)
+            if (!correctPath) {
+                logger.warn(`Issue #${issueNumber} has null target path during reconciliation, skipping.`);
+                continue;
+            }
+
+            // Check if the issue needs to be moved to an archive
+            if (issueData.path !== correctPath) {
+                // Verify the correct path is actually in an archive, not back to active directory
+                if (correctPath.startsWith(issueSyncConfig.issuesDir) &&
+                    !correctPath.includes(issueSyncConfig.archiveDir)) {
+                    logger.debug(`Issue #${issueNumber} correct path is still in active directory, no move needed.`);
+                    continue;
+                }
+
+                logger.info(`📦 Archiving closed issue #${issueNumber}: ${issueData.path} → ${correctPath}`);
+
+                try {
+                    // Ensure target directory exists
+                    await fs.mkdir(path.dirname(correctPath), { recursive: true });
+
+                    // Move the file
+                    await fs.rename(issueData.path, correctPath);
+
+                    // Update metadata
+                    metadata.issues[issueNumber].path = correctPath;
+
+                    stats.count++;
+                    stats.issues.push(parseInt(issueNumber));
+
+                    logger.info(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
+                } catch (e) {
+                    logger.error(`❌ Failed to archive #${issueNumber}: ${e.message}`);
+                }
+            }
+        }
+
+        if (stats.count > 0) {
+            logger.info(`📦 Archived ${stats.count} closed issue(s)`);
+        } else {
+            logger.info('✓ No closed issues need archiving');
         }
 
         return stats;
