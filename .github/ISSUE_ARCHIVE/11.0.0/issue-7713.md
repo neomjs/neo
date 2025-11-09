@@ -1,12 +1,12 @@
 ---
 id: 7713
 title: 'health(github-workflow): reproduce gh-absent'
-state: OPEN
+state: CLOSED
 labels: []
 assignees:
   - MannXo
 createdAt: '2025-11-07T08:28:23Z'
-updatedAt: '2025-11-07T08:52:21Z'
+updatedAt: '2025-11-08T10:05:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7713'
 author: MannXo
 commentsCount: 1
@@ -14,6 +14,7 @@ parentIssue: 7687
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-08T10:05:07Z'
 ---
 # health(github-workflow): reproduce gh-absent
 

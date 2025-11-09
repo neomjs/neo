@@ -1,14 +1,14 @@
 ---
 id: 7311
 title: Fix MagicMoveText component cache issue causing jumping scroll
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - no auto close
 assignees:
   - tobiu
 createdAt: '2025-09-30T09:59:38Z'
-updatedAt: '2025-10-05T10:49:19Z'
+updatedAt: '2025-11-08T11:16:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7311'
 author: tobiu
 commentsCount: 0
@@ -16,6 +16,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-08T11:16:58Z'
 ---
 # Fix MagicMoveText component cache issue causing jumping scroll
 

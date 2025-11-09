@@ -23,7 +23,7 @@ subIssues:
   - 7208
   - 7209
   - 7210
-subIssuesCompleted: 3
+subIssuesCompleted: 4
 subIssuesTotal: 9
 ---
 # Dashboard Drag & Drop
@@ -33,7 +33,7 @@ subIssuesTotal: 9
 ---
 
 **Sub-Issues:** #7202, #7203, #7204, #7205, #7206, #7207, #7208, #7209, #7210
-**Progress:** 3/9 completed (33%)
+**Progress:** 4/9 completed (44%)
 
 ---
 

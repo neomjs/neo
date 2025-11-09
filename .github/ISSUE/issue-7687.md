@@ -13,13 +13,22 @@ githubUrl: 'https://github.com/neomjs/neo/issues/7687'
 author: tobiu
 commentsCount: 2
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - 7714
+  - 7713
+subIssuesCompleted: 1
+subIssuesTotal: 2
 ---
 # Enhance GitHub Workflow server robustness when gh cli is not installed
 
 **Reported by:** @tobiu on 2025-11-01
+
+---
+
+**Sub-Issues:** #7714, #7713
+**Progress:** 1/2 completed (50%)
+
+---
 
 The `HealthService` in the `github-workflow` MCP server currently checks for `gh cli` authentication and version. While robust, the server's behavior and error handling when `gh cli` is entirely absent or not in the PATH needs further investigation. This ticket is to thoroughly inspect and enhance the server's startup robustness and error messaging in such scenarios.
 

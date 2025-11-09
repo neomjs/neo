@@ -17,8 +17,9 @@ subIssues:
   - 7644
   - 7643
   - 7642
-subIssuesCompleted: 1
-subIssuesTotal: 3
+  - 7646
+subIssuesCompleted: 3
+subIssuesTotal: 4
 ---
 # Epic: Refactor and Extend GitHub Sync Service
 
@@ -26,8 +27,8 @@ subIssuesTotal: 3
 
 ---
 
-**Sub-Issues:** #7644, #7643, #7642
-**Progress:** 1/3 completed (33%)
+**Sub-Issues:** #7644, #7643, #7642, #7646
+**Progress:** 3/4 completed (75%)
 
 ---
 

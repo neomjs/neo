@@ -26,7 +26,7 @@ closedAt: '2025-10-12T11:51:16Z'
 
 ---
 
-**Parent Issue:** #7435 - Migrate Component Tests from Siesta to Playwright (R&D)
+**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
 
 ---
 
