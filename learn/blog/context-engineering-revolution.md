@@ -6,7 +6,7 @@
 
 Just a few weeks ago, we introduced the concept of an **[AI-Native, Not AI-Assisted](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md)** development platform. We argued that for AI to be a true partner, it needs a development environment that is transparent, queryable, and designed for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`), powered by a suite of simple shell scripts.
 
-Today, with the release of **Neo.mjs v11**, we are taking a giant leap forward. We have professionalized our AI tooling, moving from brittle, shell-based scripts to a robust, agent-agnostic server architecture. This isn't just an upgrade; it's the next stage in a new paradigm we call **Context Engineering**.
+Today, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**, we are taking a giant leap forward. This release, the largest in the project's history with **388 resolved tickets**, professionalizes our AI tooling by moving from brittle, shell-based scripts to a robust, agent-agnostic server architecture. This isn't just an upgrade; it's the next stage in a new paradigm we call **Context Engineering**.
 
 ## The Problem with Scripts: The Limits of "Good Enough"
 
@@ -51,6 +51,37 @@ This new architecture is defined directly within the agent's settings, making th
     }
 }
 ```
+
+### The Backbone: The Model Context Protocol (MCP)
+
+At the heart of our new architecture is the **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro)**, an open standard for communication between AI agents and development tools. Think of it as a universal language that allows any AI—whether it's Gemini, Claude, or a custom-built agent—to securely and reliably interact with a developer's local environment.
+
+By adopting the official MCP SDK for all three of our servers, we gain several key advantages:
+
+1.  **Agent Agnosticism:** We are no longer tied to a specific AI provider. Any agent that can "speak" MCP can now connect to our development environment, giving us the flexibility to choose the best tool for the job.
+2.  **Standardization:** MCP provides a clear, well-defined structure for how tools are defined, called, and how they return data. This eliminates the guesswork and fragility of parsing unstructured shell script output.
+3.  **Security:** MCP is designed with security in mind, providing a safe and controlled way for an AI to interact with local files and processes.
+
+A core part of our MCP implementation is the use of **OpenAPI 3 specifications** (YAML files) for each server. Instead of defining our tools in code, we define them in a language-agnostic, human-readable format. This OpenAPI file is the single source of truth for what a server can do.
+
+This approach has a powerful benefit: **our tools are self-documenting and incredibly flexible.** The MCP server reads the OpenAPI file at startup and automatically generates the tool definitions, input validation schemas, and response shapes. This means we could, with minimal effort, spin up a traditional web server (like Express.js) to expose these same tools as a REST API for other services. It decouples the *definition* of our tools from their *implementation*, making the entire system more robust and easier to maintain.
+
+Now, let's look at how this architecture comes to life in our three new servers.
+
+### The Memory Core: An Agent's Personal History
+
+If the Knowledge Base is the AI's understanding of the *project*, the **Memory Core** is its understanding of *itself*. It's the agent's personal, persistent memory, transforming it from a stateless tool into a true collaborator that learns from experience.
+
+Every interaction—every prompt, thought process, and response—is captured and stored as a "memory." This is not just a chat log; it's a structured, queryable history of the agent's own work. When a new session begins, the Memory Core automatically analyzes and summarizes all previous, unsummarized sessions. This creates a high-level "recap" of past work, allowing the agent to remember what it did, what decisions it made, and why.
+
+This capability is critical for several reasons:
+
+1.  **Learning & Self-Correction:** By querying its own history, the agent can identify patterns in its work, recall past solutions to similar problems, and avoid repeating mistakes. It can ask itself, "How did I solve that bug last week?" and get a concrete answer from its own experience.
+2.  **Contextual Continuity:** An agent with memory can maintain context across days or even weeks. It can pick up a complex refactoring task exactly where it left off, without needing to be re-briefed on the entire history.
+3.  **Performance Analysis:** The session summaries include metrics on quality, productivity, and complexity. This allows us (and the agent itself) to analyze its performance over time, identifying areas for improvement in its own problem-solving strategies.
+4.  **Transactional Integrity:** The protocol for saving memories is transactional and mandatory. The agent *must* save a consolidated record of its entire turn (prompt, thought, response) before delivering its final answer. This "save-then-respond" loop, enforced by the `add_memory` tool, guarantees that no experience is ever lost, creating a rich and honest record of the entire problem-solving process.
+
+The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
 
 ### The Benefits of a Server-Based Approach
 
