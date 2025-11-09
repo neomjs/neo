@@ -712,7 +712,23 @@ This capability is critical for several reasons:
 3.  **Performance Analysis:** The session summaries include metrics on quality, productivity, and complexity. This allows us (and the agent itself) to analyze its performance over time, identifying areas for improvement in its own problem-solving strategies.
 4.  **Transactional Integrity:** The protocol for saving memories is transactional and mandatory. The agent *must* save a consolidated record of its entire turn (prompt, thought, response) before delivering its final answer. This "save-then-respond" loop, enforced by the `add_memory` tool, guarantees that no experience is ever lost, creating a rich and honest record of the entire problem-solving process.
 
-#### The Neo.mjs Backbone
+The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
+
+The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
+
+## The GitHub Workflow Server: Closing the Loop
+
+While the Knowledge Base provides context and the Memory Core provides continuity, the **GitHub Workflow Server** closes the loop by giving the agent the ability to *act* on the development workflow itself.
+
+This server provides:
+- **Bi-directional sync** of GitHub issues and PRs as local markdown files
+- **GraphQL API integration** for fast, reliable GitHub operations
+- **Automated PR lifecycle management** from creation to merge
+- **Local-first workflow** where agents work with files, not APIs
+
+We'll dive deep into this server in a future section, but the key insight is that by representing GitHub issues as local markdown files that are part of the knowledge base, we've made the entire project backlog *queryable* and *actionable* for AI agents.
+
+## The Neo.mjs Backbone: Powering Our Servers
 
 Like all three MCP servers, the Memory Core is built using the **official MCP SDK** for protocol compliance, but its internal architecture is pure **Neo.mjs**. Every service—`MemoryService`, `SessionService`, `SummaryService`, `HealthService`—is a Neo.mjs singleton that extends `Neo.core.Base`.
 
@@ -990,19 +1006,6 @@ The Neo.mjs class system brings several advantages to backend development:
 
 This is the same class system that manages complex UI component hierarchies in the browser, now orchestrating ChromaDB connections, Gemini API calls, and MCP server lifecycles in Node.js.
 
-The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
-
-## The GitHub Workflow Server: Closing the Loop
-
-While the Knowledge Base provides context and the Memory Core provides continuity, the **GitHub Workflow Server** closes the loop by giving the agent the ability to *act* on the development workflow itself.
-
-This server provides:
-- **Bi-directional sync** of GitHub issues and PRs as local markdown files
-- **GraphQL API integration** for fast, reliable GitHub operations
-- **Automated PR lifecycle management** from creation to merge
-- **Local-first workflow** where agents work with files, not APIs
-
-We'll dive deep into this server in a future section, but the key insight is that by representing GitHub issues as local markdown files that are part of the knowledge base, we've made the entire project backlog *queryable* and *actionable* for AI agents.
 
 ## The Benefits of a Server-Based Approach
 
