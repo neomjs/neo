@@ -141,7 +141,15 @@ class IssueSyncer extends Base {
 
             // For issues without a milestone, find the earliest release that was published after it was closed.
             const closed = new Date(issue.closedAt);
-            const sortedReleases = Object.values(ReleaseSyncer.releases || {}).sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+
+            // The releases object is a map of tagName -> releaseData. We need to convert it to an
+            // array of objects that include the tagName for sorting and finding.
+            const releasesWithTags = Object.entries(ReleaseSyncer.releases || {}).map(([tagName, releaseData]) => ({
+                tagName: tagName,
+                ...releaseData
+            }));
+
+            const sortedReleases = releasesWithTags.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
             const release = sortedReleases.find(r => new Date(r.publishedAt) > closed);
 
             // If a subsequent release exists, archive the issue under that release tag.
@@ -445,6 +453,8 @@ class IssueSyncer extends Base {
 
             // Check if the issue needs to be moved to an archive
             if (issueData.path !== correctPath) {
+                logger.debug(issueNumber, issueData.path, correctPath);
+
                 // Verify the correct path is actually in an archive, not back to active directory
                 if (correctPath.startsWith(issueSyncConfig.issuesDir) &&
                     !correctPath.includes(issueSyncConfig.archiveDir)) {
