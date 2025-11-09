@@ -1,6 +1,5 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
-import NeoArray         from '../util/Array.mjs';
 import TreeBuilder      from '../util/vdom/TreeBuilder.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
@@ -97,7 +96,14 @@ class VdomLifecycle extends Base {
             cloneOnGet    : 'none',
             isEqual       : (a, b) => a === b, // vnode trees can be huge, and will get compared by the vdom worker.
             value         : null,
-        }
+        },
+        /**
+         * True after the component initVnode() method was called. Also fires the vnodeInitialized event.
+         * @member {Boolean} vnodeInitialized_=false
+         * @protected
+         * @reactive
+         */
+        vnodeInitialized_: false
     }
 
     /**
@@ -140,7 +146,25 @@ class VdomLifecycle extends Base {
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        oldValue !== undefined && this.syncVnodeTree()
+        value && this.syncVnodeTree()
+    }
+
+    /**
+     * Triggered after the vnodeInitialized config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetVnodeInitialized(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            me.fire('vnodeInitialized', me.id);
+
+            if (me.needsVdomUpdate) {
+                me.update()
+            }
+        }
     }
 
     /**
@@ -300,7 +324,11 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Checks if a given updateDepth & distance would result in an update collision
+     * Checks if a given updateDepth & distance would result in an update collision.
+     * The check must use `<` because `updateDepth` is 1-based.
+     * - `updateDepth: 1` means the update is scoped to the component itself.
+     * - A direct child is at `distance: 1`.
+     * Therefore, an update with depth 1 should NOT collide with a child at distance 1 (1 < 1 is false).
      * @param {Number} updateDepth
      * @param {Number} distance
      * @returns {Boolean}
@@ -466,8 +494,7 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            me._vnodeInitialized = true; // silent update
-            me.fire('vnodeInitialized', me.id);
+            me.vnodeInitialized = true;
 
             if (autoMount) {
                 me.mounted = true;
@@ -568,12 +595,8 @@ class VdomLifecycle extends Base {
                 // silent update
                 component._vnode = ComponentManager.addVnodeComponentReferences(childVnode, component.id);
 
-                if (!component.vnodeInitialized) {
-                    component._vnodeInitialized = true;
-                    component.fire('vnodeInitialized', component.id)
-                }
-
-                component.mounted = true
+                component.vnodeInitialized = true;
+                component.mounted          = true
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }
@@ -612,7 +635,7 @@ class VdomLifecycle extends Base {
         let me                         = this,
             {mounted, parentId, vnode} = me;
 
-        if (me.isVdomUpdating || me.silentVdomUpdate) {
+        if (me.isVdomUpdating || !me.vnodeInitialized || me.silentVdomUpdate) {
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
             me.needsVdomUpdate = true
         } else {
@@ -662,6 +685,4 @@ class VdomLifecycle extends Base {
     }
 }
 
-Neo.setupClass(VdomLifecycle);
-
-export default VdomLifecycle;
+export default Neo.setupClass(VdomLifecycle);

@@ -1,0 +1,614 @@
+openapi: 3.0.3
+info:
+  title: Neo Knowledge Base MCP Server API
+  description: |
+    This API provides structured access to the Neo.mjs project's knowledge base. 
+    It enables AI agents to build, query, and manage the vector database containing 
+    source code, documentation, and learning materials.
+  version: 1.0.0
+  contact:
+    name: Neo.mjs Project
+    url: https://github.com/neomjs/neo
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8003
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Server health and status endpoints
+  - name: Database
+    description: Operations for managing the knowledge base lifecycle
+  - name: "Database Lifecycle"
+    description: "Tools for starting and stopping the database process"
+  - name: Documents
+    description: Operations for querying knowledge base documents
+
+paths:
+  /healthcheck:
+    get:
+      summary: Health Check
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Verifies that the server is running and can successfully connect to the
+        ChromaDB vector database.
+
+        Use this tool as a first step to diagnose issues if other database-related
+        tools are failing. It provides a quick status check on the server and its
+        primary dependency.
+      tags: [Health]
+      responses:
+        '200':
+          description: Server is healthy and connected to the database.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Service Unavailable. The server is running but cannot connect to the database.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/start:
+    post:
+      summary: Start Database
+      operationId: start_database
+      description: |
+        Starts the ChromaDB database instance as a background process.
+
+        **When to Use:**
+        Use this tool if a `healthcheck` reveals that the database process is not running.
+      tags: ["Database Lifecycle"]
+      responses:
+        '200':
+          description: The database process was started successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLifecycleResponse'
+        '500':
+          description: The database process is already running or failed to start.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/stop:
+    post:
+      summary: Stop Database
+      operationId: stop_database
+      description: |
+        Stops the running ChromaDB database instance.
+
+        **When to Use:**
+        Use this tool to shut down the database process at the end of a session to free up resources.
+      tags: ["Database Lifecycle"]
+      responses:
+        '200':
+          description: The database process was stopped successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLifecycleResponse'
+        '500':
+          description: The database process is not running or failed to stop.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/sync:
+    post:
+      summary: Synchronize Database
+      operationId: sync_database
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Triggers the full knowledge base synchronization process. This is a long-running,
+        asynchronous operation that orchestrates the 'create' and 'embed' processes in sequence.
+
+        **When to Use:**
+        Use this tool when you want to rebuild the entire knowledge base from the latest
+        source files in one step. This is the most common way to update the database.
+      tags: [Database]
+      responses:
+        '202':
+          description: Accepted. The synchronization process has been started successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during synchronization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/create:
+    post:
+      summary: Create Knowledge Base
+      operationId: create_knowledge_base
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Creates (or overwrites) the knowledge base JSONL file from all source materials.
+        This is the first step in the synchronization process and does not affect the vector database.
+
+        **When to Use:**
+        Use this tool if you only need to generate the intermediate `ai-knowledge-base.jsonl` file
+        for inspection or debugging, without incurring the cost and time of embedding.
+      tags: [Database]
+      responses:
+        '200':
+          description: The knowledge base file was created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during creation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db/embed:
+    post:
+      summary: Embed Knowledge Base
+      operationId: embed_knowledge_base
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Embeds the content from the existing knowledge base JSONL file into the vector database.
+        This performs a diff and only adds, updates, or deletes what has changed.
+
+        **When to Use:**
+        Use this tool after manually verifying or modifying the `ai-knowledge-base.jsonl` file,
+        or if a previous embedding process was interrupted. It assumes the JSONL file is already correct.
+      tags: [Database]
+      responses:
+        '200':
+          description: The knowledge base was embedded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error during embedding.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /db:
+    delete:
+      summary: Delete Database Collection
+      operationId: delete_database
+      x-annotations:
+        readOnlyHint: false
+        destructiveHint: true
+      description: |
+        Permanently deletes the entire knowledge base collection from ChromaDB.
+        This is a destructive operation used for a clean reset.
+
+        **Warning:**
+        This action cannot be undone. The entire knowledge base will need to be rebuilt from
+        scratch using the `create` and `embed` or `sync` tools.
+      tags: [Database]
+      responses:
+        '200':
+          description: The collection was successfully deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: An error occurred while deleting the collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /documents/query:
+    post:
+      summary: Query Documents
+      operationId: query_documents
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Performs a semantic search on the knowledge base using a natural language query.
+        Returns a scored and ranked list of the most relevant source files.
+
+        ## How to Use This Tool
+        
+        **Input:**
+        - `query`: Natural language search query (1-10 words work best)
+        - `type`: Optional filter by content type (all, blog, guide, src, example, ticket, release)
+        
+        **Output:**
+        A ranked list of file paths with relevance scores. Example:
+        ```
+        Most relevant source files (by weighted score):
+        - /path/to/relevant/file1.mjs (Score: 350)
+        - /path/to/relevant/file2.md (Score: 210)
+        - /path/to/relevant/file3.mjs (Score: 150)
+        
+        Top result: /path/to/relevant/file1.mjs
+        ```
+        
+        ## How to Interpret Results
+        
+        1. **Start with the top result**: Always read the highest-scoring file first.
+        2. **Scan the next 5-10 results**: Check both file types and scores.
+        3. **Balance source and guides**: Read top 1-2 source files (.mjs) AND top 1-2 guides (.md).
+           - `.mjs` files: Implementation details, actual code
+           - `.md` files: Conceptual context, architectural rationale
+        4. **Prioritize content types**:
+           - `guide` and `src`: Current best practices and implementation
+           - `blog`: Historical context (code examples may be outdated)
+           - `example`: Concrete usage patterns
+           - `ticket`: Can be historical context (**closed tickets**) or potential work items (**open tickets**). Distinguish between them carefully.
+        
+        ## Query Strategies
+
+        ### The Discovery Pattern: Broad to Narrow
+        When learning about a new concept or feature area:
+
+        1.  **Start Broad:** Query foundational concepts first.
+            - For high-level questions, consult `learn/tree.json` to identify key concepts.
+            - Use terms like `"benefits"`, `"architecture"`, `"fundamentals"`.
+            - Prioritize reading guides from top-level directories.
+
+        2.  **Narrow to Specifics:** Use broad results to formulate targeted queries.
+            - `query_documents(query='Button component examples')`
+            - `query_documents(query='what is Neo.component.Base?')`
+
+        3.  **Filter by Type:** Use the `type` parameter for focused results.
+            - Conceptual: `type='guide'`
+            - Usage examples: `type='example'`
+            - Implementation: `type='src'`
+            - Historical context: `type='ticket'` or `type='blog'`
+
+        ## When Queries Return No Results
+
+        If queries consistently return no relevant results for your task:
+
+        **Pause and document the gap:**
+        - Clearly describe what you were trying to accomplish
+        - List the queries you attempted (show your work)
+        - Explain why existing results were insufficient
+        - Consult with the user about next steps
+
+        **Before implementing based on assumptions:**
+        - Explain the knowledge gap you've identified
+        - Propose your approach and its basis (general software patterns, analogous Neo.mjs patterns, etc.)
+        - Get explicit user approval to proceed
+
+        ## Handling Failures
+        
+        If this tool fails or throws an error:
+        1. Run the `healthcheck` tool to diagnose the issue.
+        2. If unhealthy, consult `.github/AI_QUICK_START.md` for setup guidance.
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              conceptual_query:
+                summary: Broad Conceptual Query
+                value:
+                  query: "framework benefits and architecture"
+              specific_component_query:
+                summary: Specific Component Query
+                value:
+                  query: "Button component examples"
+              targeted_guide_query:
+                summary: Targeted Content-Type Query
+                value:
+                  query: "state management"
+                  type: "guide"
+              targeted_source_query:
+                summary: Targeted Source Code Query
+                value:
+                  query: "afterSet hook"
+                  type: "src"
+      responses:
+        '200':
+          description: Successfully retrieved and scored query results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Bad Request. The request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /documents:
+    get:
+      summary: List Documents
+      operationId: list_documents
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a paginated list of all documents from the knowledge base collection.
+
+        **When to Use:**
+        Use this tool for debugging or inspection to see the raw, chunked content that exists
+        within the vector database. It can be useful for verifying the output of the
+        `create` and `embed` processes.
+      tags: [Documents]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: The maximum number of documents to return.
+          schema:
+            type: integer
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          description: The number of documents to skip for pagination.
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: A paginated list of documents.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /documents/{id}:
+    get:
+      summary: Get Document by ID
+      operationId: get_document_by_id
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a single document from the collection by its unique ID.
+
+        **When to Use:**
+        Use this tool to inspect a specific chunk of content from the database, for example,
+        after it has been identified by a `query` or `list` operation.
+      tags: [Documents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the document to retrieve.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The requested document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '404':
+          description: Document not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Overall health status of the server.
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of when the health check was performed.
+          example: "2025-10-25T12:00:00Z"
+        database:
+          type: object
+          properties:
+            process:
+              type: object
+              properties:
+                running:
+                  type: boolean
+                  description: True if the ChromaDB process is running.
+                  example: true
+                pid:
+                  type: integer
+                  nullable: true
+                  description: Process ID of the ChromaDB server, if running.
+                  example: 12345
+                managed:
+                  type: boolean
+                  description: True if the ChromaDB process is managed by this server.
+                  example: true
+            connection:
+              type: object
+              properties:
+                connected:
+                  type: boolean
+                  description: True if the server can connect to ChromaDB.
+                  example: true
+                collections:
+                  type: object
+                  nullable: true
+                  properties:
+                    knowledgeBase:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "neo-knowledge-base"
+                        exists:
+                          type: boolean
+                          example: true
+                        count:
+                          type: integer
+                          example: 1234
+        features:
+          type: object
+          properties:
+            embedding:
+              type: boolean
+              description: "Indicates if the embedding feature is available (requires GEMINI_API_KEY)."
+              example: true
+        details:
+          type: array
+          items:
+            type: string
+          description: "A list of human-readable details about the system's status."
+          example:
+            - "ChromaDB is running and all collections are accessible"
+            - "All features are operational"
+        version:
+          type: string
+          example: "1.0.0"
+        uptime:
+          type: number
+          description: Server uptime in seconds.
+          example: 3600
+
+    DatabaseLifecycleResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [started, stopped, already_running, not_running]
+        pid:
+          type: integer
+          nullable: true
+
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: |
+            Natural language search query. Best practices:
+            - Keep queries concise (1-10 words)
+            - Use specific technical terms when known
+            - Start broad, then narrow based on results
+            - Example good queries: "Button component", "state management patterns", 
+              "afterSet hook implementation", "multi-window architecture"
+          example: "How do I use the Tab Container component?"
+        type:
+          type: string
+          description: |
+            Filter results by content type:
+            - `all`: Search all content (default)
+            - `guide`: Conceptual explanations and architectural docs
+            - `src`: Source code implementation
+            - `example`: Working examples and demos
+            - `blog`: Historical context and evolution (code may be outdated)
+            - `ticket`: Issues from GitHub. Can be open (potential work) or closed (historical context).
+            - `release`: Release notes and changelogs
+          enum: [all, blog, guide, src, example, ticket, release]
+          default: all
+
+    QueryResultItem:
+      type: object
+      properties:
+        source:
+          type: string
+          description: The file path of the relevant document.
+        score:
+          type: string
+          description: The calculated relevance score.
+
+    QueryResponse:
+      type: object
+      properties:
+        topResult:
+          type: string
+          description: The file path of the highest-scoring result.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryResultItem'
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+        metadata:
+          type: object
+        content:
+          type: string
+
+    DocumentListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation completed successfully"
+        details:
+          type: string
+          description: Optional details about the operation.
+          example: "Knowledge base synchronization started."
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Database connection failed"
+        message:
+          type: string
+          example: "Could not connect to ChromaDB at the specified address."
+        code:
+          type: string
+          example: "DB_CONNECTION_ERROR"

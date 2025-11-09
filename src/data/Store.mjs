@@ -419,19 +419,30 @@ class Store extends Base {
      * @returns {Object|null}
      */
     get(key) {
-        let item = super.get(key); // Get item from Collection.Base (could be raw data)
+        let me   = this,
+            item = super.get(key); // Get item from Collection.Base (could be raw data)
 
         if (item && !RecordFactory.isRecord(item)) {
-            const record = RecordFactory.createRecord(this.model, item);
-            // Replace the raw data with the record instance in the collection
-            this.map.set(key, record);
-            const index = this._items.indexOf(item); // Find the index of the raw item
+            const record = RecordFactory.createRecord(me.model, item);
+            const index  = me.indexOf(item);
+
+            // Replace the raw data with the record instance in the current (filtered) collection
+            me.map.set(key, record);
             if (index !== -1) {
-                this._items[index] = record; // Replace it with the record
+                me._items[index] = record
             }
-            return record;
+
+            // If this collection is filtered, we must also update the master 'allItems' collection
+            if (me.allItems) {
+                const masterIndex = me.allItems.indexOf(item);
+                if (masterIndex !== -1) {
+                    me.allItems.map.set(key, record);
+                    me.allItems._items[masterIndex] = record
+                }
+            }
+            return record
         }
-        return item; // Already a record or null
+        return item // Already a record or null
     }
 
     /**
@@ -440,17 +451,27 @@ class Store extends Base {
      * @returns {Object|undefined}
      */
     getAt(index) {
-        let item = super.getAt(index); // Get item from Collection.Base (could be raw data)
+        let me   = this,
+            item = super.getAt(index); // Get item from Collection.Base (could be raw data)
 
         if (item && !RecordFactory.isRecord(item)) {
-            const record = RecordFactory.createRecord(this.model, item);
-            // Replace the raw data with the record instance in the collection
-            this._items[index] = record;
-            // Also update the map, as the key might be derived from the item
-            this.map.set(record[this.keyProperty], record);
-            return record;
+            const record = RecordFactory.createRecord(me.model, item);
+
+            // Replace the raw data with the record instance in the current (filtered) collection
+            me.map.set(record[me.keyProperty], record);
+            me._items[index] = record;
+
+            // If this collection is filtered, we must also update the master 'allItems' collection
+            if (me.allItems) {
+                const masterIndex = me.allItems.indexOf(item);
+                if (masterIndex !== -1) {
+                    me.allItems.map.set(record[me.keyProperty], record);
+                    me.allItems._items[masterIndex] = record
+                }
+            }
+            return record
         }
-        return item; // Already a record or undefined
+        return item // Already a record or undefined
     }
 
     /**

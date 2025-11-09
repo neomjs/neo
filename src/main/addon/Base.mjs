@@ -141,7 +141,9 @@ class Base extends CoreBase {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetIsReady(value, oldValue) { // Keep this synchronous
+    afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue);
+
         if (value) {
             // Initiate the asynchronous processing of cached method calls.
             // This method itself does not need to be awaited here.

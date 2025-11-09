@@ -102,6 +102,8 @@ class FunctionalBase extends Abstract {
      * @protected
      */
     afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue);
+
         const me = this;
 
         if (value && me.missedReadyState) {
@@ -297,23 +299,25 @@ class FunctionalBase extends Abstract {
     }
 
     /**
-     *
+     * Destroys the functional component
+     * @param {Boolean} [updateParentVdom=false] true to remove the component from the parent vdom => real dom
+     * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
      */
-    destroy() {
+    destroy(updateParentVdom=false, silent=false) {
         const me = this;
 
         me.vdomEffect?.destroy();
 
         // Destroy all classic components instantiated by this functional component
         me.childComponents?.forEach(childData => {
-            childData.instance.destroy()
+            childData.instance.destroy(false, true) // Pass silent=true
         });
         me.childComponents?.clear();
 
         // Remove any pending DOM event listeners that might not have been mounted
         me[pendingDomEventsSymbol] = null;
 
-        super.destroy()
+        super.destroy(updateParentVdom, silent)
     }
 
     /**

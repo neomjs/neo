@@ -6,6 +6,18 @@ import NeoArray      from '../util/Array.mjs';
 import Strip         from './Strip.mjs';
 
 /**
+ * @summary Manages a tabbed interface with a header toolbar and a content body.
+ *
+ * This class acts as the main orchestrator for a tabbed view. It uses a flexbox layout to arrange its
+ * two primary children: a `Neo.tab.header.Toolbar` for the tab buttons and a `Neo.tab.BodyContainer`.
+ * The `BodyContainer` is configured with a `card` layout. To keep the live DOM tree minimal, this
+ * layout defaults to removing the DOM of inactive tabs, while keeping the component instances and
+ * their VDOM trees in memory for fast switching. This behavior can be changed via the `removeInactiveCards` config.
+ *
+ * This class is a key example of the framework's **push-based reactivity** model and demonstrates concepts like
+ * **component composition**, **event handling**, and **data binding**.
+ *
+ * @see Neo.examples.tab.Container
  * @class Neo.tab.Container
  * @extends Neo.container.Base
  */
@@ -116,18 +128,20 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Adds one or multiple tabs at the end of the header
-     * @param {Object|Array} item
-     * @returns {Neo.component.Base|Neo.component.Base[]}
+     * Adds one or more tab items to the end of the container.
+     * @param {Object|Object[]} item The configuration object for a new tab or an array of such objects.
+     * @returns {Neo.component.Base|Neo.component.Base[]} The newly created component(s).
      */
     add(item) {
         return this.insert(this.getTabBar().items.length, item)
     }
 
     /**
-     * Triggered after the activeIndex config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
+     * Handles the logic after the `activeIndex` config has changed. It ensures that the
+     * layout of the `BodyContainer` is updated to show the correct card and fires the
+     * `activeIndexChange` event.
+     * @param {Number|null} value The new active index.
+     * @param {Number|null} oldValue The previous active index.
      * @protected
      */
      async afterSetActiveIndex(value, oldValue) {
@@ -137,7 +151,7 @@ class Container extends BaseContainer {
         if (Neo.isNumber(value) && value > -1 && !cardContainer) {
             me.on('constructed', () => {
                 me.afterSetActiveIndex(value, oldValue)
-            })
+            }, me, {once: true})
         } else {
             if (Neo.isNumber(value) && value > -1) {
                 // we need to ensure the afterSet method triggers when lazy loading the module
@@ -158,9 +172,9 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Triggered after the plain config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Applies or removes the plain CSS class when the `plain` config changes.
+     * @param {Boolean} value The new value for `plain`.
+     * @param {Boolean} oldValue The old value for `plain`.
      * @protected
      */
     afterSetPlain(value, oldValue) {
@@ -172,9 +186,9 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Triggered after the sortable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Passes the `sortable` config down to the `HeaderToolbar` instance.
+     * @param {Boolean} value The new value for `sortable`.
+     * @param {Boolean} oldValue The old value for `sortable`.
      * @protected
      */
     afterSetSortable(value, oldValue) {
@@ -184,9 +198,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Triggered after the tabBarPosition config got changed
-     * @param {String} value 'top', 'right', 'bottom', 'left'
-     * @param {String} oldValue 'top', 'right', 'bottom', 'left'
+     * Adjusts the container's layout and CSS classes when the tab bar position changes.
+     * This method ensures that the `HeaderToolbar` is docked correctly and that the overall
+     * flexbox layout direction is updated to accommodate the new position (e.g., row for left/right,
+     * column for top/bottom).
+     * @param {String} value The new tab bar position ('top', 'right', 'bottom', 'left').
+     * @param {String} oldValue The old tab bar position.
      * @protected
      */
     afterSetTabBarPosition(value, oldValue) {
@@ -215,9 +232,9 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Triggered after the useActiveTabIndicator config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Passes the `useActiveTabIndicator` config down to the `HeaderToolbar` and `Strip` instances.
+     * @param {Boolean} value The new value for `useActiveTabIndicator`.
+     * @param {Boolean} oldValue The old value for `useActiveTabIndicator`.
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
@@ -228,17 +245,20 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Triggered before the tabBarPosition config gets changed
-     * @param {String} value
-     * @param {String} oldValue
+     * Validates the new value for the `tabBarPosition` config.
+     * @param {String} value The new value.
+     * @param {String} oldValue The old value.
      * @protected
-     * @returns {String} value
+     * @returns {String} The validated value.
      */
     beforeSetTabBarPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'tabBarPosition')
     }
 
     /**
+     * Overrides the base `createItems` lifecycle method to construct the specific component
+     * hierarchy required for a tab container. It transforms the user-provided `items` array
+     * into the three core child components: `HeaderToolbar`, `Strip`, and `BodyContainer`.
      * @protected
      */
     createItems() {
@@ -289,7 +309,7 @@ class Container extends BaseContainer {
             layout      : {ntype: 'card', activeIndex, removeInactiveCards},
             useActiveTabIndicator,
             ...me.bodyContainer
-        }]
+        }];
 
         me.itemDefaults = null;
 
@@ -297,39 +317,43 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Returns the card matching this.activeIndex
-     * @returns {Neo.component.Base|null}
+     * Retrieves the component instance for the currently active tab.
+     * @returns {Neo.component.Base|null} The active card component or null if none is active.
      */
     getActiveCard() {
-        return this.getCardContainer().items[this.activeIndex] || null
+        return this.getCardContainer()?.items[this.activeIndex] || null
     }
 
     /**
-     * Returns a card by a given index
-     * @param {Number} index
-     * @returns {Neo.component.Base|null}
+     * Retrieves the component instance for a tab at a specific index.
+     * @param {Number} index The index of the card to retrieve.
+     * @returns {Neo.component.Base|null} The card component or null if not found.
      */
     getCard(index) {
-        return this.getCardContainer().items[index] || null
+        return this.getCardContainer()?.items[index] || null
     }
 
     /**
-     * @returns {Neo.container.Base}
+     * A convenience method to get the `BodyContainer` instance that holds the tab content cards.
+     * @returns {Neo.container.Base} The body container instance.
      */
     getCardContainer() {
         return Neo.getComponent(this.bodyContainerId)
     }
 
     /**
-     * Returns the amount of items inside the tab header toolbar
-     * @returns {Number}
+     * Returns the total number of tabs in the container.
+     * @returns {Number} The number of tabs.
      */
     getCount() {
         return this.getTabBar().items.length
     }
 
     /**
-     * @returns {Object} layoutConfig
+     * Generates the appropriate flexbox layout configuration based on the current `tabBarPosition`.
+     * For example, a 'top' or 'bottom' position requires a vertical layout, while 'left' or 'right'
+     * requires a horizontal one.
+     * @returns {Object} The flexbox layout configuration object.
      * @protected
      */
     getLayoutConfig() {
@@ -360,24 +384,29 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Number} index
-     * @returns {Neo.tab.header.Button|null}
+     * Retrieves the `HeaderButton` instance for a tab at a specific index.
+     * @param {Number} index The index of the tab button to retrieve.
+     * @returns {Neo.tab.header.Button|null} The tab button component or null if not found.
      */
     getTabAtIndex(index) {
         return this.getTabBar().items[index] || null
     }
 
     /**
-     * @returns {Neo.toolbar.Base}
+     * A convenience method to get the `HeaderToolbar` instance that holds the tab buttons.
+     * @returns {Neo.toolbar.Base} The header toolbar instance.
      */
     getTabBar() {
         return Neo.getComponent(this.tabBarId)
     }
 
     /**
-     * @param {Object} config
-     * @param {Number} index
-     * @returns {Object} The merged config
+     * Creates the configuration object for a single tab button. It merges a default configuration
+     * (including the module, index, and a click listener to change `activeIndex`) with the
+     * user-provided configuration from the item's `header` property.
+     * @param {Object} config The user-provided configuration from `item.header`.
+     * @param {Number} index The index of this tab button.
+     * @returns {Object} The merged configuration object for the tab button.
      * @protected
      */
     getTabButtonConfig(config, index) {
@@ -401,18 +430,20 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @returns {Neo.tab.Strip}
+     * A convenience method to get the `Strip` instance, which is responsible for rendering
+     * the active tab indicator.
+     * @returns {Neo.tab.Strip} The strip instance.
      */
     getTabStrip() {
         return Neo.getComponent(this.tabStripId)
     }
 
     /**
-     * Inserts an item or array of items at a specific index
-     * @param {Number} index
-     * @param {Object|Object[]} item
-     * @param {Boolean} silent=false
-     * @returns {Neo.component.Base|Neo.component.Base[]}
+     * Inserts one or more tab items at a specific index.
+     * @param {Number} index The index at which to insert the new item(s).
+     * @param {Object|Object[]} item The configuration object for a new tab or an array of such objects.
+     * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @returns {Neo.component.Base|Neo.component.Base[]} The newly created component(s).
      */
     insert(index, item, silent=false) {
         let me            = this,
@@ -479,10 +510,11 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Moves an existing item to a new index
-     * @param {Number} fromIndex
-     * @param {Number} toIndex
-     * @returns {Neo.component.Base} the card item
+     * Moves an existing tab (both its button and its card) from one index to another.
+     * This is primarily used for drag-and-drop reordering.
+     * @param {Number} fromIndex The original index of the tab.
+     * @param {Number} toIndex The new index for the tab.
+     * @returns {Neo.component.Base} The card component that was moved.
      */
     moveTo(fromIndex, toIndex) {
         let me            = this,
@@ -511,7 +543,9 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
+     * Overrides the base `onConstructed` lifecycle method to apply the initial flexbox layout
+     * configuration after the main construction process is complete.
+     * @protected
      */
     onConstructed() {
         this.layout = {ntype: 'flexbox', ...this.getLayoutConfig()};
@@ -519,9 +553,10 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Gets triggered once a dynamically added header.Button gets mounted
-     * in case activateInsertedTabs is set to true
-     * @param {String} buttonId
+     * A handler that is triggered when a dynamically added tab button is mounted to the DOM.
+     * If `activateInsertedTabs` is true, this method ensures that the `activeIndex` is set
+     * correctly after the new tab's corresponding card is also mounted.
+     * @param {String} buttonId The ID of the mounted button.
      * @protected
      */
     onTabButtonMounted(buttonId) {
@@ -554,10 +589,10 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Removes a container item by reference
-     * @param {Neo.component.Base} component
-     * @param {Boolean} [destroyItem=true]
-     * @param {Boolean} [silent=false]
+     * Removes a tab from the container using a reference to the card component.
+     * @param {Neo.component.Base} component The card component instance to remove.
+     * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
+     * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
      */
     remove(component, destroyItem=true, silent=false) {
         let items = [...this.getCardContainer().items],
@@ -572,9 +607,10 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @param {Number} index
-     * @param {Boolean} [destroyItem=true]
-     * @param {Boolean} [silent=false]
+     * Removes a tab from the container at a specific index.
+     * @param {Number} index The index of the tab to remove.
+     * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
+     * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
      */
     removeAt(index, destroyItem=true, silent=false) {
         let me            = this,
@@ -604,12 +640,14 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Synchronizes the `pressed` state of all tab buttons with the container's `activeIndex`.
+     * This ensures that only the button corresponding to the active tab appears pressed.
      * @protected
      */
     updateTabButtons() {
         let me            = this,
             {activeIndex} = me,
-            tabButtons    = me.getTabBar().items || [];
+            tabButtons    = me.getTabBar()?.items || [];
 
         tabButtons.forEach((item, index) => {
             item.pressed = index === activeIndex

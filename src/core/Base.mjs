@@ -130,8 +130,7 @@ class Base {
         /**
          * The config will get set to `true` once the Promise of `async initAsync()` is resolved.
          * You can use `afterSetIsReady()` to get notified once the ready state is reached.
-         * Since not all classes use the Observable mixin, Neo will not fire an event.
-         * method body.
+         * For observable classes, this will also fire a `ready` event.
          * @member {Boolean} isReady_=false
          * @reactive
          */
@@ -166,6 +165,18 @@ class Base {
      * @private
      */
     #configs = {};
+    /**
+     * A promise that resolves when the instance is fully initialized (after initAsync() completes).
+     * @member {Promise<void>|null} #readyPromise
+     * @private
+     */
+    #readyPromise = null;
+    /**
+     * A resolver function for the ready promise.
+     * @member {Function|null} #readyResolver
+     * @private
+     */
+    #readyResolver = null;
     /**
      * Internal cache for all config subscription cleanup functions.
      * @member {Function[]} #configSubscriptionCleanups=[]
@@ -250,7 +261,12 @@ class Base {
          * So, we are intercepting the top-most `destroy()` call to check for the flag there.
          * Rationale: `destroy()` must only get called once.
          */
-        intercept(me, 'destroy', me.isDestroyedCheck, me);
+        intercept(me, 'destroy', me.#preDestroyHook, me);
+
+        // Storing a resolver to execute inside `afterSetIsReady`.
+        me.#readyPromise = new Promise(resolve => {
+            me.#readyResolver = resolve
+        });
 
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
@@ -286,6 +302,24 @@ class Base {
                 Neo.idMap ??= {};
                 Neo.idMap[value] = me
             }
+        }
+    }
+
+    /**
+     * Triggered after the isReady config gets changed.
+     * Resolves the ready() promise and fires the ready event for observable classes.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsReady(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            me.#readyResolver?.();
+
+            // We can only fire the event in case the Observable mixin is included.
+            me.getStaticConfig('observable') && me.fire('ready')
         }
     }
 
@@ -450,8 +484,6 @@ class Base {
     destroy() {
         let me = this;
 
-        me.isDestroying = true;
-
         me.#timeoutIds.forEach(id => {
             clearTimeout(id)
         });
@@ -579,14 +611,6 @@ class Base {
                 Base.sendRemotes(className, remote)
             }
         }
-    }
-
-    /**
-     * Intercepts destroy() calls to ensure they will only get called once
-     * @returns {Boolean}
-     */
-    isDestroyedCheck() {
-        return !this.isDestroyed
     }
 
     /**
@@ -757,6 +781,16 @@ class Base {
     }
 
     /**
+     * Intercepts destroy() calls to ensure they will only get called once
+     * @returns {Boolean}
+     * @private
+     */
+    #preDestroyHook() {
+        this.isDestroying = true;
+        return !this.isDestroyed
+    }
+
+    /**
      * When using set(), configs without a trailing underscore can already be assigned,
      * so the hasOwnProperty() check will return true
      * @param {Boolean} [forceAssign=false]
@@ -782,6 +816,16 @@ class Base {
 
             me.processConfigs(forceAssign)
         }
+    }
+
+    /**
+     * Returns a promise that resolves when the instance is fully initialized (after initAsync).
+     * Use case: alternative way to subscribe to the ready state, especially for classes which are not observable.
+     * @example: await ChromaManager.ready();
+     * @returns {Promise<void>}
+     */
+    ready() {
+        return this.#readyPromise;
     }
 
     /**
@@ -915,7 +959,7 @@ class Base {
 
     /**
      * <p>Enhancing the toString() method, e.g.</p>
-     * `Neo.create('Neo.button.Base').toString() => "[object Neo.button.Base (neo-button-1)]"`
+     * `Neo.create('Neo.button.Base').toString() => "[object Neo.button.Base]"`
      * @returns {String}
      */
     get [Symbol.toStringTag]() {

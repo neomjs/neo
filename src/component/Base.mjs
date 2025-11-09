@@ -254,12 +254,6 @@ class Component extends Abstract {
          */
         ui_: null,
         /**
-         * True after the component initVnode() method was called. Also fires the vnodeInitialized event.
-         * @member {Boolean} vnodeInitialized=false
-         * @protected
-         */
-        vnodeInitialized: false,
-        /**
          * Shortcut for style.width, defaults to px
          * @member {Number|String|null} width_=null
          * @reactive
@@ -306,24 +300,6 @@ class Component extends Abstract {
     }
 
     /**
-     * True after the component vnodeInitialized() method was called. Also fires the vnodeInitialized event.
-     * @member {Boolean} vnodeInitialized=false
-     * @protected
-     */
-    get vnodeInitialized() {
-        return this._vnodeInitialized || false
-    }
-    set vnodeInitialized(value) {
-        let me = this;
-
-        me._vnodeInitialized = value;
-
-        if (value === true) {
-            me.fire('vnodeInitialized', me.id)
-        }
-    }
-
-    /**
      * Add a new cls to the vdomRoot
      * @param {String} value
      */
@@ -333,8 +309,6 @@ class Component extends Abstract {
         NeoArray.add(cls, value);
         this.cls = cls
     }
-
-
 
     /**
      * Either a string like 'color: red; background-color: blue;'

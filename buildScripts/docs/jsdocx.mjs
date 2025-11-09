@@ -1,8 +1,10 @@
-import fs       from 'fs-extra';
-import helper   from 'neo-jsdoc-x/src/lib/helper.js';
-import jsdocx   from 'neo-jsdoc-x';
-import {marked} from 'marked';
-import path     from 'path';
+import fs                 from 'fs-extra';
+import {parse, writeJSON} from './jsdoc-x/index.mjs';
+import {marked}           from 'marked';
+import path               from 'path';
+
+console.log('Starting JSDoc documentation generation...');
+const totalStartTime = new Date();
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -42,17 +44,47 @@ appJson?.apps.forEach(key => {
     }
 });
 
-function ns(names, create) {
+// Optimized namespace builder using plain objects instead of globalThis
+function createNamespaceTree(names) {
     names = Array.isArray(names) ? names : names.split('.');
 
-    return names.reduce((prev, current) => {
-        if (create && !prev[current]) {
-            prev[current] = {};
+    const root = {};
+    let current = root;
+
+    for (const name of names) {
+        if (!current[name]) {
+            current[name] = {};
         }
-        if (prev) {
-            return prev[current];
+        current = current[name];
+    }
+
+    return root;
+}
+
+function getNamespace(tree, names) {
+    names = Array.isArray(names) ? names : names.split('.');
+    let current = tree;
+
+    for (const name of names) {
+        if (!current[name]) return null;
+        current = current[name];
+    }
+
+    return current;
+}
+
+function setNamespace(tree, names, value) {
+    names = Array.isArray(names) ? names : names.split('.');
+    let current = tree;
+
+    for (let i = 0; i < names.length - 1; i++) {
+        if (!current[names[i]]) {
+            current[names[i]] = {};
         }
-    }, globalThis);
+        current = current[names[i]];
+    }
+
+    current[names[names.length - 1]] = value;
 }
 
 const neoStructure = [{
@@ -76,31 +108,44 @@ const neoStructure = [{
 
 let neoStructureId = 2;
 
-function generateStructure(target, parentId, docs) {
-    let namespace = ns(target),
-        len       = docs.length,
-        className, docItem, i, id, j, hasMatch, isLeaf, path, singleton, srcPath, tagLength;
+// Pre-index docs for O(1) lookups
+function indexDocs(docs) {
+    const byClassName = new Map();
+    const appNamesSet = new Set(appNames);
 
-    if (!namespace) {
-        console.log(target);
+    for (const doc of docs) {
+        if ((doc.$kind === 'class' || doc.$kind === 'module') && doc.neoClassName) {
+            byClassName.set(doc.neoClassName, doc);
+        }
     }
 
-    Object.entries(namespace).forEach(([key, value]) => {
-        id        = ++neoStructureId;
-        isLeaf    = Object.entries(value).length < 1;
-        singleton = false;
-        srcPath   = null;
+    return { byClassName, appNamesSet };
+}
 
-        hasMatch = false;
+function generateStructure(namespaceTree, target, parentId, docIndex) {
+    const namespace = getNamespace(namespaceTree, target);
 
-        for (i=0; i < appNames.length; i++) {
-            if (target.indexOf(appNames[i] + 'Empty.') === 0) {
-                path = target.substr(appNames[i].length * 2 + 6);
+    if (!namespace) {
+        console.log('Missing namespace:', target);
+        return;
+    }
 
-                className = isLeaf ? appNames[i] + (path ? path + '.' : '.') + key : null;
-                // console.log(target);
-                // console.log(path);
-                // console.log(className);
+    const entries = Object.entries(namespace);
+
+    for (const [key, value] of entries) {
+        const id        = ++neoStructureId;
+        const isLeaf    = Object.keys(value).length === 0;
+        let className   = null;
+        let singleton   = false;
+        let srcPath     = null;
+        let path        = '';
+        let hasMatch    = false;
+
+        // Check app names
+        for (const appName of appNames) {
+            if (target.indexOf(appName + 'Empty.') === 0) {
+                path = target.substr(appName.length * 2 + 6);
+                className = isLeaf ? appName + (path ? path + '.' : '.') + key : null;
                 hasMatch = true;
                 break;
             }
@@ -109,96 +154,57 @@ function generateStructure(target, parentId, docs) {
         if (!hasMatch) {
             if (target.indexOf('DocsEmpty.') === 0) {
                 path = target.substr(15);
-
                 className = isLeaf ? 'Docs.app.' + (path ? path + '.' : '') + key : null;
             } else {
                 path = target.substr(target.indexOf('NeoEmpty.') === 0 ? 9 : 8);
-
                 className = isLeaf ? 'Neo.' + (path ? path + '.' : '') + key : null;
                 className = className === 'Neo.Neo' ? 'Neo' : className;
             }
         }
 
-        if (isLeaf) {
-            for (i = 0; i < len; i++) {
-                docItem = docs[i];
+        if (isLeaf && className) {
+            const docItem = docIndex.byClassName.get(className);
 
-                if ((docItem.$kind === 'class' || docItem.$kind === 'module') && docItem.neoClassName === className) {
-                    let i = docItem.meta.path.indexOf('neomjs/neo/'),
-                        m = false;
+            if (docItem) {
+                const metaPath = docItem.meta.path;
+                let m = false;
 
+                // Try different path patterns
+                const patterns = [
+                    { search: 'neomjs/neo/', offset: 11 },
+                    { search: 'neo.mjs/', offset: 8 },
+                    { search: 'neo/', offset: 4 },
+                    { search: '/apps/', offset: 1 },
+                    { search: '/docs/', offset: 1 }
+                ];
+
+                for (const { search, offset } of patterns) {
+                    const i = metaPath.indexOf(search);
                     if (i > -1) {
-                        srcPath = docItem.meta.path.substr(i + 11) + '/' + docItem.meta.filename;
+                        srcPath = metaPath.substr(i + offset) + '/' + docItem.meta.filename;
                         m = true;
-                    }
-
-                    if (!m) {
-                        i = docItem.meta.path.indexOf('neo.mjs/');
-
-                        if (i > -1) {
-                            srcPath = docItem.meta.path.substr(i + 8) + '/' + docItem.meta.filename;
-                            m = true;
-                        }
-                    }
-
-                    if (!m) {
-                        i = docItem.meta.path.indexOf('neo/');
-
-                        if (i > -1) {
-                            srcPath = docItem.meta.path.substr(i + 4) + '/' + docItem.meta.filename;
-                            m = true;
-                        }
-                    }
-
-                    if (!m) {
-                        i = docItem.meta.path.indexOf('/apps/');
-
-                        if (i > -1) {
-                            srcPath = docItem.meta.path.substr(i + 1) + '/' + docItem.meta.filename;
-                            m = true;
-                        }
-                    }
-
-                    if (!m) {
-                        i = docItem.meta.path.indexOf('/docs/');
-
-                        if (i > -1) {
-                            srcPath = docItem.meta.path.substr(i + 1) + '/' + docItem.meta.filename;
-                        }
-                    }
-
-                    if (docItem.tags) {
-                        j         = 0;
-                        tagLength = docItem.tags.length;
-
-                        for (; j < tagLength; j++) {
-                            if (docItem.tags[j].title === 'singleton') {
-                                singleton = true;
-                                break;
-                            }
-                        }
+                        break;
                     }
                 }
 
-                if (singleton === true) {
-                    break;
+                // Check for singleton tag
+                if (docItem.tags) {
+                    singleton = docItem.tags.some(tag => tag.title === 'singleton');
                 }
             }
         }
 
-        // console.log(className);
+        // Adjust paths when running inside neo.mjs node module
+        if (srcPath) {
+            const index = srcPath.indexOf('node_modules/neo.mjs/');
+            if (index > -1) {
+                srcPath = srcPath.substr(index + 21);
+            }
 
-        // adjusted paths when running the script inside the neo.mjs node module
-        const index = srcPath && srcPath.indexOf('node_modules/neo.mjs/') || -1;
-        if (index > -1) {
-            srcPath = srcPath.substr(index + 21);
+            if (!insideNeo && !srcPath.includes('apps/') && !srcPath.includes('docs/')) {
+                srcPath = 'node_modules/neo.mjs/' + srcPath;
+            }
         }
-
-        if (!insideNeo && srcPath && !srcPath.includes('apps/') && !srcPath.includes('docs/')) {
-            srcPath = 'node_modules/neo.mjs/' + srcPath;
-        }
-
-        // console.log(srcPath);
 
         neoStructure.push({
             className,
@@ -212,138 +218,171 @@ function generateStructure(target, parentId, docs) {
             srcPath
         });
 
-        generateStructure(target + '.' + key, id, docs);
-    });
+        generateStructure(namespaceTree, target + '.' + key, id, docIndex);
+    }
+}
+
+// Cache for path processing to avoid repeated regex operations
+const pathCache = new Map();
+
+function processPath(itemPath, filename, appNames) {
+    const cacheKey = itemPath + '|' + filename;
+    if (pathCache.has(cacheKey)) {
+        return pathCache.get(cacheKey);
+    }
+
+    let path = itemPath.replace(/\\/g, '/'); // sync windows paths to macOS
+    let index = path.indexOf('/src/');
+
+    if (index > -1) {
+        path = path.substr(index + 5) + '.';
+    } else {
+        index = path.indexOf('/src');
+
+        if (index > -1) {
+            path = path.substr(index + 4); // top level files
+        } else {
+            index = path.indexOf('/apps/');
+
+            if (index > -1) {
+                for (const appName of appNames) {
+                    const lAppName = appName.toLowerCase();
+                    let pathLen = path.lastIndexOf('/' + lAppName);
+
+                    if (pathLen !== -1) {
+                        // top level files
+                        if (pathLen === path.length - appName.length - 1) {
+                            path = appName + path.substr(index + appName.length + 6) + '.';
+                            break;
+                        } else {
+                            pathLen = path.indexOf(lAppName + '/');
+
+                            if (pathLen > -1) {
+                                path = appName + path.substr(index + appName.length + 6) + '.';
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                index = path.indexOf('/docs/');
+
+                if (index > -1) {
+                    path = 'Docs.' + path.substr(index + 10) + '.';
+                }
+            }
+        }
+    }
+
+    path = path.replace(/\//g, '.');
+    const result = path + filename;
+    pathCache.set(cacheKey, result);
+    return result;
 }
 
 console.log('Start default jsdocx parsing.');
 const startDateDefault = new Date();
 
-jsdocx.parse(options)
-    .then(function (docs) {
+parse(options)
+    .then(async function (docs) {
         console.log('Default jsdocx parsing done.');
         const processTimeDefault = (Math.round((new Date - startDateDefault) * 100) / 100000).toFixed(2);
         console.log(`jsdocx default parsing time: ${processTimeDefault}s`);
 
         const startDate = new Date();
 
-        let i         = 0,
-            len       = docs.length,
-            structure = {},
-            defaultValue, filename, hasMatch, index, item, j, lAppName, namespace, path, pathLen, type;
+        // Create namespace trees
+        const neoTree = {};
+        const docsTree = {};
+        const appTrees = {};
+        appNames.forEach(name => appTrees[name] = {});
 
-        for (; i < len; i++) {
-            item = docs[i];
+        const structure = {};
+        const classHierarchy = {};
+        const fileNamespaces = {};
 
+        // Single pass through docs - do everything at once
+        for (let i = 0; i < docs.length; i++) {
+            const item = docs[i];
             docs[i].id = i + 1;
 
-            filename = item.meta.filename;
-            filename = filename.substr(0, filename.lastIndexOf('.'));
+            const filename = item.meta.filename.substr(0, item.meta.filename.lastIndexOf('.'));
+            const fullPath = processPath(item.meta.path, filename, appNames);
 
-            path = item.meta.path;
-            path = path.replace(/\\/g, '/'); // sync windows paths to macOS
+            structure[fullPath] = true;
 
-            index = path.indexOf('/src/');
+            // Determine which tree this belongs to
+            let hasMatch = false;
+            let neoClassName = '';
 
-            if (index > -1) {
-                path = path.substr(index + 5) + '.';
-            } else {
-                index = path.indexOf('/src');
-
-                if (index > -1) {
-                    path = path.substr(index + 4); // top level files
-                } else {
-                    index = path.indexOf('/apps/');
-
-                    if (index > -1) {
-                        for (j=0; j < appNames.length; j++) {
-                            lAppName = appNames[j].toLowerCase();
-                            pathLen  = path.lastIndexOf('/' + lAppName);
-
-                            if (pathLen !== -1) {
-                                // top level files
-                                if (pathLen === path.length - appNames[j].length - 1) {
-                                    path = appNames[j] + path.substr(index + appNames[j].length + 6) + '.';
-                                    break;
-                                } else {
-                                    pathLen = path.indexOf(lAppName + '/');
-
-                                    if (pathLen > -1) {
-                                        path = appNames[j] + path.substr(index + appNames[j].length + 6) + '.';
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        index = path.indexOf('/docs/');
-
-                        if (index > -1) {
-                            path = 'Docs.' + path.substr(index + 10) + '.';
-                        }
-                    }
-                }
-            }
-
-            path = path.replace(/\//g, '.');
-
-            filename = path + filename;
-
-            structure[filename] = true;
-
-            hasMatch = false;
-
-            for (j=0; j < appNames.length; j++) {
-                if (path.indexOf(appNames[j] + '.') === 0) {
-                    // console.log('NS', appNames[j] + 'Empty.' + filename);
-                    ns(appNames[j] + 'Empty.' + filename, true);
-                    item.neoClassName = filename;
-                    // console.log(item.neoClassName);
-                    // console.log(filename);
+            for (const appName of appNames) {
+                if (fullPath.indexOf(appName + '.') === 0) {
+                    setNamespace(appTrees[appName], appName + 'Empty.' + fullPath, {});
+                    neoClassName = fullPath;
                     hasMatch = true;
                     break;
                 }
             }
 
             if (!hasMatch) {
-                if (path.indexOf('Docs') === 0) {
-                    ns('DocsEmpty.' + filename, true);
-                    item.neoClassName = 'Docs.app' + filename.substr(4);
+                if (fullPath.indexOf('Docs') === 0) {
+                    setNamespace(docsTree, 'DocsEmpty.' + fullPath, {});
+                    neoClassName = 'Docs.app' + fullPath.substr(4);
                 } else {
-                    item.neoClassName = filename === 'Neo' ? filename : 'Neo.' + filename;
-                    ns('NeoEmpty.' + filename, true);
+                    neoClassName = fullPath === 'Neo' ? fullPath : 'Neo.' + fullPath;
+                    setNamespace(neoTree, 'NeoEmpty.' + fullPath, {});
                 }
             }
 
-            if (item.neoClassName === 'Neo') {
-                namespace = ns('Neo.Neo', true);
+            item.neoClassName = neoClassName;
+
+            // Get/create namespace for classData
+            let namespace;
+            if (neoClassName === 'Neo') {
+                namespace = getNamespace(neoTree, 'Neo.Neo') || {};
+                setNamespace(neoTree, 'Neo.Neo', namespace);
             } else {
-                namespace = ns(item.neoClassName, true);
+                if (hasMatch) {
+                    const appName = appNames.find(name => fullPath.indexOf(name + '.') === 0);
+                    namespace = getNamespace(appTrees[appName], neoClassName) || {};
+                    setNamespace(appTrees[appName], neoClassName, namespace);
+                } else if (fullPath.indexOf('Docs') === 0) {
+                    namespace = getNamespace(docsTree, neoClassName) || {};
+                    setNamespace(docsTree, neoClassName, namespace);
+                } else {
+                    namespace = getNamespace(neoTree, neoClassName) || {};
+                    setNamespace(neoTree, neoClassName, namespace);
+                }
             }
 
             namespace.classData = namespace.classData || [];
             namespace.classData.push(item);
 
+            // Store for later file writing
+            fileNamespaces[fullPath] = namespace;
+
+            // Parse markdown descriptions
             if (item.description) {
-                item.description = marked.parse(item.description)
+                item.description = marked.parse(item.description);
             }
 
             item.params?.forEach(param => {
                 if (param.description) {
-                    param.description = marked.parse(param.description)
+                    param.description = marked.parse(param.description);
                 }
             });
 
+            // Handle member-specific logic
             if (item.kind === 'member') {
                 if (item.comment) {
                     item.meta.lineno += item.comment.split('\n').length;
                 }
 
-                if (item.defaultvalue && item.type && item.type.names) {
-                    type = item.type.names[0].toLowerCase();
+                if (item.defaultvalue && item.type?.names) {
+                    const type = item.type.names[0].toLowerCase();
 
                     if (type.indexOf('array') > -1 || type.indexOf('object') > -1) {
-                        defaultValue = item.comment.substr(item.comment.indexOf('=') + 1);
+                        let defaultValue = item.comment.substr(item.comment.indexOf('=') + 1);
                         defaultValue = defaultValue.substr(0, defaultValue.indexOf('\n'));
                         defaultValue.trim();
                         item.defaultvalue = defaultValue;
@@ -354,69 +393,65 @@ jsdocx.parse(options)
             if (item.memberof === 'module:Neo.config') {
                 item.name = 'config.' + item.name;
             }
+
+            // Build class hierarchy in same pass
+            if (item.$kind === 'class' && item.neoClassName && item.neoClassName !== 'Neo') {
+                const parentClass = item.augments?.length > 0 ? item.augments[0] : null;
+                classHierarchy[item.neoClassName] = parentClass;
+            }
         }
 
-        helper.writeJSON({
+        // Write all.json
+        await writeJSON({
             path  : './docs/output/all.json',
             indent: 0,
             force : true
         }, docs);
 
-        let firstChar, fileNs;
+        // Write individual files
+        const writePromises = [];
+        for (const [key, namespace] of Object.entries(fileNamespaces)) {
+            const firstChar = key.charAt(0);
+            let filePath = key.replace(/\./g, '/');
 
-        Object.keys(structure).forEach(key => {
-            firstChar = key.charAt(0);
-            path      = key.replace(/\./g, '/');
-
-            // check for app related files
             if (firstChar === firstChar.toUpperCase() && key.includes('.')) {
-                if (key.startsWith('Docs.')) {
-                    key = 'Docs.app' + key.substr(4);
-                }
-
-                fileNs = ns(key);
-                path   = 'apps/' + path + '.json';
+                filePath = 'apps/' + filePath + '.json';
             } else {
-                fileNs = ns('Neo.' + key);
-                path   = 'src/' + path + '.json';
+                filePath = 'src/' + filePath + '.json';
             }
 
-            helper.writeJSON({
-                path  : './docs/output/' + path,
-                indent: 0,
-                force : true
-            }, fileNs);
-        });
+            writePromises.push(
+                writeJSON({
+                    path  : './docs/output/' + filePath,
+                    indent: 0,
+                    force : true
+                }, namespace)
+            );
+        }
 
-        // console.log(Neo);
+        // Index docs for structure generation
+        const docIndex = indexDocs(docs);
 
-        generateStructure('NeoEmpty',  1, docs);
-        generateStructure('DocsEmpty', 2, docs);
+        // Generate structures
+        generateStructure(neoTree, 'NeoEmpty', 1, docIndex);
+        generateStructure(docsTree, 'DocsEmpty', 2, docIndex);
 
         appNames.forEach(key => {
-            generateStructure(key + 'Empty', 2, docs);
+            generateStructure(appTrees[key], key + 'Empty', 2, docIndex);
         });
 
-        const classHierarchy = {};
-
-        docs.forEach(item => {
-            if (item.$kind === 'class' && item.neoClassName && item.neoClassName !== 'Neo') {
-                const parentClass = item.augments && item.augments.length > 0 ? item.augments[0] : null;
-                classHierarchy[item.neoClassName] = parentClass;
-            }
-        });
-
+        // Sort and write class hierarchy
         const sortedKeys = Object.keys(classHierarchy).sort();
-
         let yamlString = '# This file is automatically generated. Do not edit.\n\n';
         sortedKeys.forEach(key => {
             yamlString += `${key}: ${classHierarchy[key] || 'null'}\n`;
         });
 
-                fs.writeFileSync('./docs/output/class-hierarchy.yaml', yamlString);
+        writePromises.push(
+            fs.writeFile('./docs/output/class-hierarchy.yaml', yamlString)
+        );
 
-        console.log('Generated docs/output/class-hierarchy.yaml');
-
+        // Sort structure
         neoStructure.sort(function (a, b) {
             if (a.name[0] === a.name[0].toLocaleLowerCase() && b.name[0] === b.name[0].toLocaleLowerCase() ||
                 a.name[0] === a.name[0].toLocaleUpperCase() && b.name[0] === b.name[0].toLocaleUpperCase()) {
@@ -428,17 +463,24 @@ jsdocx.parse(options)
             return 1;
         });
 
-        // console.log(neoStructure);
+        writePromises.push(
+            writeJSON({
+                path  : './docs/output/structure.json',
+                indent: 0,
+                force : true
+            }, neoStructure)
+        );
 
-        helper.writeJSON({
-            path  : './docs/output/structure.json',
-            indent: 0,
-            force : true
-        }, neoStructure);
+        // Wait for all writes to complete in parallel
+        await Promise.all(writePromises);
 
+        console.log('Generated docs/output/class-hierarchy.yaml');
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`jsdocx custom parsing time: ${processTime}s`);
+
+        const totalTime = (Math.round((new Date - totalStartTime) * 100) / 100000).toFixed(2);
+        console.log(`\nTotal documentation generation time: ${totalTime}s`);
     })
     .catch(function (err) {
         console.log(err.stack);

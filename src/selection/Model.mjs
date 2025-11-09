@@ -291,17 +291,21 @@ class Model extends Base {
      *
      */
     unregister() {
-        let me  = this,
-            cls = me.view.wrapperCls || [];
+        let me     = this,
+            {view} = me;
 
-        if (me.cls && cls.includes(me.cls)) {
-            NeoArray.remove(cls, me.cls);
-            me.view.wrapperCls = cls
+        if (!view.isDestroying) {
+            let cls = view.wrapperCls || [];
+
+            if (me.cls && cls.includes(me.cls)) {
+                NeoArray.remove(cls, me.cls);
+                view.wrapperCls = cls
+            }
+
+            me.deselectAll();
+
+            me.removeDomListeners()
         }
-
-        me.deselectAll();
-
-        me.removeDomListeners()
     }
 }
 

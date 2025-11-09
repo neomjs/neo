@@ -1,0 +1,1125 @@
+openapi: 3.0.3
+info:
+  title: Neo.mjs GitHub Workflow MCP Server API
+  description: |
+    This API provides structured access to the Neo.mjs GitHub repository, enabling the automation of contribution workflows. 
+    It uses a hybrid approach, leveraging both the GitHub CLI (`gh`) for simple, direct commands (e.g., checking out a PR) 
+    and the GitHub GraphQL API for complex data fetching and mutations (e.g., listing PRs, creating comments, syncing issues).
+    This allows AI agents to programmatically interact with pull requests and issues in a safe and efficient manner.
+  version: 1.0.0
+  contact:
+    name: Neo.mjs Project
+    url: https://github.com/neomjs/neo
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8002
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Server health and status endpoints
+  - name: Pull Requests
+    description: Operations related to GitHub Pull Requests
+  - name: Labels
+    description: Operations related to repository labels
+  - name: Issues
+    description: Operations related to repository issues and pull requests
+  - name: Repository
+    description: Operations related to the repository itself
+
+paths:
+  /docs:
+    get:
+      summary: API Documentation
+      description: Serves the interactive Swagger UI for this API
+      tags: [Health]
+      responses:
+        '200':
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /healthcheck:
+    get:
+      summary: Check GitHub CLI Health
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Verifies that the GitHub CLI (`gh`) is installed, authenticated, and meets the minimum version requirement.
+
+        **When to Use:**
+        This should be the first tool you run if you suspect any issues with the GitHub Workflow MCP server. It provides a quick diagnostic check on the server's primary dependency.
+      tags: [Health]
+      responses:
+        '200':
+          description: Server is healthy and `gh` is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Server is unhealthy or `gh` CLI is not available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /labels:
+    get:
+      summary: List Repository Labels
+      operationId: list_labels
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a list of all available labels in the repository.
+
+        **When to Use:**
+        This is a crucial discovery tool. Call it before using `create_issue` or `add_labels` to ensure you are using valid, existing label names.
+      tags: [Labels]
+      responses:
+        '200':
+          description: A list of repository labels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelListResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pull-requests:
+    get:
+      summary: List Pull Requests
+      operationId: list_pull_requests
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a list of pull requests from the GitHub repository.
+
+        **When to Use:**
+        - To get a high-level overview of pending work (using the default `state: 'open'`).
+        - To research historical context by looking at past work (e.g., using `state: 'closed'` or `state: 'merged'`).
+        - To find a specific pull request number for use in other tools.
+        - When the user asks questions like:
+          - "What pull requests are currently open?"
+          - "Show me recently merged PRs."
+
+        **Best Practices:**
+        - After calling this tool, summarize the list of PRs for the user.
+        - Highlight key details such as the PR number, title, author, and state.
+        - Avoid showing the raw JSON output to the user unless they explicitly ask for it.
+
+        **Future Enhancements:**
+        Note that a future feature will sync PR conversations to local markdown files, providing a more detailed way to review historical PRs. For now, this tool is the primary way to browse PR history.
+      tags: [Pull Requests]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of pull requests to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter pull requests by state.
+          schema:
+            type: string
+            enum: [open, closed, merged, all]
+            default: open
+      responses:
+        '200':
+          description: A list of open pull requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequestListResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pull-requests/{pr_number}/checkout:
+    post:
+      summary: Checkout PR Branch
+      operationId: checkout_pull_request
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Checks out the branch for a given pull request locally using `gh pr checkout`.
+        This modifies the local filesystem to reflect the state of the pull request branch.
+
+        **When to Use:**
+        Use this tool when you need to locally inspect the code changes of a pull request, run tests, or perform a more detailed review.
+
+        **Workflow:**
+        1. **Ensure your current work is committed or stashed.** Before switching branches, make sure you save your current work to prevent losing changes (e.g., using `git stash`).
+        2. **Check out the pull request branch** using this tool.
+        3. **Review and test the code locally.**
+        4. **Return to your previous branch** when you are done (e.g., using `git checkout -`).
+
+        **Safety Note:** Always commit or stash your changes before checking out a new branch to avoid losing work.
+      tags: [Pull Requests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request to check out.
+          schema:
+            type: integer
+            example: 123
+      responses:
+        '200':
+          description: Pull request branch checked out successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pull-requests/{pr_number}/diff:
+    get:
+      summary: Get PR Diff
+      operationId: get_pull_request_diff
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the diff for a specific pull request using `gh pr diff`.
+        This provides a quick, read-only overview of the changes without checking out the branch.
+
+        **When to Use:**
+        Use this tool for a quick review of the changes in a pull request. For a more in-depth review, use `checkout_pull_request`.
+      tags: [Pull Requests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request.
+          schema:
+            type: integer
+            example: 123
+      responses:
+        '200':
+          description: The diff of the pull request.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pull-requests/{pr_number}/comments:
+    post:
+      summary: Create a PR Comment
+      operationId: create_comment
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Adds a final review comment to a pull request, either approving it or requesting changes. This is the primary tool for summarizing the outcome of a PR review.
+
+        The tool automatically adds a header indicating the AI agent source and prefixes the comment with a special icon.
+
+        **When to Use:**
+        This tool is for providing a conclusive, final review on a pull request.
+
+        - **To Approve a PR:** Use this tool to leave a comment indicating your approval (e.g., "LGTM, thanks for the contribution!").
+        - **To Request Changes:** Use this tool to provide a clear, actionable list of changes required for the PR to be approved. This should be a summary of your findings after a detailed review.
+
+        **Note on Inline Comments:**
+        While this tool is for the final, summary comment, detailed line-by-line feedback should be provided through other means if available. This tool provides the final verdict.
+      tags: [Pull Requests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request to comment on.
+          schema:
+            type: integer
+            example: 123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+                - agent
+              properties:
+                body:
+                  type: string
+                  description: The raw, unformatted content of the comment. The tool will handle templating.
+                  example: "This looks great!"
+                agent:
+                  type: string
+                  description: Your agent identity (e.g., "Gemini 2.5 pro"). Used to format the comment header.
+                  example: "Gemini 2.5 pro"
+      responses:
+        '201':
+          description: Comment created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pull-requests/{pr_number}/conversation:
+    get:
+      summary: Get PR Conversation
+      operationId: get_conversation
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the full conversation for a pull request, including the title, body, and all comments.
+
+        **When to Use:**
+        Use this tool to get the complete context of a pull request, including the initial proposal and the full discussion history, which is essential for a comprehensive review.
+      tags: [Pull Requests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request.
+          schema:
+            type: integer
+            example: 123
+      responses:
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/labels:
+    post:
+      summary: Add labels to an issue or PR
+      operationId: add_labels
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Adds one or more labels to a specific issue or pull request.
+
+        **Important:** You must use the exact names of labels that already exist in the repository.
+        Use the `list_labels` tool to get a list of available labels if you are unsure.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - labels
+              properties:
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  example: ["bug", "enhancement"]
+      responses:
+        '200':
+          description: Labels added successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Issue or pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Remove labels from an issue or PR
+      operationId: remove_labels
+      x-annotations:
+        readOnlyHint: false
+        destructiveHint: true
+      description: |
+        Removes one or more labels from a specific issue or pull request.
+
+        **Important:** You must use the exact names of labels that already exist in the repository.
+        Use the `list_labels` tool to see which labels are currently on an issue or to verify their names.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - labels
+              properties:
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  example: ["bug", "enhancement"]
+      responses:
+        '200':
+          description: Labels removed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Issue or pull request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/assignees:
+    post:
+      summary: Assign an issue to users
+      operationId: assign_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Assigns one or more users to a GitHub issue. 
+        To clear all assignees from an issue, pass an empty array `[]` for the `assignees` property.
+
+        **Permission Check:**
+        This tool performs an internal permission check. If the authenticated user does not have `ADMIN`, `MAINTAIN`, or `WRITE` permissions, the tool will return a `403 Forbidden` error.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue to assign.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignees
+              properties:
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of GitHub user logins to assign to the issue.
+                  example: ["tobiu", "some-contributor"]
+      responses:
+        '200':
+          description: Issue assigned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Unassign users from an issue
+      operationId: unassign_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+        destructiveHint: true
+      description: |
+        Removes one or more specified assignees from a GitHub issue.
+
+        **Permission Check:**
+        This tool performs an internal permission check. If the authenticated user does not have `ADMIN`, `MAINTAIN`, or `WRITE` permissions, the tool will return a `403 Forbidden` error.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue to unassign users from.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignees
+              properties:
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of GitHub user logins to unassign from the issue.
+                  example: ["some-contributor"]
+      responses:
+        '200':
+          description: Issue unassigned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: Forbidden. The user does not have permission to unassign issues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Issue not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /issues/{issue_number}/content:
+    get:
+      summary: Get Local Issue Content by ID
+      operationId: get_local_issue_by_id
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the full markdown content of a local issue file by its number, searching both active and archived issues.
+
+        **When to Use:**
+        Use this tool for a fast, offline-capable way to read the content of an issue that is already present on the local disk. This tool reads directly from the file system and does **not** access the GitHub API.
+
+        **Important:** The content returned reflects the state of the issue at the time of the last `sync_all` operation and may not be the most up-to-date version if remote changes have occurred since.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue (e.g., "7608" or "#7608").
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The content and path of the issue file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalIssueResponse'
+        '404':
+          description: Issue file not found locally.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues:
+    get:
+      summary: List Issues
+      operationId: list_issues
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a list of issues from the repository. Supports basic filters such as `limit`, `state`, `labels`, and `assignee`.
+
+        **When to Use:**
+        - To find open work items or review recent closed issues.
+        - To look up issue numbers for use in other tools.
+      tags: [Issues]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of issues to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter issues by state.
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: labels
+          in: query
+          required: false
+          description: Comma separated list of labels to filter by (all labels must be present on the issue).
+          schema:
+            type: string
+        - name: assignee
+          in: query
+          required: false
+          description: Filter issues by a single assignee login.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of issues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueListResponse'
+        '500':
+          description: Internal server error, e.g., GraphQL failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new GitHub issue
+      operationId: create_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Creates a new issue on GitHub. This is the authoritative first step for creating a new ticket.
+
+        **Workflow:**
+        1. **Formulate:** Determine the appropriate `title`, `body`, and `labels` for the issue.
+        2. **Propose to User:** Before calling the tool, you MUST output the proposed `title`, `labels`, and `body` in a clear format for the user to review.
+        3. **Call Tool:** Immediately after proposing, call the `create_issue` tool. The user can review the content and approve/deny the tool call itself.
+
+        After the issue is created on GitHub, you can get a local copy of it by running the `sync_all` tool at an appropriate time, such as when you are ready to push other local changes or when you want to refresh your local environment.
+
+        **Labeling Rules (VERY IMPORTANT):**
+        - You MUST include the `ai` label on all tickets you create.
+        - You SHOULD also include one of the primary labels (`epic`, `enhancement`, `bug`) whenever applicable. Most tickets will fit into one of these categories.
+        - For other cases, like `documentation`, use the most appropriate label.
+        - Before using any labels, verify they exist by using the `list_labels` tool.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                  description: The title of the issue.
+                body:
+                  type: string
+                  description: The Markdown body of the issue.
+                  default: ""
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: (Optional) An array of labels to add to the issue.
+                  default: []
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: (Optional) An array of GitHub user logins to assign to the issue. Requires write permissions.
+                  default: []
+      responses:
+        '201':
+          description: Issue created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIssueResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sync-all:
+    post:
+      summary: Sync GitHub Issues & Releases
+      operationId: sync_all
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Triggers the full, bi-directional synchronization of GitHub issues and releases with the local filesystem.
+        This is a comprehensive operation that should be run after making remote changes (e.g., using `create_issue`) 
+        or before looking for local changes to push.
+
+        **Key Functions:**
+        - **Pulls remote changes:** Fetches the latest issue and release data from GitHub.
+        - **Creates local files:** If a new issue was created on GitHub (e.g., via the `create_issue` tool), this process will create the corresponding local `.md` file.
+        - **Pushes local changes:** Scans for modifications in local issue files (in the active `ISSUE` directory only) and pushes them to GitHub.
+        - **Efficient:** Uses a metadata cache and content hashing to ensure that only actual changes are pushed or pulled, making it fast for no-op runs.
+      tags: [Issues]
+      responses:
+        '200':
+          description: Synchronization process completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncIssuesResponse'
+        '500':
+          description: Internal server error during the sync process.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /repository/viewer-permission:
+    get:
+      summary: Get Viewer Permission
+      operationId: get_viewer_permission
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the permission level of the currently authenticated user (viewer) for the repository.
+
+        **When to Use:**
+        Call this tool to determine your capabilities before attempting a restricted action (e.g., assigning an issue, merging a PR). The agent is responsible for interpreting the returned permission level.
+
+        **Permission Levels:**
+        - `ADMIN`: Can read, write, and manage the repository.
+        - `MAINTAIN`: Can read, write, and manage issues and pull requests.
+        - `WRITE`: Can read and write to the repository.
+        - `TRIAGE`: Can manage issues and pull requests.
+        - `READ`: Can read the repository.
+      tags: [Repository]
+      responses:
+        '200':
+          description: The viewer's permission level for the repository.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewerPermissionResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: The ISO 8601 timestamp of when the health check was performed.
+        githubCli:
+          type: object
+          properties:
+            installed:
+              type: boolean
+              example: true
+            authenticated:
+              type: boolean
+              example: true
+            versionOk:
+              type: boolean
+              example: true
+            version:
+              type: string
+              example: "2.81.0"
+            details:
+              type: array
+              items:
+                type: string
+
+    Label:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+
+    LabelListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
+
+    PullRequest:
+      type: object
+      properties:
+        number:
+          type: integer
+          example: 123
+        title:
+          type: string
+          example: "feat: Add new component"
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+              example: "some-contributor"
+        url:
+          type: string
+          format: uri
+          example: "https://github.com/neomjs/neo/pull/123"
+        state:
+          type: string
+          enum: [OPEN, CLOSED, MERGED]
+          example: "OPEN"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-10-08T12:00:00.000Z"
+
+    PullRequestListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Number of pull requests returned
+          example: 5
+        pullRequests:
+          type: array
+          items:
+            $ref: '#/components/schemas/PullRequest'
+
+    PullRequestConversation:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+              description: The GitHub username of the PR author.
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              author:
+                type: object
+                properties:
+                  login:
+                    type: string
+                    description: The GitHub username of the comment author.
+              body:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation completed successfully"
+        details:
+          type: string
+          description: Optional details from the CLI output.
+          example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    SyncIssuesResponse:
+      type: object
+      required:
+        - success
+        - summary
+        - statistics
+        - timing
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: Whether the sync operation completed successfully
+        summary:
+          type: string
+          example: "Synchronization complete"
+          description: Human-readable summary of the sync operation
+        statistics:
+          type: object
+          required:
+            - pushed
+            - pulled
+            - dropped
+            - releases
+          properties:
+            pushed:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 2
+                  description: Number of local changes pushed to GitHub
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1234, 1235]
+                  description: Issue numbers that were pushed
+                failures:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1236]
+                  description: Issue numbers that failed to push
+            pulled:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 15
+                  description: Total number of issues pulled from GitHub
+                created:
+                  type: integer
+                  example: 3
+                  description: Number of new issues created locally
+                updated:
+                  type: integer
+                  example: 12
+                  description: Number of existing issues updated locally
+                moved:
+                  type: integer
+                  example: 2
+                  description: Number of issues moved between directories
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1230, 1231, 1232]
+                  description: Issue numbers that were pulled
+            dropped:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 1
+                  description: Number of dropped issues removed locally
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [999]
+                  description: Issue numbers that were dropped
+            releases:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 5
+                  description: Number of release notes synced
+                synced:
+                  type: array
+                  items:
+                    type: string
+                  example: ['v11.0', 'v10.9', 'v10.8']
+                  description: Release version tags that were synced
+        timing:
+          type: object
+          required:
+            - startTime
+            - endTime
+            - durationMs
+          properties:
+            startTime:
+              type: string
+              format: date-time
+              example: "2025-10-21T10:00:00.000Z"
+              description: ISO timestamp when sync started
+            endTime:
+              type: string
+              format: date-time
+              example: "2025-10-21T10:02:30.000Z"
+              description: ISO timestamp when sync completed
+            durationMs:
+              type: integer
+              example: 150000
+              description: Total sync duration in milliseconds
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "GitHub CLI command failed"
+        message:
+          type: string
+          example: "gh pr checkout 123 failed with exit code 1"
+        code:
+          type: string
+          example: "GH_CLI_ERROR"
+
+    CreateIssueResponse:
+      type: object
+      properties:
+        issueNumber:
+          type: integer
+          description: The number of the newly created issue.
+        url:
+          type: string
+          format: uri
+          description: The URL of the newly created issue.
+
+    LocalIssueResponse:
+      type: object
+      properties:
+        filePath:
+          type: string
+          description: The absolute path to the found issue file.
+          example: /path/to/project/.github/ISSUE/issue-7608.md
+        content:
+          type: string
+          description: The full markdown content of the issue file.
+
+    ViewerPermissionResponse:
+      type: object
+      properties:
+        permission:
+          type: string
+          description: The permission level of the viewer.
+          enum: [ADMIN, MAINTAIN, WRITE, TRIAGE, READ]
+          example: WRITE
+
+    Issue:
+      type: object
+      properties:
+        number:
+          type: integer
+          example: 7608
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+          example: OPEN
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+        url:
+          type: string
+          format: uri
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+        assignees:
+          type: array
+          items:
+            type: object
+            properties:
+              login:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    IssueListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'

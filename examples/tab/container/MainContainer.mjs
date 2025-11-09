@@ -6,18 +6,51 @@ import TextField             from '../../../src/form/field/Text.mjs';
 import TabContainer          from '../../../src/tab/Container.mjs';
 
 /**
+ * @summary An interactive example demonstrating the Neo.tab.Container.
+ *
+ * This class creates a viewport that showcases the `Neo.tab.Container`, a component for managing
+ * a collection of child components in a tabbed interface. It extends `ConfigurationViewport` to provide
+ * a side-by-side view with the live tab container on one side and a configuration panel on the other.
+ * The panel allows for dynamic manipulation of the container's properties, such as `activeIndex`,
+ * `tabBarPosition`, and individual tab headers, to demonstrate the component's extensive features
+ * and reactivity.
+ *
  * @class Neo.examples.tab.container.MainContainer
  * @extends Neo.examples.ConfigurationViewport
+ * @see Neo.tab.Container
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.tab.container.MainContainer',
-        autoMount           : true,
+        /**
+         * @member {String} className='Neo.examples.tab.container.MainContainer'
+         * @protected
+         */
+        className: 'Neo.examples.tab.container.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Number} configItemLabelWidth=160
+         */
         configItemLabelWidth: 160,
-        configItemWidth     : 280,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        /**
+         * @member {Number} configItemWidth=280
+         */
+        configItemWidth: 280,
+        /**
+         * The layout for the viewport, arranging the configuration panel and the example component horizontally.
+         * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch'}
     }
 
+    /**
+     * Overridden from `ConfigurationViewport`. This method defines the set of form fields that will be
+     * displayed in the configuration panel. These fields are bound to the properties of the example
+     * TabContainer, allowing for real-time manipulation of its appearance and behavior.
+     * @returns {Object[]} An array of component configuration objects.
+     */
     createConfigurationComponents() {
         let me           = this,
             tabContainer = me.exampleComponent,
@@ -164,6 +197,12 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /**
+     * Overridden from `ConfigurationViewport`. This method creates the actual `TabContainer` instance
+     * to be demonstrated. It is configured with three initial tabs and a listener to sync user-driven
+     * tab changes back to the configuration panel.
+     * @returns {Neo.tab.Container} The configured TabContainer instance.
+     */
     createExampleComponent() {
         return Neo.create(TabContainer, {
             height  : 300,
@@ -196,11 +235,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
+     * A helper method to retrieve the header button for the third tab, which is used for demonstrating
+     * badge functionality.
      * @returns {Neo.tab.header.Button}
      */
     getBadgeTabHeader() {
         let tabHeaders = this.exampleComponent.getTabBar().items,
-            item
+            item;
 
         for (item of tabHeaders) {
             if (item.text === 'Tab 3') {
@@ -210,11 +251,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
+     * A helper method to retrieve the header button for the first tab, identified by a unique `flag` property.
+     * This allows for stable targeting of the tab even if its text or position changes.
      * @returns {Neo.tab.header.Button}
      */
     getFirstTabHeader() {
         let tabHeaders = this.exampleComponent.getTabBar().items,
-            item
+            item;
 
         for (item of tabHeaders) {
             if (item.flag === 'tab1') {
@@ -224,17 +267,23 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @param {String} config
-     * @param {Object} opts
+     * Handles the change event from various text fields in the configuration panel that control the
+     * properties of the third tab's header (the "badge tab").
+     * @param {String} config The name of the config property to change (e.g., 'badgeText').
+     * @param {Object} opts The event data from the field's change event.
+     * @param {String} opts.value The new value for the config.
      */
     onBadgeConfigChange(config, opts) {
         this.getBadgeTabHeader()[config] = opts.value
     }
 
     /**
-     * @param {String} config
-     * @param {String} value
-     * @param {Object} opts
+     * Handles the change event from the radio group controlling the `badgePosition` config.
+     * It ensures the config is only updated when a radio button is checked, not unchecked.
+     * @param {String} config The name of the config property to change (always 'badgePosition').
+     * @param {String} value The new value for the badge position (e.g., 'top-right').
+     * @param {Object} opts The event data from the radio's change event.
+     * @param {Boolean} opts.value The checked state of the radio button.
      */
     onBadgeRadioChange(config, value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
@@ -243,18 +292,22 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @param {String} config
-     * @param {Object} opts
+     * Handles the change event from various text fields in the configuration panel that control the
+     * properties of the first tab's header.
+     * @param {String} config The name of the config property to change (e.g., 'text', 'iconCls').
+     * @param {Object} opts The event data from the field's change event.
+     * @param {String} opts.value The new value for the config.
      */
     onFirstTabHeaderConfigChange(config, opts) {
         this.getFirstTabHeader()[config] = opts.value
     }
 
     /**
-     * @param {Object} data
-     * @param {Neo.component.Base} data.component
-     * @param {Boolean} data.oldValue
-     * @param {Boolean} data.value
+     * Handles the change event from the 'reversed layout sort-direction' checkbox. This method
+     * dynamically modifies the `direction` of the tab bar's layout to demonstrate how the visual
+     * order of the tabs can be reversed.
+     * @param {Object} data The event data from the checkbox change event.
+     * @param {Boolean} data.value The new checked state of the checkbox.
      */
     onLayoutSortDirectionChange(data) {
         let layout    = this.exampleComponent.getTabBar().layout,
@@ -274,8 +327,12 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @param {String} value
-     * @param {Object} opts
+     * Handles the change event from the radio group controlling the `tabBarPosition` config.
+     * It updates the tab container's config and also intelligently adjusts the 'reversed layout'
+     * checkbox, as the concept of a reversed direction is only meaningful for 'left' and 'right' positions.
+     * @param {String} value The new value for the tab bar position (e.g., 'top', 'right').
+     * @param {Object} opts The event data from the radio's change event.
+     * @param {Boolean} opts.value The checked state of the radio button.
      */
     onTabBarPositionChange(value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
@@ -286,7 +343,11 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @param {Object} opts
+     * This listener responds to the `activeIndexChange` event fired by the `TabContainer` when a user
+     * clicks on a tab. Its purpose is to synchronize the UI, ensuring that the `activeIndex` number field
+     * in the configuration panel accurately reflects the currently active tab.
+     * @param {Object} opts The event data from the `activeIndexChange` event.
+     * @param {Number} opts.value The new active index.
      */
     onUserActiveIndexChange(opts) {
         Neo.getComponent('activeIndexField').value = opts.value

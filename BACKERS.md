@@ -1,64 +1,64 @@
-# Sponsors & Backers
+# Sponsor the Future of Web Development
 
-Truth to be told, the Neo.mjs project is in need of sponsors & backers.
+Neo.mjs is building the next-generation platform for web applications. Our vision is to democratize elite performance and create the first architecture designed for a true AI partnership. By sponsoring Neo.mjs, you are not just supporting an open-source project; you are investing in a paradigm shift.
 
-As an <a href="./LICENSE">MIT-licensed</a> open source project,
-you can use Neo.mjs for free (as long as you stick to the license & copyright notice).
+Your sponsorship directly funds the ambitious goals outlined in our [**Project Vision**](.github/VISION.md) and accelerates our [**Roadmap**](ROADMAP.md).
 
-Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
+This is more than just a UI library; it's a "batteries-included" platform. Sponsoring Neo.mjs means supporting a cohesive ecosystem with hundreds of professional UI components—including a full-featured **Calendar**, **Grid**, and **Table**—a robust **data package**, integrated **view controllers**, **state providers**, and the only true multi-threaded architecture on the web today.
 
-To get Neo.mjs to this point, I spent 3 years of my full and unpaid working time.
-This does not only include many 100h+ weeks and several sleepless nights,
-but I also burned most of my personal savings to get here.
+## What Your Sponsorship Funds
+Your contribution will directly support the development of this groundbreaking platform, including:
+-   **The Sighted Agent:** Empowering AI to see and interact with web pages for automated UI/UX testing.
+-   **AI-Native Tooling:** Building the open-source MCP servers that power our unique AI-driven workflow.
+-   **Core Performance Engineering:** Ensuring the "Off-the-Main-Thread" architecture remains best-in-class.
+-   **Community Growth:** Improving documentation, creating tutorials, and enhancing the contributor experience.
 
-I did this, since I truly and deeply believe that Neo.mjs has the potential to start a new era of UI development.
+## Sponsorship Tiers
 
-The current version is just a fraction of a much bigger picture I have in mind.
-Trust me, it is beautiful :)
+We offer several tiers for individuals and companies who wish to invest in the future of Neo.mjs.
 
-I can definitely say that I did use several other UI frameworks in the past and that Neo.mjs boosted my productivity
-to an entire new level.
+---
 
-This is something I would love to share with you!
+### **Backer**
+-   **$10 / month**
+-   Your name will be added to the `BACKERS.md` file in the Neo.mjs repository.
 
-## Special Offer
-The first 4 Bronze, and the first 4 Silver tier sponsors will get kept on the main Readme file for an additional year,
-after the day the 4th sponsor does sign up (*).
-By default, the main Readme will only include sponsors starting at the Gold tier.
+### **Generous Backer**
+-   **$50 / month**
+-   Your name will be featured at the top of the `BACKERS.md` file.
 
-(*) Only valid as long as the sponsorship stays active.
+---
 
-# What will I sponsor?
-Obviously the continuing of the development for the Neo.mjs framework.
-To get the idea of what this means in detail, please take a look at the: <a href=".github/VISION.md">Project Vision</a>.
+### **Bronze Sponsor**
+-   **$100 / month**
+-   Your name or company logo (small) will be featured in the `BACKERS.md` file.
 
-# Why should I sponsor Neo.mjs?
-I am in need to make up for the invested time, which means that going forward,
-I have to spend a lot of my time on billable projects.
-Of course I will do my best to continue pushing Neo.mjs in my free time.
+### **Silver Sponsor**
+-   **$250 / month**
+-   Your name or company logo (medium) will be featured at the top of `BACKERS.md`.
+-   Your logo will be displayed on a dedicated sponsors page on the Neo.mjs website.
 
-With active sponsors I could invest more time into Neo.mjs,
-which means that you will get new features, guides and bug-fixes a lot faster.
+### **Gold Sponsor**
+-   **$1,000 / month**
+-   Your name or company logo (large) will be prominently displayed on:
+    -   The homepage of the neo.mjs.org website.
+    -   The top of the project repository's `README.md`.
 
-# For developers:
-You can select a Backer tier ($10 / month), which would equal a cup of coffee for me every month (after taxes).
-This will not cover my living costs (unless Neo.mjs goes viral), but it does have an impact on
-my motivation for sure.
+### **Platinum Sponsor**
+-   **$5,000 / month**
+-   Your name and company logo will receive premier placement on:
+    -   The top right of the online documentation app.
+    -   The top of the sponsors section on the neo.mjs.org homepage.
+    -   The top of the project repository's `README.md`.
 
-# For companies:
-Starting at the bronze tier (special offer), you will be able to place your company logo on the main repository landing page (Readme.md).
-This will have a high impact on the Neo.mjs community and make it easier for you
-to find Neo.mjs developers in the future.
+---
 
-Obviously, sponsoring open source projects in general will increase your companies reputation.
+Please create a feature request ticket in the Neo.mjs <a href="../../issues">Issues Tracker</a> after signing up for a sponsorship program to provide your company logo.
 
-As soon as the Neo.mjs community grows, it will also increase your company visibility in a good way.
+### **Become a Sponsor**
+Your support is vital to the success and acceleration of the Neo.mjs project.
 
-Please make sure to create a feature request ticket inside the Neo.mjs <a href="../../issues">Issues Tracker</a>
-after signing a sponsor program to provide your company logo!
-
-### Thanks a lot for your support of the Neo.mjs project!<br/>
-<a href="https://github.com/sponsors/tobiu">Sponsor Tobias Uhlig</a>
+<a href="https://github.com/sponsors/tobiu">Sponsor the Neo.mjs Project</a>
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>

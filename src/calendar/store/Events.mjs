@@ -44,7 +44,7 @@ class Events extends Store {
             record;
 
         for (; i < len; i++) {
-            record = me.items[i];
+            record = me.getAt(i);
 
             if (DateUtil.matchDate(date, record.startDate)) {
                 if (DateUtil.matchDate(date, record.endDate)) {

@@ -1,4 +1,4 @@
-import { buffer }       from '../../util/Function.mjs';
+import {buffer}         from '../../util/Function.mjs';
 import ClassSystemUtil  from '../../util/ClassSystem.mjs';
 import ComponentManager from '../../manager/Component.mjs';
 import List             from '../../list/Base.mjs';
@@ -7,9 +7,32 @@ import Store            from '../../data/Store.mjs';
 import VDomUtil         from '../../util/VDom.mjs';
 
 /**
- * Provides a dropdown list to select one or multiple items.
+ * @summary A highly configurable input field that provides a dropdown list for item selection, filtering, and autocompletion.
  *
- * Conforms to ARIA accessibility standards outlines in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
+ * The ComboBox is a powerful and flexible component that combines a text input with a dropdown list (picker).
+ * It supports several key operational modes controlled by its configuration, making it adaptable to a wide range of use cases.
+ *
+ * ---
+ * ### Core Features & Modes:
+ *
+ * 1.  **Editable vs. Non-Editable (`editable` config):**
+ *     - `editable: true` (default): Users can type freely into the input field. A click focuses the field, and picker visibility is typically triggered by typing, arrow keys, or the trigger icon.
+ *     - `editable: false`: The field behaves more like a traditional `<select>` element. The input is non-editable, and a click on either the field or the trigger icon opens the picker.
+ *
+ * 2.  **Type Ahead (`typeAhead` config):**
+ *     - When `true`, the component displays a "hint" of the first matching record in a grayed-out overlay within the input field as the user types. This provides an immediate suggestion for autocompletion.
+ *
+ * 3.  **Force Selection (`forceSelection` config):**
+ *     - When `true` (default), the component ensures that the field's final value corresponds to a valid record from the store.
+ *     - On blur, if the user has typed partial text, the component will automatically select the "closest" match (the current typeahead suggestion) and fill the input with its full `displayField` value.
+ *
+ * 4.  **Filtering (`useFilter`, `filterOperator`, `triggerAction`):**
+ *     - The dropdown list can be dynamically filtered as the user types.
+ *     - The `triggerAction` config determines whether clicking the trigger icon shows all items or only the currently filtered items.
+ *
+ * ---
+ * Conforms to ARIA accessibility standards outlined in https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
+ *
  * @class Neo.form.field.ComboBox
  * @extends Neo.form.field.Picker
  */
@@ -516,6 +539,10 @@ class ComboBox extends Picker {
     }
 
     /**
+     * Handles the component losing focus. This is a critical method for `forceSelection` behavior.
+     * If `forceSelection` is true and the user has typed partial text without explicitly selecting an item,
+     * this method selects the current typeahead suggestion (`activeRecordId`) and sets it as the component's value.
+     * It is also responsible for clearing the typeahead hint.
      * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected
@@ -593,7 +620,11 @@ class ComboBox extends Picker {
     }
 
     /**
-     * @param {Object} data
+     * Handles virtual focus navigation within the picker list (e.g., via arrow keys).
+     * This method updates the `activeRecord` and `activeRecordId` to track the focused list item.
+     * It then calls `updateTypeAheadValue` to ensure the typeahead hint is reset, preventing a mismatch
+     * between the navigated item and the original typed-text suggestion.
+     * @param {Object} data The neonavigate event data from the list.
      * @protected
      */
     onListItemNavigate(data) {
@@ -732,8 +763,12 @@ class ComboBox extends Picker {
     }
 
     /**
-     * @param {String|null} value=this.lastManualInput
-     * @param {Boolean} silent=false
+     * Manages the typeahead hint overlay.
+     * When a user types, this method searches for the first matching record in the store. If a match is found,
+     * it populates a secondary, grayed-out input field with the remainder of the suggested term.
+     * This method is also responsible for setting the `activeRecordId`, which is used by `forceSelection` on blur.
+     * @param {String|null} value=this.lastManualInput The text to search for.
+     * @param {Boolean} silent=false True to prevent a VDOM update.
      * @protected
      */
     updateTypeAheadValue(value=this.lastManualInput, silent=false) {
@@ -745,7 +780,6 @@ class ComboBox extends Picker {
         if (me.typeAhead) {
             if (!me.value && value?.length > 0) {
                 const search = value.toLocaleLowerCase();
-                let match = null;
 
                 for (let i = 0; i < store.count; i++) {
                     const r = store.getAt(i);
