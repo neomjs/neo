@@ -20,7 +20,7 @@ subIssues:
   - 7476
   - 7488
   - 7489
-subIssuesCompleted: 0
+subIssuesCompleted: 1
 subIssuesTotal: 3
 ---
 # Create Component Test Plans (Hacktoberfest Cookbook)
@@ -30,7 +30,7 @@ subIssuesTotal: 3
 ---
 
 **Sub-Issues:** #7476, #7488, #7489
-**Progress:** 0/3 completed (0%)
+**Progress:** 1/3 completed (33%)
 
 ---
 

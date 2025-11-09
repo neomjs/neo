@@ -139,9 +139,10 @@ class IssueSyncer extends Base {
                 return path.join(issueSyncConfig.archiveDir, issue.milestone.title, filename);
             }
 
-            // For issues without a milestone, find the next release that was published after it was closed.
+            // For issues without a milestone, find the earliest release that was published after it was closed.
             const closed = new Date(issue.closedAt);
-            const release = Object.values(ReleaseSyncer.releases).find(r => new Date(r.publishedAt) > closed);
+
+            const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
 
             // If a subsequent release exists, archive the issue under that release tag.
             if (release) {
@@ -274,7 +275,7 @@ class IssueSyncer extends Base {
             newMetadata.issues[issueNumber] = {
                 state    : issue.state,
                 path     : targetPath,
-                updated  : issue.updatedAt,
+                updatedAt: issue.updatedAt,
                 closedAt : issue.closedAt || null,
                 milestone: issue.milestone?.title || null,
                 title    : issue.title,
@@ -385,6 +386,98 @@ class IssueSyncer extends Base {
         }
         if (stats.failures.length > 0) {
             logger.warn(`⚠️ Encountered ${stats.failures.length} push failure(s).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * Reconciles the locations of closed issues in the active directory.
+     * This handles the case where a new release is created but issues weren't updated,
+     * so they didn't get moved during the pull operation (delta sync limitation).
+     *
+     * CRITICAL: This method ONLY processes issues that are:
+     * 1. Currently in the active issues directory (not already archived)
+     * 2. In a CLOSED state
+     * 3. Should be archived based on milestone or release date
+     *
+     * @param {object} metadata - The current metadata object
+     * @returns {Promise<object>} Stats about reconciled issues
+     */
+    async reconcileClosedIssueLocations(metadata) {
+        logger.info('🔄 Reconciling closed issue locations...');
+
+        const stats = { count: 0, issues: [] };
+
+        // Ensure releases are loaded
+        if (!ReleaseSyncer.sortedReleases || ReleaseSyncer.sortedReleases.length === 0) {
+            logger.warn('No releases available for reconciliation, skipping.');
+            return stats;
+        }
+
+        for (const issueNumber in metadata.issues) {
+            const issueData = metadata.issues[issueNumber];
+
+            // CRITICAL: Only process issues in the active directory
+            if (!issueData.path.startsWith(issueSyncConfig.issuesDir)) {
+                continue; // Already archived, skip it
+            }
+
+            // Only process CLOSED issues
+            if (issueData.state !== 'CLOSED') {
+                continue;
+            }
+
+            // Calculate where this closed issue SHOULD be
+            const correctPath = this.#getIssuePath({
+                number   : parseInt(issueNumber),
+                state    : issueData.state,
+                milestone: issueData.milestone ? { title: issueData.milestone } : null,
+                closedAt : issueData.closedAt,
+                updatedAt: issueData.updatedAt
+            });
+
+            // If the correct path is null, the issue should be dropped (shouldn't happen here)
+            if (!correctPath) {
+                logger.warn(`Issue #${issueNumber} has null target path during reconciliation, skipping.`);
+                continue;
+            }
+
+            // Check if the issue needs to be moved to an archive
+            if (issueData.path !== correctPath) {
+                // Verify the correct path is actually in an archive, not back to active directory
+                if (correctPath.startsWith(issueSyncConfig.issuesDir) &&
+                    !correctPath.includes(issueSyncConfig.archiveDir)) {
+                    logger.debug(`Issue #${issueNumber} correct path is still in active directory, no move needed.`);
+                    continue;
+                }
+
+                logger.info(`📦 Archiving closed issue #${issueNumber}: ${issueData.path} → ${correctPath}`);
+
+                try {
+                    // Ensure target directory exists
+                    await fs.mkdir(path.dirname(correctPath), { recursive: true });
+
+                    // Move the file
+                    await fs.rename(issueData.path, correctPath);
+
+                    // Update metadata
+                    metadata.issues[issueNumber].path = correctPath;
+
+                    stats.count++;
+                    stats.issues.push(parseInt(issueNumber));
+
+                    logger.info(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
+                } catch (e) {
+                    logger.error(`❌ Failed to archive #${issueNumber}: ${e.message}`);
+                }
+            }
+        }
+
+        if (stats.count > 0) {
+            logger.info(`📦 Archived ${stats.count} closed issue(s)`);
+        } else {
+            logger.info('✓ No closed issues need archiving');
         }
 
         return stats;

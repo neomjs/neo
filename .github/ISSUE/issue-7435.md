@@ -30,8 +30,9 @@ subIssues:
   - 7470
   - 7471
   - 7677
-subIssuesCompleted: 9
-subIssuesTotal: 14
+  - 7703
+subIssuesCompleted: 14
+subIssuesTotal: 15
 ---
 # Create Component Tests in Playwright (and migrate existing tests from Siesta)
 
@@ -39,8 +40,8 @@ subIssuesTotal: 14
 
 ---
 
-**Sub-Issues:** #7436, #7437, #7438, #7439, #7440, #7441, #7442, #7443, #7444, #7445, #7469, #7470, #7471, #7677
-**Progress:** 9/14 completed (64%)
+**Sub-Issues:** #7436, #7437, #7438, #7439, #7440, #7441, #7442, #7443, #7444, #7445, #7469, #7470, #7471, #7677, #7703
+**Progress:** 14/15 completed (93%)
 
 ---
 
