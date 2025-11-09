@@ -139,9 +139,10 @@ class IssueSyncer extends Base {
                 return path.join(issueSyncConfig.archiveDir, issue.milestone.title, filename);
             }
 
-            // For issues without a milestone, find the next release that was published after it was closed.
+            // For issues without a milestone, find the earliest release that was published after it was closed.
             const closed = new Date(issue.closedAt);
-            const release = Object.values(ReleaseSyncer.releases).find(r => new Date(r.publishedAt) > closed);
+            const sortedReleases = Object.values(ReleaseSyncer.releases || {}).sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
+            const release = sortedReleases.find(r => new Date(r.publishedAt) > closed);
 
             // If a subsequent release exists, archive the issue under that release tag.
             if (release) {
@@ -282,37 +283,36 @@ class IssueSyncer extends Base {
             };
         }
 
-        // Phase 2: Reconcile locations for all known issues, including those not in the delta.
-        // This is critical for archiving stale issues that haven't been updated but whose
-        // milestone now requires them to be moved.
-        logger.info('Reconciling local file locations for all known issues...');
+        // Phase 2: Reconcile locations for issues in the active directory.
+        // This is for archiving stale issues that haven't been updated but should be archived.
+        logger.info('Reconciling active issue file locations...');
         for (const issueNumber in newMetadata.issues) {
             const issueData = newMetadata.issues[issueNumber];
 
-            // Re-determine the correct path based on the issue's known state.
-            const correctPath = this.#getIssuePath({
-                number   : issueNumber,
-                state    : issueData.state,
-                labels   : [], // Labels for dropping are handled on pull, not needed here.
-                milestone: issueData.milestone ? { title: issueData.milestone } : null,
-                closedAt : issueData.closedAt
-            });
+            // ONLY check issues currently in the active folder. This is the critical safety guard.
+            if (issueData.path.startsWith(issueSyncConfig.issuesDir)) {
+                const correctPath = this.#getIssuePath({
+                    number   : issueNumber,
+                    state    : issueData.state,
+                    labels   : [], // Labels for dropping are handled on pull, not needed here.
+                    milestone: issueData.milestone ? { title: issueData.milestone } : null,
+                    closedAt : issueData.closedAt
+                });
 
-            if (correctPath && issueData.path !== correctPath) {
-                logger.info(`Mismatched path for #${issueNumber}. Expected: ${correctPath}, Found: ${issueData.path}`);
-                try {
-                    await fs.mkdir(path.dirname(correctPath), { recursive: true });
-                    await fs.rename(issueData.path, correctPath);
-                    logger.info(`📦 Moved #${issueNumber}: ${issueData.path} → ${correctPath}`);
+                // Check if the issue should be moved to an archive
+                if (correctPath && issueData.path !== correctPath) {
+                    logger.info(`Mismatched path for active issue #${issueNumber}. Expected: ${correctPath}, Found: ${issueData.path}`);
+                    try {
+                        await fs.mkdir(path.dirname(correctPath), { recursive: true });
+                        await fs.rename(issueData.path, correctPath);
+                        logger.info(`📦 Moved #${issueNumber}: ${issueData.path} → ${correctPath}`);
 
-                    // Update the metadata with the new path
-                    newMetadata.issues[issueNumber].path = correctPath;
+                        newMetadata.issues[issueNumber].path = correctPath;
+                        stats.pulled.moved = (stats.pulled.moved || 0) + 1;
 
-                    // This is a local-only operation, so only update the 'moved' statistic.
-                    stats.pulled.moved = (stats.pulled.moved || 0) + 1;
-
-                } catch (e) {
-                    logger.warn(`Could not move #${issueNumber} during reconciliation. Error: ${e.message}`);
+                    } catch (e) {
+                        logger.warn(`Could not move #${issueNumber} during reconciliation. Error: ${e.message}`);
+                    }
                 }
             }
         }
