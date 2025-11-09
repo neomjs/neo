@@ -282,6 +282,41 @@ class IssueSyncer extends Base {
             };
         }
 
+        // Phase 2: Reconcile locations for all known issues, including those not in the delta.
+        // This is critical for archiving stale issues that haven't been updated but whose
+        // milestone now requires them to be moved.
+        logger.info('Reconciling local file locations for all known issues...');
+        for (const issueNumber in newMetadata.issues) {
+            const issueData = newMetadata.issues[issueNumber];
+
+            // Re-determine the correct path based on the issue's known state.
+            const correctPath = this.#getIssuePath({
+                number   : issueNumber,
+                state    : issueData.state,
+                labels   : [], // Labels for dropping are handled on pull, not needed here.
+                milestone: issueData.milestone ? { title: issueData.milestone } : null,
+                closedAt : issueData.closedAt
+            });
+
+            if (correctPath && issueData.path !== correctPath) {
+                logger.info(`Mismatched path for #${issueNumber}. Expected: ${correctPath}, Found: ${issueData.path}`);
+                try {
+                    await fs.mkdir(path.dirname(correctPath), { recursive: true });
+                    await fs.rename(issueData.path, correctPath);
+                    logger.info(`📦 Moved #${issueNumber}: ${issueData.path} → ${correctPath}`);
+
+                    // Update the metadata with the new path
+                    newMetadata.issues[issueNumber].path = correctPath;
+
+                    // This is a local-only operation, so only update the 'moved' statistic.
+                    stats.pulled.moved = (stats.pulled.moved || 0) + 1;
+
+                } catch (e) {
+                    logger.warn(`Could not move #${issueNumber} during reconciliation. Error: ${e.message}`);
+                }
+            }
+        }
+
         return { newMetadata, stats };
     }
 
