@@ -142,15 +142,7 @@ class IssueSyncer extends Base {
             // For issues without a milestone, find the earliest release that was published after it was closed.
             const closed = new Date(issue.closedAt);
 
-            // The releases object is a map of tagName -> releaseData. We need to convert it to an
-            // array of objects that include the tagName for sorting and finding.
-            const releasesWithTags = Object.entries(ReleaseSyncer.releases || {}).map(([tagName, releaseData]) => ({
-                tagName: tagName,
-                ...releaseData
-            }));
-
-            const sortedReleases = releasesWithTags.sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
-            const release = sortedReleases.find(r => new Date(r.publishedAt) > closed);
+            const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
 
             // If a subsequent release exists, archive the issue under that release tag.
             if (release) {
@@ -283,7 +275,7 @@ class IssueSyncer extends Base {
             newMetadata.issues[issueNumber] = {
                 state    : issue.state,
                 path     : targetPath,
-                updated  : issue.updatedAt,
+                updatedAt: issue.updatedAt,
                 closedAt : issue.closedAt || null,
                 milestone: issue.milestone?.title || null,
                 title    : issue.title,
@@ -418,7 +410,7 @@ class IssueSyncer extends Base {
         const stats = { count: 0, issues: [] };
 
         // Ensure releases are loaded
-        if (!ReleaseSyncer.releases || Object.keys(ReleaseSyncer.releases).length === 0) {
+        if (!ReleaseSyncer.sortedReleases || ReleaseSyncer.sortedReleases.length === 0) {
             logger.warn('No releases available for reconciliation, skipping.');
             return stats;
         }
@@ -440,9 +432,9 @@ class IssueSyncer extends Base {
             const correctPath = this.#getIssuePath({
                 number   : parseInt(issueNumber),
                 state    : issueData.state,
-                labels   : [], // Dropped labels are already handled, not relevant here
                 milestone: issueData.milestone ? { title: issueData.milestone } : null,
-                closedAt : issueData.closedAt
+                closedAt : issueData.closedAt,
+                updatedAt: issueData.updatedAt
             });
 
             // If the correct path is null, the issue should be dropped (shouldn't happen here)
@@ -453,8 +445,6 @@ class IssueSyncer extends Base {
 
             // Check if the issue needs to be moved to an archive
             if (issueData.path !== correctPath) {
-                logger.debug(issueNumber, issueData.path, correctPath);
-
                 // Verify the correct path is actually in an archive, not back to active directory
                 if (correctPath.startsWith(issueSyncConfig.issuesDir) &&
                     !correctPath.includes(issueSyncConfig.archiveDir)) {

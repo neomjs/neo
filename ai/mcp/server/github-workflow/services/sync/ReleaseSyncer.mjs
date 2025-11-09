@@ -32,9 +32,12 @@ class ReleaseSyncer extends Base {
 
     /**
      * @member {Object} releases=null
-     * @protected
      */
     releases = null;
+    /**
+     * @member {Array} sortedReleases=null
+     */
+    sortedReleases = null;
 
     /**
      * Calculates a SHA-256 hash of the given content for change detection.
@@ -140,9 +143,15 @@ class ReleaseSyncer extends Base {
             .filter(release => new Date(release.publishedAt) >= startDate)
             .sort((a, b) => new Date(a.publishedAt) - new Date(b.publishedAt));
 
-        this.releases = {};
+        this.releases       = {};
+        this.sortedReleases = [];
+
         filteredAndSortedReleases.forEach(release => {
             this.releases[release.tagName] = release;
+            this.sortedReleases.push({
+                tagName    : release.tagName,
+                publishedAt: release.publishedAt
+            });
         });
 
         if (Object.keys(this.releases).length === 0) {

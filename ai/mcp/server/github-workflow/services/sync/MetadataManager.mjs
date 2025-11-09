@@ -69,7 +69,8 @@ class MetadataManager extends Base {
             prunedMetadata.issues[key] = {
                 state      : value.state,
                 path       : value.path,
-                updated    : value.updated,
+                closedAt   : value.closedAt,
+                updatedAt  : value.updatedAt,
                 contentHash: value.contentHash
             };
         }
