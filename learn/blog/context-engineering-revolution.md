@@ -141,19 +141,19 @@ Here's a simplified view of how this works:
 ```javascript
 function initializeToolMapping() {
     const openApiDocument = yaml.load(fs.readFileSync(openApiFilePath, 'utf8'));
-    
+
     for (const pathItem of Object.values(openApiDocument.paths)) {
         for (const operation of Object.values(pathItem)) {
             if (operation.operationId) {
                 // Build Zod schema from OpenAPI definition
                 const inputZodSchema = buildZodSchema(openApiDocument, operation);
-                
+
                 // Convert to JSON Schema for MCP clients
                 const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
                     target: 'openApi3',
                     $refStrategy: 'none'
                 });
-                
+
                 // Store tool definition
                 toolMapping[operation.operationId] = {
                     name: operation.operationId,
@@ -186,14 +186,14 @@ Here's the startup flow from `DatabaseService.mjs`:
 ```javascript
 async initAsync() {
     await super.initAsync();
-    
+
     // Wait for ChromaDB to be available
     await DatabaseLifecycleService.ready();
-    
+
     logger.info('[Startup] Checking knowledge base status...');
     const knowledgeBasePath = aiConfig.dataPath;
     const kbExists = await fs.pathExists(knowledgeBasePath);
-    
+
     try {
         if (!kbExists) {
             logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
@@ -224,11 +224,11 @@ Here's how `ensureHealthy()` works:
 ```javascript
 async ensureHealthy() {
     const health = await this.healthcheck();
-    
+
     if (health.status !== 'healthy') {
         const details = health.details.join('\n  - ');
-        const statusMsg = health.status === 'unhealthy' 
-            ? 'not available' 
+        const statusMsg = health.status === 'unhealthy'
+            ? 'not available'
             : 'not fully operational';
         throw new Error(`Knowledge Base is ${statusMsg}:\n  - ${details}`);
     }
@@ -270,28 +270,28 @@ const queryWords = queryLower
 
 results.metadatas[0].forEach((metadata, index) => {
     let score = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
-    
+
     queryWords.forEach(queryWord => {
         const keyword = queryWord;
-        const keywordSingular = keyword.endsWith('s') 
-            ? keyword.slice(0, -1) 
+        const keywordSingular = keyword.endsWith('s')
+            ? keyword.slice(0, -1)
             : keyword;
-        
+
         if (keywordSingular.length > 2) {
             // Path matching - highest weight
-            if (sourcePathLower.includes(`/${keywordSingular}/`)) 
+            if (sourcePathLower.includes(`/${keywordSingular}/`))
                 score += queryScoreWeights.sourcePathMatch; // +40
-            
+
             // Filename matching
-            if (fileName.includes(keywordSingular)) 
+            if (fileName.includes(keywordSingular))
                 score += queryScoreWeights.fileNameMatch; // +30
-            
+
             // Class name matching
-            if (metadata.className?.toLowerCase().includes(keywordSingular)) 
+            if (metadata.className?.toLowerCase().includes(keywordSingular))
                 score += queryScoreWeights.classNameMatch; // +20
-            
+
             // Content type bonuses
-            if (metadata.type === 'guide') 
+            if (metadata.type === 'guide')
                 score += queryScoreWeights.guideMatch; // +50
         }
     });
@@ -451,12 +451,276 @@ If the Knowledge Base is the AI's understanding of the *project*, the **Memory C
 
 Every interaction—every prompt, thought process, and response—is captured and stored as a "memory." This is not just a chat log; it's a structured, queryable history of the agent's own work. When a new session begins, the Memory Core automatically analyzes and summarizes all previous, unsummarized sessions. This creates a high-level "recap" of past work, allowing the agent to remember what it did, what decisions it made, and why.
 
+#### The Save-Then-Respond Protocol
+
+At the heart of the Memory Core is the **transactional memory protocol**. Every agent interaction follows a strict three-part structure defined in the OpenAPI spec:
+
+```yaml
+AddMemoryRequest:
+  type: object
+  required:
+    - prompt
+    - thought
+    - response
+  properties:
+    prompt:
+      type: string
+      description: The user's verbatim prompt to the agent
+    thought:
+      type: string
+      description: The agent's internal reasoning process
+    response:
+      type: string
+      description: The agent's final, user-facing response
+    sessionId:
+      type: string
+      description: Session ID for grouping (auto-generated if not provided)
+```
+
+This isn't just logging—it's a **mandatory save-then-respond loop**. The agent protocol requires that before delivering any response to the user, the agent must call `add_memory` with its complete reasoning chain. This creates an honest, unfiltered record of the agent's thought process.
+
+Here's how it works in `MemoryService.mjs`:
+
+```javascript
+async addMemory({ prompt, response, thought, sessionId }) {
+    const collection   = await ChromaManager.getMemoryCollection();
+    const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
+    const timestamp    = new Date().toISOString();
+    const memoryId     = `mem_${timestamp}`;
+    
+    // Generate semantic embedding for the entire interaction
+    const embedding = await TextEmbeddingService.embedText(combinedText);
+    
+    await collection.add({
+        ids: [memoryId],
+        embeddings: [embedding],
+        metadatas: [{
+            prompt,
+            response,
+            thought,
+            sessionId,
+            timestamp,
+            type: 'agent-interaction'
+        }],
+        documents: [combinedText]
+    });
+    
+    return { id: memoryId, sessionId, timestamp, message: "Memory successfully added" };
+}
+```
+
+The key innovation here is that we embed the **entire interaction**—prompt, thought, and response—as a single vector. This means when the agent searches its memory later, it's searching not just for what it said, but for *why* it said it and what problem it was solving.
+
+#### Autonomous Session Summarization
+
+The real magic happens at startup. Just like the Knowledge Base server, the Memory Core is **self-maintaining**. When the server starts, it automatically discovers and summarizes any unsummarized sessions from previous work.
+
+From `SessionService.mjs`:
+
+```javascript
+async initAsync() {
+    await super.initAsync();
+    await DatabaseLifecycleService.ready();
+    
+    // Initialize collections
+    this.memoryCollection   = await ChromaManager.getMemoryCollection();
+    this.sessionsCollection = await ChromaManager.getSummaryCollection();
+    
+    // Skip if GEMINI_API_KEY is missing
+    if (!this.model) return;
+    
+    logger.info('[Startup] Checking for unsummarized sessions...');
+    
+    try {
+        const result = await this.summarizeSessions({});
+        
+        if (result.processed > 0) {
+            logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
+            result.sessions.forEach(session => {
+                logger.info(`   - ${session.title} (${session.memoryCount} memories)`);
+            });
+        }
+    } catch (error) {
+        logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
+    }
+}
+```
+
+The summarization process uses **Gemini 2.5 Flash** to analyze the entire session and extract structured metadata:
+
+```javascript
+async summarizeSession(sessionId) {
+    const memories = await this.memoryCollection.get({
+        where: {sessionId},
+        include: ['documents', 'metadatas']
+    });
+    
+    if (memories.ids.length === 0) return null;
+    
+    // Aggregate all memories from the session
+    const aggregatedContent = memories.documents.join('\n\n---\n\n');
+    
+    const summaryPrompt = `
+Analyze the following development session and provide a structured summary in JSON format:
+
+- "summary": A detailed summary of the session
+- "title": A concise, descriptive title (max 10 words)
+- "category": One of: 'bugfix', 'feature', 'refactoring', 'documentation', 'new-app', 'analysis', 'other'
+- "quality": Score 0-100 rating the session's flow and focus
+- "productivity": Score 0-100 indicating if primary goals were achieved
+- "impact": Score 0-100 estimating the significance of changes
+- "complexity": Score 0-100 rating the task's complexity
+- "technologies": Array of key technologies involved
+
+${aggregatedContent}
+`;
+    
+    const result = await this.model.generateContent(summaryPrompt);
+    const summaryData = JSON.parse(result.response.text());
+    
+    // Embed the summary for semantic search
+    const embeddingResult = await this.embeddingModel.embedContent(summaryData.summary);
+    
+    await this.sessionsCollection.upsert({
+        ids: [`summary_${sessionId}`],
+        embeddings: [embeddingResult.embedding.values],
+        metadatas: [{
+            sessionId,
+            timestamp: new Date().toISOString(),
+            memoryCount: memories.ids.length,
+            ...summaryData
+        }],
+        documents: [summaryData.summary]
+    });
+    
+    return { sessionId, title: summaryData.title, memoryCount: memories.ids.length };
+}
+```
+
+#### The Two-Stage Query Protocol
+
+The Memory Core implements a sophisticated **two-stage query strategy** for recalling past work:
+
+**Stage 1: Query Summaries** (Fast)
+When you need high-level context about past work, query the summary collection first:
+
+```javascript
+async querySummaries({ query, nResults, category }) {
+    const collection = await ChromaManager.getSummaryCollection();
+    const embedding  = await TextEmbeddingService.embedText(query);
+    
+    const queryArgs = {
+        queryEmbeddings: [embedding],
+        nResults,
+        include: ['metadatas', 'documents']
+    };
+    
+    if (category) {
+        queryArgs.where = { category };
+    }
+    
+    const searchResult = await collection.query(queryArgs);
+    
+    // Calculate relevance scores from vector distances
+    const summaries = ids.map((id, index) => {
+        const distance = Number(distances[index] ?? 0);
+        const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
+        
+        return {
+            id,
+            sessionId: metadata.sessionId,
+            title: metadata.title,
+            summary: documents[index],
+            category: metadata.category,
+            quality: Number(metadata.quality),
+            productivity: Number(metadata.productivity),
+            impact: Number(metadata.impact),
+            complexity: Number(metadata.complexity),
+            technologies: metadata.technologies.split(','),
+            distance,
+            relevanceScore
+        };
+    });
+    
+    return { query, count: summaries.length, results: summaries };
+}
+```
+
+**Stage 2: Query Raw Memories** (Deep)
+Once you've identified relevant sessions, drill down into the raw interaction data:
+
+```javascript
+async queryMemories({ query, nResults, sessionId }) {
+    const collection = await ChromaManager.getMemoryCollection();
+    const embedding  = await TextEmbeddingService.embedText(query);
+    
+    const queryArgs = {
+        queryEmbeddings: [embedding],
+        nResults,
+        include: ['metadatas']
+    };
+    
+    // Optional: Filter to specific session
+    if (sessionId) {
+        queryArgs.where = { sessionId };
+    }
+    
+    const searchResult = await collection.query(queryArgs);
+    
+    return {
+        query,
+        count: memories.length,
+        results: memories.map((memory, index) => ({
+            ...memory,
+            distance: distances[index],
+            relevanceScore: 1 / (1 + distances[index])
+        }))
+    };
+}
+```
+
+This two-stage approach is powerful because:
+1. **Summaries are fast** - Pre-processed, high-level overviews for quick context
+2. **Memories are detailed** - Full reasoning chains for deep investigation
+3. **Categories enable filtering** - Find all "refactoring" or "bugfix" sessions instantly
+4. **Quality metrics enable sorting** - Prioritize high-productivity sessions
+
+#### Structured Session Metadata
+
+The quality metrics generated by the summarization process provide valuable insights:
+
+```javascript
+{
+    "quality": 85,        // Was the session focused and productive?
+    "productivity": 90,   // Were the goals achieved?
+    "impact": 75,         // How significant were the changes?
+    "complexity": 60,     // How difficult was the task?
+    "category": "feature", // What type of work was this?
+    "technologies": ["neo.mjs", "chromadb", "nodejs"]
+}
+```
+
+These aren't just numbers—they enable **performance analysis over time**. The agent (and we) can ask:
+- "Show me all high-complexity sessions where productivity was low" (areas for improvement)
+- "What features did I build with impact > 80?" (highlight reel)
+- "Which refactoring sessions had quality < 50?" (sessions that went off-track)
+
 This capability is critical for several reasons:
 
 1.  **Learning & Self-Correction:** By querying its own history, the agent can identify patterns in its work, recall past solutions to similar problems, and avoid repeating mistakes. It can ask itself, "How did I solve that bug last week?" and get a concrete answer from its own experience.
 2.  **Contextual Continuity:** An agent with memory can maintain context across days or even weeks. It can pick up a complex refactoring task exactly where it left off, without needing to be re-briefed on the entire history.
 3.  **Performance Analysis:** The session summaries include metrics on quality, productivity, and complexity. This allows us (and the agent itself) to analyze its performance over time, identifying areas for improvement in its own problem-solving strategies.
 4.  **Transactional Integrity:** The protocol for saving memories is transactional and mandatory. The agent *must* save a consolidated record of its entire turn (prompt, thought, response) before delivering its final answer. This "save-then-respond" loop, enforced by the `add_memory` tool, guarantees that no experience is ever lost, creating a rich and honest record of the entire problem-solving process.
+
+#### The Neo.mjs Backbone
+
+Like all three MCP servers, the Memory Core is built using the **official MCP SDK** for protocol compliance, but its internal architecture is pure **Neo.mjs**. Every service—`MemoryService`, `SessionService`, `SummaryService`, `HealthService`—is a Neo.mjs singleton that extends `Neo.core.Base`.
+
+This demonstrates a key design principle: **Neo.mjs isn't just for browsers**. The same class system that powers complex frontend applications also provides:
+- **Singleton pattern** for service management
+- **Async initialization** (`initAsync()`) for startup sequences
+- **Observable pattern** for event-driven architecture
+- **Configuration management** via `static config`
 
 The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
 
