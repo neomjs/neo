@@ -145,10 +145,10 @@ class ReleaseSyncer extends Base {
             this.releases[release.tagName] = release;
         });
 
-        if (this.releases.length === 0) {
+        if (Object.keys(this.releases).length === 0) {
             logger.warn(`⚠️ No releases found since syncStartDate (${issueSyncConfig.syncStartDate}). Archiving may fall back to default.`);
         } else {
-            logger.info(`Found and cached ${this.releases.length} releases since ${issueSyncConfig.syncStartDate}.`);
+            logger.info(`Found and cached ${Object.keys(this.releases).length} releases since ${issueSyncConfig.syncStartDate}.`);
         }
     }
 
