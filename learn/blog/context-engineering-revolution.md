@@ -186,14 +186,14 @@ Here's the startup flow from `DatabaseService.mjs`:
 ```javascript
 async initAsync() {
     await super.initAsync();
-
+    
     // Wait for ChromaDB to be available
     await DatabaseLifecycleService.ready();
-
+    
     logger.info('[Startup] Checking knowledge base status...');
     const knowledgeBasePath = aiConfig.dataPath;
     const kbExists = await fs.pathExists(knowledgeBasePath);
-
+    
     try {
         if (!kbExists) {
             logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
@@ -224,11 +224,11 @@ Here's how `ensureHealthy()` works:
 ```javascript
 async ensureHealthy() {
     const health = await this.healthcheck();
-
+    
     if (health.status !== 'healthy') {
         const details = health.details.join('\n  - ');
-        const statusMsg = health.status === 'unhealthy'
-            ? 'not available'
+        const statusMsg = health.status === 'unhealthy' 
+            ? 'not available' 
             : 'not fully operational';
         throw new Error(`Knowledge Base is ${statusMsg}:\n  - ${details}`);
     }
@@ -270,28 +270,28 @@ const queryWords = queryLower
 
 results.metadatas[0].forEach((metadata, index) => {
     let score = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
-
+    
     queryWords.forEach(queryWord => {
         const keyword = queryWord;
-        const keywordSingular = keyword.endsWith('s')
-            ? keyword.slice(0, -1)
+        const keywordSingular = keyword.endsWith('s') 
+            ? keyword.slice(0, -1) 
             : keyword;
-
+        
         if (keywordSingular.length > 2) {
             // Path matching - highest weight
-            if (sourcePathLower.includes(`/${keywordSingular}/`))
+            if (sourcePathLower.includes(`/${keywordSingular}/`)) 
                 score += queryScoreWeights.sourcePathMatch; // +40
-
+            
             // Filename matching
-            if (fileName.includes(keywordSingular))
+            if (fileName.includes(keywordSingular)) 
                 score += queryScoreWeights.fileNameMatch; // +30
-
+            
             // Class name matching
-            if (metadata.className?.toLowerCase().includes(keywordSingular))
+            if (metadata.className?.toLowerCase().includes(keywordSingular)) 
                 score += queryScoreWeights.classNameMatch; // +20
-
+            
             // Content type bonuses
-            if (metadata.type === 'guide')
+            if (metadata.type === 'guide') 
                 score += queryScoreWeights.guideMatch; // +50
         }
     });
@@ -716,11 +716,279 @@ This capability is critical for several reasons:
 
 Like all three MCP servers, the Memory Core is built using the **official MCP SDK** for protocol compliance, but its internal architecture is pure **Neo.mjs**. Every service—`MemoryService`, `SessionService`, `SummaryService`, `HealthService`—is a Neo.mjs singleton that extends `Neo.core.Base`.
 
-This demonstrates a key design principle: **Neo.mjs isn't just for browsers**. The same class system that powers complex frontend applications also provides:
-- **Singleton pattern** for service management
-- **Async initialization** (`initAsync()`) for startup sequences
-- **Observable pattern** for event-driven architecture
-- **Configuration management** via `static config`
+This demonstrates a key design principle: **Neo.mjs isn't just for browsers**. The same class system that powers complex frontend applications also provides robust infrastructure for backend services.
+
+##### The Power of initAsync() and ready()
+
+One of the most elegant aspects of Neo.mjs for backend development is its **asynchronous initialization system**. Every `Neo.core.Base` instance has an `initAsync()` lifecycle hook and a `ready()` promise that resolves when initialization is complete.
+
+From `Neo.core.Base`:
+
+```javascript
+construct(config={}) {
+    // ... initialization code ...
+    
+    // Storing a resolver to execute inside `afterSetIsReady`
+    this.#readyPromise = new Promise(resolve => {
+        this.#readyResolver = resolve
+    });
+    
+    // Triggers async logic after the construction chain is done
+    Promise.resolve().then(async () => {
+        await this.initAsync();
+        this.isReady = true
+    })
+}
+
+/**
+ * You can use this method in subclasses to perform asynchronous initialization logic.
+ * Make sure to use the parent call `await super.initAsync()` at the beginning.
+ * 
+ * Once the promise returned by this method is fulfilled, the `isReady` config will be set to `true`.
+ * @returns {Promise<void>}
+ */
+async initAsync() {
+    this.remote && this.initRemote()
+}
+
+/**
+ * Returns a promise that resolves when the instance is fully initialized.
+ * @returns {Promise<void>}
+ */
+ready() {
+    return this.#readyPromise;
+}
+```
+
+This pattern enables **elegant dependency orchestration** throughout the server architecture. Here's how `SessionService` uses it:
+
+```javascript
+async initAsync() {
+    await super.initAsync();
+    
+    // Wait for DatabaseLifecycleService to ensure ChromaDB is available
+    await DatabaseLifecycleService.ready();
+    
+    // Use ChromaManager instead of direct client access
+    this.memoryCollection   = await ChromaManager.getMemoryCollection();
+    this.sessionsCollection = await ChromaManager.getSummaryCollection();
+    
+    // Skip if GEMINI_API_KEY is missing
+    if (!this.model) return;
+    
+    logger.info('[Startup] Checking for unsummarized sessions...');
+    
+    const result = await this.summarizeSessions({});
+    // ... process results ...
+}
+```
+
+The beauty of this pattern is that **services can depend on each other** without complex coordination logic:
+
+1. **`ChromaManager`** initializes and establishes the ChromaDB connection
+2. **`DatabaseLifecycleService`** waits for `ChromaManager.ready()` and starts ChromaDB
+3. **`SessionService`** waits for `DatabaseLifecycleService.ready()` and performs summarization
+4. **`mcp-stdio.mjs`** waits for `SessionService.ready()` and starts the MCP server
+
+All of this happens **automatically and in the correct order**, with zero race conditions. From the main entry point:
+
+```javascript
+async function main() {
+    // Wait for async services to initialize.
+    // SessionService.ready() will internally wait for the DB and summarize sessions.
+    await SessionService.ready();
+    
+    // Perform initial health check
+    const health = await HealthService.healthcheck();
+    
+    // Report status and start server
+    // ...
+}
+```
+
+##### Singleton Pattern and Service Architecture
+
+All services use the Neo.mjs **singleton pattern**, which combines class-level state management with instance lifecycle:
+
+```javascript
+class SessionService extends Base {
+    static config = {
+        className: 'AI.mcp.server.memory-core.services.SessionService',
+        singleton: true,
+        // Reactive configs with lifecycle hooks
+        model_: null,
+        embeddingModel_: null
+    }
+    
+    construct(config) {
+        super.construct(config);
+        
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        if (!GEMINI_API_KEY) {
+            logger.warn('⚠️  GEMINI_API_KEY not set - skipping summarization');
+            HealthService.recordStartupSummarization('skipped', { 
+                reason: 'GEMINI_API_KEY not set' 
+            });
+            return;
+        }
+        
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        this.model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        this.embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+    }
+}
+
+export default Neo.setupClass(SessionService);
+```
+
+The `singleton: true` config ensures:
+- **Only one instance** exists throughout the application lifecycle
+- **Global access** via the class itself (e.g., `SessionService.summarizeSessions()`)
+- **Automatic registration** with the instance manager
+- **Consistent state** across all parts of the application
+
+##### Reactive Configuration System
+
+Neo.mjs brings its powerful **reactive config system** to Node.js. The system is driven by `Neo.setupClass()`, which processes every class definition and applies sophisticated configuration logic.
+
+**Configs ending with an underscore (`_`) are reactive:**
+
+```javascript
+static config = {
+    model_: null,
+    embeddingModel_: null,
+    memoryCollection_: null,
+    sessionsCollection_: null
+}
+```
+
+During `setupClass()`, Neo.mjs automatically:
+
+1. **Removes the underscore** from the static config key
+2. **Generates getter and setter** for the public property name
+3. **Enables optional lifecycle hooks** (if you implement them):
+    - `beforeGetModel(value)` - Modify value before returning from getter
+    - `beforeSetModel(value, oldValue)` - Validate/transform before setting (return `undefined` to cancel)
+    - `afterSetModel(value, oldValue)` - React to changes after they occur
+
+Here's the actual logic from `Neo.setupClass()`:
+
+```javascript
+// Process each config property defined in the current class's static config
+Object.entries(cfg).forEach(([key, value]) => {
+    const
+        isReactive = key.slice(-1) === '_',
+        baseKey    = isReactive ? key.slice(0, -1) : key;
+    
+    // Handle reactive configs: Generate getters/setters
+    if (isReactive) {
+        delete cfg[key];      // Remove original key with underscore
+        cfg[baseKey] = value; // Use base key without underscore
+        Neo.createConfig(element, baseKey) // Generate getter/setter
+    }
+    // Non-reactive configs get set directly on prototype
+    else if (!Neo.hasPropertySetter(element, key)) {
+        Object.defineProperty(element, key, {
+            enumerable: true, 
+            value, 
+            writable: true
+        })
+    }
+});
+```
+
+**The key insight:** Subclasses can provide new default values without the underscore, and they'll still be reactive if the parent defined them with an underscore. This enables clean configuration hierarchies:
+
+```javascript
+// Parent class
+class ChromaManager extends Base {
+    static config = {
+        client_: null,           // Reactive in parent
+        connected_: false,       // Reactive in parent
+        memoryCollection_: null  // Reactive in parent
+    }
+}
+
+// Child can override defaults without underscore
+class ExtendedManager extends ChromaManager {
+    static config = {
+        connected: true  // Still reactive! Inherits from parent
+    }
+}
+```
+
+**Non-reactive configs** (without underscore) are applied directly to the class **prototype**, making them shared across all instances. This is memory-efficient and enables the powerful `Neo.overwrites` mechanism for application-wide theming.
+
+```javascript
+#cachedHealth = null;
+#lastCheckTime = null;
+#cacheDuration = 5 * 60 * 1000;
+
+async healthcheck() {
+    const now = Date.now();
+    
+    // Smart caching: only cache healthy results
+    if (this.#cachedHealth?.status === 'healthy' && this.#lastCheckTime) {
+        const age = now - this.#lastCheckTime;
+        if (age < this.#cacheDuration) {
+            logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
+            return this.#cachedHealth;
+        }
+    }
+    
+    // Perform fresh check
+    const health = await this.#performHealthCheck();
+    
+    // Update cache
+    this.#cachedHealth = health;
+    this.#lastCheckTime = now;
+    
+    return health;
+}
+```
+
+##### Observable Pattern for Cross-Service Communication
+
+Services can use the **Observable mixin** for event-driven architecture:
+
+```javascript
+class DatabaseLifecycleService extends Base {
+    static observable = true; // Enables event system
+    
+    async startDatabase() {
+        // ... start ChromaDB ...
+        
+        this.fire('processActive', { 
+            pid: this.chromaProcess.pid, 
+            managedByService: true 
+        });
+    }
+    
+    async stopDatabase() {
+        // ... stop ChromaDB ...
+        
+        this.fire('processStopped', { 
+            pid, 
+            managedByService: true 
+        });
+    }
+}
+```
+
+Other services can listen to these events for coordination without tight coupling.
+
+##### Why This Matters
+
+The Neo.mjs class system brings several advantages to backend development:
+
+1. **Zero Boilerplate** - No need for custom dependency injection frameworks
+2. **Declarative Dependencies** - Services express their needs via `await ready()`
+3. **Lifecycle Management** - `initAsync()`, `construct()`, `destroy()` provide clear hooks
+4. **Type Safety** - Config validation happens automatically at runtime
+5. **Memory Efficiency** - Singletons ensure one instance per service
+6. **Debugging** - Clear initialization order, consistent patterns
+
+This is the same class system that manages complex UI component hierarchies in the browser, now orchestrating ChromaDB connections, Gemini API calls, and MCP server lifecycles in Node.js.
 
 The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
 
