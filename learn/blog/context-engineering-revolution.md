@@ -546,7 +546,7 @@ async initAsync() {
 }
 ```
 
-The summarization process uses **Gemini 2.5 Flash** to analyze the entire session and extract structured metadata:
+The summarization process, orchestrated by `summarizeSessions`, uses **Gemini 2.5 Flash** to analyze the entire session and extract structured metadata:
 
 ```javascript
 async summarizeSession(sessionId) {
