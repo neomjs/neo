@@ -54,7 +54,7 @@ This new architecture is defined directly within the agent's settings, making th
 
 ### The Backbone: The Model Context Protocol (MCP)
 
-At the heart of our new architecture is the **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro)**, an open standard for communication between AI agents and development tools. Think of it as a universal language that allows any AI—whether it's Gemini, Claude, or a custom-built agent—to securely and reliably interact with a developer's local environment.
+At the heart of our new architecture is the **[Model Context Protocol (MCP)](https://modelContextprotocol.io/docs/getting-started/intro)**, an open standard for communication between AI agents and development tools. Think of it as a **universal USB-C port for AI**, allowing any AI—whether it's Gemini, Claude, or a custom-built agent—to securely and reliably connect with a developer's local environment.
 
 By adopting the official MCP SDK for all three of our servers, we gain several key advantages:
 
