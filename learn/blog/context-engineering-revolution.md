@@ -1,33 +1,83 @@
 # The Context Engineering Revolution: How We Built a Self-Aware Development Environment
 
-*From shell scripts to a multi-server architecture, Neo.mjs v11 marks a pivotal moment in our journey toward a truly AI-native development experience.*
+*From shell scripts to a multi-server architecture, Neo.mjs v11 marks a pivotal moment in our journey toward a truly
+AI-native development experience.*
 
 <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.jpg" alt="Cover Image" class="blog-image">
 
-Just a few weeks ago, we introduced the concept of an **[AI-Native, Not AI-Assisted](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md)** development platform. We argued that for AI to be a true partner, it needs a development environment that is transparent, queryable, and designed for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`), powered by a suite of simple shell scripts.
+---
 
-Today, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**, we are taking a giant leap forward. This release represents **six weeks of intensive development** that resolved **388 tickets**—a velocity that demonstrates the power of true human-AI collaboration. With a core team that's primarily one person, this kind of output would have been impossible without the AI-native infrastructure we've built.
+## The Three Dimensions of Context
+
+Let’s start with a real scenario — the kind of complex problem every developer faces sooner or later: **fixing a regression bug.**
+
+A naive fix might solve the immediate issue but inadvertently reintroduce the original problem that a previous change was meant to solve.  
+Our AI-native environment is designed to prevent this by building a **three-dimensional picture of the code’s history and intent.**
+
+Here’s how the agent uses the MCP servers to tackle this:
+
+**Dimension 1: What Changed? (The Code's History)**  
+First, the agent uses standard `git` commands to pinpoint the exact commit that introduced the regression.  
+This gives us the literal *what* and *when* of the change.
+
+**Dimension 2: What Was the Plan? (The Formal Requirements)**  
+The commit message points to a ticket number.  
+Using the **GitHub Workflow Server**, the agent has a local, queryable copy of this ticket.  
+It can read the formal plan, the acceptance criteria, and the original problem description — the *what was supposed to happen.*
+
+**Dimension 3: What Was the Intent? (The Unwritten Context)**  
+This is the most critical step. The ticket describes the plan, but the **Memory Core Server** holds the agent's memory of
+the conversation — the debates, the alternative approaches considered, and the specific constraints that shaped the final implementation.  
+By querying its own memory with `query_raw_memories`, the agent uncovers the crucial **why** behind the code that is now causing a regression.
+
+With this complete, three-dimensional context, the agent can devise a solution that addresses the new regression while still honoring the original problem.  
+It's no longer just fixing a bug; it's synthesizing old and new requirements to create a superior solution.
+
+**This is Context Engineering in action.**
+
+---
+
+Just six weeks ago, we introduced the concept of an **[AI-Native, Not AI-Assisted](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md)** development platform.
+We argued that for AI to be a true partner, it needs a development environment that is transparent, queryable, and designed
+for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`),
+powered by a suite of simple shell scripts.
+
+Today, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**,
+we are taking a giant leap forward. This release represents **six weeks of intensive development** that resolved
+**388 tickets**—a velocity that demonstrates the power of true human-AI collaboration. With a core team that's primarily
+one person, this kind of output would have been impossible without the AI-native infrastructure we've built.
 
 This isn't just an upgrade; it's the next stage in a new paradigm we call **Context Engineering**.
 
 ## The Problem with Scripts: The Limits of "Good Enough"
 
-Our initial AI tooling was a powerful proof of concept. It worked. An AI agent could query the local knowledge base, get context, and write code. But as we pushed the boundaries of what was possible, the limitations of a script-based approach became clear:
+Our initial AI tooling was a powerful proof of concept. It worked. An AI agent could query the local knowledge base,
+get context, and write code. But as we pushed the boundaries of what was possible, the limitations of a script-based
+approach became clear:
 
 1.  **Brittleness:** Shell scripts are notoriously fragile. A small change in the output of one script could break the entire chain.
-2.  **Agent-Specific:** The scripts were designed with a specific agent in mind (Gemini CLI). This limited our ability to work with other agents, like Claude or custom-built tools.
+2.  **Agent-Specific:** The scripts were designed with a specific agent in mind (Gemini CLI). This limited our ability
+    to work with other agents, like Claude or custom-built tools.
 3.  **Complexity:** The agent's setup protocol was complex, requiring a series of manual steps to get started.
 4.  **Lack of Persistence:** The agent had no memory. Every session was a blank slate, forcing it to relearn the same things over and over.
 
-We realized that to build a truly self-aware development environment, we needed to move beyond scripts and embrace a more robust, scalable, and persistent architecture.
+We realized that to build a truly self-aware development environment, we needed to move beyond scripts and embrace a more robust,
+scalable, and persistent architecture.
 
 ## The Solution: A Multi-Server Model Context Protocol (MCP) Architecture
 
-Neo.mjs v11 introduces three dedicated **Model Context Protocol (MCP)** servers, each designed to handle a specific aspect of the AI-native development workflow:
+Neo.mjs v11 introduces three dedicated **Model Context Protocol (MCP)** servers, each designed to handle a specific aspect
+of the AI-native development workflow:
 
-1.  **The Knowledge Base Server:** This server provides the AI with a deep, semantic understanding of the framework's source code, documentation, and historical tickets. It's the AI's "long-term memory" of the project's technical details.
-2.  **The Memory Core Server:** This is the AI's personal memory. It allows the agent to recall past conversations, decisions, and outcomes, enabling it to learn from experience and improve over time.
-3.  **The GitHub Workflow Server:** The crown jewel of our new tooling. This server provides robust, bi-directional synchronization for GitHub issues and release notes, storing them as local markdown files. This enables agents (and humans) to interact with them as part of the local knowledge base while ensuring everything stays in sync with GitHub. It automates the entire issue and pull request lifecycle, empowering the agent to participate directly in the development workflow.
+1.  **The Knowledge Base Server:** This server provides the AI with a deep, semantic understanding of the framework's
+    source code, documentation, and historical tickets. It's the AI's "long-term memory" of the project's technical details.
+2.  **The Memory Core Server:** This is the AI's personal memory. It allows the agent to recall past conversations,
+    decisions, and outcomes, enabling it to learn from experience and improve over time.
+3.  **The GitHub Workflow Server:** The crown jewel of our new tooling. This server provides robust, bi-directional
+    synchronization for GitHub issues and release notes, storing them as local markdown files. This enables agents
+    (and humans) to interact with them as part of the local knowledge base while ensuring everything stays in sync with
+    GitHub. It automates the entire issue and pull request lifecycle, empowering the agent to participate directly in the
+    development workflow.
 
 This new architecture is defined directly within the agent's settings, making the tools available for any task:
 
@@ -60,17 +110,22 @@ At the heart of our new architecture is the **[Model Context Protocol (MCP)](htt
 
 By adopting the official MCP SDK for all three of our servers, we gain several key advantages:
 
-1.  **Agent Agnosticism:** We are no longer tied to a specific AI provider. Any agent that can "speak" MCP can now connect to our development environment, giving us the flexibility to choose the best tool for the job.
-2.  **Standardization:** MCP provides a clear, well-defined structure for how tools are defined, called, and how they return data. This eliminates the guesswork and fragility of parsing unstructured shell script output.
-3.  **Security:** MCP is designed with security in mind, providing a safe and controlled way for an AI to interact with local files and processes.
+1.  **Agent Agnosticism:** We are no longer tied to a specific AI provider. Any agent that can "speak" MCP can now connect
+    to our development environment, giving us the flexibility to choose the best tool for the job.
+2.  **Standardization:** MCP provides a clear, well-defined structure for how tools are defined, called, and how they
+    return data. This eliminates the guesswork and fragility of parsing unstructured shell script output.
+3.  **Security:** MCP is designed with security in mind, providing a safe and controlled way for an AI to interact with
+    local files and processes.
 
 ## The Knowledge Base Server: OpenAPI-Driven Self-Documentation
 
-The Knowledge Base server is where we've pushed the boundaries of what's possible with MCP. Rather than hardcoding tool definitions in JavaScript, we've built a system that's **entirely driven by OpenAPI 3 specifications**.
+The Knowledge Base server is where we've pushed the boundaries of what's possible with MCP. Rather than hardcoding tool
+definitions in JavaScript, we've built a system that's **entirely driven by OpenAPI 3 specifications**.
 
 ### The OpenAPI Innovation
 
-Here's the key insight: **OpenAPI is a language-agnostic specification that can describe both MCP tools AND REST APIs**. By using OpenAPI as our single source of truth, we've created a system that's incredibly flexible and maintainable.
+Here's the key insight: **OpenAPI is a language-agnostic specification that can describe both MCP tools AND REST APIs**.
+By using OpenAPI as our single source of truth, we've created a system that's incredibly flexible and maintainable.
 
 Let's look at how a tool is defined in `openapi.yaml`:
 
@@ -179,7 +234,8 @@ This approach has profound implications:
 
 ### The Self-Aware Startup Sequence
 
-One of the most powerful features of the Knowledge Base server is its **autonomous startup synchronization**. The server doesn't just wait passively for commands—it actively ensures the knowledge base is current before accepting any queries.
+One of the most powerful features of the Knowledge Base server is its **autonomous startup synchronization**.
+The server doesn't just wait passively for commands—it actively ensures the knowledge base is current before accepting any queries.
 
 Here's the startup flow from `DatabaseService.mjs`:
 
@@ -217,7 +273,8 @@ This means:
 
 ### Intelligent Health Monitoring
 
-The `HealthService` is designed around a simple principle: **fail fast with actionable guidance**. Rather than letting tool calls fail with cryptic database errors, the health service acts as a gatekeeper.
+The `HealthService` is designed around a simple principle: **fail fast with actionable guidance**. Rather than letting
+tool calls fail with cryptic database errors, the health service acts as a gatekeeper.
 
 Here's how `ensureHealthy()` works:
 
@@ -242,13 +299,16 @@ Knowledge Base is not available:
   - ChromaDB is not accessible at localhost:8000. Please start ChromaDB or use the start_database tool.
 ```
 
-The service also implements **intelligent caching** with a 5-minute TTL for healthy results, while unhealthy results are never cached. This means:
+The service also implements **intelligent caching** with a 5-minute TTL for healthy results, while unhealthy results
+are never cached. This means:
 - **Low overhead** - Multiple tools can check health without hammering ChromaDB
 - **Immediate recovery detection** - When you fix an issue (like starting ChromaDB), the next check sees it immediately
 
 ### The Query Scoring Algorithm: Beyond Simple Vector Search
 
-The most sophisticated part of the Knowledge Base server is its **hybrid query scoring system**. While most vector databases rely purely on cosine similarity, our system combines semantic embeddings with intelligent keyword matching and structural analysis.
+The most sophisticated part of the Knowledge Base server is its **hybrid query scoring system**. While most vector
+databases rely purely on cosine similarity, our system combines semantic embeddings with intelligent keyword matching
+and structural analysis.
 
 Here's how it works in `QueryService.mjs`:
 
@@ -300,7 +360,8 @@ results.metadatas[0].forEach((metadata, index) => {
 
 **Step 3: Inheritance Chain Propagation**
 
-This is where it gets really interesting. When you query for a component, you probably also want to know about its parent classes. The system automatically propagates relevance up the inheritance chain:
+This is where it gets really interesting. When you query for a component, you probably also want to know about its
+parent classes. The system automatically propagates relevance up the inheritance chain:
 
 ```javascript
 const inheritanceChain = JSON.parse(metadata.inheritanceChain || '[]');
@@ -350,7 +411,8 @@ The result is a query system that "thinks" like a developer. It understands that
 
 ### The ETL Pipeline: From Source to Vectors
 
-The knowledge base synchronization process is a sophisticated ETL (Extract, Transform, Load) pipeline that runs automatically on startup:
+The knowledge base synchronization process is a sophisticated ETL (Extract, Transform, Load) pipeline that runs
+automatically on startup:
 
 **Extract Phase** (`createKnowledgeBase`):
 ```javascript
@@ -443,17 +505,23 @@ for (let i = 0; i < chunksToProcess.length; i += batchSize) {
 }
 ```
 
-This design is intentionally memory-intensive at sync time to make queries lightning-fast. By pre-calculating inheritance chains and content hashes during the load phase, we avoid expensive computations during every query.
+This design is intentionally memory-intensive at sync time to make queries lightning-fast. By pre-calculating inheritance
+chains and content hashes during the load phase, we avoid expensive computations during every query.
 
 ### The Memory Core: An Agent's Personal History
 
-If the Knowledge Base is the AI's understanding of the *project*, the **Memory Core** is its understanding of *itself*. It's the agent's personal, persistent memory, transforming it from a stateless tool into a true collaborator that learns from experience.
+If the Knowledge Base is the AI's understanding of the *project*, the **Memory Core** is its understanding of *itself*.
+It's the agent's personal, persistent memory, transforming it from a stateless tool into a true collaborator that learns from experience.
 
-Every interaction—every prompt, thought process, and response—is captured and stored as a "memory." This is not just a chat log; it's a structured, queryable history of the agent's own work. When a new session begins, the Memory Core automatically analyzes and summarizes all previous, unsummarized sessions. This creates a high-level "recap" of past work, allowing the agent to remember what it did, what decisions it made, and why.
+Every interaction—every prompt, thought process, and response—is captured and stored as a "memory." This is not just a
+chat log; it's a structured, queryable history of the agent's own work. When a new session begins, the Memory Core
+automatically analyzes and summarizes all previous, unsummarized sessions. This creates a high-level "recap" of past work,
+allowing the agent to remember what it did, what decisions it made, and why.
 
 #### The Save-Then-Respond Protocol
 
-At the heart of the Memory Core is the **transactional memory protocol**. Every agent interaction follows a strict three-part structure defined in the OpenAPI spec:
+At the heart of the Memory Core is the **transactional memory protocol**. Every agent interaction follows a strict
+three-part structure defined in the OpenAPI spec:
 
 ```yaml
 AddMemoryRequest:
@@ -477,7 +545,9 @@ AddMemoryRequest:
       description: Session ID for grouping (auto-generated if not provided)
 ```
 
-This isn't just logging—it's a **mandatory save-then-respond loop**. The agent protocol requires that before delivering any response to the user, the agent must call `add_memory` with its complete reasoning chain. This creates an honest, unfiltered record of the agent's thought process.
+This isn't just logging—it's a **mandatory save-then-respond loop**. The agent protocol requires that before delivering
+any response to the user, the agent must call `add_memory` with its complete reasoning chain. This creates an honest,
+unfiltered record of the agent's thought process.
 
 Here's how it works in `MemoryService.mjs`:
 
@@ -509,11 +579,14 @@ async addMemory({ prompt, response, thought, sessionId }) {
 }
 ```
 
-The key innovation here is that we embed the **entire interaction**—prompt, thought, and response—as a single vector. This means when the agent searches its memory later, it's searching not just for what it said, but for *why* it said it and what problem it was solving.
+The key innovation here is that we embed the **entire interaction**—prompt, thought, and response—as a single vector.
+This means when the agent searches its memory later, it's searching not just for what it said, but for *why* it said it
+and what problem it was solving.
 
 #### Autonomous Session Summarization
 
-The real magic happens at startup. Just like the Knowledge Base server, the Memory Core is **self-maintaining**. When the server starts, it automatically discovers and summarizes any unsummarized sessions from previous work.
+The real magic happens at startup. Just like the Knowledge Base server, the Memory Core is **self-maintaining**.
+When the server starts, it automatically discovers and summarizes any unsummarized sessions from previous work.
 
 From `SessionService.mjs`:
 
@@ -546,7 +619,8 @@ async initAsync() {
 }
 ```
 
-The summarization process, orchestrated by `summarizeSessions`, uses **Gemini 2.5 Flash** to analyze the entire session and extract structured metadata:
+The summarization process, orchestrated by `summarizeSessions`, uses **Gemini 2.5 Flash** to analyze the entire session
+and extract structured metadata:
 
 ```javascript
 async summarizeSession(sessionId) {
@@ -707,18 +781,26 @@ These aren't just numbers—they enable **performance analysis over time**. The 
 
 This capability is critical for several reasons:
 
-1.  **Learning & Self-Correction:** By querying its own history, the agent can identify patterns in its work, recall past solutions to similar problems, and avoid repeating mistakes. It can ask itself, "How did I solve that bug last week?" and get a concrete answer from its own experience.
-2.  **Contextual Continuity:** An agent with memory can maintain context across days or even weeks. It can pick up a complex refactoring task exactly where it left off, without needing to be re-briefed on the entire history.
-3.  **Performance Analysis:** The session summaries include metrics on quality, productivity, and complexity. This allows us (and the agent itself) to analyze its performance over time, identifying areas for improvement in its own problem-solving strategies.
-4.  **Transactional Integrity:** The protocol for saving memories is transactional and mandatory. The agent *must* save a consolidated record of its entire turn (prompt, thought, response) before delivering its final answer. This "save-then-respond" loop, enforced by the `add_memory` tool, guarantees that no experience is ever lost, creating a rich and honest record of the entire problem-solving process.
+1.  **Learning & Self-Correction:** By querying its own history, the agent can identify patterns in its work, recall
+    past solutions to similar problems, and avoid repeating mistakes. It can ask itself, "How did I solve that bug last week?"
+    and get a concrete answer from its own experience.
+2.  **Contextual Continuity:** An agent with memory can maintain context across days or even weeks. It can pick up a complex
+    refactoring task exactly where it left off, without needing to be re-briefed on the entire history.
+3.  **Performance Analysis:** The session summaries include metrics on quality, productivity, and complexity. This allows
+    us (and the agent itself) to analyze its performance over time, identifying areas for improvement in its own
+    problem-solving strategies.
+4.  **Transactional Integrity:** The protocol for saving memories is transactional and mandatory. The agent *must* save
+    a consolidated record of its entire turn (prompt, thought, response) before delivering its final answer.
+    This "save-then-respond" loop, enforced by the `add_memory` tool, guarantees that no experience is ever lost,
+    creating a rich and honest record of the entire problem-solving process.
 
-The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
-
-The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
+The Memory Core is the foundation for an agent that doesn't just execute tasks, but grows, learns, and improves with every
+interaction. It's the key to building a partner that truly understands the long-term narrative of the project.
 
 ## The GitHub Workflow Server: Closing the Loop
 
-While the Knowledge Base provides context and the Memory Core provides continuity, the **GitHub Workflow Server** closes the loop by giving the agent the ability to *act* on the development workflow itself.
+While the Knowledge Base provides context and the Memory Core provides continuity, the **GitHub Workflow Server** closes
+the loop by giving the agent the ability to *act* on the development workflow itself.
 
 This server provides:
 - **Bi-directional sync** of GitHub issues and PRs as local markdown files
@@ -726,17 +808,23 @@ This server provides:
 - **Automated PR lifecycle management** from creation to merge
 - **Local-first workflow** where agents work with files, not APIs
 
-We'll dive deep into this server in a future section, but the key insight is that by representing GitHub issues as local markdown files that are part of the knowledge base, we've made the entire project backlog *queryable* and *actionable* for AI agents.
+We'll dive deep into this server in a future section, but the key insight is that by representing GitHub issues as local
+markdown files that are part of the knowledge base, we've made the entire project backlog *queryable* and *actionable* for AI agents.
 
 ## The Neo.mjs Backbone: Powering Our Servers
 
-Like all three MCP servers, the Memory Core is built using the **official MCP SDK** for protocol compliance, but its internal architecture is pure **Neo.mjs**. Every service—`MemoryService`, `SessionService`, `SummaryService`, `HealthService`—is a Neo.mjs singleton that extends `Neo.core.Base`.
+Like all three MCP servers, the Memory Core is built using the **official MCP SDK** for protocol compliance,
+but its internal architecture is pure **Neo.mjs**. Every service—`MemoryService`, `SessionService`, `SummaryService`,
+`HealthService`—is a Neo.mjs singleton that extends `Neo.core.Base`.
 
-This demonstrates a key design principle: **Neo.mjs isn't just for browsers**. The same class system that powers complex frontend applications also provides robust infrastructure for backend services.
+This demonstrates a key design principle: **Neo.mjs isn't just for browsers**. The same class system that powers complex
+frontend applications also provides robust infrastructure for backend services.
 
 ##### The Power of initAsync() and ready()
 
-One of the most elegant aspects of Neo.mjs for backend development is its **asynchronous initialization system**. Every `Neo.core.Base` instance has an `initAsync()` lifecycle hook and a `ready()` promise that resolves when initialization is complete.
+One of the most elegant aspects of Neo.mjs for backend development is its **asynchronous initialization system**.
+Every `Neo.core.Base` instance has an `initAsync()` lifecycle hook and a `ready()` promise that resolves when
+initialization is complete.
 
 From `Neo.core.Base`:
 
@@ -865,7 +953,8 @@ The `singleton: true` config ensures:
 
 ##### Reactive Configuration System
 
-Neo.mjs brings its powerful **reactive config system** to Node.js. The system is driven by `Neo.setupClass()`, which processes every class definition and applies sophisticated configuration logic.
+Neo.mjs brings its powerful **reactive config system** to Node.js. The system is driven by `Neo.setupClass()`,
+which processes every class definition and applies sophisticated configuration logic.
 
 **Configs ending with an underscore (`_`) are reactive:**
 
@@ -913,7 +1002,8 @@ Object.entries(cfg).forEach(([key, value]) => {
 });
 ```
 
-**The key insight:** Subclasses can provide new default values without the underscore, and they'll still be reactive if the parent defined them with an underscore. This enables clean configuration hierarchies:
+**The key insight:** Subclasses can provide new default values without the underscore, and they'll still be reactive if
+the parent defined them with an underscore. This enables clean configuration hierarchies:
 
 ```javascript
 // Parent class
@@ -933,7 +1023,8 @@ class ExtendedManager extends ChromaManager {
 }
 ```
 
-**Non-reactive configs** (without underscore) are applied directly to the class **prototype**, making them shared across all instances. This is memory-efficient and enables the powerful `Neo.overwrites` mechanism for application-wide theming.
+**Non-reactive configs** (without underscore) are applied directly to the class **prototype**, making them shared across
+all instances. This is memory-efficient and enables the powerful `Neo.overwrites` mechanism for application-wide theming.
 
 ```javascript
 #cachedHealth = null;
@@ -1004,7 +1095,8 @@ The Neo.mjs class system brings several advantages to backend development:
 5. **Memory Efficiency** - Singletons ensure one instance per service
 6. **Debugging** - Clear initialization order, consistent patterns
 
-This is the same class system that manages complex UI component hierarchies in the browser, now orchestrating ChromaDB connections, Gemini API calls, and MCP server lifecycles in Node.js.
+This is the same class system that manages complex UI component hierarchies in the browser, now orchestrating ChromaDB
+connections, Gemini API calls, and MCP server lifecycles in Node.js.
 
 
 ## The Benefits of a Server-Based Approach
@@ -1013,15 +1105,20 @@ This shift to a multi-server architecture brings a host of benefits:
 
 -   **Robustness and Reliability:** Servers are more resilient than scripts, with better error handling and a more stable API.
 -   **Agent-Agnosticism:** Any AI agent that can speak the MCP language can now connect to our development environment.
--   **Self-Hosting:** In a powerful demonstration of "dogfooding," the MCP servers themselves are built using the `Neo.mjs` class system. This showcases the framework's versatility for creating robust, scalable backend and CLI applications.
--   **Simplified Onboarding:** The servers now manage their own database startup and session summarization automatically. This drastically simplifies the agent onboarding process, reducing the agent's setup protocol by over 70%.
--   **Self-Documenting Tools:** The MCP tools are now self-documenting, allowing agents to dynamically inspect tool capabilities and schemas, making the entire system more resilient and easier to extend.
+-   **Self-Hosting:** In a powerful demonstration of "dogfooding," the MCP servers themselves are built using the `Neo.mjs`
+    class system. This showcases the framework's versatility for creating robust, scalable backend and CLI applications.
+-   **Simplified Onboarding:** The servers now manage their own database startup and session summarization automatically.
+    This drastically simplifies the agent onboarding process, reducing the agent's setup protocol by over 70%.
+-   **Self-Documenting Tools:** The MCP tools are now self-documenting, allowing agents to dynamically inspect tool
+    capabilities and schemas, making the entire system more resilient and easier to extend.
 
 ## Agent-Driven Quality: The Final Piece of the Puzzle
 
-A self-aware development environment is only as good as the quality of the code it produces. To that end, we have completed the migration of our entire unit test suite from the browser-based Siesta to the Node.js-based Playwright runner.
+A self-aware development environment is only as good as the quality of the code it produces. To that end, we have
+completed the migration of our entire unit test suite from the browser-based Siesta to the Node.js-based Playwright runner.
 
-This is a game-changer. For the first time, AI agents can now run `npm test` to validate their own changes. This is a critical step toward a fully autonomous, quality-driven development loop and a prerequisite for future CI/CD integration.
+This is a game-changer. For the first time, AI agents can now run `npm test` to validate their own changes.
+This is a critical step toward a fully autonomous, quality-driven development loop and a prerequisite for future CI/CD integration.
 
 ## The Numbers Tell the Story
 
@@ -1034,29 +1131,42 @@ Let's put the velocity of this release into perspective:
 - **52 pull requests** from the community
 - **20+ contributors** during Hacktoberfest
 
-For a team that's primarily one person, these numbers are extraordinary. They demonstrate what becomes possible when you build development tools that genuinely augment human capability rather than just automating simple tasks.
+For a team that's primarily one person, these numbers are extraordinary. They demonstrate what becomes possible when you
+build development tools that genuinely augment human capability rather than just automating simple tasks.
 
-The AI didn't write all this code—but it made it possible to *coordinate* this level of complexity, to *maintain consistency* across hundreds of changes, and to *catch regressions* before they shipped.
+The AI didn't write all this code—but it made it possible to *coordinate* this level of complexity, to *maintain consistency*
+across hundreds of changes, and to *catch regressions* before they shipped.
 
 ## A Community-Powered Revolution
 
-This monumental release would not have been possible without the incredible energy and contributions from our community, especially during **Hacktoberfest 2025**. We received over 52 pull requests from more than 20 contributors, a new record for the project.
+This monumental release would not have been possible without the incredible energy and contributions from our community,
+especially during **Hacktoberfest 2025**. We received over 52 pull requests from more than 20 contributors,
+a new record for the project.
 
 Our heartfelt thanks go out to:
-Aki-07, Ayush Kumar, Chisaneme Aloni, Emmanuel Ferdman, Ewelina Bierć, KURO-1125, LemonDrop847, Mahita07, MannXo, Mariam Saeed, Nallana Hari Krishna, Nitin Mishra, PrakhyaDas, Ritik Mehta, Sanjeev Kumar, Sarthak Jain, ad1tyayadav, cb-nabeel, kart-u, nikeshadhikari9, srikanth-s2003.
+Aki-07, Ayush Kumar, Chisaneme Aloni, Emmanuel Ferdman, Ewelina Bierć, KURO-1125, LemonDrop847, Mahita07, MannXo,
+Mariam Saeed, Nallana Hari Krishna, Nitin Mishra, PrakhyaDas, Ritik Mehta, Sanjeev Kumar, Sarthak Jain, ad1tyayadav,
+cb-nabeel, kart-u, nikeshadhikari9, srikanth-s2003.
 
 <img width="941" height="560" alt="Screenshot 2025-10-27 at 15 14 32" src="https://github.com/user-attachments/assets/4d7d75d7-b2ff-4811-89f3-c167e620783d" />
 
 ## The Future is Self-Aware
 
-The release of Neo.mjs v11 is not just about new features; it's about a new way of thinking about software development. It's about building a development environment that is not just "AI-assisted," but truly **AI-native**. It's about creating a system that is self-aware, self-documenting, and self-improving.
+The release of Neo.mjs v11 is not just about new features; it's about a new way of thinking about software development.
+It's about building a development environment that is not just "AI-assisted," but truly **AI-native**.
+It's about creating a system that is self-aware, self-documenting, and self-improving.
 
-This is the essence of **Context Engineering**. It's the art and science of building systems that can understand their own context and use that understanding to improve themselves.
+This is the essence of **Context Engineering**. It's the art and science of building systems that can understand their
+own context and use that understanding to improve themselves.
 
-We are just at the beginning of this journey. The road ahead is long, but the destination is clear: a future where human and machine collaborate to build better, faster, and more maintainable software.
+We are just at the beginning of this journey. The road ahead is long, but the destination is clear: a future where
+human and machine collaborate to build better, faster, and more maintainable software.
 
-We invite you to join us. Fork the repository, explore the new MCP servers, and start a conversation with our AI-native platform. The future of frontend development is here, and it's more intelligent than you can imagine.
+We invite you to join us. Fork the repository, explore the new MCP servers, and start a conversation with our
+AI-native platform. The future of frontend development is here, and it's more intelligent than you can imagine.
 
 ---
 
-*Want to dive deeper? Check out our [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md) guide and the [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md) to get started with the new MCP architecture.*
+*Want to dive deeper? Check out our [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md)
+guide and the [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md)
+to get started with the new MCP architecture.*
