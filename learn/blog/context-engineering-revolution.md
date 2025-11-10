@@ -1,4 +1,4 @@
-# The Context Engineering Revolution: How We Built a Self-Aware Development Environment
+# 388 Tickets in 6 Weeks: Context Engineering Done Right
 
 *From shell scripts to a multi-server architecture, Neo.mjs v11 marks a pivotal moment in our journey toward a truly
 AI-native development experience.*
@@ -6,6 +6,29 @@ AI-native development experience.*
 <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.jpg" alt="Cover Image" class="blog-image">
 
 ---
+
+## The Numbers That Shouldn't Be Possible
+
+Just six weeks ago, we introduced the concept of an **[AI-Native, Not AI-Assisted](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md)** development platform.
+We argued that for AI to be a true partner, it needs a development environment that is transparent, queryable, and designed
+for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`),
+powered by a suite of simple shell scripts.
+
+November 9, 2025, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**,
+we are taking a giant leap forward.
+
+- **388 resolved tickets**
+- **52 pull requests** from 20+ community contributors
+- **Zero npm security warnings** (down from 13, including 7 high-severity)
+- **`jsdoc-x` rewrite: 5.2s builds** (81% faster than the previous 28s)
+- **30+ testing files** migrated to enable agent self-verification
+
+For a core team that's primarily one person, this velocity should be impossible.
+
+**It's not.** And it's reproducible.
+
+This release proves that the right infrastructure—what we call **Context Engineering**—can make AI agents genuinely productive.
+Here's what we built, how it works, and how you can replicate this in your own projects.
 
 ## The Three Dimensions of Context
 
@@ -16,38 +39,24 @@ Our AI-native environment is designed to prevent this by building a **three-dime
 
 Here’s how the agent uses the MCP servers to tackle this:
 
-**Dimension 1: What Changed? (The Code's History)**  
-First, the agent uses standard `git` commands to pinpoint the exact commit that introduced the regression.  
+**Dimension 1: What Changed? (The Code's History)**
+First, the agent uses standard `git` commands to pinpoint the exact commit that introduced the regression.
 This gives us the literal *what* and *when* of the change.
 
-**Dimension 2: What Was the Plan? (The Formal Requirements)**  
-The commit message points to a ticket number.  
-Using the **GitHub Workflow Server**, the agent has a local, queryable copy of this ticket.  
+**Dimension 2: What Was the Plan? (The Formal Requirements)**
+The commit message points to a ticket number.
+Using the **GitHub Workflow Server**, the agent has a local, queryable copy of this ticket.
 It can read the formal plan, the acceptance criteria, and the original problem description — the *what was supposed to happen.*
 
 **Dimension 3: What Was the Intent? (The Unwritten Context)**  
 This is the most critical step. The ticket describes the plan, but the **Memory Core Server** holds the agent's memory of
-the conversation — the debates, the alternative approaches considered, and the specific constraints that shaped the final implementation.  
+the conversation — the debates, the alternative approaches considered, and the specific constraints that shaped the final implementation.
 By querying its own memory with `query_raw_memories`, the agent uncovers the crucial **why** behind the code that is now causing a regression.
 
-With this complete, three-dimensional context, the agent can devise a solution that addresses the new regression while still honoring the original problem.  
+With this complete, three-dimensional context, the agent can devise a solution that addresses the new regression while still honoring the original problem.
 It's no longer just fixing a bug; it's synthesizing old and new requirements to create a superior solution.
 
 **This is Context Engineering in action.**
-
----
-
-Just six weeks ago, we introduced the concept of an **[AI-Native, Not AI-Assisted](https://github.com/neomjs/neo/blob/dev/learn/blog/ai-native-platform-answers-questions.md)** development platform.
-We argued that for AI to be a true partner, it needs a development environment that is transparent, queryable, and designed
-for collaboration. We launched this vision with a local AI Knowledge Base and a formal AI Agent Protocol (`AGENTS.md`),
-powered by a suite of simple shell scripts.
-
-Today, with the release of **[Neo.mjs v11.0.0](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.0.0.md)**,
-we are taking a giant leap forward. This release represents **six weeks of intensive development** that resolved
-**388 tickets**—a velocity that demonstrates the power of true human-AI collaboration. With a core team that's primarily
-one person, this kind of output would have been impossible without the AI-native infrastructure we've built.
-
-This isn't just an upgrade; it's the next stage in a new paradigm we call **Context Engineering**.
 
 ## The Problem with Scripts: The Limits of "Good Enough"
 
@@ -375,10 +384,9 @@ inheritanceChain.forEach(parent => {
 });
 ```
 
-So if you search for "Button component" and find `button.Button`, you'll also get boosted results for:
+So if you search for "Button component" and find `button.Base`, you'll also get boosted results for:
 - `component.Base` (+80 points)
 - `core.Base` (+48 points)
-- Any other parent classes with diminishing relevance
 
 **Step 4: Type-Based Penalties and Bonuses**
 
@@ -763,12 +771,12 @@ This two-stage approach is powerful because:
 
 The quality metrics generated by the summarization process provide valuable insights:
 
-```javascript
+```json
 {
-    "quality": 85,        // Was the session focused and productive?
-    "productivity": 90,   // Were the goals achieved?
-    "impact": 75,         // How significant were the changes?
-    "complexity": 60,     // How difficult was the task?
+    "quality": 85,         // Was the session focused and productive?
+    "productivity": 90,    // Were the goals achieved?
+    "impact": 75,          // How significant were the changes?
+    "complexity": 60,      // How difficult was the task?
     "category": "feature", // What type of work was this?
     "technologies": ["neo.mjs", "chromadb", "nodejs"]
 }
@@ -807,6 +815,54 @@ This server provides:
 - **GraphQL API integration** for fast, reliable GitHub operations
 - **Automated PR lifecycle management** from creation to merge
 - **Local-first workflow** where agents work with files, not APIs
+
+```
+.github/ISSUES/
+├── issue-7711.md    # Full ticket: YAML frontmatter + markdown
+├── issue-7712.md
+└── ...
+
+.github/RELEASE_NOTES/
+├── v11.0.0.md
+├── v10.9.0.md
+└── ...
+```
+
+**Example: issue-7711.md structure:**
+```yaml
+---
+id: 7711
+title: Fix VDOM Lifecycle and Update Collision Logic
+state: CLOSED
+labels: [bug, ai]
+createdAt: '2025-11-06T13:46:59Z'
+closedAt: '2025-11-06T13:55:25Z'
+---
+# Fix VDOM Lifecycle and Update Collision Logic
+
+[Full markdown content...]
+```
+
+**Why this matters:**
+
+**For Agents:**
+```javascript
+// Semantic search over tickets (part of knowledge base)
+query_documents({ 
+  query: "VDOM lifecycle collision bugs",
+  type: "ticket"  
+})
+// Returns relevant issues instantly
+// No API rate limits, no network required
+```
+
+**For Maintainers:**
+- **Platform independence**: Migrate from GitHub without losing history
+- **Version control**: Ticket changes tracked in git history
+- **Offline access**: Full project context always available
+- **No vendor lock-in**: If Microsoft/Azure forces changes, workflow continues
+
+The bi-directional sync with GitHub is a *convenience*, not a dependency.
 
 We'll dive deep into this server in a future section, but the key insight is that by representing GitHub issues as local
 markdown files that are part of the knowledge base, we've made the entire project backlog *queryable* and *actionable* for AI agents.
@@ -1120,23 +1176,6 @@ completed the migration of our entire unit test suite from the browser-based Sie
 This is a game-changer. For the first time, AI agents can now run `npm test` to validate their own changes.
 This is a critical step toward a fully autonomous, quality-driven development loop and a prerequisite for future CI/CD integration.
 
-## The Numbers Tell the Story
-
-Let's put the velocity of this release into perspective:
-
-- **6 weeks of development**
-- **388 resolved tickets**
-- **3 new MCP servers** with full OpenAPI specifications
-- **30+ test suites** migrated to Playwright
-- **52 pull requests** from the community
-- **20+ contributors** during Hacktoberfest
-
-For a team that's primarily one person, these numbers are extraordinary. They demonstrate what becomes possible when you
-build development tools that genuinely augment human capability rather than just automating simple tasks.
-
-The AI didn't write all this code—but it made it possible to *coordinate* this level of complexity, to *maintain consistency*
-across hundreds of changes, and to *catch regressions* before they shipped.
-
 ## A Community-Powered Revolution
 
 This monumental release would not have been possible without the incredible energy and contributions from our community,
@@ -1150,23 +1189,44 @@ cb-nabeel, kart-u, nikeshadhikari9, srikanth-s2003.
 
 <img width="941" height="560" alt="Screenshot 2025-10-27 at 15 14 32" src="https://github.com/user-attachments/assets/4d7d75d7-b2ff-4811-89f3-c167e620783d" />
 
-## The Future is Self-Aware
+## What's Next
 
-The release of Neo.mjs v11 is not just about new features; it's about a new way of thinking about software development.
-It's about building a development environment that is not just "AI-assisted," but truly **AI-native**.
-It's about creating a system that is self-aware, self-documenting, and self-improving.
+### Standalone Server Releases?
 
-This is the essence of **Context Engineering**. It's the art and science of building systems that can understand their
-own context and use that understanding to improve themselves.
+The **Memory Core** and **GitHub Workflow** servers are framework-agnostic. They work with any JavaScript project, not just Neo.mjs.
 
-We are just at the beginning of this journey. The road ahead is long, but the destination is clear: a future where
-human and machine collaborate to build better, faster, and more maintainable software.
+**Question for the community:** Would standalone npm packages be useful for your projects?
 
-We invite you to join us. Fork the repository, explore the new MCP servers, and start a conversation with our
-AI-native platform. The future of frontend development is here, and it's more intelligent than you can imagine.
+If there's interest, we can release them as e.g.:
+- `npx neo.mjs/memory-core-server`
+- `npx neo.mjs/github-workflow-server`
+
+**Let us know inside the comments or inside the Discord or Slack Channels.**
+
+### Getting Started Today
+
+Ready to explore the AI-native workflow?
+
+- [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md) - General guidance
+- [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md) - First session checklist
+- [Codebase Overview](link) - What agents read at startup
+- [Agent Protocol (AGENTS.md)](link) - The behavioral rules
+- [Agent Startup (AGENTS_STARTUP.md)](link) - Session initialization
 
 ---
 
-*Want to dive deeper? Check out our [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md)
-guide and the [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md)
-to get started with the new MCP architecture.*
+## The Future of Context Engineering
+
+Neo.mjs v11 isn't just about new features—it's about a new way of thinking about software development.
+
+We're building a development environment that is truly **AI-native**: self-aware, self-documenting, and self-improving.
+
+This is **Context Engineering**—the art and science of building systems that understand their own context and use that
+understanding to improve themselves.
+
+We're at the beginning of this journey. The road ahead is long, but the destination is clear:
+a future where humans and machines collaborate to build better, faster, and more maintainable software.
+
+**Join us.** Fork the repository, explore the MCP servers, and start a conversation with our AI-native platform.
+
+The future of development is here, and it's more intelligent than you might imagine.
