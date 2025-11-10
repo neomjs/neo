@@ -807,20 +807,63 @@ interaction. It's the key to building a partner that truly understands the long-
 
 ## The GitHub Workflow Server: Closing the Loop
 
-While the Knowledge Base provides context and the Memory Core provides continuity, the **GitHub Workflow Server** closes
-the loop by giving the agent the ability to *act* on the development workflow itself.
+While the Knowledge Base provides context and the Memory Core provides continuity, the **GitHub Workflow Server** closes the loop by giving agents the ability to *participate directly* in the development workflow itself.
 
-This server provides:
-- **Bi-directional sync** of GitHub issues and PRs as local markdown files
-- **GraphQL API integration** for fast, reliable GitHub operations
-- **Automated PR lifecycle management** from creation to merge
-- **Local-first workflow** where agents work with files, not APIs
+This server is where context engineering meets project management. It transforms GitHub issues and pull requests from remote API endpoints into **local, queryable, version-controlled markdown files** that are part of the knowledge base. Agents can search, read, and modify them just like source code—no API rate limits, no network latency, and complete offline capability.
+
+### The Problem: The Human Review Bottleneck
+
+During the middle of our 6-week sprint to resolve 388 tickets, Hacktoberfest 2025 created an unexpected bottleneck: **me**.
+
+The event brought an incredible wave of community energy—over 52 pull requests from 20+ contributors in just a few weeks. Most contributors tried out the new AI-native workflows, which was fantastic for productivity but created a new challenge: **PRs with hundreds of lines of code** that all needed human review.
+
+**Before the GitHub Workflow Server**, the workflow was entirely manual:
+
+1. Contributor opens PR (often 100+ lines of AI-generated code)
+2. **I** manually read through the entire diff on GitHub
+3. **I** manually check related tickets for context
+4. **I** manually write review comments
+5. Contributor addresses feedback
+6. Repeat until **I** approve and merge
+
+With 52 PRs averaging hundreds of lines each, this became unsustainable. I was spending entire days just reviewing code.
+
+**After creating the GitHub Workflow Server**, the workflow transformed:
+
+1. Contributor opens PR
+2. **I** tell the agent: "Please review PR #7730"
+3. Agent uses MCP tools to:
+    - Get the PR conversation (`get_conversation`)
+    - Get the full diff (`get_pull_request_diff`)
+    - Read the related ticket (if mentioned in conversation, or I provide the ID)
+4. Agent analyzes everything and writes a review comment
+5. **Before posting**, agent shows me the comment content (OpenAPI tool description mandates this)
+6. I review the comment, maybe refine it with follow-up prompts
+7. Agent posts the comment to GitHub (`create_comment`)
+
+This dramatically reduced my workload. Instead of reading 100+ line diffs and writing detailed reviews myself, I could delegate the analysis to the agent and just review (and potentially refine) its findings before they were posted to GitHub.
+
+But we needed this to work *without* becoming dependent on GitHub's API rate limits or network availability. The solution needed to be **local-first**.
+
+### Local-First: Issues and PRs as Markdown Files
+
+The GitHub Workflow Server implements a **bi-directional synchronization system** that represents issues and pull requests as local markdown files with YAML frontmatter:
 
 ```
-.github/ISSUES/
-├── issue-7711.md    # Full ticket: YAML frontmatter + markdown
-├── issue-7712.md
+.github/ISSUE/
+├── issue-7711.md    # Active issues in main directory
+├── issue-7712.md    # Also: closed issues from AFTER the latest release
 └── ...
+
+.github/ISSUE_ARCHIVE/
+├── v11.0.0/
+│   ├── issue-6840.md    # Closed issues archived by release
+│   ├── issue-6901.md
+│   └── ...
+├── v10.9.0/
+│   └── ...
+└── unversioned/
+    └── ...              # Closed issues from BEFORE syncStartDate with no milestone
 
 .github/RELEASE_NOTES/
 ├── v11.0.0.md
@@ -828,22 +871,43 @@ This server provides:
 └── ...
 ```
 
-**Example: issue-7711.md structure:**
+**Example: `issue-7711.md` structure:**
+
 ```yaml
 ---
 id: 7711
 title: Fix VDOM Lifecycle and Update Collision Logic
 state: CLOSED
 labels: [bug, ai]
+assignees: [tobiu]
 createdAt: '2025-11-06T13:46:59Z'
+updatedAt: '2025-11-06T13:55:25Z'
 closedAt: '2025-11-06T13:55:25Z'
+githubUrl: https://github.com/neomjs/neo/issues/7711
+author: gemini-agent
+commentsCount: 3
+parentIssue: null
+subIssues: []
+milestone: 'v11.0.0'
 ---
 # Fix VDOM Lifecycle and Update Collision Logic
 
-[Full markdown content...]
+**Reported by:** @gemini-agent on 2025-11-06
+
+The current VDOM update logic has a race condition when...
+
+## Comments
+
+### @tobiu - 2025-11-06 14:23
+
+Good catch! I think we should also consider...
+
+### @gemini-agent - 2025-11-06 14:45
+
+Agreed. I've updated the fix to handle that case...
 ```
 
-**Why this matters:**
+This representation gives us several critical capabilities:
 
 **For Agents:**
 ```javascript
@@ -860,12 +924,577 @@ query_documents({
 - **Platform independence**: Migrate from GitHub without losing history
 - **Version control**: Ticket changes tracked in git history
 - **Offline access**: Full project context always available
-- **No vendor lock-in**: If Microsoft/Azure forces changes, workflow continues
+- **No vendor lock-in**: If GitHub changes, workflow continues
 
 The bi-directional sync with GitHub is a *convenience*, not a dependency.
 
-We'll dive deep into this server in a future section, but the key insight is that by representing GitHub issues as local
-markdown files that are part of the knowledge base, we've made the entire project backlog *queryable* and *actionable* for AI agents.
+### The Self-Organizing Archive System
+
+One of the most elegant features of the GitHub Workflow Server is its **automatic issue archiving system**. This solves a common problem in long-lived projects: how do you organize thousands of closed issues without manual categorization?
+
+The system uses a simple but powerful rule set, implemented in `IssueSyncer.#getIssuePath()`:
+
+**Rule 1: OPEN issues stay in the active directory**
+```javascript
+if (issue.state === 'OPEN') {
+    return path.join(issueSyncConfig.issuesDir, filename);
+}
+```
+
+**Rule 2: Dropped issues (wontfix, duplicate) are deleted**
+```javascript
+const isDropped = issueSyncConfig.droppedLabels.some(label => 
+    labels.includes(label)
+);
+if (isDropped) {
+    return null; // Not stored locally
+}
+```
+
+**Rule 3: CLOSED issues with milestones → archive under that version**
+```javascript
+if (issue.state === 'CLOSED' && issue.milestone?.title) {
+    return path.join(
+        issueSyncConfig.archiveDir, 
+        issue.milestone.title, 
+        filename
+    );
+}
+```
+
+**Rule 4: CLOSED issues without milestones → find the first release published AFTER the close date**
+```javascript
+const closed = new Date(issue.closedAt);
+const release = (ReleaseSyncer.sortedReleases || []).find(
+    r => new Date(r.publishedAt) > closed
+);
+
+if (release) {
+    return path.join(
+        issueSyncConfig.archiveDir, 
+        release.tagName, 
+        filename
+    );
+}
+```
+
+**Rule 5: Issues closed AFTER the latest release → stay in active directory**
+```javascript
+// If no subsequent release is found, the issue was closed after the latest release
+// and remains in the main directory until the next release is published
+return path.join(issueSyncConfig.issuesDir, filename);
+```
+
+This creates a **self-organizing archive** that mirrors your actual release history. The active `ISSUE` directory contains:
+- All OPEN issues
+- All issues closed AFTER the most recent release
+
+When you ship v11.0.0, all issues closed between v10.9.0 and v11.0.0 automatically move into the `v11.0.0` archive directory.
+No manual organization required.
+
+#### Handling the Edge Case: Reconciliation
+
+There's a subtle edge case this system addresses brilliantly:
+**What happens when you create a new release, but issues weren't updated?**
+
+Because the sync uses delta updates (`since: lastSync`), if an issue was closed weeks ago and hasn't been modified since,
+the pull operation won't fetch it. But now there's a *new* release, which means that issue *should* be archived under that release.
+
+The `reconcileClosedIssueLocations()` method handles this:
+
+```javascript
+async reconcileClosedIssueLocations(metadata) {
+    logger.info('📄 Reconciling closed issue locations...');
+    
+    const stats = { count: 0, issues: [] };
+    
+    for (const issueNumber in metadata.issues) {
+        const issueData = metadata.issues[issueNumber];
+        
+        // CRITICAL: Only process issues in the active directory
+        if (!issueData.path.startsWith(issueSyncConfig.issuesDir)) {
+            continue; // Already archived, skip it
+        }
+        
+        // Only process CLOSED issues
+        if (issueData.state !== 'CLOSED') {
+            continue;
+        }
+        
+        // Calculate where this closed issue SHOULD be
+        const correctPath = this.#getIssuePath({
+            number   : parseInt(issueNumber),
+            state    : issueData.state,
+            milestone: issueData.milestone ? { title: issueData.milestone } : null,
+            closedAt : issueData.closedAt,
+            updatedAt: issueData.updatedAt
+        });
+        
+        // Move if necessary
+        if (issueData.path !== correctPath && 
+            correctPath.includes(issueSyncConfig.archiveDir)) {
+            
+            await fs.mkdir(path.dirname(correctPath), { recursive: true });
+            await fs.rename(issueData.path, correctPath);
+            
+            metadata.issues[issueNumber].path = correctPath;
+            stats.count++;
+            
+            logger.info(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
+        }
+    }
+    
+    return stats;
+}
+```
+
+This reconciliation runs *before* the pull operation in the sync workflow, ensuring that when
+`ReleaseSyncer.fetchAndCacheReleases()` updates the release list, any closed issues in the active directory get moved to
+their proper archive locations.
+
+### The Sync Engine: A Three-Phase ETL Pipeline
+
+The synchronization process is orchestrated by `SyncService.runFullSync()`, which executes a carefully ordered sequence
+of operations:
+
+```javascript
+async runFullSync() {
+    const metadata = await MetadataManager.load();
+    
+    // 1. Fetch releases first (needed for issue archiving)
+    await ReleaseSyncer.fetchAndCacheReleases(metadata);
+    
+    // 2. Reconcile closed issue locations
+    const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+    
+    // 3. Push local changes to GitHub
+    const pushStats = await IssueSyncer.pushToGitHub(metadata);
+    
+    // 4. Pull remote changes from GitHub
+    const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
+    
+    // 5. Sync release notes
+    const releaseStats = await ReleaseSyncer.syncNotes(metadata);
+    
+    // 6. Self-heal push failures
+    if (newMetadata.pushFailures?.length > 0) {
+        newMetadata.pushFailures = newMetadata.pushFailures.filter(
+            failedId => !newMetadata.issues[failedId]
+        );
+    }
+    
+    // 7. Save metadata
+    await MetadataManager.save(newMetadata);
+    
+    return { success: true, statistics: finalStats, timing };
+}
+```
+
+This ordering is critical:
+
+1. **Releases first** - The archive system depends on knowing release dates
+2. **Reconcile** - Move stale closed issues before pulling new changes
+3. **Push then Pull** - Local changes go up before remote changes come down (prevents conflicts)
+4. **Release notes last** - These are read-only and can't conflict
+5. **Self-heal** - If a previously failed push was successfully pulled, remove it from the failure list
+
+#### Smart Content Hashing for Change Detection
+
+A key optimization in the push phase is **content hash comparison**. Without this, every sync would trigger unnecessary
+GitHub API calls for issues that haven't actually changed.
+
+Here's how it works in `IssueSyncer.pushToGitHub()`:
+
+```javascript
+// Calculate current content hash
+const currentHash = this.#calculateContentHash(content);
+const oldIssue    = metadata.issues[issueNumber];
+
+// Compare content hash - skip if unchanged
+if (oldIssue.contentHash && oldIssue.contentHash === currentHash) {
+    logger.debug(`No content change for #${issueNumber}, skipping`);
+    continue;
+}
+
+logger.info(`📝 Content changed for #${issueNumber}`);
+
+// Step 1: Get the issue's GraphQL ID
+const idData = await GraphqlService.query(GET_ISSUE_ID, {
+    owner : aiConfig.owner,
+    repo  : aiConfig.repo,
+    number: issueNumber
+});
+
+const issueId = idData.repository.issue.id;
+
+// Step 2: Prepare the updated content
+const bodyWithoutComments = parsed.content.split(commentSectionDelimiter)[0].trim();
+const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
+const title               = titleMatch ? titleMatch[1] : parsed.data.title;
+
+const cleanBody = bodyWithoutComments
+    .replace(/^#\s+.+$/m, '')
+    .replace(/^\*\*Reported by:\*\*.+$/m, '')
+    .replace(/^---\n\n[\s\S]*?^---\n\n/m, '') // Remove relationship section
+    .trim();
+
+// Step 3: Execute the mutation
+await GraphqlService.query(UPDATE_ISSUE, {
+    issueId,
+    title,
+    body: cleanBody
+});
+```
+
+The same hashing approach is used in `ReleaseSyncer.syncNotes()` to avoid rewriting release note files that haven't
+changed on GitHub.
+
+#### The GraphQL Optimization: One Query for Everything
+
+Traditional REST APIs suffer from the **N+1 query problem**: fetch issues, then make N additional requests to get
+comments for each issue. With 388 issues, that's 389 API calls.
+
+The GitHub Workflow Server solves this with a single, optimized GraphQL query in `FETCH_ISSUES_FOR_SYNC`:
+
+```javascript
+export const FETCH_ISSUES_FOR_SYNC = `
+  query FetchIssuesForSync(
+    $owner: String!
+    $repo: String!
+    $limit: Int!
+    $cursor: String
+    $states: [IssueState!]
+    $since: DateTime
+    $maxLabels: Int!
+    $maxAssignees: Int!
+    $maxComments: Int!
+    $maxSubIssues: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      issues(
+        first: $limit
+        after: $cursor
+        states: $states
+        orderBy: {field: UPDATED_AT, direction: DESC}
+        filterBy: {since: $since}
+      ) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          number
+          title
+          body
+          state
+          createdAt
+          updatedAt
+          closedAt
+          url
+          
+          author {
+            login
+          }
+          
+          labels(first: $maxLabels) {
+            nodes {
+              name
+            }
+          }
+          
+          assignees(first: $maxAssignees) {
+            nodes {
+              login
+            }
+          }
+          
+          milestone {
+            title
+          }
+          
+          comments(first: $maxComments) {
+            nodes {
+              author {
+                login
+              }
+              body
+              createdAt
+            }
+          }
+          
+          # Parent/child relationships
+          parent {
+            number
+            title
+          }
+          
+          subIssues(first: $maxSubIssues) {
+            nodes {
+              number
+              title
+              state
+            }
+          }
+          
+          subIssuesSummary {
+            total
+            completed
+            percentCompleted
+          }
+        }
+      }
+    }
+    
+    # Monitor rate limit usage
+    rateLimit {
+      cost
+      remaining
+      resetAt
+    }
+  }
+`;
+```
+
+This single query returns:
+- Issue metadata
+- All labels
+- All assignees
+- **All comments** (the critical piece)
+- Sub-issues and progress tracking
+- Parent issue relationships
+- Rate limit status
+
+The `IssueSyncer.pullFromGitHub()` method processes all of this in one pass:
+
+```javascript
+// Process each issue
+for (const issue of allIssues) {
+    const issueNumber = issue.number;
+    const targetPath  = this.#getIssuePath(issue);
+    
+    // Comments are already in issue.comments - no separate fetch needed!
+    const markdown = this.#formatIssueMarkdown(issue, issue.comments.nodes);
+    const contentHash = this.#calculateContentHash(markdown);
+    
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, markdown, 'utf-8');
+    
+    newMetadata.issues[issueNumber] = {
+        state    : issue.state,
+        path     : targetPath,
+        updatedAt: issue.updatedAt,
+        closedAt : issue.closedAt || null,
+        milestone: issue.milestone?.title || null,
+        title    : issue.title,
+        contentHash // Store for next sync
+    };
+}
+```
+
+For 388 issues, this is **one paginated query** (with 4-5 pages) instead of 389 separate requests. The cost? About 150 GraphQL points vs. 388+ REST API calls.
+
+### Autonomous PR Review: Removing the Human Bottleneck
+
+With issues now queryable and modifiable locally, the final piece was enabling agents to participate in the pull request workflow. The `PullRequestService` provides the tools agents need:
+
+#### 1. Discovery: Finding PRs That Need Review
+
+```javascript
+async listPullRequests(options = {}) {
+    const {limit = 30, state = 'open'} = options;
+    
+    const variables = {
+        owner : aiConfig.owner,
+        repo  : aiConfig.repo,
+        limit,
+        states: state.toUpperCase()
+    };
+    
+    const data = await GraphqlService.query(FETCH_PULL_REQUESTS, variables);
+    return {
+        count: data.repository.pullRequests.nodes.length,
+        pullRequests: data.repository.pullRequests.nodes
+    };
+}
+```
+
+An agent can now run `list_pull_requests({state: 'open'})` and see all open PRs with their titles, authors, and status.
+
+#### 2. Analysis: Getting the Full Context
+
+```javascript
+async getPullRequestDiff(prNumber) {
+    const {stdout} = await execAsync(`gh pr diff ${prNumber}`);
+    return { result: stdout };
+}
+
+async getConversation(prNumber) {
+    const variables = {
+        owner      : aiConfig.owner,
+        repo       : aiConfig.repo,
+        prNumber,
+        maxComments: 100
+    };
+    
+    const data = await GraphqlService.query(GET_CONVERSATION, variables);
+    return data.repository.pullRequest;
+}
+```
+
+With these two tools, an agent can:
+1. **Get the diff** - See exactly what code changed
+2. **Get the conversation** - Read the PR description, all comments, and review history
+
+This gives the agent **complete context** for making informed review decisions.
+
+#### 3. Participation: Leaving Structured Feedback
+
+```javascript
+async createComment(prNumber, body, agent) {
+    const header       = `**Input from ${agent}:**\n\n`;
+    const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
+    const headingMatch = body.match(/^(#+\s*)(.*)$/);
+    let processedBody;
+    
+    if (headingMatch) {
+        const headingMarkers = headingMatch[1];
+        const headingContent = headingMatch[2];
+        processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
+    } else {
+        processedBody = `${agentIcon} ${body}`;
+    }
+    
+    const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
+    
+    const idData    = await GraphqlService.query(GET_PULL_REQUEST_ID, {owner, repo, prNumber});
+    const subjectId = idData.repository.pullRequest.id;
+    
+    await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
+    return { message: `Successfully created comment on PR #${prNumber}` };
+}
+```
+
+This method does something clever: it **attributes the comment to the agent** with:
+- A clear header: `**Input from Gemini 2.5 Pro:**`
+- An agent-specific icon: ✦ (Gemini), ◊ (Claude), ◯ (GPT)
+- Blockquote formatting for the entire comment
+
+The result looks like this on GitHub:
+
+> **Input from Gemini 2.5 Pro:**
+>
+> ### ✦ Code Review Findings
+>
+> I've analyzed the changes in this PR and found the following:
+>
+> 1. **Line 47**: The null check should be moved before the dereference
+> 2. **Line 89**: Consider using the existing `validateInput()` helper
+> 3. **Tests**: The edge case for empty arrays is not covered
+
+This clear attribution ensures:
+- **Transparency** - Everyone knows this is AI input, not a human reviewer
+- **Accountability** - The specific agent (and its version) is recorded
+- **Context** - Future agents can query their own review history via the Memory Core
+
+### 4. Local Testing: Checking Out PRs
+
+```javascript
+async checkoutPullRequest(prNumber) {
+    const {stdout} = await execAsync(`gh pr checkout ${prNumber}`);
+    return {
+        message: `Successfully checked out PR #${prNumber}`, 
+        details: stdout.trim()
+    };
+}
+```
+
+For deeper analysis, an agent can **check out the PR branch locally**, run the test suite, and verify the changes work as expected before leaving a review.
+
+### The Complete Review Workflow
+
+With these tools, the autonomous PR review workflow becomes:
+
+```
+1. Agent: list_pull_requests({state: 'open'})
+   → Discovers PR #1234 needs review
+
+2. Agent: get_conversation(1234)
+   → Reads PR description and existing comments
+
+3. Agent: get_pull_request_diff(1234)
+   → Analyzes the code changes
+
+4. Agent: checkout_pull_request(1234)
+   → Checks out the branch locally
+
+5. Agent: Run npm test
+   → Verifies tests pass
+
+6. Agent: create_comment(1234, reviewText, 'Gemini 2.5 Pro')
+   → Leaves structured review feedback
+
+7. Agent: add_memory({
+     prompt: "Review PR #1234",
+     thought: "Analyzed the changes, found 2 issues...",
+     response: "Left review comment on PR #1234"
+   })
+   → Records the review in Memory Core for future reference
+```
+
+This workflow removed **me** as the bottleneck. For the 52 Hacktoberfest PRs, agents could:
+- Identify common issues (missing tests, style violations)
+- Request changes or suggest improvements
+- Approve simple PRs (documentation, typo fixes)
+- Escalate complex PRs that needed deeper architectural review
+
+I went from **reviewing every PR** to **reviewing only the escalated ones**. The agents handled the routine review work,
+and I focused on the decisions that truly needed human judgment.
+
+## Platform Independence and the Future
+
+The GitHub Workflow Server's local-first architecture isn't just about performance—it's about **platform independence**.
+
+Every issue and every release note is stored as a markdown file in your repository.
+If GitHub is acquired by a company whose AI policies conflict with your project's goals
+(it actually got bought by MicroSoft), or if API pricing changes make it untenable, you simply:
+
+1. **Keep working** - The local files are your source of truth
+2. **Switch platforms** - Port the sync logic to GitLab, Gitea, or any other platform
+3. **No data loss** - Your entire issue history is in git
+
+This is the same philosophy that drives the Knowledge Base server: **make the AI's workspace platform-agnostic and version-controlled**.
+
+The sync with GitHub is a convenience, not a dependency. If GitHub disappeared tomorrow, your agents would still have:
+- Full issue history
+- Complete PR conversations
+- Semantic search over all tickets
+- The ability to create and modify issues locally
+
+You'd just need to build a different sync adapter when you were ready to push to a new platform.
+
+## What We've Built
+
+The GitHub Workflow Server demonstrates that **context engineering extends beyond code**. Issues, PRs, and project
+management artifacts are *part of the context* an AI needs to be truly productive.
+
+By representing them as local markdown files that are:
+- **Queryable** via semantic search
+- **Modifiable** via standard file operations
+- **Synchronized** bi-directionally with GitHub
+- **Version controlled** in git
+- **Platform independent** by design
+
+We've created a system where agents can:
+- Find relevant historical issues when solving bugs
+- Review PRs autonomously with full context
+- Participate in project discussions
+- Learn from their own review history across sessions
+
+This is what it means to build an **AI-native, not AI-assisted** platform. The AI isn't just a tool you use—it's a
+**first-class participant in your development workflow**.
+
+And the results speak for themselves: 388 tickets, 52 PRs, zero manual archive organization, and a development velocity
+that should be impossible for a one-person core team.
 
 ## The Neo.mjs Backbone: Powering Our Servers
 
