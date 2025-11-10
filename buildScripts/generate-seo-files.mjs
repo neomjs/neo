@@ -4,8 +4,8 @@ import {fileURLToPath} from 'url';
 
 const ROOT_DIR        = process.cwd();
 const LEARN_DIR       = path.resolve(ROOT_DIR, 'learn');
+const PORTAL_DIR      = path.resolve(ROOT_DIR, 'apps/portal');
 const TREE_FILE_PATH  = path.join(LEARN_DIR, 'tree.json');
-const BLOG_DIR_PATH   = path.join(LEARN_DIR, 'blog');
 const DEFAULT_BASE_PATH = '/learn';
 const SUPPORTED_DOC_EXTENSIONS = ['.md', '.mdx', '.json'];
 
@@ -65,39 +65,7 @@ async function collectRoutesFromTree() {
     return routeIds;
 }
 
-/**
- * Scans the blog directory for markdown files that may not be listed in tree.json.
- * @returns {Promise<Set<String>>}
- */
-async function collectRoutesFromBlog() {
-    const routeIds = new Set();
 
-    if (!(await fs.pathExists(BLOG_DIR_PATH))) {
-        return routeIds;
-    }
-
-    const entries = await fs.readdir(BLOG_DIR_PATH);
-
-    for (const entry of entries) {
-        const entryPath = path.join(BLOG_DIR_PATH, entry);
-        const stat = await fs.stat(entryPath);
-
-        if (!stat.isFile()) {
-            continue;
-        }
-
-        const extension = path.extname(entry).toLowerCase();
-
-        if (!SUPPORTED_DOC_EXTENSIONS.includes(extension)) {
-            continue;
-        }
-
-        const slug = entry.slice(0, -extension.length);
-        routeIds.add(`blog/${slug}`);
-    }
-
-    return routeIds;
-}
 
 /**
  * Normalizes a content id into a route path using the provided base path.
@@ -122,9 +90,6 @@ function buildRouteFromId(id, basePath = DEFAULT_BASE_PATH) {
 export async function getContentRoutes(options = {}) {
     const basePath = options.basePath ?? DEFAULT_BASE_PATH;
     const treeRoutes = await collectRoutesFromTree();
-    const blogRoutes = await collectRoutesFromBlog();
-
-    blogRoutes.forEach(id => treeRoutes.add(id));
 
     const routes = Array.from(treeRoutes)
         .map(id => buildRouteFromId(id, basePath))
@@ -210,6 +175,10 @@ async function runCli() {
         case '--base-path':
             options.basePath = args[++i];
             break;
+        case '--output':
+        case '-o':
+            options.output = args[++i];
+            break;
         default:
             console.warn(`Unknown argument "${arg}" ignored.`);
             break;
@@ -217,11 +186,12 @@ async function runCli() {
     }
 
     const format = (options.format || 'array').toLowerCase();
+    let outputContent;
 
     switch (format) {
     case 'array': {
         const routes = await getContentRoutes({basePath: options.basePath});
-        console.log(JSON.stringify(routes, null, 2));
+        outputContent = JSON.stringify(routes, null, 2);
         break;
     }
     case 'urls': {
@@ -229,28 +199,35 @@ async function runCli() {
             baseUrl : options.baseUrl,
             basePath: options.basePath
         });
-        console.log(JSON.stringify(urls, null, 2));
+        outputContent = JSON.stringify(urls, null, 2);
         break;
     }
     case 'xml': {
-        const xml = await getSitemapXml({
+        outputContent = await getSitemapXml({
             baseUrl : options.baseUrl,
             basePath: options.basePath
         });
-        console.log(xml);
         break;
     }
     case 'llm':
     case 'llm.txt': {
-        const txt = await getLlmTxt({
+        outputContent = await getLlmTxt({
             baseUrl : options.baseUrl,
             basePath: options.basePath
         });
-        console.log(txt);
         break;
     }
     default:
         throw new Error(`Unsupported format "${options.format}". Supported formats: array, urls, xml, llm.`);
+    }
+
+    if (options.output) {
+        const outputPath = path.resolve(ROOT_DIR, options.output);
+        await fs.ensureDir(path.dirname(outputPath));
+        await fs.writeFile(outputPath, outputContent);
+        console.log(`Successfully wrote output to ${options.output}`);
+    } else {
+        console.log(outputContent);
     }
 }
 
