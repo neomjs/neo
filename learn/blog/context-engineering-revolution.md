@@ -1822,7 +1822,7 @@ cb-nabeel, kart-u, nikeshadhikari9, srikanth-s2003.
 
 ### Standalone Server Releases?
 
-The **Memory Core** and **GitHub Workflow** servers are framework-agnostic. They work with any JavaScript project, not just Neo.mjs.
+The **Memory Core** and **GitHub Workflow** servers are framework-agnostic. They work with any software project, not just Neo.mjs.
 
 **Question for the community:** Would standalone npm packages be useful for your projects?
 
