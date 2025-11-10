@@ -2,8 +2,6 @@
 
 *From fragile shell scripts to an AI-native, multi-MCP-server JavaScript architecture powered by the official MCP SDK.*
 
-<img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.jpg" alt="Cover Image" class="blog-image">
-
 ---
 
 ## The Numbers That Shouldn't Be Possible
@@ -21,6 +19,8 @@ we are taking a giant leap forward.
 - **Zero npm security warnings** (down from 19, including 13 high-severity, by removing the legacy `siesta` and `jsdoc-x` dependencies)
 - **`jsdoc-x` rewrite: 5.2s builds** (81% faster than the previous 28s)
 - **30+ testing files** migrated to enable agent self-verification
+
+<img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.png" alt="Cover Image" class="blog-image">
 
 > **A Case Study in Speed: The `jsdoc-x` Rewrite**
 >
