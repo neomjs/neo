@@ -1,7 +1,6 @@
 # 388 Tickets in 6 Weeks: Context Engineering Done Right
 
-*From shell scripts to a multi-MCP-server JavaScript architecture, this article covers the journey with concepts,
-code deep-dives, and examples.*
+*From fragile shell scripts to an AI-native, multi-MCP-server JavaScript architecture powered by the official MCP SDK.*
 
 <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.jpg" alt="Cover Image" class="blog-image">
 
@@ -19,15 +18,32 @@ we are taking a giant leap forward.
 
 - **388 resolved tickets**
 - **52 pull requests** from 20+ community contributors
-- **Zero npm security warnings** (down from 13, including 7 high-severity)
+- **Zero npm security warnings** (down from 19, including 13 high-severity, by removing the legacy `siesta` and `jsdoc-x` dependencies)
 - **`jsdoc-x` rewrite: 5.2s builds** (81% faster than the previous 28s)
 - **30+ testing files** migrated to enable agent self-verification
 
+> **A Case Study in Speed: The `jsdoc-x` Rewrite**
+>
+> The 81% reduction in documentation build time wasn't just a minor tweak. It was a complete rewrite of our `jsdoc-x`
+> pipeline, executed in a fraction of the time it would have taken a human developer alone. This project was a masterclass
+> in human-AI collaboration, with Gemini 2.5 Pro and Claude Sonnet 4.5 acting as pair programmers.
+>
+> Under human direction, the agents analyzed the old system and proposed a new architecture. A key insight from the human
+> developer was to leverage a multi-worker design, a core tenet of the Neo.mjs framework itself
+> (**[Off the Main Thread](https://github.com/neomjs/neo/blob/dev/learn/benefits/OffTheMainThread.md)**).
+> By parallelizing the heavy lifting of parsing and transforming JSDoc comments across multiple CPU cores, the agents were
+> able to implement a solution that dramatically slashed build times.
+>
+> The result is a testament to how a human-AI partnership can tackle and optimize critical infrastructure, with the human
+> providing architectural vision and the agents handling the complex implementation. You can explore the full source code
+> of this collaboration **[here](https://github.com/neomjs/neo/tree/dev/buildScripts/docs/jsdoc-x)**.
+
 For a core team that's primarily one person, this velocity should be impossible.
 
-**It's not.** And it's reproducible.
+**It's not.** And it's reproducible. This entire AI tooling infrastructure was co-created in just a few weeks by a human developer working with AI agents—primarily Gemini 2.5 Pro and Claude Sonnet 4.5.
 
-This release proves that the right infrastructure—what we call **Context Engineering**—can make AI agents genuinely productive.
+This release is a case study in **Context Engineering**, an emerging discipline focused on building systems that give AI agents the precise context they need to perform complex tasks. While many companies are exploring this hot-button topic, our approach goes beyond theory. We've built a robust, multi-MCP-server architecture that makes Context Engineering a practical reality for any developer. This is what makes our agents genuinely productive.
+
 Here's what we built, how it works, and how you can replicate this in your own projects.
 
 ## The Three Dimensions of Context
@@ -128,8 +144,11 @@ By adopting the official MCP SDK for all three of our servers, we gain several k
 
 ## The Knowledge Base Server: OpenAPI-Driven Self-Documentation
 
-The Knowledge Base server is where we've pushed the boundaries of what's possible with MCP. Rather than hardcoding tool
-definitions in JavaScript, we've built a system that's **entirely driven by OpenAPI 3 specifications**.
+The Knowledge Base server provides the AI with a deep, semantic understanding of the project's code, and it solves a critical, often-overlooked problem: **software versioning**. An agent can switch to a different version of the repository (e.g., `git checkout v10.9.0`), instruct the server to clear and rebuild its database, and within minutes have a knowledge base that is perfectly scoped to that specific snapshot in time. This gives the agent the exact context for the code, tickets, and guides relevant to that version—a challenge that remains unsolved in most development environments.
+
+Powered by **ChromaDB**, the server allows agents to use semantic search to query this version-specific context. An agent can ask, "How does VDOM diffing work?" and instantly get the right source files, architectural guides, and historical tickets for the currently loaded version, without any contamination from others.
+
+To build this, we pushed the boundaries of MCP by creating a system that's **entirely driven by OpenAPI 3 specifications**.
 
 ### The OpenAPI Innovation
 
@@ -1498,9 +1517,8 @@ that should be impossible for a one-person core team.
 
 ## The Neo.mjs Backbone: Powering Our Servers
 
-Like all three MCP servers, the Memory Core is built using the **official MCP SDK** for protocol compliance,
-but its internal architecture is pure **Neo.mjs**. Every service—`MemoryService`, `SessionService`, `SummaryService`,
-`HealthService`—is a Neo.mjs singleton that extends `Neo.core.Base`.
+All three MCP servers are built using the **official MCP SDK** for protocol compliance,
+but their internal architecture is pure **Neo.mjs**. This isn't just a case of "dogfooding"—using our own framework for the backend provided critical advantages in building a robust, asynchronous, and maintainable server architecture. For example, every service inside the servers—like `QueryService` in the Knowledge Base or `SessionService` in the Memory Core—is a Neo.mjs singleton that extends `Neo.core.Base`.
 
 This demonstrates a key design principle: **Neo.mjs isn't just for browsers**. The same class system that powers complex
 frontend applications also provides robust infrastructure for backend services.
@@ -1811,7 +1829,13 @@ This monumental release would not have been possible without the incredible ener
 especially during **Hacktoberfest 2025**. We received over 52 pull requests from more than 20 contributors,
 a new record for the project.
 
-Our heartfelt thanks go out to:
+The event was also a crucial turning point. For years, the Neo.mjs project has had a "bus factor" of one: what happens if its creator, Tobi, stops working on it? Before the new AI-native tooling, the steep learning curve meant that very few external developers could make significant contributions.
+
+Hacktoberfest 2025 shattered that limitation. For the first time, we saw a wave of meaningful contributions from developers who were new to the framework. By pairing up with AI agents using the new MCP servers, contributors could quickly get up to speed, understand complex parts of the codebase, and submit high-quality pull requests.
+
+This was the breakthrough. It proved that context engineering isn't just a theoretical concept—it's a practical solution to the "bus factor" problem. Developers no longer need to spend months learning the framework's intricacies on their own. With an AI partner that has deep contextual knowledge, they can start making an impact in days or even hours.
+
+Our heartfelt thanks go out to everyone who participated, not just for their code, but for helping us prove this vision:
 Aki-07, Ayush Kumar, Chisaneme Aloni, Emmanuel Ferdman, Ewelina Bierć, KURO-1125, LemonDrop847, Mahita07, MannXo,
 Mariam Saeed, Nallana Hari Krishna, Nitin Mishra, PrakhyaDas, Ritik Mehta, Sanjeev Kumar, Sarthak Jain, ad1tyayadav,
 cb-nabeel, kart-u, nikeshadhikari9, srikanth-s2003.
@@ -1819,6 +1843,15 @@ cb-nabeel, kart-u, nikeshadhikari9, srikanth-s2003.
 <img width="941" height="560" alt="Screenshot 2025-10-27 at 15 14 32" src="https://github.com/user-attachments/assets/4d7d75d7-b2ff-4811-89f3-c167e620783d" />
 
 ## What's Next
+
+The infrastructure we've built is a powerful foundation, but it's just the beginning.
+
+### Future Enhancements
+
+If there is community interest, we are considering several major enhancements:
+
+- **Pull Request Synchronization:** While the GitHub Workflow server can already review PRs, the next logical step is to sync their conversations and diffs to local markdown files, just like issues. This would make PR history fully queryable and part of the permanent, offline knowledge base.
+- **AI-Native Workspaces:** The ultimate goal is to bring this level of AI support to every Neo.mjs developer. We plan to integrate the MCP server setup directly into the `npx neo-app` command, allowing any generated workspace to become an AI-native environment out of the box.
 
 ### Standalone Server Releases?
 
@@ -1839,6 +1872,7 @@ Ready to explore the AI-native workflow?
 - [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md) - General guidance
 - [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md) - First session checklist
 - [Codebase Overview](https://github.com/neomjs/neo/blob/dev/learn/guides/fundamentals/CodebaseOverview.md) - What agents read at startup
+- [MCP Server Source Code](https://github.com/neomjs/neo/tree/dev/ai/mcp/server) - The full source code for all three MCP servers.
 - [Agent Protocol (AGENTS.md)](https://github.com/neomjs/neo/blob/dev/AGENTS.md) - The behavioral rules (inside the context window of each session)
 - [Agent Startup (AGENTS_STARTUP.md)](https://github.com/neomjs/neo/blob/dev/AGENTS_STARTUP.md) - Session initialization
 
