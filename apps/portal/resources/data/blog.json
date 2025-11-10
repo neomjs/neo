@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Nov 10, 2025",
+    "id"          : 72,
+    "image"       : "ContextEngineering.png",
+    "name"        : "Context Engineering Done Right",
+    "provider"    : "Medium",
+    "publisher"   : "",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/ai-native-not-ai-assisted-a-platform-that-answers-your-questions-0c08f5a336ae?source=friends_link&sk=45cc238e4f342672d3eb3244136b7770"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Sep 23, 2025",
     "id"          : 71,
     "image"       : "PlatformAnswersQuestions.jpg",
