@@ -1,7 +1,7 @@
 # 388 Tickets in 6 Weeks: Context Engineering Done Right
 
-*From shell scripts to a multi-server architecture, Neo.mjs v11 marks a pivotal moment in our journey toward a truly
-AI-native development experience.*
+*From shell scripts to a multi-MCP-server JavaScript architecture, this article covers the journey with concepts,
+code deep-dives, and examples.*
 
 <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.jpg" alt="Cover Image" class="blog-image">
 
@@ -1209,9 +1209,9 @@ Ready to explore the AI-native workflow?
 
 - [Working with Agents](https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md) - General guidance
 - [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md) - First session checklist
-- [Codebase Overview](link) - What agents read at startup
-- [Agent Protocol (AGENTS.md)](link) - The behavioral rules
-- [Agent Startup (AGENTS_STARTUP.md)](link) - Session initialization
+- [Codebase Overview](https://github.com/neomjs/neo/blob/dev/learn/guides/fundamentals/CodebaseOverview.md) - What agents read at startup
+- [Agent Protocol (AGENTS.md)](https://github.com/neomjs/neo/blob/dev/AGENTS.md) - The behavioral rules (inside the context window of each session)
+- [Agent Startup (AGENTS_STARTUP.md)](https://github.com/neomjs/neo/blob/dev/AGENTS_STARTUP.md) - Session initialization
 
 ---
 
