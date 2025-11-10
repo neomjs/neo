@@ -1,7 +1,7 @@
 ---
 id: 7733
 title: 'Blog Post: The Context Engineering Revolution with v11'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - Blog Post
@@ -9,14 +9,15 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-09T15:54:44Z'
-updatedAt: '2025-11-09T15:57:41Z'
+updatedAt: '2025-11-10T09:56:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7733'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-10T09:56:06Z'
 ---
 # Blog Post: The Context Engineering Revolution with v11
 
@@ -39,4 +40,10 @@ This blog post will announce the v11.0.0 release, focusing on the theme of "Cont
 6.  **Future Vision:** Reiterate the project's commitment to the AI-native roadmap and the "Context Engineering" vision.
 7.  **Title:** "The Context Engineering Revolution: How We Built a Self-Aware Development Environment" (or similar).
 
+
+## Comments
+
+### @tobiu - 2025-11-10 09:56
+
+https://tobiasuhlig.medium.com/388-tickets-in-6-weeks-context-engineering-done-right-f8da8577b8c2?source=friends_link&sk=c9a9cac53d5f52a970a79a9493639eef
 

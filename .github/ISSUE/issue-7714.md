@@ -1,12 +1,12 @@
 ---
 id: 7714
 title: 'ci(testing): gate GitHub-integration tests and add diagnostics polish'
-state: OPEN
+state: CLOSED
 labels: []
 assignees:
   - MannXo
 createdAt: '2025-11-07T08:30:24Z'
-updatedAt: '2025-11-07T08:49:15Z'
+updatedAt: '2025-11-10T20:17:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7714'
 author: MannXo
 commentsCount: 0
@@ -14,6 +14,7 @@ parentIssue: 7687
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-10T20:17:37Z'
 ---
 # ci(testing): gate GitHub-integration tests and add diagnostics polish
 
