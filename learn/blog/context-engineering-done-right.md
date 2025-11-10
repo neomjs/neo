@@ -40,9 +40,13 @@ we are taking a giant leap forward.
 
 For a core team that's primarily one person, this velocity should be impossible.
 
-**It's not.** And it's reproducible. This entire AI tooling infrastructure was co-created in just a few weeks by a human developer working with AI agents—primarily Gemini 2.5 Pro and Claude Sonnet 4.5.
+**It's not.** And it's reproducible. This entire AI tooling infrastructure was co-created in just a few weeks by a human
+developer working with AI agents—primarily Gemini 2.5 Pro and Claude Sonnet 4.5.
 
-This release is a case study in **Context Engineering**, an emerging discipline focused on building systems that give AI agents the precise context they need to perform complex tasks. While many companies are exploring this hot-button topic, our approach goes beyond theory. We've built a robust, multi-MCP-server architecture that makes Context Engineering a practical reality for any developer. This is what makes our agents genuinely productive.
+This release is a case study in **Context Engineering**, an emerging discipline focused on building systems that give AI
+agents the precise context they need to perform complex tasks. While many companies are exploring this hot-button topic,
+our approach goes beyond theory. We've built a robust, multi-MCP-server architecture that makes Context Engineering a
+practical reality for any developer. This is what makes our agents genuinely productive.
 
 Here's what we built, how it works, and how you can replicate this in your own projects.
 

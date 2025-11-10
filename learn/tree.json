@@ -88,7 +88,7 @@
         {"name": "Super",                                              "parentId": "JavaScript",                                          "id": "javascript/Super"},
     {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"},
     {"name": "Blog",                                                   "parentId": null,                                 "isLeaf": false, "id": "Blog", "hidden": true},
-        {"name": "The Context Engineering Revolution",                 "parentId": "Blog",                                                "id": "blog/context-engineering-revolution"},
+        {"name": "Context Engineering Done Right",                     "parentId": "Blog",                                                "id": "blog/context-engineering-done-right"},
         {"name": "A Platform That Answers Your Questions",             "parentId": "Blog",                                                "id": "blog/ai-native-platform-answers-questions"},
         {"name": "v10 Deep Dive: State Provider",                      "parentId": "Blog",                                                "id": "blog/v10-deep-dive-state-provider"},
         {"name": "Benchmarking Frontends 2025",                        "parentId": "Blog",                                                "id": "blog/benchmarking-frontends-2025"},
