@@ -77,19 +77,6 @@ class IssueSyncer extends Base {
         let body = `# ${issue.title}\n\n`;
         body += `**Reported by:** @${issue.author.login} on ${issue.createdAt.split('T')[0]}\n\n`;
 
-        // Add relationship section with clear delimiter
-        if (issue.parent || issue.subIssues?.nodes.length > 0) {
-            body += '---\n\n';
-            if (issue.parent) {
-                body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
-            }
-            if (issue.subIssues?.nodes.length > 0) {
-                body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
-                body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
-            }
-            body += '---\n\n';
-        }
-
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
 
@@ -101,6 +88,18 @@ class IssueSyncer extends Base {
                 body += `### @${comment.author.login} - ${date} ${time}\n\n`;
                 body += comment.body;
                 body += '\n\n';
+            }
+        }
+
+        // Add relationship section at the end with clear delimiter
+        if (issue.parent || issue.subIssues?.nodes.length > 0) {
+            body += '## Relationships\n\n';
+            if (issue.parent) {
+                body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
+            }
+            if (issue.subIssues?.nodes.length > 0) {
+                body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
+                body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
             }
         }
 
@@ -352,14 +351,18 @@ class IssueSyncer extends Base {
                 const issueId = idData.repository.issue.id;
 
                 // Step 2: Prepare the updated content
-                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
-                const titleMatch          = bodyWithoutComments.match(/^#\s+(.+)$/m);
-                const title               = titleMatch ? titleMatch[1] : parsed.data.title;
+                // Remove comments section and everything after it (including relationships)
+                const bodyWithoutCommentsAndRelationships = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
+                
+                // Remove the "## Relationships" section if it exists (it comes after comments)
+                const bodyWithoutRelationships = bodyWithoutCommentsAndRelationships.replace(/## Relationships[\s\S]*$/m, '').trim();
+                
+                const titleMatch = bodyWithoutRelationships.match(/^#\s+(.+)$/m);
+                const title      = titleMatch ? titleMatch[1] : parsed.data.title;
 
-                const cleanBody = bodyWithoutComments
+                const cleanBody = bodyWithoutRelationships
                     .replace(/^#\s+.+$/m, '')
                     .replace(/^\*\*Reported by:\*\*.+$/m, '')
-                    .replace(/^---\n\n[\s\S]*?^---\n\n/m, '') // Remove relationship section
                     .trim();
 
                 // Step 3: Execute the mutation

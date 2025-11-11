@@ -95,3 +95,85 @@ export const REMOVE_LABELS = `
         }
     }
 `;
+
+/**
+ * Mutation to add a sub-issue to a parent issue.
+ *
+ * Variables required:
+ * - $issueId: ID! - The global GraphQL ID of the parent issue
+ * - $subIssueId: ID - The global GraphQL ID of the sub-issue (use this OR subIssueUrl)
+ * - $subIssueUrl: String - The URL of the sub-issue (use this OR subIssueId)
+ * - $replaceParent: Boolean - If true, replaces the sub-issue's existing parent (default: false)
+ */
+export const ADD_SUB_ISSUE = `
+    mutation AddSubIssue(
+        $issueId: ID!
+        $subIssueId: ID
+        $subIssueUrl: String
+        $replaceParent: Boolean
+    ) {
+        addSubIssue(input: {
+            issueId: $issueId
+            subIssueId: $subIssueId
+            subIssueUrl: $subIssueUrl
+            replaceParent: $replaceParent
+        }) {
+            issue {
+                number
+                title
+                subIssues(first: 100) {
+                    nodes {
+                        number
+                        title
+                    }
+                }
+            }
+            subIssue {
+                number
+                title
+                parent {
+                    number
+                    title
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Mutation to remove a sub-issue from a parent issue.
+ *
+ * Variables required:
+ * - $issueId: ID! - The global GraphQL ID of the parent issue
+ * - $subIssueId: ID! - The global GraphQL ID of the sub-issue to remove
+ */
+export const REMOVE_SUB_ISSUE = `
+    mutation RemoveSubIssue(
+        $issueId: ID!
+        $subIssueId: ID!
+    ) {
+        removeSubIssue(input: {
+            issueId: $issueId
+            subIssueId: $subIssueId
+        }) {
+            issue {
+                number
+                title
+                subIssues(first: 100) {
+                    nodes {
+                        number
+                        title
+                    }
+                }
+            }
+            subIssue {
+                number
+                title
+                parent {
+                    number
+                    title
+                }
+            }
+        }
+    }
+`;
