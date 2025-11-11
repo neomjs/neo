@@ -21,9 +21,11 @@ class DocumentHead extends Base {
         remote: {
             app: [
                 'getCanonical',
+                'getLdJson',
                 'getTag',
                 'getTitle',
                 'setCanonical',
+                'setLdJson',
                 'setTag',
                 'setTitle'
             ]
@@ -36,6 +38,24 @@ class DocumentHead extends Base {
     getCanonical() {
         const canonical = document.head.querySelector('link[rel="canonical"]');
         return canonical ? canonical.href : null
+    }
+
+    /**
+     * @returns {Object|null}
+     */
+    getLdJson() {
+        const script = document.head.querySelector('script[type="application/ld+json"]');
+
+        if (script) {
+            try {
+                return JSON.parse(script.textContent);
+            } catch (e) {
+                console.error('Error parsing ld+json content', e);
+                return null;
+            }
+        }
+
+        return null
     }
 
     /**
@@ -92,6 +112,21 @@ class DocumentHead extends Base {
             rel : 'canonical',
             href: url
         });
+    }
+
+    /**
+     * @param {Object} data
+     */
+    setLdJson({data}) {
+        let script = document.head.querySelector('script[type="application/ld+json"]');
+
+        if (!script) {
+            script = document.createElement('script');
+            script.type = 'application/ld+json';
+            document.head.appendChild(script);
+        }
+
+        script.textContent = JSON.stringify(data, null, 2);
     }
 
     /**
