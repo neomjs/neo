@@ -1,5 +1,6 @@
 import fs              from 'fs-extra';
 import path            from 'path';
+import {Command}       from 'commander/esm.mjs';
 import {execSync}      from 'child_process';
 import {fileURLToPath} from 'url';
 
@@ -276,87 +277,60 @@ export async function getLlmTxt(options={}) {
 }
 
 async function runCli() {
-    const args = process.argv.slice(2);
-    const options = {};
+    const program = new Command(); // Initialize commander
 
-    for (let i = 0; i < args.length; i++) {
-        const arg = args[i];
+    program
+        .name('generate-seo-files')
+        .description('Generates sitemap.xml and llm.txt for SEO purposes.')
+        .option('-f, --format <type>', 'Output format: array, urls, xml, llm')
+        .option('--base-url <url>', 'Absolute base URL (e.g., https://neomjs.com)')
+        .option('--base-path <path>', 'Base path for content routes')
+        .option('-o, --output <path>', 'Output file path')
+        .option('--no-lastmod', 'Exclude <lastmod> tags from sitemap.xml')
+        .option('--no-top-level', 'Exclude top-level routes');
 
-        switch (arg) {
-            case '--format':
-            case '-f':
-                options.format = args[++i];
-                break;
-            case '--base-url':
-                options.baseUrl = args[++i];
-                break;
-            case '--base-path':
-                options.basePath = args[++i];
-                break;
-            case '--output':
-            case '-o':
-                options.output = args[++i];
-                break;
-            case '--no-lastmod':
-                options.includeLastmod = false;
-                break;
-            case '--no-top-level':
-                options.includeTopLevel = false;
-                break;
-            default:
-                console.warn(`Unknown argument "${arg}" ignored.`);
-                break;
-        }
-    }
+    program.parse(process.argv);
 
-    const format = (options.format || 'array').toLowerCase();
+    const programOpts     = program.opts();
+    const format          = (programOpts.format || 'array').toLowerCase();
+    const baseUrl         = programOpts.baseUrl;
+    const basePath        = programOpts.basePath || DEFAULT_BASE_PATH;
+    const output          = programOpts.output;
+    const includeLastmod  = programOpts.noLastmod === undefined ? true : !programOpts.noLastmod;
+    const includeTopLevel = programOpts.noTopLevel === undefined ? true : !programOpts.noTopLevel;
+
+
     let outputContent;
 
     switch (format) {
         case 'array': {
-            const routes = await getContentRoutes({
-                basePath       : options.basePath,
-                includeTopLevel: options.includeTopLevel !== false
-            });
+            const routes  = await getContentRoutes({basePath, includeTopLevel});
             outputContent = JSON.stringify(routes, null, 2);
             break;
         }
         case 'urls': {
-            const urls = await getContentUrls({
-                baseUrl        : options.baseUrl,
-                basePath       : options.basePath,
-                includeTopLevel: options.includeTopLevel !== false
-            });
+            const urls    = await getContentUrls({baseUrl, basePath, includeTopLevel});
             outputContent = JSON.stringify(urls, null, 2);
             break;
         }
         case 'xml': {
-            outputContent = await getSitemapXml({
-                baseUrl        : options.baseUrl,
-                basePath       : options.basePath,
-                includeLastmod : options.includeLastmod !== false,
-                includeTopLevel: options.includeTopLevel !== false
-            });
+            outputContent = await getSitemapXml({baseUrl, basePath, includeLastmod, includeTopLevel});
             break;
         }
         case 'llm':
         case 'llm.txt': {
-            outputContent = await getLlmTxt({
-                baseUrl        : options.baseUrl,
-                basePath       : options.basePath,
-                includeTopLevel: options.includeTopLevel !== false
-            });
+            outputContent = await getLlmTxt({baseUrl, basePath, includeTopLevel});
             break;
         }
         default:
-            throw new Error(`Unsupported format "${options.format}". Supported formats: array, urls, xml, llm.`);
+            throw new Error(`Unsupported format "${format}". Supported formats: array, urls, xml, llm.`);
     }
 
-    if (options.output) {
-        const outputPath = path.resolve(ROOT_DIR, options.output);
+    if (output) {
+        const outputPath = path.resolve(ROOT_DIR, output);
         await fs.ensureDir(path.dirname(outputPath));
         await fs.writeFile(outputPath, outputContent);
-        console.log(`Successfully wrote output to ${options.output}`);
+        console.log(`Successfully wrote output to ${output}`);
     } else {
         console.log(outputContent);
     }
