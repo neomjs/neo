@@ -5,7 +5,7 @@ import Base from './Base.mjs';
  * @class Neo.main.addon.DocumentHead
  * @extends Neo.main.addon.Base
  */
-class Cookie extends Base {
+class DocumentHead extends Base {
     static config = {
         /**
          * @member {String} className='Neo.main.addon.DocumentHead'
@@ -42,4 +42,4 @@ class Cookie extends Base {
     }
 }
 
-export default Neo.setupClass(Cookie);
+export default Neo.setupClass(DocumentHead);
