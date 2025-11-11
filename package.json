@@ -32,7 +32,7 @@
         "create-class"                 : "node ./buildScripts/createClass.mjs",
         "create-component"             : "node ./buildScripts/createComponent.mjs",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",
-        "inject-package-version"       : "node ./buildScripts/injectPackageVersion.mjs",
+        "prepare-release"              : "node ./buildScripts/prepareRelease.mjs",
         "server-start"                 : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                         : "playwright test -c test/playwright/playwright.config.mjs",
         "test-components"              : "playwright test -c test/playwright/playwright.config.component.mjs",

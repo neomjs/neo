@@ -143,7 +143,7 @@ async function collectAllRoutes() {
  * @param {String} [basePath] - Only used for content routes (e.g., '/learn')
  * @returns {String} e.g., /#/home or /#/learn/benefits/Introduction
  */
-function buildRouteFromId(id, basePath = null) {
+function buildRouteFromId(id, basePath=null) {
     // Top-level routes don't use basePath
     if (id.startsWith('/')) {
         return `/#${id}`;
@@ -164,7 +164,7 @@ function buildRouteFromId(id, basePath = null) {
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String[]>}
  */
-export async function getContentRoutes(options = {}) {
+export async function getContentRoutes(options={}) {
     const {basePath = DEFAULT_BASE_PATH, includeTopLevel = true} = options;
     const allRoutes = await collectAllRoutes();
 
@@ -190,8 +190,8 @@ export async function getContentRoutes(options = {}) {
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String[]>}
  */
-export async function getContentUrls(options = {}) {
-    const {baseUrl, basePath = DEFAULT_BASE_PATH, includeTopLevel = true} = options;
+export async function getContentUrls(options={}) {
+    const {baseUrl, basePath=DEFAULT_BASE_PATH, includeTopLevel=true} = options;
     const routes = await getContentRoutes({basePath, includeTopLevel});
 
     if (!baseUrl) {
@@ -211,7 +211,7 @@ export async function getContentUrls(options = {}) {
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String>}
  */
-export async function getSitemapXml(options = {}) {
+export async function getSitemapXml(options={}) {
     const {
               baseUrl,
               basePath = DEFAULT_BASE_PATH,
@@ -270,7 +270,7 @@ ${xmlEntries}
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String>}
  */
-export async function getLlmTxt(options = {}) {
+export async function getLlmTxt(options={}) {
     const urls = await getContentUrls(options);
     return urls.join('\n');
 }

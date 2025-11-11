@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-import fs   from 'fs-extra';
-import os   from 'os';
-import path from 'path';
+import fs                         from 'fs-extra';
+import os                         from 'os';
+import path                       from 'path';
+import {getLlmTxt, getSitemapXml} from './generate-seo-files.mjs';
 
 const
     root        = path.resolve(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(root, 'package.json')),
     insideNeo   = packageJson.name.includes('neo.mjs'),
-    programName = `${packageJson.name} inject-package-version`;
+    programName = `${packageJson.name} prepare-release`;
 
 let startDate     = new Date(),
     configPath    = path.join(root, 'src/DefaultConfig.mjs'),
@@ -68,6 +69,17 @@ if (insideNeo) {
         fs.writeFileSync(footerPath, footerContentArray.join(os.EOL));
     }
 }
+
+// Generate sitemap.xml and llm.txt
+const baseUrl = 'https://neomjs.com'; // Hardcode canonical base URL
+
+const sitemapXml = await getSitemapXml({baseUrl});
+fs.writeFileSync(path.join(root, 'apps/portal/sitemap.xml'), sitemapXml);
+console.log('Generated apps/portal/sitemap.xml');
+
+const llmTxt = await getLlmTxt({baseUrl});
+fs.writeFileSync(path.join(root, 'apps/portal/llm.txt'), llmTxt);
+console.log('Generated apps/portal/llm.txt');
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);
