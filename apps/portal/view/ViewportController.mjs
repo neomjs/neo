@@ -4,6 +4,14 @@ import NeoArray          from '../../../src/util/Array.mjs';
 import {getSearchParams} from '../Util.mjs';
 
 /**
+ * @summary The main controller for the portal's viewport.
+ *
+ * This controller is the central hub for the portal application. It is responsible for:
+ * - **Top-Level Routing:** It uses the `routes` config to map the main URL hash changes (e.g., /home, /learn, /blog) to specific methods, which in turn control which main view is active. It's important to note that while this controller handles the top-level navigation, child views can implement their own nested routing logic (see `Portal.view.learn.MainContainerController` for an example).
+ * - **Layout Management:** It manages the main content area's layout, including the "mixed" mode which uses a CubeLayout for slick transitions between views.
+ * - **SEO:** It coordinates with the `DocumentHead` main thread addon to update the document's title and meta tags on each route change, ensuring the application is SEO-friendly.
+ * - **Multi-Window Coordination:** It handles the connection and disconnection of child windows, such as the live code example previews.
+ *
  * @class Portal.view.ViewportController
  * @extends Neo.controller.Component
  */
@@ -16,6 +24,8 @@ class ViewportController extends Controller {
      */
     static mainContentLayouts = ['card', 'cube', 'mixed']
     /**
+     * A map of route-specific metadata for SEO purposes.
+     * The `onHashChange` method uses this to update the document's head.
      * @member {Object} routeMetadata
      * @protected
      * @static
@@ -173,6 +183,9 @@ class ViewportController extends Controller {
     }
 
     /**
+     * The route handlers (e.g., onAboutUsRoute, onBlogRoute) are now only responsible for
+     * setting the main content index. The logic for updating the document head is centralized
+     * in the onHashChange method.
      * @param {Object} params
      * @param {Object} value
      * @param {Object} oldValue
@@ -299,6 +312,9 @@ class ViewportController extends Controller {
     }
 
     /**
+     * This is the central handler for all route changes. It is responsible for updating the
+     * document's head metadata (title and description) for SEO purposes by calling
+     * the `updateDocumentHead` method.
      * @param {String} value
      * @param {String} oldValue
      * @returns {Promise<void>}
@@ -344,6 +360,9 @@ class ViewportController extends Controller {
     }
 
     /**
+     * This method orchestrates the visual transition between the main content cards.
+     * It uses a "mixed" layout mode, which temporarily switches to a CubeLayout for
+     * a 3D transition effect, and then back to a CardLayout for performance.
      * @param {Number} index
      */
     async setMainContentIndex(index) {
@@ -397,6 +416,8 @@ class ViewportController extends Controller {
     }
 
     /**
+     * This method calls the DocumentHead main thread addon to update the document's
+     * title and meta description for SEO purposes.
      * @param {Object} config
      * @param {String} config.description
      * @param {String} config.title
