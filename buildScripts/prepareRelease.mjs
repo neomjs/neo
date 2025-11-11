@@ -1,5 +1,12 @@
 #!/usr/bin/env node
 
+/**
+ * @file This script automates critical tasks required before a new Neo.mjs release.
+ * It ensures that the package version is consistently updated across key framework files
+ * and generates up-to-date SEO-related files (sitemap.xml and llm.txt) for deployment.
+ * This consolidation streamlines the release process and prevents manual errors.
+ */
+
 import fs                         from 'fs-extra';
 import os                         from 'os';
 import path                       from 'path';
@@ -20,9 +27,11 @@ let startDate     = new Date(),
     versionString = `'${packageJson.version}'`,
     serviceContentArray, serviceWorkerPath;
 
+// Ensure the framework's core configuration reflects the new package version.
+// This is crucial for internal version checks and consistency.
 for (; i < len; i++) {
     if (contentArray[i].includes('version:')) {
-        // we want to update the comment inside the DefaultConfig.mjs as well
+        // Update the comment above the version config as well for clarity.
         contentArray[i - 5] = contentArray[i - 5].replace(/'\d.+'/, versionString);
         contentArray[i]     = contentArray[i]    .replace(/'\d.+'/, versionString);
         break;
@@ -31,6 +40,8 @@ for (; i < len; i++) {
 
 fs.writeFileSync(configPath, contentArray.join(os.EOL));
 
+// Update the ServiceWorker to ensure it uses the correct version string.
+// This is important for cache busting and proper service worker registration.
 serviceWorkerPath    = path.join(root, 'ServiceWorker.mjs');
 serviceContentArray  = fs.readFileSync(serviceWorkerPath, 'utf-8').toString().split(os.EOL);
 
@@ -39,7 +50,7 @@ len = serviceContentArray.length;
 
 for (; i < len; i++) {
     if (serviceContentArray[i].includes('version:')) {
-        // we want to update the comment inside ServiceWorker.mjs as well
+        // Update the comment above the version config for clarity.
         serviceContentArray[i - 2] = serviceContentArray[i - 2].replace(/'\d.+'/, versionString);
         serviceContentArray[i]     = serviceContentArray[i]    .replace(/'\d.+'/, versionString);
         break;
@@ -48,7 +59,8 @@ for (; i < len; i++) {
 
 fs.writeFileSync(serviceWorkerPath, serviceContentArray.join(os.EOL));
 
-// Update the version inside the Portal App Footer
+// If within the main Neo.mjs repository, update the version displayed in the Portal App's footer.
+// This provides visual confirmation of the deployed framework version.
 if (insideNeo) {
     const footerPath = path.join(root, 'apps/portal/view/home/FooterContainer.mjs');
 
@@ -60,7 +72,7 @@ if (insideNeo) {
 
         for (; i < len; i++) {
             if (footerContentArray[i].includes('neo-version')) {
-                // we want to update the comment inside ServiceWorker.mjs as well
+                // Update the version string displayed in the UI.
                 footerContentArray[i + 1] = footerContentArray[i + 1].replace(/'\w.+'/, `'v${packageJson.version}'`);
                 break;
             }
@@ -70,7 +82,8 @@ if (insideNeo) {
     }
 }
 
-// Generate sitemap.xml and llm.txt
+// Generate sitemap.xml and llm.txt to ensure SEO files are up-to-date with the latest content and routes.
+// This is crucial for search engine discoverability and AI model consumption.
 const baseUrl = 'https://neomjs.com'; // Hardcode canonical base URL
 
 const sitemapXml = await getSitemapXml({baseUrl});
