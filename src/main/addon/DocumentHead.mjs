@@ -1,7 +1,13 @@
 import Base from './Base.mjs';
 
 /**
- * Basic Read and write access for document.head
+ * @summary Provides a remote API for workers to safely read from and write to the document's head.
+ *
+ * This main thread addon acts as a proxy, allowing code running in the App worker
+ * to manage SEO-related tags like the document title, meta tags, canonical URLs, and structured data (ld+json).
+ * This is crucial for Single-Page Applications (SPAs) that need to update head metadata as the user navigates
+ * without requiring a full page reload.
+ *
  * @class Neo.main.addon.DocumentHead
  * @extends Neo.main.addon.Base
  */
@@ -33,7 +39,8 @@ class DocumentHead extends Base {
     }
 
     /**
-     * @returns {String|null}
+     * Retrieves the href of the canonical link tag.
+     * @returns {String|null} The canonical URL, or null if not found.
      */
     getCanonical() {
         const canonical = document.head.querySelector('link[rel="canonical"]');
@@ -41,7 +48,8 @@ class DocumentHead extends Base {
     }
 
     /**
-     * @returns {Object|null}
+     * Retrieves and parses the content of the ld+json script tag.
+     * @returns {Object|null} The parsed JSON data, or null if the tag is not found or parsing fails.
      */
     getLdJson() {
         const script = document.head.querySelector('script[type="application/ld+json"]');
@@ -59,9 +67,9 @@ class DocumentHead extends Base {
     }
 
     /**
-     * Gets a <meta> or <link> tag from the document head.
-     * @param {Object} config
-     * @returns {Object|null}
+     * Finds a specific <meta> or <link> tag in the document head and returns its attributes.
+     * @param {Object} config A configuration object to identify the tag.
+     * @returns {Object|null} An object containing all attributes of the found tag, or null if not found.
      */
     getTag(config) {
         const {tag, ...attributes} = config;
@@ -96,6 +104,7 @@ class DocumentHead extends Base {
     }
 
     /**
+     * Retrieves the current document title.
      * @returns {String}
      */
     getTitle() {
@@ -103,8 +112,9 @@ class DocumentHead extends Base {
     }
 
     /**
+     * A convenience method to set the canonical URL.
      * @param {Object} data
-     * @param {String} data.url
+     * @param {String} data.url The canonical URL to set.
      */
     setCanonical({url}) {
         this.setTag({
@@ -115,7 +125,8 @@ class DocumentHead extends Base {
     }
 
     /**
-     * @param {Object} data
+     * Creates or updates the ld+json script tag with new structured data.
+     * @param {Object} data The JavaScript object to be stringified and set as the script's content.
      */
     setLdJson({data}) {
         let script = document.head.querySelector('script[type="application/ld+json"]');
@@ -132,8 +143,9 @@ class DocumentHead extends Base {
     /**
      * Creates or updates a <meta> or <link> tag in the document head.
      * It finds an existing tag based on the same 'name', 'property' (for meta), or 'rel' (for link),
-     * updates its attributes, or creates a new tag if one does not exist.
-     * @param {Object} config The configuration for the tag, including the tag name.
+     * updates its attributes, or creates a new tag if one does not exist. This method is designed
+     * to be efficient by modifying existing tags in place rather than removing and re-adding them.
+     * @param {Object} config The configuration for the tag, including the tag name and its attributes.
      */
     setTag(config) {
         const {tag, ...attributes} = config;
@@ -168,8 +180,9 @@ class DocumentHead extends Base {
     }
 
     /**
+     * Sets the document title.
      * @param {Object} data
-     * @param {String} data.value
+     * @param {String} data.value The new title for the document.
      */
     setTitle({value}) {
         document.title = value
