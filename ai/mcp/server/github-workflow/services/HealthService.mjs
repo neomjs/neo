@@ -4,7 +4,6 @@ import aiConfig    from '../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 import logger      from '../logger.mjs';
 import semver      from 'semver';
-import { combineOutput, parseAuthOutput, parseVersionOutput, interpretExecError } from './healthHelpers.mjs';
 
 const execAsync = promisify(exec);
 
@@ -87,10 +86,10 @@ class HealthService extends Base {
     async #checkGhAuth() {
         try {
             const { stdout, stderr } = await execAsync('gh auth status');
-            const out = combineOutput(stdout, stderr);
-            return parseAuthOutput(out);
+            const out = this.#combineOutput(stdout, stderr);
+            return this.#parseAuthOutput(out);
         } catch (e) {
-            if (interpretExecError(e)) {
+            if (this.#interpretExecError(e)) {
                 return {
                     authenticated: false,
                     error        : 'GitHub CLI is not installed or not available in PATH. Please install it or run `gh auth login`.'
@@ -120,10 +119,10 @@ class HealthService extends Base {
     async #checkGhVersion() {
         try {
             const { stdout, stderr } = await execAsync('gh --version');
-            const out = combineOutput(stdout, stderr);
-            return parseVersionOutput(out, aiConfig.minGhVersion);
+            const out = this.#combineOutput(stdout, stderr);
+            return this.#parseVersionOutput(out, aiConfig.minGhVersion);
         } catch (e) {
-            if (interpretExecError(e)) {
+            if (this.#interpretExecError(e)) {
                 return {
                     installed: false,
                     versionOk: false,
@@ -217,6 +216,48 @@ class HealthService extends Base {
 
         return payload;
     }
+
+    // ---- inlined helpers from healthHelpers.mjs (moved here as private methods) ----
+    #combineOutput(stdout, stderr) {
+        return `${stdout || ''}\n${stderr || ''}`;
+    }
+
+    #parseAuthOutput(out) {
+        if (typeof out !== 'string') out = String(out || '');
+        if (out.includes('Logged in to github.com')) {
+            return { authenticated: true };
+        }
+        return { authenticated: false, error: 'Not logged in to github.com. Please run `gh auth login`.' };
+    }
+
+    #parseVersionOutput(out, minVersion = '2.0.0') {
+        if (typeof out !== 'string') out = String(out || '');
+
+        const m = out.match(/gh version ([\d.]+)/);
+        if (!m) {
+            return { installed: false, versionOk: false, version: null, error: 'GitHub CLI is not installed. Please install it from https://cli.github.com/' };
+        }
+        const version = m[1];
+        try {
+            const [majA, minA, patA] = version.split('.').map(n => parseInt(n || '0', 10));
+            const [majB, minB, patB] = minVersion.split('.').map(n => parseInt(n || '0', 10));
+            const versionOk = (majA > majB) || (majA === majB && (minA > minB || (minA === minB && patA >= patB)));
+
+            if (versionOk) return { installed: true, versionOk: true, version };
+            return { installed: true, versionOk: false, version, error: `gh version (${version}) is outdated. Please upgrade to at least ${minVersion}.` };
+        } catch (e) {
+            return { installed: true, versionOk: false, version, error: `Could not parse gh version: ${e.message}` };
+        }
+    }
+
+    #interpretExecError(err) {
+        if (!err) return false;
+        if (err.code === 'ENOENT') return true;
+        const msg = String(err.message || err || '');
+        if (/not found|ENOENT|is not recognized as an internal or external command/i.test(msg)) return true;
+        return false;
+    }
+    // ---- end inlined helpers ----
 
     /**
      * Public API: Checks the health of the GitHub CLI with intelligent caching.
