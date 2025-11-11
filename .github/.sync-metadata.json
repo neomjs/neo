@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-11-11T18:09:45.069Z",
-  "releasesLastFetched": "2025-11-11T18:09:45.071Z",
+  "lastSync": "2025-11-11T18:31:18.032Z",
+  "releasesLastFetched": "2025-11-11T18:31:18.038Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -4323,18 +4323,18 @@
       "contentHash": "59c9e2e83a8c4adadc706801b593e96b483c1b3be975451a07898910bc87b2bd"
     },
     "7446": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7446.md",
-      "closedAt": null,
-      "updatedAt": "2025-11-10T20:35:35Z",
-      "contentHash": "44f60a004ce2a4df22748868c850de0ff2e35819ca6456724b3750e65a1c8017"
+      "closedAt": "2025-11-11T18:30:24Z",
+      "updatedAt": "2025-11-11T18:30:24Z",
+      "contentHash": "2a66ca1c834a04f5eff0d4ca3788920ebb6df76ea473d6da912981170702ae98"
     },
     "7447": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7447.md",
       "closedAt": null,
-      "updatedAt": "2025-10-10T20:08:08Z",
-      "contentHash": "b018c1f57275dd0bd8d132a779632d6ea0d8ce5da25fb21285e40ec3f21a30d9"
+      "updatedAt": "2025-11-11T18:30:06Z",
+      "contentHash": "2de714d07a8b79b2810a980fcc33457d39dd8806636e9a572d9adcdc36496823"
     },
     "7448": {
       "state": "CLOSED",
@@ -6220,11 +6220,18 @@
       "contentHash": "3edd23770e94a726a98da4baf0f136cfa8b3fc940880f849f964ba66c4034516"
     },
     "7747": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7747.md",
-      "closedAt": null,
-      "updatedAt": "2025-11-11T18:09:44Z",
-      "contentHash": "d484e963d290036caa20fd9d8f13027d7619cccbdbc0846136ec61a3ae5b6ac2"
+      "closedAt": "2025-11-11T18:12:19Z",
+      "updatedAt": "2025-11-11T18:12:19Z",
+      "contentHash": "44b86f4265655ba08656632e632783bdfe9a41895dc35efde0840880e0a86524"
+    },
+    "7748": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7748.md",
+      "closedAt": "2025-11-11T18:28:44Z",
+      "updatedAt": "2025-11-11T18:28:44Z",
+      "contentHash": "cca7cf3e26a56a42e41ee2738a5f72995d15b715d780a8d4615defe72363d3f3"
     }
   },
   "releases": {

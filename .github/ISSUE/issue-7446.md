@@ -1,28 +1,35 @@
 ---
 id: 7446
 title: Enhance SEO for Neo.mjs Website
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:06:13Z'
-updatedAt: '2025-11-10T20:35:35Z'
+updatedAt: '2025-11-11T18:30:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7446'
 author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7447
   - 7448
   - 7449
   - 7451
   - 7452
   - 7453
   - 7460
-subIssuesCompleted: 1
-subIssuesTotal: 7
+  - 7742
+  - 7743
+  - 7744
+  - 7745
+  - 7746
+  - 7747
+  - 7748
+subIssuesCompleted: 13
+subIssuesTotal: 13
+closedAt: '2025-11-11T18:30:24Z'
 ---
 # Enhance SEO for Neo.mjs Website
 
@@ -30,8 +37,8 @@ subIssuesTotal: 7
 
 ---
 
-**Sub-Issues:** #7447, #7448, #7449, #7451, #7452, #7453, #7460
-**Progress:** 1/7 completed (14%)
+**Sub-Issues:** #7448, #7449, #7451, #7452, #7453, #7460, #7742, #7743, #7744, #7745, #7746, #7747, #7748
+**Progress:** 13/13 completed (100%)
 
 ---
 

@@ -8,11 +8,11 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:08:08Z'
-updatedAt: '2025-10-10T20:08:08Z'
+updatedAt: '2025-11-11T18:30:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7447'
 author: tobiu
-commentsCount: 0
-parentIssue: 7446
+commentsCount: 1
+parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
@@ -20,12 +20,6 @@ subIssuesTotal: 0
 # Fix Root Domain SEO with Base-Href-Patched Index
 
 **Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 The project's root domain (`neomjs.com`) currently uses a meta refresh, which is detrimental to SEO as it provides no content for crawlers at the most important URL.
 
@@ -41,4 +35,10 @@ To fix this within the constraints of GitHub Pages hosting and the need to prese
     -   Visiting `neomjs.com` directly serves the portal app.
     -   All application assets (JS, CSS, workers) load correctly.
     -   Other top-level paths (e.g., `/apps/covid/`, `/examples/`) remain accessible and functional.
+
+## Comments
+
+### @tobiu - 2025-11-11 18:30
+
+detaching the ticket from the epic, since we can not resolve it inside this repo.
 
