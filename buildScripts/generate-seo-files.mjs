@@ -68,17 +68,18 @@ async function collectRoutesFromTree() {
 
 
 /**
- * Normalizes a content id into a route path using the provided base path.
+ * Normalizes a content id into a hash-based route path suitable for a Single-Page Application.
  * @param {String} id
  * @param {String} [basePath=DEFAULT_BASE_PATH]
- * @returns {String}
+ * @returns {String} e.g., /#/learn/benefits/Introduction
  */
 function buildRouteFromId(id, basePath = DEFAULT_BASE_PATH) {
     const trimmedBase = (basePath ?? '').replace(/\/$/, '');
     const trimmedId   = id.replace(/^\//, '');
     const prefix      = trimmedBase.length > 0 ? trimmedBase : '';
     const route       = `${prefix}/${trimmedId}`.replace(/\/+/g, '/');
-    return route.startsWith('/') ? route : `/${route}`;
+    // Return a hash-based path for the SPA
+    return `/#${route.startsWith('/') ? route : `/${route}`}`;
 }
 
 /**
