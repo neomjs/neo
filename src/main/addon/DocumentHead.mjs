@@ -37,7 +37,7 @@ class DocumentHead extends Base {
      */
     getCanonical() {
         const canonical = document.head.querySelector('link[rel="canonical"]');
-        return canonical ? canonical.href : null
+        return canonical?.href || null
     }
 
     /**
@@ -48,10 +48,10 @@ class DocumentHead extends Base {
 
         if (script) {
             try {
-                return JSON.parse(script.textContent);
+                return JSON.parse(script.textContent)
             } catch (e) {
                 console.error('Error parsing ld+json content', e);
-                return null;
+                return null
             }
         }
 
@@ -69,13 +69,13 @@ class DocumentHead extends Base {
 
         if (tag === 'meta') {
             if (attributes.name) {
-                selector = `meta[name="${attributes.name}"]`;
+                selector = `meta[name="${attributes.name}"]`
             } else if (attributes.property) {
-                selector = `meta[property="${attributes.property}"]`;
+                selector = `meta[property="${attributes.property}"]`
             }
         } else if (tag === 'link') {
             if (attributes.rel) {
-                selector = `link[rel="${attributes.rel}"]`;
+                selector = `link[rel="${attributes.rel}"]`
             }
         }
 
@@ -86,9 +86,9 @@ class DocumentHead extends Base {
                 const attrs = {};
 
                 for (const attr of existingTag.attributes) {
-                    attrs[attr.name] = attr.value;
+                    attrs[attr.name] = attr.value
                 }
-                return {tag, ...attrs};
+                return {tag, ...attrs}
             }
         }
 
@@ -111,7 +111,7 @@ class DocumentHead extends Base {
             tag : 'link',
             rel : 'canonical',
             href: url
-        });
+        })
     }
 
     /**
@@ -123,45 +123,48 @@ class DocumentHead extends Base {
         if (!script) {
             script = document.createElement('script');
             script.type = 'application/ld+json';
-            document.head.appendChild(script);
+            document.head.appendChild(script)
         }
 
-        script.textContent = JSON.stringify(data, null, 2);
+        script.textContent = JSON.stringify(data, null, 2)
     }
 
     /**
      * Creates or updates a <meta> or <link> tag in the document head.
-     * It removes any existing tag with the same 'name', 'property' (for meta), or 'rel' (for link) before adding the new one.
+     * It finds an existing tag based on the same 'name', 'property' (for meta), or 'rel' (for link),
+     * updates its attributes, or creates a new tag if one does not exist.
      * @param {Object} config The configuration for the tag, including the tag name.
      */
     setTag(config) {
         const {tag, ...attributes} = config;
-        let selector;
+        let selector, tagElement;
 
         if (tag === 'meta') {
             if (attributes.name) {
-                selector = `meta[name="${attributes.name}"]`;
+                selector = `meta[name="${attributes.name}"]`
             } else if (attributes.property) {
-                selector = `meta[property="${attributes.property}"]`;
+                selector = `meta[property="${attributes.property}"]`
             }
         } else if (tag === 'link') {
             if (attributes.rel) {
-                selector = `link[rel="${attributes.rel}"]`;
+                selector = `link[rel="${attributes.rel}"]`
             }
         }
 
-        if (selector) {
-            const existingTag = document.head.querySelector(selector);
-            existingTag?.remove();
-        }
+        tagElement = selector ? document.head.querySelector(selector) : null;
 
-        const newTag = document.createElement(tag);
+        if (!tagElement) {
+            tagElement = document.createElement(tag);
+        }
 
         for (const [key, value] of Object.entries(attributes)) {
-            newTag.setAttribute(key, value);
+            tagElement.setAttribute(key, value)
         }
 
-        document.head.appendChild(newTag);
+        // Only append if it's a new element
+        if (!tagElement.parentNode) {
+            document.head.appendChild(tagElement)
+        }
     }
 
     /**
