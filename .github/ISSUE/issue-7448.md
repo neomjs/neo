@@ -1,6 +1,6 @@
 ---
 id: 7448
-title: Create HeadManager Addon with Canonical URL Support
+title: Create DocumentHead Addon with Canonical URL Support
 state: OPEN
 labels:
   - enhancement
@@ -8,16 +8,16 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:09:36Z'
-updatedAt: '2025-10-17T14:36:47Z'
+updatedAt: '2025-11-11T09:11:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7448'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 ---
-# Create HeadManager Addon with Canonical URL Support
+# Create DocumentHead Addon with Canonical URL Support
 
 **Reported by:** @tobiu on 2025-10-10
 
@@ -33,7 +33,7 @@ This is the highest priority task for the SEO epic, as it enables crawlers like 
 
 ## Acceptance Criteria
 
-1.  Create a new main thread addon at `src/main/addon/HeadManager.mjs`.
+1.  Create a new main thread addon at `src/main/addon/DocumentHead.mjs`.
 2.  The addon must expose the following RMA methods:
     -   `setTitle(newTitle)`: Updates the content of the `<title>` tag.
     -   `setTag(tagObject)`: A smart method that creates or updates a `<meta>` or `<link>` tag. It should remove any existing tag with the same `name` or `property` before adding the new one.
@@ -55,4 +55,8 @@ My plan is:
 2.  **Integrate in `ViewportController.mjs`:** Implement the logic in `apps/portal/view/ViewportController.mjs` to listen for route changes and call the new `HeadManager` methods (especially `setCanonical`) to update the head metadata for the new route.
 
 Please assign this to me. Thank you!
+
+### @tobiu - 2025-11-11 09:11
+
+@22Yash sorry, missed your comment. the v11 release was insane. since this was already last month, i will tackle this one on my own.
 

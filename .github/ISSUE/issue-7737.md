@@ -6,12 +6,13 @@ labels:
   - enhancement
   - ai
   - testing
-assignees: []
+assignees:
+  - Alachi24
 createdAt: '2025-11-10T20:25:50Z'
-updatedAt: '2025-11-10T20:25:50Z'
+updatedAt: '2025-11-10T21:03:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7737'
 author: tobiu
-commentsCount: 0
+commentsCount: 3
 parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
@@ -68,4 +69,22 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - [ ] **`text` config:** Verify that the `text` config directly sets the `textContent` of the `<label>` element.
 - [ ] **`user-select: none`:** Verify that the `user-select: none` CSS property is applied to the label, preventing text selection.
 - [ ] **`white-space: nowrap`:** Verify that the `white-space: nowrap` CSS property is applied to the label, preventing text wrapping.
+
+## Comments
+
+### @Alachi24 - 2025-11-10 20:57
+
+@tobiu I'd like to work on this, kindly assign this to me.
+Also for clarity, i'd love to have any prior instruction to use as direction to work on this.
+
+### @tobiu - 2025-11-10 21:00
+
+i would recommend looking at existing component based tests, e.g.:
+https://github.com/neomjs/neo/blob/dev/test/playwright/component/button/Base.spec.mjs
+
+=> the setup is almost 1:1 => using the empty viewport, using remote method access to tell the app worker to render & mount a label into a specific parent div (viewport).
+
+### @Alachi24 - 2025-11-10 21:03
+
+Acceptable... Thank you 
 

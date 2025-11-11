@@ -1,13 +1,13 @@
 ---
 id: 7720
 title: 'Refactor: Inline `healthHelpers.mjs` into `HealthService.mjs`'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
 assignees: []
 createdAt: '2025-11-08T09:50:28Z'
-updatedAt: '2025-11-08T09:50:28Z'
+updatedAt: '2025-11-11T08:35:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7720'
 author: tobiu
 commentsCount: 0
@@ -15,6 +15,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-11T08:35:17Z'
 ---
 # Refactor: Inline `healthHelpers.mjs` into `HealthService.mjs`
 
