@@ -1,21 +1,22 @@
 ---
 id: 7451
 title: Generate sitemap.xml File via Build Script
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:14:06Z'
-updatedAt: '2025-10-10T20:22:09Z'
+updatedAt: '2025-11-11T12:27:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7451'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-11T12:27:38Z'
 ---
 # Generate sitemap.xml File via Build Script
 
@@ -35,4 +36,10 @@ A `sitemap.xml` file is essential for telling search engines which pages on our 
 2.  Add a function to the script that takes the parsed list of content URLs and formats them into the standard `sitemap.xml` format.
 3.  The script should write the final XML output to a new `sitemap.xml` file in the `apps/portal/` directory.
 4.  The task of submitting the sitemap to search consoles will be handled separately after generation is complete.
+
+## Comments
+
+### @tobiu - 2025-11-11 12:27
+
+resolved.
 

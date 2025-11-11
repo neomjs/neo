@@ -1,21 +1,22 @@
 ---
 id: 7460
 title: Refactor SEO Generator Script with Correct Data Sources
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-11T09:36:00Z'
-updatedAt: '2025-11-10T20:53:05Z'
+updatedAt: '2025-11-11T12:28:41Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7460'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-11T12:28:41Z'
 ---
 # Refactor SEO Generator Script with Correct Data Sources
 
@@ -50,4 +51,8 @@ The `apps/portal/resources/data/blog.json` file is for presentation purposes on 
 ### @Aki-07 - 2025-10-11 15:15
 
 Sure, will finish the work on this! Can I get it assigned on me?
+
+### @tobiu - 2025-11-11 12:28
+
+already resolved.
 

@@ -1,14 +1,14 @@
 ---
 id: 7448
 title: Create DocumentHead Addon with Canonical URL Support
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:09:36Z'
-updatedAt: '2025-11-11T09:11:14Z'
+updatedAt: '2025-11-11T10:59:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7448'
 author: tobiu
 commentsCount: 2
@@ -16,6 +16,7 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-11T10:59:35Z'
 ---
 # Create DocumentHead Addon with Canonical URL Support
 
