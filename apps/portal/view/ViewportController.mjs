@@ -15,6 +15,41 @@ class ViewportController extends Controller {
      * @static
      */
     static mainContentLayouts = ['card', 'cube', 'mixed']
+    /**
+     * @member {Object} routeMetadata
+     * @protected
+     * @static
+     */
+    static routeMetadata = {
+        '/about-us': {
+            title      : 'About Us - Neo.mjs',
+            description: 'Learn more about the team behind Neo.mjs.'
+        },
+        '/blog': {
+            title      : 'Neo.mjs Blog',
+            description: 'The official blog for the Neo.mjs framework.'
+        },
+        '/docs': {
+            title      : 'Neo.mjs Docs',
+            description: 'Official documentation for the Neo.mjs framework.'
+        },
+        '/examples': {
+            title      : 'Neo.mjs Examples',
+            description: 'A collection of examples for the Neo.mjs framework.'
+        },
+        '/home': {
+            title      : 'Neo.mjs - The Multi-Threaded UI Framework',
+            description: 'The multi-threaded UI framework for building ultra-fast, desktop-like web applications with uncompromised responsiveness, inherent security, and a transpilation-free dev mode.'
+        },
+        '/learn': {
+            title      : 'Learn Neo.mjs',
+            description: 'Learn the fundamentals of the Neo.mjs framework.'
+        },
+        '/services': {
+            title      : 'Neo.mjs Services',
+            description: 'Professional services for the Neo.mjs framework.'
+        }
+    }
 
     static config = {
         /**
@@ -143,7 +178,8 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onAboutUsRoute(params, value, oldValue) {
-        this.setMainContentIndex(5)
+        this.setMainContentIndex(5);
+        this.onRoute('/about-us');
     }
 
     /**
@@ -220,7 +256,8 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onBlogRoute(params, value, oldValue) {
-        this.setMainContentIndex(2)
+        this.setMainContentIndex(2);
+        this.onRoute('/blog');
     }
 
     /**
@@ -251,7 +288,8 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onDocsRoute(params, value, oldValue) {
-        this.setMainContentIndex(6)
+        this.setMainContentIndex(6);
+        this.onRoute('/docs');
     }
 
     /**
@@ -260,7 +298,8 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onExamplesRoute(params, value, oldValue) {
-        this.setMainContentIndex(4)
+        this.setMainContentIndex(4);
+        this.onRoute('/examples');
     }
 
     /**
@@ -269,7 +308,8 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onHomeRoute(params, value, oldValue) {
-        this.setMainContentIndex(0)
+        this.setMainContentIndex(0);
+        this.onRoute('/home');
     }
 
     /**
@@ -278,7 +318,24 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onLearnRoute(params, value, oldValue) {
-        this.setMainContentIndex(1)
+        this.setMainContentIndex(1);
+        this.onRoute('/learn');
+    }
+
+    /**
+     * @param {String} path
+     */
+    onRoute(path) {
+        const metadata = this.constructor.routeMetadata[path];
+
+        if (metadata) {
+            this.updateDocumentHead({
+                title      : metadata.title,
+                description: metadata.description,
+                path       : '/#' + path.substring(1)
+            });
+        }
+        // TODO: handle dynamic routes
     }
 
     /**
@@ -287,7 +344,8 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onServicesRoute(params, value, oldValue) {
-        this.setMainContentIndex(3)
+        this.setMainContentIndex(3);
+        this.onRoute('/services');
     }
 
     /**
@@ -341,6 +399,28 @@ class ViewportController extends Controller {
                 container.layout.activeIndex = index
             }
         }
+    }
+
+    /**
+     * @param {Object} config
+     * @param {String} config.description
+     * @param {String} config.path
+     * @param {String} config.title
+     */
+    async updateDocumentHead({description, path, title}) {
+        const origin       = location.origin.endsWith('/') ? location.origin.slice(0, -1) : location.origin,
+              canonicalUrl = origin + path,
+              DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', this.windowId);
+
+        DocumentHead.setTitle({value: title});
+
+        DocumentHead.setTag({
+            tag    : 'meta',
+            name   : 'description',
+            content: description
+        });
+
+        DocumentHead.setCanonical({url: canonicalUrl})
     }
 
     /**

@@ -20,10 +20,59 @@ class DocumentHead extends Base {
          */
         remote: {
             app: [
+                'getCanonical',
+                'getTag',
                 'getTitle',
+                'setCanonical',
+                'setTag',
                 'setTitle'
             ]
         }
+    }
+
+    /**
+     * @returns {String|null}
+     */
+    getCanonical() {
+        const canonical = document.head.querySelector('link[rel="canonical"]');
+        return canonical ? canonical.href : null
+    }
+
+    /**
+     * Gets a <meta> or <link> tag from the document head.
+     * @param {Object} config
+     * @returns {Object|null}
+     */
+    getTag(config) {
+        const {tag, ...attributes} = config;
+        let selector;
+
+        if (tag === 'meta') {
+            if (attributes.name) {
+                selector = `meta[name="${attributes.name}"]`;
+            } else if (attributes.property) {
+                selector = `meta[property="${attributes.property}"]`;
+            }
+        } else if (tag === 'link') {
+            if (attributes.rel) {
+                selector = `link[rel="${attributes.rel}"]`;
+            }
+        }
+
+        if (selector) {
+            const existingTag = document.head.querySelector(selector);
+
+            if (existingTag) {
+                const attrs = {};
+
+                for (const attr of existingTag.attributes) {
+                    attrs[attr.name] = attr.value;
+                }
+                return {tag, ...attrs};
+            }
+        }
+
+        return null
     }
 
     /**
@@ -31,6 +80,53 @@ class DocumentHead extends Base {
      */
     getTitle() {
         return document.title
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.url
+     */
+    setCanonical({url}) {
+        this.setTag({
+            tag : 'link',
+            rel : 'canonical',
+            href: url
+        });
+    }
+
+    /**
+     * Creates or updates a <meta> or <link> tag in the document head.
+     * It removes any existing tag with the same 'name', 'property' (for meta), or 'rel' (for link) before adding the new one.
+     * @param {Object} config The configuration for the tag, including the tag name.
+     */
+    setTag(config) {
+        const {tag, ...attributes} = config;
+        let selector;
+
+        if (tag === 'meta') {
+            if (attributes.name) {
+                selector = `meta[name="${attributes.name}"]`;
+            } else if (attributes.property) {
+                selector = `meta[property="${attributes.property}"]`;
+            }
+        } else if (tag === 'link') {
+            if (attributes.rel) {
+                selector = `link[rel="${attributes.rel}"]`;
+            }
+        }
+
+        if (selector) {
+            const existingTag = document.head.querySelector(selector);
+            existingTag?.remove();
+        }
+
+        const newTag = document.createElement(tag);
+
+        for (const [key, value] of Object.entries(attributes)) {
+            newTag.setAttribute(key, value);
+        }
+
+        document.head.appendChild(newTag);
     }
 
     /**
