@@ -80,6 +80,17 @@ if (insideNeo) {
 
         fs.writeFileSync(footerPath, footerContentArray.join(os.EOL));
     }
+
+    // Update the datePublished in apps/portal/index.html for SEO purposes.
+    // This ensures the structured data reflects the latest publication date.
+    const indexPath = path.join(root, 'apps/portal/index.html');
+    if (fs.existsSync(indexPath)) {
+        let indexContent = fs.readFileSync(indexPath, 'utf-8');
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD format
+        indexContent = indexContent.replace(/"datePublished": "\d{4}-\d{2}-\d{2}"/, `"datePublished": "${today}"`);
+        fs.writeFileSync(indexPath, indexContent);
+        console.log('Updated apps/portal/index.html datePublished');
+    }
 }
 
 // Generate sitemap.xml and llm.txt to ensure SEO files are up-to-date with the latest content and routes.
