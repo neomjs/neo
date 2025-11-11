@@ -233,15 +233,16 @@ class HealthService extends Base {
     #parseVersionOutput(out, minVersion = '2.0.0') {
         if (typeof out !== 'string') out = String(out || '');
 
-        const m = out.match(/gh version ([\d.]+)/);
+        // Match version string, including pre-release versions
+        const m = out.match(/gh version ([\d.]+(?:-[\w.]+)?)/);
         if (!m) {
             return { installed: false, versionOk: false, version: null, error: 'GitHub CLI is not installed. Please install it from https://cli.github.com/' };
         }
         const version = m[1];
         try {
-            const [majA, minA, patA] = version.split('.').map(n => parseInt(n || '0', 10));
-            const [majB, minB, patB] = minVersion.split('.').map(n => parseInt(n || '0', 10));
-            const versionOk = (majA > majB) || (majA === majB && (minA > minB || (minA === minB && patA >= patB)));
+            // Use semver library for robust version comparison
+            // Handles edge cases like pre-release versions (e.g., v11.0.0-alpha.2)
+            const versionOk = semver.gte(version, minVersion);
 
             if (versionOk) return { installed: true, versionOk: true, version };
             return { installed: true, versionOk: false, version, error: `gh version (${version}) is outdated. Please upgrade to at least ${minVersion}.` };
