@@ -27,27 +27,27 @@ class ViewportController extends Controller {
         },
         '/blog': {
             title      : 'Neo.mjs Blog',
-            description: 'The official blog for the Neo.mjs framework.'
+            description: 'The official blog for the Neo.mjs platform.'
         },
         '/docs': {
             title      : 'Neo.mjs Docs',
-            description: 'Official documentation for the Neo.mjs framework.'
+            description: 'Official documentation for the Neo.mjs platform.'
         },
         '/examples': {
             title      : 'Neo.mjs Examples',
-            description: 'A collection of examples for the Neo.mjs framework.'
+            description: 'A collection of examples for the Neo.mjs platform.'
         },
         '/home': {
-            title      : 'Neo.mjs - The Multi-Threaded UI Framework',
-            description: 'The multi-threaded UI framework for building ultra-fast, desktop-like web applications with uncompromised responsiveness, inherent security, and a transpilation-free dev mode.'
+            title      : 'Neo.mjs',
+            description: 'Solve your toughest UI performance challenges with Neo.mjs: a multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, and unmatched developer productivity.'
         },
         '/learn': {
             title      : 'Learn Neo.mjs',
-            description: 'Learn the fundamentals of the Neo.mjs framework.'
+            description: 'Learn the fundamentals of the Neo.mjs platform.'
         },
         '/services': {
             title      : 'Neo.mjs Services',
-            description: 'Professional services for the Neo.mjs framework.'
+            description: 'Professional services for the Neo.mjs platform.'
         }
     }
 
@@ -178,8 +178,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onAboutUsRoute(params, value, oldValue) {
-        this.setMainContentIndex(5);
-        this.onRoute('/about-us');
+        this.setMainContentIndex(5)
     }
 
     /**
@@ -256,8 +255,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onBlogRoute(params, value, oldValue) {
-        this.setMainContentIndex(2);
-        this.onRoute('/blog');
+        this.setMainContentIndex(2)
     }
 
     /**
@@ -288,8 +286,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onDocsRoute(params, value, oldValue) {
-        this.setMainContentIndex(6);
-        this.onRoute('/docs');
+        this.setMainContentIndex(6)
     }
 
     /**
@@ -298,8 +295,25 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onExamplesRoute(params, value, oldValue) {
-        this.setMainContentIndex(4);
-        this.onRoute('/examples');
+        this.setMainContentIndex(4)
+    }
+
+    /**
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {Promise<void>}
+     */
+    async onHashChange(value, oldValue) {
+        await super.onHashChange(value, oldValue);
+
+        const metadata = this.constructor.routeMetadata[value?.hashString];
+
+        if (metadata) {
+            await this.updateDocumentHead({
+                description: metadata.description,
+                title      : metadata.title
+            })
+        }
     }
 
     /**
@@ -308,8 +322,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onHomeRoute(params, value, oldValue) {
-        this.setMainContentIndex(0);
-        this.onRoute('/home');
+        this.setMainContentIndex(0)
     }
 
     /**
@@ -318,24 +331,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onLearnRoute(params, value, oldValue) {
-        this.setMainContentIndex(1);
-        this.onRoute('/learn');
-    }
-
-    /**
-     * @param {String} path
-     */
-    onRoute(path) {
-        const metadata = this.constructor.routeMetadata[path];
-
-        if (metadata) {
-            this.updateDocumentHead({
-                title      : metadata.title,
-                description: metadata.description,
-                path       : '/#' + path.substring(1)
-            });
-        }
-        // TODO: handle dynamic routes
+        this.setMainContentIndex(1)
     }
 
     /**
@@ -344,8 +340,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onServicesRoute(params, value, oldValue) {
-        this.setMainContentIndex(3);
-        this.onRoute('/services');
+        this.setMainContentIndex(3)
     }
 
     /**
@@ -404,23 +399,20 @@ class ViewportController extends Controller {
     /**
      * @param {Object} config
      * @param {String} config.description
-     * @param {String} config.path
      * @param {String} config.title
      */
-    async updateDocumentHead({description, path, title}) {
-        const origin       = location.origin.endsWith('/') ? location.origin.slice(0, -1) : location.origin,
-              canonicalUrl = origin + path,
-              DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', this.windowId);
+    async updateDocumentHead({description, title}) {
+        let {windowId}   = this,
+            DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
 
-        DocumentHead.setTitle({value: title});
+        DocumentHead.setTitle({value: title, windowId});
 
         DocumentHead.setTag({
-            tag    : 'meta',
+            content: description,
             name   : 'description',
-            content: description
-        });
-
-        DocumentHead.setCanonical({url: canonicalUrl})
+            tag    : 'meta',
+            windowId
+        })
     }
 
     /**
