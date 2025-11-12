@@ -4,12 +4,11 @@ import {Command}       from 'commander/esm.mjs';
 import {execSync}      from 'child_process';
 import {fileURLToPath} from 'url';
 
-const ROOT_DIR                 = process.cwd();
-const LEARN_DIR                = path.resolve(ROOT_DIR, 'learn');
-const PORTAL_DIR               = path.resolve(ROOT_DIR, 'apps/portal');
-const TREE_FILE_PATH           = path.join(LEARN_DIR, 'tree.json');
-const DEFAULT_BASE_PATH        = '/learn';
-const SUPPORTED_DOC_EXTENSIONS = ['.md', '.mdx', '.json'];
+const ROOT_DIR          = process.cwd();
+const LEARN_DIR         = path.resolve(ROOT_DIR, 'learn');
+const PORTAL_DIR        = path.resolve(ROOT_DIR, 'apps/portal');
+const TREE_FILE_PATH    = path.join(LEARN_DIR, 'tree.json');
+const DEFAULT_BASE_PATH = '/learn';
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
@@ -71,23 +70,10 @@ async function loadTreeNodes() {
  * @returns {Promise<String|null>} The absolute file path if found, otherwise null.
  */
 async function resolveContentFileFromId(id) {
-    const segments = id.split('/').filter(Boolean);
+    const filePath = path.join(LEARN_DIR, id + '.md');
 
-    const directCandidates = SUPPORTED_DOC_EXTENSIONS.map(extension => (
-        path.join(LEARN_DIR, ...segments) + extension
-    ));
-
-    const nestedCandidates = SUPPORTED_DOC_EXTENSIONS.flatMap(extension => ([
-        path.join(LEARN_DIR, ...segments, `README${extension}`),
-        path.join(LEARN_DIR, ...segments, `index${extension}`)
-    ]));
-
-    const candidates = [...directCandidates, ...nestedCandidates];
-
-    for (const candidate of candidates) {
-        if (await fs.pathExists(candidate)) {
-            return candidate;
-        }
+    if (await fs.pathExists(filePath)) {
+        return filePath;
     }
 
     return null;
