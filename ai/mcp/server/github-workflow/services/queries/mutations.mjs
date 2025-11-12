@@ -185,22 +185,10 @@ export const ADD_BLOCKED_BY = `
             issue {
                 number
                 title
-                blockedBy(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
             blockingIssue {
                 number
                 title
-                blocking(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
         }
     }
@@ -225,22 +213,10 @@ export const REMOVE_BLOCKED_BY = `
             issue {
                 number
                 title
-                blockedBy(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
             blockingIssue {
                 number
                 title
-                blocking(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
         }
     }
