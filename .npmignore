@@ -1,5 +1,6 @@
 # Additional rules, which are solely npm related, to not bloat the package size.
 .github/ISSUE
+.github/ISSUE_ARCHIVE
 .github/RELEASE_NOTES
 
 # Original content of the .gitignore file
