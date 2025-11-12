@@ -120,6 +120,23 @@ export const FETCH_ISSUES_FOR_SYNC = `
             completed
             percentCompleted
           }
+          
+          # Blocked-by relationships
+          blockedBy(first: $maxSubIssues) {
+            nodes {
+              number
+              title
+              state
+            }
+          }
+          
+          blocking(first: $maxSubIssues) {
+            nodes {
+              number
+              title
+              state
+            }
+          }
         }
       }
     }
@@ -206,6 +223,20 @@ export const FETCH_SINGLE_ISSUE = `
           total
           completed
           percentCompleted
+        }
+        blockedBy(first: $maxSubIssues) {
+          nodes {
+            number
+            title
+            state
+          }
+        }
+        blocking(first: $maxSubIssues) {
+          nodes {
+            number
+            title
+            state
+          }
         }
       }
     }
