@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-11-11T18:31:18.032Z",
-  "releasesLastFetched": "2025-11-11T18:31:18.038Z",
+  "lastSync": "2025-11-12T08:29:20.536Z",
+  "releasesLastFetched": "2025-11-12T08:29:20.546Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -5492,11 +5492,11 @@
       "contentHash": "4337d7db40ddd3f5b311a532450f7b31b707056b2c2daaaea8d33bd7956e0755"
     },
     "7632": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7632.md",
-      "closedAt": null,
-      "updatedAt": "2025-11-11T09:28:53Z",
-      "contentHash": "c24857bef6550634c4d65de0b92def1c946e021af1991ab629c1d32a0507b159"
+      "closedAt": "2025-11-12T08:20:31Z",
+      "updatedAt": "2025-11-12T08:20:31Z",
+      "contentHash": "f2435113c3b65db01c1a13ec68f6d4f63b66074e28582f3ad6d1bc734ebde087"
     },
     "7633": {
       "state": "CLOSED",
@@ -6232,6 +6232,34 @@
       "closedAt": "2025-11-11T18:28:44Z",
       "updatedAt": "2025-11-11T18:28:44Z",
       "contentHash": "cca7cf3e26a56a42e41ee2738a5f72995d15b715d780a8d4615defe72363d3f3"
+    },
+    "7749": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7749.md",
+      "closedAt": null,
+      "updatedAt": "2025-11-12T07:58:04Z",
+      "contentHash": "3b3d2aa230f40d4f6cee9bd244f7746ab2b2da3690d700cd268d8a8825b8f14d"
+    },
+    "7750": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7750.md",
+      "closedAt": null,
+      "updatedAt": "2025-11-12T07:59:51Z",
+      "contentHash": "a9162dd69b3594b8b515049b09b9da1ce91ebe80ed5f1dc334322a07461b1814"
+    },
+    "7751": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7751.md",
+      "closedAt": null,
+      "updatedAt": "2025-11-12T08:12:03Z",
+      "contentHash": "282f855f862772f59fb0af9d8d2df415733be0d11cba09e6c765402a4f62077d"
+    },
+    "7752": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7752.md",
+      "closedAt": null,
+      "updatedAt": "2025-11-12T08:21:09Z",
+      "contentHash": "f9b3887116834d71eb79c5effa110f22d2da787a0bbb9c86beaffb05abf32495"
     }
   },
   "releases": {

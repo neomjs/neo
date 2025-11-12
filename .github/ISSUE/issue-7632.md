@@ -1,21 +1,22 @@
 ---
 id: 7632
 title: 'feat(mcp): Add tool to manage GitHub issue relationships'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - MannXo
 createdAt: '2025-10-24T10:15:43Z'
-updatedAt: '2025-11-11T09:28:53Z'
+updatedAt: '2025-11-12T08:20:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7632'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-12T08:20:31Z'
 ---
 # feat(mcp): Add tool to manage GitHub issue relationships
 
@@ -40,4 +41,8 @@ This ticket is for creating a new tool within the GitHub Workflow MCP server to 
 @MannXo this ticket is definitely a fascinating one. I have not looked into the API yet. Assuming that relationships do not contain comments, i would add this info at the bottom of each ticket (below comments). E.g. `## History` or `## Relationships`.
 
 To get the idea: https://raw.githubusercontent.com/neomjs/neo/refs/heads/dev/.github/ISSUE/issue-7733.md
+
+### @tobiu - 2025-11-12 07:47
+
+ha, i confused issue relationship and issue history :) i think we got another ticket for the ticket-timeline too somewhere. looking into the PR now.
 
