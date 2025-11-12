@@ -121,12 +121,6 @@ export const ADD_SUB_ISSUE = `
             issue {
                 number
                 title
-                subIssues(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
             subIssue {
                 number
@@ -159,12 +153,6 @@ export const REMOVE_SUB_ISSUE = `
             issue {
                 number
                 title
-                subIssues(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
             subIssue {
                 number
