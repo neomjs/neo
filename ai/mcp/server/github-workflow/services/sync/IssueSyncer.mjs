@@ -64,7 +64,9 @@ class IssueSyncer extends Base {
             parentIssue       : issue.parent ? issue.parent.number : null,
             subIssues         : issue.subIssues?.nodes.map(sub => sub.number) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
-            subIssuesTotal    : issue.subIssuesSummary?.total || 0
+            subIssuesTotal    : issue.subIssuesSummary?.total || 0,
+            blockedBy         : issue.blockedBy?.nodes.map(b => b.number) || [],
+            blocking          : issue.blocking?.nodes.map(b => b.number) || []
         };
 
         if (issue.closedAt) {
@@ -92,14 +94,29 @@ class IssueSyncer extends Base {
         }
 
         // Add relationship section at the end with clear delimiter
-        if (issue.parent || issue.subIssues?.nodes.length > 0) {
+        const hasRelationships = issue.parent || 
+                                 issue.subIssues?.nodes.length > 0 || 
+                                 issue.blockedBy?.nodes.length > 0 || 
+                                 issue.blocking?.nodes.length > 0;
+
+        if (hasRelationships) {
             body += '## Relationships\n\n';
+            
+            // Parent-child relationships
             if (issue.parent) {
                 body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
             }
             if (issue.subIssues?.nodes.length > 0) {
                 body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
                 body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
+            }
+            
+            // Blocked-by relationships
+            if (issue.blockedBy?.nodes.length > 0) {
+                body += `**Blocked By:** ${issue.blockedBy.nodes.map(b => `#${b.number} - ${b.title}`).join(', ')}\n\n`;
+            }
+            if (issue.blocking?.nodes.length > 0) {
+                body += `**Blocking:** ${issue.blocking.nodes.map(b => `#${b.number} - ${b.title}`).join(', ')}\n\n`;
             }
         }
 
