@@ -1,23 +1,24 @@
 ---
 id: 7687
 title: Enhance GitHub Workflow server robustness when gh cli is not installed
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - MannXo
 createdAt: '2025-11-01T18:22:29Z'
-updatedAt: '2025-11-01T18:49:30Z'
+updatedAt: '2025-11-10T20:31:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7687'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - 7714
   - 7713
-subIssuesCompleted: 1
+subIssuesCompleted: 2
 subIssuesTotal: 2
+closedAt: '2025-11-10T20:31:38Z'
 ---
 # Enhance GitHub Workflow server robustness when gh cli is not installed
 
@@ -26,7 +27,7 @@ subIssuesTotal: 2
 ---
 
 **Sub-Issues:** #7714, #7713
-**Progress:** 1/2 completed (50%)
+**Progress:** 2/2 completed (100%)
 
 ---
 
@@ -48,4 +49,8 @@ this one definitely makes sense: uninstalling gh cli completely and see if the s
 bigger picture: to get v11 ready, i would like to fully remove siesta. to do this, we need to explore which unit tests and component based tests did not get migrated yet, and tackle them. we also need to update some guides and the agents file itself (i am currently having sessions where gemini fails to use the memory core without several recovery prompts). you are definitely welcome to open new tickets for any topics of interest.
 
 i am already moving new mcp testing files into the playwright folder.
+
+### @tobiu - 2025-11-10 20:31
+
+closing the epic, since all subs are resolved.
 

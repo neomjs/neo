@@ -717,6 +717,75 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /issues/relationship:
+    post:
+      summary: Manage Parent-Child Issue Relationships
+      operationId: update_issue_relationship
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Manages parent-child relationships between GitHub issues using the sub-issues feature.
+        This tool allows you to set or unset the parent of a child issue, which automatically
+        updates the parent's `subIssues` array on GitHub.
+
+        **When to Use:**
+        - To organize work by creating issue hierarchies (epics with sub-tasks)
+        - To link a child issue to a parent issue
+        - To unlink a child issue from its parent
+        - To move a child issue from one parent to another
+
+        **Important Notes:**
+        - Changes are made directly on GitHub via the GraphQL API
+        - The local markdown files will be updated on the next `sync_all` operation
+        - An issue can only have ONE parent at a time
+        - Use `replace_parent=true` to replace an existing parent relationship
+        - To remove a parent, call with only `child_issue` specified (omit `parent_issue`)
+
+        **Workflow:**
+        1. Identify the child issue number and parent issue number
+        2. Call this tool to establish or modify the relationship
+        3. Run `sync_all` to update local markdown files with the new relationship
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - child_issue
+              properties:
+                child_issue:
+                  type: integer
+                  description: The issue number of the child issue.
+                  example: 7388
+                parent_issue:
+                  type: integer
+                  description: |
+                    The issue number of the parent issue. 
+                    Omit this field (or set to null) to remove the parent relationship.
+                  example: 7385
+                replace_parent:
+                  type: boolean
+                  description: |
+                    If true, replaces the child's existing parent relationship.
+                    If false and the child already has a parent, the operation will fail.
+                  default: false
+      responses:
+        '200':
+          description: Relationship updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateIssueRelationshipResponse'
+        '500':
+          description: Internal server error, e.g., GraphQL API failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sync-all:
     post:
       summary: Sync GitHub Issues & Releases
@@ -1068,6 +1137,31 @@ components:
           type: string
           format: uri
           description: The URL of the newly created issue.
+
+    UpdateIssueRelationshipResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: A human-readable message describing the result of the operation.
+          example: "Successfully set #7385 as parent of #7388"
+        childIssue:
+          type: integer
+          description: The issue number of the child issue.
+          example: 7388
+        parentIssue:
+          type: integer
+          nullable: true
+          description: The issue number of the parent issue, or null if the parent was removed.
+          example: 7385
+        oldParent:
+          type: integer
+          description: The previous parent issue number, if one was replaced or removed.
+          example: 7380
+        replaceParentApplied:
+          type: boolean
+          description: Indicates whether the replace_parent flag was used.
+          example: false
 
     LocalIssueResponse:
       type: object

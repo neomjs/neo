@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Nov 10, 2025",
+    "id"          : 72,
+    "image"       : "ContextEngineering.png",
+    "name"        : "Context Engineering Done Right",
+    "provider"    : "Medium",
+    "publisher"   : "ITNEXT",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/388-tickets-in-6-weeks-context-engineering-done-right-f8da8577b8c2?source=friends_link&sk=c9a9cac53d5f52a970a79a9493639eef"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Sep 23, 2025",
     "id"          : 71,
     "image"       : "PlatformAnswersQuestions.jpg",

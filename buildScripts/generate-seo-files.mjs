@@ -1,20 +1,66 @@
-import fs from 'fs-extra';
-import path from 'path';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {Command}       from 'commander/esm.mjs';
+import {execSync}      from 'child_process';
 import {fileURLToPath} from 'url';
 
-const ROOT_DIR        = process.cwd();
-const LEARN_DIR       = path.resolve(ROOT_DIR, 'learn');
-const TREE_FILE_PATH  = path.join(LEARN_DIR, 'tree.json');
-const BLOG_DIR_PATH   = path.join(LEARN_DIR, 'blog');
-const DEFAULT_BASE_PATH = '/learn';
+const ROOT_DIR                 = process.cwd();
+const LEARN_DIR                = path.resolve(ROOT_DIR, 'learn');
+const PORTAL_DIR               = path.resolve(ROOT_DIR, 'apps/portal');
+const TREE_FILE_PATH           = path.join(LEARN_DIR, 'tree.json');
+const DEFAULT_BASE_PATH        = '/learn';
 const SUPPORTED_DOC_EXTENSIONS = ['.md', '.mdx', '.json'];
+
+// Top-level routes that don't map to content files
+const TOP_LEVEL_ROUTES = [
+    '/about-us',
+    '/blog',
+    '/docs',
+    '/examples',
+    '/home',
+    '/services'
+];
+
+/**
+ * Gets last modified dates for multiple files in a batch (more efficient).
+ * @param {String[]} filePaths - Array of absolute file paths
+ * @returns {Map<String, String>} Map of filePath -> ISO date string
+ */
+function getGitLastModifiedBatch(filePaths) {
+    const dateMap = new Map();
+
+    if (filePaths.length === 0) {
+        return dateMap;
+    }
+
+    try {
+        for (const filePath of filePaths) {
+            try {
+                const result = execSync(
+                    `git log -1 --format=%cI -- "${filePath}"`,
+                    { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+                ).trim();
+
+                if (result) {
+                    dateMap.set(filePath, result);
+                }
+            } catch {
+                continue;
+            }
+        }
+    } catch (error) {
+        console.warn('Git is not available or error occurred:', error.message);
+    }
+
+    return dateMap;
+}
 
 /**
  * Loads the tree.json structure and returns the raw node data.
  * @returns {Promise<Object[]>}
  */
 async function loadTreeNodes() {
-    const tree = await fs.readJSON(TREE_FILE_PATH);
+    const tree  = await fs.readJSON(TREE_FILE_PATH);
     const nodes = Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [];
     return nodes.filter(node => node?.id);
 }
@@ -49,100 +95,105 @@ async function resolveContentFileFromId(id) {
 
 /**
  * Collects all tree-based routes that map to actual content files.
- * @returns {Promise<Set<String>>} Route id set (e.g. "benefits/Introduction").
+ * @returns {Promise<Array<{id: String, filePath: String}>>} Route data with file paths
  */
 async function collectRoutesFromTree() {
-    const nodes     = await loadTreeNodes();
-    const routeIds  = new Set();
+    const nodes  = await loadTreeNodes();
+    const routes = [];
 
     for (const node of nodes) {
         if (!node?.id) continue;
         const contentPath = await resolveContentFileFromId(node.id);
         if (!contentPath) continue;
-        routeIds.add(node.id);
+        routes.push({
+            id      : node.id,
+            filePath: contentPath
+        });
     }
 
-    return routeIds;
+    return routes;
 }
 
 /**
- * Scans the blog directory for markdown files that may not be listed in tree.json.
- * @returns {Promise<Set<String>>}
+ * Collects top-level routes that don't have content files.
+ * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectRoutesFromBlog() {
-    const routeIds = new Set();
-
-    if (!(await fs.pathExists(BLOG_DIR_PATH))) {
-        return routeIds;
-    }
-
-    const entries = await fs.readdir(BLOG_DIR_PATH);
-
-    for (const entry of entries) {
-        const entryPath = path.join(BLOG_DIR_PATH, entry);
-        const stat = await fs.stat(entryPath);
-
-        if (!stat.isFile()) {
-            continue;
-        }
-
-        const extension = path.extname(entry).toLowerCase();
-
-        if (!SUPPORTED_DOC_EXTENSIONS.includes(extension)) {
-            continue;
-        }
-
-        const slug = entry.slice(0, -extension.length);
-        routeIds.add(`blog/${slug}`);
-    }
-
-    return routeIds;
+async function collectTopLevelRoutes() {
+    return TOP_LEVEL_ROUTES.map(route => ({
+        id      : route,
+        filePath: path.join(PORTAL_DIR, 'view/ViewportController.mjs')
+    }));
 }
 
 /**
- * Normalizes a content id into a route path using the provided base path.
+ * Collects all routes (top-level + content routes).
+ * @returns {Promise<Array<{id: String, filePath: String|null}>>}
+ */
+async function collectAllRoutes() {
+    const [topLevelRoutes, contentRoutes] = await Promise.all([
+        collectTopLevelRoutes(),
+        collectRoutesFromTree()
+    ]);
+
+    return [...topLevelRoutes, ...contentRoutes];
+}
+
+/**
+ * Normalizes a route id into a hash-based route path suitable for a Single-Page Application.
  * @param {String} id
- * @param {String} [basePath=DEFAULT_BASE_PATH]
- * @returns {String}
+ * @param {String} [basePath] - Only used for content routes (e.g., '/learn')
+ * @returns {String} e.g., /#/home or /#/learn/benefits/Introduction
  */
-function buildRouteFromId(id, basePath = DEFAULT_BASE_PATH) {
-    const trimmedBase = (basePath ?? '').replace(/\/$/, '');
+function buildRouteFromId(id, basePath=null) {
+    // Top-level routes don't use basePath
+    if (id.startsWith('/')) {
+        return `/#${id}`;
+    }
+
+    // Content routes use basePath
+    const trimmedBase = (basePath ?? DEFAULT_BASE_PATH).replace(/\/$/, '');
     const trimmedId   = id.replace(/^\//, '');
     const prefix      = trimmedBase.length > 0 ? trimmedBase : '';
     const route       = `${prefix}/${trimmedId}`.replace(/\/+/g, '/');
-    return route.startsWith('/') ? route : `/${route}`;
+    return `/#${route.startsWith('/') ? route : `/${route}`}`;
 }
 
 /**
- * Generates a normalized list of content routes (relative to the site root).
+ * Generates a normalized list of all routes (relative to the site root).
  * @param {Object} [options]
- * @param {String} [options.basePath='/learn']
+ * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String[]>}
  */
-export async function getContentRoutes(options = {}) {
-    const basePath = options.basePath ?? DEFAULT_BASE_PATH;
-    const treeRoutes = await collectRoutesFromTree();
-    const blogRoutes = await collectRoutesFromBlog();
+export async function getContentRoutes(options={}) {
+    const {basePath = DEFAULT_BASE_PATH, includeTopLevel = true} = options;
+    const allRoutes = await collectAllRoutes();
 
-    blogRoutes.forEach(id => treeRoutes.add(id));
-
-    const routes = Array.from(treeRoutes)
-        .map(id => buildRouteFromId(id, basePath))
+    const routes = allRoutes
+        .filter(({id}) => includeTopLevel || !id.startsWith('/'))
+        .map(({id}) => {
+            // Top-level routes don't use basePath
+            if (id.startsWith('/')) {
+                return buildRouteFromId(id);
+            }
+            return buildRouteFromId(id, basePath);
+        })
         .sort((a, b) => a.localeCompare(b));
 
     return routes;
 }
 
 /**
- * Returns fully qualified URLs for all content routes.
+ * Returns fully qualified URLs for all routes.
  * @param {Object} [options]
  * @param {String} options.baseUrl Absolute base URL (e.g. https://neomjs.github.io)
- * @param {String} [options.basePath='/learn']
+ * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String[]>}
  */
-export async function getContentUrls(options = {}) {
-    const {baseUrl, basePath = DEFAULT_BASE_PATH} = options;
-    const routes = await getContentRoutes({basePath});
+export async function getContentUrls(options={}) {
+    const {baseUrl, basePath=DEFAULT_BASE_PATH, includeTopLevel=true} = options;
+    const routes = await getContentRoutes({basePath, includeTopLevel});
 
     if (!baseUrl) {
         return routes;
@@ -153,28 +204,60 @@ export async function getContentUrls(options = {}) {
 }
 
 /**
- * Formats the content URLs as a sitemap.xml string.
+ * Formats all routes as a sitemap.xml string.
  * @param {Object} options
  * @param {String} options.baseUrl Absolute base URL required for sitemap entries.
- * @param {String} [options.basePath='/learn']
+ * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeLastmod=true] Whether to include <lastmod> from git
+ * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String>}
  */
-export async function getSitemapXml(options = {}) {
-    const {baseUrl, basePath = DEFAULT_BASE_PATH} = options;
+export async function getSitemapXml(options={}) {
+    const {
+              baseUrl,
+              basePath = DEFAULT_BASE_PATH,
+              includeLastmod  = true,
+              includeTopLevel = true
+          } = options;
 
     if (!baseUrl) {
         throw new Error('getSitemapXml requires a baseUrl option to produce absolute URLs.');
     }
 
-    const urls = await getContentUrls({baseUrl, basePath});
-    const xmlEntries = urls.map(loc => (
-`  <url>
-    <loc>${loc}</loc>
-  </url>`
-    )).join('\n');
+    const allRoutes = await collectAllRoutes();
+    const filteredRoutes = allRoutes.filter(({id}) =>
+        includeTopLevel || !id.startsWith('/')
+    );
+
+    const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
+    // Get git lastmod dates for all files in batch
+    let lastModMap = new Map();
+    if (includeLastmod) {
+        const filePaths = filteredRoutes
+            .map(({filePath}) => filePath)
+            .filter(Boolean);
+        lastModMap = getGitLastModifiedBatch(filePaths);
+    }
+
+    const xmlEntries = filteredRoutes.map(({id, filePath}) => {
+        const route = id.startsWith('/')
+            ? buildRouteFromId(id)
+            : buildRouteFromId(id, basePath);
+        const url = new URL(route, normalizedBaseUrl).toString();
+        const lastmod = filePath ? lastModMap.get(filePath) : null;
+
+        const lastmodXml = lastmod
+            ? `\n    <lastmod>${lastmod}</lastmod>`
+            : '';
+
+        return `  <url>
+    <loc>${url}</loc>${lastmodXml}
+  </url>`;
+    }).join('\n');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
 ${xmlEntries}
 </urlset>
 `;
@@ -184,73 +267,72 @@ ${xmlEntries}
  * Formats the content URLs for llm.txt consumption (newline separated).
  * @param {Object} [options]
  * @param {String} options.baseUrl Optional absolute base URL.
- * @param {String} [options.basePath='/learn']
+ * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String>}
  */
-export async function getLlmTxt(options = {}) {
+export async function getLlmTxt(options={}) {
     const urls = await getContentUrls(options);
     return urls.join('\n');
 }
 
 async function runCli() {
-    const args = process.argv.slice(2);
-    const options = {};
+    const program = new Command(); // Initialize commander
 
-    for (let i = 0; i < args.length; i++) {
-        const arg = args[i];
+    program
+        .name('generate-seo-files')
+        .description('Generates sitemap.xml and llm.txt for SEO purposes.')
+        .option('-f, --format <type>', 'Output format: array, urls, xml, llm')
+        .option('--base-url <url>', 'Absolute base URL (e.g., https://neomjs.com)')
+        .option('--base-path <path>', 'Base path for content routes')
+        .option('-o, --output <path>', 'Output file path')
+        .option('--no-lastmod', 'Exclude <lastmod> tags from sitemap.xml')
+        .option('--no-top-level', 'Exclude top-level routes');
 
-        switch (arg) {
-        case '--format':
-        case '-f':
-            options.format = args[++i];
-            break;
-        case '--base-url':
-            options.baseUrl = args[++i];
-            break;
-        case '--base-path':
-            options.basePath = args[++i];
-            break;
-        default:
-            console.warn(`Unknown argument "${arg}" ignored.`);
-            break;
-        }
-    }
+    program.parse(process.argv);
 
-    const format = (options.format || 'array').toLowerCase();
+    const programOpts     = program.opts();
+    const format          = (programOpts.format || 'array').toLowerCase();
+    const baseUrl         = programOpts.baseUrl;
+    const basePath        = programOpts.basePath || DEFAULT_BASE_PATH;
+    const output          = programOpts.output;
+    const includeLastmod  = programOpts.noLastmod === undefined ? true : !programOpts.noLastmod;
+    const includeTopLevel = programOpts.noTopLevel === undefined ? true : !programOpts.noTopLevel;
+
+
+    let outputContent;
 
     switch (format) {
-    case 'array': {
-        const routes = await getContentRoutes({basePath: options.basePath});
-        console.log(JSON.stringify(routes, null, 2));
-        break;
+        case 'array': {
+            const routes  = await getContentRoutes({basePath, includeTopLevel});
+            outputContent = JSON.stringify(routes, null, 2);
+            break;
+        }
+        case 'urls': {
+            const urls    = await getContentUrls({baseUrl, basePath, includeTopLevel});
+            outputContent = JSON.stringify(urls, null, 2);
+            break;
+        }
+        case 'xml': {
+            outputContent = await getSitemapXml({baseUrl, basePath, includeLastmod, includeTopLevel});
+            break;
+        }
+        case 'llm':
+        case 'llm.txt': {
+            outputContent = await getLlmTxt({baseUrl, basePath, includeTopLevel});
+            break;
+        }
+        default:
+            throw new Error(`Unsupported format "${format}". Supported formats: array, urls, xml, llm.`);
     }
-    case 'urls': {
-        const urls = await getContentUrls({
-            baseUrl : options.baseUrl,
-            basePath: options.basePath
-        });
-        console.log(JSON.stringify(urls, null, 2));
-        break;
-    }
-    case 'xml': {
-        const xml = await getSitemapXml({
-            baseUrl : options.baseUrl,
-            basePath: options.basePath
-        });
-        console.log(xml);
-        break;
-    }
-    case 'llm':
-    case 'llm.txt': {
-        const txt = await getLlmTxt({
-            baseUrl : options.baseUrl,
-            basePath: options.basePath
-        });
-        console.log(txt);
-        break;
-    }
-    default:
-        throw new Error(`Unsupported format "${options.format}". Supported formats: array, urls, xml, llm.`);
+
+    if (output) {
+        const outputPath = path.resolve(ROOT_DIR, output);
+        await fs.ensureDir(path.dirname(outputPath));
+        await fs.writeFile(outputPath, outputContent);
+        console.log(`Successfully wrote output to ${output}`);
+    } else {
+        console.log(outputContent);
     }
 }
 

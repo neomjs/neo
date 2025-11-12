@@ -1,13 +1,13 @@
 ---
 id: 7721
 title: 'Docs: Create and integrate guide for `gh`-absent scenarios'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
 assignees: []
 createdAt: '2025-11-08T09:56:33Z'
-updatedAt: '2025-11-08T09:56:33Z'
+updatedAt: '2025-11-10T20:07:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7721'
 author: tobiu
 commentsCount: 0
@@ -15,6 +15,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-10T20:07:24Z'
 ---
 # Docs: Create and integrate guide for `gh`-absent scenarios
 

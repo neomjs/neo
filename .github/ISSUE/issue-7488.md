@@ -1,7 +1,7 @@
 ---
 id: 7488
 title: Create Test Plan for component.Label
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - help wanted
@@ -12,7 +12,7 @@ labels:
 assignees:
   - Alachi24
 createdAt: '2025-10-14T16:13:58Z'
-updatedAt: '2025-10-23T19:17:18Z'
+updatedAt: '2025-11-10T20:23:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7488'
 author: tobiu
 commentsCount: 4
@@ -20,6 +20,7 @@ parentIssue: 7475
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-10T20:23:24Z'
 ---
 # Create Test Plan for component.Label
 

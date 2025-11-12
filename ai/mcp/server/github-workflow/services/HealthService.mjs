@@ -4,7 +4,6 @@ import aiConfig    from '../config.mjs';
 import Base        from '../../../../../src/core/Base.mjs';
 import logger      from '../logger.mjs';
 import semver      from 'semver';
-import { combineOutput, parseAuthOutput, parseVersionOutput, interpretExecError } from './healthHelpers.mjs';
 
 const execAsync = promisify(exec);
 
@@ -87,10 +86,10 @@ class HealthService extends Base {
     async #checkGhAuth() {
         try {
             const { stdout, stderr } = await execAsync('gh auth status');
-            const out = combineOutput(stdout, stderr);
-            return parseAuthOutput(out);
+            const out = this.#combineOutput(stdout, stderr);
+            return this.#parseAuthOutput(out);
         } catch (e) {
-            if (interpretExecError(e)) {
+            if (this.#interpretExecError(e)) {
                 return {
                     authenticated: false,
                     error        : 'GitHub CLI is not installed or not available in PATH. Please install it or run `gh auth login`.'
@@ -120,10 +119,10 @@ class HealthService extends Base {
     async #checkGhVersion() {
         try {
             const { stdout, stderr } = await execAsync('gh --version');
-            const out = combineOutput(stdout, stderr);
-            return parseVersionOutput(out, aiConfig.minGhVersion);
+            const out = this.#combineOutput(stdout, stderr);
+            return this.#parseVersionOutput(out, aiConfig.minGhVersion);
         } catch (e) {
-            if (interpretExecError(e)) {
+            if (this.#interpretExecError(e)) {
                 return {
                     installed: false,
                     versionOk: false,
@@ -180,6 +179,11 @@ class HealthService extends Base {
         if (!versionCheck.installed) {
             payload.status = 'unhealthy';
             payload.githubCli.details.push(versionCheck.error);
+            // Emit a short structured diagnostic line so monitoring/CI can detect
+            // that `gh` is missing without parsing free-form logs.
+            // Example: `[HealthService] gh-status: missing; reason=GitHub CLI is not installed...`
+            logger.info(`[HealthService] gh-status: missing; reason=${versionCheck.error}`);
+
             return payload;
         }
 
@@ -201,15 +205,60 @@ class HealthService extends Base {
         if (!authCheck.authenticated) {
             payload.status = 'unhealthy';
             payload.githubCli.details.push(authCheck.error);
+            logger.info('[HealthService] gh-status: unauthenticated');
         }
 
         // If we made it here with no issues, everything is healthy
         if (payload.status === 'healthy') {
             payload.githubCli.details.push('GitHub CLI is installed, authenticated, and up to date.');
+            logger.info('[HealthService] gh-status: healthy');
         }
 
         return payload;
     }
+
+    // ---- inlined helpers from healthHelpers.mjs (moved here as private methods) ----
+    #combineOutput(stdout, stderr) {
+        return `${stdout || ''}\n${stderr || ''}`;
+    }
+
+    #parseAuthOutput(out) {
+        if (typeof out !== 'string') out = String(out || '');
+        if (out.includes('Logged in to github.com')) {
+            return { authenticated: true };
+        }
+        return { authenticated: false, error: 'Not logged in to github.com. Please run `gh auth login`.' };
+    }
+
+    #parseVersionOutput(out, minVersion = '2.0.0') {
+        if (typeof out !== 'string') out = String(out || '');
+
+        // Match version string, including pre-release versions
+        const m = out.match(/gh version ([\d.]+(?:-[\w.]+)?)/);
+        if (!m) {
+            return { installed: false, versionOk: false, version: null, error: 'GitHub CLI is not installed. Please install it from https://cli.github.com/' };
+        }
+        const version = m[1];
+        try {
+            // Use semver library for robust version comparison
+            // Handles edge cases like pre-release versions (e.g., v11.0.0-alpha.2)
+            const versionOk = semver.gte(version, minVersion);
+
+            if (versionOk) return { installed: true, versionOk: true, version };
+            return { installed: true, versionOk: false, version, error: `gh version (${version}) is outdated. Please upgrade to at least ${minVersion}.` };
+        } catch (e) {
+            return { installed: true, versionOk: false, version, error: `Could not parse gh version: ${e.message}` };
+        }
+    }
+
+    #interpretExecError(err) {
+        if (!err) return false;
+        if (err.code === 'ENOENT') return true;
+        const msg = String(err.message || err || '');
+        if (/not found|ENOENT|is not recognized as an internal or external command/i.test(msg)) return true;
+        return false;
+    }
+    // ---- end inlined helpers ----
 
     /**
      * Public API: Checks the health of the GitHub CLI with intelligent caching.

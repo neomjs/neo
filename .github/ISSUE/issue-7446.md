@@ -1,28 +1,35 @@
 ---
 id: 7446
 title: Enhance SEO for Neo.mjs Website
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:06:13Z'
-updatedAt: '2025-10-11T09:34:50Z'
+updatedAt: '2025-11-11T18:30:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7446'
 author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7447
   - 7448
   - 7449
   - 7451
   - 7452
   - 7453
   - 7460
-subIssuesCompleted: 1
-subIssuesTotal: 7
+  - 7742
+  - 7743
+  - 7744
+  - 7745
+  - 7746
+  - 7747
+  - 7748
+subIssuesCompleted: 13
+subIssuesTotal: 13
+closedAt: '2025-11-11T18:30:24Z'
 ---
 # Enhance SEO for Neo.mjs Website
 
@@ -30,8 +37,8 @@ subIssuesTotal: 7
 
 ---
 
-**Sub-Issues:** #7447, #7448, #7449, #7451, #7452, #7453, #7460
-**Progress:** 1/7 completed (14%)
+**Sub-Issues:** #7448, #7449, #7451, #7452, #7453, #7460, #7742, #7743, #7744, #7745, #7746, #7747, #7748
+**Progress:** 13/13 completed (100%)
 
 ---
 
@@ -66,16 +73,4 @@ To ensure search engines have an up-to-date map of our site, we will automate th
 -   **Generator Script:** A new build script will parse our content manifests (like `learn/tree.json`) to automatically generate a complete `sitemap.xml` and `llm.txt`. This ensures these files are never out of date and requires zero manual maintenance.
 
 This combination of a server-side deployment fix and a client-side management addon, supported by automated file generation, provides a robust and sustainable solution to dramatically improve the project's visibility.
-
-## Sub-Tasks
-
-### Phase 1: Foundational Tooling
-
-- **To Do:** ticket-fix-root-domain-seo-with-base-href.md
-- **To Do:** ticket-create-head-manager-addon.md
-- **To Do:** ticket-create-sitemap-generator-script.md
-- **To Do:** ticket-refactor-seo-generator-script.md
-- **To Do:** ticket-generate-sitemap-file.md
-- **To Do:** ticket-generate-llm-txt-file.md
-- **To Do:** ticket-create-update-robots-txt-for-seo.md
 

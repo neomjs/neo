@@ -1,21 +1,22 @@
 ---
 id: 7452
 title: Generate LLM.txt File via Build Script
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:16:51Z'
-updatedAt: '2025-10-10T20:21:34Z'
+updatedAt: '2025-11-11T12:26:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7452'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-11T12:26:47Z'
 ---
 # Generate LLM.txt File via Build Script
 
@@ -34,4 +35,10 @@ To improve the ability of Large Language Models (LLMs) to understand our content
 1.  Enhance the `buildScripts/generate-seo-files.mjs` script.
 2.  Add a function to the script that takes the parsed list of content URLs and formats them into the `llm.txt` syntax (`Allow: /path/to/page`).
 3.  The script should write the final output to a new `llm.txt` file in the `apps/portal/` directory.
+
+## Comments
+
+### @tobiu - 2025-11-11 12:26
+
+resolved.
 

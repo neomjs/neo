@@ -171,6 +171,10 @@ if (programOpts.info) {
             }
         }
 
+        // Call the new script to copy SEO files
+        childProcess = spawnSync('node', [`${neoPath}/buildScripts/copySeoFiles.mjs`, '-e', env], cpOpts);
+        childProcess.status && process.exit(childProcess.status);
+
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
