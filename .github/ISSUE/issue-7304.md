@@ -1,21 +1,22 @@
 ---
 id: 7304
 title: 'After Nov 1st: Revert Temporary Hacktoberfest Protocol from AGENTS.md'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
 assignees:
   - tobiu
 createdAt: '2025-09-28T13:56:55Z'
-updatedAt: '2025-09-28T13:56:55Z'
+updatedAt: '2025-11-12T11:53:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7304'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-12T11:53:00Z'
 ---
 # After Nov 1st: Revert Temporary Hacktoberfest Protocol from AGENTS.md
 
@@ -28,4 +29,10 @@ This ticket is a scheduled task to remove that temporary section after the event
 ### Task:
 
 - On or after November 1st, 2025, remove the "Hacktoberfest 2025 Onboarding Protocol (Temporary)" section from `AGENTS.md`.
+
+## Comments
+
+### @tobiu - 2025-11-12 11:53
+
+already removed
 

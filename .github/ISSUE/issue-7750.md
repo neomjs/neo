@@ -1,14 +1,14 @@
 ---
 id: 7750
 title: Refactor `addSubIssue` and `removeSubIssue` Mutations for Efficiency
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - good first issue
   - ai
 assignees: []
 createdAt: '2025-11-12T07:59:51Z'
-updatedAt: '2025-11-12T07:59:51Z'
+updatedAt: '2025-11-12T14:27:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7750'
 author: tobiu
 commentsCount: 0
@@ -16,6 +16,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-12T14:27:19Z'
 ---
 # Refactor `addSubIssue` and `removeSubIssue` Mutations for Efficiency
 

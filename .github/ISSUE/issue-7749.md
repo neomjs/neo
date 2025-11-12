@@ -1,13 +1,13 @@
 ---
 id: 7749
 title: Enhance Issue Relationship Tool to Support "Blocked By" and "Blocking"
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees: []
 createdAt: '2025-11-12T07:58:04Z'
-updatedAt: '2025-11-12T07:58:04Z'
+updatedAt: '2025-11-12T14:23:01Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7749'
 author: tobiu
 commentsCount: 0
@@ -15,6 +15,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-12T14:23:01Z'
 ---
 # Enhance Issue Relationship Tool to Support "Blocked By" and "Blocking"
 

@@ -1,21 +1,22 @@
 ---
 id: 7447
 title: Fix Root Domain SEO with Base-Href-Patched Index
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T20:08:08Z'
-updatedAt: '2025-11-11T18:30:06Z'
+updatedAt: '2025-11-12T13:57:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7447'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-12T13:57:32Z'
 ---
 # Fix Root Domain SEO with Base-Href-Patched Index
 
@@ -41,4 +42,8 @@ To fix this within the constraints of GitHub Pages hosting and the need to prese
 ### @tobiu - 2025-11-11 18:30
 
 detaching the ticket from the epic, since we can not resolve it inside this repo.
+
+### @tobiu - 2025-11-12 13:57
+
+resolved via: https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs
 

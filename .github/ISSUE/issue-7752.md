@@ -1,14 +1,14 @@
 ---
 id: 7752
 title: Add `update_comment` Tool to GitHub Workflow Server
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - good first issue
   - ai
 assignees: []
 createdAt: '2025-11-12T08:21:09Z'
-updatedAt: '2025-11-12T08:21:09Z'
+updatedAt: '2025-11-12T14:31:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7752'
 author: tobiu
 commentsCount: 0
@@ -16,6 +16,7 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+closedAt: '2025-11-12T14:31:45Z'
 ---
 # Add `update_comment` Tool to GitHub Workflow Server
 
