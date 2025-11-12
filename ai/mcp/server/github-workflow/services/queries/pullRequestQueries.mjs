@@ -54,6 +54,25 @@ export const ADD_COMMENT = `
 `;
 
 /**
+ * Mutation to update an existing comment.
+ *
+ * Variables required:
+ * - $commentId: ID! - The global ID of the comment to update
+ * - $body: String! - The new comment body
+ */
+export const UPDATE_COMMENT = `
+  mutation UpdateComment($commentId: ID!, $body: String!) {
+    updateIssueComment(input: {id: $commentId, body: $body}) {
+      issueComment {
+        id
+        url
+        updatedAt
+      }
+    }
+  }
+`;
+
+/**
  * Query to get the global ID of a pull request.
  *
  * Variables required:
