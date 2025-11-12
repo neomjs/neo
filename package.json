@@ -18,7 +18,6 @@
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-stdio.mjs",
         "ai:server"                    : "chroma run --path ./chroma",
         "ai:server-memory"             : "chroma run --path ./chroma-memory --port 8001",
-        "ai:setup-memory-db"           : "node buildScripts/ai/setupMemoryDB.mjs",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
         "build-dist-esm"               : "node ./buildScripts/buildESModules.mjs",
