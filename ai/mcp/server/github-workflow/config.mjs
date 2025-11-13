@@ -132,7 +132,12 @@ const config = {
          * Maximum number of sub-issues to fetch per issue in GraphQL queries.
          * @type {number}
          */
-        maxSubIssuesPerIssue: 50
+        maxSubIssuesPerIssue: 50,
+        /**
+         * Maximum number of timeline items to fetch per issue in GraphQL queries.
+         * @type {number}
+         */
+        maxTimelineItemsPerIssue: 50
     },
     /**
      * Configuration for pull request queries.

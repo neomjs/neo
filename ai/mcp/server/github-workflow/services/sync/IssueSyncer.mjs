@@ -92,7 +92,58 @@ class IssueSyncer extends Base {
             }
         }
 
+        // Add Activity Log section
+        if (issue.timelineItems?.nodes.length > 0) {
+            body += '## Activity Log\n\n';
+            for (const event of issue.timelineItems.nodes) {
+                body += this.#formatTimelineEvent(event);
+            }
+            body += '\n';
+        }
+
         return matter.stringify(body, frontmatter);
+    }
+
+    /**
+     * Formats a single timeline event into a human-readable Markdown string.
+     * @param {object} event - The timeline event object.
+     * @returns {string} The formatted Markdown string for the event.
+     * @private
+     */
+    #formatTimelineEvent(event) {
+        const date  = event.createdAt.split('T')[0];
+        const actor = event.actor?.login || 'Ghost';
+        let details = '';
+
+        switch (event.__typename) {
+            case 'LabeledEvent':
+                details = `added the \`${event.label.name}\` label`;
+                break;
+            case 'UnlabeledEvent':
+                details = `removed the \`${event.label.name}\` label`;
+                break;
+            case 'AssignedEvent':
+                details = `assigned to @${event.assignee.login}`; // Assuming assignee is always a User
+                break;
+            case 'UnassignedEvent':
+                details = `unassigned from @${event.assignee.login}`; // Assuming assignee is always a User
+                break;
+            case 'ClosedEvent':
+                details = `closed this issue`;
+                break;
+            case 'ReferencedEvent':
+                const commitMessage = event.commit.message.split('\\n')[0];
+                details = `referenced in commit \`${event.commit.oid.substring(0, 7)}\` - "${commitMessage}"`;
+                break;
+            case 'CrossReferencedEvent':
+                const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
+                details = `cross-referenced by ${sourceRef}`;
+                break;
+            default:
+                details = `performed a "${event.__typename}" event`;
+        }
+
+        return `- ${date} @${actor} ${details}\n`;
     }
 
     /**
