@@ -92,24 +92,6 @@ class IssueSyncer extends Base {
             }
         }
 
-        // Add relationship section at the end with clear delimiter
-        const hasRelationships = issue.parent || 
-                                 issue.subIssues?.nodes.length > 0;
-
-        if (hasRelationships) {
-            body += '## Relationships\n\n';
-            
-            // Parent relationship
-            if (issue.parent) {
-                body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
-            }
-            
-            // Sub-issues with progress (human-readable at-a-glance info)
-            if (issue.subIssues?.nodes.length > 0) {
-                body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
-            }
-        }
-
         return matter.stringify(body, frontmatter);
     }
 
@@ -358,18 +340,15 @@ class IssueSyncer extends Base {
                 const issueId = idData.repository.issue.id;
 
                 // Step 2: Prepare the updated content
-                // Remove comments section and everything after it (including relationships)
-                const bodyWithoutCommentsAndRelationships = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
-                
-                // Remove the "## Relationships" section if it exists
-                const bodyWithoutRelationships = bodyWithoutCommentsAndRelationships.replace(/## Relationships[\s\S]*$/m, '').trim();
-                
+                // Remove comments section and everything after it
+                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
+
                 // Extract title from the markdown
-                const titleMatch = bodyWithoutRelationships.match(/^#\s+(.+)$/m);
+                const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
                 const title      = titleMatch ? titleMatch[1] : parsed.data.title;
 
-                // Remove only the title from body (Reported by: no longer exists)
-                const cleanBody = bodyWithoutRelationships
+                // Remove only the title from body
+                const cleanBody = bodyWithoutComments
                     .replace(/^#\s+.+$/m, '') // Remove title
                     .trim();
 
