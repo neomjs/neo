@@ -27,10 +27,12 @@ class DocumentHead extends Base {
         remote: {
             app: [
                 'getCanonical',
+                'getDescription',
                 'getLdJson',
                 'getTag',
                 'getTitle',
                 'setCanonical',
+                'setDescription',
                 'setLdJson',
                 'setTag',
                 'setTitle',
@@ -46,6 +48,15 @@ class DocumentHead extends Base {
     getCanonical() {
         let canonical = document.head.querySelector('link[rel="canonical"]');
         return canonical?.href || null
+    }
+
+    /**
+     * Retrieves the content of the meta-tag with the name "description" from the document.
+     * If such a meta-tag is not present, it returns null.
+     * @returns {String|null} The content of the "description" meta-tag or null if not found.
+     */
+    getDescription() {
+        return document.querySelector('meta[name="description"]')?.content || null
     }
 
     /**
@@ -126,6 +137,19 @@ class DocumentHead extends Base {
     }
 
     /**
+     * Sets the document description meta-tag.
+     * @param {Object} data
+     * @param {String} data.value The new description for the document.
+     */
+    setDescription({value}) {
+        this.setTag({
+            tag    : 'meta',
+            name   : 'description',
+            content: value
+        })
+    }
+
+    /**
      * Creates or updates the ld+json script tag with new structured data.
      * @param {Object} data
      * @param {Object} data.value The JavaScript object to be stringified and set as the script's content.
@@ -195,14 +219,16 @@ class DocumentHead extends Base {
      * Convenience shortcut to change multiple items inside one remote method access call.
      * @param {Object} data
      * @param {String} [data.canonicalUrl] The canonical URL to set.
+     * @param {String} [data.description]  The new description for the document.
      * @param {Object} [data.ldJson]       The JavaScript object to be stringified and set as the script's content.
      * @param {Object} [data.tag]          The configuration for the tag, including the tag name and its attributes.
      * @param {String} [data.title]        The new title for the document.
      */
-    update({canonicalUrl, ldJson, tag, title}) {
+    update({canonicalUrl, description, ldJson, tag, title}) {
         let me = this;
 
         canonicalUrl && me.setCanonical({url: canonicalUrl});
+        description  && me.setDescription({value: description});
         ldJson       && me.setLdJson({value: ldJson});
         tag          && me.setTag({value: tag});
         title        && me.setTitle({value: title})
