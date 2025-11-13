@@ -93,7 +93,8 @@ async function collectRoutesFromTree() {
         if (!contentPath) continue;
         routes.push({
             id      : node.id,
-            filePath: contentPath
+            filePath: contentPath,
+            name    : node.name
         });
     }
 
@@ -250,16 +251,61 @@ ${xmlEntries}
 }
 
 /**
- * Formats the content URLs for llm.txt consumption (newline separated).
+ * Formats the content URLs for llms.txt consumption (newline separated).
  * @param {Object} [options]
  * @param {String} options.baseUrl Optional absolute base URL.
  * @param {String} [options.basePath='/learn'] - Only applies to content routes
  * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
  * @returns {Promise<String>}
  */
-export async function getLlmTxt(options={}) {
-    const urls = await getContentUrls(options);
-    return urls.join('\n');
+export async function getLlmsTxt(options={}) {
+    const {baseUrl, basePath = DEFAULT_BASE_PATH} = options;
+    const allRoutes = await collectAllRoutes();
+
+    let content = `# Neo.mjs Platform
+
+> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a distributed computing environment, not a single-threaded document renderer.
+>
+> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly responsive, regardless of the workload. The platform provides a holistic, managed environment with operational guarantees, a unified class config system for declaratively describing entire component trees, and critical operational primitives like multi-window state. It includes an enterprise-grade component library.
+>
+> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that applications evolve with the web platform itself.
+
+`;
+
+    const topLevelRoutes = allRoutes.filter(route => route.id.startsWith('/'));
+    const contentRoutes  = allRoutes.filter(route => !route.id.startsWith('/'));
+
+    content += `## main\n\n`;
+    const topLevelUrls = topLevelRoutes.map(route => {
+        const name  = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        const url   = new URL(buildRouteFromId(route.id), baseUrl).toString();
+        return `- [${name}](${url})`;
+    });
+    content += topLevelUrls.join('\n') + '\n\n';
+
+    const topLevelFolders = contentRoutes.reduce((acc, node) => {
+        const parts = node.id.split('/');
+        if (parts.length > 1) {
+            const folder = parts[0];
+            if (!acc[folder]) {
+                acc[folder] = [];
+            }
+            acc[folder].push(node);
+        }
+        return acc;
+    }, {});
+
+    for (const folder in topLevelFolders) {
+        content += `## ${folder}\n\n`;
+        const urls = topLevelFolders[folder].map(node => {
+            const route = buildRouteFromId(node.id, basePath);
+            const url   = new URL(route, baseUrl).toString();
+            return `- [${node.name}](${url})`;
+        });
+        content += urls.join('\n') + '\n\n';
+    }
+
+    return content;
 }
 
 async function runCli() {
@@ -267,8 +313,8 @@ async function runCli() {
 
     program
         .name('generate-seo-files')
-        .description('Generates sitemap.xml and llm.txt for SEO purposes.')
-        .option('-f, --format <type>', 'Output format: array, urls, xml, llm')
+        .description('Generates sitemap.xml and llms.txt for SEO purposes.')
+        .option('-f, --format <type>', 'Output format: array, urls, xml, llms')
         .option('--base-url <url>', 'Absolute base URL (e.g., https://neomjs.com)')
         .option('--base-path <path>', 'Base path for content routes')
         .option('-o, --output <path>', 'Output file path')
@@ -303,13 +349,13 @@ async function runCli() {
             outputContent = await getSitemapXml({baseUrl, basePath, includeLastmod, includeTopLevel});
             break;
         }
-        case 'llm':
-        case 'llm.txt': {
-            outputContent = await getLlmTxt({baseUrl, basePath, includeTopLevel});
+        case 'llms':
+        case 'llms.txt': {
+            outputContent = await getLlmsTxt({baseUrl, basePath, includeTopLevel});
             break;
         }
         default:
-            throw new Error(`Unsupported format "${format}". Supported formats: array, urls, xml, llm.`);
+            throw new Error(`Unsupported format "${format}". Supported formats: array, urls, xml, llms.`);
     }
 
     if (output) {
@@ -336,5 +382,5 @@ export default {
     getContentRoutes,
     getContentUrls,
     getSitemapXml,
-    getLlmTxt
+    getLlmsTxt
 };

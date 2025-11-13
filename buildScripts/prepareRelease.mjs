@@ -7,10 +7,10 @@
  * This consolidation streamlines the release process and prevents manual errors.
  */
 
-import fs                         from 'fs-extra';
-import os                         from 'os';
-import path                       from 'path';
-import {getLlmTxt, getSitemapXml} from './generate-seo-files.mjs';
+import fs                          from 'fs-extra';
+import os                          from 'os';
+import path                        from 'path';
+import {getLlmsTxt, getSitemapXml} from './generateSeoFiles.mjs';
 
 const
     root        = path.resolve(),
@@ -93,7 +93,7 @@ if (insideNeo) {
     }
 }
 
-// Generate sitemap.xml and llm.txt to ensure SEO files are up-to-date with the latest content and routes.
+// Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
 // This is crucial for search engine discoverability and AI model consumption.
 const baseUrl = 'https://neomjs.com'; // Hardcode canonical base URL
 
@@ -101,9 +101,9 @@ const sitemapXml = await getSitemapXml({baseUrl});
 fs.writeFileSync(path.join(root, 'apps/portal/sitemap.xml'), sitemapXml);
 console.log('Generated apps/portal/sitemap.xml');
 
-const llmTxt = await getLlmTxt({baseUrl});
-fs.writeFileSync(path.join(root, 'apps/portal/llm.txt'), llmTxt);
-console.log('Generated apps/portal/llm.txt');
+const llmsTxt = await getLlmsTxt({baseUrl});
+fs.writeFileSync(path.join(root, 'apps/portal/llms.txt'), llmsTxt);
+console.log('Generated apps/portal/llms.txt');
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);
