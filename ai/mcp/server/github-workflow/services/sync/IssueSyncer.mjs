@@ -77,7 +77,6 @@ class IssueSyncer extends Base {
         }
 
         let body = `# ${issue.title}\n\n`;
-        body += `**Reported by:** @${issue.author.login} on ${issue.createdAt.split('T')[0]}\n\n`;
 
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
@@ -102,12 +101,13 @@ class IssueSyncer extends Base {
         if (hasRelationships) {
             body += '## Relationships\n\n';
             
-            // Parent-child relationships
+            // Parent relationship
             if (issue.parent) {
                 body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
             }
+            
+            // Sub-issues with progress (human-readable at-a-glance info)
             if (issue.subIssues?.nodes.length > 0) {
-                body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
                 body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
             }
             
@@ -371,15 +371,16 @@ class IssueSyncer extends Base {
                 // Remove comments section and everything after it (including relationships)
                 const bodyWithoutCommentsAndRelationships = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
                 
-                // Remove the "## Relationships" section if it exists (it comes after comments)
+                // Remove the "## Relationships" section if it exists
                 const bodyWithoutRelationships = bodyWithoutCommentsAndRelationships.replace(/## Relationships[\s\S]*$/m, '').trim();
                 
+                // Extract title from the markdown
                 const titleMatch = bodyWithoutRelationships.match(/^#\s+(.+)$/m);
                 const title      = titleMatch ? titleMatch[1] : parsed.data.title;
 
+                // Remove only the title from body (Reported by: no longer exists)
                 const cleanBody = bodyWithoutRelationships
-                    .replace(/^#\s+.+$/m, '')
-                    .replace(/^\*\*Reported by:\*\*.+$/m, '')
+                    .replace(/^#\s+.+$/m, '') // Remove title
                     .trim();
 
                 // Step 3: Execute the mutation
