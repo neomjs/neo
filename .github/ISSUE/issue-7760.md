@@ -1,14 +1,15 @@
 ---
 id: 7760
 title: Implement `llms.txt` specification and differentiate from `llm.txt`
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-12T15:09:51Z'
-updatedAt: '2025-11-12T15:12:25Z'
+updatedAt: '2025-11-13T12:49:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7760'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-13T12:49:31Z'
 ---
 # Implement `llms.txt` specification and differentiate from `llm.txt`
 
@@ -45,4 +47,7 @@ This ticket aims to correctly implement the `llms.txt` specification for the Neo
 - 2025-11-12 @tobiu added the `documentation` label
 - 2025-11-12 @tobiu added the `enhancement` label
 - 2025-11-12 @tobiu added the `ai` label
+- 2025-11-13 @tobiu assigned to @tobiu
+- 2025-11-13 @tobiu referenced in commit `689e9d2` - "Implement llms.txt specification and differentiate from llm.txt #7760"
+- 2025-11-13 @tobiu closed this issue
 
