@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-23T15:29:47Z'
 ---
 # Create Neo.component.Image
-
-**Reported by:** @tobiu on 2025-09-23
 
 Create a new class, `Neo.component.Image`, to provide a classic Object-Oriented Programming (OOP) interface for the `<img>` HTML tag. This component will serve as a foundational building block and demonstrate best practices for reactive configs.
 
@@ -48,4 +48,11 @@ While an `<img>` tag can be created directly in a VDOM tree, a dedicated compone
 -   The `Neo.component.Image` class is created at the specified path.
 -   The component correctly renders an `<img>` tag.
 -   Changing the `src` and `alt` configs programmatically updates the rendered `<img>` tag's attributes.
+
+## Activity Log
+
+- 2025-09-23 @tobiu assigned to @tobiu
+- 2025-09-23 @tobiu added the `enhancement` label
+- 2025-09-23 @tobiu referenced in commit `6bcc85d` - "Create Neo.component.Image #7244"
+- 2025-09-23 @tobiu closed this issue
 

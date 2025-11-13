@@ -20,19 +20,12 @@ subIssues:
   - 7476
   - 7488
   - 7489
-subIssuesCompleted: 1
+subIssuesCompleted: 2
 subIssuesTotal: 3
+blockedBy: []
+blocking: []
 ---
 # Create Component Test Plans (Hacktoberfest Cookbook)
-
-**Reported by:** @tobiu on 2025-10-13
-
----
-
-**Sub-Issues:** #7476, #7488, #7489
-**Progress:** 1/3 completed (33%)
-
----
 
 **This is a perfect task for Hacktoberfest!** The deliverable is a single markdown file, which constitutes a valuable contribution and is eligible for the `hacktoberfest` label.
 
@@ -175,4 +168,21 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - [ ] **Triggers:** Test that custom triggers can be added and that they are interactive.
 - [ ] **Styling States:** Test that `.neo-focus` and `.neo-hovered` classes are applied correctly on user interaction.
 ```
+
+## Activity Log
+
+- 2025-10-13 @tobiu assigned to @tobiu
+- 2025-10-13 @tobiu added the `help wanted` label
+- 2025-10-13 @tobiu added the `good first issue` label
+- 2025-10-13 @tobiu added the `epic` label
+- 2025-10-13 @tobiu added the `hacktoberfest` label
+- 2025-10-13 @tobiu added the `ai` label
+- 2025-10-13 @tobiu cross-referenced by #7476
+- 2025-10-13 @tobiu cross-referenced by #7435
+- 2025-10-14 @tobiu cross-referenced by #7488
+- 2025-10-14 @tobiu cross-referenced by #7489
+- 2025-10-14 @tobiu referenced in commit `4a00ed1` - "#7475 ticket md files"
+- 2025-10-14 @ritikrikm cross-referenced by PR #7490
+- 2025-10-24 @tobiu cross-referenced by PR #7548
+- 2025-10-27 @ad1tyayadav cross-referenced by PR #7676
 

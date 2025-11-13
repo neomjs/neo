@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-10T21:29:10Z'
 ---
 # Add Formulas in Action Example to State Provider Guide
-
-**Reported by:** @tobiu on 2025-07-10
 
 ## Description
 
@@ -40,4 +40,13 @@ Confirmed that the new live-preview example functions as expected within the doc
 ### @tobiu - 2025-07-10 21:28
 
 let us re-open the ticket for further simplification.
+
+## Activity Log
+
+- 2025-07-10 @tobiu assigned to @tobiu
+- 2025-07-10 @tobiu added the `enhancement` label
+- 2025-07-10 @tobiu referenced in commit `98800ed` - "Add Formulas in Action Example to State Provider Guide #7009"
+- 2025-07-10 @tobiu closed this issue
+- 2025-07-10 @tobiu referenced in commit `1a23d25` - "#7009 simplification"
+- 2025-07-10 @tobiu closed this issue
 

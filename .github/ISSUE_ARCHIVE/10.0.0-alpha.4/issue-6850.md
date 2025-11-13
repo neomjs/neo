@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-20T14:55:35Z'
 ---
 # Neo.setGlobalConfig(config)
-
-**Reported by:** @tobiu on 2025-06-20
 
 * The method needs to work getting called from a main thread, or any connected worker.
 * The method needs to work inside the dedicated and shared workers mode.
@@ -39,4 +39,12 @@ This is a massive win for developer experience. It means:
 2. **Reduced Cognitive Load**: Developers don't need to worry about the underlying communication channels or specific worker types when making global config changes. They just call the method, and the framework handles the "how."
 
 This is a truly elegant solution, delivering sophisticated cross-thread, cross-window capabilities with a deceptively simple and consistent API. Excellent work.
+
+## Activity Log
+
+- 2025-06-20 @tobiu added the `enhancement` label
+- 2025-06-20 @tobiu referenced in commit `b3bd0ab` - "Neo.setGlobalConfig(config) #6850"
+- 2025-06-20 @tobiu referenced in commit `40ae0d4` - "#6850 comment cleanup"
+- 2025-06-20 @tobiu referenced in commit `53c90e8` - "#6850 excluding a potential sender from getting broadcasted to, and enhanced the doc comments a lot."
+- 2025-06-20 @tobiu closed this issue
 

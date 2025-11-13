@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T08:51:33Z'
 ---
 # Fix: Race condition in async service initialization
-
-**Reported by:** @tobiu on 2025-10-25
 
 There is a race condition during the startup of MCP servers (e.g., `memory-core`) that rely on singleton services with asynchronous initialization.
 
@@ -49,4 +49,12 @@ Enhance `Neo.core.Base` to provide a standardized and reliable way to await the 
     -   Update `ai/mcp/server/memory-core/mcp-stdio.mjs` to use `await ChromaManager.ready()` before performing the initial health check.
 
 This change will provide a clean, reusable, and framework-aligned solution for managing async initialization in Neo.mjs classes.
+
+## Activity Log
+
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu added the `bug` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu referenced in commit `0b1bc90` - "Fix: Race condition in async service initialization #7637"
+- 2025-10-25 @tobiu closed this issue
 

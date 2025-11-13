@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T01:29:21Z'
 ---
 # tests/config/Basic.mjs: Multiple subscriptions from same owner ID test
 
-**Reported by:** @tobiu on 2025-07-06
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `f5c3eb1` - "tests/config/Basic.mjs: Multiple subscriptions from same owner ID test #6959"
+- 2025-07-06 @tobiu closed this issue
 

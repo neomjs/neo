@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-22T01:27:07Z'
 ---
 # Enhance AI Query Script with Commander and Content Type Filtering
-
-**Reported by:** @tobiu on 2025-09-22
 
 ## 1. Overview
 
@@ -58,4 +58,12 @@ The `buildScripts/ai/queryKnowledgeBase.mjs` script is a critical tool for the A
 -   The script correctly filters results when a `--type` other than `all` is specified.
 -   `AGENTS.md` is updated with clear and accurate instructions on using the new feature.
 -   The `yargs` dependency is removed from the script.
+
+## Activity Log
+
+- 2025-09-22 @tobiu assigned to @tobiu
+- 2025-09-22 @tobiu added the `enhancement` label
+- 2025-09-22 @tobiu referenced in commit `b5440d4` - "Enhance AI Query Script with Commander and Content Type Filtering #7229"
+- 2025-09-22 @tobiu referenced in commit `f483d5e` - "#7229 listing all types inside the help option"
+- 2025-09-22 @tobiu closed this issue
 

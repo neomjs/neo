@@ -16,17 +16,11 @@ parentIssue: 7520
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T12:17:18Z'
 ---
 # Refactor dbService to use chromaManager
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7520 - Epic: Migrate Memory Server to stdio-based MCP
-
----
 
 Currently, `dbService.mjs` creates its own ChromaDB client, which is redundant with the centralized `chromaManager.mjs` used by other services. This ticket is to refactor `dbService` to use the shared `chromaManager` for consistency and efficiency.
 
@@ -37,4 +31,12 @@ Currently, `dbService.mjs` creates its own ChromaDB client, which is redundant w
 3.  The `exportDatabase` and `importDatabase` functions are updated to use `chromaManager.getMemoryCollection()` and `chromaManager.getSummaryCollection()`.
 4.  The `exportDatabase` function is enhanced to support exporting both `memories` and `summaries` collections.
 5.  The functionality of the import/export tools remains correct.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `31de4de` - "Refactor dbService to use chromaManager #7526"
+- 2025-10-17 @tobiu closed this issue
 

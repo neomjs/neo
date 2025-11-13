@@ -34,18 +34,11 @@ subIssues:
   - 6818
 subIssuesCompleted: 20
 subIssuesTotal: 20
+blockedBy: []
+blocking: []
 closedAt: '2025-06-16T15:59:18Z'
 ---
 # Vnode Tree to DOM Element Mapping
-
-**Reported by:** @tobiu on 2025-06-13
-
----
-
-**Sub-Issues:** #6795, #6797, #6798, #6799, #6800, #6802, #6803, #6804, #6805, #6806, #6807, #6808, #6809, #6810, #6812, #6813, #6814, #6815, #6817, #6818
-**Progress:** 20/20 completed (100%)
-
----
 
 I have been reasoning with Gemini about this topic.
 
@@ -300,4 +293,9 @@ This approach ensures consistency and avoids the pitfalls of code duplication ac
 ### @tobiu - 2025-06-16 15:59
 
 done.
+
+## Activity Log
+
+- 2025-06-13 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu closed this issue
 

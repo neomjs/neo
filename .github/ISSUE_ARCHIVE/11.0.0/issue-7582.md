@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T09:26:29Z'
 ---
 # Externalize Magic Numbers and Strings in SyncService
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The `SyncService` implementation contains several hardcoded "magic numbers" and strings (e.g., API limits, buffer sizes, Markdown delimiters). To improve maintainability and make the service more configurable, these should be extracted and moved to the central `config.mjs` file.
 
@@ -37,4 +31,12 @@ The `SyncService` implementation contains several hardcoded "magic numbers" and 
     - `maxIssues` (e.g., `10000`)
     - `maxReleases` (e.g., `1000`)
     - `commentSectionDelimiter` (e.g., `'
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `9e10ef2` - "Externalize Magic Numbers and Strings in SyncService #7582"
+- 2025-10-21 @tobiu closed this issue
 

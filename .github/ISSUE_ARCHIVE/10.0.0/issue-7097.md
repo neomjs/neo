@@ -15,17 +15,11 @@ parentIssue: 7093
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-22T16:24:31Z'
 ---
 # Create Deep-Dive Blog Post for Functional Components
-
-**Reported by:** @tobiu on 2025-07-22
-
----
-
-**Parent Issue:** #7093 - Create v10 Top-Level Blog Post
-
----
 
 ## 1. Goal
 Create a detailed blog post explaining the new functional component model in v10.
@@ -44,4 +38,14 @@ Developers who want to understand how to build UIs with the new API.
 
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file.
+
+## Activity Log
+
+- 2025-07-22 @tobiu assigned to @tobiu
+- 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu referenced in commit `dcd6c1d` - "#7097 early draft"
+- 2025-07-22 @tobiu referenced in commit `ecfcee1` - "#7097 WIP"
+- 2025-07-22 @tobiu referenced in commit `f7b6329` - "Create Deep-Dive Blog Post for Functional Components #7097"
+- 2025-07-22 @tobiu referenced in commit `e3db2d3` - "#7097 formatting"
+- 2025-07-22 @tobiu closed this issue
 

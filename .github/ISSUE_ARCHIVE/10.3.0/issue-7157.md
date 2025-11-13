@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T10:17:52Z'
 ---
 # Update and Refine Getting Started Documentation
-
-**Reported by:** @tobiu on 2025-08-02
 
 ## Purpose
 To enhance the getting started experience for new developers by updating and clarifying the core documentation.
@@ -46,4 +46,13 @@ To enhance the getting started experience for new developers by updating and cla
 - **Change**:
     -   Clarified that the `npx neo-app` script starts the development server by default.
     -   Added a new section introducing the "Four Environments" concept, linking directly to the detailed `learn/benefits/FourEnvironments.md` guide. This gives new users early insight into one of Neo.mjs's core architectural advantages.
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `documentation` label
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu added the `developer-experience` label
+- 2025-08-02 @tobiu referenced in commit `eeb17aa` - "Update and Refine Getting Started Documentation #7157"
+- 2025-08-02 @tobiu closed this issue
 

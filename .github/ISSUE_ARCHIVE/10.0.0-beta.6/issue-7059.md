@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T17:11:31Z'
 ---
 # Add support for "empty" vdom child nodes
-
-**Reported by:** @tobiu on 2025-07-15
 
 While this coding style works, I doubt that many devs will think about not polluting vdom with empty values.
 ```
@@ -44,4 +44,11 @@ So, we should enable the following syntax:
 `vdom.Helper` needs a boolean filter to prevent these items to get into vnode trees.
 
 `manager.Component#getVdomTree()` must no longer transform these values into empty objects.
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `b0dbcf0` - "Add support for "empty" vdom child nodes #7059"
+- 2025-07-15 @tobiu closed this issue
 

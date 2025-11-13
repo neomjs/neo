@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T12:30:41Z'
 ---
 # Bug: `get_pull_request_diff` Fails Schema Validation Due to Raw String Output
-
-**Reported by:** @tobiu on 2025-10-22
 
 When calling the `get_pull_request_diff` tool, the operation fails with the error: `MCP error -32600: Structured content does not match the tool's output schema: data should NOT have additional properties`.
 
@@ -47,4 +47,12 @@ return { result: stdout };
 ```
 
 This will align the service's output with the tool's schema, resolving the validation error.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `bug` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu referenced in commit `800b798` - "Bug: get_pull_request_diff Fails Schema Validation Due to Raw String Output #7608"
+- 2025-10-22 @tobiu closed this issue
 

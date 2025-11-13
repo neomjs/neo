@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T22:33:32Z'
 ---
 # Convert GitHub Workflow healthService to HealthService Neo.mjs Class
-
-**Reported by:** @tobiu on 2025-10-19
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 This ticket covers refactoring `ai/mcp/server/github-workflow/services/healthService.mjs` into a singleton `HealthService` class that extends `Neo.core.Base`. This is the first step in migrating the GitHub Workflow server to the consistent Neo.mjs service architecture used by the other MCP servers.
 
@@ -37,4 +31,12 @@ This ticket covers refactoring `ai/mcp/server/github-workflow/services/healthSer
 3.  The existing `healthcheck` function is converted into a class method.
 4.  The `ai/mcp/server/github-workflow/services/toolService.mjs` is updated to use the new `HealthService` class.
 5.  The `healthcheck` tool continues to function correctly after the refactoring.
+
+## Activity Log
+
+- 2025-10-19 @tobiu assigned to @tobiu
+- 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu referenced in commit `0510414` - "Convert GitHub Workflow healthService to HealthService Neo.mjs Class #7556"
+- 2025-10-19 @tobiu closed this issue
 

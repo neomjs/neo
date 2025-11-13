@@ -15,20 +15,21 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-16T12:56:03Z'
 ---
 # vdom.Helper: createVnode() => use vdom.cn as the single source of truth
-
-**Reported by:** @tobiu on 2025-06-16
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
 
 * drop support for `vdom.children`
 * drop support for `vdom.childNodes`
 
 both were not actually in use, it is time to remove this confusion.
+
+## Activity Log
+
+- 2025-06-16 @tobiu assigned to @tobiu
+- 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu referenced in commit `8a98805` - "vdom.Helper: createVnode() => use vdom.cn as the single source of truth #6817"
+- 2025-06-16 @tobiu closed this issue
 

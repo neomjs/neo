@@ -15,17 +15,11 @@ parentIssue: 7029
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T22:15:55Z'
 ---
 # Feature: Add Neo.mjs vs. React Comparison Article
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #7029 - Feature: Add Framework Comparison Articles to Learn Directory
-
----
 
 **Is your feature request related to a problem? Please describe.**
 React is currently the most dominant JavaScript UI library. Developers evaluating or learning Neo.mjs often come from a React background and need a clear, concise comparison that bridges their existing knowledge to Neo.mjs concepts and highlights Neo.mjs's unique advantages.
@@ -54,4 +48,14 @@ This article will be crucial for attracting React developers to Neo.mjs, enhanci
 ### @tobiu - 2025-07-12 21:57
 
 reopening for adding zero dependencies
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `b26cbbf` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
+- 2025-07-12 @tobiu referenced in commit `c60a369` - "#7032 mentioning core.Base"
+- 2025-07-12 @tobiu closed this issue
+- 2025-07-12 @tobiu referenced in commit `68834d1` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
+- 2025-07-12 @tobiu closed this issue
 

@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-14T14:55:14Z'
 ---
 # Task: Enhance functional.component.Base with Core Configs
-
-**Reported by:** @tobiu on 2025-07-14
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Summary
 
@@ -63,4 +57,11 @@ For functional components to be first-class citizens within the framework, they 
 -   `windowId_` can be configured and its `afterSet` hook is correctly triggered.
 -   The new properties (`childUpdateCache`, etc.) are present on the class.
 -   The changes are documented and this ticket is closed.
+
+## Activity Log
+
+- 2025-07-14 @tobiu assigned to @tobiu
+- 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu referenced in commit `4db9955` - "Task: Enhance functional.component.Base with Core Configs #7050"
+- 2025-07-14 @tobiu closed this issue
 

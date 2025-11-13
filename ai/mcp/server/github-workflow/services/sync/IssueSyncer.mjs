@@ -64,7 +64,9 @@ class IssueSyncer extends Base {
             parentIssue       : issue.parent ? issue.parent.number : null,
             subIssues         : issue.subIssues?.nodes.map(sub => sub.number) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
-            subIssuesTotal    : issue.subIssuesSummary?.total || 0
+            subIssuesTotal    : issue.subIssuesSummary?.total || 0,
+            blockedBy         : issue.blockedBy?.nodes.map(b => b.number) || [],
+            blocking          : issue.blocking?.nodes.map(b => b.number) || []
         };
 
         if (issue.closedAt) {
@@ -75,7 +77,6 @@ class IssueSyncer extends Base {
         }
 
         let body = `# ${issue.title}\n\n`;
-        body += `**Reported by:** @${issue.author.login} on ${issue.createdAt.split('T')[0]}\n\n`;
 
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
@@ -91,19 +92,58 @@ class IssueSyncer extends Base {
             }
         }
 
-        // Add relationship section at the end with clear delimiter
-        if (issue.parent || issue.subIssues?.nodes.length > 0) {
-            body += '## Relationships\n\n';
-            if (issue.parent) {
-                body += `**Parent Issue:** #${issue.parent.number} - ${issue.parent.title}\n\n`;
+        // Add Activity Log section
+        if (issue.timelineItems?.nodes.length > 0) {
+            body += '## Activity Log\n\n';
+            for (const event of issue.timelineItems.nodes) {
+                body += this.#formatTimelineEvent(event);
             }
-            if (issue.subIssues?.nodes.length > 0) {
-                body += `**Sub-Issues:** ${issue.subIssues.nodes.map(s => `#${s.number}`).join(', ')}\n`;
-                body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
-            }
+            body += '\n';
         }
 
         return matter.stringify(body, frontmatter);
+    }
+
+    /**
+     * Formats a single timeline event into a human-readable Markdown string.
+     * @param {object} event - The timeline event object.
+     * @returns {string} The formatted Markdown string for the event.
+     * @private
+     */
+    #formatTimelineEvent(event) {
+        const date  = event.createdAt.split('T')[0];
+        const actor = event.actor?.login || 'Ghost';
+        let details = '';
+
+        switch (event.__typename) {
+            case 'LabeledEvent':
+                details = `added the \`${event.label.name}\` label`;
+                break;
+            case 'UnlabeledEvent':
+                details = `removed the \`${event.label.name}\` label`;
+                break;
+            case 'AssignedEvent':
+                details = `assigned to @${event.assignee.login}`; // Assuming assignee is always a User
+                break;
+            case 'UnassignedEvent':
+                details = `unassigned from @${event.assignee.login}`; // Assuming assignee is always a User
+                break;
+            case 'ClosedEvent':
+                details = `closed this issue`;
+                break;
+            case 'ReferencedEvent':
+                const commitMessage = event.commit.message.split('\\n')[0];
+                details = `referenced in commit \`${event.commit.oid.substring(0, 7)}\` - "${commitMessage}"`;
+                break;
+            case 'CrossReferencedEvent':
+                const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
+                details = `cross-referenced by ${sourceRef}`;
+                break;
+            default:
+                details = `performed a "${event.__typename}" event`;
+        }
+
+        return `- ${date} @${actor} ${details}\n`;
     }
 
     /**
@@ -351,18 +391,16 @@ class IssueSyncer extends Base {
                 const issueId = idData.repository.issue.id;
 
                 // Step 2: Prepare the updated content
-                // Remove comments section and everything after it (including relationships)
-                const bodyWithoutCommentsAndRelationships = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
-                
-                // Remove the "## Relationships" section if it exists (it comes after comments)
-                const bodyWithoutRelationships = bodyWithoutCommentsAndRelationships.replace(/## Relationships[\s\S]*$/m, '').trim();
-                
-                const titleMatch = bodyWithoutRelationships.match(/^#\s+(.+)$/m);
+                // Remove comments section and everything after it
+                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
+
+                // Extract title from the markdown
+                const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
                 const title      = titleMatch ? titleMatch[1] : parsed.data.title;
 
-                const cleanBody = bodyWithoutRelationships
-                    .replace(/^#\s+.+$/m, '')
-                    .replace(/^\*\*Reported by:\*\*.+$/m, '')
+                // Remove only the title from body
+                const cleanBody = bodyWithoutComments
+                    .replace(/^#\s+.+$/m, '') // Remove title
                     .trim();
 
                 // Step 3: Execute the mutation

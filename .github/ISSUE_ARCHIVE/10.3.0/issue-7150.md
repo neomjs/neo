@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-01T10:09:56Z'
 ---
 # Build-Time `html` Template to VDOM Conversion
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 ### 1. Summary
 
@@ -53,4 +47,11 @@ Pre-processing templates at build time is a best practice in modern web developm
 -   The final minified output contains JSON VDOM, not template literals.
 -   The client-side `HtmlTemplateProcessor` is no longer required for production builds using this feature.
 -   The logic is cleanly separated, with no build-time code included in client-side bundles.
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `144924d` - "Build-Time html Template to VDOM Conversion #7150"
+- 2025-08-01 @tobiu closed this issue
 

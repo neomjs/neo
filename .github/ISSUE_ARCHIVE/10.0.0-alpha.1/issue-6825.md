@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-17T09:45:50Z'
 ---
 # main.DeltaUpdates: removeNode() => improve the performance for vtype text
 
-**Reported by:** @tobiu on 2025-06-17
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-17 @tobiu assigned to @tobiu
+- 2025-06-17 @tobiu added the `enhancement` label
+- 2025-06-17 @tobiu referenced in commit `6c49e7e` - "main.DeltaUpdates: removeNode() => improve the performance for vtype text #6825"
+- 2025-06-17 @tobiu closed this issue
 

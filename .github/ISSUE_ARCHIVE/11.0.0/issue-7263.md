@@ -15,17 +15,11 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-27T14:12:31Z'
 ---
 # Plan Remaining Siesta to Playwright Test Migrations
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Parent Issue:** #7262 - Enhance Development Workflow with Mandatory Unit Testing
-
----
 
 This task is to identify all remaining Siesta unit tests that need to be migrated to the Playwright test runner and to create a corresponding ticket for each one. This will provide a complete and actionable backlog for the test migration effort.
 
@@ -36,4 +30,11 @@ This task is to identify all remaining Siesta unit tests that need to be migrate
 3.  For each remaining Siesta test file, create a new, individual ticket in the `.github/ISSUE/` directory.
 4.  Each new ticket must follow the established format (e.g., "Ticket: Convert [filename] Test from Siesta to Playwright").
 5.  Update the main epic ticket (`epic-enhance-workflow-with-mandatory-unit-testing.md`) to list all newly created "To Do" tickets under the "Test Migrations" section.
+
+## Activity Log
+
+- 2025-09-27 @tobiu assigned to @tobiu
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu referenced in commit `89cdd42` - "Plan Remaining Siesta to Playwright Test Migrations #7263"
+- 2025-09-27 @tobiu closed this issue
 

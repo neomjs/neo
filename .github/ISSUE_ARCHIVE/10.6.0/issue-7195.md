@@ -15,11 +15,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-20T06:14:20Z'
 ---
 # Implement the create method for the Open Streetmaps addon so that the example component will load a map
 
-**Reported by:** @TomDakan on 2025-08-16
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-08-19 @TomDakan cross-referenced by PR #7199
+- 2025-08-20 @TomDakan cross-referenced by PR #7200
+- 2025-08-20 @tobiu closed this issue
 

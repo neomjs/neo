@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-28T11:02:37Z'
 ---
 # docs: Update "Describing a View" for v10 functional components
-
-**Reported by:** @tobiu on 2025-07-24
 
 The "Getting Started > Describing a View" guide is a new user's first introduction to building a UI in Neo.mjs. It is critically outdated as it only shows the classic, class-based component model.
 
@@ -30,4 +30,11 @@ This ticket is to update the document to lead with the modern, functional approa
 - This new section should feature a code example of a simple view built with `defineComponent` and `createVdom`.
 - Reframe the existing content as "The Classic Approach: Class-Based Components".
 - Add a brief explanation of when to choose one approach over the other (e.g., functional for simple views, class-based for extending the component library or complex stateful logic).
+
+## Activity Log
+
+- 2025-07-24 @tobiu assigned to @tobiu
+- 2025-07-24 @tobiu added the `enhancement` label
+- 2025-07-28 @tobiu referenced in commit `9647052` - "docs: Update "Describing a View" for v10 functional components #7108"
+- 2025-07-28 @tobiu closed this issue
 

@@ -18,16 +18,10 @@ parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Define the "Sighted" Development Workflow
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Parent Issue:** #7385 - 'Sighted' Agent - Chrome DevTools Integration
-
----
 
 This ticket is for defining the new interactive development workflow that leverages the "sighted" capabilities of the agent. The goal is to create a detailed plan for a continuous loop of development, verification, and testing.
 
@@ -46,4 +40,12 @@ This ticket is for defining the new interactive development workflow that levera
 
 Hello @tobiu, I’d like to take up this issue. Could you please assign it to me?
 Also, it’s my first time contributing here, so any quick guidance would be really helpful. Thanks!
+
+## Activity Log
+
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added the `help wanted` label
+- 2025-10-06 @tobiu added the `good first issue` label
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu added the `ai` label
 

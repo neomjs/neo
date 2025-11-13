@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-27T13:02:42Z'
 ---
 # Portal.view.*: use text over html for vdom props where appropriate
 
-**Reported by:** @tobiu on 2025-06-27
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-27 @tobiu assigned to @tobiu
+- 2025-06-27 @tobiu added the `enhancement` label
+- 2025-06-27 @tobiu referenced in commit `be4bbc3` - "Portal.view.*: use text over html for vdom props where appropriate #6878"
+- 2025-06-27 @tobiu closed this issue
 

@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-03T11:13:16Z'
 ---
 # Update AI_QUICK_START.md for new MCP server architecture
-
-**Reported by:** @tobiu on 2025-11-03
 
 The `AI_QUICK_START.md` guide needs to be updated to reflect the current MCP server architecture. Specifically:
 
@@ -32,4 +32,14 @@ The `AI_QUICK_START.md` guide needs to be updated to reflect the current MCP ser
 - The initial handshake instruction to "follow the instructions inside agents.md" is obsolete, as this process is now automated via `@.gemini/GEMINI.md`.
 
 This update will simplify the setup process for developers.
+
+## Activity Log
+
+- 2025-11-03 @tobiu added the `enhancement` label
+- 2025-11-03 @tobiu added the `ai` label
+- 2025-11-03 @tobiu assigned to @tobiu
+- 2025-11-03 @tobiu added the `documentation` label
+- 2025-11-03 @tobiu referenced in commit `c85e78e` - "Update AI_QUICK_START.md for new MCP server architecture #7696"
+- 2025-11-03 @tobiu referenced in commit `51a4dc4` - "#7696 more polishing"
+- 2025-11-03 @tobiu closed this issue
 

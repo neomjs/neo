@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T12:12:16Z'
 ---
 # Optimize `table.Body` for Store Clearing with Fast Path
-
-**Reported by:** @tobiu on 2025-08-11
 
 **Is your feature request related to a problem? Please describe.**
 
@@ -40,4 +40,11 @@ The new logic is as follows:
 *   **Drastic Performance Improvement:** Significantly reduces the time and CPU load required to clear a large table, making the UI feel more responsive.
 *   **Code Consistency:** Aligns the behavior of `table.Body` with `grid.Body`, making the framework more consistent and predictable.
 *   **Improved Efficiency:** Avoids a large and unnecessary VDOM diffing operation for a common use case.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `86a61ac` - "Optimize table.Body for Store Clearing with Fast Path #7181"
+- 2025-08-11 @tobiu closed this issue
 

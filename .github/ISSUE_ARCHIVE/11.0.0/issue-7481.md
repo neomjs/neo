@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-14T09:22:53Z'
 ---
 # Implement Pull Request API Endpoints
-
-**Reported by:** @tobiu on 2025-10-14
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 This ticket covers the implementation of the core pull request-related endpoints for the GitHub Workflow MCP server. This provides the foundational functionality for the AI agent to begin interacting with pull requests.
 
@@ -45,4 +39,12 @@ The following endpoints have been implemented:
     - `getPullRequestDiff` uses `gh pr diff`
 3.  The `routes/pullRequests.mjs` file is updated to call these new service functions.
 4.  The endpoints correctly handle requests and return the expected JSON data or plain text diff.
+
+## Activity Log
+
+- 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu referenced in commit `6f9954d` - "Implement Pull Request API Endpoints #7481"
+- 2025-10-14 @tobiu closed this issue
 

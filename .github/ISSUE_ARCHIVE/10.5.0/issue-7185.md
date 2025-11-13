@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-12T00:02:31Z'
 ---
 # Data: Implement Lazy Record Instantiation for Stores
-
-**Reported by:** @tobiu on 2025-08-12
 
 ### Is your feature request related to a problem? Please describe.
 When working with large datasets, the eager instantiation of `Neo.data.Record` instances for every data item in a `Neo.data.Store` can lead to significant performance overhead and increased memory consumption, especially during initial data loading. This is particularly noticeable when only a subset of records is actively displayed or interacted with (e.g., in grids with virtual scrolling).
@@ -61,4 +61,11 @@ This feature was implemented through a series of commits, including the initial 
 | 50,000 rows, 100 columns | 4377ms (Record creation)     | 329ms (Data gen + add)     | ~92%        |
 
 These results demonstrate a dramatic reduction in the initial data processing time, especially for larger datasets, leading to a much more responsive user experience.
+
+## Activity Log
+
+- 2025-08-12 @tobiu assigned to @tobiu
+- 2025-08-12 @tobiu added the `enhancement` label
+- 2025-08-12 @tobiu referenced in commit `a71be1d` - "Data: Implement Lazy Record Instantiation for Stores #7185"
+- 2025-08-12 @tobiu closed this issue
 

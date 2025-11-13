@@ -15,11 +15,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-01T17:44:37Z'
 ---
 # learn/guides/StateProviders: explain the concept of using stores
 
-**Reported by:** @tobiu on 2025-07-01
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-01 @tobiu assigned to @tobiu
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu referenced in commit `f1cd0e3` - "learn/guides/StateProviders: explain the concept of using stores #6928 draft version"
+- 2025-07-01 @tobiu referenced in commit `b5c90c9` - "#6928 inline store with an imported data.Model extension"
+- 2025-07-01 @tobiu referenced in commit `d71c2ee` - "#6928 live-preview polishing"
+- 2025-07-01 @tobiu closed this issue
 

@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:00:19Z'
 ---
 # Optimize Build Process with a Pre-emptive Regex Check
-
-**Reported by:** @tobiu on 2025-08-02
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -48,4 +42,12 @@ The current process parses every single `.mjs` file with `acorn`, which is compu
 -   Files that do not contain `html` templates are no longer processed by the `astTemplateProcessor`.
 -   Files that *do* contain `html` templates are still transformed correctly.
 -   The overall build time is measurably reduced.
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu cross-referenced by #7160
+- 2025-08-02 @tobiu referenced in commit `4945297` - "Optimize Build Process with a Pre-emptive Regex Check #7159"
+- 2025-08-02 @tobiu closed this issue
 

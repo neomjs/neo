@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-24T15:21:37Z'
 ---
 # docs: Enhance NeoVsVue.md comparison
-
-**Reported by:** @tobiu on 2025-07-24
 
 This ticket covers a series of enhancements to the `learn/comparisons/NeoVsVue.md` document to provide a more detailed and nuanced comparison against Vue.js, incorporating the latest v10 architectural insights.
 
@@ -28,4 +28,11 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsVue.m
 - Introduced the "Backend-in-the-Browser" analogy to explain the multi-threaded architecture.
 - Added a dedicated section comparing Vue's pure "pull" reactivity with Neo.mjs's hybrid "push/pull" system, explaining the benefits of `afterSet` hooks for complex logic.
 - Contrasted Vue's lifecycle with Neo.mjs's stable and persistent lifecycle, focusing on `initAsync` and multi-window capabilities as key differentiators for advanced applications.
+
+## Activity Log
+
+- 2025-07-24 @tobiu assigned to @tobiu
+- 2025-07-24 @tobiu added the `enhancement` label
+- 2025-07-24 @tobiu referenced in commit `5a8ca6e` - "docs: Enhance NeoVsVue.md comparison #7106"
+- 2025-07-24 @tobiu closed this issue
 

@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-14T09:37:52Z'
 ---
 # Enhance PR Listing and Checkout Logic
-
-**Reported by:** @tobiu on 2025-10-14
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 This ticket covers two improvements to the `pullRequestService`:
 
@@ -41,4 +35,12 @@ This ticket covers two improvements to the `pullRequestService`:
     - `listPullRequests` now accepts a `state` option and passes it to the `gh pr list --state` command.
     - `checkoutPullRequest` now returns an object containing the `details` from the command's `stdout`.
 3.  The `pullRequests.mjs` route is updated to read the `state` from the query string and pass it to the service.
+
+## Activity Log
+
+- 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu referenced in commit `b5ef261` - "Enhance PR Listing and Checkout Logic #7482"
+- 2025-10-14 @tobiu closed this issue
 

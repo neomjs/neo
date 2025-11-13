@@ -17,11 +17,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T23:44:12Z'
 ---
 # vdom.Helper: initAsync() => only check for currentWorker, if not inside the unit testing mode (siesta)
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `7e10642` - "vdom.Helper: initAsync() => only check for currentWorker, if not inside the unit testing mode (siesta) #6920"
+- 2025-06-30 @tobiu referenced in commit `d16e70f` - "#6920 cleanup"
+- 2025-06-30 @tobiu referenced in commit `a401e24` - "#6920 cleanup"
+- 2025-06-30 @tobiu closed this issue
 

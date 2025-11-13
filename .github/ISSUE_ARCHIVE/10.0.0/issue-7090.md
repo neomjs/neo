@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-22T05:33:33Z'
 ---
 # Architecturally Refactor core.Observable to a Fully Reactive Mixin
-
-**Reported by:** @tobiu on 2025-07-21
 
 ## 1. Motivation & Goals
 
@@ -173,4 +173,13 @@ export default Neo.setupClass(Observable);
 ### @tobiu - 2025-07-22 05:32
 
 missed one change.
+
+## Activity Log
+
+- 2025-07-21 @tobiu assigned to @tobiu
+- 2025-07-21 @tobiu added the `enhancement` label
+- 2025-07-21 @tobiu referenced in commit `39417a4` - "Architecturally Refactor core.Observable to a Fully Reactive Mixin #7090"
+- 2025-07-21 @tobiu closed this issue
+- 2025-07-22 @tobiu referenced in commit `66302a0` - "#7090 removeListener() => accessing the new symbol"
+- 2025-07-22 @tobiu closed this issue
 

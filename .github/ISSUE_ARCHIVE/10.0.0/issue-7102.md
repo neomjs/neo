@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-24T05:40:37Z'
 ---
 # Examples website is flaky on Safari (sometimes in Chrome too)
-
-**Reported by:** @Nek on 2025-07-24
 
 **Describe the bug**
 It takes some time for Safari desktop browser on my M1 Pro to become responsive. First, it's just whitescreen, then components start to load their data (or so it seems). Everything is super slow. Then all of a sudden everything is white again.
@@ -77,4 +77,10 @@ Thanks a lot! You put an admirable amount of love into this project and the idea
 https://github.com/neomjs/neo/blob/dev/learn/blog/v10-post1-love-story.md
 
 => the v10 blog post series is already inside the repo. i will publish the first 2 on medium, once v10 is released & deployed to the website. pushing my luck: just updated fontawesome to v7^^
+
+## Activity Log
+
+- 2025-07-24 @Nek added the `bug` label
+- 2025-07-24 @tobiu referenced in commit `6fea520` - "Examples website is flaky on Safari #7102"
+- 2025-07-24 @Nek closed this issue
 

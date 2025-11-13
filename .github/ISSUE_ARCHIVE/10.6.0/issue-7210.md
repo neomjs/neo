@@ -15,17 +15,11 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-21T19:51:29Z'
 ---
 # Implement Window Management Permission Request
-
-**Reported by:** @tobiu on 2025-08-21
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 **Status: Done**
 
@@ -48,4 +42,11 @@ This ticket covers the implementation of a user-facing mechanism to request the 
     -   A new remote method, `requestWindowManagementPermission`, was created in `src/main/addon/DragDrop.mjs`.
     -   This method encapsulates the browser API interaction, calling `window.getScreenDetails()` to trigger the permission prompt.
     -   It includes checks for a secure context (`window.isSecureContext`) and API availability, returning a detailed success or error status.
+
+## Activity Log
+
+- 2025-08-21 @tobiu assigned to @tobiu
+- 2025-08-21 @tobiu added the `enhancement` label
+- 2025-08-21 @tobiu referenced in commit `e081555` - "Implement Window Management Permission Request #7210"
+- 2025-08-21 @tobiu closed this issue
 

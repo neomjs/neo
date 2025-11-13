@@ -17,16 +17,10 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Create Playwright Component Test for Neo.component.Label
-
-**Reported by:** @tobiu on 2025-11-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 This ticket is to create a new Playwright-based component test for `Neo.component.Label`.
 
@@ -87,4 +81,12 @@ https://github.com/neomjs/neo/blob/dev/test/playwright/component/button/Base.spe
 ### @Alachi24 - 2025-11-10 21:03
 
 Acceptable... Thank you 
+
+## Activity Log
+
+- 2025-11-10 @tobiu added the `enhancement` label
+- 2025-11-10 @tobiu added the `ai` label
+- 2025-11-10 @tobiu added the `testing` label
+- 2025-11-10 @tobiu cross-referenced by PR #7734
+- 2025-11-10 @tobiu assigned to @Alachi24
 

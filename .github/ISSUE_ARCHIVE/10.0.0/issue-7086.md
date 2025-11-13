@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-21T09:49:53Z'
 ---
 # Enhance Functional Component VDOM Reconciliation
-
-**Reported by:** @tobiu on 2025-07-21
 
 **Problem**: Functional components recreate their VDOM from scratch on every render. This discards any worker-generated IDs that were synced back to the component's `vdom` object. When a subsequent update occurs, the VDOM worker receives a keyless VDOM tree, which it must compare against the old, keyed `vnode` tree. This leads to inefficient diffing, causing the VDOM engine to generate excessive `removeNode` and `insertNode` deltas instead of minimal, targeted updates. This forces developers to manually add stable `ids` to all conditional child nodes as a workaround.
 
@@ -33,4 +33,11 @@ Benefits:
 * **Encreased Robustness:** Centralizes the ID synchronization logic within the `FunctionalBase` class, making all functional components more stable by default.
 
 **File to Change**: src/functional/component/Base.mjs
+
+## Activity Log
+
+- 2025-07-21 @tobiu assigned to @tobiu
+- 2025-07-21 @tobiu added the `enhancement` label
+- 2025-07-21 @tobiu referenced in commit `0f8bcb4` - "Enhance Functional Component VDOM Reconciliation #7086"
+- 2025-07-21 @tobiu closed this issue
 

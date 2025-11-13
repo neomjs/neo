@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-16T10:56:45Z'
 ---
 # worker.mixin.RemoteMethodAccess: onRemoteMethod() => log errors for async function calls into the console
-
-**Reported by:** @tobiu on 2025-06-16
 
 ```
         if (out instanceof Promise) {
@@ -44,4 +44,11 @@ closedAt: '2025-06-16T10:56:45Z'
             me.resolve(msg, out)
         }
 ```
+
+## Activity Log
+
+- 2025-06-16 @tobiu assigned to @tobiu
+- 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu referenced in commit `1afddb7` - "worker.mixin.RemoteMethodAccess: onRemoteMethod() => log errors for async function calls into the console #6811"
+- 2025-06-16 @tobiu closed this issue
 

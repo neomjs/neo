@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-30T09:59:14Z'
 ---
 # Add State Provider Feedback Loop Test
-
-**Reported by:** @tobiu on 2025-07-30
 
 ## Description
 
@@ -39,4 +39,11 @@ The `FeedbackLoop.mjs` test file ensures the following:
 
 1.  Add the new file `test/siesta/tests/state/FeedbackLoop.mjs` to the project.
 2.  Register the new test file in `test/siesta/siesta.js` to ensure it is run as part of the standard test suite. It should be added to the `state` group.
+
+## Activity Log
+
+- 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added the `enhancement` label
+- 2025-07-30 @tobiu referenced in commit `c6d1c70` - "Add State Provider Feedback Loop Test #7128"
+- 2025-07-30 @tobiu closed this issue
 

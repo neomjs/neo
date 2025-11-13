@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T10:14:26Z'
 ---
 # Implement MCP Stdio Server for GitHub Workflow
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 The current Express.js based server for the GitHub Workflow (`ai/mcp/server/github-workflow/index.mjs`) is not compatible with the agentic workflow, as it doesn't communicate over the Model Context Protocol (MCP).
 
@@ -39,4 +33,12 @@ This ticket covers the work to replace the Express server with a proper MCP-comp
 3.  The `ai:server-github-workflow-mcp` script in `package.json` is updated to execute the new `mcp-stdio.mjs` file.
 4.  The `.gemini/settings.json` file is updated to correctly configure the `neo-github-workflow` MCP server, ensuring the `command` and `args` point to the new npm script.
 5.  The old Express server file (`index.mjs` and related files like `app.mjs` if they are no longer needed) should be reviewed for deprecation or removal.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `9471c8b` - "Implement MCP Stdio Server for GitHub Workflow #7491"
+- 2025-10-15 @tobiu closed this issue
 

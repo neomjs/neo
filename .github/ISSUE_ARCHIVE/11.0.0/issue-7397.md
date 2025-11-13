@@ -16,17 +16,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-07T07:41:42Z'
 ---
 # Update AGENTS.md with Correct Health Check Endpoint
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 This ticket addresses a critical error in the agent's session initialization protocol as documented in `AGENTS.md`. The current instructions specify using `http://localhost:8001/health` to check the status of the memory core server. This endpoint is incorrect for the version of ChromaDB in use, resulting in a `404 Not Found` error and causing the health check to fail silently.
 
@@ -40,4 +34,12 @@ This sub-task aims to:
 
 1.  The `curl` command in `AGENTS.md` for the memory core health check is updated to use the correct `/api/v2/healthcheck` endpoint.
 2.  A note is added to `AGENTS.md` mentioning the availability of the Swagger UI at the `/docs` endpoint for debugging purposes.
+
+## Activity Log
+
+- 2025-10-07 @tobiu assigned to @tobiu
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-07 @tobiu referenced in commit `cc29481` - "Update AGENTS.md with Correct Health Check Endpoint #7397"
+- 2025-10-07 @tobiu closed this issue
 

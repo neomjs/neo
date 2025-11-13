@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-19T15:25:38Z'
 ---
 # Feature Request: Introduce `beforeUpdate()` Lifecycle Hook for Functional Components
-
-**Reported by:** @tobiu on 2025-07-19
 
 ## Summary
 
@@ -129,4 +129,11 @@ export default defineComponent({
     }
 });
 ```
+
+## Activity Log
+
+- 2025-07-19 @tobiu assigned to @tobiu
+- 2025-07-19 @tobiu added the `enhancement` label
+- 2025-07-19 @tobiu referenced in commit `589451a` - "Feature Request: Introduce beforeUpdate() Lifecycle Hook for Functional Components #7084"
+- 2025-07-19 @tobiu closed this issue
 

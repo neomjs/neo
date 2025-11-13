@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T23:14:15Z'
 ---
 # Optimize GitHub Issue Sync: Dynamic `syncStartDate` for Delta Updates
-
-**Reported by:** @tobiu on 2025-10-22
 
 This ticket documents an important optimization implemented in the GitHub issue synchronization service (`SyncService.mjs`).
 
@@ -40,4 +40,11 @@ The `pullFromGitHub` method has been modified to dynamically use `metadata.lastS
 **Verification:**
 - Observe faster sync times for incremental updates.
 - Verify that deleting all local issue folders still triggers a full re-sync, which is expected behavior.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu referenced in commit `6011365` - "Optimize GitHub Issue Sync: Dynamic syncStartDate for Delta Updates #7615"
+- 2025-10-22 @tobiu closed this issue
 

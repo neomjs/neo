@@ -13,11 +13,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-28T13:51:03Z'
 ---
 # Add Intent-Driven JSDoc to `splitter.MainContainer` Example
-
-**Reported by:** @tobiu on 2025-09-28
 
 The existing example for `Neo.component.Splitter` at `examples/component/splitter/MainContainer.mjs` is not easily discoverable by our AI query tool because it lacks descriptive JSDoc comments. 
 
@@ -35,4 +35,14 @@ The goal of this ticket is to add high-quality, intent-driven documentation to t
 ### @tobiu - 2025-09-28 13:51
 
 duplicated by mistake. closing.
+
+## Activity Log
+
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-28 @tobiu closed this issue
+- 2025-09-28 @tobiu removed the `help wanted` label
+- 2025-09-28 @tobiu removed the `good first issue` label
+- 2025-09-28 @tobiu removed the `hacktoberfest` label
 

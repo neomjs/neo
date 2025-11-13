@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:48:28Z'
 ---
 # Expand Test Coverage with Real Components
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 While the mock component tests are a good start, we need to ensure the template processor works correctly in real-world scenarios with actual functional components and their lifecycle. This involves creating more complex integration tests.
@@ -44,4 +38,10 @@ While the mock component tests are a good start, we need to ensure the template 
 ### @tobiu - 2025-08-02 12:48
 
 resolved
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu closed this issue
 

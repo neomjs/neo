@@ -17,11 +17,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-31T19:55:04Z'
 ---
 # Calendar regression: raw data access in store without creating the record
 
-**Reported by:** @tobiu on 2025-10-31
-
 The calendar example was throwing a `TypeError: date.getFullYear is not a function`. This was caused by `Events.mjs#getDayRecords()` accessing `me.items[i]` directly, which returns a raw data object instead of a `Record` instance. The fix is to use `me.getAt(i)` to ensure the lazy record creation is triggered.
+
+## Activity Log
+
+- 2025-10-31 @tobiu added the `bug` label
+- 2025-10-31 @tobiu added the `ai` label
+- 2025-10-31 @tobiu assigned to @tobiu
+- 2025-10-31 @tobiu referenced in commit `5e47730` - "Calendar regression: raw data access in store without creating the record #7680"
+- 2025-10-31 @tobiu added the `regression` label
+- 2025-10-31 @tobiu closed this issue
 

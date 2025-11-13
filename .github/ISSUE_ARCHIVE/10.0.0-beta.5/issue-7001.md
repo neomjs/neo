@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-09T17:33:35Z'
 ---
 # Granular Cloning Strategies for `core.Config`
-
-**Reported by:** @tobiu on 2025-07-09
 
 ## Problem
 
@@ -53,4 +53,11 @@ Changing this default behavior would risk breaking existing code. Therefore, the
   - If `cloneOnGet` is explicitly set to `'deep'`, `'shallow'`, or `'none'`, the new logic will be used.
 
 This ensures that the new system is non-destructive. We can then incrementally update specific config descriptors (e.g., for `items`) to use the new flags without affecting any other part of the framework.
+
+## Activity Log
+
+- 2025-07-09 @tobiu assigned to @tobiu
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-07-09 @tobiu referenced in commit `156f184` - "Granular Cloning Strategies for core.Config #7001"
+- 2025-07-09 @tobiu closed this issue
 

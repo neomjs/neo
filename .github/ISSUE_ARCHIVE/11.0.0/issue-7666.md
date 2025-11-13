@@ -17,17 +17,11 @@ parentIssue: 7665
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T16:16:45Z'
 ---
 # Docs: Update AGENTS.md to use new Codebase Overview Guide
-
-**Reported by:** @tobiu on 2025-10-26
-
----
-
-**Parent Issue:** #7665 - Epic: Enhance Knowledge Base MCP with Class Query Tools
-
----
 
 Once the new "Codebase Overview" guide is created and the MCP server is enhanced with class query tools, the `AGENTS.md` file must be updated to reflect the new, more efficient agent initialization protocol.
 
@@ -41,4 +35,12 @@ Once the new "Codebase Overview" guide is created and the MCP server is enhanced
 ### @tobiu - 2025-10-26 16:16
 
 resolved
+
+## Activity Log
+
+- 2025-10-26 @tobiu added the `documentation` label
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `ai` label
+- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu closed this issue
 

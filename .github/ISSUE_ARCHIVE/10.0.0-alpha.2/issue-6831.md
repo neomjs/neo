@@ -15,13 +15,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-18T00:15:01Z'
 ---
 # main.DeltaUpdates: move relevant DomAccess configs over
 
-**Reported by:** @tobiu on 2025-06-18
-
 * `DeltaUpdates` was a mixin before, so only methods were copied, not configs
 * this lead to configs being moved into the mixin owner, as a workaround
 * now we can finally clean this part up
+
+## Activity Log
+
+- 2025-06-18 @tobiu assigned to @tobiu
+- 2025-06-18 @tobiu added the `enhancement` label
+- 2025-06-18 @tobiu referenced in commit `5aaf6e3` - "main.DeltaUpdates: move relevant DomAccess configs over #6831"
+- 2025-06-18 @tobiu closed this issue
 

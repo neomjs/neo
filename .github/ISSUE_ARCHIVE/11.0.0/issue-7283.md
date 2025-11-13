@@ -18,17 +18,11 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-08T17:55:50Z'
 ---
 # Convert functional/HtmlTemplateComponent.mjs Test from Siesta to Playwright
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Parent Issue:** #7262 - Enhance Development Workflow with Mandatory Unit Testing
-
----
 
 This task is to migrate the unit test for `functional/HtmlTemplateComponent.mjs` from the Siesta test harness to the Playwright test runner.
 
@@ -139,4 +133,15 @@ However, limiting frontends to a main thread is exactly what neo challenges. The
 I just updated the project vision & roadmap, to better describe the big picture:
 https://github.com/neomjs/neo/blob/dev/ROADMAP.md
 https://github.com/neomjs/neo/blob/dev/.github/VISION.md
+
+## Activity Log
+
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
+- 2025-10-03 @tobiu assigned to @erbierc
+- 2025-10-08 @erbierc cross-referenced by PR #7420
+- 2025-10-08 @tobiu referenced in commit `bf777ce` - "#7283 minor cleanup"
+- 2025-10-08 @tobiu closed this issue
 

@@ -19,17 +19,11 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-02T09:29:29Z'
 ---
 # Improve AI Query Scoring to Boost Content Matches
-
-**Reported by:** @tobiu on 2025-10-13
-
----
-
-**Parent Issue:** #7296 - Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
----
 
 The AI query system (`queryKnowledgeBase.mjs`) currently uses a hybrid approach of semantic vector search followed by a keyword-based scoring boost. However, the keyword boosting logic has a significant flaw: it only checks for keywords in a chunk's metadata (e.g., filename, title, path) and completely ignores the chunk's actual `content`.
 
@@ -50,4 +44,15 @@ This ticket is to fix the scoring algorithm to give a significant boost to any c
 ### @tobiu - 2025-10-13 09:22
 
 I am reserving this ticket for @SarthakBorude for 7 days.
+
+## Activity Log
+
+- 2025-10-13 @tobiu assigned to @tobiu
+- 2025-10-13 @tobiu added the `enhancement` label
+- 2025-10-13 @tobiu added the `help wanted` label
+- 2025-10-13 @tobiu added the `good first issue` label
+- 2025-10-13 @tobiu added the `hacktoberfest` label
+- 2025-10-13 @tobiu added the `ai` label
+- 2025-10-13 @tobiu cross-referenced by #7467
+- 2025-11-02 @tobiu closed this issue
 

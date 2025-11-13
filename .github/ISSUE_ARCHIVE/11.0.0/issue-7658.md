@@ -18,17 +18,11 @@ parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T10:10:48Z'
 ---
 # Refactor: Simplify Memory Core Protocol in AGENTS.md
-
-**Reported by:** @tobiu on 2025-10-26
-
----
-
-**Parent Issue:** #7604 - Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
----
 
 This ticket is a sub-task of the epic #7604.
 
@@ -48,4 +42,15 @@ With the recent enhancements to the `neo.mjs-memory-core` MCP server (auto-start
 1.  Update the "Session Initialization" section of `AGENTS.md` to remove the old, complex memory core protocol.
 2.  Replace it with the new, simplified protocol described above.
 3.  Ensure the new instructions are clear, concise, and guide the agent to use the `healthcheck` and `add_memory` tools correctly.
+
+## Activity Log
+
+- 2025-10-26 @tobiu added the `documentation` label
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `ai` label
+- 2025-10-26 @tobiu added the `refactoring` label
+- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu referenced in commit `fa625fa` - "Refactor: Simplify Memory Core Protocol in AGENTS.md #7658"
+- 2025-10-26 @tobiu closed this issue
+- 2025-10-26 @tobiu cross-referenced by #7660
 

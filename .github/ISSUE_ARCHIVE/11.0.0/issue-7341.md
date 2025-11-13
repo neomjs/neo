@@ -15,20 +15,21 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-04T08:03:28Z'
 ---
 # Correct agent memory initialization protocol
-
-**Reported by:** @tobiu on 2025-10-04
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 The `AGENTS.md` file incorrectly implied that the session ID should be saved to long-term memory. This ticket corrects the protocol to ensure that the agent immediately begins persisting the session to the memory core using the generated session ID, starting with the very first user prompt.
 
 ## Changes
 - Updated `AGENTS.md` to add an explicit step: "Persist Initial Context" after generating a new session ID in two separate flows.
+
+## Activity Log
+
+- 2025-10-04 @tobiu assigned to @tobiu
+- 2025-10-04 @tobiu added the `enhancement` label
+- 2025-10-04 @tobiu referenced in commit `26f0aa2` - "Correct agent memory initialization protocol #7341"
+- 2025-10-04 @tobiu closed this issue
 

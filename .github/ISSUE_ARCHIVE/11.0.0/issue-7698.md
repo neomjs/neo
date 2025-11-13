@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-03T12:24:06Z'
 ---
 # refactor(ai): Improve Separation of Concerns for memory-core server startup
-
-**Reported by:** @tobiu on 2025-11-03
 
 The memory-core server currently has its startup logic (summarizing sessions) inside the main `mcp-stdio.mjs` file.
 
@@ -33,4 +33,12 @@ To improve separation of concerns and align with the pattern now used in the kno
 - The `summarizeSessionsOnStartup()` function in `mcp-stdio.mjs` should be removed.
 - The `DatabaseLifecycleService` should be awaited inside the `SessionService`'s `initAsync` method, and the direct import/await removed from `mcp-stdio.mjs`.
 
+
+## Activity Log
+
+- 2025-11-03 @tobiu added the `ai` label
+- 2025-11-03 @tobiu added the `refactoring` label
+- 2025-11-03 @tobiu assigned to @tobiu
+- 2025-11-03 @tobiu referenced in commit `e97ae8f` - "refactor(ai): Improve Separation of Concerns for memory-core server startup #7698"
+- 2025-11-03 @tobiu closed this issue
 

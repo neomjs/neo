@@ -15,17 +15,18 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T11:20:24Z'
 ---
 # mixin.component.VdomLifecycle => mixin.VdomLifecycle
 
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
-
 * Since we created `src.functional` as the new root for functional components, we need to move the mixin one level upwards, as the lowest common level.
+
+## Activity Log
+
+- 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `4f2d422` - "mixin.component.VdomLifecycle => mixin.VdomLifecycle #7017"
+- 2025-07-11 @tobiu closed this issue
 

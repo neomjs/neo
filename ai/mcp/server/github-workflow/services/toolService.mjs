@@ -30,6 +30,7 @@ const serviceMapping = {
     remove_labels            : IssueService      .removeLabels           .bind(IssueService),
     sync_all                 : SyncService       .runFullSync            .bind(SyncService),
     unassign_issue           : IssueService      .unassignIssue          .bind(IssueService),
+    update_comment           : PullRequestService.updateComment          .bind(PullRequestService),
     update_issue_relationship: IssueService      .updateIssueRelationship.bind(IssueService)
 };
 

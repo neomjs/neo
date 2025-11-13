@@ -19,17 +19,11 @@ parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:24:59Z'
 ---
 # MCP Server: Implement Knowledge Read Endpoints
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 This ticket is for implementing the primary read endpoints for the Knowledge Base MCP server. This involves fetching and listing documents from the ChromaDB collection.
 
@@ -82,4 +76,14 @@ sounds good to me. hint: you need to add a comment to #7402, otherwise i can not
 ### @tobiu - 2025-10-24 09:24
 
 i think this one was resolved via a 2 tickets in 1 PR. logic got converted to the new servers.
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-08 @tobiu assigned to @MannXo
+- 2025-10-24 @tobiu closed this issue
 

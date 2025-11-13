@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-27T17:52:58Z'
 ---
 # Bug Report: `collection.Base#move()` fails on sibling swaps
-
-**Reported by:** @tobiu on 2025-07-27
 
 ## Summary
 
@@ -57,4 +57,11 @@ This two-step approach guarantees that the indices are correct for both operatio
 -   **Unit Tests:** A comprehensive test suite was added to `test/siesta/tests/CollectionBase.mjs` to cover various move scenarios, including forward, backward, and adjacent swaps, ensuring the fix is robust and preventing future regressions.
 
 This ticket documents the successful resolution of the issue.
+
+## Activity Log
+
+- 2025-07-27 @tobiu assigned to @tobiu
+- 2025-07-27 @tobiu added the `enhancement` label
+- 2025-07-27 @tobiu referenced in commit `5b15ad3` - "Bug Report: collection.Base#move() fails on sibling swaps #7118"
+- 2025-07-27 @tobiu closed this issue
 

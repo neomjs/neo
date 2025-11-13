@@ -17,11 +17,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-25T00:26:14Z'
 ---
 # draggable.grid.header.toolbar.SortZone: honor the grid.View => grid.Body refactoring
 
-**Reported by:** @tobiu on 2025-06-25
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-25 @tobiu assigned to @tobiu
+- 2025-06-25 @tobiu added the `enhancement` label
+- 2025-06-25 @tobiu referenced in commit `ee4d45b` - "draggable.grid.header.toolbar.SortZone: honor the grid.View => grid.Body refactoring #6867"
+- 2025-06-25 @tobiu closed this issue
 

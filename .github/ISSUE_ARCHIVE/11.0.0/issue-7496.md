@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T11:55:24Z'
 ---
 # Add Annotations to MCP Tool Definitions
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 The MCP tool specification allows for optional `annotations` to describe tool behavior (e.g., whether an operation is mutating or safe). This metadata is valuable for AI agents to make more intelligent and safer decisions, for example by requiring stricter user confirmation for mutating actions.
 
@@ -38,4 +32,12 @@ This ticket covers adding support for these annotations.
 2.  At least one mutating tool (e.g., `checkout_pull_request`) is updated in `openapi.yaml` with an annotation like `{"mutating": true}`.
 3.  `toolService.mjs` is refactored to parse these annotations and include them in the tool definitions.
 4.  The `tools/list` response is verified to include the new `annotations` property for relevant tools.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `f2a5af5` - "Add Annotations to MCP Tool Definitions #7496"
+- 2025-10-15 @tobiu closed this issue
 

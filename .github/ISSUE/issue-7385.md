@@ -24,17 +24,10 @@ subIssues:
   - 7390
 subIssuesCompleted: 2
 subIssuesTotal: 5
+blockedBy: []
+blocking: []
 ---
 # 'Sighted' Agent - Chrome DevTools Integration
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Sub-Issues:** #7386, #7387, #7388, #7389, #7390
-**Progress:** 2/5 completed (40%)
-
----
 
 This epic covers the integration of the Chrome DevTools Model Context Protocol (MCP) server into the neo.mjs development workflow. The primary goal is to give the AI agent 'sight' by allowing it to programmatically interact with a live browser instance. This will enable a new, interactive development workflow where the agent can:
 
@@ -63,4 +56,14 @@ This initiative is a critical step towards building a more powerful and autonomo
 - **To Do:** ticket-define-sighted-development-workflow.md
 - **To Do:** ticket-investigate-worker-console-access-with-mcp.md
 - **To Do:** ticket-create-sighted-development-demo.md
+
+## Activity Log
+
+- 2025-10-06 @tobiu assigned to @tobiu
+- 2025-10-06 @tobiu added the `epic` label
+- 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu added the `help wanted` label
+- 2025-10-06 @tobiu added the `good first issue` label
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu referenced in commit `d071c95` - "#7385 ticket md files"
 

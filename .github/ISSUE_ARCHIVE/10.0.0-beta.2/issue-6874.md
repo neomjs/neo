@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-26T13:14:19Z'
 ---
 # guides.DeclarativeComponentTreesVsImperativeVdom: code formatting
 
-**Reported by:** @tobiu on 2025-06-26
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-26 @tobiu assigned to @tobiu
+- 2025-06-26 @tobiu added the `enhancement` label
+- 2025-06-26 @tobiu referenced in commit `cb63c4d` - "guides.DeclarativeComponentTreesVsImperativeVdom: code formatting #6874"
+- 2025-06-26 @tobiu closed this issue
 

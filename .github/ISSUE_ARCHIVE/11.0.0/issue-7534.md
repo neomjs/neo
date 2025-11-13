@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-18T09:18:30Z'
 ---
 # Implement Centralized Logger for MCP Servers
-
-**Reported by:** @tobiu on 2025-10-18
 
 The Model Context Protocol (MCP) servers are designed to communicate over stdio using JSON-RPC. Direct logging to `stdout` with `console.log` corrupts the message stream and breaks the server. While `stderr` is safe for error logging, standard diagnostic logs need to be conditional.
 
@@ -33,4 +33,13 @@ This ticket is to implement a centralized, debug-flag-aware logger to manage `st
 3.  The logger module only outputs to `console.log` when the `debug` flag in `aiConfig` is `true`.
 4.  All existing `console.log` statements in the `knowledge-base` and `memory-core` MCP server files are refactored to use the new logger module.
 5.  `console.error` statements are not affected and should remain as they are for logging to `stderr`.
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu referenced in commit `e477a8c` - "Implement Centralized Logger for MCP Servers #7534"
+- 2025-10-18 @tobiu closed this issue
+- 2025-10-18 @tobiu referenced in commit `e272eb7` - "Implement Centralized Logger for MCP Servers #7534"
 

@@ -15,17 +15,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-03T10:14:47Z'
 ---
 # Update Agent Workflow for Memory
-
-**Reported by:** @tobiu on 2025-10-01
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 With the memory capture and query tools in place, this ticket involves updating the agent's core instructions (`AGENTS.md`) to integrate this new capability into its standard workflow.
 
@@ -36,4 +30,12 @@ With the memory capture and query tools in place, this ticket involves updating 
     a.  First, query the framework knowledge base (`npm run ai:query`) for technical implementation details.
     b.  Second, query the memory database (`npm run ai:query-memory`) for historical context, past decisions, and user requirements related to the current task.
 3.  The guidelines should emphasize how to synthesize information from both sources to make more informed decisions.
+
+## Activity Log
+
+- 2025-10-01 @tobiu assigned to @tobiu
+- 2025-10-01 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu referenced in commit `1620956` - "#7320 early draft version inside a tmp file"
+- 2025-10-03 @tobiu referenced in commit `dd5fbbe` - "Update Agent Workflow for Memory #7320"
+- 2025-10-03 @tobiu closed this issue
 

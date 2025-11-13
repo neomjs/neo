@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-03T13:08:08Z'
 ---
 # docs: Strengthen agent protocols for tickets and memory
-
-**Reported by:** @tobiu on 2025-11-03
 
 To improve agent compliance with core operational protocols, this ticket tracks changes to strengthen the "Ticket-First" gate and the "Memory Core" save mandate.
 
@@ -33,4 +33,12 @@ The following changes will be implemented:
 2.  **In `AGENTS_STARTUP.md`:** The language around saving the initial turn to the memory core will be clarified to explicitly state that this is a mandatory, per-turn action, not a one-time setup step.
 
 These changes are designed to make the protocols more robust and prevent future lapses in agent procedure.
+
+## Activity Log
+
+- 2025-11-03 @tobiu added the `documentation` label
+- 2025-11-03 @tobiu added the `ai` label
+- 2025-11-03 @tobiu assigned to @tobiu
+- 2025-11-03 @tobiu referenced in commit `6fda1f7` - "docs: Strengthen agent protocols for tickets and memory #7701"
+- 2025-11-03 @tobiu closed this issue
 

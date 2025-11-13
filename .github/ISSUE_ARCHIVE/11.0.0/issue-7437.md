@@ -18,17 +18,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-12T11:51:16Z'
 ---
 # Create Empty Viewport App for Component Tests
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns: https://github.com/neomjs/neo/issues/7435
 
@@ -55,4 +49,14 @@ Can I get this issue assigned on me @tobiu
 ### @tobiu - 2025-10-13 10:13
 
 missed the assignment, and added it now for clarity. nothing left to do here => resolved.
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-11 @Aki-07 cross-referenced by PR #7458
+- 2025-10-12 @tobiu closed this issue
+- 2025-10-13 @tobiu assigned to @Aki-07
 

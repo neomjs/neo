@@ -15,17 +15,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:53:17Z'
 ---
 # Create Guide for Personalized Agent Identity
-
-**Reported by:** @tobiu on 2025-10-01
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 This final ticket for the epic covers the creation of a guide for contributors on how to optionally configure a persistent memory and a unique Git identity for their local AI agent. This framework ensures the feature is opt-in, respects user privacy by being fully local, and allows for flexible attribution of the agent's work.
 
@@ -47,4 +41,10 @@ This final ticket for the epic covers the creation of a guide for contributors o
 ### @tobiu - 2025-10-24 09:53
 
 dropped.
+
+## Activity Log
+
+- 2025-10-01 @tobiu assigned to @tobiu
+- 2025-10-01 @tobiu added the `enhancement` label
+- 2025-10-24 @tobiu closed this issue
 

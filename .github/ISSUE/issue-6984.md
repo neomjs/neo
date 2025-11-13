@@ -17,10 +17,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Refactor - Store Composition with Collection
-
-**Reported by:** @tobiu on 2025-07-07
 
 ## Refactor `Neo.data.Store` to use `Neo.collection.Base` via composition instead of inheritance.
 
@@ -71,4 +71,15 @@ this one could get refined to via the ai native workflows into new subs, and bas
 ### @shrvansudhakara - 2025-10-30 18:56
 
 @tobiu I'd like to work on this, pls assign.
+
+## Activity Log
+
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu added the `help wanted` label
+- 2025-10-06 @github-actions added the `stale` label
+- 2025-10-08 @tobiu removed the `stale` label
+- 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added the `hacktoberfest` label
+- 2025-10-08 @tobiu removed the `enhancement` label
+- 2025-10-08 @tobiu added the `epic` label
 

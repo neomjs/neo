@@ -18,17 +18,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T10:45:02Z'
 ---
 # functional.component.Base: enhance the `destroy()` signature
-
-**Reported by:** @tobiu on 2025-07-15
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 * `compnent.Base` uses params to prevent children from triggering update() call when getting destroyed.
 * Consistency.
@@ -53,4 +47,18 @@ https://github.com/neomjs/neo/blob/dev/src/container/Base.mjs#L476
 
 I would also recommend the "AI Native" workflows and let agents figure out the details, e.g. what could get moved into:
 https://github.com/neomjs/neo/blob/dev/src/component/Abstract.mjs#L284
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-10-14 @github-actions added the `stale` label
+- 2025-10-14 @tobiu removed the `stale` label
+- 2025-10-14 @tobiu added the `help wanted` label
+- 2025-10-14 @tobiu added the `good first issue` label
+- 2025-10-14 @tobiu added the `hacktoberfest` label
+- 2025-10-26 @tobiu unassigned from @tobiu
+- 2025-10-26 @tobiu assigned to @ad1tyayadav
+- 2025-10-26 @ad1tyayadav cross-referenced by PR #7667
+- 2025-10-27 @tobiu closed this issue
 

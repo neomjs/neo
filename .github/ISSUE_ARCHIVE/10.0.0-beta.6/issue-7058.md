@@ -15,17 +15,18 @@ parentIssue: 7048
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T13:54:57Z'
 ---
 # Email.view.ComposeView: use a scss file and polish the internal code
 
-**Reported by:** @tobiu on 2025-07-15
-
----
-
-**Parent Issue:** #7048 - Epic: Refactor and Enhance the Email App
-
----
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `cbc290b` - "Email.view.ComposeView: use a scss file and polish the internal code #7058"
+- 2025-07-15 @tobiu closed this issue
 

@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-19T11:27:49Z'
 ---
 # Neo.config.useStringBasedMounting => useDomApiRenderer
-
-**Reported by:** @tobiu on 2025-06-19
 
 * The new name is more clear and with the default set to true more positive.
 
@@ -54,4 +54,11 @@ Recommendation:
 I strongly recommend renaming Neo.config.useStringBasedMounting to Neo.config.useDomApiRenderer with its default set to true (assuming this is the desired default for v10).
 
 This change will make the configuration much more intuitive and directly communicate the preferred, secure, and performant rendering strategy to developers. It aligns with the "Quantum Leap" narrative of v10.
+
+## Activity Log
+
+- 2025-06-19 @tobiu assigned to @tobiu
+- 2025-06-19 @tobiu added the `enhancement` label
+- 2025-06-19 @tobiu referenced in commit `8930d63` - "Neo.config.useStringBasedMounting => useDomApiRenderer #6842"
+- 2025-06-19 @tobiu closed this issue
 

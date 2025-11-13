@@ -16,17 +16,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-08T12:29:52Z'
 ---
 # Move PR workflows to separate guide in learn/guides/ai
-
-**Reported by:** @SarthakJain29 on 2025-10-06
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 **Is your feature request related to a problem? Please describe.**
 Agents.md is packed with many instructions. Lot of content inside the agents file related to PRs, which is only needed in case the current session deals with them.
@@ -51,4 +45,12 @@ FYI (flash model):
 >   simpler, maintaining consistency across the knowledge base. This modular approach, separating "what" from "how," would enhance my understanding 
 >   and navigation, making my workflow easier and more robust.
 
+
+## Activity Log
+
+- 2025-10-06 @SarthakJain29 added the `enhancement` label
+- 2025-10-06 @tobiu assigned to @SarthakJain29
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @SarthakJain29 cross-referenced by PR #7395
+- 2025-10-08 @tobiu closed this issue
 

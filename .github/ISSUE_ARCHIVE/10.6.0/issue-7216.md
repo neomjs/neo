@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-19T12:53:14Z'
 ---
 # Enhance AI Knowledge Base with Blog Content
-
-**Reported by:** @tobiu on 2025-09-19
 
 ## Description
 
@@ -49,4 +49,11 @@ This ticket proposes enhancing the knowledge base by including these blog posts 
 ### @tobiu - 2025-09-19 12:53
 
 <img width="977" height="501" alt="Image" src="https://github.com/user-attachments/assets/230fd0b8-669f-4a8f-977b-a5076f735d15" />
+
+## Activity Log
+
+- 2025-09-19 @tobiu assigned to @tobiu
+- 2025-09-19 @tobiu added the `enhancement` label
+- 2025-09-19 @tobiu referenced in commit `920b8a1` - "Enhance AI Knowledge Base with Blog Content #7216"
+- 2025-09-19 @tobiu closed this issue
 

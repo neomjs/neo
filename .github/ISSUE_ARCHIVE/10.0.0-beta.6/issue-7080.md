@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-18T11:30:10Z'
 ---
 # Feature Request: Refactor `core.Effect` to use new constructor signature
-
-**Reported by:** @tobiu on 2025-07-18
 
 ### Summary
 The `core.Effect` constructor has been improved. This ticket tracks the work to update all `new Effect()` calls across the codebase to use the new, clearer single-object signature: `new Effect({ fn: ..., ... })`.
@@ -72,4 +72,12 @@ The `core.Effect` constructor has been improved. This ticket tracks the work to 
 ### Acceptance Criteria
 - All `new Effect()` calls are refactored to use the single config object signature.
 - All relevant tests continue to pass.
+
+## Activity Log
+
+- 2025-07-18 @tobiu assigned to @tobiu
+- 2025-07-18 @tobiu added the `enhancement` label
+- 2025-07-18 @tobiu referenced in commit `0ae0680` - "Feature Request: Refactor core.Effect to use new constructor signature #7080"
+- 2025-07-18 @tobiu referenced in commit `1b1f541` - "#7080 comments, neo export"
+- 2025-07-18 @tobiu closed this issue
 

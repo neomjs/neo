@@ -15,16 +15,10 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Initial Dashboard Drag & Drop
-
-**Reported by:** @tobiu on 2025-08-20
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 ## Goal
 Implement the foundational (Phase 1) drag-and-drop reordering for the panels within the `Colors.view.Viewport`. This involves creating dashboard-specific sort zones and integrating them into the app.
@@ -53,4 +47,17 @@ Implement the foundational (Phase 1) drag-and-drop reordering for the panels wit
 - Only the three main content panels are considered sortable.
 - Panels can be reordered within the viewport.
 - The new order is correctly applied when the drag operation is complete.
+
+## Activity Log
+
+- 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added the `enhancement` label
+- 2025-08-20 @tobiu referenced in commit `981c99c` - "Initial Dashboard Drag & Drop
+#7206"
+- 2025-08-20 @tobiu referenced in commit `f3ede15` - "Initial Dashboard Drag & Drop #7206"
+- 2025-08-20 @tobiu referenced in commit `a5ac272` - "Initial Dashboard Drag & Drop #7206 WIP"
+- 2025-08-21 @tobiu referenced in commit `95e5d1c` - "#7206 SCSS file, animated panel movements"
+- 2025-08-21 @tobiu referenced in commit `6e729a0` - "#7206 WIP"
+- 2025-08-21 @tobiu referenced in commit `5b1f960` - "#7206 WIP"
+- 2025-08-21 @tobiu referenced in commit `af84d7f` - "#7206 WIP"
 

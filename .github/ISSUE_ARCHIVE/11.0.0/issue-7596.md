@@ -18,11 +18,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T14:17:43Z'
 ---
 # Bug: ChromaDB Fails on x64 Systems Without WSL
-
-**Reported by:** @Alachi24 on 2025-10-21
 
 **Describe the bug**
 Developers on **x64 systems (Intel/AMD)** will likely encounter this error when running `npm run ai:server`:
@@ -114,4 +114,18 @@ creating a guide is definitely fine too.
 
 Thank you, I'll start working on it.
 Can you also include the labels I requested, especially the `Documentation` & `Hacktoberfest` @tobiu 
+
+## Activity Log
+
+- 2025-10-21 @Alachi24 added the `bug` label
+- 2025-10-21 @tobiu assigned to @Alachi24
+- 2025-10-21 @tobiu added the `documentation` label
+- 2025-10-21 @tobiu added the `good first issue` label
+- 2025-10-21 @tobiu added the `hacktoberfest` label
+- 2025-10-22 @Alachi24 referenced in commit `c837a7a` - "docs: add setup guide for x64 systems using WSL to resolve ChromaDB binding issues (#7596)"
+- 2025-10-23 @Alachi24 cross-referenced by PR #7617
+- 2025-10-24 @Alachi24 referenced in commit `055fed6` - "docs: add guide for running AI/ChromaDB tooling on Windows via WSL (#7596)"
+- 2025-10-24 @tobiu referenced in commit `269b0da` - "docs: add setup guide for x64 systems using WSL to resolve ChromaDB binding issues (#7596)"
+- 2025-10-24 @tobiu closed this issue
+- 2025-10-24 @tobiu referenced in commit `fdfd63c` - "docs: add guide for running AI/ChromaDB tooling on Windows via WSL (#7596)"
 

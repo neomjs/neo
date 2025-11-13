@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:47:14Z'
 ---
 # Refactor Build-Time Parser to be AST-Based for Robustness
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 The current build-time approach, which uses regular expressions to find and replace templates, has proven to be brittle and incorrect. It cannot handle nested `html` templates and can be easily fooled by JSDoc comments or strings that happen to contain the `html`` sequence, leading to build failures. To ensure correctness and consistency with the runtime environment, the build process must be refactored to use a proper JavaScript parser.
@@ -46,4 +40,10 @@ The current build-time approach, which uses regular expressions to find and repl
 ### @tobiu - 2025-08-02 12:47
 
 resolved
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu closed this issue
 

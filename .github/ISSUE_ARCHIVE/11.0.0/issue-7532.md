@@ -16,17 +16,11 @@ parentIssue: 7529
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T13:24:15Z'
 ---
 # Make start_database Hybrid-Aware
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7529 - Epic: Implement Agent-Managed Database Tools
-
----
 
 The `start_database` tool is not hybrid-aware. It doesn't check if a ChromaDB instance is already running on the target port before attempting to spawn a new one. This needs to be corrected to support developers who prefer to manage the DB process manually.
 
@@ -37,4 +31,12 @@ The `start_database` tool is not hybrid-aware. It doesn't check if a ChromaDB in
 3.  It first performs a heartbeat check on the configured host and port.
 4.  If the heartbeat is successful, it returns a status indicating the database is already running and does not spawn a new process.
 5.  If the heartbeat fails, it proceeds with spawning a new background process.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `93f278f` - "Make start_database Hybrid-Aware #7532"
+- 2025-10-17 @tobiu closed this issue
 

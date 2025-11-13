@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T23:21:35Z'
 ---
 # Refactor MCP Service ClassNames to Use Full Server Names
-
-**Reported by:** @tobiu on 2025-10-19
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 The current `className` definitions for services within the MCP servers use inconsistent or abbreviated names for the server part of the namespace (e.g., `github` instead of `github-workflow`).
 
@@ -44,4 +38,12 @@ To improve clarity, consistency, and discoverability, all service class names sh
     -   All services in `ai/mcp/server/memory-core/services/` should have their `className` updated from `AI.mcp.server.memory.*` to `Neo.ai.mcp.server.memory-core.*`.
 
 *(Note: This is a straightforward find-and-replace task that can be applied across the respective server directories.)*
+
+## Activity Log
+
+- 2025-10-19 @tobiu assigned to @tobiu
+- 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu referenced in commit `7a30903` - "Refactor MCP Service ClassNames to Use Full Server Names #7562"
+- 2025-10-19 @tobiu closed this issue
 

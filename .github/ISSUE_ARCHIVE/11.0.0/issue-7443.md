@@ -18,17 +18,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T19:41:09Z'
 ---
 # Convert Component Test form/field/Text.mjs to Playwright
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns: https://github.com/neomjs/neo/issues/7435
 
@@ -57,4 +51,16 @@ assigned. i will further refine the epic with hints on how to work on component 
 some ideas: look into `src/form/field/Text.mjs` to see how it works. Use `npm run build-all`, unless you have already done it for your fork. then use `npm run server-start`, and you can open examples like `examples/form/field/text` inside your browser.
 
 we can literally open 100+ additional tickets for component based testing alone.
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-13 @tobiu assigned to @harikrishna-au
+- 2025-11-04 @tobiu unassigned from @harikrishna-au
+- 2025-11-04 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu referenced in commit `878a3fe` - "Convert Component Test form/field/Text.mjs to Playwright #7443"
+- 2025-11-04 @tobiu closed this issue
 

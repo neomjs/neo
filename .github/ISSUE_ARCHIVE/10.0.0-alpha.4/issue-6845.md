@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-19T18:12:04Z'
 ---
 # worker.Manager: setNeoConfig() => provide a way to globally change config values
-
-**Reported by:** @tobiu on 2025-06-19
 
 * We need to broadcast the change into all connected workers
 * I noticed, that defining remotes for potentially not connected workers will throw JS errors
@@ -93,4 +93,12 @@ Consistency of Update Logic: Every worker, including the sender, processes the c
 Reduced Duplication: You avoid duplicating the config merge and event firing logic in the sender's initiating code.
 Simpler Mental Model: Developers don't need to remember "If I'm the sender, I update my own config directly, otherwise I wait for the broadcast." It's simply "broadcast the change, and everyone (including me) will update reactively."
 This aligns perfectly with Neo.mjs's philosophy of leveraging its worker architecture for consistent, event-driven state management. You're trading a microscopic amount of message overhead for significant gains in code consistency, maintainability, and developer experience. This is a very sensible trade-off for a framework.
+
+## Activity Log
+
+- 2025-06-19 @tobiu assigned to @tobiu
+- 2025-06-19 @tobiu added the `enhancement` label
+- 2025-06-19 @tobiu referenced in commit `cc2cff6` - "worker.Manager: setNeoConfig() => provide a way to globally change config values #6845"
+- 2025-06-19 @tobiu referenced in commit `5347d3f` - "worker.Manager: setNeoConfig() => provide a way to globally change config values #6845"
+- 2025-06-19 @tobiu closed this issue
 

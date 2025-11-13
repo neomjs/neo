@@ -16,17 +16,11 @@ parentIssue: 7645
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T11:40:45Z'
 ---
 # Refactor: Extract Release & Issue Syncers from SyncService
-
-**Reported by:** @tobiu on 2025-10-25
-
----
-
-**Parent Issue:** #7645 - Epic: Refactor and Extend GitHub Sync Service
-
----
 
 As the first step in the larger sync service refactoring (Epic: Refactor and Extend GitHub Sync Service), this ticket focuses on breaking down the monolithic `SyncService` into smaller, more focused modules.
 
@@ -36,4 +30,16 @@ As the first step in the larger sync service refactoring (Epic: Refactor and Ext
 3.  Create `sync/IssueSyncer.mjs` and move all issue-related pull, push, and formatting logic into it from `SyncService`.
 4.  Refactor `SyncService.mjs` to become a lean orchestrator that imports and calls the new `ReleaseSyncer` and `IssueSyncer` modules.
 5.  Update comments and method names within `SyncService` to be more generic and accurate.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `epic` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu added the `refactoring` label
+- 2025-10-25 @tobiu cross-referenced by #7645
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu removed the `epic` label
+- 2025-10-25 @tobiu referenced in commit `6debaaf` - "Refactor: Extract Release & Issue Syncers from SyncService #7642"
+- 2025-10-25 @tobiu referenced in commit `f390a54` - "#7642 cleanup"
+- 2025-10-25 @tobiu closed this issue
 

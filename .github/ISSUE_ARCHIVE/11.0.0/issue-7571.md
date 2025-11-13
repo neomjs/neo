@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T12:53:57Z'
 ---
 # Refactor Sync Config for Dynamic Date-Based Syncing
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 To make the issue synchronization process scalable and efficient, we need to move away from a static release list and instead use a date-based approach to limit the scope of the sync. This involves removing the hardcoded `releases` array from the configuration and replacing it with a single `syncStartDate`.
 
@@ -41,4 +35,12 @@ To make the issue synchronization process scalable and efficient, we need to mov
 -   Decouples the sync logic from a static, manually maintained list of releases.
 -   Provides a single, simple configuration point for controlling the time window of the synchronization.
 -   Paves the way for the service to dynamically fetch release data from GitHub.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `323d5a4` - "Refactor Sync Config for Dynamic Date-Based Syncing #7571"
+- 2025-10-20 @tobiu closed this issue
 

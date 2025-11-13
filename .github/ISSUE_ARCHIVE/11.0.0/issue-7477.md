@@ -36,18 +36,11 @@ subIssues:
   - 7500
 subIssuesCompleted: 20
 subIssuesTotal: 20
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T10:56:45Z'
 ---
 # Architect GitHub Workflow as MCP Server
-
-**Reported by:** @tobiu on 2025-10-14
-
----
-
-**Sub-Issues:** #7478, #7479, #7480, #7481, #7482, #7483, #7484, #7485, #7486, #7487, #7491, #7492, #7493, #7494, #7495, #7496, #7497, #7498, #7499, #7500
-**Progress:** 20/20 completed (100%)
-
----
 
 This epic is a high-priority follow-up to [Epic: Integrate GitHub CLI to Streamline Contribution Workflow (#7364)](https://github.com/neomjs/neo/issues/7364). It addresses our primary internal bottleneck by migrating the script-based `gh` integrations into a robust, professional-grade Model Context Protocol (MCP) server.
 
@@ -108,4 +101,19 @@ closed the epic by accident. not done yet.
 ### @tobiu - 2025-10-20 10:56
 
 resolved. i will create more epics for specific enhancements.
+
+## Activity Log
+
+- 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added the `epic` label
+- 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu cross-referenced by #7403
+- 2025-10-15 @tobiu closed this issue
+- 2025-10-15 @tobiu cross-referenced by PR #7490
+- 2025-10-15 @tobiu referenced in commit `af7afb2` - "#7477 toolService.mjs: intent-driven comments"
+- 2025-10-15 @tobiu referenced in commit `75979a4` - "#7477 deleted the obsolete tools.mjs file"
+- 2025-10-15 @tobiu referenced in commit `c4a2c83` - "#7477 ensuring the return value of nextCursor is a string"
+- 2025-10-15 @tobiu referenced in commit `4b9b403` - "#7477 added healthcheck as a tool"
+- 2025-10-15 @tobiu referenced in commit `d52d356` - "#7477 pr service: author.login description (confusing, since it contains the name)"
+- 2025-10-20 @tobiu closed this issue
 

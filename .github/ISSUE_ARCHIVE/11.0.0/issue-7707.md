@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T23:01:59Z'
 ---
 # Major Performance & Modernization Refactor of JSDoc Documentation Generation
-
-**Reported by:** @tobiu on 2025-11-04
 
 This ticket summarizes a comprehensive refactoring of the JSDoc documentation generation process, significantly improving performance, modernizing the codebase, and enhancing maintainability. This work involved an initial rewrite from CommonJS to ES modules and subsequent optimizations.
 
@@ -55,4 +55,12 @@ This ticket summarizes a comprehensive refactoring of the JSDoc documentation ge
 
 **Conclusion:**
 The primary bottleneck was identified as JSDoc parsing itself. Parallel processing, leveraging physical core counts, proved to be the most impactful optimization. Further significant speed gains would likely require switching to an entirely different parser or implementing incremental builds.
+
+## Activity Log
+
+- 2025-11-04 @tobiu added the `enhancement` label
+- 2025-11-04 @tobiu added the `ai` label
+- 2025-11-04 @tobiu added the `refactoring` label
+- 2025-11-04 @tobiu referenced in commit `e9b416e` - "Major Performance & Modernization Refactor of JSDoc Documentation Generation #7707"
+- 2025-11-04 @tobiu closed this issue
 

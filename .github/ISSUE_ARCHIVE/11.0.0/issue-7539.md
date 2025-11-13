@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-18T11:58:34Z'
 ---
 # Improve isDbRunning() in DatabaseLifecycleService
-
-**Reported by:** @tobiu on 2025-10-18
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 The `isDbRunning()` method within `AI.mcp.server.memory.DatabaseLifecycleService` was previously creating a new `ChromaClient` instance for every check, leading to unnecessary overhead. This ticket documents the improvement to leverage the already instantiated `ChromaManager` singleton's client for performing the `heartbeat()` check.
 
@@ -37,4 +31,12 @@ This approach aligns with the goal of integrating Neo.mjs core into the MCP serv
 1.  The `isDbRunning()` method in `AI.mcp.server.memory.DatabaseLifecycleService` imports the `ChromaManager` singleton.
 2.  The `isDbRunning()` method uses `ChromaManager.client.heartbeat()` within a `try...catch` block to check for a running ChromaDB instance.
 3.  The method correctly returns `true` if `heartbeat()` succeeds and `false` if it fails (e.g., due to `ChromaManager.client` being null or the database not being reachable).
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu referenced in commit `6027547` - "Improve isDbRunning() in DatabaseLifecycleService #7539"
+- 2025-10-18 @tobiu closed this issue
 

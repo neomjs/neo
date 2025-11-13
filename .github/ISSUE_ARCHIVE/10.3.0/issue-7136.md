@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-31T10:24:46Z'
 ---
 # Alternative Dev Mode: In-Worker Parsing with `parse5`
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 As an alternative to the main thread addon, we will evaluate using `parse5` directly within the App worker for dev mode. This approach avoids the complexities and potential race conditions of an asynchronous worker roundtrip for parsing. While it introduces a ~176KB dependency to the dev build, this cost may be acceptable for the significant gain in architectural simplicity and rendering predictability.
@@ -38,4 +32,12 @@ As an alternative to the main thread addon, we will evaluate using `parse5` dire
     3. The processor will use `parse5` to synchronously convert the template string into a Neo.mjs VDOM JSON structure.
     4. The component's lifecycle (`continueUpdateWithVdom` for functional, a new hook for class-based) will then proceed synchronously with the parsed VDOM.
     5. The existing main thread addon (`Neo.main.addon.HtmlStringToVdom`) and its tests will be kept for comparison and potential future use cases.
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu referenced in commit `be9e38e` - "Alternative Dev Mode: In-Worker Parsing with parse5
+#7136"
+- 2025-07-31 @tobiu closed this issue
 

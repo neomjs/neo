@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T00:27:52Z'
 ---
 # Introduce `Neo.core.Base#observeConfig()` for Lifecycle-Aware Config Subscriptions
-
-**Reported by:** @tobiu on 2025-07-06
 
 **Problem:**
 Manually managing `Neo.core.Config` subscriptions within `Neo.core.Base` instances is error-prone. Developers must remember to explicitly unsubscribe, leading to potential memory leaks if cleanup is missed.
@@ -43,4 +43,12 @@ Add a new public method `observeConfig(publisher, configName, fn)` to `Neo.core.
 
 **Impact:**
 Replaces direct calls to `Neo.core.Config#subscribe` in `Neo.core.Base` subclasses with the new `observeConfig` method.
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `b2c2e3f` - "Introduce Neo.core.Base#observeConfig() for Lifecycle-Aware Config Subscriptions #6957"
+- 2025-07-06 @tobiu closed this issue
+- 2025-07-06 @tobiu cross-referenced by #6958
 

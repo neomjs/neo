@@ -16,17 +16,11 @@ parentIssue: 7529
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T13:25:22Z'
 ---
 # Add Database Management Tools to Memory Core Server
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7529 - Epic: Implement Agent-Managed Database Tools
-
----
 
 To give agents more control over their environment, we will add tools to the Memory Core server to start and stop its underlying ChromaDB instance.
 
@@ -37,4 +31,12 @@ To give agents more control over their environment, we will add tools to the Mem
 3.  A `stop_database` tool is added, which can terminate the process started by `start_database`.
 4.  The `healthcheck` tool is updated to include the running status of the database process.
 5.  The new tools are implemented in a new `databaseLifecycleService.mjs`.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `3ada1e7` - "Add Database Management Tools to Memory Core Server #7531"
+- 2025-10-17 @tobiu closed this issue
 

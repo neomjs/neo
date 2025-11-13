@@ -18,17 +18,11 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-08T11:53:39Z'
 ---
 # Convert ManagerInstance.mjs Test from Siesta to Playwright
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Parent Issue:** #7262 - Enhance Development Workflow with Mandatory Unit Testing
-
----
 
 This task is to migrate the unit test for `ManagerInstance.mjs` from the Siesta test harness to the Playwright test runner.
 
@@ -63,4 +57,14 @@ And your ticket afterwards (you can search for the GH ticket id).
 
 @tobiu 
 Kindly review and merge the PR.
+
+## Activity Log
+
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-10-03 @tobiu added the `help wanted` label
+- 2025-10-03 @tobiu added the `good first issue` label
+- 2025-10-03 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu assigned to @nabeel001
+- 2025-10-08 @nabeel001 cross-referenced by PR #7415
+- 2025-10-08 @tobiu closed this issue
 

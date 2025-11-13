@@ -17,17 +17,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-10T10:51:29Z'
 ---
 # Refine and Integrate GitHub CLI Guide
-
-**Reported by:** @tobiu on 2025-10-08
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 This is a follow-up to the excellent "GitHub CLI Setup" guide created in PR #7384. The goal is to better integrate the guide into the project's structure and learning portal, and to enhance it with a more convenient way to manage the `GH_TOKEN`.
 
@@ -86,4 +80,15 @@ Hey @tobiu could you please assign this ticket to me ?
 ### @tobiu - 2025-10-10 10:51
 
 closing the ticket as resolved.
+
+## Activity Log
+
+- 2025-10-08 @tobiu assigned to @tobiu
+- 2025-10-08 @tobiu added the `enhancement` label
+- 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added the `hacktoberfest` label
+- 2025-10-09 @tobiu assigned to @Mahita07
+- 2025-10-09 @tobiu unassigned from @tobiu
+- 2025-10-09 @Mahita07 cross-referenced by PR #7427
+- 2025-10-10 @tobiu closed this issue
 

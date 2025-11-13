@@ -17,11 +17,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-16T17:23:11Z'
 ---
 # Neo.vdom.util.DomApiVnodeCreator: create() => opt out for componentId reference nodes
 
-**Reported by:** @tobiu on 2025-06-16
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-16 @tobiu assigned to @tobiu
+- 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu referenced in commit `5af1f7f` - "Neo.vdom.util.DomApiVnodeCreator: create() => opt out for componentId reference nodes #6821"
+- 2025-06-16 @tobiu closed this issue
 

@@ -19,17 +19,11 @@ parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-08T15:35:32Z'
 ---
 # Design Memory Core MCP Server API
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 This ticket covers the detailed API design for the new Memory Core MCP server. This server will replace the current CLI scripts, providing a formal, structured interface for agents to interact with their session-based memory.
 
@@ -76,4 +70,29 @@ Can you assign this to me? @tobiu
 ### @tobiu - 2025-10-08 12:50
 
 done
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-08 @MannXo cross-referenced by #7404
+- 2025-10-08 @tobiu assigned to @MannXo
+- 2025-10-08 @MannXo referenced in commit `7e2bca2` - "Design Memory Core MCP Server API
+
+- Create OpenAPI 3.0 specification with all 11 required endpoints
+- Add comprehensive API documentation guide
+- Update navigation tree
+- Resolves #7402"
+- 2025-10-08 @MannXo cross-referenced by PR #7419
+- 2025-10-08 @tobiu closed this issue
+- 2025-10-08 @tobiu referenced in commit `6bcdc06` - "Design Memory Core MCP Server API
+
+- Create OpenAPI 3.0 specification with all 11 required endpoints
+- Add comprehensive API documentation guide
+- Update navigation tree
+- Resolves #7402"
+- 2025-10-10 @Aki-07 cross-referenced by PR #7454
 

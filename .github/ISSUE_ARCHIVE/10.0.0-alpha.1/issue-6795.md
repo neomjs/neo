@@ -15,17 +15,18 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T10:57:25Z'
 ---
 # Neo.config.useStringBasedMounting
 
-**Reported by:** @tobiu on 2025-06-15
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu referenced in commit `10e582c` - "Neo.config.useStringBasedMounting #6795"
+- 2025-06-15 @tobiu closed this issue
 

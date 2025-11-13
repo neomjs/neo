@@ -16,16 +16,10 @@ parentIssue: 7645
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Feat: Implement PR Syncer for GitHub Workflow
-
-**Reported by:** @tobiu on 2025-10-25
-
----
-
-**Parent Issue:** #7645 - Epic: Refactor and Extend GitHub Sync Service
-
----
 
 As the final part of the sync service refactoring epic, this ticket introduces the new functionality to sync GitHub Pull Requests to the local filesystem.
 
@@ -37,4 +31,13 @@ As the final part of the sync service refactoring epic, this ticket introduces t
     -   Saving the files to a new local directory (e.g., `.github/PULL_REQUESTS/`).
 3.  Integrate the new `PrSyncer` into the main `SyncService` orchestration loop.
 4.  Update the `MetadataManager` to handle metadata for synced PRs (e.g., storing `updatedAt` and `contentHash`).
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `epic` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu cross-referenced by #7645
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu removed the `epic` label
 

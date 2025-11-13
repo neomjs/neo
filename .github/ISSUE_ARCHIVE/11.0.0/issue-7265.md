@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-09T21:41:59Z'
 ---
 # Rewrite Project Vision (`VISION.md`)
-
-**Reported by:** @tobiu on 2025-09-27
 
 The current `.github/VISION.md` file is outdated and no longer reflects the project's forward-looking goals. This task is to rewrite the content to create a clear, modern, and inspiring vision for the Neo.mjs framework.
 
@@ -38,4 +38,10 @@ This updated vision will serve as the foundational document for all strategic pl
 ### @tobiu - 2025-10-09 21:41
 
 superseded by #7430
+
+## Activity Log
+
+- 2025-09-27 @tobiu assigned to @tobiu
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-10-09 @tobiu closed this issue
 

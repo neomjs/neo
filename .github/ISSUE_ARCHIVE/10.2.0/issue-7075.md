@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-28T11:16:22Z'
 ---
 # Enable Granular VDOM Updates for Functional Components
-
-**Reported by:** @tobiu on 2025-07-16
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Problem
 
@@ -48,4 +42,11 @@ The logic within `functional/component/Base.mjs` has been enhanced to intelligen
 3.  **Code Clarity:** As part of this change, the internal property `#newChildComponents` was renamed to `#nextChildComponents` to more accurately reflect its purpose, improving the maintainability of the code.
 
 This change fixes a major performance bottleneck and aligns the update behavior of functional components with the highly efficient, scoped update model of classic components.
+
+## Activity Log
+
+- 2025-07-16 @tobiu assigned to @tobiu
+- 2025-07-16 @tobiu added the `enhancement` label
+- 2025-07-16 @tobiu referenced in commit `1c93eac` - "Enable Granular VDOM Updates for Functional Components #7075"
+- 2025-07-28 @tobiu closed this issue
 

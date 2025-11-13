@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T16:37:04Z'
 ---
 # Bug(core.Config): Regression in beforeSet hooks with v10 config system
-
-**Reported by:** @tobiu on 2025-07-06
 
 **Description**
 
@@ -41,4 +41,11 @@ The generated setter in `Neo.mjs#autoGenerateGetSet` was refactored to restore t
 4.  **Finalize Change:** `config.set()` is called. It compares the new value against the now-restored original value, correctly detects the change, and triggers the `afterSet` hooks.
 
 This fix restores the pre-v10 atomicity of `set()` operations, ensuring that all `beforeSet` hooks within a batch see a consistent, updated view of all pending changes.
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `694bddb` - "Bug(core.Config): Regression in beforeSet hooks with v10 config system #6960"
+- 2025-07-06 @tobiu closed this issue
 

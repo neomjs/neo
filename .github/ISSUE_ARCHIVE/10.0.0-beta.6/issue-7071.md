@@ -15,18 +15,19 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-16T02:35:44Z'
 ---
 # layout.Flexbox: applyChildAttributes() => opt out for functional cmps
 
-**Reported by:** @tobiu on 2025-07-16
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
-
 * `functional.component.Base` does not have a style or wrapper style config yet.
 * for now, let us just opt out.
+
+## Activity Log
+
+- 2025-07-16 @tobiu assigned to @tobiu
+- 2025-07-16 @tobiu added the `enhancement` label
+- 2025-07-16 @tobiu referenced in commit `0054442` - "layout.Flexbox: applyChildAttributes() => opt out for functional cmps #7071"
+- 2025-07-16 @tobiu closed this issue
 

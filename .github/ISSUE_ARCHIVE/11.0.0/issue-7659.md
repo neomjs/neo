@@ -18,17 +18,11 @@ parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T12:03:37Z'
 ---
 # Docs: Create Self-Explanatory Tools via OpenAPI Descriptions
-
-**Reported by:** @tobiu on 2025-10-26
-
----
-
-**Parent Issue:** #7604 - Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
----
 
 This ticket is a sub-task of the epic #7604.
 
@@ -52,4 +46,15 @@ The `openapi.yaml` file for each MCP server should become the single source of t
 1.  Review and update the `openapi.yaml` for all three MCP servers (`knowledge-base`, `memory-core`, `github-workflow`).
 2.  Ensure the `description` for every tool is comprehensive enough to not require external documentation.
 3.  Add rich, practical examples to the descriptions.
+
+## Activity Log
+
+- 2025-10-26 @tobiu added the `documentation` label
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `developer-experience` label
+- 2025-10-26 @tobiu added the `ai` label
+- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu referenced in commit `d06cb34` - "Docs: Create Self-Explanatory Tools via OpenAPI Descriptions #7659"
+- 2025-10-26 @tobiu closed this issue
+- 2025-10-26 @tobiu cross-referenced by #7663
 

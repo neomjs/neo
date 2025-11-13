@@ -15,11 +15,22 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T13:39:43Z'
 ---
 # Learning Content: Working with Vdom
 
-**Reported by:** @tobiu on 2025-06-22
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-22 @tobiu assigned to @tobiu
+- 2025-06-22 @tobiu added the `enhancement` label
+- 2025-06-22 @tobiu referenced in commit `c8e0018` - "Learning Content: Working with Vdom #6852 Early stage draft"
+- 2025-06-22 @tobiu referenced in commit `1ec4bc3` - "#6852 tree.json formatting"
+- 2025-06-22 @tobiu referenced in commit `eb620f8` - "#6852 updated draft (early stage)"
+- 2025-06-22 @tobiu referenced in commit `49875f5` - "#6852 updated draft (early stage)"
+- 2025-06-22 @tobiu referenced in commit `dda410d` - "#6852 updated draft"
+- 2025-06-30 @tobiu closed this issue
 

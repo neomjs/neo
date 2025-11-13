@@ -17,10 +17,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Implement Class-Aware Merging for Nested Configs via Dynamic `Neo.mergeConfig` Replacement
-
-**Reported by:** @tobiu on 2025-07-04
 
 **Is your feature request related to a problem? Please describe.**
 The current `Neo.mergeConfig` method treats all objects as generic JavaScript objects, lacking the ability to perform intelligent, class-aware merging for nested configurations that represent instantiable Neo.mjs classes (i.e., objects containing `className`, `module`, or `ntype` properties). This limitation means that when a subclass provides a configuration for a nested component that extends a component defined in a superclass, the merging process may not correctly respect the inheritance hierarchy, leading to suboptimal or unexpected results (e.g., a simple replacement instead of a deep, inheritance-aware merge).
@@ -39,4 +39,11 @@ This enhancement is a crucial architectural step towards a more robust and intui
 ### @github-actions - 2025-10-03 02:37
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-04 @tobiu added the `enhancement` label
+- 2025-10-03 @github-actions added the `stale` label
+- 2025-10-03 @tobiu removed the `stale` label
+- 2025-10-03 @tobiu added the `no auto close` label
 

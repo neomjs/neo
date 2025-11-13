@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T10:45:33Z'
 ---
 # Implement Delete Database Service
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 This ticket covers the implementation of the `delete_database` service for the AI Knowledge Base MCP server. This service will expose the destructive but necessary functionality to completely remove the knowledge base collection from ChromaDB, allowing for a clean reset.
 
@@ -36,4 +30,12 @@ This ticket covers the implementation of the `delete_database` service for the A
 2.  The service contains a `deleteDatabase` function that connects to ChromaDB and deletes the collection specified in `aiConfig`.
 3.  The function returns a success message upon completion.
 4.  The `toolService.mjs` `serviceMapping` is updated to point the `delete_database` operationId to the new service function.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `8713465` - "Implement Delete Database Service #7506"
+- 2025-10-16 @tobiu closed this issue
 

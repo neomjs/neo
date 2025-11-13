@@ -25,17 +25,10 @@ subIssues:
   - 7210
 subIssuesCompleted: 4
 subIssuesTotal: 9
+blockedBy: []
+blocking: []
 ---
 # Dashboard Drag & Drop
-
-**Reported by:** @tobiu on 2025-08-20
-
----
-
-**Sub-Issues:** #7202, #7203, #7204, #7205, #7206, #7207, #7208, #7209, #7210
-**Progress:** 4/9 completed (44%)
-
----
 
 ## Overview
 
@@ -58,4 +51,12 @@ This section outlines the key architectural decisions and strategic insights tha
 -   **Live Proxy (Phase 2):** The core goal is to create a high-fidelity user experience, where the dragged component is not a static image but remains a fully "live" instance. This leverages the Neo.mjs VDOM engine's ability to reparent live components, which is a key technical differentiator and provides the foundation for the advanced effects in Phase 3.
 
 -   **Dynamic Windowing (Phase 3):** The implementation of this ambitious phase is significantly de-risked and accelerated by adapting existing, proven logic. The `apps/colors/view/ViewportController` already contains robust functionality for detaching a live widget into a separate popup window. Phase 3 will adapt this logic to trigger dynamically mid-drag. Furthermore, `Neo.util.Rectangle.getIntersection()` has been identified as the ideal utility for the boundary-check calculations.
+
+## Activity Log
+
+- 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added the `enhancement` label
+- 2025-08-20 @tobiu added the `epic` label
+- 2025-08-20 @tobiu referenced in commit `01020b6` - "Dashboard Drag & Drop #7201: epic md file"
+- 2025-08-21 @tobiu referenced in commit `57a5d97` - "#7201 switched drag-handles back to cursor pointer (important for e.g. tab header buttons)"
 

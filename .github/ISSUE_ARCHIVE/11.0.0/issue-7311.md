@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T11:16:58Z'
 ---
 # Fix MagicMoveText component cache issue causing jumping scroll
-
-**Reported by:** @tobiu on 2025-09-30
 
 As identified by external feedback, the `MagicMoveText` component exhibits a visual bug on the `neomjs.com` portal's home page. When the component cycles through its text, it can cause a jarring "jumping" scroll effect.
 
@@ -31,4 +31,13 @@ The component uses a `measureCache` to store character geometries for performanc
 1.  Implement a mechanism to clear the `measureCache` within the `MagicMoveText` component when it is unmounted or hidden.
 2.  The fix should be verified on the `neomjs.com` portal's home page.
 3.  The "jumping" effect should be completely eliminated, resulting in a smooth transition when content changes.
+
+## Activity Log
+
+- 2025-09-30 @tobiu assigned to @tobiu
+- 2025-09-30 @tobiu added the `bug` label
+- 2025-09-30 @tobiu added the `no auto close` label
+- 2025-09-30 @tobiu referenced in commit `1133c16` - "#7311 ticket as md file"
+- 2025-11-08 @tobiu referenced in commit `36b6366` - "Fix MagicMoveText component cache issue causing jumping scroll #7311"
+- 2025-11-08 @tobiu closed this issue
 

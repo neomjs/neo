@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T13:42:29Z'
 ---
 # Fix Gemini CLI Client Compatibility for MCP `tools/list` Response
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 The Gemini CLI client was unable to correctly parse the `tools/list` response from the `neo-github-workflow` MCP server due to strict validation rules and issues with `npm run` output. This ticket addresses these compatibility issues by adjusting the server's response format and startup command.
 
@@ -37,4 +31,13 @@ The Gemini CLI client was unable to correctly parse the `tools/list` response fr
 3.  `toolService.mjs` is modified to omit the `nextCursor` field entirely from the `listTools` response when its value is `null`.
 4.  `mcp-stdio.mjs` is modified to conditionally include `nextCursor` in the `tools/list` response only if it is not `undefined`.
 5.  The Gemini CLI client successfully lists all tools from the `neo-github-workflow` server without errors.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `bug` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `933919f` - "Fix Gemini CLI Client Compatibility for MCP tools/list Response #7498"
+- 2025-10-15 @tobiu closed this issue
+- 2025-10-25 @tobiu cross-referenced by #7652
 

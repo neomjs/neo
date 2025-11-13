@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-18T13:35:33Z'
 ---
 # Convert sessionService to SessionService Neo.mjs Class
-
-**Reported by:** @tobiu on 2025-10-18
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 This ticket covers refactoring `ai/mcp/server/memory-core/services/sessionService.mjs` into a singleton class that extends `Neo.core.Base`. The file will also be renamed to `SessionService.mjs` to follow a more consistent naming convention. This service handles summarizing agent sessions.
 
@@ -39,4 +33,12 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/sessionServic
 5.  The `ai/mcp/server/memory-core/services/toolService.mjs` is updated to import the `SessionService` singleton and map its methods.
 6.  Any other services that depend on `sessionService` are updated to use the new `SessionService` singleton instance.
 7.  All related tools (e.g., `summarize_sessions`) continue to function correctly after the refactoring.
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu referenced in commit `254c611` - "Convert sessionService to SessionService Neo.mjs Class #7544"
+- 2025-10-18 @tobiu closed this issue
 

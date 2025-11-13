@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T14:31:59Z'
 ---
 # Enhance GitHub Workflow OpenAPI Spec with Rich Descriptions
-
-**Reported by:** @tobiu on 2025-10-23
 
 The current `ai/mcp/server/github-workflow/openapi.yaml` file is functional but lacks the rich, descriptive documentation needed for an AI agent to effectively and safely use the tools. The descriptions for each operation are minimal and do not provide sufficient context, examples, or strategic guidance.
 
@@ -43,4 +43,12 @@ Thoroughly review and update the `description` for every operation in `ai/mcp/se
 -   Every operation in `github-workflow/openapi.yaml` has a multi-line `description` that clearly explains its purpose and usage.
 -   Critical workflow instructions and constraints are embedded in the descriptions.
 -   The overall quality of the documentation is on par with `knowledge-base/openapi.yaml`.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `documentation` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu referenced in commit `bf938c3` - "Enhance GitHub Workflow OpenAPI Spec with Rich Descriptions #7623"
+- 2025-10-23 @tobiu closed this issue
 

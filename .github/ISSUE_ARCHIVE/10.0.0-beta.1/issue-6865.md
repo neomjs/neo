@@ -15,14 +15,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-25T15:15:02Z'
 ---
 # core.Base: change the public is ready class field to an isReady_ config
-
-**Reported by:** @tobiu on 2025-06-24
 
 Rationale:
 
 * core.Base does not use the observable mixin.
 * using a real config, devs can easily "listen" to `afterSetIsReady()` => getting a notification once the async initialization is done.
+
+## Activity Log
+
+- 2025-06-24 @tobiu assigned to @tobiu
+- 2025-06-24 @tobiu added the `enhancement` label
+- 2025-06-25 @tobiu referenced in commit `20ce481` - "core.Base: change the public is ready class field to an isReady_ config #6865"
+- 2025-06-25 @tobiu closed this issue
 

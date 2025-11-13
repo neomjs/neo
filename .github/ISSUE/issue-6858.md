@@ -16,10 +16,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # grid.plugin.AnimateRows: updateView() => row ids
-
-**Reported by:** @tobiu on 2025-06-23
 
 * Since row ids are now index based, we need a different mechanism. The internal `map` should store record ids instead.
 
@@ -28,4 +28,12 @@ subIssuesTotal: 0
 ### @github-actions - 2025-09-22 02:47
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-06-23 @tobiu assigned to @tobiu
+- 2025-06-23 @tobiu added the `bug` label
+- 2025-09-22 @github-actions added the `stale` label
+- 2025-09-22 @tobiu removed the `stale` label
+- 2025-09-22 @tobiu added the `no auto close` label
 

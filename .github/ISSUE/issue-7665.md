@@ -18,17 +18,10 @@ subIssues:
   - 7666
 subIssuesCompleted: 2
 subIssuesTotal: 2
+blockedBy: []
+blocking: []
 ---
 # Epic: Enhance Knowledge Base MCP with Class Query Tools
-
-**Reported by:** @tobiu on 2025-10-26
-
----
-
-**Sub-Issues:** #7664, #7666
-**Progress:** 2/2 completed (100%)
-
----
 
 To allow for more efficient and precise exploration of the codebase, the knowledge base MCP server should be enhanced with tools for structured queries against the class hierarchy.
 
@@ -38,4 +31,10 @@ This will enable an agent (or other tools) to get specific information about cla
 - An endpoint to retrieve details for a specific class (e.g., `getClass(className)`), returning its parent class, mixins, and configs.
 - An endpoint to query for class relationships (e.g., `findClasses({extends: 'Neo.form.field.Base'})`).
 - An endpoint to list all classes within a given namespace.
+
+## Activity Log
+
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `epic` label
+- 2025-10-26 @tobiu added the `ai` label
 

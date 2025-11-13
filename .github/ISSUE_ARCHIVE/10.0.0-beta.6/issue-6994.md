@@ -14,17 +14,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T01:56:24Z'
 ---
 # Create `Neo.functional.component.Base`
-
-**Reported by:** @tobiu on 2025-07-09
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -73,4 +67,10 @@ class MyFunctionalButton extends FunctionalBase {
 -   `src/functional/component/Base.mjs` is created.
 -   The class works as described, using `VdomLifecycle` and a central `Effect`.
 -   A basic test case is created to verify that a simple `FunctionalBase` component can be rendered and updates when its configs change.
+
+## Activity Log
+
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `343b2ad` - "Create Neo.functional.component.Base #6994 early draft version"
+- 2025-07-11 @tobiu closed this issue
 

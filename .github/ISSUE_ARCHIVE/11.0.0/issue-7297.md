@@ -18,17 +18,11 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-08T13:26:17Z'
 ---
 # Create a Modern 'Getting Started' Guide
-
-**Reported by:** @tobiu on 2025-09-28
-
----
-
-**Parent Issue:** #7296 - Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
----
 
 ## Description
 
@@ -86,4 +80,14 @@ Inside the repo or a workspace, we can create more apps using `npm run create-ap
 There is also `npm run create-class`, which is quite smart. E.g. if you have `MyApp.view.Viewport` and use it to create `MyApp.view.ViewportController`, it will not only create the class shell, but also import it into the view and assign it as a config.
 
 To be fair: I have not used most scripts in a while, since I can now just tell Gemini CLI to build and connect new files.
+
+## Activity Log
+
+- 2025-09-28 @tobiu added the `documentation` label
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-28 @tobiu assigned to @Mariam-Saeed
+- 2025-10-02 @Mariam-Saeed cross-referenced by PR #7323
+- 2025-10-08 @tobiu closed this issue
 

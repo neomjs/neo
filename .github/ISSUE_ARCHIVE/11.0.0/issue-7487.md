@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-14T12:30:44Z'
 ---
 # Enhance Tools List with OpenAPI Schema
-
-**Reported by:** @tobiu on 2025-10-14
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 See: https://modelcontextprotocol.io/specification/2025-06-18/server/tools
 
@@ -50,4 +44,14 @@ This enhancement will allow the agent to fully understand how to call each tool,
 ### @tobiu - 2025-10-14 12:30
 
 <img width="837" height="789" alt="Image" src="https://github.com/user-attachments/assets/7c179ecd-1bcf-4c5e-a3d3-4f990c846819" />
+
+## Activity Log
+
+- 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu referenced in commit `d2af666` - "Enhance Tools List with OpenAPI Schema #7487"
+- 2025-10-14 @tobiu referenced in commit `d5fe8f3` - "#7487 buildOutputSchema()"
+- 2025-10-14 @tobiu closed this issue
+- 2025-10-14 @tobiu cross-referenced by #7403
 

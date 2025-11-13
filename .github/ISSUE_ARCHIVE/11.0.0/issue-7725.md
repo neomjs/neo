@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T12:20:12Z'
 ---
 # Docs: Update Memory Core API Guide for MCP SDK
-
-**Reported by:** @tobiu on 2025-11-08
 
 The `learn/guides/ai/MemoryCoreMcpApi.md` guide was outdated, describing the Memory Core server as an Express.js-based REST API. This has been updated to reflect its current implementation as a tool server using the `@modelcontextprotocol/sdk`.
 
@@ -32,4 +32,12 @@ Key changes include:
 -   **Cleanup:** The "Migration Path" section was removed as it's complete, and the path to the `openapi.yaml` file was corrected. All references to Express, Swagger, and HTTP were removed.
 
 The guide now accurately documents the current state and usage of the Memory Core MCP server.
+
+## Activity Log
+
+- 2025-11-08 @tobiu added the `documentation` label
+- 2025-11-08 @tobiu added the `ai` label
+- 2025-11-08 @tobiu assigned to @tobiu
+- 2025-11-08 @tobiu referenced in commit `f6aaefb` - "Docs: Update Memory Core API Guide for MCP SDK #7725"
+- 2025-11-08 @tobiu closed this issue
 

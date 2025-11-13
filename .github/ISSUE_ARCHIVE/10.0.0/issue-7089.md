@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-21T22:22:17Z'
 ---
 # Refactor Component Base Classes into a Common Abstract Class
-
-**Reported by:** @tobiu on 2025-07-21
 
 ## Summary
 
@@ -57,4 +57,12 @@ By creating a shared `Abstract` base class, we achieve:
 -   `Neo.functional.component.Base` now extends `Neo.component.Abstract`.
 -   Duplicated code has been removed from both child base classes.
 -   All existing component-related tests continue to pass, verifying that the refactoring did not introduce regressions.
+
+## Activity Log
+
+- 2025-07-21 @tobiu assigned to @tobiu
+- 2025-07-21 @tobiu added the `enhancement` label
+- 2025-07-21 @tobiu referenced in commit `273349e` - "Refactor Component Base Classes into a Common Abstract Class #7089"
+- 2025-07-21 @tobiu referenced in commit `00028be` - "#7089 component.Abstract: removed listeners get/setup => made it a reactive config inside core.Observable."
+- 2025-07-21 @tobiu closed this issue
 

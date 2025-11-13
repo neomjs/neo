@@ -15,10 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # component.Base: vdom documentation
-
-**Reported by:** @tobiu on 2025-06-17
 
 Some thoughts:
 
@@ -95,4 +95,9 @@ export interface VDomNodeConfig {
     [key: string]: any; // Allows other arbitrary properties, if needed for flexibility
 }
 ```
+
+## Activity Log
+
+- 2025-06-17 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu added the `no auto close` label
 

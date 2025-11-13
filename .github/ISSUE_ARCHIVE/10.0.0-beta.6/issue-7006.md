@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-10T19:44:34Z'
 ---
 # core.IdGenerator: switch from singleton to plain object
-
-**Reported by:** @tobiu on 2025-07-10
 
 * We can make this one more lightweight.
 
@@ -33,4 +33,11 @@ Implications:
 
 This refactoring makes sense for a utility like `IdGenerator` that doesn't need the full power of the Neo.mjs class
 system and is intended to be a simple, globally accessible singleton.
+
+## Activity Log
+
+- 2025-07-10 @tobiu assigned to @tobiu
+- 2025-07-10 @tobiu added the `enhancement` label
+- 2025-07-10 @tobiu referenced in commit `afff146` - "core.IdGenerator: switch from singleton to plain object #7006"
+- 2025-07-10 @tobiu closed this issue
 

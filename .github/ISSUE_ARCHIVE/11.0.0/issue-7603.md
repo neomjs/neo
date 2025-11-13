@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T11:42:48Z'
 ---
 # Bug: Issue Archiving Logic Incorrectly Buckets Recently Closed Issues
-
-**Reported by:** @tobiu on 2025-10-22
 
 During testing of the `sync_issues` tool, a bug was discovered in the logic that determines the file path for closed issues. The `SyncService` was incorrectly moving recently closed issues (i.e., issues closed after the latest release) into a fallback `unversioned` archive folder.
 
@@ -46,4 +46,13 @@ The `#getIssuePath` method was refactored with the following logic:
         *   If **no** subsequent release is found, the issue correctly remains in the main `.github/ISSUES` directory.
 
 This ensures that the local file structure accurately reflects the development lifecycle, where closed issues are only archived after they have been included in a release.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `bug` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu added the `refactoring` label
+- 2025-10-22 @tobiu referenced in commit `9bc008d` - "Bug: Issue Archiving Logic Incorrectly Buckets Recently Closed Issues #7603"
+- 2025-10-22 @tobiu closed this issue
 

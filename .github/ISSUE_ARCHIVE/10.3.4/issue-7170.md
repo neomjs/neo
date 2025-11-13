@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-07T18:35:43Z'
 ---
 # Grid Cells Display Stale Data After Record Updates (Surgical Update Issue)
-
-**Reported by:** @tobiu on 2025-08-07
 
 **Status:** Open (Fix implemented in `benchmarks` project, needs framework-level integration)
 
@@ -108,4 +108,11 @@ The `onStoreRecordChange` method in `Neo.grid.Body.mjs` has been modified to ens
 This bug leads to a visual desynchronization between the data model and the rendered UI, causing a poor user experience and undermining the perceived responsiveness of the grid.
 
 **Priority:** High (Affects core grid functionality and performance showcase credibility)
+
+## Activity Log
+
+- 2025-08-07 @tobiu assigned to @tobiu
+- 2025-08-07 @tobiu added the `bug` label
+- 2025-08-07 @tobiu referenced in commit `430d716` - "Grid Cells Display Stale Data After Record Updates (Surgical Update Issue) #7170"
+- 2025-08-07 @tobiu closed this issue
 

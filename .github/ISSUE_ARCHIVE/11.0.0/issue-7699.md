@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-03T12:42:06Z'
 ---
 # AI: Strengthen the mandatory pre-response check
-
-**Reported by:** @tobiu on 2025-11-03
 
 ## Problem
 
@@ -46,4 +46,12 @@ Add the following text to the instruction:
 
 As discussed, the ideal solution would be to trigger the startup procedure *before* the user can enter their first prompt. However, assuming this is not currently feasible, the proposed change will make the existing pre-response check rock-solid.
 
+
+## Activity Log
+
+- 2025-11-03 @tobiu added the `enhancement` label
+- 2025-11-03 @tobiu added the `ai` label
+- 2025-11-03 @tobiu assigned to @tobiu
+- 2025-11-03 @tobiu referenced in commit `906a0c9` - "AI: Strengthen the mandatory pre-response check #7699"
+- 2025-11-03 @tobiu closed this issue
 

@@ -17,10 +17,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Explore and Implement Test File Indexing in Knowledge Base
-
-**Reported by:** @tobiu on 2025-09-27
 
 Once all unit tests have been migrated to the Playwright runner, their value as documentation can be amplified by making them searchable. This task is to explore the best method for including the Playwright test files (`*.spec.mjs`) in the ChromaDB knowledge base and to implement the chosen solution.
 
@@ -35,4 +35,11 @@ Once all unit tests have been migrated to the Playwright runner, their value as 
 ### @tobiu - 2025-11-04 10:55
 
 detaching the ticket from the epic.
+
+## Activity Log
+
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu added the `no auto close` label
+- 2025-11-04 @tobiu added the `ai` label
 

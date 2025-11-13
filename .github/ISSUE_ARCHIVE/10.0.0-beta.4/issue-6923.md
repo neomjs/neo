@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-01T15:06:54Z'
 ---
 # Enhanced Routing with Nested Path Support and Specificity Prioritization
-
-**Reported by:** @tobiu on 2025-07-01
 
 ### Is your feature request related to a problem? Please describe.
 The existing routing mechanism in `Neo.controller.Base` had limitations in handling nested URL paths and resolving conflicts between overlapping routes. Specifically:
@@ -44,4 +44,12 @@ These changes significantly improve the flexibility and predictability of routin
 *   `src/controller/Base.mjs`: Core routing logic and documentation updates.
 *   `apps/portal/view/learn/MainContainerController.mjs`: `'/learn/{*itemId}'`
 *   `apps/portal/view/learn/ViewportController.mjs`: `'/learn/{*itemId}'`
+
+## Activity Log
+
+- 2025-07-01 @tobiu assigned to @tobiu
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu referenced in commit `bce0772` - "Enhanced Routing with Nested Path Support and Specificity Prioritization #6923"
+- 2025-07-01 @tobiu referenced in commit `addd7ae` - "#6923 code cleanup"
+- 2025-07-01 @tobiu closed this issue
 

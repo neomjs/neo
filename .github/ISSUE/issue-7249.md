@@ -15,10 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Automate GitHub Issue Creation
-
-**Reported by:** @tobiu on 2025-09-24
 
 To improve the autonomy of our development workflow, we will automate the process of creating a GitHub issue from a local ticket file. This eliminates the current manual steps of creating the issue on the GitHub website and copying the ID back into the local file.
 
@@ -39,4 +39,11 @@ Implement a workflow where the agent can use the GitHub CLI (`gh`) to create a n
 ### Prerequisites:
 
 The user's environment must have the GitHub CLI (`gh`) installed and authenticated via `gh auth login`.
+
+## Activity Log
+
+- 2025-09-24 @tobiu assigned to @tobiu
+- 2025-09-24 @tobiu added the `enhancement` label
+- 2025-09-24 @tobiu referenced in commit `0cadcca` - "#7249 internal ticket"
+- 2025-10-05 @ksanjeev284 cross-referenced by #1
 

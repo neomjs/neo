@@ -15,17 +15,11 @@ parentIssue: 7029
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T10:56:53Z'
 ---
 # Feature: Compare Next.js (SSR/Build) vs. Neo.mjs (Zero-Build Dev Mode)
-
-**Reported by:** @tobiu on 2025-07-13
-
----
-
-**Parent Issue:** #7029 - Feature: Add Framework Comparison Articles to Learn Directory
-
----
 
 **Is your feature request related to a problem? Please describe.**
 Developers often choose frameworks based on their development workflow and how quickly they can iterate. There's a need to clearly articulate the distinct development philosophies and immediate developer experiences offered by Next.js and Neo.mjs.
@@ -61,4 +55,11 @@ This comparison will be highly valuable for developers making technology choices
 
 **Affected Files (Conceptual):**
 *   `learn/comparisons/neo-vs-nextjs.md` (new file)
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `0bed95b` - "Feature: Compare Next.js (SSR/Build) vs. Neo.mjs (Zero-Build Dev Mode) #7040"
+- 2025-07-13 @tobiu closed this issue
 

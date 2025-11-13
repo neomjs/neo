@@ -121,12 +121,6 @@ export const ADD_SUB_ISSUE = `
             issue {
                 number
                 title
-                subIssues(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
             subIssue {
                 number
@@ -159,12 +153,6 @@ export const REMOVE_SUB_ISSUE = `
             issue {
                 number
                 title
-                subIssues(first: 100) {
-                    nodes {
-                        number
-                        title
-                    }
-                }
             }
             subIssue {
                 number
@@ -173,6 +161,62 @@ export const REMOVE_SUB_ISSUE = `
                     number
                     title
                 }
+            }
+        }
+    }
+`;
+
+/**
+ * Mutation to add a "blocked by" relationship to an issue.
+ *
+ * Variables required:
+ * - $issueId: ID! - The global GraphQL ID of the issue being blocked
+ * - $blockingIssueId: ID! - The global GraphQL ID of the issue that blocks it
+ */
+export const ADD_BLOCKED_BY = `
+    mutation AddBlockedBy(
+        $issueId: ID!
+        $blockingIssueId: ID!
+    ) {
+        addBlockedBy(input: {
+            issueId: $issueId
+            blockingIssueId: $blockingIssueId
+        }) {
+            issue {
+                number
+                title
+            }
+            blockingIssue {
+                number
+                title
+            }
+        }
+    }
+`;
+
+/**
+ * Mutation to remove a "blocked by" relationship from an issue.
+ *
+ * Variables required:
+ * - $issueId: ID! - The global GraphQL ID of the blocked issue
+ * - $blockingIssueId: ID! - The global GraphQL ID of the blocking issue to remove
+ */
+export const REMOVE_BLOCKED_BY = `
+    mutation RemoveBlockedBy(
+        $issueId: ID!
+        $blockingIssueId: ID!
+    ) {
+        removeBlockedBy(input: {
+            issueId: $issueId
+            blockingIssueId: $blockingIssueId
+        }) {
+            issue {
+                number
+                title
+            }
+            blockingIssue {
+                number
+                title
             }
         }
     }

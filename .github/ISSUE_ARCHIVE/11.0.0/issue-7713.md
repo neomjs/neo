@@ -14,17 +14,11 @@ parentIssue: 7687
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T10:05:07Z'
 ---
 # health(github-workflow): reproduce gh-absent
-
-**Reported by:** @MannXo on 2025-11-07
-
----
-
-**Parent Issue:** #7687 - Enhance GitHub Workflow server robustness when gh cli is not installed
-
----
 
 ### Summary
 
@@ -59,4 +53,10 @@ Acceptance criteria
 @MannXo Thanks for the new tickets. I assigned both to you, assuming that you want to tackle them. We are getting super close to v11 => all tests got migrated to playwright, and I fixed the combobox issues and created a faster and non-vulnerable version of `jsdoc-x` within the repo.
 
 On my end, I will create the `.npmignore` next, and then polish the AI guides more.
+
+## Activity Log
+
+- 2025-11-07 @tobiu assigned to @MannXo
+- 2025-11-07 @MannXo cross-referenced by PR #7717
+- 2025-11-08 @tobiu closed this issue
 

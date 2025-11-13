@@ -15,10 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Create Dynamic OpenAPI Specification Generator for the MCP servers
-
-**Reported by:** @tobiu on 2025-10-22
 
 Currently, our `openapi.yaml` files contain hardcoded values for defaults and constraints (e.g., `default: 30`, `maximum: 100`). While this provides valuable context to AI agents via the `toolService`, it has a significant drawback: the specification can become out of sync with the application's actual configuration.
 
@@ -53,4 +53,9 @@ Hey, Would love to work on this!
 @SarthakJain29 Hi! Sorry, I did not flag this item as "low prio backlog". I would strongly recommend to pick a different one: not much to learn here (e.g. just wrapping yaml files into template literals and parsing the config vars), but the bigger problem is: the mcp server APIs are not stable yet => we will add more endpoints, fetch more fields etc., so it would just be a maintenance burden with frequent rewrites.
 
 Feel free to ping me inside the slack / discord general channels => there are huge areas with higher impacts / more to learn / more fun to work on.
+
+## Activity Log
+
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
 

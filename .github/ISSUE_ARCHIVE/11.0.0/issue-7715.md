@@ -16,11 +16,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-07T09:03:07Z'
 ---
 # Create .npmignore file to exclude tickets and release notes from npm package
 
-**Reported by:** @tobiu on 2025-11-07
-
 The npm package size is getting unnecessarily bloated by including local copies of GitHub issues and release notes, which are managed by the new github-workflow MCP server. An `.npmignore` file should be created to prevent these and other development-specific files from being included in the published package. The file should inherit all rules from `.gitignore` and add exclusions for `.github/ISSUE` and `.github/RELEASE_NOTES`.
+
+## Activity Log
+
+- 2025-11-07 @tobiu added the `enhancement` label
+- 2025-11-07 @tobiu added the `ai` label
+- 2025-11-07 @tobiu assigned to @tobiu
+- 2025-11-07 @tobiu referenced in commit `9e8b43e` - "Create .npmignore file to exclude tickets and release notes from npm package #7715"
+- 2025-11-07 @tobiu closed this issue
 

@@ -14,12 +14,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-29T11:23:27Z'
 ---
 # addon.Base: intercept remotes which arrive before isReady equals true
 
-**Reported by:** @tobiu on 2025-06-29
-
 * Common use case: files are not loaded yet.
 * We need to solve this one generically => `worker.mixin.RemoteMethodAccess`, since other singletons can use it too.
+
+## Activity Log
+
+- 2025-06-29 @tobiu added the `enhancement` label
+- 2025-06-29 @tobiu referenced in commit `b839158` - "addon.Base: intercept remotes which arrive before isReady equals true #6891"
+- 2025-06-29 @tobiu referenced in commit `559e283` - "#6891 updated the main thread addons guide, to mention how to use `interceptRemotes` and how automatic method caching works."
+- 2025-06-29 @tobiu referenced in commit `4346736` - "#6891 main.addon.AmCharts"
+- 2025-06-29 @tobiu closed this issue
 

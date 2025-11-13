@@ -53,17 +53,10 @@ subIssues:
   - 7075
 subIssuesCompleted: 35
 subIssuesTotal: 37
+blockedBy: []
+blocking: []
 ---
 # Functional Components
-
-**Reported by:** @tobiu on 2025-07-09
-
----
-
-**Sub-Issues:** #6993, #6994, #6995, #6996, #6997, #7010, #7011, #7012, #7013, #7014, #7015, #7016, #7017, #7019, #7021, #7022, #7027, #7025, #7024, #7023, #7026, #7028, #7042, #7043, #7046, #7047, #7050, #7053, #7054, #7055, #7057, #7062, #7069, #7070, #7071, #7074, #7075
-**Progress:** 35/37 completed (94%)
-
----
 
 # Epic: Functional Components
 
@@ -136,4 +129,12 @@ export default defineComponent({
 ### @github-actions - 2025-10-14 02:41
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-07-09 @tobiu added the `epic` label
+- 2025-10-14 @github-actions added the `stale` label
+- 2025-10-14 @tobiu removed the `stale` label
+- 2025-10-14 @tobiu added the `no auto close` label
 

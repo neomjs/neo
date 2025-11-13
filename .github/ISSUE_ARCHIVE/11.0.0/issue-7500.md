@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T14:07:37Z'
 ---
 # Simplify Description Handling in Zod Schema Generation
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 The current implementation of `describe()` calls in `buildZodSchemaFromResponse` and `buildOutputZodSchema` can be simplified for better consistency and readability. This ticket aims to centralize the application of descriptions to Zod schemas.
 
@@ -34,4 +28,12 @@ The current implementation of `describe()` calls in `buildZodSchemaFromResponse`
 
 1.  `buildZodSchemaFromResponse` is refactored to apply `schema.description` to the generated `zodSchema` consistently for all types.
 2.  `buildOutputZodSchema` is refactored to ensure descriptions are applied correctly to the wrapped object for `text/plain` responses.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `f12a9de` - "Simplify Description Handling in Zod Schema Generation #7500"
+- 2025-10-15 @tobiu closed this issue
 

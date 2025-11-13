@@ -14,12 +14,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-19T13:23:15Z'
 ---
 # Consistent usage of switch
 
-**Reported by:** @tobiu on 2025-06-19
-
 * I noticed several spots with `switch(` and `switch (`
 * Let us always use the blank char, to achieve consistency with `for (`, `while (`
+
+## Activity Log
+
+- 2025-06-19 @tobiu added the `enhancement` label
+- 2025-06-19 @tobiu referenced in commit `5c76988` - "Consistent usage of switch #6844"
+- 2025-06-19 @tobiu closed this issue
 

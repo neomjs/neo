@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-01T08:56:32Z'
 ---
 # Fix: Memory Core Healthcheck `summarizationDetails` schema validation
-
-**Reported by:** @tobiu on 2025-11-01
 
 The Memory Core `healthcheck` endpoint's OpenAPI schema for `startup.summarizationDetails` was too restrictive, leading to validation errors when the `summarizationStatus` was 'failed' or 'skipped'.
 
@@ -31,4 +31,12 @@ Specifically:
 This commit updates the `ai/mcp/server/memory-core/openapi.yaml` to use `anyOf` for the `summarizationDetails` property, allowing for the correct schema validation across all `summarizationStatus` values ('completed', 'failed', 'skipped').
 
 This ensures that the `healthcheck` response accurately reflects the summarization details without schema validation failures.
+
+## Activity Log
+
+- 2025-11-01 @tobiu added the `bug` label
+- 2025-11-01 @tobiu added the `ai` label
+- 2025-11-01 @tobiu assigned to @tobiu
+- 2025-11-01 @tobiu referenced in commit `5fe2f79` - "Fix: Memory Core Healthcheck summarizationDetails schema validation #7684"
+- 2025-11-01 @tobiu closed this issue
 

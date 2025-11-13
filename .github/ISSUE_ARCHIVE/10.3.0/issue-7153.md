@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-01T13:02:13Z'
 ---
 # Introduce `attributeNameMap` for Robust Attribute Handling
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 ### 1. Summary
 
@@ -49,4 +43,11 @@ Previously, the `HtmlTemplateProcessor` relied on a simple array (`attributeName
 -   The `style` vs `handler` bug (and similar attribute mapping issues) is resolved.
 -   The attribute mapping logic is robust against nested templates and conditional rendering.
 -   All related JSDoc comments are updated to reflect the new `attributeNameMap` parameter.
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `026026b` - "Introduce attributeNameMap for Robust Attribute Handling #7153"
+- 2025-08-01 @tobiu closed this issue
 

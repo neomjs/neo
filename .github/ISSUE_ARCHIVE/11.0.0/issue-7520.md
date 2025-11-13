@@ -24,18 +24,11 @@ subIssues:
   - 7528
 subIssuesCompleted: 8
 subIssuesTotal: 8
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T12:44:19Z'
 ---
 # Epic: Migrate Memory Server to stdio-based MCP
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Sub-Issues:** #7521, #7522, #7523, #7524, #7525, #7526, #7527, #7528
-**Progress:** 8/8 completed (100%)
-
----
 
 This epic covers the migration of the Express-based `memory` server to a `stdio`-only MCP server, aligning its architecture with the other MCP servers. The core tasks are to refactor the existing `openapi.yaml` for MCP tool compatibility, scaffold the new `stdio` entry point, and wire it up to the existing, well-structured services.
 
@@ -69,4 +62,12 @@ This epic covers the migration of the Express-based `memory` server to a `stdio`
 ### @tobiu - 2025-10-17 12:44
 
 resolved.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `epic` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `76835af` - "#7520 tickets as md files"
+- 2025-10-17 @tobiu closed this issue
 

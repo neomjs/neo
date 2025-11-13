@@ -15,17 +15,11 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T10:08:16Z'
 ---
 # Phase 3: Dynamic Proxy Transitioning (Windowing)
-
-**Reported by:** @tobiu on 2025-08-20
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 This phase builds directly on the live proxy from Phase 2, introducing a seamless transition between an in-page proxy and a separate browser window, based on the drag location. This will adapt the existing "detach widget" logic found in `Colors.view.ViewportController`.
 
@@ -52,4 +46,17 @@ This phase builds directly on the live proxy from Phase 2, introducing a seamles
 ### @tobiu - 2025-10-24 10:08
 
 resolved.
+
+## Activity Log
+
+- 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added the `enhancement` label
+- 2025-08-21 @tobiu referenced in commit `fc51172` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204 starting point"
+- 2025-08-21 @tobiu referenced in commit `1c5b345` - "#7204 dashboard.Container: allowOverdrag"
+- 2025-08-21 @tobiu referenced in commit `aeae9c5` - "#7204 passing the proxyRect (dragEl rect) into the dragBoundaryExit event."
+- 2025-08-21 @tobiu referenced in commit `39168db` - "#7204 Colors.view.ViewportController: openWidgetInPopup()"
+- 2025-08-21 @tobiu referenced in commit `b415efd` - "#7204 popup drag:move events (WIP)"
+- 2025-08-21 @tobiu referenced in commit `0fb3eb0` - "#7204 dragBoundaryEntry event"
+- 2025-08-21 @tobiu referenced in commit `b7f19e8` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204"
+- 2025-10-24 @tobiu closed this issue
 

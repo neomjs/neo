@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T17:49:08Z'
 ---
 # Fix: `IssueSyncer` fails to find releases after `ReleaseSyncer` refactoring
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket reports and resolves a bug introduced during the refactoring of `ReleaseSyncer.mjs` where `ReleaseSyncer.releases` was changed from an array to an object.
 
@@ -43,4 +43,12 @@ const release = ReleaseSyncer.releases.find(r => new Date(r.publishedAt) > close
 const release = Object.values(ReleaseSyncer.releases).find(r => new Date(r.publishedAt) > closed);
 ```
 This ensures that the `find()` method is called on an array of release objects, resolving the error.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `bug` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `5586f8a` - "Fix: IssueSyncer fails to find releases after ReleaseSyncer refactoring #7651"
+- 2025-10-25 @tobiu closed this issue
 

@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-27T23:20:32Z'
 ---
 # main.DeltaUpdates: use initAsync(), and also update the JSDoc comments
 
-**Reported by:** @tobiu on 2025-06-27
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-27 @tobiu assigned to @tobiu
+- 2025-06-27 @tobiu added the `enhancement` label
+- 2025-06-27 @tobiu referenced in commit `e7f0953` - "main.DeltaUpdates: use initAsync(), and also update the JSDoc comments #6887"
+- 2025-06-27 @tobiu closed this issue
 

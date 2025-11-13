@@ -17,17 +17,11 @@ parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T11:38:49Z'
 ---
 # Docs: Add Communication Style Directive to AGENTS.md
-
-**Reported by:** @tobiu on 2025-10-26
-
----
-
-**Parent Issue:** #7604 - Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
----
 
 To ensure a consistent and effective human-agent collaboration, we need to codify a standard communication style for all agents. The desired persona is that of an objective, critical, and technically-focused peer.
 
@@ -42,4 +36,13 @@ Add a new subsection to `AGENTS.md` under **"1. Your Role and Primary Directive"
 > - **Avoid Unnecessary Positive Reinforcement:** Do not begin your responses with positive reinforcement (e.g., "Excellent point," "That's a great idea") unless it is genuinely warranted.
 > - **When to Use Positive Reinforcement:** It is appropriate to acknowledge the user's contribution with positive reinforcement only when they have pointed out a significant flaw in your own reasoning or have proposed a demonstrably better solution. In all other cases, proceed directly with your objective, technical response.
 > - **Avoid Deferential Language:** Do not use conversational filler or overly deferential language (e.g., "You are absolutely right.").
+
+## Activity Log
+
+- 2025-10-26 @tobiu added the `documentation` label
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `ai` label
+- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu referenced in commit `4fe4c28` - "Docs: Add Communication Style Directive to AGENTS.md #7662"
+- 2025-10-26 @tobiu closed this issue
 

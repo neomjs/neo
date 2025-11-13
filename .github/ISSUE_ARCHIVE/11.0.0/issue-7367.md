@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-05T13:28:00Z'
 ---
 # Create Script to Automate GitHub Issue Creation from Markdown Ticket
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 The current workflow requires the project maintainer to manually create a GitHub issue after a markdown ticket file has been created. This is a tedious and error-prone step that can be fully automated. This ticket is to create a script that uses the GitHub CLI (`gh`) to read a local ticket file and create a corresponding GitHub issue.
 
@@ -70,4 +64,14 @@ Hi @tobiu sure I have joiuned the channel and will start working on it
 ha, just noticed that the PR mentioned #7376 instead of #7367 (this one). almost closed the wrong ticket^^
 
 thx again for the contribution! closing this one as resolved.
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu assigned to @ksanjeev284
+- 2025-10-05 @tobiu closed this issue
 

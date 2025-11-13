@@ -19,17 +19,11 @@ parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-12T11:15:15Z'
 ---
 # MCP Server: Implement Memory Query Endpoints
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 This ticket is for implementing the search functionality of the Memory Core MCP server. This involves exposing the refactored query logic for both raw memories and summaries.
 
@@ -74,4 +68,17 @@ https://github.com/neomjs/neo/blob/dev/.github/VISION.md
 ### @tobiu - 2025-10-12 11:15
 
 closing this one as resolved by the read PR.
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-10 @tobiu assigned to @Aki-07
+- 2025-10-10 @Aki-07 cross-referenced by #7407
+- 2025-10-10 @Aki-07 cross-referenced by PR #7455
+- 2025-10-11 @Aki-07 cross-referenced by PR #7463
+- 2025-10-12 @tobiu closed this issue
 

@@ -16,11 +16,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T09:32:09Z'
 ---
 # Docs: Clarify automatic session summarization in AGENTS_STARTUP.md
 
-**Reported by:** @tobiu on 2025-11-08
-
 The `AGENTS_STARTUP.md` guide incorrectly implies that the agent needs to manually trigger session summarization. This was corrected to clarify that the Memory Core server handles this automatically on startup. The agent's only responsibility is to save its own initialization turn. This change ensures the guide is accurate and prevents confusion.
+
+## Activity Log
+
+- 2025-11-08 @tobiu added the `documentation` label
+- 2025-11-08 @tobiu added the `ai` label
+- 2025-11-08 @tobiu referenced in commit `e40262b` - "Docs: Clarify automatic session summarization in AGENTS_STARTUP.md #7719"
+- 2025-11-08 @tobiu assigned to @tobiu
+- 2025-11-08 @tobiu closed this issue
 

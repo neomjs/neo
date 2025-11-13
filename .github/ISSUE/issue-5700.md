@@ -16,14 +16,29 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Guides => Custom Components needs more content
-
-**Reported by:** @tobiu on 2024-08-06
 
 @maxrahder 
 
 there is one example for "overriding ancestor configs", but placed below other headlines which have no content yet.
 
 ![Screenshot 2024-08-06 at 09 01 38](https://github.com/user-attachments/assets/cf64eb82-8a0a-4ae5-85c7-df8426504e11)
+
+## Activity Log
+
+- 2024-08-06 @tobiu added the `enhancement` label
+- 2024-08-06 @tobiu assigned to @maxrahder
+- 2024-10-07 @tobiu added the `no auto close` label
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu unassigned from @maxrahder
+- 2025-06-30 @tobiu referenced in commit `6bd2fec` - "Guides => Custom Components needs more content #5700"
+- 2025-06-30 @tobiu referenced in commit `fb5cd12` - "#5700 choosing the right base class"
+- 2025-06-30 @tobiu referenced in commit `10aba22` - "#5700 component lib examples for HoC"
+- 2025-06-30 @tobiu referenced in commit `90f280a` - "#5700 vdom example, more content"
+- 2025-06-30 @tobiu referenced in commit `7509dda` - "#5700 reference to the config system guide"
+- 2025-06-30 @tobiu referenced in commit `9e0f9a6` - "#5700 MySpecialButton => use specialText_ inside the UI"
+- 2025-06-30 @tobiu referenced in commit `7740c08` - "#5700 fixing the profile-badge demo"
 

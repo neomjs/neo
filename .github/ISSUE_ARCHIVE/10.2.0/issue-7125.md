@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-29T21:49:02Z'
 ---
 # ComboBox: Optimize afterSetValue Selection Handling for SingleSelect
-
-**Reported by:** @tobiu on 2025-07-29
 
 **Description:**
 
@@ -49,4 +49,11 @@ Remove the line `oldValue && selectionModel?.deselect(oldValue);` from the `afte
 
 **Reasoning:**
 The `selectionModel.select()` method, when `singleSelect` is true, is designed to ensure only one item is selected. It will internally deselect any existing selection before applying the new one. Removing the redundant `deselect` call will streamline the selection logic, improve efficiency, and prevent potential unnecessary event emissions from the `selectionModel`.
+
+## Activity Log
+
+- 2025-07-29 @tobiu assigned to @tobiu
+- 2025-07-29 @tobiu added the `enhancement` label
+- 2025-07-29 @tobiu referenced in commit `4b26ff7` - "ComboBox: Optimize afterSetValue Selection Handling for SingleSelect #7125"
+- 2025-07-29 @tobiu closed this issue
 

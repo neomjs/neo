@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T23:46:07Z'
 ---
 # Enhance LivePreview for Modern JavaScript and Functional Components
-
-**Reported by:** @tobiu on 2025-07-15
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Problem
 
@@ -46,4 +40,11 @@ To address these issues, the `LivePreview.mjs` component was significantly refac
 2.  **Robust Component Identification:** The unreliable `findLastClassName()` method was replaced with `findSetupClassName()`. This new method uses a more robust regex (`setupClassRegex`) to find the variable assigned the result of `Neo.setupClass(...)`. This is a far more reliable pattern for identifying the primary component, regardless of whether it was defined with `class` or a factory function.
 
 3.  **Specific Component Type Check:** The validation logic was improved to explicitly check if the resolved class is a prototype of either `Neo.component.Base` or `Neo.functional.component.Base`. This ensures that only renderable UI components are passed to the container, preventing errors with other base classes.
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `b290bdf` - "Enhance LivePreview for Modern JavaScript and Functional Components #7069"
+- 2025-07-15 @tobiu closed this issue
 

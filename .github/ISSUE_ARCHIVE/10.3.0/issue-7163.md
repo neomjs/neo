@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T13:39:29Z'
 ---
 # Create "Under the Hood: HTML Templates" Guide
-
-**Reported by:** @tobiu on 2025-08-02
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -69,4 +63,12 @@ trade-offs and showcasing the power of the build-time AST transformation.
 - The new guide learn/guides/uibuildingblocks/HtmlTemplatesUnderTheHood.md is created with the specified content.
 - The learn/tree.json file is updated to include a link to the new guide.
 - The documentation now clearly separates the "how-to" from the "how-it-works" for the HTML templates feature.
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu referenced in commit `dcb46a5` - "Create "Under the Hood: HTML Templates" Guide #7163"
+- 2025-08-02 @tobiu closed this issue
+- 2025-08-02 @tobiu referenced in commit `0b65a2d` - "Create "Under the Hood: HTML Templates" Guide #7163"
 

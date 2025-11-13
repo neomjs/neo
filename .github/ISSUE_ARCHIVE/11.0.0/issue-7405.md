@@ -19,11 +19,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-02T12:30:27Z'
 ---
 # MCP Server: Implement Knowledge Query Endpoint
-
-**Reported by:** @tobiu on 2025-10-07
 
 This ticket is for implementing the core search functionality of the Knowledge Base MCP server. This involves exposing the refactored query logic via the `POST /documents/query` endpoint.
 
@@ -62,4 +62,14 @@ Sure and thx!
 ### @tobiu - 2025-11-02 12:30
 
 already resolved
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-08 @tobiu assigned to @Mahita07
+- 2025-11-02 @tobiu closed this issue
 

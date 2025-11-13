@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:49:27Z'
 ---
 # Integrate Template Processing into `dist/production` Build
-
-**Reported by:** @tobiu on 2025-08-02
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -51,4 +45,11 @@ This is the final step to ensure `html` templates are a fully supported, product
 ### @tobiu - 2025-08-02 12:49
 
 <img width="850" height="308" alt="Image" src="https://github.com/user-attachments/assets/162d0d4b-32f9-4fb6-bfd7-4c2f6b1ff4b6" />
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu referenced in commit `6410cdd` - "Integrate Template Processing into dist/production Build #7161"
+- 2025-08-02 @tobiu closed this issue
 

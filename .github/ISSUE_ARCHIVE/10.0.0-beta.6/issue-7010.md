@@ -14,17 +14,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T17:32:42Z'
 ---
 # Proof of Concept: Beginner Mode Functional Component
-
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -66,4 +60,9 @@ export default defineComponent(function MyCounter(config) { // The functional co
 ### @tobiu - 2025-07-13 17:32
 
 resolved via: https://github.com/neomjs/neo/tree/dev/examples/functional/defineComponent
+
+## Activity Log
+
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu closed this issue
 

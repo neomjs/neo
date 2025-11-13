@@ -13,11 +13,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-07T10:53:33Z'
 ---
 # MCP Server: Implement Knowledge Create/Update Endpoint
-
-**Reported by:** @tobiu on 2025-10-07
 
 To improve the efficiency of maintaining the knowledge base, this ticket is for implementing an endpoint to create or update a single document. This allows for fast, incremental updates without requiring a full, time-consuming rebuild of the entire knowledge base every time a single file changes.
 
@@ -48,4 +48,18 @@ To work on this ticket, please start your session with the following prompt:
 ### @tobiu - 2025-10-07 10:53
 
 redundant. closing the ticket.
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-07 @tobiu removed the `enhancement` label
+- 2025-10-07 @tobiu removed the `help wanted` label
+- 2025-10-07 @tobiu removed the `good first issue` label
+- 2025-10-07 @tobiu removed the `hacktoberfest` label
+- 2025-10-07 @tobiu removed the `ai` label
+- 2025-10-07 @tobiu closed this issue
 

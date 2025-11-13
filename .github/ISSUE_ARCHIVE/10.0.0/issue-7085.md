@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-21T00:28:21Z'
 ---
 # Foundational Refactoring of the Effect Management System
-
-**Reported by:** @tobiu on 2025-07-20
 
 ## Summary
 
@@ -74,4 +74,11 @@ The `EffectBatchManager` singleton has been completely removed. Its functionalit
 3.  **Clear Separation of Concerns**: The distinction between delaying execution (`pause`) and suppressing dependency collection (`pauseTracking`) eliminates ambiguity.
 4.  **Resilience**: The `try...finally` pattern guarantees application stability, even when errors occur in user-defined hooks.
 5.  **Simplified Architecture**: We have eliminated redundant logic, complex workarounds, and an entire singleton, making the system easier to understand and maintain.
+
+## Activity Log
+
+- 2025-07-20 @tobiu assigned to @tobiu
+- 2025-07-20 @tobiu added the `enhancement` label
+- 2025-07-20 @tobiu referenced in commit `16bdebe` - "Foundational Refactoring of the Effect Management System #7085"
+- 2025-07-21 @tobiu closed this issue
 

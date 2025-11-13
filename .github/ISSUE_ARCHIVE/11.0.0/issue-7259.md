@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-26T13:40:47Z'
 ---
 # VdomHelper incorrectly moves className into attributes
-
-**Reported by:** @tobiu on 2025-09-26
 
 When running unit tests with `useDomApiRenderer: false`, the `VdomHelper.update()` method incorrectly moves the `className` property of a `vdom` object into the `attributes` object of the resulting `vnode`.
 
@@ -38,4 +38,10 @@ This was discovered while converting the `VdomHelper` Siesta test to Playwright.
 ### @tobiu - 2025-09-26 13:40
 
 We can close this one. It was a Gemini hallucination, using `className` instead of `cls` inside the vdom definitions
+
+## Activity Log
+
+- 2025-09-26 @tobiu assigned to @tobiu
+- 2025-09-26 @tobiu added the `bug` label
+- 2025-09-26 @tobiu closed this issue
 

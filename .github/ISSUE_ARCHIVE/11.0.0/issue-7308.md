@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-29T09:12:02Z'
 ---
 # Create "Working with AI Agents" Guide
-
-**Reported by:** @tobiu on 2025-09-29
 
 Create a new guide, `WORKING_WITH_AGENTS.md`, to provide comprehensive instructions for human developers on how to effectively and safely collaborate with AI agents within this repository.
 
@@ -32,4 +32,22 @@ This guide covers several critical topics:
 5.  **Panic Responses:** How to spot and handle destructive agent behavior.
 6.  **The Session Lifecycle:** An analogy for understanding agent context degradation over time.
 7.  **Proactive Context Management:** A best practice for knowing when to start a fresh session.
+
+## Activity Log
+
+- 2025-09-29 @tobiu assigned to @tobiu
+- 2025-09-29 @tobiu added the `documentation` label
+- 2025-09-29 @tobiu added the `enhancement` label
+- 2025-09-29 @tobiu referenced in commit `c9fcd8b` - "Create "Working with AI Agents" Guide #7308 WIP"
+- 2025-09-29 @tobiu referenced in commit `8e9fe96` - "#7308 write file tool"
+- 2025-09-29 @tobiu referenced in commit `5d21ade` - "#7308 dealing with panic responses"
+- 2025-09-29 @tobiu referenced in commit `21f91f7` - "#7308 human lifetime analogy"
+- 2025-09-29 @tobiu referenced in commit `c2bbd70` - "#7308 agentic misalignment"
+- 2025-09-29 @tobiu referenced in commit `0ed12fd` - "#7308 proactive context management"
+- 2025-09-29 @tobiu referenced in commit `57e2413` - "#7308 Fully Automated Workflows"
+- 2025-09-29 @tobiu referenced in commit `8d007c1` - "#7308 Fully Automated Workflows"
+- 2025-09-29 @tobiu referenced in commit `f290c87` - "#7308 final polishing"
+- 2025-09-29 @tobiu closed this issue
+- 2025-09-29 @tobiu referenced in commit `2efbcef` - "#7308 final polishing"
+- 2025-09-29 @tobiu closed this issue
 

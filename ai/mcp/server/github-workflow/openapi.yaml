@@ -338,6 +338,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /comments/{comment_id}:
+    patch:
+      summary: Update an Existing Comment
+      operationId: update_comment
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Updates the body of an existing comment on a pull request or issue. This is useful for correcting errors in previously posted comments.
+
+        **When to Use:**
+        - To fix errors in a comment you previously posted
+        - To update a comment with additional information
+        - To correct formatting or content mistakes
+
+        **How to Get comment_id:**
+        The comment ID is the global node ID returned when creating a comment via `create_comment`, or it can be retrieved from the conversation using `get_conversation`. The comment ID is a string starting with "IC_" (for issue comments) or "PRRC_" (for PR review comments).
+
+        **Note:**
+        You can only update comments that were created by your authenticated user. Attempting to update another user's comment will result in an error.
+      tags: [Pull Requests]
+      parameters:
+        - name: comment_id
+          in: path
+          required: true
+          description: The global node ID of the comment to update (e.g., "IC_kwDOABcD..." or "PRRC_kwDOABcD...").
+          schema:
+            type: string
+            example: "IC_kwDOABcD1234567890"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+                  description: The new body content for the comment. This replaces the entire comment body.
+                  example: "Updated: This looks great! I've reviewed the changes and approve."
+      responses:
+        '200':
+          description: Comment updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Successfully updated comment IC_kwDOABcD1234567890"
+                  commentId:
+                    type: string
+                    example: "IC_kwDOABcD1234567890"
+                  url:
+                    type: string
+                    example: "https://github.com/neomjs/neo/pull/123#issuecomment-1234567890"
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    example: "2025-11-12T10:30:00Z"
+        '404':
+          description: Comment not found or you don't have permission to update it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error, GraphQL API request failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /issues/{issue_number}/labels:
     post:
       summary: Add labels to an issue or PR
@@ -719,31 +794,35 @@ paths:
 
   /issues/relationship:
     post:
-      summary: Manage Parent-Child Issue Relationships
+      summary: Manage Issue Relationships (Parent-Child and Blocked-By)
       operationId: update_issue_relationship
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
-        Manages parent-child relationships between GitHub issues using the sub-issues feature.
-        This tool allows you to set or unset the parent of a child issue, which automatically
-        updates the parent's `subIssues` array on GitHub.
+        Manages relationships between GitHub issues including parent-child hierarchies and blocked-by dependencies.
+        This tool allows you to set or unset relationships between issues on GitHub.
+
+        **Relationship Types:**
+        - **parent_child**: Creates hierarchical relationships (epics with sub-tasks)
+        - **blocked_by**: Creates dependency relationships (issue A is blocked by issue B)
 
         **When to Use:**
         - To organize work by creating issue hierarchies (epics with sub-tasks)
-        - To link a child issue to a parent issue
-        - To unlink a child issue from its parent
+        - To track dependencies where one issue blocks another
+        - To unlink issues from their relationships
         - To move a child issue from one parent to another
 
         **Important Notes:**
         - Changes are made directly on GitHub via the GraphQL API
         - The local markdown files will be updated on the next `sync_all` operation
-        - An issue can only have ONE parent at a time
-        - Use `replace_parent=true` to replace an existing parent relationship
-        - To remove a parent, call with only `child_issue` specified (omit `parent_issue`)
+        - For parent_child: An issue can only have ONE parent at a time
+        - For blocked_by: An issue can be blocked by MULTIPLE issues
+        - Use `replace_parent=true` to replace an existing parent relationship (parent_child only)
+        - To remove relationships, call with only `child_issue` specified (omit `parent_issue`)
 
         **Workflow:**
-        1. Identify the child issue number and parent issue number
+        1. Identify the issue numbers and relationship type
         2. Call this tool to establish or modify the relationship
         3. Run `sync_all` to update local markdown files with the new relationship
       tags: [Issues]
@@ -756,19 +835,34 @@ paths:
               required:
                 - child_issue
               properties:
+                relationship_type:
+                  type: string
+                  enum: [parent_child, blocked_by]
+                  description: |
+                    The type of relationship to manage:
+                    - parent_child: Hierarchical parent-child relationships
+                    - blocked_by: Dependency blocking relationships
+                  default: parent_child
+                  example: parent_child
                 child_issue:
                   type: integer
-                  description: The issue number of the child issue.
+                  description: |
+                    The issue number of the child/blocked issue.
+                    For parent_child: This is the sub-issue.
+                    For blocked_by: This is the issue being blocked.
                   example: 7388
                 parent_issue:
                   type: integer
                   description: |
-                    The issue number of the parent issue. 
-                    Omit this field (or set to null) to remove the parent relationship.
+                    The issue number of the parent/blocking issue.
+                    For parent_child: This is the parent issue.
+                    For blocked_by: This is the issue doing the blocking.
+                    Omit this field (or set to null) to remove the relationship.
                   example: 7385
                 replace_parent:
                   type: boolean
                   description: |
+                    Only applicable for parent_child relationships.
                     If true, replaces the child's existing parent relationship.
                     If false and the child already has a parent, the operation will fail.
                   default: false

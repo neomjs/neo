@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T10:54:35Z'
 ---
 # Implement Query Documents Service
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 This ticket covers the implementation of the `query_documents` service for the AI Knowledge Base MCP server. This is the primary read operation for the server, allowing AI agents to perform semantic searches against the vector database.
 
@@ -40,4 +34,12 @@ The implementation will be adapted from the existing `buildScripts/ai/queryKnowl
 4.  The function applies the existing scoring algorithm to the results.
 5.  The function returns a JSON object containing the ranked list of results, matching the `QueryResponse` schema in `openapi.yaml`.
 6.  The `toolService.mjs` `serviceMapping` is updated to point the `query_documents` operationId to the new service function.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `cfab82c` - "Implement Query Documents Service #7507"
+- 2025-10-16 @tobiu closed this issue
 

@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T21:24:30Z'
 ---
 # Implement Graceful Health Handling with Recovery
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 Enhance the HealthService with transparent caching and update the MCP server
 startup to handle unhealthy states gracefully.
@@ -57,4 +51,13 @@ startup to handle unhealthy states gracefully.
 - Resilience: Server doesn't crash on startup if `gh` missing
 - Recovery: User can run `gh auth login` and tools will work
 - UX: Clear errors guide users to fix issues
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `29682a3` - "Implement Graceful Health Handling with Recovery #7587"
+- 2025-10-20 @tobiu referenced in commit `4bba916` - "#7587 ticket md file update"
+- 2025-10-20 @tobiu closed this issue
 

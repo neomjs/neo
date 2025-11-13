@@ -15,17 +15,11 @@ parentIssue: 7029
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T21:07:59Z'
 ---
 # Feature: Create Comparisons Overview Page
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #7029 - Feature: Add Framework Comparison Articles to Learn Directory
-
----
 
 **Is your feature request related to a problem? Please describe.**
 As more framework comparison articles are added to the `learn` directory, there is a need for a central entry point to introduce the section and list available comparisons.
@@ -47,4 +41,11 @@ This overview page enhances the discoverability and usability of the framework c
 **Affected Files:**
 *   `learn/comparisons/Overview.md` (new file)
 *   `learn/tree.json` (updated to include this overview)
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `7b4c55f` - "Feature: Create Comparisons Overview Page #7030"
+- 2025-07-12 @tobiu closed this issue
 

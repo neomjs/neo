@@ -16,17 +16,11 @@ parentIssue: 7520
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T12:36:26Z'
 ---
 # Remove Legacy Express Server from Memory Core
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7520 - Epic: Migrate Memory Server to stdio-based MCP
-
----
 
 With the new `stdio`-based MCP server fully functional, the final step is to remove the legacy Express.js implementation to complete the migration.
 
@@ -35,4 +29,12 @@ With the new `stdio`-based MCP server fully functional, the final step is to rem
 1.  The `index.mjs` file (the Express server entry point) is deleted from `ai/mcp/server/memory-core/`.
 2.  Any direct Express.js dependencies (`express`, `cors`, etc.) are removed from the main `package.json` if they are no longer needed by other parts of the project.
 3.  The `start` script for the memory server in `package.json` is updated or removed.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `8b8cc35` - "Remove Legacy Express Server from Memory Core #7524"
+- 2025-10-17 @tobiu closed this issue
 

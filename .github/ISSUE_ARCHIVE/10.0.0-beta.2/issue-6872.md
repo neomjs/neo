@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-26T12:40:03Z'
 ---
 # Portal App: Examples ordering
-
-**Reported by:** @tobiu on 2025-06-26
 
 * While "Liquid Glass effect" is a fun demo, it wrecks your GPU and heats up your device.
 * Especially on non high end devices, it can mislead users to assume the performance is related to neo, which is not the case.
@@ -31,4 +31,13 @@ closedAt: '2025-06-26T12:40:03Z'
 ### @tobiu - 2025-06-26 12:39
 
 formatting glitch.
+
+## Activity Log
+
+- 2025-06-26 @tobiu assigned to @tobiu
+- 2025-06-26 @tobiu added the `enhancement` label
+- 2025-06-26 @tobiu referenced in commit `b504780` - "Portal App: Examples ordering #6872"
+- 2025-06-26 @tobiu closed this issue
+- 2025-06-26 @tobiu referenced in commit `9a79d80` - "Portal App: Examples ordering #6872"
+- 2025-06-26 @tobiu closed this issue
 

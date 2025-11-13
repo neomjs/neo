@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-27T10:50:20Z'
 ---
 # Neo gridcontainer example has rendering issues on chrome/android
-
-**Reported by:** @TristanJamesBall on 2025-07-26
 
 **Describe the bug**
 Bar graph and buttons initially render correctly,  then after a few seconds redraw to overlap.
@@ -98,4 +98,10 @@ Tobi
 https://neomjs.com/dist/production/examples/grid/bigData/index.html
 
 => The new version is deployed now. Please let me know if you encounter any other issues. I also fixed the grid column header drag&drop resorting. You can over-drag to the left or right and the grid will scroll accordingly.
+
+## Activity Log
+
+- 2025-07-26 @TristanJamesBall added the `bug` label
+- 2025-07-27 @tobiu referenced in commit `789f1cb` - "Neo gridcontainer example has rendering issues on chrome/android #7114"
+- 2025-07-27 @tobiu closed this issue
 

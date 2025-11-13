@@ -14,17 +14,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T00:06:26Z'
 ---
 # Create `Neo.component.mixin.VdomLifecycle`
-
-**Reported by:** @tobiu on 2025-07-09
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -52,4 +46,10 @@ Extracting the VDOM logic from `component.Base` into `Neo.mixin.VdomLifecycle` i
 -   `Neo.mixin.VdomLifecycle` is created and contains the extracted VDOM logic.
 -   `Neo.component.Base` uses the new mixin.
 -   All existing component-related tests pass without regression, confirming the refactoring is successful.
+
+## Activity Log
+
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `ac2b5b8` - "Create Neo.component.mixin.VdomLifecycle #6993"
+- 2025-07-11 @tobiu closed this issue
 

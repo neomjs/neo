@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-06T12:18:43Z'
 ---
 # Fix race conditions in component rendering and updates
-
-**Reported by:** @tobiu on 2025-11-06
 
 This ticket addresses two related race conditions that were causing flaky tests in `test/playwright/component/component/Base.spec.mjs`.
 
@@ -58,4 +58,12 @@ await page.evaluate(async ({buttonId, toolbarId}) => {
     // ...
 });
 ```
+
+## Activity Log
+
+- 2025-11-06 @tobiu added the `bug` label
+- 2025-11-06 @tobiu added the `ai` label
+- 2025-11-06 @tobiu assigned to @tobiu
+- 2025-11-06 @tobiu referenced in commit `0483f13` - "Fix race conditions in component rendering and updates #7709"
+- 2025-11-06 @tobiu closed this issue
 

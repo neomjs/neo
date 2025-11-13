@@ -15,12 +15,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-03T00:45:55Z'
 ---
 # Font Awesome v7 update
 
-**Reported by:** @tobiu on 2025-08-03
-
 * I just noticed 3 spots, where v6 was used manually. I will replace them with v7 now.
 * This affected e.g. the learning section lab summaries.
+
+## Activity Log
+
+- 2025-08-03 @tobiu assigned to @tobiu
+- 2025-08-03 @tobiu added the `enhancement` label
+- 2025-08-03 @tobiu referenced in commit `8f05274` - "Font Awesome v7 update #7167"
+- 2025-08-03 @tobiu closed this issue
 

@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-04T18:15:45Z'
 ---
 # container.Base: itemDefaults_ => use a config descriptor
 
-**Reported by:** @tobiu on 2025-07-04
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-04 @tobiu assigned to @tobiu
+- 2025-07-04 @tobiu added the `enhancement` label
+- 2025-07-04 @tobiu referenced in commit `a2245b9` - "container.Base: itemDefaults_ => use a config descriptor #6942"
+- 2025-07-04 @tobiu closed this issue
 

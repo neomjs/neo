@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T09:55:02Z'
 ---
 # Design Knowledge Base MCP Server API
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 This ticket covers the detailed API design for the new Knowledge Base MCP server. The server will replace the current `npm run ai:query` and `npm run ai:build-kb` scripts, providing a formal, structured interface for agents to query and manage the project's knowledge base.
 
@@ -43,4 +37,12 @@ This design must define a comprehensive, resource-oriented API for managing the 
     - `GET /documents`: (Optional) Lists all documents in the knowledge base.
     - `GET /documents/:id`: (Optional) Retrieves a specific document by its ID.
 3.  The API design is formally documented in an OpenAPI 3.0 specification file at `ai/mcp/server/knowledge-base/openapi.yaml`.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `3579ae3` - "Design Knowledge Base MCP Server API #7502"
+- 2025-10-16 @tobiu closed this issue
 

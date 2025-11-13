@@ -15,14 +15,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-16T18:12:36Z'
 ---
 # vdom.VNode: smarter vtype text handling
-
-**Reported by:** @tobiu on 2025-06-16
 
 * use `textContent`
 * Neo.vdom.util.StringFromVnode: create string based comments
 * main.mixin.DeltaUpdates => opt out if no node
 * DomApiVnodeCreator: opt out if no node
+
+## Activity Log
+
+- 2025-06-16 @tobiu assigned to @tobiu
+- 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu referenced in commit `c2af9bf` - "vdom.VNode: smarter vtype text handling #6822"
+- 2025-06-16 @tobiu closed this issue
 

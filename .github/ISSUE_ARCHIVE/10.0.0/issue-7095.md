@@ -15,17 +15,11 @@ parentIssue: 7093
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-22T14:33:35Z'
 ---
 # Create Deep-Dive Blog Post for the Reactive Core
-
-**Reported by:** @tobiu on 2025-07-22
-
----
-
-**Parent Issue:** #7093 - Create v10 Top-Level Blog Post
-
----
 
 ## 1. Goal
 Create a detailed blog post explaining the new reactive engine in v10.
@@ -42,4 +36,19 @@ Technically-minded developers and architects who want to understand the framewor
 
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file.
+
+## Activity Log
+
+- 2025-07-22 @tobiu assigned to @tobiu
+- 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu referenced in commit `b9fcaba` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22 @tobiu referenced in commit `4316e07` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22 @tobiu referenced in commit `cbc5ef6` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
+- 2025-07-22 @tobiu referenced in commit `3ce2e90` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
+- 2025-07-22 @tobiu referenced in commit `b774baf` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
+- 2025-07-22 @tobiu referenced in commit `62e4f58` - "Create Deep-Dive Blog Post for the Reactive Core #7095 formatting"
+- 2025-07-22 @tobiu referenced in commit `6531e6e` - "Create Deep-Dive Blog Post for the Reactive Core #7095 polishing"
+- 2025-07-22 @tobiu referenced in commit `5b11149` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22 @tobiu referenced in commit `d0d8749` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22 @tobiu closed this issue
 

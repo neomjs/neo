@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T14:20:34Z'
 ---
 # Fix: MCP Server Misinterprets Tool Error Responses
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket reports and resolves a bug in the MCP server's tool handling logic that caused it to misinterpret structured error responses from underlying services as schema validation failures.
 
@@ -61,4 +61,12 @@ The `CallToolRequestSchema` handler in `mcp-stdio.mjs` was modified as follows:
         };
 ```
 This ensures that error responses from tools are correctly identified and propagated.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `bug` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `6f3b9ed` - "Fix: MCP Server Misinterprets Tool Error Responses #7647"
+- 2025-10-25 @tobiu closed this issue
 

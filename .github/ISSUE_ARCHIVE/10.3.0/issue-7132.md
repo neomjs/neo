@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:47:46Z'
 ---
 # Production Mode: Build-Time Parsing with `parse5`
-
-**Reported by:** @tobiu on 2025-07-30
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 For production builds, parsing HTML strings in the main thread is inefficient. Instead, we will pre-process the source code, identify the templates, and replace them with their JSON VDOM representation directly in the build output.
@@ -43,4 +37,10 @@ For production builds, parsing HTML strings in the main thread is inefficient. I
 ### @tobiu - 2025-08-02 12:47
 
 resolved
+
+## Activity Log
+
+- 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu closed this issue
 

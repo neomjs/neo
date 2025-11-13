@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T15:32:37Z'
 ---
 # Portal.view.learn.ContentComponent: processReadonlyCodeBlocks() => styling for code blocks inside lists
-
-**Reported by:** @tobiu on 2025-06-30
 
 The current regex cuts off blank chars before a code block starts:
 
@@ -48,4 +48,11 @@ I have a more effective fix in mind.
 ### @tobiu - 2025-06-30 15:32
 
 <img width="845" alt="Image" src="https://github.com/user-attachments/assets/5c8187e7-0278-40b1-ac38-cc27279f1b35" />
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `f3c7573` - "Portal.view.learn.ContentComponent: processReadonlyCodeBlocks() => styling for code blocks inside lists #6911"
+- 2025-06-30 @tobiu closed this issue
 

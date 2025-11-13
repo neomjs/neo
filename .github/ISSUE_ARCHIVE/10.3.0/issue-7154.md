@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-01T14:15:13Z'
 ---
 # Fix Self-Closing Custom Component Tags
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -51,4 +45,11 @@ The `parse5` library, while robust for HTML, does not correctly parse self-closi
 -   The fix is implemented with a minimal performance footprint, avoiding large new dependencies in the development build.
 -   Standard HTML void elements are unaffected and continue to parse correctly.
 -   Unnecessary `acorn` and `astring` imports have been removed from the processor.
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `c0c3ffb` - "Fix Self-Closing Custom Component Tags #7154"
+- 2025-08-01 @tobiu closed this issue
 

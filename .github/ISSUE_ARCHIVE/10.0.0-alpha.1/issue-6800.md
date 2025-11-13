@@ -15,17 +15,18 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T14:26:11Z'
 ---
 # Ensure there are no cls entries inside the vdom which contain strings
 
-**Reported by:** @tobiu on 2025-06-15
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
-
 * This affects multiple files
+
+## Activity Log
+
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu referenced in commit `2d20b66` - "Ensure there are no cls entries inside the vdom which contain strings #6800"
+- 2025-06-15 @tobiu closed this issue
 

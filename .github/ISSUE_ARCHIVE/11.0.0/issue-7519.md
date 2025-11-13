@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T11:00:39Z'
 ---
 # Dynamically determine argument passing strategy from OpenAPI spec
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 Currently, the shared `toolService.mjs` contains a hardcoded list of tool names that require their arguments to be passed as a single object to the handler function. This is brittle and not scalable.
 
@@ -39,4 +33,12 @@ This ticket is to refactor the `toolService` to determine the argument passing s
 3.  The `callTool` function is updated to use this flag to determine whether to pass arguments as a single object or as positional arguments.
 4.  The hardcoded array of tool names is removed from `callTool`.
 5.  All tool calls continue to function correctly for both MCP servers.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `5e92dcf` - "Dynamically determine argument passing strategy from OpenAPI spec #7519"
+- 2025-10-17 @tobiu closed this issue
 

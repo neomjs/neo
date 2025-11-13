@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-05T08:27:03Z'
 ---
 # tests/ReactiveConfig: Make all basic tests work
 
-**Reported by:** @tobiu on 2025-07-05
-
 <img width="861" height="813" alt="Image" src="https://github.com/user-attachments/assets/e9ea8a36-7869-4308-8faa-09c0df1202c1" />
+
+## Activity Log
+
+- 2025-07-05 @tobiu assigned to @tobiu
+- 2025-07-05 @tobiu added the `enhancement` label
+- 2025-07-05 @tobiu referenced in commit `c8488d5` - "tests/ReactiveConfig: Make all basic tests work #6945"
+- 2025-07-05 @tobiu closed this issue
 

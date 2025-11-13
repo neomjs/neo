@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:31:57Z'
 ---
 # Refine Issue Creation to be API-First
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The current workflow for creating tickets involves manually creating a Markdown file, which is error-prone (e.g., using non-existent labels). We should flip this model to be API-first, using GitHub as the initial source of truth.
 
@@ -51,4 +45,11 @@ This ticket proposes creating a new `create_issue` tool within the `github-workf
 ### @tobiu - 2025-10-24 09:31
 
 resolved with the new tooling
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-24 @tobiu closed this issue
 

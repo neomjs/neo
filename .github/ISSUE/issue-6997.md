@@ -18,16 +18,10 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Implement Effect Memoization
-
-**Reported by:** @tobiu on 2025-07-09
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -57,4 +51,14 @@ Functional components, driven by `Neo.core.Effect`, re-generate their VDOM whene
 ### @github-actions - 2025-10-08 02:38
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-10-08 @github-actions added the `stale` label
+- 2025-10-08 @tobiu removed the `stale` label
+- 2025-10-08 @tobiu added the `help wanted` label
+- 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added the `no auto close` label
+- 2025-10-08 @tobiu added the `hacktoberfest` label
 

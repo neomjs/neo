@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T09:09:47Z'
 ---
 # Add Frontmatter to Synchronized Release Notes
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 To improve the structure and utility of the locally synchronized release notes, we should add YAML frontmatter containing key metadata. This change also standardizes the frontmatter convention across the entire sync service.
 
@@ -38,4 +32,13 @@ During implementation, a broader strategic decision was made to align all frontm
 2.  The `#formatIssueMarkdown` method is refactored to use `camelCase` for all its frontmatter keys (e.g., `createdAt`, `commentsCount`) instead of `snake_case`, ensuring consistency.
 3.  The `gray-matter` library is used to stringify the content with the fetched metadata as YAML frontmatter for both issues and release notes.
 4.  The filename convention for release notes is confirmed to be clean and predictable (e.g., `v10.9.0.md` from a `v10.9.0` tag).
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `48d20c1` - "Add Frontmatter to Synchronized Release Notes #7580"
+- 2025-10-21 @tobiu referenced in commit `66824ba` - "#7580 enhanced scope"
+- 2025-10-21 @tobiu closed this issue
 

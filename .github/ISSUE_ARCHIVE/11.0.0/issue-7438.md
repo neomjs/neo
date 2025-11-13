@@ -18,17 +18,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-11T08:40:35Z'
 ---
 # Create RMA Helper Scripts for Component Tests
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns:
 https://github.com/neomjs/neo/issues/7435
@@ -76,4 +70,14 @@ https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs#L569
 
 This one might be worth a read too:
 https://github.com/neomjs/neo/blob/dev/learn/benefits/RPCLayer.md
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-11 @Aki-07 cross-referenced by PR #7459
+- 2025-10-11 @tobiu closed this issue
+- 2025-10-11 @tobiu assigned to @Aki-07
 

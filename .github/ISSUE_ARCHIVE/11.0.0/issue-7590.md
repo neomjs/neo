@@ -26,18 +26,11 @@ subIssues:
   - 7600
 subIssuesCompleted: 8
 subIssuesTotal: 8
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T14:58:03Z'
 ---
 # Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
-
-**Reported by:** @tobiu on 2025-10-21
-
----
-
-**Sub-Issues:** #7591, #7592, #7593, #7594, #7595, #7598, #7599, #7600
-**Progress:** 8/8 completed (100%)
-
----
 
 To overcome the limitations of the `gh` CLI and build a more scalable and performant foundation for our GitHub integration, this epic outlines the complete migration of our MCP services' data access layer. All remote data-fetching and mutation operations currently using `gh` subprocess calls will be refactored to use direct calls to the official GitHub GraphQL API.
 
@@ -75,4 +68,15 @@ Operations that perform local Git repository manipulations (e.g., `gh pr checkou
 ### @tobiu - 2025-10-23 14:58
 
 resolved.
+
+## Activity Log
+
+- 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added the `epic` label
+- 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu added the `refactoring` label
+- 2025-10-21 @tobiu referenced in commit `07585d7` - "#7590 tickets as md files"
+- 2025-10-21 @tobiu referenced in commit `df9a3bb` - "#7590 PullRequestService imports formatting"
+- 2025-10-23 @tobiu closed this issue
 

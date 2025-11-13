@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T11:34:03Z'
 ---
 # Deprecate and remove `.github/mcp-servers.json`
-
-**Reported by:** @tobiu on 2025-11-08
 
 The `.github/mcp-servers.json` file was created as an early attempt to define the Model Context Protocol (MCP) servers in an agent-agnostic way.
 
@@ -29,4 +29,12 @@ However, with the stabilization and formalization of the three core MCP servers 
 Maintaining the old `mcp-servers.json` file is no longer necessary and creates confusion, as it is outdated and does not reflect the current implementation. To streamline the repository and remove obsolete configuration, this file has been deleted.
 
 Future integrations with other agents (e.g., Claude) can be handled by creating new, agent-specific configuration files as needed, rather than trying to maintain a single, generic file that doesn't fully serve any specific agent.
+
+## Activity Log
+
+- 2025-11-08 @tobiu added the `enhancement` label
+- 2025-11-08 @tobiu added the `ai` label
+- 2025-11-08 @tobiu assigned to @tobiu
+- 2025-11-08 @tobiu referenced in commit `bca1187` - "Deprecate and remove .github/mcp-servers.json #7723"
+- 2025-11-08 @tobiu closed this issue
 

@@ -16,17 +16,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T13:06:25Z'
 ---
 # Convert Component Test button/Base.mjs to Playwright
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns:
 https://github.com/neomjs/neo/issues/7435
@@ -53,4 +47,16 @@ This task is to migrate the component test for `button/Base.mjs` from the Siesta
 https://github.com/neomjs/neo/blob/dev/test/playwright/component/button/Base.spec.mjs
 
 however, there are vast amounts of items that still either need unit or component based testing.
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-12 @tobiu assigned to @tobiu
+- 2025-10-12 @tobiu removed the `help wanted` label
+- 2025-10-12 @tobiu removed the `hacktoberfest` label
+- 2025-10-12 @tobiu referenced in commit `c006ab9` - "Convert Component Test button/Base.mjs to Playwright #7439"
+- 2025-10-27 @tobiu closed this issue
 

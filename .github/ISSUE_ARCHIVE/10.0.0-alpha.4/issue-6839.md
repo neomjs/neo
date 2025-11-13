@@ -14,12 +14,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-18T19:34:16Z'
 ---
 # button.Base: map badgeText & text to vdom.text instead of vdom.html
 
-**Reported by:** @tobiu on 2025-06-18
-
 * One of the main v10 benefits: we can now easily make any content XSS secure.
 * This does not only affect updates, but also the initial rendering tree.
+
+## Activity Log
+
+- 2025-06-18 @tobiu added the `enhancement` label
+- 2025-06-18 @tobiu referenced in commit `8999dce` - "button.Base: map badgeText & text to vdom.text instead of vdom.html #6839"
+- 2025-06-18 @tobiu closed this issue
 

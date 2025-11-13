@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-31T10:25:36Z'
 ---
 # Parser: Interpolation and Data Type Handling
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 Enhance the `parse5` processor to correctly handle the mapping of interpolated values from the tagged template literal to their corresponding VDOM properties, respecting their original data types.
@@ -40,4 +34,10 @@ Enhance the `parse5` processor to correctly handle the mapping of interpolated v
 ### @tobiu - 2025-07-31 10:25
 
 resolved via the other subs commits
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu closed this issue
 

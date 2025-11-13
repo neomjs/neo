@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T22:09:16Z'
 ---
 # selection.Model: items_ => use a config descriptor
 
-**Reported by:** @tobiu on 2025-07-15
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `57c844a` - "selection.Model: items_ => use a config descriptor #7067"
+- 2025-07-15 @tobiu closed this issue
 

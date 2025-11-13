@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T12:40:47Z'
 ---
 # Enhance `grid.VerticalScrollbar` to Support Chunked Store Loading
-
-**Reported by:** @tobiu on 2025-08-11
 
 **Is your feature request related to a problem? Please describe.**
 
@@ -44,4 +44,13 @@ The `grid.VerticalScrollbar` has been enhanced to fully support the chunked load
 ### @tobiu - 2025-08-11 12:39
 
 we need to soften the check a bit more.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `2699c10` - "Enhance grid.VerticalScrollbar to Support Chunked Store Loading #7182"
+- 2025-08-11 @tobiu closed this issue
+- 2025-08-11 @tobiu referenced in commit `c1df85b` - "#7182 hotfix"
+- 2025-08-11 @tobiu closed this issue
 

@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T22:10:18Z'
 ---
 # Update Pull Request Template for Enforced Issue Linking
-
-**Reported by:** @tobiu on 2025-10-22
 
 Update the `.github/PULL_REQUEST_TEMPLATE.md` to enforce linking PRs to GitHub issues using the `Closes #` keyword, improving issue tracking and auto-closing behavior.
 
@@ -32,4 +32,11 @@ The `.github/PULL_REQUEST_TEMPLATE.md` file has been modified to:
 
 ## Goal
 To improve the consistency and reliability of issue tracking within the project by ensuring all Pull Requests are explicitly linked to a corresponding GitHub issue, and to leverage GitHub's automatic issue closing feature.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `documentation` label
+- 2025-10-22 @tobiu referenced in commit `c0fdfad` - "Update Pull Request Template for Enforced Issue Linking #7613"
+- 2025-10-22 @tobiu closed this issue
 
