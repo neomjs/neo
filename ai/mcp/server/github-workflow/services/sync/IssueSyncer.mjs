@@ -94,9 +94,7 @@ class IssueSyncer extends Base {
 
         // Add relationship section at the end with clear delimiter
         const hasRelationships = issue.parent || 
-                                 issue.subIssues?.nodes.length > 0 || 
-                                 issue.blockedBy?.nodes.length > 0 || 
-                                 issue.blocking?.nodes.length > 0;
+                                 issue.subIssues?.nodes.length > 0;
 
         if (hasRelationships) {
             body += '## Relationships\n\n';
@@ -109,14 +107,6 @@ class IssueSyncer extends Base {
             // Sub-issues with progress (human-readable at-a-glance info)
             if (issue.subIssues?.nodes.length > 0) {
                 body += `**Progress:** ${issue.subIssuesSummary.completed}/${issue.subIssuesSummary.total} completed (${Math.round(issue.subIssuesSummary.percentCompleted)}%)\n\n`;
-            }
-            
-            // Blocked-by relationships
-            if (issue.blockedBy?.nodes.length > 0) {
-                body += `**Blocked By:** ${issue.blockedBy.nodes.map(b => `#${b.number} - ${b.title}`).join(', ')}\n\n`;
-            }
-            if (issue.blocking?.nodes.length > 0) {
-                body += `**Blocking:** ${issue.blocking.nodes.map(b => `#${b.number} - ${b.title}`).join(', ')}\n\n`;
             }
         }
 
