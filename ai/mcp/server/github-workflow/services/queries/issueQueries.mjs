@@ -255,6 +255,50 @@ export const DEFAULT_QUERY_LIMITS = {
 };
 
 /**
+ * Query to get an issue's current parent relationship.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_ISSUE_PARENT = `
+    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                parent {
+                    id
+                    number
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Query to get an issue's current blockedBy relationships.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_BLOCKED_BY = `
+    query GetBlockedBy($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                blockedBy(first: 100) {
+                    nodes {
+                        id
+                        number
+                    }
+                }
+            }
+        }
+    }
+`;
+
+/**
  * Fetches the GraphQL node ID for an issue and all labels in the repository.
  * This is a utility query used by mutations that add/remove labels.
  *

@@ -5,7 +5,7 @@ import logger                      from '../logger.mjs';
 import {exec}                      from 'child_process';
 import {promisify}                 from 'util';
 import {spawn}                     from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS}   from './queries/issueQueries.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY} from './queries/issueQueries.mjs';
 import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID} from './queries/mutations.mjs';
 import RepositoryService           from './RepositoryService.mjs';
 
@@ -431,18 +431,7 @@ class IssueService extends Base {
             if (!parent_issue) {
                 // To remove a parent, we need the current parent's ID
                 // First, fetch the child issue's current parent
-                const childData = await GraphqlService.query(`
-                    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
-                        repository(owner: $owner, name: $repo) {
-                            issue(number: $number) {
-                                parent {
-                                    id
-                                    number
-                                }
-                            }
-                        }
-                    }
-                `, {
+                const childData = await GraphqlService.query(GET_ISSUE_PARENT, {
                     owner : aiConfig.owner,
                     repo  : aiConfig.repo,
                     number: child_issue
@@ -531,20 +520,7 @@ class IssueService extends Base {
         // If blockingIssue is null, we're removing a blocked-by relationship
         if (!blockingIssue) {
             // Fetch current blockedBy relationships
-            const blockedData = await GraphqlService.query(`
-                query GetBlockedBy($owner: String!, $repo: String!, $number: Int!) {
-                    repository(owner: $owner, name: $repo) {
-                        issue(number: $number) {
-                            blockedBy(first: 100) {
-                                nodes {
-                                    id
-                                    number
-                                }
-                            }
-                        }
-                    }
-                }
-            `, {
+            const blockedData = await GraphqlService.query(GET_BLOCKED_BY, {
                 owner : aiConfig.owner,
                 repo  : aiConfig.repo,
                 number: blockedIssue
