@@ -269,7 +269,15 @@ export async function getSitemapXml(options={}) {
     let lastModMap = new Map();
     if (includeLastmod) {
         const filePaths = filteredRoutes
-            .map(({filePath}) => filePath)
+            .map(({id, filePath}) => {
+                if (!filePath) return null;
+                // For examples, use the parent directory to get the last modification date
+                // of any file within the example.
+                if (id.endsWith('.html')) {
+                    return path.dirname(filePath);
+                }
+                return filePath;
+            })
             .filter(Boolean);
         lastModMap = getGitLastModifiedBatch(filePaths);
     }
@@ -285,7 +293,11 @@ export async function getSitemapXml(options={}) {
             url = new URL(route, normalizedBaseUrl).toString();
         }
 
-        const lastmod = filePath ? lastModMap.get(filePath) : null;
+        let lastmod = null;
+        if (filePath) {
+            const key = id.endsWith('.html') ? path.dirname(filePath) : filePath;
+            lastmod = lastModMap.get(key);
+        }
 
         const lastmodXml = lastmod
             ? `\n    <lastmod>${lastmod}</lastmod>`
