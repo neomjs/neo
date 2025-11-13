@@ -18,17 +18,11 @@ parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T10:23:52Z'
 ---
 # Refine Memory Protocol: Define a "Turn" and Consolidate Sub-Turns
-
-**Reported by:** @tobiu on 2025-10-26
-
----
-
-**Parent Issue:** #7604 - Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
----
 
 This ticket is a follow-up to #7658.
 
@@ -47,4 +41,15 @@ A single "turn" encompasses the entire agent process from receiving a user's `PR
 4.  The `response` parameter should be a consolidated log of all responses generated during the turn, including self-corrections, error messages, and the final response to the user.
 
 This change will significantly increase the signal-to-noise ratio of the stored memories. It also acknowledges the current limitation of not having agent lifecycle hooks and places the responsibility of consolidating the turn on the agent itself.
+
+## Activity Log
+
+- 2025-10-26 @tobiu added the `documentation` label
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `ai` label
+- 2025-10-26 @tobiu added the `refactoring` label
+- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu referenced in commit `7918d8b` - "Refine Memory Protocol: Define a "Turn" and Consolidate Sub-Turns #7660"
+- 2025-10-26 @tobiu closed this issue
+- 2025-10-26 @tobiu cross-referenced by #7661
 

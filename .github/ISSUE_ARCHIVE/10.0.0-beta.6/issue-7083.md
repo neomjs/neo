@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-18T15:29:42Z'
 ---
 # calendar.view.MainContainerStateProvider: timeFormatter formula
 
-**Reported by:** @tobiu on 2025-07-18
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-18 @tobiu assigned to @tobiu
+- 2025-07-18 @tobiu added the `enhancement` label
+- 2025-07-18 @tobiu referenced in commit `e42b6b7` - "calendar.view.MainContainerStateProvider: timeFormatter formula #7083"
+- 2025-07-18 @tobiu closed this issue
 

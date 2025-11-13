@@ -15,16 +15,10 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Phase 1: Foundational Sorting
-
-**Reported by:** @tobiu on 2025-08-20
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 The primary goal of this phase is to implement the core reordering functionality with a standard visual proxy.
 
@@ -40,4 +34,11 @@ The primary goal of this phase is to implement the core reordering functionality
 3.  **Integration:**
     -   Instantiate the new `Container.SortZone` within the `Colors.view.Viewport` to activate the drag-and-drop functionality on the new panels.
     -   The panel headers will be configured with the `.neo-draggable` class to act as the delegate target for the `SortZone`.
+
+## Activity Log
+
+- 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added the `enhancement` label
+- 2025-08-20 @tobiu referenced in commit `f9a9947` - "#7202 draggable.container.DragZone, draggable.container.SortZone"
+- 2025-08-20 @tobiu referenced in commit `81579aa` - "#7202 Colors.view.Viewport: using 3 panels as wrappers (drag handles)"
 

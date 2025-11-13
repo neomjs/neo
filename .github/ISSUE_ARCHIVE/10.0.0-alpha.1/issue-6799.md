@@ -15,19 +15,20 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T13:44:56Z'
 ---
 # vdom.Helper: create() => refactoring needed
 
-**Reported by:** @tobiu on 2025-06-15
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
-
 * The method is consuming an overloaded vdom object
 * The method is returning an overloaded vnode object
 * Time to get rid of this technical debt, and separate both accordingly
+
+## Activity Log
+
+- 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu referenced in commit `9315bfd` - "vdom.Helper: create() => refactoring needed #6799"
+- 2025-06-15 @tobiu closed this issue
 

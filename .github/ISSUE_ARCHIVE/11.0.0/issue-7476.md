@@ -20,17 +20,11 @@ parentIssue: 7475
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T13:57:00Z'
 ---
 # Create Test Plan for form.field.Password
-
-**Reported by:** @tobiu on 2025-10-13
-
----
-
-**Parent Issue:** #7475 - Create Component Test Plans (Hacktoberfest Cookbook)
-
----
 
 This is a Hacktoberfest task to create a comprehensive test plan for the `Neo.form.field.Password` component.
 
@@ -970,4 +964,22 @@ It seems the root cause is indeed the build configuration. I'm looking forward t
 https://github.com/neomjs/neo/blob/dev/learn/guides/ai/AiToolingWslSetup.md
 
 For now, we can re-assign the ticket.
+
+## Activity Log
+
+- 2025-10-13 @tobiu added the `enhancement` label
+- 2025-10-13 @tobiu added the `help wanted` label
+- 2025-10-13 @tobiu added the `good first issue` label
+- 2025-10-13 @tobiu added the `hacktoberfest` label
+- 2025-10-13 @tobiu added the `ai` label
+- 2025-10-13 @tobiu removed the `enhancement` label
+- 2025-10-13 @tobiu added the `documentation` label
+- 2025-10-13 @tobiu added the `testing` label
+- 2025-10-14 @tobiu assigned to @JuyaoHuang
+- 2025-10-27 @tobiu unassigned from @JuyaoHuang
+- 2025-10-27 @tobiu assigned to @ad1tyayadav
+- 2025-10-27 @ad1tyayadav referenced in commit `5852a06` - "Create test plan for form.field.Password component #7476"
+- 2025-10-27 @ad1tyayadav cross-referenced by PR #7676
+- 2025-10-27 @tobiu referenced in commit `8a7e69f` - "Create test plan for form.field.Password component #7476"
+- 2025-10-27 @tobiu closed this issue
 

@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-20T11:27:34Z'
 ---
 # AGENTS.md: When Queries Fail to Find Information - section
 
-**Reported by:** @tobiu on 2025-09-20
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-09-20 @tobiu assigned to @tobiu
+- 2025-09-20 @tobiu added the `enhancement` label
+- 2025-09-20 @tobiu referenced in commit `eb6d380` - "AGENTS.md: When Queries Fail to Find Information - section #7221"
+- 2025-09-20 @tobiu closed this issue
 

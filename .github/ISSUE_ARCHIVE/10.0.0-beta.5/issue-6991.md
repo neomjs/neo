@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-09T09:47:26Z'
 ---
 # test/siesta/tests/neo/MixinStaticConfig.mjs: add more complex testing scenarios
-
-**Reported by:** @tobiu on 2025-07-09
 
 * multiple mixins inside the hierarchy
 * conflicting configs
@@ -32,4 +32,11 @@ closedAt: '2025-07-09T09:47:26Z'
 ### @tobiu - 2025-07-09 09:47
 
 <img width="810" height="660" alt="Image" src="https://github.com/user-attachments/assets/995b40f3-bb62-4a5f-bb63-f10dbaa87a7b" />
+
+## Activity Log
+
+- 2025-07-09 @tobiu assigned to @tobiu
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-07-09 @tobiu referenced in commit `1e31b24` - "test/siesta/tests/neo/MixinStaticConfig.mjs: add more complex testing scenarios #6991"
+- 2025-07-09 @tobiu closed this issue
 

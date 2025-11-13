@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-30T12:15:44Z'
 ---
 # Regression: Layout `ntype` lost in lazy-loaded tabs
-
-**Reported by:** @tobiu on 2025-07-30
 
 **Problem:**
 A regression was discovered in `tab.Container` when using lazy-loaded tabs, as seen in the Covid app. When switching between un-initialized tabs, the second tab to be rendered would fail with the error: `Error: Class defined with object configuration missing ntype property.`
@@ -36,4 +36,11 @@ The fix was implemented in `src/container/Base.mjs` inside the `onConstructed` m
 2.  This was refined to be more robust: The logic now checks if `this.layout` is already a layout instance. If it is a plain config object, it performs a deep clone (`Neo.clone(config, true, false)`), which creates a unique copy for the instance while preserving any nested Neo instances within the config. This prevents the shared prototype config from being mutated.
 
 This ensures that each container instance works with its own unique layout configuration, resolving the regression.
+
+## Activity Log
+
+- 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added the `bug` label
+- 2025-07-30 @tobiu referenced in commit `a8a57af` - "Regression: Layout ntype lost in lazy-loaded tabs #7134"
+- 2025-07-30 @tobiu closed this issue
 

@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-03T00:41:10Z'
 ---
 # Earthquakes Lab documentation has html issue
-
-**Reported by:** @TomDakan on 2025-08-02
 
 **Describe the bug**
 The Lab section of the Eartquakes example has an error in the html. Most of the text appears in the same code snippet block.
@@ -44,4 +44,10 @@ Same behavior in desktop browser (Chrome and Firefox) and Chrome on Android.
 ### @tobiu - 2025-08-03 00:41
 
 resolved locally, and will be inside the next patch release.
+
+## Activity Log
+
+- 2025-08-02 @TomDakan added the `bug` label
+- 2025-08-03 @tobiu referenced in commit `a544f1f` - "Earthquakes Lab documentation has html issue #7164"
+- 2025-08-03 @tobiu closed this issue
 

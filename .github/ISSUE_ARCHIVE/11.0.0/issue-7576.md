@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T14:03:37Z'
 ---
 # Fix and Verify GitHub API Field Names in SyncService
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 A code review has highlighted a critical potential bug: a mismatch between the JSON fields requested from the `gh` CLI (which often use camelCase like `createdAt`) and the fields it actually returns (which may use snake_case like `created_at`). This ticket covers verifying the correct field names and standardizing their usage throughout the `SyncService` to prevent runtime errors.
 
@@ -42,4 +36,11 @@ A code review has highlighted a critical potential bug: a mismatch between the J
 ### @tobiu - 2025-10-20 14:03
 
 verified field names, no changes needed.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `bug` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu closed this issue
 

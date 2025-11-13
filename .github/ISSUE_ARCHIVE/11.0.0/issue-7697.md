@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-03T12:05:44Z'
 ---
 # feat(ai): Automate knowledge base embedding on server startup
-
-**Reported by:** @tobiu on 2025-11-03
 
 The AI knowledge-base server should proactively ensure it's up-to-date when it starts. This improves the agent's initial experience and ensures health checks are accurate.
 
@@ -31,4 +31,12 @@ The AI knowledge-base server should proactively ensure it's up-to-date when it s
 - This process must complete before the initial health check is performed, so the server's status reflects the result of the synchronization.
 - The server startup logs should clearly indicate which process is running (sync or embed) and its outcome.
 
+
+## Activity Log
+
+- 2025-11-03 @tobiu added the `enhancement` label
+- 2025-11-03 @tobiu added the `ai` label
+- 2025-11-03 @tobiu assigned to @tobiu
+- 2025-11-03 @tobiu referenced in commit `25e7857` - "feat(ai): Automate knowledge base embedding on server startup #7697"
+- 2025-11-03 @tobiu closed this issue
 

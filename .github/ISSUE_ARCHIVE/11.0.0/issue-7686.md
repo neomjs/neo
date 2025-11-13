@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-01T10:51:58Z'
 ---
 # Enhance `button.Base` handler config for proper reactivity with closures
-
-**Reported by:** @tobiu on 2025-11-01
 
 ### Problem
 The `handler_` config in `Neo.button.Base` was experiencing a bug where, in recycled components (e.g., in a buffered grid), the handler function would become stale. This was due to the default `Neo.isEqual` (which performs a deep comparison) incorrectly determining that a new handler function (with a new closure) was identical to the old one, preventing the config system from triggering an update.
@@ -34,4 +34,13 @@ Standard JavaScript closure behavior means that two function instances, even wit
 
 ### JSDoc Update
 The JSDoc for the `handler_` config in `src/button/Base.mjs` should be updated to explain this behavior and the rationale behind the `isEqual` override.
+
+## Activity Log
+
+- 2025-11-01 @tobiu added the `bug` label
+- 2025-11-01 @tobiu added the `enhancement` label
+- 2025-11-01 @tobiu added the `ai` label
+- 2025-11-01 @tobiu referenced in commit `78c0f33` - "Enhance button.Base handler config for proper reactivity with closures #7686"
+- 2025-11-01 @tobiu closed this issue
+- 2025-11-01 @tobiu assigned to @tobiu
 

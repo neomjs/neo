@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T17:48:36Z'
 ---
 # Feature: Robust Synchronous Updates for Functional Components
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Is your feature request related to a problem? Please describe.**
 Previously, the reactivity system for functional components could lead to infinite loops or unpredictable behavior during VDOM updates due to unintended dependencies and synchronous re-triggering of effects.
@@ -47,4 +41,11 @@ This represents a significant milestone in the stability and predictability of f
 
 **Affected Files:**
 *   `src/functional/component/Base.mjs`
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `4b12fb7` - "Feature: Robust Synchronous Updates for Functional Components #7027"
+- 2025-07-13 @tobiu closed this issue
 

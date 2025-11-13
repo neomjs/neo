@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-01T15:10:04Z'
 ---
 # controller.Base: onConstructed() => initAsync()
 
-**Reported by:** @tobiu on 2025-07-01
-
 * Now that we have the `async initAsync()` construction pattern in place, this is a perfect spot to leverage it.
+
+## Activity Log
+
+- 2025-07-01 @tobiu assigned to @tobiu
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu referenced in commit `bdc9e7f` - "controller.Base: onConstructed() => initAsync() #6925"
+- 2025-07-01 @tobiu closed this issue
 

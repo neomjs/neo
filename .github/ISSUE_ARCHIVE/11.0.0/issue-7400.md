@@ -19,17 +19,11 @@ parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-08T11:40:29Z'
 ---
 # Define Agent-Agnostic MCP Server Configuration
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 To ensure our new Model Context Protocol (MCP) servers for AI tooling are accessible to a wide range of agents (e.g., from Google, Anthropic, etc.), we need a standardized, agent-agnostic configuration mechanism. Relying on a vendor-specific file like `.gemini/settings.json` is not a scalable or portable solution.
 
@@ -68,4 +62,27 @@ thanks
 Hi, and thanks for your interest. This was fast. Sure, I can assign it to you. Please make sure to read https://github.com/neomjs/neo/issues/7399 first, since it the ticket requires the new "AI Native" workflow.
 
 I am still in the middle of refining the other subs and moving them into GitHub tickets.
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-07 @tobiu assigned to @MannXo
+- 2025-10-08 @MannXo referenced in commit `d09fc09` - "Add agent-agnostic MCP server configuration
+
+- Create .github/mcp-servers.json with standardized server definitions
+- Add comprehensive documentation guide
+- Update navigation tree
+- Resolves #7400"
+- 2025-10-08 @MannXo cross-referenced by PR #7416
+- 2025-10-08 @tobiu closed this issue
+- 2025-10-08 @tobiu referenced in commit `d6dfc20` - "Add agent-agnostic MCP server configuration
+
+- Create .github/mcp-servers.json with standardized server definitions
+- Add comprehensive documentation guide
+- Update navigation tree
+- Resolves #7400"
 

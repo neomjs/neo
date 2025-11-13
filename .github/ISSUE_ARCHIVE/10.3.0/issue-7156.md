@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T11:11:54Z'
 ---
 # Finalize Build-Time AST Transformation
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -81,4 +75,13 @@ this is a huge step forwards for build-time replacements.
 gets transformed into:
 
 <img width="716" height="424" alt="Image" src="https://github.com/user-attachments/assets/f3b285ab-cedb-4620-918d-0d41c1ed1bee" />
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `acb0410` - "Finalize Build-Time AST Transformation #7156 WIP"
+- 2025-08-02 @tobiu referenced in commit `c9c75f2` - "Finalize Build-Time AST Transformation #7156 WIP"
+- 2025-08-02 @tobiu referenced in commit `32975a7` - "Finalize Build-Time AST Transformation #7156"
+- 2025-08-02 @tobiu closed this issue
 

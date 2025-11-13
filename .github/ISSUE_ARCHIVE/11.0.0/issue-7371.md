@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:43:07Z'
 ---
 # Enable Agent to Diff a Pull Request
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 After checking out a PR branch, the agent needs a way to see the changes introduced by the pull request. The `gh pr diff` command is a straightforward way to get a summary of the changes. This ticket is to create a workflow for the agent to use this command.
 
@@ -82,4 +76,14 @@ Thank you for your interest in this ticket during Hacktoberfest.
 The functionality described in this ticket has now been implemented and superseded by the 'get_pull_request_diff' tool in the new GitHub Workflow MCP server. This tool was used to review all open PRs during the session where this ticket was closed.
 
 We're closing this ticket as it has been resolved. Thanks again for your willingness to contribute!
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu assigned to @pranjalarora98
+- 2025-10-24 @tobiu closed this issue
 

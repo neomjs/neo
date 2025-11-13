@@ -17,17 +17,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T12:59:39Z'
 ---
 # Refactor `generate-seo-files.mjs`: Implement CLI Option Parsing with Commander
-
-**Reported by:** @tobiu on 2025-11-11
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 The `buildScripts/generate-seo-files.mjs` script currently parses command-line options manually using `process.argv`. This approach is inconsistent with other build scripts in the project, such as `buildScripts/buildAll.mjs`, which leverage the `commander` library for CLI argument parsing.
 
@@ -48,4 +42,13 @@ This ticket proposes to refactor `buildScripts/generate-seo-files.mjs` to use th
 -   `buildScripts/generate-seo-files.mjs` uses `commander` for CLI option parsing.
 -   All existing command-line options are supported and function as before.
 -   The script's output and behavior are unchanged when invoked with the same arguments.
+
+## Activity Log
+
+- 2025-11-11 @tobiu assigned to @tobiu
+- 2025-11-11 @tobiu added the `enhancement` label
+- 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu added the `refactoring` label
+- 2025-11-11 @tobiu referenced in commit `450ea66` - "Refactor generate-seo-files.mjs: Implement CLI Option Parsing with Commander #7745"
+- 2025-11-11 @tobiu closed this issue
 

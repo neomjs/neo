@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T22:47:16Z'
 ---
 # Convert labelService to LabelService Neo.mjs Class
-
-**Reported by:** @tobiu on 2025-10-19
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 This ticket covers refactoring `ai/mcp/server/github-workflow/services/labelService.mjs` into a singleton `LabelService` class that extends `Neo.core.Base`. This service is responsible for listing repository labels.
 
@@ -38,4 +32,12 @@ This ticket covers refactoring `ai/mcp/server/github-workflow/services/labelServ
 4.  The `listLabels` method is updated to return a structured error object on failure, instead of throwing an exception.
 5.  The `ai/mcp/server/github-workflow/services/toolService.mjs` is updated to use the new `LabelService` class.
 6.  The `list_labels` tool continues to function correctly after the refactoring.
+
+## Activity Log
+
+- 2025-10-19 @tobiu assigned to @tobiu
+- 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu referenced in commit `f81ef7c` - "Convert labelService to LabelService Neo.mjs Class #7558"
+- 2025-10-19 @tobiu closed this issue
 

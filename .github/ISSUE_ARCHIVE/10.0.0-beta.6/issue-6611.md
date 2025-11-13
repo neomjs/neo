@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-16T03:10:30Z'
 ---
 # Earthquakes Tutorial: Add a new maps provider
-
-**Reported by:** @tobiu on 2025-04-01
 
 related to: https://github.com/neomjs/neo/issues/6610
 
@@ -33,4 +33,12 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @github-actions - 2025-07-16 03:10
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+## Activity Log
+
+- 2025-04-01 @tobiu added the `enhancement` label
+- 2025-04-01 @tobiu assigned to @tobiu
+- 2025-04-01 @tobiu cross-referenced by #6607
+- 2025-07-01 @github-actions added the `stale` label
+- 2025-07-16 @github-actions closed this issue
 

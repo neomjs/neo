@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T14:12:50Z'
 ---
 # Create MCP Tool for GitHub Issue Creation
-
-**Reported by:** @tobiu on 2025-10-23
 
 The current workflow of creating local ticket files before creating a corresponding GitHub issue is fundamentally flawed. We cannot predict the issue number that GitHub will assign, which can lead to race conditions and conflicts if other issues or pull requests are created on GitHub in the meantime. This makes local file naming and cross-linking unreliable.
 
@@ -48,4 +48,12 @@ Create a new tool for the `github-workflow` MCP server that handles the creation
     *   `url` (string): The URL of the newly created GitHub issue.
 
 This new, two-step workflow (`create_issue` then `sync_all`) will be a reliable, atomic process for issue creation, eliminating the problems of the local-first approach.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu referenced in commit `07f07f1` - "Create MCP Tool for GitHub Issue Creation #7622"
+- 2025-10-23 @tobiu closed this issue
 

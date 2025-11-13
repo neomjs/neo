@@ -17,17 +17,11 @@ parentIssue: 7668
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T08:59:39Z'
 ---
 # Refactor: Shorten AGENTS.md by removing query tool documentation
-
-**Reported by:** @tobiu on 2025-10-27
-
----
-
-**Parent Issue:** #7668 - Epic: Make Knowledge Base Tools Self-Documenting
-
----
 
 This ticket is part of Epic #7668 and depends on the completion of #7669.
 
@@ -57,4 +51,13 @@ Once the `query_documents` tool is self-documenting via its OpenAPI specificatio
     ```
 
 This change will significantly shorten `AGENTS.md` and ensure that the tool's documentation is the single source of truth.
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `documentation` label
+- 2025-10-27 @tobiu added the `enhancement` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu referenced in commit `634048b` - "Refactor: Shorten AGENTS.md by removing query tool documentation #7670"
+- 2025-10-27 @tobiu closed this issue
 

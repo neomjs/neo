@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T15:54:31Z'
 ---
 # Feat: Improve Agent Comment Formatting with Markdown Headings
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket describes an enhancement to the agent comment formatting within the `PullRequestService`.
 
@@ -34,4 +34,12 @@ The `createComment` method in `PullRequestService.mjs` has been adjusted to inte
 The `createComment` method in `ai/mcp/server/github-workflow/services/PullRequestService.mjs` was modified to include logic for detecting markdown headings and inserting the agent icon at the appropriate position.
 
 This ensures that agent comments are consistently well-formatted, improving readability and adherence to markdown conventions.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `3d70e63` - "Feat: Improve Agent Comment Formatting with Markdown Headings #7648"
+- 2025-10-25 @tobiu closed this issue
 

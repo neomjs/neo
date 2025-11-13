@@ -16,17 +16,11 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-09T11:06:13Z'
 ---
 # Polish the new 'Getting Started' Guide
-
-**Reported by:** @tobiu on 2025-10-08
-
----
-
-**Parent Issue:** #7296 - Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
----
 
 This ticket is a follow-up to the excellent new "Creating Your First App" guide. The goal is to make a few minor formatting adjustments to fully integrate it into the learning portal's rendering engine.
 
@@ -64,4 +58,15 @@ You can assign this issue to me, I’ll be happy to handle these changes 😊
 ### @tobiu - 2025-10-08 15:29
 
 thx, appreciated! you could try gemini cli here.
+
+## Activity Log
+
+- 2025-10-08 @tobiu assigned to @tobiu
+- 2025-10-08 @tobiu added the `documentation` label
+- 2025-10-08 @tobiu cross-referenced by PR #7323
+- 2025-10-08 @tobiu unassigned from @tobiu
+- 2025-10-08 @tobiu assigned to @Mariam-Saeed
+- 2025-10-08 @tobiu added the `hacktoberfest` label
+- 2025-10-08 @Mariam-Saeed cross-referenced by PR #7422
+- 2025-10-09 @tobiu closed this issue
 

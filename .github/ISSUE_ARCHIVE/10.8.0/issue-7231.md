@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-22T02:15:20Z'
 ---
 # Add Regression Testing Guidance to AGENTS.md
-
-**Reported by:** @tobiu on 2025-09-22
 
 ## 1. Overview
 
@@ -38,4 +38,11 @@ This ticket proposes a minor but important enhancement to the `AGENTS.md` guidel
 
 -   `AGENTS.md` is updated to include the regression testing guidance in the "4. Verify" step.
 -   The reference to `learn/guides/UnitTestingWithSiesta.md` is accurate.
+
+## Activity Log
+
+- 2025-09-22 @tobiu assigned to @tobiu
+- 2025-09-22 @tobiu added the `enhancement` label
+- 2025-09-22 @tobiu referenced in commit `d1cc4e8` - "Add Regression Testing Guidance to AGENTS.md #7231"
+- 2025-09-22 @tobiu closed this issue
 

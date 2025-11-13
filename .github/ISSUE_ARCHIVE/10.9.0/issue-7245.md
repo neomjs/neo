@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-24T00:54:17Z'
 ---
 # Implement AI Knowledge Base Support for Workspaces
-
-**Reported by:** @tobiu on 2025-09-24
 
 ## Task
 Implement AI knowledge base support for a Neo.mjs workspace.
@@ -43,4 +43,12 @@ These changes ensure that newly generated Neo.mjs workspaces are fully equipped 
 
 ## Goal
 Enable AI agents to effectively use the knowledge base within any Neo.mjs workspace, improving their ability to understand and contribute to workspace-specific projects and reducing hallucination.
+
+## Activity Log
+
+- 2025-09-24 @tobiu assigned to @tobiu
+- 2025-09-24 @tobiu added the `enhancement` label
+- 2025-09-24 @tobiu referenced in commit `5e4c824` - "Implement AI Knowledge Base Support for Workspaces #7245"
+- 2025-09-24 @tobiu referenced in commit `5db3a8c` - "counterpart for https://github.com/neomjs/neo/issues/7245"
+- 2025-09-24 @tobiu closed this issue
 

@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T19:15:16Z'
 ---
 # Enhance `worker.App` RMA methods to delegate worker errors
-
-**Reported by:** @tobiu on 2025-11-04
 
 When using RMA methods like `createNeoInstance`, `destroyNeoInstance`, and `setConfigs` in Playwright component tests, any errors occurring within the App worker are not propagated back to the main thread test environment. This leads to opaque timeouts and difficult debugging.
 
@@ -33,4 +33,13 @@ These methods should be updated to follow the pattern used by `loadModule`. They
 - `setConfigs`
 
 This change will significantly improve the developer experience for component testing by making worker-side errors immediately visible in the test results.
+
+## Activity Log
+
+- 2025-11-04 @tobiu added the `enhancement` label
+- 2025-11-04 @tobiu added the `ai` label
+- 2025-11-04 @tobiu added the `testing` label
+- 2025-11-04 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu referenced in commit `1630b03` - "Enhance worker.App RMA methods to delegate worker errors #7704"
+- 2025-11-04 @tobiu closed this issue
 

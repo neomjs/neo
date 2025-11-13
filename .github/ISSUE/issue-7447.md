@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-12T13:57:32Z'
 ---
 # Fix Root Domain SEO with Base-Href-Patched Index
-
-**Reported by:** @tobiu on 2025-10-10
 
 The project's root domain (`neomjs.com`) currently uses a meta refresh, which is detrimental to SEO as it provides no content for crawlers at the most important URL.
 
@@ -46,4 +46,11 @@ detaching the ticket from the epic, since we can not resolve it inside this repo
 ### @tobiu - 2025-11-12 13:57
 
 resolved via: https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs
+
+## Activity Log
+
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-11-12 @tobiu closed this issue
 

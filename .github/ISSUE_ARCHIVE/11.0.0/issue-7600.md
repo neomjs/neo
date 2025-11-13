@@ -17,17 +17,11 @@ parentIssue: 7590
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T09:32:53Z'
 ---
 # Update OpenAPI Specification to Reflect GraphQL Data Models
-
-**Reported by:** @tobiu on 2025-10-22
-
----
-
-**Parent Issue:** #7590 - Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
-
----
 
 Following the migration of our GitHub services from the `gh` CLI to a direct GraphQL implementation, the data models returned by our services have become significantly richer. For example, the `SyncService` now provides detailed issue relationship data (parent, sub-issues) that is not reflected in the current `openapi.yaml` specification.
 
@@ -39,4 +33,13 @@ An outdated API specification is misleading for both human developers and AI age
 2.  Analyze the response schema of the `get_conversation` operation (`PullRequestConversation`) and ensure it accurately reflects the data returned by the `PullRequestService`.
 3.  Review all other relevant schemas in `openapi.yaml` (e.g., `PullRequest`, `Label`) to ensure they are aligned with the data now being returned by the GraphQL-backed services.
 4.  Ensure all examples in the OpenAPI specification are updated to reflect the new data structures.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `documentation` label
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu referenced in commit `ae5fb36` - "Update OpenAPI Specification to Reflect GraphQL Data Models #7600"
+- 2025-10-22 @tobiu closed this issue
 

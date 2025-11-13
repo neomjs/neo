@@ -19,20 +19,23 @@ subIssues:
   - 7670
 subIssuesCompleted: 2
 subIssuesTotal: 2
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T09:06:19Z'
 ---
 # Epic: Make Knowledge Base Tools Self-Documenting
 
-**Reported by:** @tobiu on 2025-10-27
-
----
-
-**Sub-Issues:** #7669, #7670
-**Progress:** 2/2 completed (100%)
-
----
-
 To streamline agent instructions and reduce the size of AGENTS.md, we need to move tool-specific documentation directly into the tool definitions themselves. This makes the tools self-sufficient and easier to understand.
 
 This epic covers the work to enhance the OpenAPI specification for the Knowledge Base server, making its tools, especially `query_documents`, fully self-documenting.
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `documentation` label
+- 2025-10-27 @tobiu added the `epic` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu cross-referenced by #7669
+- 2025-10-27 @tobiu cross-referenced by #7670
+- 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu closed this issue
 

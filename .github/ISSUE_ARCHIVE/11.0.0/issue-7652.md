@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T17:53:14Z'
 ---
 # Feat: Re-enable `npm run` scripts for MCP Servers and Validate `npx` Readiness
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket documents the re-introduction of `npm run` scripts for launching the MCP servers (`neo-github-workflow`, `neo-knowledge-base`, `neo-memory-core`) and updates to `.gemini/settings.json` to utilize these scripts. This change is crucial for preparing these servers for future independent repositories and `npx`-based startup mechanisms.
 
@@ -48,4 +48,12 @@ This change is vital for:
 
 **Validation:**
 Re-testing in a fresh session confirmed that all MCP servers start correctly, and their tools are recognized by the Gemini CLI client, indicating that the previous compatibility issues related to `npm run` output are no longer present.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `b2fb5ba` - "Feat: Re-enable npm run scripts for MCP Servers and Validate npx Readiness #7652"
+- 2025-10-25 @tobiu closed this issue
 

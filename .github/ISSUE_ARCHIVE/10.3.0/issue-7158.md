@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T11:44:21Z'
 ---
 # Create a Reusable, AST-Based Build-Time Processor
-
-**Reported by:** @tobiu on 2025-08-02
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -58,4 +52,11 @@ Currently, the logic for finding and transforming `html` templates is tightly co
 -   The new `buildScripts/util/astTemplateProcessor.mjs` module exists and contains the full transformation logic.
 -   `buildESModules.mjs` is simplified and correctly uses the new reusable utility.
 -   Running `npm run build-dist-esm` produces the exact same correct output as it does now, confirming the refactoring was successful.
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu referenced in commit `ce24aaa` - "Create a Reusable, AST-Based Build-Time Processor #7158"
+- 2025-08-02 @tobiu closed this issue
 

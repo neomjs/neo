@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-24T12:59:34Z'
 ---
 # Add Ticket Archive to Knowledge Base
-
-**Reported by:** @tobiu on 2025-09-24
 
 To make the context of all past work searchable, the archived tickets will be integrated into the AI Knowledge Base. This will allow developers and agents to query for the history and rationale behind previous changes.
 
@@ -33,4 +33,11 @@ To make the context of all past work searchable, the archived tickets will be in
     -   The `--type` command-line option will be updated to accept `ticket` as a new valid value.
     -   Type-based filtering is now handled directly within the database query using a `where` clause, replacing the previous, less efficient post-query filtering in JavaScript.
     -   The scoring algorithm has been adjusted to apply a penalty to `ticket` type results in general queries (`--type all`) to reduce noise, ensuring they are discoverable only when explicitly queried via `--type ticket`.
+
+## Activity Log
+
+- 2025-09-24 @tobiu assigned to @tobiu
+- 2025-09-24 @tobiu added the `enhancement` label
+- 2025-09-24 @tobiu referenced in commit `fd4f711` - "Add Ticket Archive to Knowledge Base #7252"
+- 2025-09-24 @tobiu closed this issue
 

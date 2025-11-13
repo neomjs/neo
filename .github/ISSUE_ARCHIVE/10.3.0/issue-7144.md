@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-31T17:31:10Z'
 ---
 # Create a Real-World Example
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 To showcase the new feature and provide a practical learning resource, create a new, simple example application that is built using a functional component with a string-based template. This will serve as a clear, working demonstration for developers.
@@ -37,4 +31,12 @@ To showcase the new feature and provide a practical learning resource, create a 
 <img width="512" height="762" alt="Image" src="https://github.com/user-attachments/assets/eda57dfe-a488-4eca-8936-9680139fc978" />
 
 <img width="913" height="304" alt="Image" src="https://github.com/user-attachments/assets/a834002c-f883-4e21-ba78-0163e0965d00" />
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu referenced in commit `dfec6c4` - "Create a Real-World Example #7144"
+- 2025-07-31 @tobiu referenced in commit `33a3b26` - "Create a Real-World Example #7144"
+- 2025-07-31 @tobiu closed this issue
 

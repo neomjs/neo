@@ -15,17 +15,11 @@ parentIssue: 7029
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T09:10:37Z'
 ---
 # Update Framework Comparison Guides
-
-**Reported by:** @tobiu on 2025-07-13
-
----
-
-**Parent Issue:** #7029 - Feature: Add Framework Comparison Articles to Learn Directory
-
----
 
 ## Summary
 
@@ -67,4 +61,11 @@ To ensure technical accuracy and to clearly articulate the significant advantage
 - `/Users/Shared/github/neomjs/neo/learn/comparisons/NeoVsSolid.md`
 - `/Users/Shared/github/neomjs/neo/learn/comparisons/NeoVsExtJs.md`
 - `/Users/Shared/github/neomjs/neo/src/functional/defineComponent.mjs`
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `da1264c` - "Update Framework Comparison Guides #7036"
+- 2025-07-13 @tobiu closed this issue
 

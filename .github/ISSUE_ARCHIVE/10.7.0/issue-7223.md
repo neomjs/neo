@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-20T13:11:04Z'
 ---
 # Create Tutorial: Building a Multi-Page App with Routing
-
-**Reported by:** @tobiu on 2025-09-20
 
 ### Problem
 The Neo.mjs documentation includes excellent conceptual guides on the `ConfigSystem` and the `DeclarativeComponentTrees`, which explain the architecture. However, there is no practical, step-by-step tutorial that demonstrates how to apply these concepts to a common real-world problem: creating a single-page application (SPA) with multiple views and client-side routing.
@@ -60,4 +60,15 @@ The tutorial should guide the user through the following steps:
 -   The tutorial provides clear, copy-pasteable code examples for each step.
 -   The final result is a simple but functional multi-page application.
 -   The new tutorial is added to the `learn/tree.json` file.
+
+## Activity Log
+
+- 2025-09-20 @tobiu assigned to @tobiu
+- 2025-09-20 @tobiu added the `documentation` label
+- 2025-09-20 @tobiu added the `enhancement` label
+- 2025-09-20 @tobiu added the `no auto close` label
+- 2025-09-20 @tobiu referenced in commit `355efab` - "#7223 Initial draft"
+- 2025-09-20 @tobiu referenced in commit `844cb94` - "#7223 Fully functional version"
+- 2025-09-20 @tobiu closed this issue
+- 2025-09-20 @tobiu referenced in commit `0fc27e0` - "#7223 cleanup"
 

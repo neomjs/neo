@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-27T00:24:21Z'
 ---
 # Neo.selection.Model: add getController()
-
-**Reported by:** @tobiu on 2025-07-27
 
 Use case are selectionModel based listeners, which should get mapped to view controllers:
 
@@ -58,4 +58,10 @@ export function resolveCallback(fn, scope=this) {
 the SM must try to pass a matching view controller.
 
 @gplanansky
+
+## Activity Log
+
+- 2025-07-27 @tobiu added the `enhancement` label
+- 2025-07-27 @tobiu referenced in commit `d5dec95` - "Neo.selection.Model: add getController() #7115"
+- 2025-07-27 @tobiu closed this issue
 

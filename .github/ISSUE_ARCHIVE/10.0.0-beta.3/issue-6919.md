@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T23:36:04Z'
 ---
 # guides/ExtendingNeoClasses: add a proper way to work with filters
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `082824e` - "guides/ExtendingNeoClasses: add a proper way to work with filters #6919"
+- 2025-06-30 @tobiu closed this issue
 

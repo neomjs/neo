@@ -16,17 +16,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-12T13:35:19Z'
 ---
 # PoC: Create Component Test for component.Image
-
-**Reported by:** @tobiu on 2025-10-12
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 This was a high-priority Proof of Concept (PoC) task to create the very first component test using our new Playwright test harness. The goal was to test a simple component, `Neo.component.Image`, to establish a definitive, working pattern for all future component test migrations.
 
@@ -51,4 +45,13 @@ This PoC successfully resolved key unknowns (like module pathing and RMA usage) 
 ### @tobiu - 2025-10-12 13:35
 
 FYI @Aki-07 this one works now.
+
+## Activity Log
+
+- 2025-10-12 @tobiu assigned to @tobiu
+- 2025-10-12 @tobiu added the `enhancement` label
+- 2025-10-12 @tobiu added the `ai` label
+- 2025-10-12 @tobiu referenced in commit `9ef29f3` - "PoC: Create Component Test for component.Image #7470"
+- 2025-10-12 @tobiu closed this issue
+- 2025-10-12 @tobiu referenced in commit `5514561` - "#7470 missing file"
 

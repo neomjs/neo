@@ -29,18 +29,11 @@ subIssues:
   - 7041
 subIssuesCompleted: 12
 subIssuesTotal: 12
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T10:59:57Z'
 ---
 # Feature: Add Framework Comparison Articles to Learn Directory
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Sub-Issues:** #7030, #7031, #7032, #7033, #7034, #7035, #7036, #7037, #7038, #7039, #7040, #7041
-**Progress:** 12/12 completed (100%)
-
----
 
 **Is your feature request related to a problem? Please describe.**
 Developers evaluating or learning Neo.mjs often come from other established frameworks (e.g., React, Angular, Vue, Ext.js). There is a need for clear, concise comparisons that bridge their existing knowledge to Neo.mjs concepts and highlight Neo.mjs's unique advantages.
@@ -72,4 +65,12 @@ This initiative will significantly improve developer onboarding, enhance discove
 ### @tobiu - 2025-07-13 10:59
 
 The initial versions are in place now, with huge Gemini support. Please open new tickets, in case there might be oversights or inaccuracies.
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `documentation` label
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu added the `epic` label
+- 2025-07-13 @tobiu closed this issue
 

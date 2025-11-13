@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T09:14:03Z'
 ---
 # Refactor: Refine Query Tool Documentation in openapi.yaml
-
-**Reported by:** @tobiu on 2025-10-27
 
 This ticket is a follow-up to #7669 and is based on feedback from Sonnet 4.5. The goal is to further refine the documentation for the `query_documents` tool within `ai/mcp/server/knowledge-base/openapi.yaml`.
 
@@ -79,4 +79,13 @@ Refactor the query strategies into a single, more concise "Discovery Pattern".
 
 The `Do NOT` list at the end of the "When Queries Fail" section is redundant with the Anti-Hallucination Policy and should be removed from the `openapi.yaml` description.
 
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `documentation` label
+- 2025-10-27 @tobiu added the `enhancement` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu referenced in commit `599c2fc` - "Refactor: Refine Query Tool Documentation in openapi.yaml #7672"
+- 2025-10-27 @tobiu closed this issue
 

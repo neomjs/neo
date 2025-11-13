@@ -14,15 +14,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-16T16:04:32Z'
 ---
 # vdom.VNode: single source of truth
-
-**Reported by:** @tobiu on 2025-06-16
 
 * The `constructor` needs to handle `vtype='text'` in a smart way
 * `vdom.Helper: createVnode()` has a lot of logic which should move to the owner class
 * no `attributes` or `style` or `className` for vtext.
 * childNodes for componentId flags (empty array for consistency, tbd)
 * XSS security for `Neo.config.useStringBasedMounting` and `textContent`
+
+## Activity Log
+
+- 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu referenced in commit `bbe1d91` - "vdom.VNode: single source of truth #6819"
+- 2025-06-16 @tobiu closed this issue
 

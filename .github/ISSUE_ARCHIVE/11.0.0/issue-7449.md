@@ -17,17 +17,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-11T09:43:51Z'
 ---
 # Create Sitemap & LLM.txt Generator Script
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 To ensure our SEO files (`sitemap.xml`, `llm.txt`) are always up-to-date with the site's content, we need to automate their generation. Manually maintaining these files is not sustainable.
 
@@ -56,4 +50,15 @@ i will look into your PR tomorrow, this was a long day, and i need a fresh head 
 ### @Aki-07 - 2025-10-11 04:33
 
 No worries, please do review it in your free time and since 3 issues were coupled, had to create one PR solving all the three
+
+## Activity Log
+
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu unassigned from @tobiu
+- 2025-10-10 @tobiu assigned to @Aki-07
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-11 @Aki-07 cross-referenced by PR #7456
+- 2025-10-11 @tobiu closed this issue
 

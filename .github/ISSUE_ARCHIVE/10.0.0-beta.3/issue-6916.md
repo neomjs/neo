@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T22:32:03Z'
 ---
 # guides/Forms: best practises => mention explicit module imports
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `58bab47` - "guides/Forms: best practises => mention explicit module imports #6916"
+- 2025-06-30 @tobiu closed this issue
 

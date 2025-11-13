@@ -18,11 +18,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T10:20:03Z'
 ---
 # Refactor `collection.Base#construct` to prevent race conditions during instantiation.
-
-**Reported by:** @tobiu on 2025-08-11
 
 **Is your feature request related to a problem? Please describe.**
 Yes. During the instantiation of a `Neo.collection.Base` subclass (or a class that uses it, like `Neo.data.Store`), config setters can be triggered by the `super.construct()` call before the collection's internal properties are fully initialized.
@@ -94,4 +94,12 @@ An alternative would be to add checks for `undefined` in all methods that use th
 
 **Additional context**
 This change makes the `Collection` class more robust and prevents subtle bugs in components that rely on it, especially when they perform data manipulations within their config setters.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `bug` label
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `062856d` - "Refactor collection.Base#construct to prevent race conditions during instantiation. #7179"
+- 2025-08-11 @tobiu closed this issue
 

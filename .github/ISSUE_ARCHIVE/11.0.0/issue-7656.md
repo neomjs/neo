@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T22:21:03Z'
 ---
 # Auto-start ChromaDB on MCP Server Startup - Implementation Summary
-
-**Reported by:** @tobiu on 2025-10-25
 
 ## Servers Affected
 - `ai/mcp/server/memory-core/`
@@ -146,4 +146,14 @@ Both servers now start successfully without manual ChromaDB startup:
 ### @tobiu - 2025-10-25 22:21
 
 <img width="1045" height="608" alt="Image" src="https://github.com/user-attachments/assets/3e221f98-843f-4ba1-8ae2-c813ea50eab8" />
+
+## Activity Log
+
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu added the `bug` label
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu referenced in commit `5adb100` - "Auto-start ChromaDB on MCP Server Startup - Implementation Summary #7656"
+- 2025-10-25 @tobiu referenced in commit `8d913cc` - "#7656 removing the debug flag"
+- 2025-10-25 @tobiu closed this issue
 

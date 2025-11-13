@@ -16,17 +16,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T12:27:24Z'
 ---
 # Update robots.txt for SEO
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 The `robots.txt` file gives instructions to web crawlers about which pages they can or cannot crawl. It should also point to the location of our sitemap.
 
@@ -41,4 +35,11 @@ The `robots.txt` file gives instructions to web crawlers about which pages they 
 ### @tobiu - 2025-11-11 12:27
 
 resolved.
+
+## Activity Log
+
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-11-11 @tobiu closed this issue
 

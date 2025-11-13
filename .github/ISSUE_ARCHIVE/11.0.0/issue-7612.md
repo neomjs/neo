@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T14:12:46Z'
 ---
 # Implement Command-Line Debug Flag Override for MCP Servers
-
-**Reported by:** @tobiu on 2025-10-22
 
 Currently, the `debug` flag for each MCP server is determined solely by its respective `config.mjs` file. To enhance flexibility and ease of debugging, it should be possible to override this `debug` setting via a command-line argument when launching the MCP server (e.g., `gemini --debug`).
 
@@ -38,4 +38,12 @@ This approach is clean, avoids `neo.mjs` dependency, and ensures the `debug` fla
 2.  Within these `logger.mjs` files, `process.argv` is parsed to detect the presence of a `--debug` command-line flag.
 3.  If the `--debug` flag is present, the logger's output is enabled regardless of the `aiConfig.debug` setting.
 4.  The logger correctly reflects this overridden `debug` state.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu referenced in commit `ac462c0` - "Implement Command-Line Debug Flag Override for MCP Servers #7612"
+- 2025-10-22 @tobiu closed this issue
 

@@ -16,10 +16,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # main.addon.OpenStreetMaps
-
-**Reported by:** @tobiu on 2025-04-01
 
 * The first step is to verify that we can get a public key (or use it without a key)
 * We just need support for a basic map and markers
@@ -51,4 +51,11 @@ Feel free to ask questions on Slack / Discord, and I can give you more pointers.
 
 Best regards,
 Tobias
+
+## Activity Log
+
+- 2025-04-01 @tobiu added the `enhancement` label
+- 2025-04-01 @tobiu added the `no auto close` label
+- 2025-04-01 @tobiu assigned to @tobiu
+- 2025-04-01 @tobiu cross-referenced by #6611
 

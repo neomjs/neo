@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-01T12:24:28Z'
 ---
 # Showcase Nested Templates and Component Usage
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 ### 1. Summary
 
@@ -48,4 +42,11 @@ A practical example is crucial for developers to understand how to leverage the 
 -   The example successfully demonstrates nested `html` templates.
 -   The example successfully demonstrates the inclusion of another Neo.mjs component within an `html` template.
 -   The build process correctly converts this complex template structure into optimized JSON VDOM, as verified by inspecting the `dist/esm` output.
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `35494c5` - "Showcase Nested Templates and Component Usage #7152"
+- 2025-08-01 @tobiu closed this issue
 

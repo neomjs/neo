@@ -15,17 +15,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-07T15:45:19Z'
 ---
 # Implement GitHub Action to Prevent Issue Reopening
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 To enforce the project policy that GitHub issues, once closed, should not be reopened, this ticket is for implementing a GitHub Actions workflow. This workflow will automatically close any reopened issue and create a new one, providing a clear explanation to the user. This streamlines the issue tracking process and prevents confusion.
 
@@ -36,4 +30,11 @@ To enforce the project policy that GitHub issues, once closed, should not be reo
 3.  The workflow automatically closes the reopened issue.
 4.  The workflow creates a new issue with the original content, clearly indicating it was reopened.
 5.  A comment is added to the original issue, explaining the policy and linking to the new issue.
+
+## Activity Log
+
+- 2025-10-07 @tobiu assigned to @tobiu
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu referenced in commit `709feec` - "Implement GitHub Action to Prevent Issue Reopening #7414"
+- 2025-10-07 @tobiu closed this issue
 

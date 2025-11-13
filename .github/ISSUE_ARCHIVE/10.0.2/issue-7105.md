@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-24T15:17:14Z'
 ---
 # docs: Enhance NeoVsReact.md comparison
-
-**Reported by:** @tobiu on 2025-07-24
 
 This ticket covers a series of enhancements to the `learn/comparisons/NeoVsReact.md` document to provide a more detailed and accurate comparison against React, incorporating the latest v10 architectural insights.
 
@@ -29,4 +29,11 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsReact
 - Included a side-by-side code example to visually demonstrate the "memoization tax" in React versus the zero-optimization-needed model in Neo.mjs.
 - Added a section comparing React's ephemeral component lifecycle with Neo.mjs's stable, persistent instances and rich lifecycle hooks (`initAsync`, `afterSetMounted`).
 - Detailed the architectural advantages of Neo.mjs's `StateProvider` for surgical state subscriptions over React's Context API.
+
+## Activity Log
+
+- 2025-07-24 @tobiu assigned to @tobiu
+- 2025-07-24 @tobiu added the `enhancement` label
+- 2025-07-24 @tobiu referenced in commit `7969234` - "docs: Enhance NeoVsReact.md comparison #7105"
+- 2025-07-24 @tobiu closed this issue
 

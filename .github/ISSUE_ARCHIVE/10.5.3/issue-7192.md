@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-15T07:56:40Z'
 ---
 # Incorrect aria-rowcount in grid
-
-**Reported by:** @tobiu on 2025-08-15
 
 **Describe the bug**
 The `aria-rowcount` attribute for a grid was calculated incorrectly. It was adding 2 to the store's record count instead of 1. The `aria-rowcount` is 1-based and should include the column header row, so the correct calculation is `store.count + 1`.
@@ -41,4 +41,11 @@ The fix was to change:
 `me.getVdomRoot()['aria-rowcount'] = finalCount + 2;`
 to:
 `me.getVdomRoot()['aria-rowcount'] = finalCount + 1;`
+
+## Activity Log
+
+- 2025-08-15 @tobiu assigned to @tobiu
+- 2025-08-15 @tobiu added the `bug` label
+- 2025-08-15 @tobiu referenced in commit `c7654ad` - "Incorrect aria-rowcount in grid #7192"
+- 2025-08-15 @tobiu closed this issue
 

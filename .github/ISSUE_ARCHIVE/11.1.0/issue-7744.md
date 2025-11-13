@@ -19,17 +19,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T13:02:33Z'
 ---
 # Refactor Release Preparation Script: Rename `injectPackageVersion` to `prepareRelease` and Integrate SEO File Generation
-
-**Reported by:** @tobiu on 2025-11-11
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 The current `buildScripts/injectPackageVersion.mjs` script is responsible for updating the package version across various files during a release. This ticket proposes to refactor and enhance this script to create a more comprehensive release preparation tool.
 
@@ -49,4 +43,13 @@ The current `buildScripts/injectPackageVersion.mjs` script is responsible for up
 -   All references to the old script name in `package.json` are updated.
 -   The `prepareRelease.mjs` script successfully updates package versions and regenerates `sitemap.xml` and `llm.txt` when executed.
 -   The generated `sitemap.xml` and `llm.txt` files contain the correct, canonical, hash-based URLs.
+
+## Activity Log
+
+- 2025-11-11 @tobiu assigned to @tobiu
+- 2025-11-11 @tobiu added the `enhancement` label
+- 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu added the `refactoring` label
+- 2025-11-11 @tobiu referenced in commit `b466aea` - "Refactor Release Preparation Script: Rename injectPackageVersion to prepareRelease and Integrate SEO File Generation #7744"
+- 2025-11-11 @tobiu closed this issue
 

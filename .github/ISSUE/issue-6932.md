@@ -18,10 +18,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Enhance StateProvider for Direct Record Property Binding
-
-**Reported by:** @tobiu on 2025-07-01
 
 **Is your feature request related to a problem? Please describe.**
 Currently, when a `Neo.state.Provider` holds a `Neo.data.Record` instance in its `data` config, changes to individual properties within that record (e.g., `record.set('firstName', 'NewName')`) do not automatically trigger updates through the `StateProvider`'s binding system. Developers must manually proxy these changes by listening to record-level events (if they existed) and updating a separate `data` property in the `StateProvider`. This creates boilerplate and hinders seamless reactive binding to nested record properties.
@@ -45,4 +45,14 @@ This feature is dependent on the implementation of granular change notifications
 ### @github-actions - 2025-09-30 02:38
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-09-30 @github-actions added the `stale` label
+- 2025-10-08 @tobiu removed the `stale` label
+- 2025-10-08 @tobiu added the `help wanted` label
+- 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added the `no auto close` label
+- 2025-10-08 @tobiu added the `hacktoberfest` label
 

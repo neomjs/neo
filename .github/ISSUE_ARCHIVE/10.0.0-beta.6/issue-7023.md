@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T14:42:01Z'
 ---
 # Enhance `Neo.core.Config` for Robust Subscriptions with Scope
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Summary:**
 This ticket covers a critical enhancement to `Neo.core.Config` to add support for an execution `scope` in its `subscribe` method. This was driven by the need for functional components to safely observe `Neo.core.Effect` state changes without creating circular dependencies. The implementation evolved to handle complex edge cases, resulting in a more robust and powerful subscription system.
@@ -53,4 +47,11 @@ The chosen solution was to make `Effect.isRunning` a reactive `Neo.core.Config` 
 -   The `notify` method correctly executes callbacks with their specified scope.
 -   The cleanup function returned by `subscribe` correctly removes the specific `fn`/`scope` subscription and cleans up parent data structures if they become empty.
 -   The code is documented with intent-driven comments explaining the data structure.
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `f9935e0` - "Enhance Neo.core.Config for Robust Subscriptions with Scope #7023"
+- 2025-07-12 @tobiu closed this issue
 

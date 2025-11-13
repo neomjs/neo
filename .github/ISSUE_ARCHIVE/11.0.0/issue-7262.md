@@ -51,18 +51,11 @@ subIssues:
   - 7294
 subIssuesCompleted: 35
 subIssuesTotal: 35
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T10:56:27Z'
 ---
 # Enhance Development Workflow with Mandatory Unit Testing
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Sub-Issues:** #7256, #7261, #7260, #7258, #7255, #7254, #7263, #7267, #7268, #7269, #7270, #7271, #7272, #7273, #7274, #7275, #7276, #7277, #7278, #7279, #7280, #7281, #7282, #7283, #7284, #7285, #7286, #7287, #7288, #7289, #7290, #7291, #7292, #7293, #7294
-**Progress:** 35/35 completed (100%)
-
----
 
 ## Scope
 
@@ -124,4 +117,16 @@ The primary goal is to prevent regressions, especially in the complex core modul
 ### @tobiu - 2025-11-04 10:56
 
 resolved.
+
+## Activity Log
+
+- 2025-09-27 @tobiu assigned to @tobiu
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added the `epic` label
+- 2025-09-27 @tobiu referenced in commit `0c4d5d2` - "#7262 Internal tickets"
+- 2025-09-27 @tobiu referenced in commit `b21e045` - "#7262 Internal tickets"
+- 2025-09-27 @tobiu referenced in commit `bfd1bf2` - "#7262 epic update => migration guide"
+- 2025-09-30 @tobiu referenced in commit `f9c97b4` - "#7262 changed Button test filename to upper case, ClassConfigsAndFields.spec.mjs: reassigned classes when calling setupClass() for consistency"
+- 2025-10-02 @tobiu referenced in commit `d9c4d4b` - "#7262 updated internal tickets"
+- 2025-11-04 @tobiu closed this issue
 

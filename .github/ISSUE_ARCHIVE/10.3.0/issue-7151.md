@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-01T11:06:51Z'
 ---
 # Finalize and Integrate AST-based Build Process
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 ### 1. Summary
 
@@ -47,4 +41,11 @@ After proving the AST-based approach in a dedicated script (`buildSingleFile.mjs
 -   The temporary `buildSingleFile.mjs` script has been removed.
 -   The corresponding npm script has been renamed to `build-dist-esm`.
 -   The full build process runs successfully, correctly transforming all `html` templates across the project.
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `a267273` - "Finalize and Integrate AST-based Build Process #7151"
+- 2025-08-01 @tobiu closed this issue
 

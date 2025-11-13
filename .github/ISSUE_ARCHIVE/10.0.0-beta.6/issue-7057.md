@@ -15,17 +15,18 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T13:26:01Z'
 ---
 # Enable support for nesting functional components
 
-**Reported by:** @tobiu on 2025-07-15
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `5669487` - "Enable support for nesting functional components #7057"
+- 2025-07-15 @tobiu closed this issue
 

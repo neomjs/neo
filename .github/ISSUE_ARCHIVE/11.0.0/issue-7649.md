@@ -18,11 +18,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T16:08:10Z'
 ---
 # Feat: Make `agent` parameter required for `create_comment` tool and simplify implementation
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket documents the change to make the `agent` parameter a required input for the `create_comment` tool, and the subsequent simplification of the `createComment` method in `PullRequestService.mjs`.
 
@@ -39,4 +39,12 @@ Making the `agent` parameter required improves the contract of the `create_comme
     *   The logic for constructing `finalBody` now directly incorporates the agent's header and icon, streamlining the comment formatting process.
 
 This change enhances the robustness of agent comments and simplifies the codebase.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `7b3b100` - "Feat: Make agent parameter required for create_comment tool and simplify implementation #7649"
+- 2025-10-25 @tobiu closed this issue
 

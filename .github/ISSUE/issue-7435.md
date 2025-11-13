@@ -31,19 +31,13 @@ subIssues:
   - 7471
   - 7677
   - 7703
+  - 7737
 subIssuesCompleted: 14
-subIssuesTotal: 15
+subIssuesTotal: 16
+blockedBy: []
+blocking: []
 ---
 # Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Sub-Issues:** #7436, #7437, #7438, #7439, #7440, #7441, #7442, #7443, #7444, #7445, #7469, #7470, #7471, #7677, #7703
-**Progress:** 14/15 completed (93%)
-
----
 
 ## 1. AI-Native Workflow
 
@@ -358,4 +352,27 @@ FYI: phase 1 is completed now.
 updated the epic body with more hints, created a separate new epic just for defining "what to test exactly" for each cmp. hacktoberfest quick wins: https://github.com/neomjs/neo/issues/7475
 
 into the new epic, we can now drop big amounts of subs.
+
+## Activity Log
+
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `good first issue` label
+- 2025-10-10 @tobiu added the `epic` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu removed the `good first issue` label
+- 2025-10-10 @tobiu cross-referenced by #7436
+- 2025-10-10 @tobiu cross-referenced by #7437
+- 2025-10-10 @tobiu cross-referenced by #7438
+- 2025-10-10 @tobiu cross-referenced by #7439
+- 2025-10-10 @tobiu cross-referenced by #7440
+- 2025-10-10 @tobiu cross-referenced by #7441
+- 2025-10-10 @tobiu cross-referenced by #7442
+- 2025-10-10 @tobiu cross-referenced by #7443
+- 2025-10-10 @tobiu cross-referenced by #7444
+- 2025-10-10 @tobiu referenced in commit `48d43fc` - "#7435 ticket md files"
+- 2025-10-10 @tobiu referenced in commit `25acc3f` - "#7435 internal ticket md updates"
+- 2025-10-12 @tobiu referenced in commit `84ee05c` - "#7435 component.Image: specs location update"
+- 2025-10-14 @tobiu cross-referenced by #7476
 

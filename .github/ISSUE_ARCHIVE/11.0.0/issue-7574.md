@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T12:59:31Z'
 ---
 # Update Archiving Logic to Use Dynamic Release Data
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The issue archiving logic in `#getIssuePath()` is currently tied to a static configuration. It needs to be refactored to use the dynamic list of releases fetched from GitHub at the start of the sync process.
 
@@ -43,4 +37,12 @@ The issue archiving logic in `#getIssuePath()` is currently tied to a static con
 -   Completes the transition to a fully dynamic, date-based synchronization system.
 -   Ensures that closed issues are always archived into the correct, most recent release folder without manual intervention.
 -   Makes the archiving logic resilient to changes in the project's release cadence.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `46f5ef2` - "Update Archiving Logic to Use Dynamic Release Data #7574"
+- 2025-10-20 @tobiu closed this issue
 

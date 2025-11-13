@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-09T18:42:49Z'
 ---
 # Create Script to Sync New GitHub Issues to Local Markdown Files
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 While our primary workflow will be local-first, any contributor can still create an issue directly on GitHub. To ensure our local `.github/ISSUE/` directory remains a comprehensive source of truth, we need a script to find any GitHub issues that are missing a corresponding local markdown file and create one for them. This script will be run periodically to keep the two systems in sync.
 
@@ -108,4 +102,15 @@ the benefit of the md files: we drop them into chromaDB (the ai knowledge base),
 
 Hi @tobiu 
 I have created the script to sync new gitHub issues to local markdown files. Kindly verify and merge the PR.
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu assigned to @nabeel001
+- 2025-10-09 @nabeel001 cross-referenced by PR #7424
+- 2025-10-09 @tobiu closed this issue
 

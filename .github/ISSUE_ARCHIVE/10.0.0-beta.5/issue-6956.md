@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T00:23:09Z'
 ---
 # Enhance `Neo.core.Config` with ID-based Subscriptions for Improved Debugging & Diagnostics
-
-**Reported by:** @tobiu on 2025-07-05
 
 **Problem:**
 Current `Neo.core.Config` subscriptions, especially with anonymous functions, lack clear ownership. This makes debugging challenging, as it's hard to identify which `Neo.core.Base` instance owns a specific subscription. This hinders memory leak detection and general application understanding.
@@ -36,4 +36,12 @@ Modify `Neo.core.Config#subscribe` to strictly require an `id` (representing the
 
 **Impact:**
 Requires updates to `Neo.core.Base#observeConfig` and any other direct consumers of `Neo.core.Config#subscribe` to conform to the new signature.
+
+## Activity Log
+
+- 2025-07-05 @tobiu assigned to @tobiu
+- 2025-07-05 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `542e84b` - "Enhance Neo.core.Config with ID-based Subscriptions for Improved Debugging & Diagnostics #6956"
+- 2025-07-06 @tobiu referenced in commit `1ee7782` - "#6956 core.Config cleanup"
+- 2025-07-06 @tobiu closed this issue
 

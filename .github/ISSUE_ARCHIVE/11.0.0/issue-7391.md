@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:29:45Z'
 ---
 # Refactor createGhIssue.mjs to use fs-extra for consistency
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 The `buildScripts/ai/createGhIssue.mjs` script currently uses a mix of `fs` and `fs/promises` for file system operations. The `fs-extra` library is already a project dependency and provides a more consistent and often more convenient API for file system operations, including synchronous alternatives. This ticket is to refactor the script to exclusively use `fs-extra` for all file system interactions, improving consistency and potentially simplifying the code.
 
@@ -75,4 +69,14 @@ Thank you for your interest in this ticket during Hacktoberfest.
 This ticket was for refactoring an old build script ('createGhIssue.mjs'). This script is now obsolete and has been replaced by the new GitHub Workflow MCP server.
 
 We're closing this ticket as it is no longer relevant. Thanks again for your willingness to contribute, and we hope to see you in other issues!
+
+## Activity Log
+
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added the `help wanted` label
+- 2025-10-06 @tobiu added the `good first issue` label
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu assigned to @divyanshkul
+- 2025-10-24 @tobiu closed this issue
 

@@ -17,18 +17,19 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T09:29:39Z'
 ---
 # examples.ConfigurationViewport: make createConfigurationComponents() optionally async
 
-**Reported by:** @tobiu on 2025-07-15
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
-
 - Required for functional components hosting "classic" components, in case you want to subscribe controls to components which get created inside the `createVdom()` effect.
 - Rationale: we need to wait "one tick" inside the micro task queue, before the instances exist
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `219d801` - "examples.ConfigurationViewport: make createConfigurationComponents() optionally async #7055"
+- 2025-07-15 @tobiu closed this issue
 

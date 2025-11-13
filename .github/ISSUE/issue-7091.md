@@ -15,10 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Optimize `core.Observable#afterSetListeners` to perform a diff-based update
-
-**Reported by:** @tobiu on 2025-07-22
 
 ## 1. Motivation
 
@@ -48,4 +48,11 @@ This ensures that listeners added imperatively via `on()` remain unaffected and 
 ### @github-actions - 2025-10-21 02:46
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-22 @tobiu added the `enhancement` label
+- 2025-10-21 @github-actions added the `stale` label
+- 2025-10-21 @tobiu removed the `stale` label
+- 2025-10-21 @tobiu added the `no auto close` label
 

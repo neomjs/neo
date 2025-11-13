@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-04T12:12:50Z'
 ---
 # Reactive Configs with Optional Descriptors
-
-**Reported by:** @tobiu on 2025-07-02
 
 ## Summary
 
@@ -227,4 +227,10 @@ This is a significant but cohesive architectural enhancement. Thanks to the symb
 ### @tobiu - 2025-07-04 12:12
 
 it is working stable now, closing the ticket, but there will be follow-ups.
+
+## Activity Log
+
+- 2025-07-02 @tobiu added the `enhancement` label
+- 2025-07-04 @tobiu cross-referenced by PR #6936
+- 2025-07-04 @tobiu closed this issue
 

@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T01:03:18Z'
 ---
 # learn/benefits.Features: add route based links to other sections
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `b6c0e67` - "learn/benefits.Features: add route based links to other sections #6901"
+- 2025-06-30 @tobiu closed this issue
 

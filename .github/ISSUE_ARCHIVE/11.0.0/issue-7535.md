@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-18T10:08:10Z'
 ---
 # Enhance MCP ToolService to Support OpenAPI Keywords
-
-**Reported by:** @tobiu on 2025-10-18
 
 The `ai/mcp/server/toolService.mjs` is responsible for parsing OpenAPI specifications and generating Zod schemas for validating tool inputs and outputs. The current implementation of `buildZodSchemaFromResponse` is too simplistic and does not support common OpenAPI keywords like `oneOf`, `required`, and `nullable`. This leads to schema validation errors when the OpenAPI spec uses these features.
 
@@ -39,4 +39,11 @@ This ticket is to enhance the `buildZodSchemaFromResponse` function to correctly
 ### @tobiu - 2025-10-18 10:08
 
 resolved via https://github.com/neomjs/neo/commit/e272eb7bb355091d08b7fac278a1cd7f3850a85e (used the wrong ticket id for the commit)
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu closed this issue
 

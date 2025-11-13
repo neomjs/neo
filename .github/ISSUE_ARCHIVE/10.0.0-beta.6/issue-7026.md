@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T18:13:09Z'
 ---
 # Feature: Fine-grained Reactivity Control with EffectManager.pause()
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Is your feature request related to a problem? Please describe.**
 The current reactive system in Neo.mjs, while powerful, can sometimes lead to unintended dependencies. Specifically, when code within an `Effect`'s execution path (e.g., within `createVdom` or a hook like `useConfig`) needs to access a reactive property (like `ComponentManager.registry` via `Neo.getComponent()`) without making that property a dependency of the `Effect`, it can lead to unnecessary re-runs or infinite loops.
@@ -46,4 +40,11 @@ This feature provides fine-grained control over reactivity, preventing unintende
 *   `src/core/Config.mjs`
 *   `src/core/EffectManager.mjs`
 *   `src/functional/useConfig.mjs`
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `eaf22d8` - "Feature: Fine-grained Reactivity Control with EffectManager.pause() #7026"
+- 2025-07-12 @tobiu closed this issue
 

@@ -17,17 +17,18 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T19:37:33Z'
 ---
 # vdom.Helper: insert() & move() => add a physical index & hasLeadingTextChildren delta flag
 
-**Reported by:** @tobiu on 2025-06-15
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu referenced in commit `4b725d8` - "vdom.Helper: insert() & move() => add a physical index & hasLeadingTextChildren delta flag #6806"
+- 2025-06-15 @tobiu closed this issue
 

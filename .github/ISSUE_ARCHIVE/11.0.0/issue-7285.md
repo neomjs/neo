@@ -18,17 +18,11 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-02T19:50:29Z'
 ---
 # Convert neo/MixinStaticConfig.mjs Test from Siesta to Playwright
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Parent Issue:** #7262 - Enhance Development Workflow with Mandatory Unit Testing
-
----
 
 This task is to migrate the unit test for `neo/MixinStaticConfig.mjs` from the Siesta test harness to the Playwright test runner.
 
@@ -68,4 +62,14 @@ Thanks!
 
 Assigned. Please check my comment inside your other ticket first:
 https://github.com/neomjs/neo/issues/7294#issuecomment-3362286193
+
+## Activity Log
+
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-29 @tobiu added the `help wanted` label
+- 2025-09-29 @tobiu added the `good first issue` label
+- 2025-09-29 @tobiu added the `hacktoberfest` label
+- 2025-10-02 @tobiu assigned to @KURO-1125
+- 2025-10-02 @KURO-1125 cross-referenced by PR #7331
+- 2025-10-02 @tobiu closed this issue
 

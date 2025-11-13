@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T10:10:09Z'
 ---
 # Refactor: Improve `createComment` with icon map and better formatting
-
-**Reported by:** @tobiu on 2025-10-25
 
 Based on a code review, the `createComment` tool will be refactored to improve maintainability and the visual format of the final comment.
 
@@ -29,4 +29,12 @@ Based on a code review, the `createComment` tool will be refactored to improve m
 2.  **Horizontal Rule:** A markdown horizontal rule (`---`) will be added after the comment header for better visual separation.
 3.  **Agent Name:** The agent name in the header will be cleaned to use only the first word (e.g., "Gemini" instead of "Gemini 2.5 pro").
 4.  **JSDoc:** The JSDoc for the `createComment` method will be updated to be more explicit about the responsibilities of the agent vs. the tool.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu referenced in commit `c08245b` - "Refactor: Improve createComment with icon map and better formatting #7641"
+- 2025-10-25 @tobiu closed this issue
+- 2025-10-25 @tobiu assigned to @tobiu
 

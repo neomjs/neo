@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-30T10:50:42Z'
 ---
 # Refactor fireChangeEvent to be Synchronous and Review Event Handler Timing
-
-**Reported by:** @tobiu on 2025-07-30
 
 This ticket outlines necessary improvements to the framework's event handling to resolve timing-related issues and prevent race conditions.
 
@@ -58,4 +58,12 @@ static delayable = {
 1.  Modify `fireChangeEvent` in `src/form/field/ComboBox.mjs` and any relevant base classes to be synchronous.
 2.  Verify the fix in the Covid application.
 3.  Review components with performance-intensive event handlers and apply the `delayable` pattern as needed.
+
+## Activity Log
+
+- 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added the `enhancement` label
+- 2025-07-30 @tobiu referenced in commit `7ee52ae` - "Refactor fireChangeEvent to be Synchronous and Review Event Handler Timing #7129"
+- 2025-07-30 @tobiu closed this issue
+- 2025-07-30 @tobiu cross-referenced by #7123
 

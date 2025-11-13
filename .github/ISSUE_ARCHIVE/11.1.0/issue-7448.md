@@ -16,17 +16,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T10:59:35Z'
 ---
 # Create DocumentHead Addon with Canonical URL Support
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 To solve the critical duplicate content issue caused by the SPA architecture and multiple deployment environments (dev, prod, esm), a main thread addon is required to dynamically manage the document's `<head>`.
 
@@ -60,4 +54,18 @@ Please assign this to me. Thank you!
 ### @tobiu - 2025-11-11 09:11
 
 @22Yash sorry, missed your comment. the v11 release was insane. since this was already last month, i will tackle this one on my own.
+
+## Activity Log
+
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-11-11 @tobiu referenced in commit `0d13b56` - "#7448 base class"
+- 2025-11-11 @tobiu referenced in commit `6cd886c` - "#7448 class name"
+- 2025-11-11 @tobiu referenced in commit `9134cf4` - "#7448 getCanonical, getTag, setCanonical, setTag, Portal.view.ViewportController WIP"
+- 2025-11-11 @tobiu referenced in commit `e721456` - "#7448 Portal.view.ViewportController"
+- 2025-11-11 @tobiu referenced in commit `1dc41c6` - "#7448 main.addon.DocumentHead: getLdJson, setLdJson"
+- 2025-11-11 @tobiu referenced in commit `d1417ee` - "#7448 main.addon.DocumentHead: refactoring & cleanup"
+- 2025-11-11 @tobiu referenced in commit `72c5260` - "#7448 main.addon.DocumentHead: intent driven JSDoc comments"
+- 2025-11-11 @tobiu closed this issue
 

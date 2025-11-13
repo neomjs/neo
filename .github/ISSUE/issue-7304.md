@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-12T11:53:00Z'
 ---
 # After Nov 1st: Revert Temporary Hacktoberfest Protocol from AGENTS.md
-
-**Reported by:** @tobiu on 2025-09-28
 
 The `AGENTS.md` file was temporarily modified to include a special onboarding protocol for Hacktoberfest 2025, as detailed in ticket #7303.
 
@@ -35,4 +35,11 @@ This ticket is a scheduled task to remove that temporary section after the event
 ### @tobiu - 2025-11-12 11:53
 
 already removed
+
+## Activity Log
+
+- 2025-09-28 @tobiu assigned to @tobiu
+- 2025-09-28 @tobiu added the `enhancement` label
+- 2025-09-28 @tobiu added the `no auto close` label
+- 2025-11-12 @tobiu closed this issue
 

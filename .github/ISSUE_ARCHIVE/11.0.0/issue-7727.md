@@ -15,12 +15,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T14:50:03Z'
 ---
 # component.MagicMoveText: onVisibilityChange()
 
-**Reported by:** @tobiu on 2025-11-08
-
 * stop auto-cycling when switching to a different browser tab
 * restart when coming back (with a cleared cache
+
+## Activity Log
+
+- 2025-11-08 @tobiu assigned to @tobiu
+- 2025-11-08 @tobiu added the `enhancement` label
+- 2025-11-08 @tobiu referenced in commit `0cc4c5f` - "component.MagicMoveText: onVisibilityChange() #7727"
+- 2025-11-08 @tobiu closed this issue
 

@@ -19,17 +19,11 @@ parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:26:20Z'
 ---
 # Design Knowledge Base MCP Server API
-
-**Reported by:** @tobiu on 2025-10-07
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 This ticket covers the detailed API design for the new Knowledge Base MCP server. The server will replace the current `npm run ai:query` script, providing a formal, structured interface for agents to query the project's knowledge base.
 
@@ -82,4 +76,14 @@ Thank you for your interest in this ticket during Hacktoberfest.
 As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the API for the Knowledge Base MCP server has now been designed and implemented.
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
+
+## Activity Log
+
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
+- 2025-10-08 @tobiu assigned to @Chesblaw
+- 2025-10-24 @tobiu closed this issue
 

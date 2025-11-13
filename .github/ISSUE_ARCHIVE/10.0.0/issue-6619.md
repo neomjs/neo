@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-19T03:02:59Z'
 ---
 # EINVAL / EPERM error when running build script on Windows due to D:\System Volume Information
-
-**Reported by:** @ahmad-su on 2025-04-05
 
 ### Description
 When trying to build the `appworker` thread using the build script (`build-all` or `build-threads`), I get either:
@@ -128,4 +128,10 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @github-actions - 2025-07-19 03:02
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+## Activity Log
+
+- 2025-04-05 @ahmad-su added the `bug` label
+- 2025-07-05 @github-actions added the `stale` label
+- 2025-07-19 @github-actions closed this issue
 

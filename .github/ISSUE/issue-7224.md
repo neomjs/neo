@@ -17,10 +17,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Create Learning Guide: Using data.Store
-
-**Reported by:** @tobiu on 2025-09-20
 
 ### Problem
 The documentation provides detailed guides for `Neo.collection.Base` and `Neo.data.Model` (Records), which are the building blocks of the data layer. However, there is no dedicated guide for `Neo.data.Store`, which is the class that developers will most commonly use to bring these concepts together and connect them to data-aware UI components like Grids and ComboBoxes. This leaves a gap in the learning path from understanding the core data classes to using them in practice.
@@ -67,4 +67,11 @@ The guide should cover the following topics:
 -   The guide follows the proposed content outline.
 -   The guide includes clear, practical code examples.
 -   The new guide is added to the `learn/tree.json` file.
+
+## Activity Log
+
+- 2025-09-20 @tobiu assigned to @tobiu
+- 2025-09-20 @tobiu added the `documentation` label
+- 2025-09-20 @tobiu added the `enhancement` label
+- 2025-09-20 @tobiu added the `no auto close` label
 

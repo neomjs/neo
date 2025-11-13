@@ -18,17 +18,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-03T12:05:58Z'
 ---
 # Enhance Agent Session Initialization: Generate New Session ID and Validate Memory Core State
-
-**Reported by:** @tobiu on 2025-10-03
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 The current agent session initialization protocol in `.github/AGENTS.md` has a critical flaw: it does not explicitly instruct the agent to generate a *new* `sessionId` at the start of each memory-enabled session. This leads to attempts to reuse old session IDs, add memories to already summarized sessions, and creates an inconsistent and unreliable memory state.
 
@@ -41,4 +35,12 @@ This ticket aims to rectify this by enhancing the session initialization process
 3.  The protocol must explicitly state that once a session has been summarized, it is considered immutable, and no further memories should be added to it.
 4.  The agent's internal logic for initiating a session must reflect these changes, ensuring a new `sessionId` is always used for new sessions when the memory core is active.
 5.  The agent should be able to correctly identify and use the *current* session's ID for all memory operations within that session.
+
+## Activity Log
+
+- 2025-10-03 @tobiu added the `bug` label
+- 2025-10-03 @tobiu added the `enhancement` label
+- 2025-10-03 @tobiu referenced in commit `7cde226` - "Enhance Agent Session Initialization: Generate New Session ID and Validate Memory Core State #7337"
+- 2025-10-03 @tobiu closed this issue
+- 2025-10-04 @tobiu assigned to @tobiu
 

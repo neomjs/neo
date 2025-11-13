@@ -15,13 +15,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-05T10:31:28Z'
 ---
 # Neo.cloneMap
 
-**Reported by:** @tobiu on 2025-07-05
-
 * Let us move the `cloneMap` part outside `Neo.clone()`
 * Rationale: this avoids regenerating it every time the method is called.
 * Let us also remove fat arrows here => performance gain, since bindings are not needed here.
+
+## Activity Log
+
+- 2025-07-05 @tobiu assigned to @tobiu
+- 2025-07-05 @tobiu added the `enhancement` label
+- 2025-07-05 @tobiu referenced in commit `b54b761` - "Neo.cloneMap #6951"
+- 2025-07-05 @tobiu closed this issue
 

@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-12T14:31:45Z'
 ---
 # Add `update_comment` Tool to GitHub Workflow Server
-
-**Reported by:** @tobiu on 2025-11-12
 
 During a recent PR review (PR #7741), the agent posted a comment that contained an error. The only way to correct this was for the user to manually edit the comment. There is currently no tool to programmatically edit or update existing comments.
 
@@ -32,4 +32,12 @@ This ticket proposes creating a new `update_comment` tool to fill this gap, allo
 3.  The tool should be added to `openapi.yaml` with clear documentation.
 4.  A corresponding service method should be implemented, likely within `PullRequestService.mjs`.
 5.  The new tool must be registered in `toolService.mjs`.
+
+## Activity Log
+
+- 2025-11-12 @tobiu added the `enhancement` label
+- 2025-11-12 @tobiu added the `good first issue` label
+- 2025-11-12 @tobiu added the `ai` label
+- 2025-11-12 @MannXo cross-referenced by PR #7755
+- 2025-11-12 @tobiu closed this issue
 

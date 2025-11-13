@@ -17,10 +17,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Rewrite TICKET_STRATEGY.md for GitHub Workflow MCP Server & 2-Way Sync
-
-**Reported by:** @tobiu on 2025-10-22
 
 ## Task
 The `TICKET_STRATEGY.md` document needs a comprehensive rewrite to align with the new `github-workflow` MCP server and its 2-way synchronization capabilities. This rewrite should clearly define the updated workflow for managing tasks, features, and bug fixes, incorporating the new tooling.
@@ -33,4 +33,11 @@ The `TICKET_STRATEGY.md` document needs a comprehensive rewrite to align with th
 
 ## Goal
 To provide clear, up-to-date documentation for the project's ticket management strategy, fully leveraging the capabilities of the `github-workflow` MCP server and supporting both human and AI contributors.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `documentation` label
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
 

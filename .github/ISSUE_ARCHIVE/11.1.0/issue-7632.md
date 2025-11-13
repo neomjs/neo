@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-12T08:20:31Z'
 ---
 # feat(mcp): Add tool to manage GitHub issue relationships
-
-**Reported by:** @tobiu on 2025-10-24
 
 This ticket is for creating a new tool within the GitHub Workflow MCP server to manage relationships between issues. Currently, parent/sub-issue relationships are managed manually by editing the markdown files. A dedicated tool would streamline this process.
 
@@ -45,4 +45,12 @@ To get the idea: https://raw.githubusercontent.com/neomjs/neo/refs/heads/dev/.gi
 ### @tobiu - 2025-11-12 07:47
 
 ha, i confused issue relationship and issue history :) i think we got another ticket for the ticket-timeline too somewhere. looking into the PR now.
+
+## Activity Log
+
+- 2025-10-24 @tobiu added the `enhancement` label
+- 2025-10-24 @tobiu added the `ai` label
+- 2025-11-11 @tobiu assigned to @MannXo
+- 2025-11-11 @MannXo cross-referenced by PR #7741
+- 2025-11-12 @tobiu closed this issue
 

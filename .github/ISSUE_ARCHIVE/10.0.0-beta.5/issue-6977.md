@@ -15,13 +15,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-07T17:55:43Z'
 ---
 # core.Base: isDestroying_ reactive config
 
-**Reported by:** @tobiu on 2025-07-07
-
 * This config will be set to `true` as the very first action within the `destroy()` method.
 * Effects can observe this config to clean themselves up.
 * Use case is e.g. `state.Provider`
+
+## Activity Log
+
+- 2025-07-07 @tobiu assigned to @tobiu
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu referenced in commit `c8dcc0b` - "core.Base: isDestroying_ reactive config #6977"
+- 2025-07-07 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `474a79d` - "core.Base: isDestroying_ reactive config #6977"
 

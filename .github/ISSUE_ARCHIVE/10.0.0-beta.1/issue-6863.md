@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-24T18:58:35Z'
 ---
 # core.Base: isReady, readyPromise class fields, and support for an optional initAsync() method
-
-**Reported by:** @tobiu on 2025-06-24
 
 * Many classes do require optional or conditional dynamic imports.
 * We need a logical foundation for not overriding `construct()` manually each time.
@@ -30,4 +30,12 @@ closedAt: '2025-06-24T18:58:35Z'
 ### @tobiu - 2025-06-24 18:57
 
 reopening, because we can do better: using `Promise.resolve().then()` REMOVES the need to put `initRemote()` into the macro task queue.
+
+## Activity Log
+
+- 2025-06-24 @tobiu added the `enhancement` label
+- 2025-06-24 @tobiu referenced in commit `e2b3a52` - "core.Base: isReady, readyPromise class fields, and support for an optional initAsync() method #6863"
+- 2025-06-24 @tobiu closed this issue
+- 2025-06-24 @tobiu referenced in commit `6588bd9` - "#6863 core.Base: smarter approach, which enables us to move initRemote() from the macro to the micro task queue."
+- 2025-06-24 @tobiu closed this issue
 

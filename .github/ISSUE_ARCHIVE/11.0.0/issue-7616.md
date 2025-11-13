@@ -18,11 +18,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T00:10:48Z'
 ---
 # Neo.ai.mcp.server.github-workflow.SyncService: Switch to Content Hash Tracking
-
-**Reported by:** @tobiu on 2025-10-22
 
 This ticket documents a critical bug fix and significant improvement implemented in the `Neo.ai.mcp.server.github-workflow.SyncService`.
 
@@ -48,4 +48,14 @@ The `SyncService` has been refactored to implement **content hash tracking** for
 - Verify that modifying a local issue file's content triggers a push to GitHub, and the `updatedAt` timestamp is updated.
 - Verify that merely touching a local issue file (without changing content) does *not* trigger a push to GitHub.
 - Observe reduced API usage for sync operations when few or no actual content changes have occurred locally.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `bug` label
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu added the `refactoring` label
+- 2025-10-22 @tobiu referenced in commit `7e3a2e1` - "Neo.ai.mcp.server.github-workflow.SyncService: Switch to Content Hash Tracking #7616"
+- 2025-10-23 @tobiu closed this issue
 

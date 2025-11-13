@@ -15,16 +15,10 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Phase 2: Live In-Page Proxy
-
-**Reported by:** @tobiu on 2025-08-20
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 The goal of this phase is to enhance the user experience by making the drag proxy a live, interactive component that continues to receive real-time updates during the drag operation. This is the foundational step for the dynamic windowing in Phase 3.
 
@@ -37,4 +31,9 @@ The goal of this phase is to enhance the user experience by making the drag prox
 
 3.  **Finalize Drop Logic:**
     -   On drop, the live component will be moved from the proxy container back into its new position in the `Viewport`'s layout.
+
+## Activity Log
+
+- 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added the `enhancement` label
 

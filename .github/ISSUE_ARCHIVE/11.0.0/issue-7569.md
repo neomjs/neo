@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T12:08:40Z'
 ---
 # Refactor SyncService to Use Centralized Configuration
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The `SyncService` currently contains several hardcoded constants and static configuration values (e.g., file paths, dropped labels, release schedules). To improve maintainability and flexibility, these values should be moved to the central MCP server configuration file at `ai/mcp/server/config.mjs`.
 
@@ -53,4 +47,13 @@ This ticket covers updating the configuration file and refactoring the `SyncServ
 -   **Improved Maintainability:** Business logic (like the release schedule) can be updated without changing the service's code.
 -   **Increased Flexibility:** The local file structure can be easily reconfigured for different projects or testing scenarios.
 -   **Cleaner Code:** Removes hardcoded values from the service, making the logic itself clearer.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `cac84a1` - "Refactor SyncService to Use Centralized Configuration #7569"
+- 2025-10-20 @tobiu closed this issue
+- 2025-10-20 @tobiu referenced in commit `c7c3223` - "Refactor SyncService to Use Centralized Configuration #7569"
 

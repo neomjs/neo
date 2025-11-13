@@ -14,17 +14,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T10:39:44Z'
 ---
 # Create `Neo.functional.useConfig` Hook
-
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -67,4 +61,10 @@ const MyCounter = defineComponent({
 -   `Neo.functional.useConfig` hook is implemented and tested.
 -   It correctly creates and manages reactive state via `Neo.core.Config`.
 -   Changes to the state trigger re-execution of the component's render function (via `Effect`).
+
+## Activity Log
+
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `fc15419` - "Create Neo.functional.useConfig Hook #7012"
+- 2025-07-11 @tobiu closed this issue
 

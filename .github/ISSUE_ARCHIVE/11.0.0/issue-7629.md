@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T16:20:13Z'
 ---
 # Implement `unassign_issue` Tool to Remove Specific Contributors
-
-**Reported by:** @tobiu on 2025-10-23
 
 Currently, we can add assignees or clear *all* assignees from an issue. However, we lack the functionality to remove one or more specific contributors while leaving others assigned. This is a necessary feature for complete assignee management.
 
@@ -43,4 +43,12 @@ Create a new tool named `unassign_issue` that removes a specified list of assign
 **3. Update `toolService.mjs`:**
 
 *   Add `unassign_issue` to the `serviceMapping` to expose the new method as a tool.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu referenced in commit `fa7cc2a` - "Implement unassign_issue Tool to Remove Specific Contributors #7629"
+- 2025-10-23 @tobiu closed this issue
 

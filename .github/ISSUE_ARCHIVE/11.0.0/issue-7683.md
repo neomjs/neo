@@ -16,11 +16,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-31T21:05:41Z'
 ---
 # Dynamic two-way scroll sync for hybrid devices
 
-**Reported by:** @tobiu on 2025-10-31
-
 On hybrid devices with both touch and mouse input, the grid scrollbar should support both dragging with the mouse and touch scrolling of the grid body without conflicts. This can be achieved by dynamically disabling the two-way sync during a touch interaction. This involves adding `touchstart` and `touchend` listeners to the document body to detect touch interactions and temporarily prevent the scrollbar from syncing back to the grid body during a touch scroll.
+
+## Activity Log
+
+- 2025-10-31 @tobiu added the `enhancement` label
+- 2025-10-31 @tobiu added the `epic` label
+- 2025-10-31 @tobiu added the `ai` label
+- 2025-10-31 @tobiu assigned to @tobiu
+- 2025-10-31 @tobiu referenced in commit `c2ac86d` - "Dynamic two-way scroll sync for hybrid devices #7683"
+- 2025-10-31 @tobiu removed the `epic` label
+- 2025-10-31 @tobiu closed this issue
 

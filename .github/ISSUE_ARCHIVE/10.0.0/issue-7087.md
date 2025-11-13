@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-21T11:17:24Z'
 ---
 # Introduce Functional Button Component
-
-**Reported by:** @tobiu on 2025-07-21
 
 ## Summary
 
@@ -51,4 +51,11 @@ This implementation leverages the framework's existing automatic VDOM node ident
 -   The Siesta test for the functional button passes, demonstrating correct initial rendering and precise delta updates.
 -   The example application at `examples/functional/button` correctly displays and interacts with the functional button.
 -   The implementation correctly relies on the framework's automatic VDOM node ID generation.
+
+## Activity Log
+
+- 2025-07-21 @tobiu assigned to @tobiu
+- 2025-07-21 @tobiu added the `enhancement` label
+- 2025-07-21 @tobiu referenced in commit `5d45b3b` - "Introduce Functional Button Component #7087"
+- 2025-07-21 @tobiu closed this issue
 

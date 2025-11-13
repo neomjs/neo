@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T11:24:27Z'
 ---
 # Refactor MCP Server Configuration
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 This ticket covers the refactoring of the configuration for the MCP servers. Currently, services within the `knowledge-base` server are reaching back into the `buildScripts` directory to import `aiConfig.mjs`. 
 
@@ -38,4 +32,12 @@ To improve modularity and prepare for eventual packaging, we will create a centr
 2.  The new `ai/mcp/server/config.mjs` is modified to remove the `ports` export, which is only relevant to the old Express servers.
 3.  All service files within `ai/mcp/server/knowledge-base/services/` are updated to import the new config file (`../config.mjs`).
 4.  The old `buildScripts/ai/aiConfig.mjs` file is left untouched for now, as it is still in use by other scripts.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `756c958` - "Refactor MCP Server Configuration #7510"
+- 2025-10-16 @tobiu closed this issue
 

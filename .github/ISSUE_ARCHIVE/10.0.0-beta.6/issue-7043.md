@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T17:14:35Z'
 ---
 # Refactor: Extract DOM Event Handling to `DomEvents` Mixin
-
-**Reported by:** @tobiu on 2025-07-13
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Description:**
 Currently, DOM event handling logic, including the `domListeners_` config and related methods (`afterSetDomListeners`, `addDomListeners`, `removeDomListeners`), resides within `src/component/Base.mjs`.
@@ -50,4 +44,11 @@ To enable consistent DOM event support for both class-based components (`src/com
     *   Implement (or modify existing) `afterSetMounted()` and `destroy()` methods to call `this.initDomEvents()` and `this.removeDomEvents()`, respectively.
 
 This refactoring will ensure that both component types benefit from a centralized and reusable DOM event management system, aligning with the framework's pattern of using mixins for shared functionality.
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `58743c8` - "Refactor: Extract DOM Event Handling to DomEvents Mixin #7043"
+- 2025-07-13 @tobiu closed this issue
 

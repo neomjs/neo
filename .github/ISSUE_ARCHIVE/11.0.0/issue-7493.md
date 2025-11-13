@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T11:05:12Z'
 ---
 # Implement Dynamic Tool Discovery via OpenAPI
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 The MCP server must support dynamic tool discovery as described in the protocol specification. A previous refactoring incorrectly implemented a static, hardcoded tool definition within a JavaScript module (`tools.mjs`), which is contrary to the flexible, API-driven nature of the MCP.
 
@@ -40,4 +34,12 @@ This ticket corrects that architectural error. We will reinstate the use of `ope
 4.  The `listTools` function in `toolService.mjs` will return the list of tools generated from the OpenAPI spec.
 5.  The `callTool` function will dynamically execute the correct service function based on the parsed tool definitions.
 6.  The `mcp-stdio.mjs` entry point will remain unchanged and will function correctly with the refactored `toolService`.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `5521758` - "#7493 making callTools => limit optional"
+- 2025-10-15 @tobiu closed this issue
 

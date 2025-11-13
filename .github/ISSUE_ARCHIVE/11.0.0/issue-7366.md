@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-13T21:14:11Z'
 ---
 # Enable Agent to List GitHub Issues and PRs
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 As a foundational capability, the AI agent needs to be able to view open issues and pull requests. This allows the agent to gain context on ongoing work and is a prerequisite for more advanced interactions like reviewing PRs. This ticket involves creating a simple workflow for the agent to use the `gh` command to list this information.
 
@@ -57,4 +51,15 @@ Sure, thank you !
 ### @tobiu - 2025-10-13 21:14
 
 closing the ticket as resolved.
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu assigned to @Mahita07
+- 2025-10-06 @Mahita07 cross-referenced by PR #7396
+- 2025-10-13 @tobiu closed this issue
 

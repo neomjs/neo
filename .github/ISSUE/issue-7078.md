@@ -14,10 +14,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Create Node.js script to standardize and sort module imports
-
-**Reported by:** @tobiu on 2025-07-17
 
 ## Description
  
@@ -43,4 +43,10 @@ subIssuesTotal: 0
 ### @github-actions - 2025-10-16 02:43
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-17 @tobiu added the `enhancement` label
+- 2025-10-16 @github-actions added the `stale` label
+- 2025-10-23 @github-actions removed the `stale` label
 

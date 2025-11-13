@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T13:34:56Z'
 ---
 # Verify Minimum gh CLI Version Before Sync
-
-**Reported by:** @tobiu on 2025-10-20
 
 The `SyncService` depends on specific features and output formats of the GitHub CLI (`gh`). To prevent unexpected errors, we must verify that the installed version of `gh` meets the minimum requirement defined in the configuration before attempting any synchronization operations.
 
@@ -64,4 +64,11 @@ closing this one as not needed:
 >   I will now proceed with this revised plan.
 > 
 >   First, I will delete the now-obsolete ticket #7577.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu closed this issue
 

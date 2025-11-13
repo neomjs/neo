@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T19:49:05Z'
 ---
 # Refactor: Neo.state.Provider to use Effect-based Reactivity
-
-**Reported by:** @tobiu on 2025-07-06
 
 Exploration quest inside the `effect-based-state-provider` feature branch
 
@@ -63,4 +63,10 @@ This refactoring addresses these issues by leveraging the newly introduced `Effe
 ### @tobiu - 2025-07-06 19:49
 
 accidentally pushed the file into: https://github.com/neomjs/neo/issues/6965
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu closed this issue
 

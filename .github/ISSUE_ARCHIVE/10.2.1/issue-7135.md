@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-30T12:39:07Z'
 ---
 # Feature: Enhance button.Base `text` config to support VDOM `cn` arrays
-
-**Reported by:** @tobiu on 2025-07-30
 
 This ticket documents a significant enhancement to `Neo.button.Base`, allowing its `text` config to accept a VDOM `cn` (children) array in addition to a standard string. This provides a cleaner, more secure, and more performant way to define complex button content.
 
@@ -65,4 +65,11 @@ This allows developers to define rich button content using a standard VDOM struc
 2.  **XSS Secure by Default:** By processing a VDOM structure instead of an HTML string, the framework builds the DOM programmatically. This completely avoids the use of `innerHTML` for the button's content, eliminating the risk of XSS attacks from malicious strings.
 
 3.  **Enables Granular Delta Updates:** When the button's content is part of the VDOM tree, the framework's diffing engine can perform highly efficient delta updates. If only one part of the button's content changes (e.g., a number in a label), only that specific text node will be updated in the DOM, rather than re-rendering the entire button's content. This significantly improves rendering performance for dynamic buttons.
+
+## Activity Log
+
+- 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added the `enhancement` label
+- 2025-07-30 @tobiu referenced in commit `28e1ef9` - "Feature: Enhance button.Base text config to support VDOM cn arrays #7135"
+- 2025-07-30 @tobiu closed this issue
 

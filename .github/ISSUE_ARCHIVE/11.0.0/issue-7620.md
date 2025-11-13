@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T12:38:09Z'
 ---
 # Optimize SyncService by Scoping Push and Hashing Releases
-
-**Reported by:** @tobiu on 2025-10-23
 
 The `SyncService` `runFullSync` operation is currently slow (~4.7s) even when no local or remote changes have occurred. This is due to two primary inefficiencies in the push and pull phases.
 
@@ -52,4 +52,13 @@ This ticket proposes a two-pronged approach to optimize the sync process:
 -   The `#pushToGitHub` operation no longer scans or processes files within the `ISSUE_ARCHIVE` directory.
 -   The `#syncReleaseNotes` operation only writes files to disk when the corresponding release content on GitHub has actually changed.
 -   The `.sync-metadata.json` file is updated to store content hashes for release notes to enable this change detection.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu referenced in commit `4ec87f7` - "Optimize SyncService by Scoping Push and Hashing Releases #7620"
+- 2025-10-23 @tobiu referenced in commit `159bca2` - "#7620 minor formatting cleanup"
+- 2025-10-23 @tobiu closed this issue
 

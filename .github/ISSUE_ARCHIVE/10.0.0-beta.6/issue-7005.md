@@ -17,11 +17,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-10T13:26:31Z'
 ---
 # Neo.effect() => register a shortcut to the Neo namespace for developer convenience
 
-**Reported by:** @tobiu on 2025-07-10
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-10 @tobiu assigned to @tobiu
+- 2025-07-10 @tobiu added the `enhancement` label
+- 2025-07-10 @tobiu referenced in commit `1c199b3` - "Neo.effect() => register a shortcut to the Neo namespace for developer convenience #7005"
+- 2025-07-10 @tobiu closed this issue
 

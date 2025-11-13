@@ -18,10 +18,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Enhance `createHierarchicalDataProxy` to Support Reactive Non-Leaf Nodes
-
-**Reported by:** @tobiu on 2025-07-07
 
 **Description:**
 
@@ -54,4 +54,14 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @tobiu - 2025-10-08 09:41
 
 this one needs a review. might be that it is already implemented.
+
+## Activity Log
+
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-10-06 @github-actions added the `stale` label
+- 2025-10-08 @tobiu removed the `stale` label
+- 2025-10-08 @tobiu added the `no auto close` label
+- 2025-10-08 @tobiu added the `help wanted` label
+- 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added the `hacktoberfest` label
 

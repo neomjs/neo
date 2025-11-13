@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-23T14:07:38Z'
 ---
 # Add Release Notes to AI Knowledge Base
-
-**Reported by:** @tobiu on 2025-09-23
 
 To enrich the historical context of the AI knowledge base, this task involves integrating the framework's release notes into the embedding and querying process.
 
@@ -43,4 +43,11 @@ This will enable developers and AI agents to ask questions about when specific f
 -   Running `npm run ai:build-kb` successfully processes and embeds the release notes.
 -   Running `npm run ai:query -- -q "<some feature>" -t release` returns relevant release notes.
 -   The system remains stable and existing functionality is unaffected.
+
+## Activity Log
+
+- 2025-09-23 @tobiu assigned to @tobiu
+- 2025-09-23 @tobiu added the `enhancement` label
+- 2025-09-23 @tobiu referenced in commit `37b9521` - "Add Release Notes to AI Knowledge Base #7241"
+- 2025-09-23 @tobiu closed this issue
 

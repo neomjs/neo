@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-19T12:22:44Z'
 ---
 # Local AI Knowledge Base Setup for the Neo.mjs Repository
-
-**Reported by:** @tobiu on 2025-09-18
 
 This document outlines how to set up a local, CLI-driven AI knowledge base within the `neo` repository. This system allows developers and AI agents to quickly find relevant source code and documentation for a given query.
 
@@ -436,4 +436,16 @@ Top result: /Users/Shared/github/neomjs/neo/src/button/Base.mjs
 ### @tobiu - 2025-09-19 12:21
 
 <img width="995" height="663" alt="Image" src="https://github.com/user-attachments/assets/e4f015b3-2560-4ec5-868c-32ae05a4df86" />
+
+## Activity Log
+
+- 2025-09-18 @tobiu assigned to @tobiu
+- 2025-09-18 @tobiu added the `enhancement` label
+- 2025-09-18 @tobiu added the `no auto close` label
+- 2025-09-18 @tobiu referenced in commit `d71776c` - "Local AI Knowledge Base Setup for the Neo.mjs Repository #7214 WIP"
+- 2025-09-18 @tobiu referenced in commit `3a14588` - "Local AI Knowledge Base Setup for the Neo.mjs Repository #7214 WIP"
+- 2025-09-19 @tobiu referenced in commit `327e554` - "#7214 enhancing the weighting for queries"
+- 2025-09-19 @tobiu referenced in commit `69b014e` - "#7214 adding base classes into search query results"
+- 2025-09-19 @tobiu referenced in commit `4902907` - "#7214 balancing base class weights"
+- 2025-09-19 @tobiu closed this issue
 

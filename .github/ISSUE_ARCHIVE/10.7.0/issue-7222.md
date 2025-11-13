@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-20T12:19:11Z'
 ---
 # Create Learning Guide: Unit Testing with Siesta
-
-**Reported by:** @tobiu on 2025-09-20
 
 ### Problem
 The Neo.mjs repository currently lacks a dedicated learning guide or tutorial on how to write unit tests for components. While a testing framework (Siesta) is in place, there is no documentation explaining how developers can use it to test their own class-based or functional components. This is a significant barrier for new contributors and developers who want to build robust, well-tested applications.
@@ -66,4 +66,14 @@ The guide should cover the following topics:
 -   The guide follows the proposed content outline.
 -   The guide includes clear, runnable code examples.
 -   The new guide is added to the `learn/tree.json` file to appear in the documentation navigation.
+
+## Activity Log
+
+- 2025-09-20 @tobiu assigned to @tobiu
+- 2025-09-20 @tobiu added the `documentation` label
+- 2025-09-20 @tobiu added the `enhancement` label
+- 2025-09-20 @tobiu added the `no auto close` label
+- 2025-09-20 @tobiu referenced in commit `771e329` - "Create Learning Guide: Unit Testing with Siesta #7222"
+- 2025-09-20 @tobiu referenced in commit `49d26d4` - "#7222 component-based VS unit testing"
+- 2025-09-20 @tobiu closed this issue
 

@@ -18,17 +18,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T18:28:44Z'
 ---
 # Bug: `copySeoFiles.mjs` Fails to Copy SEO Files to Correct `dist` Paths for Applications
-
-**Reported by:** @tobiu on 2025-11-11
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 Two critical bugs have been identified in `buildScripts/copySeoFiles.mjs` that prevent the correct copying of SEO files (`robots.txt`, `llm.txt`, `sitemap.xml`) to application build directories.
 
@@ -66,4 +60,12 @@ These bugs prevent SEO files from being correctly deployed to application `dist`
 -   SEO files are correctly copied to `dist/<env>/apps/<app-name>` for all identified applications, including nested ones.
 -   SEO files are copied for `development`, `production`, and `esm` environments as appropriate based on the `--env` parameter.
 -   No "Target directory does not exist" warnings related to SEO file copying are observed for valid application `dist` paths.
+
+## Activity Log
+
+- 2025-11-11 @tobiu assigned to @tobiu
+- 2025-11-11 @tobiu added the `bug` label
+- 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu referenced in commit `d0ee445` - "Bug: copySeoFiles.mjs Fails to Copy SEO Files to Correct dist Paths for Applications #7748"
+- 2025-11-11 @tobiu closed this issue
 

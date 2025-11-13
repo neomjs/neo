@@ -15,11 +15,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T14:13:09Z'
 ---
 # Learning Content: Layouts
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `e2d3685` - "Learning Content: Layouts #6909"
+- 2025-06-30 @tobiu referenced in commit `1d78fa5` - "#6909 layout base"
+- 2025-06-30 @tobiu referenced in commit `e737c2f` - "#6909 layout card"
+- 2025-06-30 @tobiu referenced in commit `8a14c11` - "#6909 layout card => lazy loading"
+- 2025-06-30 @tobiu closed this issue
 

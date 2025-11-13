@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T16:17:47Z'
 ---
 # Build Process: Ensure `parse5` bundle exists before template processing
-
-**Reported by:** @tobiu on 2025-08-02
 
 ## 1. Summary
 
@@ -40,4 +40,11 @@ A robust build process should not rely on implicit dependencies or a specific or
 -   The `buildAll.mjs` script now reliably creates the `parse5` bundle as one of its first actions.
 -   The overall build process is more robust, and the implicit dependency within `templateBuildProcessor.mjs` is now satisfied automatically.
 -   Developers running the standard `build-all` command will not encounter build failures related to the missing `parse5.mjs` file.
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu referenced in commit `f7abe19` - "Build Process: Ensure parse5 bundle exists before template processing #7165"
+- 2025-08-02 @tobiu closed this issue
 

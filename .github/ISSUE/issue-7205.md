@@ -15,16 +15,10 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Phase 4: Framework-Level Dashboard Abstraction
-
-**Reported by:** @tobiu on 2025-08-20
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 The final phase is to abstract the logic and components developed in the Colors app into generic, reusable, and configurable framework-level classes. This will provide the foundation for building multi-window dashboards within the Neo Studio environment.
 
@@ -39,4 +33,9 @@ The final phase is to abstract the logic and components developed in the Colors 
 3.  **Create Documentation & Examples:**
     -   Develop comprehensive documentation for the new dashboard classes.
     -   Create new, focused examples to demonstrate how developers can build their own multi-window dashboards using these new framework-level tools.
+
+## Activity Log
+
+- 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added the `enhancement` label
 

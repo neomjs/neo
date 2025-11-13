@@ -16,17 +16,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T12:28:41Z'
 ---
 # Refactor SEO Generator Script with Correct Data Sources
-
-**Reported by:** @tobiu on 2025-10-11
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 This ticket is a follow-up to `ticket-create-sitemap-generator-script.md`. The initial implementation was completed correctly according to the original specification. However, the specification was flawed due to an oversight in identifying the correct data sources for our content.
 
@@ -55,4 +49,12 @@ Sure, will finish the work on this! Can I get it assigned on me?
 ### @tobiu - 2025-11-11 12:28
 
 already resolved.
+
+## Activity Log
+
+- 2025-10-11 @tobiu assigned to @tobiu
+- 2025-10-11 @tobiu added the `enhancement` label
+- 2025-10-11 @tobiu added the `ai` label
+- 2025-10-11 @tobiu cross-referenced by PR #7456
+- 2025-11-11 @tobiu closed this issue
 

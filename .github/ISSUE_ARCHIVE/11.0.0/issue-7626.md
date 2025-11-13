@@ -16,17 +16,11 @@ parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T15:19:06Z'
 ---
 # Cache Viewer Permission on Server Startup
-
-**Reported by:** @tobiu on 2025-10-23
-
----
-
-**Parent Issue:** #7604 - Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
----
 
 As part of the epic to automate MCP server startup and reduce agent protocol (#7604), we should proactively fetch and cache the user's permission level for the repository when the `github-workflow` server starts. Currently, an agent would need to explicitly call the `get_viewer_permission` tool, which is an unnecessary extra step.
 
@@ -46,4 +40,12 @@ By fetching this information on startup, we simplify the agent's workflow and ma
 -   The permission level is stored on the `RepositoryService` singleton.
 -   The `get_viewer_permission` tool reads from the cached value and does not make a new API call.
 -   Other services can import `RepositoryService` and access the permission level directly (e.g., `RepositoryService.viewerPermission`).
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu referenced in commit `9f99f71` - "Cache Viewer Permission on Server Startup #7626"
+- 2025-10-23 @tobiu closed this issue
 

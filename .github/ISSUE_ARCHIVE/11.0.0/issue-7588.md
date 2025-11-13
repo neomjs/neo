@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T08:26:32Z'
 ---
 # Enhance Sync Result Payload with Comprehensive Statistics
-
-**Reported by:** @tobiu on 2025-10-21
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The `runFullSync()` method currently returns minimal information (only the count
 of pushed changes). For better observability and to help AI agents understand
@@ -300,4 +294,12 @@ if (result.timing.durationMs > 300000) {
 - "Why didn't my local edit sync?" → Check `statistics.pushed`
 - "Did new PRs come in?" → Check `statistics.pulled.created`
 - "Which releases were synced?" → Check `statistics.releases.synced`
+
+## Activity Log
+
+- 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `1c1f4e8` - "Enhance Sync Result Payload with Comprehensive Statistics #7588"
+- 2025-10-21 @tobiu closed this issue
 

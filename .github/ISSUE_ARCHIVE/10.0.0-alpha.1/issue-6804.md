@@ -16,17 +16,17 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T16:15:25Z'
 ---
 # vdom.Helper: insertNode() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true
 
-**Reported by:** @tobiu on 2025-06-15
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
-
 * Same logic like inside `create()`
+
+## Activity Log
+
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu referenced in commit `fe52385` - "vdom.Helper: insertNode() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true #6804"
+- 2025-06-15 @tobiu closed this issue
 

@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T10:06:47Z'
 ---
 # High-Performance Chunking for `Store.add()` via `suspendEvents`
-
-**Reported by:** @tobiu on 2025-08-11
 
 ## Motivation
 
@@ -53,4 +53,11 @@ The logic is as follows:
 - **Non-Blocking Data Load:** The bulk of the data processing happens without freezing the UI, correctly utilizing the app worker while other workers handle rendering.
 - **Idiomatic Code:** Uses the built-in `suspendEvents` property, which is the intended, declarative way to batch operations without firing events. This is cleaner and more robust than manually managing listeners.
 - **Improved User Experience:** Eliminates long freezes when loading large amounts of data.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `47668b6` - "High-Performance Chunking for Store.add() via suspendEvents #7178"
+- 2025-08-11 @tobiu closed this issue
 

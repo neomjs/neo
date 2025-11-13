@@ -25,18 +25,11 @@ subIssues:
   - 7662
 subIssuesCompleted: 8
 subIssuesTotal: 8
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T16:16:16Z'
 ---
 # Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
-**Reported by:** @tobiu on 2025-10-22
-
----
-
-**Sub-Issues:** #7626, #7630, #7631, #7658, #7659, #7660, #7661, #7662
-**Progress:** 8/8 completed (100%)
-
----
 
 The current `AGENTS.md` file contains a significant number of manual steps that the AI agent must perform at the beginning of each session, such as checking if servers are running and triggering summarization. This process is brittle and places a high cognitive load on the agent.
 
@@ -60,4 +53,17 @@ This epic covers automating these startup procedures within the MCP servers them
 -   **Reduced Agent Complexity:** Drastically simplifies the agent's bootstrap process.
 -   **Increased Reliability:** Automating these steps makes the system more robust and less prone to user or agent error.
 -   **Faster Session Startup:** Reduces the number of commands and checks required to start a new session.
+
+## Activity Log
+
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `epic` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-23 @tobiu cross-referenced by #7626
+- 2025-10-24 @tobiu cross-referenced by #7634
+- 2025-10-26 @tobiu cross-referenced by #7658
+- 2025-10-26 @tobiu cross-referenced by #7659
+- 2025-10-26 @tobiu cross-referenced by #7664
+- 2025-10-26 @tobiu closed this issue
+- 2025-10-26 @tobiu assigned to @tobiu
 

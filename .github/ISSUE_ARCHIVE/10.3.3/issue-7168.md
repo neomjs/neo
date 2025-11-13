@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-04T08:24:15Z'
 ---
 # The VDOM Revolution: How We Render UIs from a Web Worker
-
-**Reported by:** @tobiu on 2025-08-04
 
 *(No description provided)*
 
@@ -28,4 +28,26 @@ closedAt: '2025-08-04T08:24:15Z'
 ### @tobiu - 2025-08-04 08:24
 
 https://tobiasuhlig.medium.com/the-surgical-update-from-json-blueprints-to-flawless-ui-fcba31575f44?source=friends_link&sk=d2084a1ed9d5fc512859320895550080
+
+## Activity Log
+
+- 2025-08-04 @tobiu assigned to @tobiu
+- 2025-08-04 @tobiu added the `Blog Post` label
+- 2025-08-04 @tobiu referenced in commit `99abf6b` - "The VDOM Revolution: How We Render UIs from a Web Worker #7168 WIP"
+- 2025-08-04 @tobiu referenced in commit `9f67144` - "The VDOM Revolution: How We Render UIs from a Web Worker #7168 WIP"
+- 2025-08-04 @tobiu referenced in commit `58ede4e` - "The VDOM Revolution: How We Render UIs from a Web Worker #7168 WIP"
+- 2025-08-04 @tobiu referenced in commit `9d5db6e` - "#7168 CTAs"
+- 2025-08-04 @tobiu referenced in commit `7b43039` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `81034c7` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `e13229f` - "#7168 polishing, more code snippets and links"
+- 2025-08-04 @tobiu referenced in commit `7352549` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `b64912a` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `df442bb` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `74db937` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `617979a` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `7ca055b` - "#7168 links without ``"
+- 2025-08-04 @tobiu referenced in commit `47c9bc7` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `256e5fb` - "#7168 polishing"
+- 2025-08-04 @tobiu referenced in commit `f0c550b` - "#7168 NeoStudio image"
+- 2025-08-04 @tobiu closed this issue
 

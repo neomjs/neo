@@ -16,17 +16,11 @@ parentIssue: 7590
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T19:15:13Z'
 ---
 # Migrate SyncService to GraphQL
-
-**Reported by:** @tobiu on 2025-10-21
-
----
-
-**Parent Issue:** #7590 - Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
-
----
 
 This is the largest part of the GraphQL migration, focusing on the complete refactoring of the `SyncService` to use the new `GraphqlService`.
 
@@ -36,4 +30,13 @@ This is the largest part of the GraphQL migration, focusing on the complete refa
 2.  The `#pushToGitHub` method is rewritten to use a GraphQL mutation to update issue titles and bodies.
 3.  The `#fetchAndCacheReleases` method is rewritten to use a GraphQL query.
 4.  The old `#ghCommand` helper method is removed from the service.
+
+## Activity Log
+
+- 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `2696ac1` - "Migrate SyncService to GraphQL #7594"
+- 2025-10-21 @tobiu closed this issue
+- 2025-10-22 @tobiu cross-referenced by #7590
 

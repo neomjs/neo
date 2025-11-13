@@ -14,11 +14,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-22T21:36:41Z'
 ---
 # learn/tree.json: move guides before tutorials
 
-**Reported by:** @tobiu on 2025-06-22
-
 * the enhanced guides section provides valuable input, which makes sense to read before coding by yourself.
+
+## Activity Log
+
+- 2025-06-22 @tobiu added the `enhancement` label
+- 2025-06-22 @tobiu referenced in commit `9f74da1` - "learn/tree.json: move guides before tutorials #6856"
+- 2025-06-22 @tobiu closed this issue
 

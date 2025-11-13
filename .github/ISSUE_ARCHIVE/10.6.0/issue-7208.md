@@ -17,17 +17,18 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-21T18:46:44Z'
 ---
 # main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker
 
-**Reported by:** @tobiu on 2025-08-21
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
-
 * Plus use the `allowOverdrag` config, passed from the app worker
+
+## Activity Log
+
+- 2025-08-21 @tobiu assigned to @tobiu
+- 2025-08-21 @tobiu added the `enhancement` label
+- 2025-08-21 @tobiu referenced in commit `8b8dafb` - "main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker #7208"
+- 2025-08-21 @tobiu closed this issue
 

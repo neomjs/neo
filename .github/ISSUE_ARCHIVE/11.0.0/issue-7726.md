@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T14:33:45Z'
 ---
 # main.DomEvents: add support for document.visibilitychange
 
-**Reported by:** @tobiu on 2025-11-08
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-11-08 @tobiu assigned to @tobiu
+- 2025-11-08 @tobiu added the `enhancement` label
+- 2025-11-08 @tobiu referenced in commit `0965b06` - "main.DomEvents: add support for document.visibilitychange #7726"
+- 2025-11-08 @tobiu closed this issue
 

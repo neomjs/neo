@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-18T12:34:49Z'
 ---
 # Introduce Neo.gatekeep() to Standardize Module Exports
-
-**Reported by:** @tobiu on 2025-07-18
 
 ## Summary:
 
@@ -108,4 +108,11 @@ export default Neo.gatekeep(IdGenerator, 'Neo.core.IdGenerator', () => {
     *   src/core/EffectManager.mjs
     *   src/core/IdGenerator.mjs
     *   src/vdom/VNode.mjs
+
+## Activity Log
+
+- 2025-07-18 @tobiu assigned to @tobiu
+- 2025-07-18 @tobiu added the `enhancement` label
+- 2025-07-18 @tobiu referenced in commit `2253053` - "Introduce Neo.gatekeep() to Standardize Module Exports #7081"
+- 2025-07-18 @tobiu closed this issue
 

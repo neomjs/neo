@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T16:58:40Z'
 ---
 # Refactor(core.Base): Harden config initialization order after v10 changes
-
-**Reported by:** @tobiu on 2025-07-06
 
 **Description**
 
@@ -45,4 +45,11 @@ This refactoring hardens the initialization logic within `core.Base` to make it 
 **Benefit**
 
 This refactoring establishes a clear and predictable order of operations within `set()`, restoring the expected behavior and ensuring that config hooks and custom field setters have a consistent and correct view of the instance's state during a batched update.
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `d13efd8` - "Refactor(core.Base): Harden config initialization order after v10 changes #6961"
+- 2025-07-06 @tobiu closed this issue
 

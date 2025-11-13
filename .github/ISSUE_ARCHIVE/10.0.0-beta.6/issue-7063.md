@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T17:46:20Z'
 ---
 # Learning Content: Read only code block letter spacing
-
-**Reported by:** @tobiu on 2025-07-15
 
 The new theme is using `letter-spacing: 1px` which is arguable.
 
@@ -28,4 +28,11 @@ This also affects the code views:
 
 I will remove it here explicitly to get to:
 <img width="490" height="221" alt="Image" src="https://github.com/user-attachments/assets/c487159e-dd72-4451-93ee-5976400ca9dd" />
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `4278a1b` - "Learning Content: Read only code block letter spacing #7063"
+- 2025-07-15 @tobiu closed this issue
 

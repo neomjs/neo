@@ -18,17 +18,11 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:52:10Z'
 ---
 # Hacktoberfest Mission: Train the AI - Test Its Memory! (2/5)
-
-**Reported by:** @tobiu on 2025-10-04
-
----
-
-**Parent Issue:** #7296 - Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
----
 
 **Welcome, Agent Trainer!**
 
@@ -118,4 +112,15 @@ Thank you for your interest in this ticket during Hacktoberfest.
 As there has been no activity for a couple of weeks and the project's architecture has been evolving rapidly, the memory-core has now become an own mcp-server, and we can create new testing tickets, once the agents file is updated.
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
+
+## Activity Log
+
+- 2025-10-04 @tobiu added the `help wanted` label
+- 2025-10-04 @tobiu added the `good first issue` label
+- 2025-10-04 @tobiu added the `hacktoberfest` label
+- 2025-10-04 @tobiu added the `ai` label
+- 2025-10-04 @tobiu cross-referenced by #7286
+- 2025-10-04 @tobiu cross-referenced by PR #7339
+- 2025-10-06 @tobiu assigned to @Raj-G07
+- 2025-10-24 @tobiu closed this issue
 

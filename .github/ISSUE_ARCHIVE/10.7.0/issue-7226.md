@@ -16,11 +16,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-21T17:58:43Z'
 ---
 # Blog: How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces
 
-**Reported by:** @tobiu on 2025-09-21
-
 While the article already exists on Medium for a while, it needs to get into our new AI knowledge base inside the repo. I will "reverse-engineer" it as a markdown file.
+
+## Activity Log
+
+- 2025-09-21 @tobiu assigned to @tobiu
+- 2025-09-21 @tobiu added the `enhancement` label
+- 2025-09-21 @tobiu added the `Blog Post` label
+- 2025-09-21 @tobiu referenced in commit `178464b` - "Blog: How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces #7226"
+- 2025-09-21 @tobiu closed this issue
 

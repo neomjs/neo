@@ -16,11 +16,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-15T11:47:36Z'
 ---
 # learn/benefits/Introduction: needs a more polished version
 
-**Reported by:** @tobiu on 2025-09-15
-
 important, since this is one of the first pages interested devs might read.
+
+## Activity Log
+
+- 2025-09-15 @tobiu assigned to @tobiu
+- 2025-09-15 @tobiu added the `documentation` label
+- 2025-09-15 @tobiu added the `enhancement` label
+- 2025-09-15 @tobiu referenced in commit `80ad674` - "learn/benefits/Introduction: needs a more polished version #7211"
+- 2025-09-15 @tobiu closed this issue
 

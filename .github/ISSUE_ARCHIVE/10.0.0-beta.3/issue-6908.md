@@ -16,12 +16,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T13:37:28Z'
 ---
 # Portal.view.learn.ContentComponent: updateContentSectionsStore() => headline code got lost
 
-**Reported by:** @tobiu on 2025-06-30
-
 * When removing code blocks for `PageSectionsList`, I accidentally also removed them from article headlines.
 * We need 2 separate replacements.
+
+## Activity Log
+
+- 2025-06-30 @tobiu added the `bug` label
+- 2025-06-30 @tobiu referenced in commit `1972267` - "Portal.view.learn.ContentComponent: updateContentSectionsStore() => headline code got lost #6908"
+- 2025-06-30 @tobiu closed this issue
 

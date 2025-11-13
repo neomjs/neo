@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-22T20:46:25Z'
 ---
 # resources/data/deck/learnneo => learn/
-
-**Reported by:** @tobiu on 2025-06-22
 
 Let me first explore the current structure of the learning content to understand how it's organized and accessed. Based on your question about whether moving the learning content from `resources/data/deck/learnneo` to a top-level folder like `learn` or `guides` would help LLMs better access it for training data, here's my analysis:
 
@@ -65,4 +65,11 @@ This would make your learning content much more discoverable for LLM training wh
 ### @tobiu - 2025-06-22 20:46
 
 FYI: the portal app has legacy support. it can still pull in the trainings deck from its old location if needed.
+
+## Activity Log
+
+- 2025-06-22 @tobiu assigned to @tobiu
+- 2025-06-22 @tobiu added the `enhancement` label
+- 2025-06-22 @tobiu referenced in commit `52db3f7` - "resources/data/deck/learnneo => learn/ #6854"
+- 2025-06-22 @tobiu closed this issue
 

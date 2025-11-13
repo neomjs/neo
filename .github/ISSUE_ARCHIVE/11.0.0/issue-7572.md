@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T12:55:42Z'
 ---
 # Implement Dynamic Release Fetching in SyncService
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 With the configuration now based on a `syncStartDate`, the `SyncService` must be updated to dynamically fetch release data from GitHub instead of relying on a static list. This fetched data will be used by the archiving logic.
 
@@ -44,4 +38,12 @@ With the configuration now based on a `syncStartDate`, the `SyncService` must be
 -   Makes the archiving process fully automated and aware of the latest project releases.
 -   Eliminates the need for manual configuration updates when a new version is released.
 -   Ensures the service has an accurate, up-to-date list of all relevant releases.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `5d70430` - "Implement Dynamic Release Fetching in SyncService #7572"
+- 2025-10-20 @tobiu closed this issue
 

@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T10:18:05Z'
 ---
 # MCP Tool Handlers Lose `this` Context, Causing Private Field Errors
-
-**Reported by:** @tobiu on 2025-10-22
 
 A critical bug was discovered in the MCP server's `toolService`. When a tool method was called (e.g., `healthcheck`), it failed with the error: `Cannot read private member #... from an object whose class did not declare it`.
 
@@ -56,4 +56,12 @@ This change was applied to the `toolService.mjs` file in all three MCP servers:
 - `memory-core`
 
 This resolves the bug and makes the tool handling mechanism more robust and reliable.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `bug` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu referenced in commit `b71126d` - "MCP Tool Handlers Lose this Context, Causing Private Field Errors #7602"
+- 2025-10-22 @tobiu closed this issue
 

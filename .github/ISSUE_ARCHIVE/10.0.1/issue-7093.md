@@ -20,18 +20,11 @@ subIssues:
   - 7097
 subIssuesCompleted: 4
 subIssuesTotal: 4
+blockedBy: []
+blocking: []
 closedAt: '2025-07-24T07:11:35Z'
 ---
 # Create v10 Top-Level Blog Post
-
-**Reported by:** @tobiu on 2025-07-22
-
----
-
-**Sub-Issues:** #7094, #7095, #7096, #7097
-**Progress:** 4/4 completed (100%)
-
----
 
 ## 1. Goal
 Create the main "hub" blog post for the v10 release. This post should be a high-level, compelling summary of the new features and their benefits.
@@ -89,4 +82,43 @@ All web developers, including those from other framework ecosystems (React, Vue,
 
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file, following this new structure.
+
+## Activity Log
+
+- 2025-07-22 @tobiu assigned to @tobiu
+- 2025-07-22 @tobiu added the `enhancement` label
+- 2025-07-22 @tobiu added the `epic` label
+- 2025-07-22 @tobiu removed the `enhancement` label
+- 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu referenced in commit `59f3006` - "Create v10 Top-Level Blog Post #7093 initial ticket versions"
+- 2025-07-22 @tobiu referenced in commit `886b8c7` - "#7093 super early draft"
+- 2025-07-22 @tobiu referenced in commit `b111e4a` - "#7093 more "why" focussed draft"
+- 2025-07-22 @tobiu referenced in commit `28b1040` - "#7093 more "provocative" draft"
+- 2025-07-22 @tobiu referenced in commit `28e491f` - "#7093 thoughts on vdom"
+- 2025-07-22 @tobiu referenced in commit `4aa0152` - "#7093 WIP"
+- 2025-07-22 @tobiu referenced in commit `a3a878b` - "#7093 WIP"
+- 2025-07-22 @tobiu referenced in commit `b9f93b4` - "#7093 WIP"
+- 2025-07-22 @tobiu referenced in commit `26ddc83` - "#7093 WIP"
+- 2025-07-22 @tobiu referenced in commit `eae5048` - "#7093 WIP"
+- 2025-07-22 @tobiu referenced in commit `89f9fd2` - "#7093 WIP"
+- 2025-07-22 @tobiu referenced in commit `e88a5dd` - "#7093 alternative strategy"
+- 2025-07-22 @tobiu referenced in commit `bd6b650` - "#7093 alternative strategy"
+- 2025-07-22 @tobiu referenced in commit `b56391b` - "#7093 wip"
+- 2025-07-22 @tobiu referenced in commit `6d7286d` - "#7093 wip"
+- 2025-07-22 @tobiu referenced in commit `f6a1e7f` - "#7093 combined updates"
+- 2025-07-23 @tobiu referenced in commit `0031baf` - "#7093 more advanced example for fn cmps, moved main thread addons & initAsync() into the reactivity blog post"
+- 2025-07-23 @tobiu referenced in commit `281ac9b` - "#7093 article navigation"
+- 2025-07-23 @tobiu referenced in commit `5b5f115` - "#7093 top-level code example WIP"
+- 2025-07-23 @tobiu referenced in commit `caa6da0` - "#7093 formatting"
+- 2025-07-23 @tobiu referenced in commit `0dd48e4` - "#7093 WIP"
+- 2025-07-23 @tobiu referenced in commit `9697ad7` - "#7093 WIP"
+- 2025-07-23 @tobiu referenced in commit `b4e43f5` - "#7093 smarter series navigation"
+- 2025-07-23 @tobiu referenced in commit `fad2a01` - "#7093 personal note"
+- 2025-07-23 @tobiu referenced in commit `cf17848` - "#7093 polishing"
+- 2025-07-23 @tobiu referenced in commit `4d171a0` - "#7093 adding weight to "framework for ai""
+- 2025-07-23 @tobiu referenced in commit `41d3c05` - "#7093 more code examples"
+- 2025-07-23 @tobiu referenced in commit `51a2e42` - "#7093 main thread addon in-depth example"
+- 2025-07-23 @tobiu referenced in commit `b535909` - "#7093 examples polishing"
+- 2025-07-23 @tobiu referenced in commit `32f6719` - "#7093 cleanup"
+- 2025-07-24 @tobiu closed this issue
 

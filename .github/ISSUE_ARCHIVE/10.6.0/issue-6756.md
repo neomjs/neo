@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-17T02:37:07Z'
 ---
 # Portal App: sitemap.xml
-
-**Reported by:** @tobiu on 2025-06-04
 
 According to Gemini, we need this one.
 
@@ -137,4 +137,11 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @github-actions - 2025-09-17 02:37
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+## Activity Log
+
+- 2025-06-04 @tobiu assigned to @tobiu
+- 2025-06-04 @tobiu added the `enhancement` label
+- 2025-09-03 @github-actions added the `stale` label
+- 2025-09-17 @github-actions closed this issue
 

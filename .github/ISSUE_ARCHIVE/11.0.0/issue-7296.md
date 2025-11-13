@@ -34,18 +34,11 @@ subIssues:
   - 7474
 subIssuesCompleted: 17
 subIssuesTotal: 17
+blockedBy: []
+blocking: []
 closedAt: '2025-11-02T09:30:37Z'
 ---
 # Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
-**Reported by:** @tobiu on 2025-09-28
-
----
-
-**Sub-Issues:** #7297, #7298, #7299, #7301, #7305, #7306, #7307, #7328, #7342, #7343, #7344, #7345, #7346, #7417, #7465, #7467, #7474
-**Progress:** 17/17 completed (100%)
-
----
 
 ## 🚀 Level Up Your Career in 5 Minutes
 
@@ -269,4 +262,29 @@ updated the intro to include: https://github.com/neomjs/neo/blob/dev/.github/WOR
 Hi guys! As the epic mentions: you are welcome to open hacktoberfest tickets on your own. E.g. using the "ai native" workflow, gemini can easily provide you with ideas.
 
 Alternatively, you are also welcome to just ask here for more tickets (ideally with a short summary on what you would like to work on).
+
+## Activity Log
+
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `epic` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-28 @tobiu assigned to @tobiu
+- 2025-09-28 @tobiu referenced in commit `bf5b347` - "#7296 subs md files"
+- 2025-09-28 @tobiu referenced in commit `9062317` - "#7296 sub md file"
+- 2025-09-28 @tobiu referenced in commit `240d918` - "#7296 ticket md files"
+- 2025-09-28 @tobiu unassigned from @tobiu
+- 2025-09-28 @tobiu referenced in commit `1cca92a` - "#7296 new sub md file"
+- 2025-10-01 @tobiu referenced in commit `6a7ddda` - "#7296 internal tickets update"
+- 2025-10-02 @tobiu referenced in commit `a321602` - "#7296 new sub md file"
+- 2025-10-02 @tobiu referenced in commit `ebd2804` - "#7296 new sub md file => gh id"
+- 2025-10-03 @tobiu cross-referenced by #7289
+- 2025-10-03 @tobiu cross-referenced by #7287
+- 2025-10-03 @tobiu cross-referenced by #7283
+- 2025-10-04 @tobiu referenced in commit `0e84aea` - "#7296 new sub-ticket md files"
+- 2025-10-05 @tobiu cross-referenced by #7364
+- 2025-10-06 @tobiu cross-referenced by #7391
+- 2025-10-07 @tobiu cross-referenced by #7399
+- 2025-10-08 @tobiu cross-referenced by #7418
+- 2025-11-02 @tobiu closed this issue
 

@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-16T11:30:39Z'
 ---
 # Improve Functional Component Initial Render Timing
-
-**Reported by:** @tobiu on 2025-07-16
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Problem
 
@@ -51,4 +45,11 @@ The problem was solved by enhancing the `Effect` class to handle this timing req
     *   A similar manual trigger inside `processVdomForComponents` for nested functional components was also removed.
 
 This architectural change ensures that the VDOM processing logic is subscribed before the first run, guaranteeing that it executes exactly once and at the correct synchronous point in the component lifecycle. This fixes the initial render issue for all use cases without causing double runs.
+
+## Activity Log
+
+- 2025-07-16 @tobiu assigned to @tobiu
+- 2025-07-16 @tobiu added the `enhancement` label
+- 2025-07-16 @tobiu referenced in commit `8ac9b78` - "Improve Functional Component Initial Render Timing #7074"
+- 2025-07-16 @tobiu closed this issue
 

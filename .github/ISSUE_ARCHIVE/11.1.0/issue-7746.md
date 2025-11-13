@@ -16,17 +16,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T17:29:38Z'
 ---
 # Enhance Release Preparation: Auto-update `datePublished` in `index.html`
-
-**Reported by:** @tobiu on 2025-11-11
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 The `buildScripts/prepareRelease.mjs` script has been enhanced to automatically update the `datePublished` field within the `ld+json` structured data located in `apps/portal/index.html`.
 
@@ -39,4 +33,12 @@ This task was completed as part of the broader SEO enhancement epic, aiming to i
 **Acceptance Criteria:**
 -   When `buildScripts/prepareRelease.mjs` is executed, the `datePublished` field in `apps/portal/index.html` is updated to the current date in `YYYY-MM-DD` format.
 -   The script executes without errors and logs the update.
+
+## Activity Log
+
+- 2025-11-11 @tobiu assigned to @tobiu
+- 2025-11-11 @tobiu added the `enhancement` label
+- 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu referenced in commit `2badb6a` - "Enhance Release Preparation: Auto-update datePublished in index.html #7746"
+- 2025-11-11 @tobiu closed this issue
 

@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T13:56:03Z'
 ---
 # Decouple Logger by Duplicating into Each MCP Server
-
-**Reported by:** @tobiu on 2025-10-22
 
 The current `ai/mcp/server/logger.mjs` is a centralized logger that incorrectly imports the `debug` configuration from `github-workflow/config.mjs`. This creates a tight coupling and prevents other MCP servers (Knowledge Base, Memory Core) from using their own `debug` settings.
 
@@ -38,4 +38,13 @@ To address these issues, the `logger.mjs` file should be duplicated into each MC
 5.  All files within the `github-workflow` server that previously imported the centralized logger are updated to import `../logger.mjs` (or `./logger.mjs` if in the same directory).
 6.  All files within the `knowledge-base` server that previously imported the centralized logger are updated to import `../logger.mjs`.
 7.  All files within the `memory-core` server that previously imported the centralized logger are updated to import `../logger.mjs`.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu added the `refactoring` label
+- 2025-10-22 @tobiu referenced in commit `38cfdb6` - "Decouple Logger by Duplicating into Each MCP Server #7611"
+- 2025-10-22 @tobiu closed this issue
 

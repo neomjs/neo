@@ -18,18 +18,11 @@ subIssues:
   - 7713
 subIssuesCompleted: 2
 subIssuesTotal: 2
+blockedBy: []
+blocking: []
 closedAt: '2025-11-10T20:31:38Z'
 ---
 # Enhance GitHub Workflow server robustness when gh cli is not installed
-
-**Reported by:** @tobiu on 2025-11-01
-
----
-
-**Sub-Issues:** #7714, #7713
-**Progress:** 2/2 completed (100%)
-
----
 
 The `HealthService` in the `github-workflow` MCP server currently checks for `gh cli` authentication and version. While robust, the server's behavior and error handling when `gh cli` is entirely absent or not in the PATH needs further investigation. This ticket is to thoroughly inspect and enhance the server's startup robustness and error messaging in such scenarios.
 
@@ -53,4 +46,13 @@ i am already moving new mcp testing files into the playwright folder.
 ### @tobiu - 2025-11-10 20:31
 
 closing the epic, since all subs are resolved.
+
+## Activity Log
+
+- 2025-11-01 @tobiu added the `enhancement` label
+- 2025-11-01 @tobiu added the `ai` label
+- 2025-11-01 @tobiu assigned to @MannXo
+- 2025-11-07 @MannXo cross-referenced by #7713
+- 2025-11-07 @MannXo cross-referenced by #7714
+- 2025-11-10 @tobiu closed this issue
 

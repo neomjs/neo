@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T12:30:12Z'
 ---
 # Implement and Adopt a Centralized stderr Logger
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The MCP server specification requires that `stdio`-based servers **must not** write to `stdout`, as it will corrupt the JSON-RPC message transport. Currently, the `SyncService` and other parts of the server use `console.log`, `console.warn`, and `console.error` directly, with some writing to `stdout`.
 
@@ -49,4 +43,11 @@ This ticket covers the enhancement of the existing `logger.mjs` to provide a saf
 -   **Compliance:** Adheres to the MCP server specification.
 -   **Centralized Logging:** Provides a single, consistent, and safe way to handle logging across all services.
 -   **Improved Diagnostics:** Prefixes logs with `[INFO]`, `[WARN]`, etc., making `stderr` output easier to read and filter.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu closed this issue
 

@@ -15,17 +15,11 @@ parentIssue: 7048
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-14T16:08:54Z'
 ---
 # Phase 2: Email List View
-
-**Reported by:** @tobiu on 2025-07-14
-
----
-
-**Parent Issue:** #7048 - Epic: Refactor and Enhance the Email App
-
----
 
 **Goal:** Implement the email list pane using a Neo.mjs grid to display a list of emails.
 
@@ -49,4 +43,11 @@ closedAt: '2025-07-14T16:08:54Z'
 
 **Next Steps:**
 -   Implement selection handling on the grid to prepare for the detail view.
+
+## Activity Log
+
+- 2025-07-14 @tobiu assigned to @tobiu
+- 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu referenced in commit `7e70ab9` - "Phase 2: Email List View #7052"
+- 2025-07-14 @tobiu closed this issue
 

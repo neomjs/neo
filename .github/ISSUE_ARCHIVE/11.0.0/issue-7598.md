@@ -17,17 +17,11 @@ parentIssue: 7590
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T09:01:33Z'
 ---
 # Finalize MCP Server Config Refactoring
-
-**Reported by:** @tobiu on 2025-10-22
-
----
-
-**Parent Issue:** #7590 - Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
-
----
 
 This ticket tracks the final steps of the MCP server configuration refactoring. The monolithic `ai/mcp/server/config.mjs` has been split into three new, server-specific configuration files:
 
@@ -43,4 +37,13 @@ This task is to update all server-side modules to import from their respective n
 2.  All modules within `ai/mcp/server/knowledge-base/` that previously imported `../../config.mjs` are updated to import `./config.mjs`.
 3.  All modules within `ai/mcp/server/memory-core/` that previously imported `../../config.mjs` are updated to import `./config.mjs`.
 4.  The old `ai/mcp/server/config.mjs` file is deleted.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu added the `refactoring` label
+- 2025-10-22 @tobiu referenced in commit `501b28e` - "Finalize MCP Server Config Refactoring #7598"
+- 2025-10-22 @tobiu closed this issue
 

@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-14T08:56:51Z'
 ---
 # Define Initial OpenAPI Specification for GitHub Workflow Server
-
-**Reported by:** @tobiu on 2025-10-14
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 This ticket covers the creation of the initial `openapi.yaml` specification for the new GitHub Workflow MCP server.
 
@@ -42,4 +36,12 @@ The goal is to define a clear, structured API for the server's first iteration, 
     - A `GET /pull-requests/{pr_number}/diff` endpoint.
 3.  The specification defines clear request and response schemas for each endpoint.
 4.  The initial draft is committed and pushed, allowing for further review and implementation.
+
+## Activity Log
+
+- 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu referenced in commit `1d6f674` - "Define Initial OpenAPI Specification for GitHub Workflow Server #7478"
+- 2025-10-14 @tobiu closed this issue
 

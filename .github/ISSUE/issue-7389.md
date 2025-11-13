@@ -16,16 +16,10 @@ parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Investigate Worker Console Access with MCP
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Parent Issue:** #7385 - 'Sighted' Agent - Chrome DevTools Integration
-
----
 
 This ticket is for investigating the feasibility of accessing worker and shared worker consoles using the Chrome DevTools Model Context Protocol (MCP) server. This is a crucial step in enabling full-stack debugging in our multi-threaded application.
 
@@ -55,4 +49,16 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/316
 
 Shared Workers:
 https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/317
+
+## Activity Log
+
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added the `help wanted` label
+- 2025-10-06 @tobiu added the `good first issue` label
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu assigned to @tobiu
+- 2025-10-06 @tobiu removed the `help wanted` label
+- 2025-10-06 @tobiu removed the `good first issue` label
+- 2025-10-06 @tobiu removed the `hacktoberfest` label
 

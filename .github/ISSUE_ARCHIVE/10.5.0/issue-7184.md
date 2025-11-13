@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T22:44:33Z'
 ---
 # Grid: Optimize Rendering for Chunked Data Loading
-
-**Reported by:** @tobiu on 2025-08-11
 
 ### Is your feature request related to a problem? Please describe.
 When dealing with very large datasets in grids, loading all data at once can lead to significant performance issues and a poor user experience due to long initial rendering times.
@@ -40,4 +40,11 @@ This optimization will allow grids to display data much faster when dealing with
 
 ### Additional context
 This feature is based on the changes introduced in commit `e76ed9180e32027c157a5615305a824ef820de91`.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `e76ed91` - "#7184"
+- 2025-08-11 @tobiu closed this issue
 

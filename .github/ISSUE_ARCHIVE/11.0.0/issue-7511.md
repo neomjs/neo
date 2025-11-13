@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T11:36:28Z'
 ---
 # Separate Create and Embed Services
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 Currently, the `sync_database` tool is a single, monolithic operation that combines both the creation of the knowledge base JSONL file and the embedding of its content into ChromaDB. This lacks the granular control provided by the original `createKnowledgeBase.mjs` and `embedKnowledgeBase.mjs` scripts.
 
@@ -43,4 +37,12 @@ This ticket covers the work to separate this functionality into distinct tools t
     - The `embedKnowledgeBase` function will read the `.jsonl` file and perform the diff, embedding, and upserting into ChromaDB.
 3.  The existing `syncDatabase` function is refactored to be a simple orchestrator that calls `createKnowledgeBase()` and then `embedKnowledgeBase()` in sequence.
 4.  The `toolService.mjs` `serviceMapping` is updated to map the new `operationId`s to their respective service functions.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `82ce4fd` - "Separate Create and Embed Services #7511"
+- 2025-10-16 @tobiu closed this issue
 

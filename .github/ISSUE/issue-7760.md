@@ -16,10 +16,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Implement `llms.txt` specification and differentiate from `llm.txt`
-
-**Reported by:** @tobiu on 2025-11-12
 
 The current `llm.txt` file in `@apps/portal/llm.txt` is intended to provide information for Large Language Models (LLMs) but is currently just a list of URLs. This does not conform to the emerging `llms.txt` specification https://llmstxt.org/, which defines a structured Markdown file for LLM content indexing.
 
@@ -39,4 +39,10 @@ This ticket aims to correctly implement the `llms.txt` specification for the Neo
     *   Allowing for manual curation of key summaries and links.
     *   Leveraging the `learn/tree.json` structure to identify important content.
 5.  **Differentiation**: Clarify the role of `llm.txt` (for crawler permissions) versus `llms.txt` (for content indexing). If a separate `llm.txt` for permissions is deemed necessary and distinct from `robots.txt`, a plan for its generation should be included. For now, the primary focus is on `llms.txt`.
+
+## Activity Log
+
+- 2025-11-12 @tobiu added the `documentation` label
+- 2025-11-12 @tobiu added the `enhancement` label
+- 2025-11-12 @tobiu added the `ai` label
 

@@ -18,17 +18,11 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-01T08:04:29Z'
 ---
 # Add Intent-Driven JSDoc to `splitter.MainContainer` Example
-
-**Reported by:** @tobiu on 2025-09-28
-
----
-
-**Parent Issue:** #7296 - Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
----
 
 The existing example for `Neo.component.Splitter` at `examples/component/splitter/MainContainer.mjs` is not easily discoverable by our AI query tool because it lacks descriptive JSDoc comments. 
 
@@ -95,4 +89,16 @@ Would it be okay if I update this in my next PR?
 Thanks for the heads up! Normally I would recommend to open a ticket (please do in the future!), but since this item affects to hacktoberfest onboarding experience for others, I will change & push it right away.
 
 There is a Slack & a Discord Channel posted inside the parent ticket, in case you prefer a more direct communication (e.g. for asking questions).
+
+## Activity Log
+
+- 2025-09-28 @tobiu added the `documentation` label
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-29 @nikeshadhikari9 cross-referenced by #7299
+- 2025-09-29 @tobiu assigned to @nikeshadhikari9
+- 2025-09-29 @tobiu referenced in commit `4b6a979` - "AI_QUICK_START.md: fixed the gemini cli installation path. thx for the heads-up! #7301"
+- 2025-10-01 @nikeshadhikari9 cross-referenced by PR #7313
+- 2025-10-01 @tobiu closed this issue
 

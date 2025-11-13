@@ -15,14 +15,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-26T19:17:41Z'
 ---
 # component.Abstract: parentId default value
-
-**Reported by:** @tobiu on 2025-07-26
 
 * Regression issue after introducing `component.Abstract`
 * `component.Base` had the default value `document.body`
 * the new base class got `null` instead
 * This breaks shared tooltips
+
+## Activity Log
+
+- 2025-07-26 @tobiu assigned to @tobiu
+- 2025-07-26 @tobiu added the `bug` label
+- 2025-07-26 @tobiu referenced in commit `6f6bd29` - "component.Abstract: parentId default value #7112"
+- 2025-07-26 @tobiu closed this issue
 

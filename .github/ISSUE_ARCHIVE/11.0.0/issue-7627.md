@@ -13,11 +13,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T15:45:05Z'
 ---
 # Gemini CLI Test Issue for Unassignment
 
-**Reported by:** @tobiu on 2025-10-23
-
 Please ignore.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu unassigned from @tobiu
+- 2025-10-23 @tobiu closed this issue
 

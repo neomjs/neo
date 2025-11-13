@@ -15,15 +15,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T01:17:51Z'
 ---
 # Neo.config.useDataWorkerEntryPoint
-
-**Reported by:** @tobiu on 2025-06-30
 
 * The app worker uses `app.mjs` as a starting point
 * The canvas worker uses `canvas.mjs` as a starting point
 * The task worker uses `task.mjs` as a starting point
 
 => it is only logical to allow the data worker to optionally use `data.mjs`, to allow devs to define services with remote method access in there.
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu closed this issue
 

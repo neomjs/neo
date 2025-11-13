@@ -15,17 +15,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-10T17:21:00Z'
 ---
 # Add `loadModule` RMA Method to App Worker
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 To support a fully dynamic component testing environment, we need a way for the Playwright test runner (main thread) to dynamically load ES modules into the App Worker on demand. The current approach used by the Siesta harness, which involves a static manifest file (`test/components/app.mjs`), is brittle and does not support proper test isolation.
 
@@ -37,4 +31,11 @@ This task is to implement a new Remote Method Access (RMA) method, `loadModule()
 2.  This method must use a dynamic `import()` statement to load the module specified by the `path`.
 3.  Crucially, the import statement **must** include the `/* webpackIgnore: true */` magic comment to prevent webpack from trying to bundle the dynamic path.
 4.  The new `loadModule` method must be added to the `remote.main` array in the `config` of `src/worker/App.mjs` to make it accessible from the main thread.
+
+## Activity Log
+
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu referenced in commit `9e1eaa4` - "Add loadModule RMA Method to App Worker #7445"
+- 2025-10-10 @tobiu closed this issue
 

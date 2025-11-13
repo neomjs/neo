@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-13T21:16:05Z'
 ---
 # Enable Agent to Comment on Pull Requests
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 After reviewing a pull request, the agent needs to be able to provide feedback directly on GitHub. The `gh pr review` and `gh issue comment` commands can be used for this purpose. This ticket is to create the workflow for the agent to use these commands to comment on a PR.
 
@@ -53,4 +47,15 @@ assigned. please read my comment on your other ticket first.
 ### @tobiu - 2025-10-13 21:16
 
 closing the ticket as resolved.
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu assigned to @LemonDrop847
+- 2025-10-05 @LemonDrop847 cross-referenced by PR #7383
+- 2025-10-13 @tobiu closed this issue
 

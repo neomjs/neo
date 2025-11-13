@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T18:03:13Z'
 ---
 # component.Base: destroy() => remove `parentStateProvider?.removeBindings(me.id)`
-
-**Reported by:** @tobiu on 2025-07-15
 
 Obsolete now, since `state.Provider` cleans up binding effects on its own:
 
@@ -34,4 +34,11 @@ Obsolete now, since `state.Provider` cleans up binding effects on its own:
             }
         });
 ```
+
+## Activity Log
+
+- 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `b59518a` - "component.Base: destroy() => remove parentStateProvider?.removeBindings(me.id) #7065"
+- 2025-07-15 @tobiu closed this issue
 

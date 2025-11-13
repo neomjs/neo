@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T13:53:26Z'
 ---
 # Healthcheck tool returns unstructured content
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 When running the `healthcheck` tool on the `neo-knowledge-base` MCP server, it fails with the error: `MCP error -32600: Tool healthcheck has an output schema but did not return structured content`.
 
@@ -37,4 +31,13 @@ This indicates that the object returned by the `healthService.healthcheck` funct
 1.  The `healthService.mjs` file is reviewed and corrected.
 2.  The `healthcheck` function is modified to return a JSON object that strictly conforms to the `HealthCheckResponse` schema.
 3.  Running the `healthcheck` tool successfully returns the structured health status without any MCP errors.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `bug` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `94ef9cb` - "Healthcheck tool returns unstructured content #7515"
+- 2025-10-16 @tobiu referenced in commit `c661e67` - "#7515 structuredContent"
+- 2025-10-16 @tobiu closed this issue
 

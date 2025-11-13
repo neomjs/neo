@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-24T09:02:02Z'
 ---
 # Update AI Quick Start Guide
-
-**Reported by:** @tobiu on 2025-09-24
 
 The `AI_QUICK_START.md` guide is copied into new workspaces created via `npx neo-app`. The previous instructions were only sufficient for working within the `neo` repository itself and needed to be updated to support both use cases.
 
@@ -34,4 +34,11 @@ The `AI_QUICK_START.md` guide is copied into new workspaces created via `npx neo
 ## Goal
 
 To ensure the AI Quick Start Guide provides accurate and clear setup instructions for users in both the core framework repository and in a separate workspace, preventing confusion for new users.
+
+## Activity Log
+
+- 2025-09-24 @tobiu assigned to @tobiu
+- 2025-09-24 @tobiu added the `enhancement` label
+- 2025-09-24 @tobiu referenced in commit `87168f8` - "Update AI Quick Start Guide #7247"
+- 2025-09-24 @tobiu closed this issue
 

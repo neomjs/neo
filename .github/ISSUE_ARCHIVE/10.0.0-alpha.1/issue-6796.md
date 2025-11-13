@@ -15,13 +15,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T11:26:33Z'
 ---
 # vdom.VNode: wrong attributes type
 
-**Reported by:** @tobiu on 2025-06-15
-
 * The class was always used with `vnode.attributes` being an Object.
 * However, the documentation and ctor use it as an Array, which is misleading.
 * While it did not break anything, I want to change it for clarity.
+
+## Activity Log
+
+- 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu added the `bug` label
+- 2025-06-15 @tobiu referenced in commit `2cd0d20` - "vdom.VNode: wrong attributes type #6796"
+- 2025-06-15 @tobiu closed this issue
 

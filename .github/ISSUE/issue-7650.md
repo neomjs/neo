@@ -18,10 +18,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related Commits
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket proposes an enhancement to the local issue synchronization process to include more comprehensive information from GitHub issues, specifically timeline events and related commits. This will provide a richer and more complete historical context within the local Markdown issue files.
 
@@ -45,4 +45,11 @@ Currently, our local Markdown tickets only capture a subset of this information.
     *   Introduce new sections within the Markdown body (e.g., "Activity Log" or "Related Commits") to present this information clearly and chronologically.
 
 This enhancement will significantly improve the utility and completeness of our local issue tracking.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-11-13 @tobiu referenced in commit `c3e914d` - "Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related Commits #7650"
 

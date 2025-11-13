@@ -17,11 +17,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-07T11:14:06Z'
 ---
 # tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect
 
-**Reported by:** @tobiu on 2025-07-07
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-07 @tobiu assigned to @tobiu
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu referenced in commit `18267d9` - "tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect #6971"
+- 2025-07-07 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `bde646b` - "tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect #6971"
 

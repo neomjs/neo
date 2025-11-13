@@ -15,19 +15,20 @@ parentIssue: 6785
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T22:21:41Z'
 ---
 # vdom.util.StringFromVnode
 
-**Reported by:** @tobiu on 2025-06-15
-
----
-
-**Parent Issue:** #6785 - Vnode Tree to DOM Element Mapping
-
----
-
 * The string based generation logic is now only needed in case `useStringBasedMounting === true`
 * So, let us put it into a lazy loaded file, which only gets dynamically imported when the config value matches
 * To enable run-time switching, we need to add the import check into both `vdom.Helper` remote methods (create & update)
+
+## Activity Log
+
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu referenced in commit `6f15db1` - "vdom.util.StringFromVnode #6809"
+- 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu closed this issue
 

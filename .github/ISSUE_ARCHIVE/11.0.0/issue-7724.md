@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-08T12:12:03Z'
 ---
 # Docs: Update Agent-Agnostic MCP Config Guide for SDK Architecture
-
-**Reported by:** @tobiu on 2025-11-08
 
 The `learn/guides/ai/AgentAgnosticMcpConfig.md` guide was significantly outdated. It described a manual, agent-driven process for discovering and managing MCP servers based on the now-deleted `.github/mcp-servers.json` file.
 
@@ -34,4 +34,12 @@ Key changes include:
 -   **Content Restoration:** The valuable "See Also" section with relevant links was re-added.
 
 The updated guide now accurately represents the current, more robust, and simplified SDK-based approach to MCP server integration.
+
+## Activity Log
+
+- 2025-11-08 @tobiu added the `documentation` label
+- 2025-11-08 @tobiu added the `ai` label
+- 2025-11-08 @tobiu assigned to @tobiu
+- 2025-11-08 @tobiu referenced in commit `7df1992` - "Docs: Update Agent-Agnostic MCP Config Guide for SDK Architecture #7724"
+- 2025-11-08 @tobiu closed this issue
 

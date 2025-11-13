@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T12:07:18Z'
 ---
 # Add Configurable Prefix for Release Note Filenames
-
-**Reported by:** @tobiu on 2025-10-22
 
 Currently, the `SyncService` creates filenames for synced issues with a configurable prefix (`issue-`) to prevent filenames from starting with a number. However, synced release notes (e.g., `10.0.0.md`) are created without a prefix, leading to inconsistent naming conventions within the `.github` directory.
 
@@ -31,4 +31,12 @@ To improve consistency, we should add a configurable prefix for release note fil
 1.  A new configuration property, `releaseFilenamePrefix`, is added to the `issueSync` object in `ai/mcp/server/github-workflow/config.mjs`. A default value of `'v'` should be considered.
 2.  The `#syncReleaseNotes` method in `SyncService.mjs` is updated to use this new prefix when constructing the filename for each release note.
     -   Example: `v10.0.0.md` instead of `10.0.0.md`.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu referenced in commit `1f2cad7` - "Add Configurable Prefix for Release Note Filenames #7605"
+- 2025-10-22 @tobiu closed this issue
 

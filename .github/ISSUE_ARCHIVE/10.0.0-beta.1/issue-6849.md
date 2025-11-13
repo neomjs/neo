@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-24T14:41:01Z'
 ---
 # table.View => table.Body
-
-**Reported by:** @tobiu on 2025-06-20
 
 Gemini:
 
@@ -33,4 +33,11 @@ Renaming View to Body for both Neo.grid and Neo.table components (i.e., Neo.grid
 4. **Logical Pair for Header.Toolbar**: If you retain separate Header.Toolbar components, having Body as the counterpart creates a more cohesive and understandable component hierarchy for tabular data.
 
 This is a very logical and beneficial breaking change that will significantly improve the developer experience and clarity of your API in Neo.mjs v10. It's precisely the kind of refinement that a major version bump allows for.
+
+## Activity Log
+
+- 2025-06-20 @tobiu assigned to @tobiu
+- 2025-06-20 @tobiu added the `enhancement` label
+- 2025-06-24 @tobiu referenced in commit `afdc10d` - "table.View => table.Body #6849"
+- 2025-06-24 @tobiu closed this issue
 

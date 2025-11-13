@@ -17,16 +17,10 @@ parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Create a "Sighted" Development Demo
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Parent Issue:** #7385 - 'Sighted' Agent - Chrome DevTools Integration
-
----
 
 This ticket is for creating a proof-of-concept demo of the new "Sighted" Development Workflow. The demo will showcase the agent's ability to develop a component while interactively verifying it and generating tests.
 
@@ -66,4 +60,11 @@ https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
 Let me know in case you are still up for the task! If so, I will assign the ticket to you.
+
+## Activity Log
+
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added the `help wanted` label
+- 2025-10-06 @tobiu added the `good first issue` label
+- 2025-10-06 @tobiu added the `hacktoberfest` label
 

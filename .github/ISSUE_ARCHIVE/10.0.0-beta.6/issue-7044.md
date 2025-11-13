@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T17:29:48Z'
 ---
 # examples.todoList.version1.MainComponent: vtype: "text" gets rendered as a div
-
-**Reported by:** @tobiu on 2025-07-13
 
 Regression issue, this worked fine with the string based mount adapter.
 
@@ -35,4 +35,11 @@ Most likely, one of these 2 files is responsible:
 ### @tobiu - 2025-07-13 17:29
 
 <img width="988" height="749" alt="Image" src="https://github.com/user-attachments/assets/fae2ae64-0562-4682-a248-e4c2b2100694" />
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `bug` label
+- 2025-07-13 @tobiu referenced in commit `0a7c9b1` - "examples.todoList.version1.MainComponent: vtype: "text" gets rendered as a div #7044"
+- 2025-07-13 @tobiu closed this issue
 

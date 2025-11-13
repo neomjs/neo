@@ -17,17 +17,11 @@ parentIssue: 7399
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-09T10:28:18Z'
 ---
 # MCP Config: Align Knowledge Server Port and Health Check
-
-**Reported by:** @tobiu on 2025-10-09
-
----
-
-**Parent Issue:** #7399 - Architect AI Tooling as a Model Context Protocol (MCP) Servers
-
----
 
 This ticket documents the correction of the `neo-knowledge-base` server definition within the `.github/mcp-servers.json` configuration file.
 
@@ -38,4 +32,13 @@ The configuration was updated to:
 -   Set the `healthCheck.url` to `http://localhost:8000/api/v2/healthcheck`.
 
 This change ensures that the MCP server configuration accurately reflects the intended architecture and maintains consistency across the defined services.
+
+## Activity Log
+
+- 2025-10-09 @tobiu assigned to @tobiu
+- 2025-10-09 @tobiu added the `documentation` label
+- 2025-10-09 @tobiu added the `enhancement` label
+- 2025-10-09 @tobiu added the `ai` label
+- 2025-10-09 @tobiu referenced in commit `663e2ae` - "MCP Config: Align Knowledge Server Port and Health Check #7425"
+- 2025-10-09 @tobiu closed this issue
 

@@ -15,10 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # cross reference: import maps for the worker scope
-
-**Reported by:** @tobiu on 2023-01-05
 
 this feature is super important for the neo framework, so we should keep track on the progress:
 https://github.com/WICG/import-maps/issues/2
@@ -29,4 +29,9 @@ https://github.com/WICG/import-maps/issues/2
 
 It looks like this repo has been shutdown in favor of the whatwg/html repo. This pull request seems to be taking over from issue:
 https://github.com/whatwg/html/pull/10858
+
+## Activity Log
+
+- 2023-01-05 @tobiu added the `enhancement` label
+- 2024-08-27 @tobiu added the `no auto close` label
 

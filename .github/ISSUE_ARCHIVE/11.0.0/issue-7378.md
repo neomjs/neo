@@ -16,17 +16,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:41:35Z'
 ---
 # Enhance Knowledge Base to Include GitHub Comments
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 The comments on GitHub issues and PRs contain invaluable context, debates, and decision-making history. To make this information discoverable by the agent, we need to ingest these comments into our local knowledge base (ChromaDB). This ticket is to enhance the knowledge base creation process to include comments.
 
@@ -584,4 +578,12 @@ https://github.com/neomjs/neo/blob/dev/.github/workflows/prevent-reopen.yml
 ### @tobiu - 2025-10-24 09:41
 
 @kart-u: resolved, in a way => 2-way sync in place, so comments will get automatically added into the knowledge db (with their tickets).
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu assigned to @kart-u
+- 2025-10-06 @kart-u referenced in commit `620ab3d` - "Enhance Knowledge Base to Include GitHub Comments #7378"
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-24 @tobiu closed this issue
 

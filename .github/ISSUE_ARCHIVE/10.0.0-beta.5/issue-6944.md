@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-04T21:06:25Z'
 ---
 # learn/guides/StateProvider: use modal: true for the dialog demo
 
-**Reported by:** @tobiu on 2025-07-04
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-04 @tobiu assigned to @tobiu
+- 2025-07-04 @tobiu added the `enhancement` label
+- 2025-07-04 @tobiu referenced in commit `5248901` - "learn/guides/StateProvider: use modal: true for the dialog demo #6944"
+- 2025-07-04 @tobiu closed this issue
 

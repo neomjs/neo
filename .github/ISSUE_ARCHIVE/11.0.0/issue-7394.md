@@ -16,17 +16,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-06T13:31:57Z'
 ---
 # Clarify UUID Generation for Agent Memory
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 This ticket addresses the need to make the process of generating a session ID (UUID) more explicit and robust for the AI agent, particularly in the context of memory core initialization. During recent sessions, the agent encountered significant difficulties in programmatically generating a UUID, despite instructions in `AGENTS.md` to use `crypto.randomUUID()`.
 
@@ -41,4 +35,12 @@ This sub-task aims to:
 ## Acceptance Criteria
 
 1.  `AGENTS.md` is updated with a clear, explicit, and tested method for the agent to generate a UUID for session IDs.
+
+## Activity Log
+
+- 2025-10-06 @tobiu assigned to @tobiu
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu referenced in commit `44dc6d5` - "Clarify UUID Generation for Agent Memory #7394"
+- 2025-10-06 @tobiu closed this issue
 

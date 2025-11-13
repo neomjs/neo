@@ -16,17 +16,11 @@ parentIssue: 7446
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-11T18:12:19Z'
 ---
 # Integrate SEO File Copying into `buildAll.mjs` for Application Builds
-
-**Reported by:** @tobiu on 2025-11-11
-
----
-
-**Parent Issue:** #7446 - Enhance SEO for Neo.mjs Website
-
----
 
 The current build process does not automatically copy SEO-related files (`robots.txt`, `llm.txt`, `sitemap.xml`) from individual application directories into their respective build output folders (`dist/development/<app-name>/`, `dist/production/<app-name>/`). This leads to manual steps or potential oversight in ensuring these critical files are present in deployed application builds.
 
@@ -64,4 +58,12 @@ This ticket proposes to enhance the build process to automatically discover and 
 -   The copying occurs reliably at the end of the `buildAll.mjs` execution.
 -   The `examples/` folder and its contents should be explicitly excluded from this process, as they are not deployable applications requiring these files.
 -   `buildScripts/buildAll.mjs` remains clean and focused on orchestrating the main build steps.
+
+## Activity Log
+
+- 2025-11-11 @tobiu assigned to @tobiu
+- 2025-11-11 @tobiu added the `enhancement` label
+- 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu referenced in commit `fd930e5` - "Integrate SEO File Copying into buildAll.mjs for Application Builds #7747"
+- 2025-11-11 @tobiu closed this issue
 

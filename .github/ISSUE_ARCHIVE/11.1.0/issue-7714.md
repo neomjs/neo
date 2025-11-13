@@ -14,17 +14,11 @@ parentIssue: 7687
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-10T20:17:37Z'
 ---
 # ci(testing): gate GitHub-integration tests and add diagnostics polish
-
-**Reported by:** @MannXo on 2025-11-07
-
----
-
-**Parent Issue:** #7687 - Enhance GitHub Workflow server robustness when gh cli is not installed
-
----
 
 ## Summary
 
@@ -46,4 +40,10 @@ Acceptance criteria
 - CI or test harness skips GH integration tests by default and runs them only when `RUN_GH_INTEGRATION=true` and `GITHUB_TOKEN` (or gh auth) is present
 - Tests cleanly report skipped when gate isn't enabled
 - PR references this issue and parent #7687
+
+## Activity Log
+
+- 2025-11-07 @tobiu assigned to @MannXo
+- 2025-11-08 @MannXo cross-referenced by PR #7728
+- 2025-11-10 @tobiu closed this issue
 

@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-14T10:28:46Z'
 ---
 # data.Store: add() => set isLoaded to true
 
-**Reported by:** @tobiu on 2025-08-14
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-08-14 @tobiu assigned to @tobiu
+- 2025-08-14 @tobiu added the `enhancement` label
+- 2025-08-14 @tobiu referenced in commit `33c8d94` - "data.Store: add() => set isLoaded to true #7191"
+- 2025-08-14 @tobiu closed this issue
 

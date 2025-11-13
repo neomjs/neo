@@ -15,17 +15,18 @@ parentIssue: 7029
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T10:25:33Z'
 ---
 # Overview.md: add a comparison table and remove redundancy
 
-**Reported by:** @tobiu on 2025-07-13
-
----
-
-**Parent Issue:** #7029 - Feature: Add Framework Comparison Articles to Learn Directory
-
----
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `f9ca087` - "Overview.md: add a comparison table and remove redundancy #7037"
+- 2025-07-13 @tobiu closed this issue
 

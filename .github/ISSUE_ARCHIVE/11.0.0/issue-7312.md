@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-30T12:37:20Z'
 ---
 # Fix Prototype Pollution in Neo.setupClass
-
-**Reported by:** @tobiu on 2025-09-30
 
 This ticket addresses a framework bug discovered during the migration of unit tests to Playwright. Intermittent test failures pointed to a race condition caused by prototype pollution within the `Neo.setupClass` method in `src/Neo.mjs`.
 
@@ -35,4 +35,11 @@ The fix ensures that `setupClass` operates on a deep clone of the static `config
 2.  Introducing a local `currentConfigDescriptors` variable to prevent direct mutation of the static `ctor.configDescriptors` property during the build-up phase.
 
 This change resolves the intermittent test failures and makes the class setup process more robust and safe for concurrent environments.
+
+## Activity Log
+
+- 2025-09-30 @tobiu assigned to @tobiu
+- 2025-09-30 @tobiu added the `bug` label
+- 2025-09-30 @tobiu referenced in commit `01d813e` - "Fix Prototype Pollution in Neo.setupClass #7312"
+- 2025-09-30 @tobiu closed this issue
 

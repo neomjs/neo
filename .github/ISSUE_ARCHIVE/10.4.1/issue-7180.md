@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T12:06:05Z'
 ---
 # Enhance Store Chunking for Instant Grid Previews
-
-**Reported by:** @tobiu on 2025-08-11
 
 **Is your feature request related to a problem? Please describe.**
 
@@ -44,4 +44,11 @@ A coordinated enhancement across `data.Store`, `grid.Body`, and `grid.Container`
 *   **Instant Preview:** The UI is not blocked. The user immediately sees the first chunk of data, confirming the operation is in progress.
 *   **Correct Layout & Accessibility:** The grid's scrollbar and `aria-rowcount` are sized correctly from the very beginning, preventing layout shifts and providing an accurate representation of the full dataset.
 *   **Improved User Experience:** Eliminates long freezes when loading large amounts of data, providing a much smoother and more informative experience.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `f2bde56` - "Enhance Store Chunking for Instant Grid Previews #7180"
+- 2025-08-11 @tobiu closed this issue
 

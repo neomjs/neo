@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T18:46:47Z'
 ---
 # Feature: Centralized Functional Component Exports via _export.mjs
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Is your feature request related to a problem? Please describe.**
 Previously, importing functional components and their associated hooks required knowledge of their individual file paths, which could be cumbersome and less intuitive for developers.
@@ -51,4 +45,11 @@ This enhancement significantly improves the developer experience by streamlining
 **Affected Files:**
 *   `src/functional/_export.mjs`
 *   `examples/functional/defineComponent/Component.mjs`
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `d8ea927` - "Feature: Centralized Functional Component Exports via _export.mjs #7028"
+- 2025-07-12 @tobiu closed this issue
 

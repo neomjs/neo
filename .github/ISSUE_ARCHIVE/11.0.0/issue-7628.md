@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T16:01:57Z'
 ---
 # Enhance `create_issue` Tool to Support Assignees
-
-**Reported by:** @tobiu on 2025-10-23
 
 The `create_issue` tool is functional but could be more powerful if it allowed for assigning users at the moment of creation. The underlying `gh issue create` command already supports this via the `--assignee` flag.
 
@@ -44,4 +44,12 @@ This ticket proposes enhancing the existing `create_issue` tool to support an op
 -   The `create_issue` tool now accepts an optional `assignees` array.
 -   Providing assignees without sufficient permissions results in a clear error message and does not create the issue.
 -   Providing assignees with sufficient permissions creates the issue and assigns the specified users correctly.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu referenced in commit `bc2d4b8` - "Enhance create_issue Tool to Support Assignees #7628"
+- 2025-10-23 @tobiu closed this issue
 

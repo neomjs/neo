@@ -19,11 +19,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-02T16:22:05Z'
 ---
 # Enhancement: Clarify Memory Core healthcheck response for hybrid database strategy
-
-**Reported by:** @tobiu on 2025-11-02
 
 The current `healthcheck` response from the Memory Core can be confusing for agents. It can report a `healthy` status even when the database process is not managed by the server (`"running": false`, `"managed": false`), because the server might be connected to a user-managed, externally running ChromaDB instance.
 
@@ -39,4 +39,13 @@ The `healthcheck` response should be enhanced to make this hybrid startup scenar
 4.  Adjust the human-readable `details` array to explicitly state the connection type, e.g., "Connected to an externally managed ChromaDB instance."
 
 This will provide a clearer picture to the agent, preventing incorrect assumptions and unnecessary actions.
+
+## Activity Log
+
+- 2025-11-02 @tobiu added the `enhancement` label
+- 2025-11-02 @tobiu added the `developer-experience` label
+- 2025-11-02 @tobiu added the `ai` label
+- 2025-11-02 @tobiu assigned to @tobiu
+- 2025-11-02 @tobiu referenced in commit `701fd04` - "Enhancement: Clarify Memory Core healthcheck response for hybrid database strategy #7690"
+- 2025-11-02 @tobiu closed this issue
 
