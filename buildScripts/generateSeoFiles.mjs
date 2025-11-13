@@ -329,11 +329,35 @@ export async function getLlmsTxt(options={}) {
 
     let content = `# Neo.mjs Platform
 
-> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a distributed computing environment, not a single-threaded document renderer.
+> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 
+> files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated 
+> Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a 
+> distributed computing environment, not a single-threaded document renderer.
 >
-> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly responsive, regardless of the workload. The platform provides a holistic, managed environment with operational guarantees, a unified class config system for declaratively describing entire component trees, and critical operational primitives like multi-window state. It includes an enterprise-grade component library.
+> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and 
+> data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly 
+> responsive, regardless of the workload. The platform provides a holistic, managed environment with operational 
+> guarantees, a unified class config system for declaratively describing entire component trees, and critical operational 
+> primitives like multi-window state. It includes an enterprise-grade component library.
 >
-> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that applications evolve with the web platform itself.
+> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based 
+> on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that 
+> applications evolve with the web platform itself.
+
+Neo.mjs uniquely deploys each application and example in four equivalent environments, each serving identical 
+functionality through different code delivery methods: development mode (zero-builds), dist/development (bundled, 
+unminified), dist/esm (native ES modules, optimized), and dist/production (bundled, minified). 
+
+The URLs listed below use the development mode paths (e.g., /apps/ or /examples/), representing the zero-builds, 
+browser-native version that embodies Neo.mjs's core philosophy. To access any application in a different environment, 
+simply prefix the path with /dist/development/, /dist/esm/, or /dist/production/.
+
+For example, the Portal app is available at all four environment URLs, plus a fifth version mapped to the domain root:
+- https://neomjs.com/ (mapped to dist/production)
+- https://neomjs.com/apps/portal/index.html (dev mode)
+- https://neomjs.com/dist/development/apps/portal/index.html
+- https://neomjs.com/dist/esm/apps/portal/index.html
+- https://neomjs.com/dist/production/apps/portal/index.html
 
 `;
 
