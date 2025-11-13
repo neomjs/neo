@@ -17,17 +17,11 @@ parentIssue: 7604
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-26T11:21:12Z'
 ---
 # docs: Update AGENTS.md to Reflect MCP Server Architecture
-
-**Reported by:** @tobiu on 2025-10-24
-
----
-
-**Parent Issue:** #7604 - Epic: Automate MCP Server Startup and Reduce Agent Protocol
-
----
 
 The `AGENTS.md` file is critically outdated. It instructs agents to use a series of `npm run ai:*` scripts for core functionalities like querying the knowledge base, managing memory, and creating GitHub issues.
 
@@ -113,4 +107,15 @@ i highly discourage on this one, and dare to say: working on a new epic to e.g. 
 >       instructions on query strategies and result interpretation are preserved and adapted correctly.
 >    3. Present the "before" and "after" versions of this section to you for review and approval before any changes
 >        are made.
+
+## Activity Log
+
+- 2025-10-24 @tobiu added the `documentation` label
+- 2025-10-24 @tobiu added the `enhancement` label
+- 2025-10-24 @tobiu added the `ai` label
+- 2025-10-24 @tobiu cross-referenced by #7376
+- 2025-10-24 @tobiu cross-referenced by #7634
+- 2025-10-24 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu referenced in commit `0ce1ec2` - "docs: Update AGENTS.md to Reflect MCP Server Architecture #7630"
+- 2025-10-26 @tobiu closed this issue
 

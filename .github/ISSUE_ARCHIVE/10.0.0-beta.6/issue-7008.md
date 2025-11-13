@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-10T20:23:45Z'
 ---
 # Update the State Providers guide to reflect effects-based reactivity and direct store binding
-
-**Reported by:** @tobiu on 2025-07-10
 
 ## Description
 
@@ -36,4 +36,11 @@ The `StateProviders.md` guide has been updated to provide a more accurate and co
 ## Verification
 
 Confirmed that the updated example in `learn/guides/datahandling/StateProviders.md` functions as expected, demonstrating direct reactive binding to store properties.
+
+## Activity Log
+
+- 2025-07-10 @tobiu assigned to @tobiu
+- 2025-07-10 @tobiu added the `enhancement` label
+- 2025-07-10 @tobiu referenced in commit `cb8f487` - "Update the State Providers guide to reflect effects-based reactivity and direct store binding #7008"
+- 2025-07-10 @tobiu closed this issue
 

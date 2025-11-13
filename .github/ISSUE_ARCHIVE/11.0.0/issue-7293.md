@@ -18,17 +18,11 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-04T17:58:06Z'
 ---
 # Convert vdom/layout/Cube.mjs Test from Siesta to Playwright
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Parent Issue:** #7262 - Enhance Development Workflow with Mandatory Unit Testing
-
----
 
 This task is to migrate the unit test for `vdom/layout/Cube.mjs` from the Siesta test harness to the Playwright test runner.
 
@@ -70,4 +64,25 @@ please check again made some changes asked Gemini on issue it state modified sta
 ### @tobiu - 2025-10-04 18:47
 
 the PR was already merged. somehow the combination of the cube layout and vdomrealword tests clashed. now all 114 tests are passing.
+
+## Activity Log
+
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
+- 2025-10-03 @tobiu assigned to @kart-u
+- 2025-10-04 @kart-u referenced in commit `8ae23f5` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @kart-u cross-referenced by PR #7352
+- 2025-10-04 @kart-u cross-referenced by #7286
+- 2025-10-04 @kart-u referenced in commit `80de443` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @kart-u referenced in commit `87bc892` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @kart-u referenced in commit `63dea2f` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @tobiu referenced in commit `705865e` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @tobiu referenced in commit `79bb918` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @tobiu referenced in commit `2e770aa` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @tobiu closed this issue
+- 2025-10-04 @tobiu referenced in commit `ce0b439` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+- 2025-10-04 @tobiu referenced in commit `f03427b` - "#7293 ticket md file update, imports / setup fix"
+- 2025-10-04 @kart-u referenced in commit `0e2392d` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
 

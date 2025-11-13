@@ -17,17 +17,11 @@ parentIssue: 7668
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T08:56:19Z'
 ---
 # Refactor: Enhance OpenAPI spec for Knowledge Base Server
-
-**Reported by:** @tobiu on 2025-10-27
-
----
-
-**Parent Issue:** #7668 - Epic: Make Knowledge Base Tools Self-Documenting
-
----
 
 This ticket is part of Epic #7668.
 
@@ -148,4 +142,15 @@ QueryRequest:
       enum: [all, blog, guide, src, example, ticket, release]
       default: all
 ```
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `documentation` label
+- 2025-10-27 @tobiu added the `enhancement` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu cross-referenced by #7670
+- 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu referenced in commit `19de6d7` - "Refactor: Enhance OpenAPI spec for Knowledge Base Server #7669"
+- 2025-10-27 @tobiu closed this issue
+- 2025-10-27 @tobiu cross-referenced by #7672
 

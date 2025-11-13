@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-20T09:36:15Z'
 ---
 # Future Improvements for Local AI Knowledge Base
-
-**Reported by:** @tobiu on 2025-09-18
 
 This document captures planned enhancements for the local AI knowledge base system to improve its efficiency, scalability, and developer experience.
 
@@ -56,4 +56,13 @@ This document captures planned enhancements for the local AI knowledge base syst
 **Benefits:**
 -   Significantly lower memory footprint.
 -   Improved scalability for much larger codebases.
+
+## Activity Log
+
+- 2025-09-18 @tobiu assigned to @tobiu
+- 2025-09-18 @tobiu added the `enhancement` label
+- 2025-09-18 @tobiu added the `no auto close` label
+- 2025-09-19 @tobiu referenced in commit `ceb1660` - "#7215 incremental updates"
+- 2025-09-20 @tobiu referenced in commit `bd204a2` - "#7215 Streaming for Memory Efficiency"
+- 2025-09-20 @tobiu closed this issue
 

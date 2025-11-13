@@ -19,17 +19,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-05T17:49:23Z'
 ---
 # Enhance Issue Creation Script to Sync GitHub ID back to Markdown File
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 After a GitHub issue is created from a local markdown ticket, the new GitHub issue ID and URL need to be written back into the markdown file. This closes the loop and creates a permanent, version-controlled link between the two. This ticket is to enhance the `createGhIssue.mjs` script to perform this write-back operation.
 
@@ -67,4 +61,18 @@ more input from gemini:
 > 
 >   Recommendation:
 >   The ticket is available to be worked on, but it would be helpful to communicate to LemonDrop847 that they will need to set up and authenticate the gh CLI on their own as a first step, since the official project documentation for that process doesn't exist yet.
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu assigned to @LemonDrop847
+- 2025-10-05 @LemonDrop847 cross-referenced by #7377
+- 2025-10-05 @tobiu closed this issue
+- 2025-10-05 @LemonDrop847 referenced in commit `5a7495c` - "Merge pull request #7380 from LemonDrop847/feat/issue-creation-script-sync-ghID-to-MD
+
+feat:issue creation script to Sync GitHub ID back to Markdown File (fixes: #7368)"
 

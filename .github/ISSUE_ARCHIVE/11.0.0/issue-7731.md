@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-09T09:28:37Z'
 ---
 # Fix: incorrect length check for releases object in ReleaseSyncer
-
-**Reported by:** @tobiu on 2025-11-09
 
 The `ReleaseSyncer` service incorrectly used the `.length` property on the `this.releases` object. Since this is an object and not an array, the check was not functioning as intended.
 
@@ -29,4 +29,12 @@ This has been corrected to use `Object.keys(this.releases).length` to accurately
 This fix ensures that:
 1. The log message for cached releases displays the correct count.
 2. The warning for finding zero releases since the sync start date now triggers correctly.
+
+## Activity Log
+
+- 2025-11-09 @tobiu added the `bug` label
+- 2025-11-09 @tobiu added the `ai` label
+- 2025-11-09 @tobiu referenced in commit `a60dc56` - "Fix: incorrect length check for releases object in ReleaseSyncer #7731"
+- 2025-11-09 @tobiu assigned to @tobiu
+- 2025-11-09 @tobiu closed this issue
 

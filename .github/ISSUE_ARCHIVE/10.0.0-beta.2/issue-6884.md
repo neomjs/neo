@@ -14,13 +14,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-27T15:16:31Z'
 ---
 # component.Base: text_
 
-**Reported by:** @tobiu on 2025-06-27
-
 * Alternative for `html_`, using `textContent`.
 * Subclasses need to use `text` instead of `text_`, or remove the config in case it has a null value.
 * `afterSetText()` can of course get overridden.
+
+## Activity Log
+
+- 2025-06-27 @tobiu added the `enhancement` label
+- 2025-06-27 @tobiu referenced in commit `056a420` - "component.Base: text_ #6884"
+- 2025-06-27 @tobiu closed this issue
 

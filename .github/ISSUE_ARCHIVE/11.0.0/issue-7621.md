@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T13:26:31Z'
 ---
 # Refactor IssueService to Externalize GraphQL Queries
-
-**Reported by:** @tobiu on 2025-10-23
 
 The `ai/mcp/server/github-workflow/services/IssueService.mjs` currently contains inline GraphQL query and mutation strings. This violates the separation of concerns principle we have established, where all GraphQL operations should be defined in dedicated files within the `services/queries/` directory.
 
@@ -37,4 +37,13 @@ The `ai/mcp/server/github-workflow/services/IssueService.mjs` currently contains
 2.  Define new `ADD_LABELS` and `REMOVE_LABELS` mutations in `mutations.mjs` and remove the inline versions from `IssueService.mjs`.
 3.  Update `IssueService.mjs` to import and use these new, externalized GraphQL operations.
 4.  Ensure all functionality remains the same after the refactoring.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu added the `refactoring` label
+- 2025-10-23 @tobiu referenced in commit `5cbad8b` - "Refactor IssueService to Externalize GraphQL Queries #7621"
+- 2025-10-23 @tobiu closed this issue
 

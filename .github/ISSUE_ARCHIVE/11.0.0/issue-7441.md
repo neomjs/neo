@@ -18,17 +18,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T19:30:51Z'
 ---
 # Convert Component Test component/DateSelector.mjs to Playwright
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns:
 https://github.com/neomjs/neo/issues/7435
@@ -60,4 +54,16 @@ Spontaneous ideas (each file would need its own ticket):
     -   `Neo.util.String`
     -   `Neo.util.Date`
     -   `Neo.util.Matrix`
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-11 @tobiu assigned to @Mahita07
+- 2025-11-04 @tobiu unassigned from @Mahita07
+- 2025-11-04 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu referenced in commit `a7b185b` - "Convert Component Test component/DateSelector.mjs to Playwright #7441"
+- 2025-11-04 @tobiu closed this issue
 

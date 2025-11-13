@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-23T14:38:59Z'
 ---
 # Refine AI Query Scoring for Release Notes
-
-**Reported by:** @tobiu on 2025-09-23
 
 Following the integration of release notes into the knowledge base, it has become apparent that the query scoring algorithm needs refinement to handle this new content type appropriately.
 
@@ -47,4 +47,11 @@ This ticket covers two key adjustments to the scoring logic in `buildScripts/ai/
 ### @tobiu - 2025-09-23 14:38
 
 <img width="904" height="1279" alt="Image" src="https://github.com/user-attachments/assets/7d9895b7-2cf5-401d-916a-e12e397731a3" />
+
+## Activity Log
+
+- 2025-09-23 @tobiu assigned to @tobiu
+- 2025-09-23 @tobiu added the `enhancement` label
+- 2025-09-23 @tobiu referenced in commit `2243864` - "Refine AI Query Scoring for Release Notes #7242"
+- 2025-09-23 @tobiu closed this issue
 

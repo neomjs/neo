@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-30T09:57:33Z'
 ---
 # Form Field afterSetValue Sequencing
-
-**Reported by:** @tobiu on 2025-07-30
 
 ## Description
 
@@ -42,4 +42,11 @@ This ticket documents the implementation of a sequence for the `afterSetValue` m
 During testing, it was discovered that `afterSetValue` is called twice for both `TextField` and `ComboBox` due to a recursive loop between their `value` and `inputValue` configs.
 
 While the primary goal of ensuring the `change` event fires only once and at the correct time has been achieved, the redundant `afterSetValue` call remains.
+
+## Activity Log
+
+- 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added the `enhancement` label
+- 2025-07-30 @tobiu referenced in commit `cbfef2c` - "Form Field afterSetValue Sequencing #7127"
+- 2025-07-30 @tobiu closed this issue
 

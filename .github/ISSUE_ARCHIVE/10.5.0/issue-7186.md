@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-12T01:15:51Z'
 ---
 # Enhanced Store & Grid Performance with Lazy Record Instantiation and Configurable Chunking
-
-**Reported by:** @tobiu on 2025-08-12
 
 ### Is your feature request related to a problem? Please describe.
 Prior to this enhancement, handling large datasets in `Neo.data.Store` and `Neo.grid.Container` presented several performance challenges:
@@ -71,4 +71,11 @@ This refactoring significantly improves the performance and memory footprint of 
 *Note: "Record creation" refers to the time taken for `Neo.data.Record` instantiation. "Data gen + add" refers to the time taken to generate raw data and add it to the store's collection.*
 
 The benchmarks demonstrate a dramatic reduction in initial data processing time due to lazy instantiation. While synchronous adding of 1M rows still causes a UI freeze, the configurable chunking mechanism provides a way to manage this for perceived performance. The resolution of VDom errors and component cleanup further enhance stability and efficiency.
+
+## Activity Log
+
+- 2025-08-12 @tobiu assigned to @tobiu
+- 2025-08-12 @tobiu added the `enhancement` label
+- 2025-08-12 @tobiu referenced in commit `e84f67a` - "Enhanced Store & Grid Performance with Lazy Record Instantiation and Configurable Chunking #7186"
+- 2025-08-12 @tobiu closed this issue
 

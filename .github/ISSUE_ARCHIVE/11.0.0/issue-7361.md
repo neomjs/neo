@@ -17,21 +17,25 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-05T08:58:21Z'
 ---
 # Clarify Agent Memory Server Port in AGENTS.md
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 The `AGENTS.md` file currently implies the agent should check for the memory core server on the default port 8000. However, the knowledge base server runs on port 8000, and the memory server runs on port 8001. This ambiguity can lead to incorrect server checks during the agent's initialization process.
 
 ## Goal
 
 Update `AGENTS.md` to clearly state that the memory server runs on port 8001 and ensure the health check command targets the correct port. This will improve the reliability of the agent's session initialization.
+
+## Activity Log
+
+- 2025-10-05 @tobiu assigned to @tobiu
+- 2025-10-05 @tobiu added the `documentation` label
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu referenced in commit `3fc0bc7` - "Clarify Agent Memory Server Port in AGENTS.md #7361"
+- 2025-10-05 @tobiu closed this issue
+- 2025-10-05 @tobiu referenced in commit `967e191` - "#7361 added the ticket id to the markdown file"
 

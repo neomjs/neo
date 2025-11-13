@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T12:53:25Z'
 ---
 # New Tool: Get Local Issue by ID
-
-**Reported by:** @tobiu on 2025-10-22
 
 To improve an agent's ability to quickly access context, we need a new tool, `get_local_issue_by_id`, that can retrieve a local issue's markdown file directly by its number.
 
@@ -37,4 +37,12 @@ This tool will provide a direct lookup mechanism, bypassing the need to manually
 7.  A new endpoint, `GET /issues/{issue_number}/content`, is added to `openapi.yaml` with the `operationId: get_local_issue_by_id`.
 8.  A new schema, `LocalIssueResponse`, is added to `openapi.yaml` to define the successful response object (`filePath`, `content`). The endpoint's `200` response must use this schema with an `application/json` content type.
 9.  The new tool is registered in the `github-workflow/services/toolService.mjs`.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu referenced in commit `ba7c596` - "New Tool: Get Local Issue by ID #7609"
+- 2025-10-22 @tobiu closed this issue
 

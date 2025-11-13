@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:10:28Z'
 ---
 # Add Error Resilience to AST Processor
-
-**Reported by:** @tobiu on 2025-08-02
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -48,4 +42,12 @@ The AST transformation is complex. If an edge case or a bug in the processor cau
 -   The `try...catch` block is implemented in `processFileContent`.
 -   A parsing error in one file logs a console error but does not stop the build.
 -   The file that caused the error is passed through the build untransformed.
+
+## Activity Log
+
+- 2025-08-02 @tobiu assigned to @tobiu
+- 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu referenced in commit `690c380` - "Add Error Resilience to AST Processor
+#7162"
+- 2025-08-02 @tobiu closed this issue
 

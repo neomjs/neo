@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T19:37:35Z'
 ---
 # Feat: Enhance Knowledge Base Health Service and Update OpenAPI Schema
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket documents the significant enhancement of the `HealthService` in the Knowledge Base MCP server, bringing it to a level of sophistication comparable to the Memory Core's `HealthService`. This includes adding caching, detailed status levels, API key checks, and recovery detection. The OpenAPI schema for the `healthcheck` tool has also been updated to reflect these changes.
 
@@ -47,4 +47,12 @@ The previous `HealthService` in the Knowledge Base server was basic, lacking fea
     *   The `HealthCheckResponse` schema has been updated to reflect the new, detailed output structure of the `healthcheck` tool. This includes properties for `timestamp`, `database.connection.collections.knowledgeBase`, `features.embedding`, and `details`.
 
 This enhancement significantly improves the reliability and diagnostic capabilities of the Knowledge Base MCP server.
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `e91a3c9` - "Feat: Enhance Knowledge Base Health Service and Update OpenAPI Schema #7654"
+- 2025-10-25 @tobiu closed this issue
 

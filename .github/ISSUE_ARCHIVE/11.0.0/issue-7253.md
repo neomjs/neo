@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-24T13:49:15Z'
 ---
 # Update AI Agent Guidelines in AGENTS.md
-
-**Reported by:** @tobiu on 2025-09-24
 
 This ticket addresses updates made to the `AGENTS.md` file to enhance AI agent guidelines.
 
@@ -31,4 +31,11 @@ This ticket addresses updates made to the `AGENTS.md` file to enhance AI agent g
 ## Justification
 
 These updates improve the clarity and functionality of the AI agent's operational guidelines, enabling more efficient and accurate assistance within and outside the Neo.mjs framework context.
+
+## Activity Log
+
+- 2025-09-24 @tobiu assigned to @tobiu
+- 2025-09-24 @tobiu added the `enhancement` label
+- 2025-09-24 @tobiu referenced in commit `270f714` - "Update AI Agent Guidelines in AGENTS.md #7253"
+- 2025-09-24 @tobiu closed this issue
 

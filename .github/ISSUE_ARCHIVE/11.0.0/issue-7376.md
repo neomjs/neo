@@ -20,17 +20,11 @@ parentIssue: 7364
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:39:53Z'
 ---
 # Define Hybrid API vs. Knowledge Base Workflow for Agent
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Parent Issue:** #7364 - Integrate GitHub CLI to Streamline Contribution Workflow
-
----
 
 The agent will have access to two sources of information for issues and PRs: the real-time GitHub API (via `gh`) and the local, semantic-search-optimized knowledge base. To prevent confusion and ensure optimal performance, the agent needs a clear, documented strategy on when to use each. This ticket is to create that "Discover, then Verify" protocol.
 
@@ -74,4 +68,17 @@ Thank you for your interest in this ticket during Hacktoberfest.
 This ticket was for updating the AGENTS.md file with a new strategic protocol. The project's architecture and the agent's core workflow have evolved significantly since this ticket was created, making this specific protocol obsolete.
 
 We're closing this ticket as it is no longer relevant. The upcoming rewrite of AGENTS.md (covered in #7630) will include a new, more streamlined workflow. Thanks again for your willingness to contribute!
+
+## Activity Log
+
+- 2025-10-05 @tobiu added the `documentation` label
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @ksanjeev284 cross-referenced by PR #7374
+- 2025-10-05 @tobiu cross-referenced by #7367
+- 2025-10-05 @tobiu assigned to @kart-u
+- 2025-10-24 @tobiu closed this issue
 

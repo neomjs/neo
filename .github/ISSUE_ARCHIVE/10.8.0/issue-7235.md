@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-23T11:50:52Z'
 ---
 # Refine AI Agent Guidelines for Query-Driven Comments
-
-**Reported by:** @tobiu on 2025-09-23
 
 ## Description
 
@@ -33,4 +33,11 @@ The `AGENTS.md` file, which serves as the constitution for AI agents, was enhanc
 
 ## Impact
 This change formalizes a more advanced documentation strategy, ensuring that all future AI-driven documentation contributions will not only explain the code but also significantly improve the semantic richness and discoverability of the knowledge base.
+
+## Activity Log
+
+- 2025-09-23 @tobiu assigned to @tobiu
+- 2025-09-23 @tobiu added the `enhancement` label
+- 2025-09-23 @tobiu referenced in commit `f178a98` - "Refine AI Agent Guidelines for Query-Driven Comments #7235"
+- 2025-09-23 @tobiu closed this issue
 

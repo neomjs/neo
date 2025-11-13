@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-23T03:12:45Z'
 ---
 # main.addon.GoogleMaps: support for advanced markers
-
-**Reported by:** @tobiu on 2025-04-01
 
 The default markers API is sadly now deprecated:
 
@@ -50,4 +50,10 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @github-actions - 2025-07-23 03:12
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+## Activity Log
+
+- 2025-04-01 @tobiu added the `bug` label
+- 2025-07-09 @github-actions added the `stale` label
+- 2025-07-23 @github-actions closed this issue
 

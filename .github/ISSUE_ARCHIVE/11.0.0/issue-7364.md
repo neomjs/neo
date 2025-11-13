@@ -36,18 +36,11 @@ subIssues:
   - 7418
 subIssuesCompleted: 17
 subIssuesTotal: 17
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:47:01Z'
 ---
 # Integrate GitHub CLI to Streamline Contribution Workflow
-
-**Reported by:** @tobiu on 2025-10-05
-
----
-
-**Sub-Issues:** #7365, #7366, #7367, #7368, #7369, #7370, #7371, #7372, #7373, #7376, #7377, #7378, #7381, #7391, #7393, #7414, #7418
-**Progress:** 17/17 completed (100%)
-
----
 
 This epic aims to deeply integrate the GitHub CLI (`gh`) into the development and contribution workflow. The goal is to automate the synchronization between local markdown-based tickets and GitHub issues/PRs, reduce manual effort for the project maintainer, and empower the AI agent to participate more fully in the GitHub ecosystem (e.g., reviewing PRs, creating issues).
 
@@ -103,4 +96,21 @@ https://discord.gg/6p8paPq
 ### @tobiu - 2025-10-24 09:47
 
 closing the epic, new items for the github-workflow mcp server will get added as new tickets / epics.
+
+## Activity Log
+
+- 2025-10-05 @tobiu assigned to @tobiu
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `epic` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu referenced in commit `c99360a` - "#7364 initial tickets as md files"
+- 2025-10-05 @tobiu referenced in commit `9d09963` - "#7364 phase 4 subs as md files"
+- 2025-10-05 @tobiu referenced in commit `0531f7b` - "#7364 internal ticket md file updates"
+- 2025-10-05 @tobiu referenced in commit `348d2ad` - "#7364 added a new sub-ticket"
+- 2025-10-06 @tobiu referenced in commit `91af8fb` - "#7364 ticket md files"
+- 2025-10-06 @tobiu cross-referenced by #7393
+- 2025-10-14 @tobiu cross-referenced by #7477
+- 2025-10-24 @tobiu closed this issue
 

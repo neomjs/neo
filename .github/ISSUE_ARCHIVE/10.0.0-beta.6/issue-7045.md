@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T23:08:12Z'
 ---
 # Introduce `Neo.createConfig` for Unified Reactive Property Definition
-
-**Reported by:** @tobiu on 2025-07-13
 
 ### 1. Summary
 
@@ -55,4 +55,11 @@ Currently, the logic for generating reactive getters and setters (`autoGenerateG
 *   **Correct Initial Value Handling:** The initial value is set via the setter, ensuring all associated hooks are triggered.
 *   **Cleaner `setupClass`:** Streamlines the class setup process by delegating reactive config definition.
 *   **Enables Dynamic State:** Paves the way for easily creating and managing reactive state directly on component instances at runtime.
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `7b7b19a` - "Introduce Neo.createConfig for Unified Reactive Property Definition #7045"
+- 2025-07-13 @tobiu closed this issue
 

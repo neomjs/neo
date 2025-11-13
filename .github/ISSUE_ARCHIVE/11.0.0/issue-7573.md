@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T12:57:55Z'
 ---
 # Filter GitHub Issues by Date in SyncService
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 To significantly improve the performance and reduce the scope of the issue synchronization, the `#pullFromGitHub` method must be updated to process only the issues relevant to our configured time window.
 
@@ -42,4 +36,12 @@ To significantly improve the performance and reduce the scope of the issue synch
 -   Drastically reduces the number of issues processed during a sync, improving performance.
 -   Prevents the local repository from being cluttered with thousands of irrelevant, legacy issues.
 -   Focuses the synchronization effort on active and recent work items.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `501c84b` - "Filter GitHub Issues by Date in SyncService #7573"
+- 2025-10-20 @tobiu closed this issue
 

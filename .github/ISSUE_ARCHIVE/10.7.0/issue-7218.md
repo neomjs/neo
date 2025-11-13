@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-20T09:51:32Z'
 ---
 # Refactor AI Query Scoring for Performance
-
-**Reported by:** @tobiu on 2025-09-20
 
 ## Problem
 
@@ -38,4 +38,11 @@ The `queryKnowledgeBase.mjs` script currently reloads and processes the entire k
 - Significantly faster and more memory-efficient queries.
 - Better separation of concerns (`create` -> `score & embed` -> `query`).
 - More scalable architecture.
+
+## Activity Log
+
+- 2025-09-20 @tobiu assigned to @tobiu
+- 2025-09-20 @tobiu added the `enhancement` label
+- 2025-09-20 @tobiu referenced in commit `0a667b3` - "Refactor AI Query Scoring for Performance #7218"
+- 2025-09-20 @tobiu closed this issue
 

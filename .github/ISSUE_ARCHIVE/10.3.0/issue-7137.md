@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-31T09:24:51Z'
 ---
 # Template Syntax Specification
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 Define a clear and comprehensive specification for the template syntax. This document will serve as the blueprint for the parser implementation and as the primary reference for developers using this feature.
@@ -141,4 +135,11 @@ Define a clear and comprehensive specification for the template syntax. This doc
 
   I will now update the epic to reflect this finalized strategy. Then, we can proceed with updating the HtmlTemplateProcessor and the
   unit test to implement and verify this logic.
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu referenced in commit `bb017fa` - "Template Syntax Specification #7137"
+- 2025-07-31 @tobiu closed this issue
 

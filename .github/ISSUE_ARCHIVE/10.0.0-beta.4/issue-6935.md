@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-02T18:51:30Z'
 ---
 # Enhanced Method Sequencing
-
-**Reported by:** @tobiu on 2025-07-02
 
 ## Feature Description
 
@@ -118,4 +118,57 @@ myInstance.sayHello();
 ### @tobiu - 2025-07-02 18:51
 
 the export syntax is broken.
+
+## Activity Log
+
+- 2025-07-02 @tobiu assigned to @tobiu
+- 2025-07-02 @tobiu added the `enhancement` label
+- 2025-07-02 @tobiu referenced in commit `022f86d` - "Enhanced Method Sequencing #6935"
+- 2025-07-02 @tobiu closed this issue
+- 2025-07-02 @tobiu referenced in commit `db44d9e` - "Enhanced Method Sequencing #6935"
+- 2025-07-02 @tobiu closed this issue
+- 2025-07-02 @tobiu referenced in commit `0f82e86` - "Enhanced Method Sequencing #6935 initial concept exploration"
+- 2025-07-02 @tobiu referenced in commit `4001e30` - "#6935 converted core.Compare and core.Util into non neo classes"
+- 2025-07-02 @tobiu referenced in commit `718b209` - "#6935 Neo.mjs: applying _configName to class prototypes as well"
+- 2025-07-02 @tobiu referenced in commit `b02a035` - "#6935 initial debugging, trying to get examples/button/base running inside the browser"
+- 2025-07-02 @tobiu referenced in commit `6dabed6` - "#6935 further testing, brainstorming, debugging"
+- 2025-07-02 @tobiu referenced in commit `4bb1869` - "#6935 concept exploration"
+- 2025-07-02 @tobiu referenced in commit `ec4bd84` - "#6935 concept exploration"
+- 2025-07-02 @tobiu referenced in commit `2e762de` - "#6935 Reached the PoC state"
+- 2025-07-02 @tobiu referenced in commit `e51da52` - "#6935 flexbox layout fix"
+- 2025-07-02 @tobiu referenced in commit `3244263` - "#6935 component.Base: beforeSetKeys() => restored to the old value"
+- 2025-07-02 @tobiu referenced in commit `ad07cee` - "#6935 component.Base: restored cls & style configs to their dev branch value"
+- 2025-07-02 @tobiu referenced in commit `c5ca069` - "#6935 core.Base: simplified the id generation, collection.Base: specific id for the allItems collection"
+- 2025-07-02 @tobiu referenced in commit `01e1069` - "#6935 container.Base: cleanup"
+- 2025-07-03 @tobiu referenced in commit `2e54226` - "#6935 core.Config: JSDoc, changed the initial value setting strategy to not lose meta objects."
+- 2025-07-03 @tobiu referenced in commit `aa536b3` - "#6935 component.Base: vnode config => descriptor"
+- 2025-07-03 @tobiu referenced in commit `c494272` - "#6935 component.Base: removed afterSetFlex() => flex is not a config"
+- 2025-07-03 @tobiu referenced in commit `1960cfa` - "#6935 core.Base: construct() => ensure to only create config instances for keys that should be configs"
+- 2025-07-03 @tobiu referenced in commit `4a4fc18` - "#6935 core.Base: isConfig() => only reactive keys"
+- 2025-07-03 @tobiu referenced in commit `a9ad03f` - "#6935 core.Base: -testing log"
+- 2025-07-03 @tobiu referenced in commit `3d433d1` - "#6935 core.Base: construct() => find all real configs"
+- 2025-07-03 @tobiu referenced in commit `bc57c11` - "#6935 core.Base: construct() => meaningful JSDoc comment"
+- 2025-07-03 @tobiu referenced in commit `1931a2f` - "#6935 core.Base: construct() => meaningful JSDoc comment => inheritance for reactive configs"
+- 2025-07-03 @tobiu referenced in commit `b7a84bc` - "#6935 core.Base: construct() => meaningful JSDoc comment => polishing"
+- 2025-07-03 @tobiu referenced in commit `ad3e417` - "#6935 core.Base: experimenting with lazy Config initialization"
+- 2025-07-03 @tobiu referenced in commit `4524cee` - "#6935 cleanup"
+- 2025-07-03 @tobiu referenced in commit `6de0e57` - "#6935 core/Config: cleanup"
+- 2025-07-03 @tobiu referenced in commit `fd7995c` - "#6935 core/Config: set() => return a boolean, if there was a change, Neo.mjs: set() rely on the boolean for triggering afterSet*"
+- 2025-07-03 @tobiu referenced in commit `41dc48e` - "#6935 added the feature request to the feature branch for further refinement. note: must be removed before merging to dev."
+- 2025-07-03 @tobiu referenced in commit `6e3188b` - "#6935 .md file: add the latest version of core.Config"
+- 2025-07-03 @tobiu referenced in commit `5502d54` - "#6935 .md file: lazy initialization"
+- 2025-07-03 @tobiu referenced in commit `7012901` - "#6935 core.Base: most elegant solution for assigning ids first."
+- 2025-07-03 @tobiu referenced in commit `b15ff77` - "#6935 layout.Card: loadModule() => tmp parentId fix"
+- 2025-07-03 @tobiu referenced in commit `aee064e` - "#6935 feature request update"
+- 2025-07-03 @tobiu referenced in commit `3fa94f4` - "#6935 container.Base: ensuring lazy-loaded items get parentId & parentIndex"
+- 2025-07-03 @tobiu referenced in commit `f9a705d` - "#6935 container.Base: re-adding mergeConfig()"
+- 2025-07-03 @tobiu referenced in commit `6f89e5b` - "#6935 Portal.view.learn.MainContainerController: default route fix"
+- 2025-07-04 @tobiu referenced in commit `5420391` - "Enhanced Method Sequencing #6935 initial concept exploration"
+- 2025-07-04 @tobiu referenced in commit `7304052` - "#6935 converted core.Compare and core.Util into non neo classes"
+- 2025-07-04 @tobiu referenced in commit `9a0613c` - "#6935 Neo.mjs: applying _configName to class prototypes as well"
+- 2025-07-04 @tobiu referenced in commit `3ecb6fc` - "#6935 initial debugging, trying to get examples/button/base running inside the browser"
+- 2025-07-04 @tobiu referenced in commit `5843c32` - "#6935 further testing, brainstorming, debugging"
+- 2025-07-04 @tobiu referenced in commit `d9476f2` - "#6935 concept exploration"
+- 2025-07-04 @tobiu referenced in commit `2251e70` - "#6935 concept exploration"
+- 2025-07-04 @tobiu referenced in commit `5d1dcca` - "#6935 Reached the PoC state"
 

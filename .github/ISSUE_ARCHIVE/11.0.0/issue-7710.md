@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-06T12:50:13Z'
 ---
 # Refactor `vnodeInitialized` to a Reactive Config in `VdomLifecycle`
-
-**Reported by:** @tobiu on 2025-11-06
 
 The `vnodeInitialized` property was incorrectly defined as a non-reactive config in `Neo.component.Base` and manually managed with getters, setters, and event firing. This created an inconsistent and fragile implementation.
 
@@ -33,4 +33,13 @@ This refactoring corrected the issue by:
 5.  Updating `onInitVnode()` and `syncVnodeTree()` to use the new reactive setter (`this.vnodeInitialized = true`) instead of manually manipulating the private property and firing events.
 
 This change centralizes the logic, improves code clarity, and aligns the implementation with Neo.mjs best practices for reactive state management.
+
+## Activity Log
+
+- 2025-11-06 @tobiu added the `enhancement` label
+- 2025-11-06 @tobiu added the `ai` label
+- 2025-11-06 @tobiu added the `refactoring` label
+- 2025-11-06 @tobiu assigned to @tobiu
+- 2025-11-06 @tobiu referenced in commit `80863fe` - "Refactor vnodeInitialized to a Reactive Config in VdomLifecycle #7710"
+- 2025-11-06 @tobiu closed this issue
 

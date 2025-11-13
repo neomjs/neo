@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-02T16:44:41Z'
 ---
 # Refactor: Harden Memory Core DB services against undefined `where` clauses
-
-**Reported by:** @tobiu on 2025-11-02
 
 This ticket documents a series of fixes to improve the robustness of our ChromaDB query services within the Memory Core. The ChromaDB client throws an error when a `where` clause is constructed with an `undefined` value (e.g., `where: { category: undefined }`).
 
@@ -42,4 +42,12 @@ To address this, the following changes were made:
     *   Added a `.filter(Boolean)` to the list of session IDs. This ensures that any `null` or `undefined` session IDs are removed at the source, preventing invalid data from being passed to downstream methods.
 
 These changes collectively prevent a class of potential runtime errors and make the data service layer more resilient.
+
+## Activity Log
+
+- 2025-11-02 @tobiu added the `bug` label
+- 2025-11-02 @tobiu added the `ai` label
+- 2025-11-02 @tobiu added the `refactoring` label
+- 2025-11-02 @tobiu referenced in commit `6874e4e` - "Refactor: Harden Memory Core DB services against undefined where clauses #7691"
+- 2025-11-02 @tobiu closed this issue
 

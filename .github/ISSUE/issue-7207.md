@@ -15,16 +15,10 @@ parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Enhance container.SortZone for Complex Layouts
-
-**Reported by:** @tobiu on 2025-08-21
-
----
-
-**Parent Issue:** #7201 - Dashboard Drag & Drop
-
----
 
 ## Goal
 To refactor and enhance `Neo.draggable.container.SortZone` to support more complex drag-and-drop scenarios, such as dragging a component via a child handle. This will make the base class more generic, powerful, and reusable, significantly reducing the need for complex overrides in subclasses like `DashboardSortZone`.
@@ -53,4 +47,12 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 - Items within the `SortZone`'s owner that do not contain an element matching the `dragHandleSelector` are not considered sortable and are ignored by the drag-drop logic.
 - The `DashboardSortZone` can be refactored into a minimal subclass that primarily just configures the `dragHandleSelector`.
 - Existing functionalities that use `container.SortZone` (e.g., tab header reordering) remain unaffected and work as before.
+
+## Activity Log
+
+- 2025-08-21 @tobiu assigned to @tobiu
+- 2025-08-21 @tobiu added the `enhancement` label
+- 2025-08-21 @tobiu referenced in commit `61692a5` - "#7207 dragHandleSelector config"
+- 2025-08-21 @tobiu referenced in commit `6f2a206` - "#7207 wip"
+- 2025-08-21 @tobiu referenced in commit `2e26e1f` - "#7207"
 

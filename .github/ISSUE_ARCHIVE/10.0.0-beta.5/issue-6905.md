@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-08T21:04:15Z'
 ---
 # Enhance Mixin System: Automatically Merge static config from Mixins
-
-**Reported by:** @tobiu on 2025-06-30
 
 Currently, the Neo.mjs mixin system, implemented via `applyMixins` in `src/Neo.mjs`, effectively copies methods from mixins to the target class's prototype. However, it does not automatically merge the `static config` properties defined within mixins into the `static config` of the class that consumes them.
 
@@ -40,4 +40,15 @@ Modify the `applyMixins` function (or the `Neo.setupClass` process where mixins 
 ### @tobiu - 2025-07-08 21:04
 
 <img width="945" height="303" alt="Image" src="https://github.com/user-attachments/assets/b72d102e-f596-4cbf-84cb-96a51960f99a" />
+
+## Activity Log
+
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-07-08 @tobiu referenced in commit `1a4bbfb` - "Enhance Mixin System: Automatically Merge static config from Mixins #6905 exploration inside a new feature branch"
+- 2025-07-08 @tobiu referenced in commit `31c60d2` - "#6905 exploration WIP"
+- 2025-07-08 @tobiu referenced in commit `3bf40d4` - "#6905 Added test testing class into the current feature branch, to not lose it."
+- 2025-07-08 @tobiu referenced in commit `8fc891c` - "Enhance Mixin System: Automatically Merge static config from Mixins #6905"
+- 2025-07-08 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `3e475e6` - "#6905 Added test testing class into the current feature branch, to not lose it."
+- 2025-07-09 @tobiu referenced in commit `9feb51e` - "Enhance Mixin System: Automatically Merge static config from Mixins #6905"
 

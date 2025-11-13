@@ -16,17 +16,11 @@ parentIssue: 7520
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T12:23:32Z'
 ---
 # Refactor Health Service to Remove Redundant Try/Catch
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7520 - Epic: Migrate Memory Server to stdio-based MCP
-
----
 
 The `buildHealthResponse` function in `healthService.mjs` contains two inner `try...catch` blocks that are redundant. The empty `catch` blocks obscure the logic. This ticket is to remove them for clarity.
 
@@ -35,4 +29,12 @@ The `buildHealthResponse` function in `healthService.mjs` contains two inner `tr
 1.  The `buildHealthResponse` function in `healthService.mjs` is updated.
 2.  The two inner `try...catch` blocks are removed.
 3.  The logic remains correct: if a collection doesn't exist, its `exists` flag is correctly reported as `false` and its `count` as `0`.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `d37352c` - "Refactor Health Service to Remove Redundant Try/Catch #7527"
+- 2025-10-17 @tobiu closed this issue
 

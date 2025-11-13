@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-21T12:46:33Z'
 ---
 # Guide: Working with VDom => security: add use text over html
 
-**Reported by:** @tobiu on 2025-09-21
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-09-21 @tobiu assigned to @tobiu
+- 2025-09-21 @tobiu added the `enhancement` label
+- 2025-09-21 @tobiu referenced in commit `c7e6ef7` - "Guide: Working with VDom => security: add use text over html #7225"
+- 2025-09-21 @tobiu closed this issue
 

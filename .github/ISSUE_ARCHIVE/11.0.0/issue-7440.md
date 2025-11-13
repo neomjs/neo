@@ -18,17 +18,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T19:26:04Z'
 ---
 # Convert Component Test component/Base.mjs to Playwright
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns:
 https://github.com/neomjs/neo/issues/7435
@@ -53,4 +47,16 @@ This task is to migrate the component test for `component/Base.mjs` from the Sie
 ### @tobiu - 2025-10-13 10:06
 
 assigned. please read my comment on your other assigned sub for cmp based testing first.
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-13 @tobiu assigned to @harikrishna-au
+- 2025-11-04 @tobiu unassigned from @harikrishna-au
+- 2025-11-04 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu referenced in commit `f7d88f7` - "Convert Component Test component/Base.mjs to Playwright #7440"
+- 2025-11-04 @tobiu closed this issue
 

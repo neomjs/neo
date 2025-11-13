@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-29T14:17:03Z'
 ---
 # Feature Request: Refine StateProvider Change Notification Logic
-
-**Reported by:** @tobiu on 2025-07-29
 
 ### Problem Description
 
@@ -39,4 +39,11 @@ This change ensures that `onDataPropertyChange()` is only executed when there is
 The `EffectManager.pause()` mechanism already provides atomicity for reactive effects during bulk updates, meaning additional batching for `onDataPropertyChange()` calls is not required, as these notifications will not trigger effects until the `EffectManager` is resumed.
 
 This refinement improves the efficiency and robustness of the `StateProvider` by preventing redundant change notifications and contributing to a more predictable state management system.
+
+## Activity Log
+
+- 2025-07-29 @tobiu assigned to @tobiu
+- 2025-07-29 @tobiu added the `enhancement` label
+- 2025-07-29 @tobiu referenced in commit `8f9eec1` - "Feature Request: Refine StateProvider Change Notification Logic #7124"
+- 2025-07-29 @tobiu closed this issue
 

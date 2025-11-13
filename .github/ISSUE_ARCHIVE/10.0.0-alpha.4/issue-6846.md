@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-19T17:19:41Z'
 ---
 # worker.Manager: broadcast() => simplify the if check
 
-**Reported by:** @tobiu on 2025-06-19
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-19 @tobiu assigned to @tobiu
+- 2025-06-19 @tobiu added the `enhancement` label
+- 2025-06-19 @tobiu referenced in commit `fe4977c` - "worker.Manager: broadcast() => simplify the if check #6846"
+- 2025-06-19 @tobiu closed this issue
 

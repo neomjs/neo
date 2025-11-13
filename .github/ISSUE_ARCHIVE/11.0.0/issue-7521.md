@@ -16,17 +16,11 @@ parentIssue: 7520
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T11:34:03Z'
 ---
 # Scaffold Memory Core MCP Server
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7520 - Epic: Migrate Memory Server to stdio-based MCP
-
----
 
 This ticket covers the initial scaffolding of the new `memory-core` MCP server. The goal is to create the basic file structure and entry point for the server, consistent with the other MCP servers.
 
@@ -35,4 +29,12 @@ This ticket covers the initial scaffolding of the new `memory-core` MCP server. 
 1.  The `ai/mcp/server/memory` directory is renamed to `ai/mcp/server/memory-core`.
 2.  A new `mcp-stdio.mjs` entry point file is created inside the `memory-core` directory.
 3.  The new server is registered in `.gemini/settings.json`, and the old entry is removed.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `ab61867` - "Scaffold Memory Core MCP Server #7521"
+- 2025-10-17 @tobiu closed this issue
 

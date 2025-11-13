@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2024-12-13T02:46:31Z'
 ---
 # window.moveTo is not reliable for Multi-Screen apps
-
-**Reported by:** @Dinkh on 2023-02-06
 
 I am currently working on a Multi-Screen Multi-Window app.
 
@@ -154,4 +154,12 @@ Wow, that's really neat! Congratulations!
 ### @michaelwasserman - 2025-08-25 13:25
 
 +100, very nice!!
+
+## Activity Log
+
+- 2023-02-06 @Dinkh added the `bug` label
+- 2024-08-29 @github-actions added the `stale` label
+- 2024-08-30 @github-actions removed the `stale` label
+- 2024-11-29 @github-actions added the `stale` label
+- 2024-12-13 @github-actions closed this issue
 

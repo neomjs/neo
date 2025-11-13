@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-25T21:17:46Z'
 ---
 # DomApiRenderer: createDomTree() => not fully stable for void attributes
 
-**Reported by:** @tobiu on 2025-07-25
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-25 @tobiu assigned to @tobiu
+- 2025-07-25 @tobiu added the `bug` label
+- 2025-07-25 @tobiu referenced in commit `0ed3055` - "DomApiRenderer: createDomTree() => not fully stable for void attributes #7111"
+- 2025-07-25 @tobiu closed this issue
 

@@ -39,18 +39,11 @@ subIssues:
   - 7589
 subIssuesCompleted: 23
 subIssuesTotal: 23
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T09:32:21Z'
 ---
 # Epic: Implement Two-Way GitHub Synchronization for Issues
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Sub-Issues:** #7565, #7566, #7567, #7568, #7569, #7570, #7571, #7572, #7573, #7574, #7575, #7576, #7578, #7579, #7580, #7581, #7582, #7583, #7584, #7585, #7587, #7588, #7589
-**Progress:** 23/23 completed (100%)
-
----
 
 This epic outlines the implementation of a robust, bi-directional synchronization mechanism for GitHub issues, enabling them to be stored and edited as local Markdown files.
 
@@ -84,4 +77,15 @@ Once the core issue synchronization is stable and robust, we will expand its cap
 ### @tobiu - 2025-10-24 09:32
 
 epic resolved, there will be new tickets for the new mcp server.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `epic` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `c46e8dd` - "#7564 tickets as md files"
+- 2025-10-20 @tobiu referenced in commit `83a1208` - "#7564 ticket md files"
+- 2025-10-20 @tobiu referenced in commit `a08874a` - "#7564 tickets as md files"
+- 2025-10-21 @tobiu referenced in commit `1de91d6` - "#7564 new sub md file"
+- 2025-10-24 @tobiu closed this issue
 

@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-05T09:28:36Z'
 ---
 # tests/config/MultiLevelHierarchy
-
-**Reported by:** @tobiu on 2025-07-05
 
 *(No description provided)*
 
@@ -28,4 +28,11 @@ closedAt: '2025-07-05T09:28:36Z'
 ### @tobiu - 2025-07-05 09:28
 
 <img width="1004" height="678" alt="Image" src="https://github.com/user-attachments/assets/e1a35779-69a7-48bd-b655-e5b15b361a18" />
+
+## Activity Log
+
+- 2025-07-05 @tobiu assigned to @tobiu
+- 2025-07-05 @tobiu added the `enhancement` label
+- 2025-07-05 @tobiu referenced in commit `e2d92ff` - "tests/config/MultiLevelHierarchy #6947"
+- 2025-07-05 @tobiu closed this issue
 

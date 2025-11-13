@@ -16,17 +16,11 @@ parentIssue: 7590
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T14:57:51Z'
 ---
 # Finalize GraphQL Migration & Cleanup
-
-**Reported by:** @tobiu on 2025-10-21
-
----
-
-**Parent Issue:** #7590 - Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
-
----
 
 This is the final ticket in the GraphQL migration epic. It covers the final cleanup and verification steps to ensure the migration is complete and the codebase is consistent.
 
@@ -42,4 +36,12 @@ This is the final ticket in the GraphQL migration epic. It covers the final clea
 ### @tobiu - 2025-10-23 14:57
 
 resolved.
+
+## Activity Log
+
+- 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added the `ai` label
+- 2025-10-22 @tobiu cross-referenced by #7590
+- 2025-10-23 @tobiu closed this issue
 

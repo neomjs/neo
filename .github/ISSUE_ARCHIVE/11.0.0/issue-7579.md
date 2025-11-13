@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T08:59:48Z'
 ---
 # Track and Handle Failed Pushes in SyncService
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 Currently, if a local issue file is modified but the corresponding issue is deleted on GitHub, the push operation will fail silently on every sync. We need to track these failures to prevent repeated API calls and to aid in debugging.
 
@@ -37,4 +31,12 @@ Currently, if a local issue file is modified but the corresponding issue is dele
 3.  When a push for an issue fails, its number is added to the `push_failures` array.
 4.  The `#pushToGitHub` logic is updated to check if an issue number is present in the `metadata.push_failures` from the previous sync. If it is, the service should skip attempting to push it again and log a debug message.
 5.  After a full sync cycle, if an issue that was previously in `push_failures` is successfully pulled (i.e., it exists on GitHub again), it should be removed from the `push_failures` list in the new metadata.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `2071add` - "Track and Handle Failed Pushes in SyncService #7579"
+- 2025-10-21 @tobiu closed this issue
 

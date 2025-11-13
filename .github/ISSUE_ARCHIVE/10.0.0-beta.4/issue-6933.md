@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-01T20:32:45Z'
 ---
 # Enhance Neo.data.Record for Granular Change Notification
-
-**Reported by:** @tobiu on 2025-07-01
 
 **Is your feature request related to a problem? Please describe.**
 `Neo.data.Record` instances, while holding data, do not currently provide a direct, granular mechanism for external entities to subscribe to changes of their individual fields. Changes are primarily propagated via the owning `Neo.data.Store`'s `mutate` event, which is a broader, collection-level notification. This makes it challenging for components or state providers to react specifically to changes within a record's properties without manual workarounds.
@@ -43,4 +43,12 @@ The new `notifyChange()` method within the `Record` class (created by `RecordFac
 External entities, such as `Neo.state.Provider`, can leverage this by using `Neo.util.Function.createSequence()` to attach a function to the `Record` instance's `notifyChange` method. This attached function would execute *after* the record's fields have been updated and would receive the `param` object, providing direct access to the `record` and the `changedFields` array.
 
 This approach allows for granular record-level change detection without requiring the `Neo.data.Record` class to implement a full `Observable` mixin, thus preserving its lightweight nature. The foundation for granular change notification at the record level appears to be in place through the `notifyChange()` method's design and its interaction with `createSequence()`.
+
+## Activity Log
+
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu referenced in commit `999b659` - "Enhance Neo.data.Record for Granular Change Notification #6933 => added notifyChange() as the single source of truth for record field changes => applied to the record prototype."
+- 2025-07-01 @tobiu referenced in commit `0e895c3` - "#6933 notifyChange() doc comment enhancement"
+- 2025-07-01 @tobiu referenced in commit `73e3c79` - "#6933 notifyChange() => signature fix"
+- 2025-07-01 @tobiu closed this issue
 

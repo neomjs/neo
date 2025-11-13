@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-02T16:46:27Z'
 ---
 # Clarify git-ignored class-hierarchy.yaml in AGENTS.md
-
-**Reported by:** @tobiu on 2025-10-02
 
 Add a clear note to AGENTS.md, specifically in the "Read the Codebase Structure" section, indicating that `docs/output/class-hierarchy.yaml` is a git-ignored file. This will prevent confusion and frequent session failures when AI agents attempt to open it without realizing it might not be present in a fresh clone or after a clean operation.
 
@@ -28,4 +28,11 @@ Add a clear note to AGENTS.md, specifically in the "Read the Codebase Structure"
 - The update includes a clear statement about `docs/output/class-hierarchy.yaml` being git-ignored.
 - The statement is located in the section describing the reading of `class-hierarchy.yaml`.
 - The wording is concise and unambiguous.
+
+## Activity Log
+
+- 2025-10-02 @tobiu assigned to @tobiu
+- 2025-10-02 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu referenced in commit `a1222b6` - "Clarify git-ignored class-hierarchy.yaml in AGENTS.md #7327"
+- 2025-10-02 @tobiu closed this issue
 

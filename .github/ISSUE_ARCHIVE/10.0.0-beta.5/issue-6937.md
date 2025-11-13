@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-04T16:57:27Z'
 ---
 # Implement `mergeStrategy` for Reactive Configs
-
-**Reported by:** @tobiu on 2025-07-04
 
 ### Summary
 
@@ -94,4 +94,22 @@ instance.style = { backgroundColor: 'red' };
 ```
 
 This provides a more intuitive, powerful, and declarative way to handle complex configurations at creation time without adding runtime overhead.
+
+## Activity Log
+
+- 2025-07-04 @tobiu assigned to @tobiu
+- 2025-07-04 @tobiu added the `enhancement` label
+- 2025-07-04 @tobiu referenced in commit `529e8d4` - "#6937 Neo.setupClass() => storing config descriptors"
+- 2025-07-04 @tobiu referenced in commit `c31ceb6` - "#6937 Neo.mergeConfig() => rudimentary base-line implementation"
+- 2025-07-04 @tobiu referenced in commit `277a71a` - "#6937 core.Base: mergeConfig()"
+- 2025-07-04 @tobiu referenced in commit `8c2c232` - "#6937 component.Base: beforeSetAlign() => removed the manual merge => now handled by the Config atom strategy."
+- 2025-07-04 @tobiu referenced in commit `e872f80` - "#6937 core.Config: initDescriptor() => shortening the logic"
+- 2025-07-04 @tobiu referenced in commit `7643e2e` - "#6937 Neo.mergeConfig() => using deep as the default"
+- 2025-07-04 @tobiu referenced in commit `adf70e8` - "#6937 core.Config: default merge strategy => replace, JSDoc comments polishing"
+- 2025-07-04 @tobiu referenced in commit `2eb32fc` - "#6937 Neo.mergeConfig() => back to replace as the default"
+- 2025-07-04 @tobiu referenced in commit `5059bc8` - "#6937 component.Base: descriptors for align_, style_, wrapperStyle_"
+- 2025-07-04 @tobiu referenced in commit `45f2bdf` - "#6937 Neo.merge() => null or undefined check"
+- 2025-07-04 @tobiu referenced in commit `f496197` - "#6937 component.Base: mergeConfig() => further polishing"
+- 2025-07-04 @tobiu referenced in commit `8d94ab9` - "#6937 component.Base: style, wrapperStyle => merge shallow"
+- 2025-07-04 @tobiu closed this issue
 

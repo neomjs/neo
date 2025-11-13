@@ -14,11 +14,20 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T23:27:22Z'
 ---
 # Learning Content: ComboBox guide
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `d936c17` - "Learning Content: ComboBox guide #6913 initial draft version"
+- 2025-06-30 @tobiu referenced in commit `4858281` - "#6913 mentioning that devs can pass models & stores as config objects, classes or instances"
+- 2025-06-30 @tobiu referenced in commit `a1da624` - "#6913 added 2 live previews"
+- 2025-06-30 @tobiu referenced in commit `a08722a` - "#6913 section 3: updated text"
+- 2025-06-30 @tobiu closed this issue
 

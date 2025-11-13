@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T11:51:06Z'
 ---
 # Add outputSchema to MCP Tool Definitions
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 The MCP `tools/list` response currently does not include the optional `outputSchema` for each tool. While optional, providing this schema will improve the tool definition's completeness and allow clients to better understand and validate the expected response structure.
 
@@ -38,4 +32,12 @@ This ticket covers the work to define the `outputSchema` using `zod`, based on t
 2.  The `zod` schema is converted to a plain JSON Schema using a library like `zod-to-json-schema`.
 3.  The generated JSON Schema is added as the `outputSchema` property to each tool definition returned by `listTools`.
 4.  The `tools/list` response is verified to include the new `outputSchema` for each tool.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `85094ca` - "Add outputSchema to MCP Tool Definitions #7495"
+- 2025-10-15 @tobiu closed this issue
 

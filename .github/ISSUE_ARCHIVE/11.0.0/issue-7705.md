@@ -18,11 +18,21 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T20:29:04Z'
 ---
 # Remove Siesta from the project
 
-**Reported by:** @tobiu on 2025-11-04
-
 With the successful migration of all unit and component tests to Playwright, the Siesta framework is now obsolete. This ticket is to track the work of completely removing all Siesta-related files and dependencies from the repository. This includes updating `package.json`, deleting the `test/siesta/` and `test/components/` directories, and cleaning up any related scripts or documentation.
+
+## Activity Log
+
+- 2025-11-04 @tobiu added the `enhancement` label
+- 2025-11-04 @tobiu added the `ai` label
+- 2025-11-04 @tobiu added the `refactoring` label
+- 2025-11-04 @tobiu added the `testing` label
+- 2025-11-04 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu referenced in commit `0c1d395` - "Remove Siesta from the project #7705"
+- 2025-11-04 @tobiu closed this issue
 

@@ -48,6 +48,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
     $maxAssignees: Int!
     $maxComments: Int!
     $maxSubIssues: Int!
+    $maxTimelineItems: Int!
   ) {
     repository(owner: $owner, name: $repo) {
       issues(
@@ -119,6 +120,95 @@ export const FETCH_ISSUES_FOR_SYNC = `
             total
             completed
             percentCompleted
+          }
+          
+          # Blocked-by relationships
+          blockedBy(first: $maxSubIssues) {
+            nodes {
+              number
+              title
+              state
+            }
+          }
+          
+          blocking(first: $maxSubIssues) {
+            nodes {
+              number
+              title
+              state
+            }
+          }
+          
+          timelineItems(
+            first: $maxTimelineItems,
+            itemTypes: [
+              REFERENCED_EVENT,       # Commits mentioning the ticket
+              CROSS_REFERENCED_EVENT, # Other issues/PRs mentioning the ticket
+              LABELED_EVENT,          # Label changes
+              UNLABELED_EVENT,        # Label removals
+              ASSIGNED_EVENT,         # Assignee changes
+              UNASSIGNED_EVENT,       # Assignee removals
+              CLOSED_EVENT,           # Issue closed
+            ]) {
+            nodes {
+              __typename
+              ... on ReferencedEvent {
+                createdAt
+                actor { login }
+                commit { oid message }
+              }
+              ... on CrossReferencedEvent {
+                createdAt
+                actor { login }
+                source { __typename ... on Issue { number } ... on PullRequest { number } }
+              }
+              ... on LabeledEvent {
+                createdAt
+                actor {
+                  login
+                }
+                label {
+                  name
+                }
+              }
+              ... on UnlabeledEvent {
+                createdAt
+                actor {
+                  login
+                }
+                label {
+                  name
+                }
+              }
+              ... on AssignedEvent {
+                createdAt
+                actor {
+                  login
+                }
+                assignee {
+                  ... on User {
+                    login
+                  }
+                }
+              }
+              ... on UnassignedEvent {
+                createdAt
+                actor {
+                  login
+                }
+                assignee {
+                  ... on User {
+                    login
+                  }
+                }
+              }
+              ... on ClosedEvent {
+                createdAt
+                actor {
+                  login
+                }
+              }
+            }
           }
         }
       }
@@ -207,6 +297,20 @@ export const FETCH_SINGLE_ISSUE = `
           completed
           percentCompleted
         }
+        blockedBy(first: $maxSubIssues) {
+          nodes {
+            number
+            title
+            state
+          }
+        }
+        blocking(first: $maxSubIssues) {
+          nodes {
+            number
+            title
+            state
+          }
+        }
       }
     }
   }
@@ -217,11 +321,56 @@ export const FETCH_SINGLE_ISSUE = `
  * These are pulled from config to avoid hardcoded magic numbers in queries.
  */
 export const DEFAULT_QUERY_LIMITS = {
-    maxLabels   : issueSyncConfig.maxLabelsPerIssue,
-    maxAssignees: issueSyncConfig.maxAssigneesPerIssue,
-    maxComments : issueSyncConfig.maxCommentsPerIssue,
-    maxSubIssues: issueSyncConfig.maxSubIssuesPerIssue
+    maxLabels       : issueSyncConfig.maxLabelsPerIssue,
+    maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
+    maxComments     : issueSyncConfig.maxCommentsPerIssue,
+    maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
+    maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
 };
+
+/**
+ * Query to get an issue's current parent relationship.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_ISSUE_PARENT = `
+    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                parent {
+                    id
+                    number
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Query to get an issue's current blockedBy relationships.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_BLOCKED_BY = `
+    query GetBlockedBy($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                blockedBy(first: 100) {
+                    nodes {
+                        id
+                        number
+                    }
+                }
+            }
+        }
+    }
+`;
 
 /**
  * Fetches the GraphQL node ID for an issue and all labels in the repository.

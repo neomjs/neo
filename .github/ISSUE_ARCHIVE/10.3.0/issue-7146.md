@@ -15,18 +15,20 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-31T14:58:00Z'
 ---
 # Fix Conditional Rendering and Add Tests
 
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
-
 **Description:**
 Ensured that falsy values (e.g., `false`, `null`, `undefined`) in template interpolations do not render any output, which is the correct and expected behavior for conditional rendering. Added a new test case to `test/siesta/tests/functional/HtmlTemplateComponent.mjs` to verify this functionality by toggling a conditional element and asserting its presence and absence in the VDOM.
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu referenced in commit `a992980` - "Fix Conditional Rendering and Add Tests
+#7146"
+- 2025-07-31 @tobiu closed this issue
 

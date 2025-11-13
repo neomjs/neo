@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T13:44:37Z'
 ---
 # Implement Abort-on-Startup if Health Check Fails
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 To ensure the `github-workflow` server is always in a valid state, it should perform a comprehensive health check upon startup and refuse to run if its critical dependencies are not met. This prevents any tool from executing in a broken environment.
 
@@ -49,4 +43,12 @@ This will be achieved by leveraging the existing `HealthService`.
 -   **Robustness:** Prevents any tool from being called when the server is in an invalid state.
 -   **Clear Errors:** Provides immediate, actionable feedback to the user if their environment is not configured correctly.
 -   **DRY:** Reuses the existing, comprehensive logic in `HealthService` instead of duplicating checks.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `207320e` - "Implement Abort-on-Startup if Health Check Fails #7583"
+- 2025-10-20 @tobiu closed this issue
 

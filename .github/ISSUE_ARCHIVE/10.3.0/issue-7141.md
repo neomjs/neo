@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T13:06:29Z'
 ---
 # Enhance Learning Content
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 Create a comprehensive guide to explain the purpose and trade-offs of using HTML templates. The current syntax-only file is insufficient for developers to make an informed decision. This new content should clearly position templates as an alternative to the core JSON VDOM, aimed at developers familiar with string-based syntaxes.
@@ -43,4 +37,10 @@ Create a comprehensive guide to explain the purpose and trade-offs of using HTML
 ### @tobiu - 2025-08-02 13:06
 
 resolved via https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/HtmlTemplates.md
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu closed this issue
 

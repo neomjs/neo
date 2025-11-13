@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T10:07:08Z'
 ---
 # Encourage Pure VDOM Effects
-
-**Reported by:** @tobiu on 2025-07-09
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -55,4 +49,12 @@ This issue is stale because it has been open for 90 days with no activity.
 ### @tobiu - 2025-10-24 10:07
 
 dropped
+
+## Activity Log
+
+- 2025-07-09 @tobiu added the `enhancement` label
+- 2025-10-08 @github-actions added the `stale` label
+- 2025-10-08 @tobiu removed the `stale` label
+- 2025-10-08 @tobiu added the `no auto close` label
+- 2025-10-24 @tobiu closed this issue
 

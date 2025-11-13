@@ -15,16 +15,10 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Create Playwright Component Test for Neo.form.field.Password
-
-**Reported by:** @tobiu on 2025-10-27
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 This ticket is to create a new Playwright-based component test for `Neo.form.field.Password`.
 
@@ -83,4 +77,10 @@ The `Neo.form.field.Password` component extends `Neo.form.field.Text` and only o
 ## File Location
 
 The test should be created at: `test/playwright/component/form/field/Password.spec.mjs`
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `enhancement` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu cross-referenced by PR #7676
 

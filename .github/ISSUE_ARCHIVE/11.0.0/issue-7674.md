@@ -17,15 +17,23 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T12:06:45Z'
 ---
 # Fix(toolService): Create union type for multiple response schemas
-
-**Reported by:** @tobiu on 2025-10-27
 
 The `toolService.mjs` was not correctly interpreting the OpenAPI specification to create a comprehensive output schema for tools. It only considered success responses (200, 201, 202), ignoring defined error responses (e.g., 500, 404).
 
 This caused the MCP client to reject valid error objects returned by tools, as they did not match the success-only output schema.
 
 This ticket covers the fix implemented in `buildOutputZodSchema` to iterate over all possible responses for an operation and combine their schemas into a `z.union()` type. This ensures the generated `outputSchema` accurately reflects all possible return shapes (both success and error), making the tool definitions more robust.
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `bug` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu added the `refactoring` label
+- 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu closed this issue
 

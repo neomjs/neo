@@ -15,17 +15,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-02T09:00:26Z'
 ---
 # Refactor and Centralize AI Configuration
-
-**Reported by:** @tobiu on 2025-10-02
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 During the setup of the agent's memory database, a new configuration object (`memoryDBConfig`) was introduced. To avoid scattering configuration details across multiple scripts and creating technical debt, this ticket is to create a single, centralized configuration file for all AI-related scripts (knowledge base, memory, etc.).
 
@@ -36,4 +30,11 @@ During the setup of the agent's memory database, a new configuration object (`me
 3.  Configuration variables from other AI scripts (e.g., `embedKnowledgeBase.mjs`, `queryKnowledgeBase.mjs`) are identified and moved to the new config file.
 4.  All affected AI scripts are updated to import their settings from `buildScripts/ai/aiConfig.mjs`.
 5.  The inline `TODO` comment in `setupMemoryDB.mjs` is removed.
+
+## Activity Log
+
+- 2025-10-02 @tobiu assigned to @tobiu
+- 2025-10-02 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu referenced in commit `f51badd` - "Refactor and Centralize AI Configuration #7324"
+- 2025-10-02 @tobiu closed this issue
 

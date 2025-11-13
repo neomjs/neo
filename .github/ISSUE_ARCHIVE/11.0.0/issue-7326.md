@@ -15,17 +15,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-02T12:55:40Z'
 ---
 # Document Optional Memory Core Setup
-
-**Reported by:** @tobiu on 2025-10-02
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 To make the AI agent's memory core an optional, opt-in feature, this ticket covers the creation of documentation for developers on how to set up and enable it.
 
@@ -38,4 +32,11 @@ This documentation will be added to `AI_QUICK_START.md` and will serve as the pr
     a.  Starting the dedicated ChromaDB memory server (`npm run ai:server-memory`).
     b.  Initializing the memory collection (`npm run ai:setup-memory-db`).
 3.  The documentation emphasizes that this is an optional feature and explains its benefits.
+
+## Activity Log
+
+- 2025-10-02 @tobiu assigned to @tobiu
+- 2025-10-02 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu referenced in commit `decee54` - "Document Optional Memory Core Setup #7326"
+- 2025-10-02 @tobiu closed this issue
 

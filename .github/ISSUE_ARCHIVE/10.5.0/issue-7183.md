@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T19:37:20Z'
 ---
 # Fix `collection.Base#splice` Stack Overflow on Large Removals
-
-**Reported by:** @tobiu on 2025-08-11
 
 **Is your feature request related to a problem? Please describe.**
 
@@ -46,4 +46,11 @@ This comprehensive approach ensures both correctness (no stack overflow) and opt
 *   **Critical Bug Fix:** Prevents the application from crashing when clearing collections with very large datasets.
 *   **Increased Robustness:** Makes the core collection class more resilient and predictable under heavy load.
 *   **Code Simplification:** The corrected code is simpler and more efficient.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `db37f3b` - "Fix collection.Base#splice Stack Overflow on Large Removals #7183"
+- 2025-08-11 @tobiu closed this issue
 

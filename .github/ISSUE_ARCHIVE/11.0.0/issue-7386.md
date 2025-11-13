@@ -16,17 +16,11 @@ parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-06T09:05:45Z'
 ---
 # Configure MCP Server for Project
-
-**Reported by:** @tobiu on 2025-10-06
-
----
-
-**Parent Issue:** #7385 - 'Sighted' Agent - Chrome DevTools Integration
-
----
 
 To enable the AI agent to interact with a browser, the Chrome DevTools Model Context Protocol (MCP) server must be configured for the project. This involves creating a project-specific configuration file that the Gemini CLI will automatically detect and use.
 
@@ -46,4 +40,12 @@ To enable the AI agent to interact with a browser, the Chrome DevTools Model Con
   }
 }
 ```
+
+## Activity Log
+
+- 2025-10-06 @tobiu assigned to @tobiu
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu referenced in commit `784002e` - "Configure MCP Server for Project #7386"
+- 2025-10-06 @tobiu closed this issue
 

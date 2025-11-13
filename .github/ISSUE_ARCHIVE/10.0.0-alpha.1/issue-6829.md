@@ -16,11 +16,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-17T14:51:20Z'
 ---
 # calendar.view.calendars.List: createItemContent() => ensure there are no space separated cls items inside the vdom
 
-**Reported by:** @tobiu on 2025-06-17
-
 * this will affect the next neo version
+
+## Activity Log
+
+- 2025-06-17 @tobiu added the `bug` label
+- 2025-06-17 @tobiu referenced in commit `7011ae7` - "calendar.view.calendars.List: createItemContent() => ensure there are no space separated cls items inside the vdom #6829"
+- 2025-06-17 @tobiu closed this issue
 

@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T19:54:33Z'
 ---
 # JSDoc Enhancement: Add `@reactive` Tag to All Reactive Configs
-
-**Reported by:** @tobiu on 2025-07-11
 
 ## 1. The Goal (What)
 
@@ -58,4 +58,15 @@ This automated approach ensures accuracy and can be re-run as needed to keep the
 ### @tobiu - 2025-07-11 19:54
 
 reopening for adding examples
+
+## Activity Log
+
+- 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `dfa0cf9` - "#7020 buildScripts/checkReactiveTags.mjs, buildScripts/addReactiveTags.mjs"
+- 2025-07-11 @tobiu referenced in commit `1188f0a` - "JSDoc Enhancement: Add @reactive Tag to All Reactive Configs #7020"
+- 2025-07-11 @tobiu referenced in commit `b7144f0` - "#7020 polishing"
+- 2025-07-11 @tobiu closed this issue
+- 2025-07-11 @tobiu referenced in commit `f708d1b` - "#7020 added examples"
+- 2025-07-11 @tobiu closed this issue
 

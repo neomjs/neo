@@ -19,17 +19,11 @@ parentIssue: 7296
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-13T09:34:45Z'
 ---
 # `ai:query` fails to find content in existing blog post
-
-**Reported by:** @tobiu on 2025-10-12
-
----
-
-**Parent Issue:** #7296 - Hacktoberfest 2025: Build Your AI Development Skills with Neo.mjs
-
----
 
 The `npm run ai:query` command is failing to find content that is confirmed to exist in a file within the `/learn/blog/` directory. This failure occurs both in general searches and when specifically filtering with `-t blog`. This points to a potential bug in the knowledge base indexing process (`createKnowledgeBase.mjs` or `embedKnowledgeBase.mjs`) or the query filtering logic (`queryKnowledgeBase.mjs`).
 
@@ -99,4 +93,29 @@ Hi @tobiu, apologies for not asking to be assigned to this issue beforehand. Iâ€
 >   Important: Due to GitHub's assignment policy, I can only assign the ticket to you after you've commented on it. Please leave a comment on the new issue (e.g., "Ready to start!") within the next 7 days, and I will officially assign it to you.
 > 
 >   We're thrilled to have such high interest in the project and look forward to collaborating with all of you.
+
+## Activity Log
+
+- 2025-10-12 @tobiu added the `bug` label
+- 2025-10-12 @tobiu added the `help wanted` label
+- 2025-10-12 @tobiu added the `good first issue` label
+- 2025-10-12 @tobiu added the `hacktoberfest` label
+- 2025-10-12 @tobiu added the `ai` label
+- 2025-10-13 @harikrishna-au referenced in commit `2107d69` - "Fix AI query blog filtering issue #7467
+
+- Blog content is stored as type:'guide' with isBlog:true
+- Query filter was incorrectly looking for type:'blog'
+- Updated queryKnowledgeBase.mjs to handle blog type correctly
+- Blog queries now filter for type:'guide' AND isBlog:'true'
+- Resolves AI knowledge base blog content access issue"
+- 2025-10-13 @harikrishna-au cross-referenced by PR #7472
+- 2025-10-13 @tobiu referenced in commit `39032f4` - "Fix AI query blog filtering issue #7467
+
+- Blog content is stored as type:'guide' with isBlog:true
+- Query filter was incorrectly looking for type:'blog'
+- Updated queryKnowledgeBase.mjs to handle blog type correctly
+- Blog queries now filter for type:'guide' AND isBlog:'true'
+- Resolves AI knowledge base blog content access issue"
+- 2025-10-13 @tobiu closed this issue
+- 2025-10-13 @tobiu assigned to @harikrishna-au
 

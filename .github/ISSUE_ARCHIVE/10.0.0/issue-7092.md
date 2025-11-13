@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-22T06:24:15Z'
 ---
 # add the v10 beta release notes to the repo
 
-**Reported by:** @tobiu on 2025-07-22
-
 * beta 1-3 are missing
+
+## Activity Log
+
+- 2025-07-22 @tobiu assigned to @tobiu
+- 2025-07-22 @tobiu added the `enhancement` label
+- 2025-07-22 @tobiu referenced in commit `272b417` - "add the v10 beta release notes to the repo #7092"
+- 2025-07-22 @tobiu closed this issue
 

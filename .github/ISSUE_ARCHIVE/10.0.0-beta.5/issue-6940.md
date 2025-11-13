@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-04T17:34:31Z'
 ---
 # Enhance `Neo.mergeConfig` for Robust Type Handling
-
-**Reported by:** @tobiu on 2025-07-04
 
 **Is your feature request related to a problem? Please describe.**
 The existing config system had a subtle issue where `Neo.mergeConfig` method, responsible for merging default and instance config values, previously attempted `shallow` or `deep` merge operations even when the `defaultValue` or `instanceValue` were not objects. This could lead to semantically incorrect operations or potential runtime errors when dealing with primitive types, as object-specific merge logic is not applicable to non-object values.
@@ -36,4 +36,11 @@ The previous implementation was less strict about type checking, which led to th
 
 **Additional context**
 This enhancement improves the reliability and predictability of the config merging process within the Neo.mjs framework, ensuring that `shallow` and `deep` merges are only performed on appropriate data types.
+
+## Activity Log
+
+- 2025-07-04 @tobiu assigned to @tobiu
+- 2025-07-04 @tobiu added the `enhancement` label
+- 2025-07-04 @tobiu referenced in commit `bd0da0d` - "Enhance Neo.mergeConfig for Robust Type Handling #6940"
+- 2025-07-04 @tobiu closed this issue
 

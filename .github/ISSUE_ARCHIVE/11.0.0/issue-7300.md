@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-28T13:31:00Z'
 ---
 # Refactor Knowledge Base Schema to Fix Type Regression
-
-**Reported by:** @tobiu on 2025-09-28
 
 The AI query tool (`npm run ai:query`) fails for `--type example` because the knowledge base creation script does not correctly assign a high-level `type` to items originating from the `/examples` directory. The current implementation uses `type` to store the specific code construct (`class`, `method`), creating a conflict.
 
@@ -34,4 +34,11 @@ This ticket refactors the knowledge base schema to solve this regression and mak
 
 2.  **Verify `buildScripts/ai/queryKnowledgeBase.mjs`:**
     -   Confirm that the existing query logic, which filters on the `type` property, works correctly with the new schema without modification.
+
+## Activity Log
+
+- 2025-09-28 @tobiu assigned to @tobiu
+- 2025-09-28 @tobiu added the `bug` label
+- 2025-09-28 @tobiu referenced in commit `eca8527` - "Refactor Knowledge Base Schema to Fix Type Regression #7300"
+- 2025-09-28 @tobiu closed this issue
 

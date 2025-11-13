@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T13:02:58Z'
 ---
 # Implement Release Note Synchronization
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 To create a complete local mirror of the project's history, we need to synchronize the release notes from GitHub to local Markdown files. This provides valuable context for the AI knowledge base and for developers working offline.
 
@@ -44,4 +38,12 @@ To create a complete local mirror of the project's history, we need to synchroni
 -   Provides a complete, local, and queryable archive of all project release notes.
 -   Enriches the AI knowledge base with high-level summaries of changes and new features for each version.
 -   Improves the agent's ability to understand the evolution of the codebase over time.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `55084b3` - "Implement Release Note Synchronization #7575"
+- 2025-10-20 @tobiu closed this issue
 

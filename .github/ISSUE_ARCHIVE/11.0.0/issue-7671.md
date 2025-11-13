@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-27T10:11:28Z'
 ---
 # Refactor: Polish Agent Protocols in AGENTS.md
-
-**Reported by:** @tobiu on 2025-10-27
 
 Based on feedback from Sonnet 4.5, we need to polish several core protocols within `AGENTS.md` to be more explicit and effective.
 
@@ -88,4 +88,13 @@ Add more context to the Memory Core check in the Session Initialization section.
     -   **If the healthcheck is successful:** The Memory Core is active. You **MUST** use the `add_memory` tool to save every turn. This creates a queryable history of your work that enables learning from past sessions and pattern recognition across time.
     -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 ```
+
+## Activity Log
+
+- 2025-10-27 @tobiu added the `documentation` label
+- 2025-10-27 @tobiu added the `enhancement` label
+- 2025-10-27 @tobiu added the `ai` label
+- 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu referenced in commit `aed9de4` - "Refactor: Polish Agent Protocols in AGENTS.md #7671"
+- 2025-10-27 @tobiu closed this issue
 

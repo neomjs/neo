@@ -17,17 +17,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T12:41:48Z'
 ---
 # Enhance All Tools with In-Spec Manuals
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 Based on a design review, we have established a best practice for documenting MCP tools for AI agents: the `description` field in the `openapi.yaml` specification should serve as a comprehensive user manual, not just a brief summary.
 
@@ -39,4 +33,13 @@ This ticket covers the work to apply this standard to all tools in the Knowledge
 2.  The `description` for each operation (`sync_database`, `create_knowledge_base`, `embed_knowledge_base`, `delete_database`, etc.) is expanded into a full manual using Markdown sections.
 3.  The manuals explain the tool's purpose, when to use it, what it does behind the scenes (e.g., "this orchestrates the create and embed tools"), and any potential side effects (e.g., "this is a destructive operation").
 4.  The `query_documents` description, which already follows this pattern, can be used as a template.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `documentation` label
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `4c9b2bd` - "Enhance All Tools with In-Spec Manuals #7514"
+- 2025-10-16 @tobiu closed this issue
 

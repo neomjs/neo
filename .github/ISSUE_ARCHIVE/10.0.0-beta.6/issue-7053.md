@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-14T17:14:38Z'
 ---
 # Architectural Enhancement: Implement VDOM Config Diffing in FunctionalBase
-
-**Reported by:** @tobiu on 2025-07-14
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Summary
 
@@ -65,4 +59,11 @@ The correct solution is to make the framework smarter. `FunctionalBase` should c
 -   `set()` is only called on child components if their VDOM config has demonstrably changed.
 -   The Email App's grid component, configured declaratively with `store: EmailsStore`, no longer re-creates its store on parent re-renders.
 -   The state of the grid (selection, scroll position) is preserved across parent state changes that do not affect the grid's own configuration.
+
+## Activity Log
+
+- 2025-07-14 @tobiu assigned to @tobiu
+- 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu referenced in commit `db706b1` - "Architectural Enhancement: Implement VDOM Config Diffing in FunctionalBase #7053"
+- 2025-07-14 @tobiu closed this issue
 

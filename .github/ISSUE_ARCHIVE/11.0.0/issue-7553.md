@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T22:07:30Z'
 ---
 # Refactor HealthService to Match Superior Memory Core Pattern
-
-**Reported by:** @tobiu on 2025-10-19
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 This ticket covers refactoring `ai/mcp/server/knowledge-base/services/healthService.mjs` into a singleton `HealthService` class. The current implementation is a simple function; it should be upgraded to match the more robust and informative pattern established in the `memory-core` server's `HealthService` (`ai/mcp/server/memory-core/services/HealthService.mjs`).
 
@@ -39,4 +33,12 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/healthServ
 5.  The health check response is enhanced to include more details, such as uptime and version, mirroring the `memory-core` service.
 6.  The `ai/mcp/server/knowledge-base/services/toolService.mjs` is updated to use the new `HealthService` class and its method.
 7.  The `healthcheck` tool continues to function correctly with the improved response structure.
+
+## Activity Log
+
+- 2025-10-19 @tobiu assigned to @tobiu
+- 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu referenced in commit `ab3924a` - "Refactor HealthService to Match Superior Memory Core Pattern #7553"
+- 2025-10-19 @tobiu closed this issue
 

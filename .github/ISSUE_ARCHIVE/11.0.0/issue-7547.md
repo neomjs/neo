@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-18T14:53:00Z'
 ---
 # Enhance DatabaseLifecycleService with Eventing
-
-**Reported by:** @tobiu on 2025-10-18
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 To provide clear and decoupled notifications about the ChromaDB process management status, this ticket focuses on enhancing the `DatabaseLifecycleService` singleton with eventing capabilities. This is particularly important given the hybrid strategy where ChromaDB can be managed internally by the service or run externally.
 
@@ -38,4 +32,12 @@ To provide clear and decoupled notifications about the ChromaDB process manageme
 3.  The `stopDatabase` method is updated to fire a `'processStopped'` event (with the PID and `managedByService: true`) when it successfully terminates a managed process.
 4.  The `mcp-stdio.mjs` entry point (or a relevant service) is updated to subscribe to these events for logging purposes, demonstrating the eventing mechanism.
 5.  All related functionalities continue to work correctly after the changes.
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu referenced in commit `3a73808` - "Enhance DatabaseLifecycleService with Eventing #7547"
+- 2025-10-18 @tobiu closed this issue
 

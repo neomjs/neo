@@ -15,10 +15,10 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Collections for Filters & Sorters in `Neo.collection.Base`
-
-**Reported by:** @tobiu on 2025-07-01
 
 ### Problem Statement
 
@@ -66,4 +66,9 @@ myCollection.filters.findFirst('property', 'name');
 ```
 
 This enhancement would significantly improve the ergonomics and consistency of managing filters and sorters within Neo.mjs applications.
+
+## Activity Log
+
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu added the `no auto close` label
 

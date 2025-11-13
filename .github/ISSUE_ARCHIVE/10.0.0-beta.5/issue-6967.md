@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T23:45:42Z'
 ---
 # Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions
-
-**Reported by:** @tobiu on 2025-07-06
 
 ## Description
 
@@ -70,4 +70,14 @@ sources.
 code.
 *   **Foundation for Advanced Features:** These enhancements lay critical groundwork for more sophisticated reactive patterns, such as computed properties
 and highly optimized data flows.
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `873cec0` - "Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions #6967"
+- 2025-07-06 @tobiu referenced in commit `2bf8804` - "#6967 tests/core/Effect: sum verification tests"
+- 2025-07-06 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `a80f853` - "Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions #6967"
+- 2025-07-09 @tobiu referenced in commit `5d1db29` - "#6967 tests/core/Effect: sum verification tests"
 

@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-21T18:29:56Z'
 ---
 # AI Knowledge Base Quick Start: add infos on how to get a gemini api key
 
-**Reported by:** @tobiu on 2025-09-21
-
 for convenience
+
+## Activity Log
+
+- 2025-09-21 @tobiu assigned to @tobiu
+- 2025-09-21 @tobiu added the `enhancement` label
+- 2025-09-21 @tobiu referenced in commit `1e3651e` - "AI Knowledge Base Quick Start: add infos on how to get a gemini api key #7228"
+- 2025-09-21 @tobiu closed this issue
 

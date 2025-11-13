@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T10:34:53Z'
 ---
 # Enhance `Neo.core.Effect` Constructor
-
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## 1. Summary
 
@@ -51,4 +45,11 @@ Since `core.Effect` is a new class introduced in the v10 beta series, adding an 
 -   The `Neo.core.Effect` constructor is updated to accept an optional `componentId`.
 -   `functional.component.Base` correctly passes its ID when creating its `vdomEffect`.
 -   This change enables the `useConfig` hook to reliably get the current component instance.
+
+## Activity Log
+
+- 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `ddbd6eb` - "Enhance Neo.core.Effect Constructor #7015"
+- 2025-07-11 @tobiu closed this issue
 

@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-04T19:31:12Z'
 ---
 # Implement Hierarchical `static config` Value Merging based on `configDescriptors` in `Neo.setupClass`
-
-**Reported by:** @tobiu on 2025-07-04
 
 **Is your feature request related to a problem? Please describe.**
 When `Neo.setupClass` processes the class hierarchy, `static config` values from parent classes are currently overwritten by those from child classes if a config property with the same name exists. This prevents the intended hierarchical merging of config *values* based on the `merge` strategy defined in their respective `configDescriptors`.
@@ -49,4 +49,11 @@ The current "overwrite" behavior is the alternative, which leads to the describe
 
 **Additional context**
 This change is crucial for the predictability and correctness of how `static config` values are inherited and combined across the class hierarchy. It allows developers to define complex default configurations that are intelligently merged by subclasses, rather than simply being overwritten. This is distinct from instance-level config merging (handled by `Base.mjs#mergeConfig`), as this change focuses on the final `static config` object that `Neo.setupClass` produces.
+
+## Activity Log
+
+- 2025-07-04 @tobiu assigned to @tobiu
+- 2025-07-04 @tobiu added the `enhancement` label
+- 2025-07-04 @tobiu referenced in commit `b3cb219` - "Implement Hierarchical static config Value Merging based on configDescriptors in Neo.setupClass #6943"
+- 2025-07-04 @tobiu closed this issue
 

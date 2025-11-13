@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-24T14:40:01Z'
 ---
 # Portal.view.blog.List: Clearing the filter no longer works
-
-**Reported by:** @tobiu on 2025-06-24
 
 * Deprecation issue: it did work fine before.
 * It is not related to the new `useDomApiRenderer` config => breaks in both modes.
@@ -69,4 +69,13 @@ The second issue was inside the `vdom.VNode` interface: in v9, a vnode inside th
 `util.Style: compareStyles()` had a bug when receiving undefined as the newValue, which is fixed now.
 
 The key lesson learned: the entire auto-id on vnode level synchronization back to vdom structures works perfectly fine. I was a bit worried that this part broke => not the case.
+
+## Activity Log
+
+- 2025-06-24 @tobiu assigned to @tobiu
+- 2025-06-24 @tobiu added the `bug` label
+- 2025-06-24 @tobiu referenced in commit `fa85510` - "Portal.view.blog.List: Clearing the filter no longer works #6859 => minor logic polishing"
+- 2025-06-24 @tobiu referenced in commit `885872c` - "Portal.view.blog.List: Clearing the filter no longer works #6859 => vdom.Helper typo fix"
+- 2025-06-24 @tobiu referenced in commit `d25166e` - "#6859 Portal.view.blog.List: util.Style: compareStyles() => fixed an else if part without a return value"
+- 2025-06-24 @tobiu closed this issue
 

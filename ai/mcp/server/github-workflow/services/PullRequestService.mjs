@@ -9,7 +9,8 @@ import {
     DEFAULT_QUERY_LIMITS,
     FETCH_PULL_REQUESTS,
     GET_CONVERSATION,
-    GET_PULL_REQUEST_ID
+    GET_PULL_REQUEST_ID,
+    UPDATE_COMMENT
 } from './queries/pullRequestQueries.mjs';
 
 const execAsync = promisify(exec);
@@ -195,6 +196,35 @@ class PullRequestService extends Base {
             return data.repository.pullRequest;
         } catch (error) {
             logger.error(`Error getting conversation for PR #${prNumber} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Updates an existing comment on a pull request or issue.
+     * @param {string} comment_id - The global node ID of the comment to update.
+     * @param {string} body       - The new body content for the comment.
+     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
+     */
+    async updateComment(comment_id, body) {
+        try {
+            const result = await GraphqlService.query(UPDATE_COMMENT, {
+                commentId: comment_id,
+                body
+            });
+
+            return {
+                message  : `Successfully updated comment ${comment_id}`,
+                commentId: result.updateIssueComment.issueComment.id,
+                url      : result.updateIssueComment.issueComment.url,
+                updatedAt: result.updateIssueComment.issueComment.updatedAt
+            };
+        } catch (error) {
+            logger.error(`Error updating comment ${comment_id} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,

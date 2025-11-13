@@ -15,11 +15,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-29T16:26:43Z'
 ---
 # benefits.Effort: add text content
 
-**Reported by:** @tobiu on 2025-06-29
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-29 @tobiu assigned to @tobiu
+- 2025-06-29 @tobiu added the `enhancement` label
+- 2025-06-29 @tobiu referenced in commit `2b57a6d` - "benefits.Effort: add text content #6896"
+- 2025-06-29 @tobiu referenced in commit `c74b55a` - "#6896 moving the image to resources_pub for consistency"
+- 2025-06-29 @tobiu closed this issue
 

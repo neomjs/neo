@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-01T19:45:42Z'
 ---
 # guides/StateProviders: add a bound label to the live preview example
 
-**Reported by:** @tobiu on 2025-07-01
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-01 @tobiu assigned to @tobiu
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu referenced in commit `8efcaee` - "guides/StateProviders: add a bound label to the live preview example #6930"
+- 2025-07-01 @tobiu closed this issue
 

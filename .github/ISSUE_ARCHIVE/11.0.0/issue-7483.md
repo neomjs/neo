@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-14T10:55:39Z'
 ---
 # Implement PR Commenting Endpoint
-
-**Reported by:** @tobiu on 2025-10-14
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 To enable the agent to participate in code reviews, it needs the ability to post comments on pull requests. This ticket covers the implementation of a new endpoint on the GitHub Workflow MCP server for this purpose.
 
@@ -45,4 +39,12 @@ The endpoint will allow the agent to submit a comment for a specific pull reques
 ### @tobiu - 2025-10-14 10:55
 
 <img width="519" height="140" alt="Image" src="https://github.com/user-attachments/assets/0e19a950-da39-4387-9f4c-54aa20a4e659" />
+
+## Activity Log
+
+- 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu referenced in commit `1c16d76` - "Implement PR Commenting Endpoint #7483"
+- 2025-10-14 @tobiu closed this issue
 

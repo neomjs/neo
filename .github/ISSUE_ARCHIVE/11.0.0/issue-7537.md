@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-18T10:56:22Z'
 ---
 # PoC: Refactor ChromaManager to a Neo.mjs Class
-
-**Reported by:** @tobiu on 2025-10-18
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 This ticket covers the first phase of the "Integrate Neo.mjs Core into MCP Servers" epic. The goal is to refactor the `ai/mcp/server/memory-core/services/chromaManager.mjs` into a singleton class that extends `Neo.core.Base`. This will serve as a proof of concept to evaluate the viability and benefits of using the Neo class system for our MCP server architecture.
 
@@ -40,4 +34,12 @@ This ticket covers the first phase of the "Integrate Neo.mjs Core into MCP Serve
 6.  The `memory-core` server's entry point (`mcp-stdio.mjs`) is updated to initialize the Neo core.
 7.  Service handlers that depend on `chromaManager` are updated to use the new singleton instance.
 8.  The `neo-memory-core__healthcheck` tool and other related tools continue to function correctly after the refactoring.
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu referenced in commit `2709e54` - "PoC: Refactor ChromaManager to a Neo.mjs Class #7537"
+- 2025-10-18 @tobiu closed this issue
 

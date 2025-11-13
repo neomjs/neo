@@ -15,17 +15,11 @@ parentIssue: 7262
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-30T12:57:08Z'
 ---
 # Convert config/MemoryLeak.mjs Test from Siesta to Playwright
-
-**Reported by:** @tobiu on 2025-09-27
-
----
-
-**Parent Issue:** #7262 - Enhance Development Workflow with Mandatory Unit Testing
-
----
 
 This task is to migrate the unit test for `config/MemoryLeak.mjs` from the Siesta test harness to the Playwright test runner.
 
@@ -35,4 +29,11 @@ This task is to migrate the unit test for `config/MemoryLeak.mjs` from the Siest
 2.  Translate all assertions from the original file (`test/siesta/tests/config/MemoryLeak.mjs`) to the Playwright/Jest `expect` syntax.
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
+
+## Activity Log
+
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-30 @tobiu referenced in commit `c4b9506` - "Convert config/MemoryLeak.mjs Test from Siesta to Playwright #7278"
+- 2025-09-30 @tobiu closed this issue
+- 2025-10-07 @tobiu assigned to @tobiu
 

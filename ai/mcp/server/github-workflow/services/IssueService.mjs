@@ -5,8 +5,8 @@ import logger                      from '../logger.mjs';
 import {exec}                      from 'child_process';
 import {promisify}                 from 'util';
 import {spawn}                     from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS}   from './queries/issueQueries.mjs';
-import {ADD_LABELS, REMOVE_LABELS} from './queries/mutations.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY} from './queries/issueQueries.mjs';
+import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID} from './queries/mutations.mjs';
 import RepositoryService           from './RepositoryService.mjs';
 
 const execAsync = promisify(exec);
@@ -387,6 +387,198 @@ class IssueService extends Base {
                 code   : 'GRAPHQL_API_ERROR'
             };
         }
+    }
+
+    /**
+     * Manages relationships between GitHub issues including parent-child and blocked-by relationships.
+     * This method allows setting or unsetting relationships between issues on GitHub.
+     *
+     * @param {object} options
+     * @param {string} [options.relationship_type='parent_child'] - Type of relationship: 'parent_child' or 'blocked_by'
+     * @param {number} options.child_issue - The issue number of the child/blocked issue
+     * @param {number} [options.parent_issue] - The issue number of the parent/blocking issue (omit to unset relationship)
+     * @param {boolean} [options.replace_parent=false] - If true, replaces existing parent relationship (parent_child only)
+     * @returns {Promise<object>} Result with updated relationship information or error
+     */
+    async updateIssueRelationship({relationship_type = 'parent_child', child_issue, parent_issue = null, replace_parent = false}) {
+        try {
+            // Validate relationship type
+            const validTypes = ['parent_child', 'blocked_by'];
+            if (!validTypes.includes(relationship_type)) {
+                return {
+                    error  : 'Invalid relationship_type',
+                    message: `relationship_type must be one of: ${validTypes.join(', ')}`,
+                    code   : 'INVALID_RELATIONSHIP_TYPE'
+                };
+            }
+
+            // Get GraphQL IDs for both issues
+            const childIdData = await GraphqlService.query(GET_ISSUE_ID, {
+                owner : aiConfig.owner,
+                repo  : aiConfig.repo,
+                number: child_issue
+            });
+
+            const childIssueId = childIdData.repository.issue.id;
+
+            // Handle blocked_by relationship type
+            if (relationship_type === 'blocked_by') {
+                return await this.#handleBlockedByRelationship(child_issue, childIssueId, parent_issue);
+            }
+
+            // Handle parent_child relationship type (original logic)
+            // If parent_issue is null or undefined, we're removing the relationship
+            if (!parent_issue) {
+                // To remove a parent, we need the current parent's ID
+                // First, fetch the child issue's current parent
+                const childData = await GraphqlService.query(GET_ISSUE_PARENT, {
+                    owner : aiConfig.owner,
+                    repo  : aiConfig.repo,
+                    number: child_issue
+                });
+
+                const currentParent = childData.repository.issue.parent;
+
+                if (!currentParent) {
+                    logger.info(`Issue #${child_issue} has no parent to remove`);
+                    return {
+                        message: `Issue #${child_issue} has no parent relationship to remove`,
+                        childIssue: child_issue,
+                        parentIssue: null
+                    };
+                }
+
+                // Remove the sub-issue relationship
+                const result = await GraphqlService.query(REMOVE_SUB_ISSUE, {
+                    issueId   : currentParent.id,
+                    subIssueId: childIssueId
+                }, true); // Enable sub-issues feature
+
+                logger.info(`Successfully removed parent relationship: #${child_issue} is no longer a sub-issue of #${currentParent.number}`);
+
+                return {
+                    message    : `Successfully removed parent relationship from issue #${child_issue}`,
+                    childIssue : child_issue,
+                    parentIssue: null,
+                    oldParent  : currentParent.number
+                };
+            }
+
+            // Adding or replacing a parent relationship
+            const parentIdData = await GraphqlService.query(GET_ISSUE_ID, {
+                owner : aiConfig.owner,
+                repo  : aiConfig.repo,
+                number: parent_issue
+            });
+
+            const parentIssueId = parentIdData.repository.issue.id;
+
+            // Add the sub-issue relationship
+            const result = await GraphqlService.query(ADD_SUB_ISSUE, {
+                issueId      : parentIssueId,
+                subIssueId   : childIssueId,
+                replaceParent: replace_parent
+            }, true); // Enable sub-issues feature
+
+            logger.info(`Successfully set parent relationship: #${child_issue} is now a sub-issue of #${parent_issue}`);
+
+            return {
+                message           : `Successfully set #${parent_issue} as parent of #${child_issue}`,
+                childIssue        : child_issue,
+                parentIssue       : parent_issue,
+                replaceParentApplied: replace_parent
+            };
+
+        } catch (error) {
+            logger.error(`Error updating issue relationship for #${child_issue}:`, error);
+
+            // Provide helpful error messages for common scenarios
+            let errorMessage = error.message;
+            if (error.message?.includes('already has a parent')) {
+                errorMessage = `Issue #${child_issue} already has a parent. Use replace_parent=true to replace the existing relationship.`;
+            } else if (error.message?.includes('not found')) {
+                errorMessage = `One or both issues not found. Verify issue numbers are correct.`;
+            }
+
+            return {
+                error  : 'GraphQL API request failed',
+                message: errorMessage,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handles "blocked by" relationships between issues.
+     * @param {number} blockedIssue - The issue number being blocked
+     * @param {string} blockedIssueId - The GraphQL ID of the blocked issue
+     * @param {number|null} blockingIssue - The issue number doing the blocking (null to remove)
+     * @returns {Promise<object>} Result with updated relationship information
+     * @private
+     */
+    async #handleBlockedByRelationship(blockedIssue, blockedIssueId, blockingIssue) {
+        // If blockingIssue is null, we're removing a blocked-by relationship
+        if (!blockingIssue) {
+            // Fetch current blockedBy relationships
+            const blockedData = await GraphqlService.query(GET_BLOCKED_BY, {
+                owner : aiConfig.owner,
+                repo  : aiConfig.repo,
+                number: blockedIssue
+            }, true); // Enable sub-issues feature for blocked-by access
+
+            const currentBlockers = blockedData.repository.issue.blockedBy.nodes;
+
+            if (currentBlockers.length === 0) {
+                logger.info(`Issue #${blockedIssue} has no blocking relationships to remove`);
+                return {
+                    message     : `Issue #${blockedIssue} has no blocked-by relationships to remove`,
+                    blockedIssue: blockedIssue,
+                    blockingIssue: null
+                };
+            }
+
+            // Remove all blockedBy relationships
+            const removals = [];
+            for (const blocker of currentBlockers) {
+                const result = await GraphqlService.query(REMOVE_BLOCKED_BY, {
+                    issueId        : blockedIssueId,
+                    blockingIssueId: blocker.id
+                }, true);
+                removals.push(blocker.number);
+            }
+
+            logger.info(`Successfully removed blocked-by relationships from #${blockedIssue}: ${removals.join(', ')}`);
+
+            return {
+                message       : `Successfully removed all blocked-by relationships from issue #${blockedIssue}`,
+                blockedIssue  : blockedIssue,
+                blockingIssue : null,
+                removedBlockers: removals
+            };
+        }
+
+        // Adding a blocked-by relationship
+        const blockingIdData = await GraphqlService.query(GET_ISSUE_ID, {
+            owner : aiConfig.owner,
+            repo  : aiConfig.repo,
+            number: blockingIssue
+        });
+
+        const blockingIssueId = blockingIdData.repository.issue.id;
+
+        // Add the blocked-by relationship
+        const result = await GraphqlService.query(ADD_BLOCKED_BY, {
+            issueId        : blockedIssueId,
+            blockingIssueId: blockingIssueId
+        }, true); // Enable sub-issues feature
+
+        logger.info(`Successfully added blocked-by relationship: #${blockedIssue} is now blocked by #${blockingIssue}`);
+
+        return {
+            message      : `Successfully set #${blockingIssue} as blocking #${blockedIssue}`,
+            blockedIssue : blockedIssue,
+            blockingIssue: blockingIssue
+        };
     }
 }
 

@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-23T11:38:54Z'
 ---
 # Refactor Magic Number for Release Fetching Pagination
-
-**Reported by:** @tobiu on 2025-10-23
 
 In `ai/mcp/server/github-workflow/services/SyncService.mjs`, the `FETCH_RELEASES` GraphQL query is called with a hardcoded `limit: 100`. This is a "magic number" that should be defined in a central configuration file for better maintainability.
 
@@ -50,4 +50,13 @@ We should also evaluate if `100` is the optimal value.
 *   **Con (High Value):** When there are only 1-2 new releases, fetching 100 is wasteful and consumes more API quota than necessary.
 
 A value of **50** is proposed as a more balanced compromise. It significantly reduces the data fetched during incremental updates while remaining reasonably efficient for the initial full sync.
+
+## Activity Log
+
+- 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added the `enhancement` label
+- 2025-10-23 @tobiu added the `ai` label
+- 2025-10-23 @tobiu added the `refactoring` label
+- 2025-10-23 @tobiu referenced in commit `75e947d` - "Refactor Magic Number for Release Fetching Pagination #7619"
+- 2025-10-23 @tobiu closed this issue
 

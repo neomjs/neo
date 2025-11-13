@@ -15,11 +15,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-05T22:35:39Z'
 ---
 # tests/config/MemoryLeak.mjs
 
-**Reported by:** @tobiu on 2025-07-05
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-05 @tobiu assigned to @tobiu
+- 2025-07-05 @tobiu added the `enhancement` label
+- 2025-07-05 @tobiu closed this issue
 

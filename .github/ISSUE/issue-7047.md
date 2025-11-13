@@ -16,16 +16,10 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 ---
 # Task: Create Example for Deeply Nested Components
-
-**Reported by:** @tobiu on 2025-07-14
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Summary
 
@@ -56,4 +50,12 @@ This will serve as a clear, practical guide for developers on how to structure c
 ### @github-actions - 2025-10-13 02:49
 
 This issue is stale because it has been open for 90 days with no activity.
+
+## Activity Log
+
+- 2025-07-14 @tobiu assigned to @tobiu
+- 2025-07-14 @tobiu added the `enhancement` label
+- 2025-10-13 @github-actions added the `stale` label
+- 2025-10-24 @tobiu removed the `stale` label
+- 2025-10-24 @tobiu added the `no auto close` label
 

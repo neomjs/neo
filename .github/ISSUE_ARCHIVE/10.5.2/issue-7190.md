@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-14T09:56:24Z'
 ---
 # Grid aria-colcount
-
-**Reported by:** @tobiu on 2025-08-14
 
 **Is your feature request related to a problem? Please describe.**
 The grid container is missing the `aria-colcount` attribute on its wrapper element. This is important for accessibility, especially for screen readers to announce the total number of columns in the grid.
@@ -35,4 +35,11 @@ This is also a prerequisite for testing buffered columns.
 4.  A new `onColumnsMutate()` method calls `updateColCount()` whenever columns are added or removed from the collection at runtime.
 5.  Call `updateColCount()` at the end of `construct()` to set the initial value.
 6.  Call `updateColCount()` inside `afterSetColumns()` to handle cases where the entire columns config is replaced.
+
+## Activity Log
+
+- 2025-08-14 @tobiu assigned to @tobiu
+- 2025-08-14 @tobiu added the `enhancement` label
+- 2025-08-14 @tobiu referenced in commit `653c73c` - "Grid aria-colcount #7190"
+- 2025-08-14 @tobiu closed this issue
 

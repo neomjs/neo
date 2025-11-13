@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T21:10:14Z'
 ---
 # Create ChromaManager and Adjust KB Server Entry Point
-
-**Reported by:** @tobiu on 2025-10-19
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 **Is your feature request related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
@@ -39,4 +33,12 @@ A clear and concise description of any alternative solutions or features you've 
 
 **Additional context**
 Add any other context or screenshots about the feature request here.
+
+## Activity Log
+
+- 2025-10-19 @tobiu assigned to @tobiu
+- 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu referenced in commit `4e26c56` - "Create ChromaManager and Adjust KB Server Entry Point #7549"
+- 2025-10-19 @tobiu closed this issue
 

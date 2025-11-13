@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T10:24:43Z'
 ---
 # Enhance `Neo.functional.component.Base` for Hook Support
-
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## 1. Summary
 
@@ -63,4 +57,11 @@ Using protected properties (e.g., `_hooks`) was considered but deemed insufficie
 -   The component correctly registers and unregisters itself with `ComponentManager`.
 -   The `vdomEffect` is correctly associated with the component's ID.
 -   The implementation provides the necessary foundation for the `useConfig` hook to function correctly.
+
+## Activity Log
+
+- 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `64c7b27` - "Enhance Neo.functional.component.Base for Hook Support #7014"
+- 2025-07-11 @tobiu closed this issue
 

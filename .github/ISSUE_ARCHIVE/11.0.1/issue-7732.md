@@ -1,14 +1,14 @@
 ---
 id: 7732
 title: 'bug: sync_all does not move existing local issues to archive on new release'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-09T10:31:59Z'
-updatedAt: '2025-11-09T10:40:33Z'
+updatedAt: '2025-11-09T13:49:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7732'
 author: tobiu
 commentsCount: 0
@@ -16,10 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
+closedAt: '2025-11-09T13:49:14Z'
 ---
 # bug: sync_all does not move existing local issues to archive on new release
-
-**Reported by:** @tobiu on 2025-11-09
 
 ### Summary
 
@@ -42,4 +43,16 @@ The local issue file is not moved. The sync logic appears to skip re-evaluating 
 ### Technical Analysis
 
 The bug is likely within the `IssueSyncer` service. The current logic prioritizes content hash checking over location validation. The logic needs to be refactored to ensure that for every issue pulled from GitHub, its correct local path (active vs. archived) is determined based on its milestone, and the local file is moved if its current path does not match the expected path. This location check must happen independently of the content sync check.
+
+## Activity Log
+
+- 2025-11-09 @tobiu added the `bug` label
+- 2025-11-09 @tobiu added the `ai` label
+- 2025-11-09 @tobiu assigned to @tobiu
+- 2025-11-09 @tobiu referenced in commit `931f151` - "bug: sync_all does not move existing local issues to archive on new release #7732"
+- 2025-11-09 @tobiu referenced in commit `08198d3` - "#7732 safety net"
+- 2025-11-09 @tobiu referenced in commit `e135746` - "#7732 new test"
+- 2025-11-09 @tobiu referenced in commit `acd0c17` - "#7732 WIP"
+- 2025-11-09 @tobiu referenced in commit `94bf401` - "#7732"
+- 2025-11-09 @tobiu closed this issue
 

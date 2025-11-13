@@ -41,18 +41,11 @@ subIssues:
   - 7563
 subIssuesCompleted: 25
 subIssuesTotal: 25
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T23:25:22Z'
 ---
 # Epic: Integrate Neo.mjs Core into MCP Servers
-
-**Reported by:** @tobiu on 2025-10-18
-
----
-
-**Sub-Issues:** #7537, #7538, #7539, #7540, #7542, #7543, #7544, #7545, #7546, #7547, #7549, #7550, #7551, #7552, #7553, #7554, #7555, #7556, #7557, #7558, #7559, #7560, #7561, #7562, #7563
-**Progress:** 25/25 completed (100%)
-
----
 
 ## Overview
 
@@ -109,4 +102,18 @@ This phase involves refactoring all remaining services in all three MCP servers 
 ### @tobiu - 2025-10-19 23:25
 
 resolved.
+
+## Activity Log
+
+- 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added the `epic` label
+- 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu referenced in commit `6028d86` - "#7536 ticket as md files"
+- 2025-10-18 @tobiu referenced in commit `c9da77e` - "#7536 epic md file update"
+- 2025-10-18 @tobiu referenced in commit `32f858d` - "#7536 healthService.mjs => HealthService.mjs"
+- 2025-10-18 @tobiu referenced in commit `3c28197` - "#7536 replacing onConstructed() with construct() in services where needed"
+- 2025-10-19 @tobiu referenced in commit `33ee24b` - "#7536 knowledge base => toolService.mjs formatting"
+- 2025-10-19 @tobiu referenced in commit `2df1067` - "#7536 github-workflow/mcp-stdio.mjs: neo imports"
+- 2025-10-19 @tobiu referenced in commit `c2311f9` - "#7536 github-workflow/services/toolService.mjs: formatting"
+- 2025-10-19 @tobiu closed this issue
 

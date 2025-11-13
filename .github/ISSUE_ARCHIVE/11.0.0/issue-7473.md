@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-13T10:02:15Z'
 ---
 # REFACTOR: Assign `type: 'blog'` directly in `createKnowledgeBase.mjs`
-
-**Reported by:** @tobiu on 2025-10-13
 
 This ticket is a follow-up to PR #7472, which fixed a bug where blog posts were not being found by the AI query system. The PR implemented a workaround on the query-side (`queryKnowledgeBase.mjs`) to correctly find blog posts.
 
@@ -65,4 +65,12 @@ The solution is to modify the data creation script to assign the correct type at
 ### @tobiu - 2025-10-13 10:02
 
 this one is already resolved via: https://github.com/neomjs/neo/commit/82617a3a208c3902ae64251e090a552f840b8ddf, as mentioned inside the PR comment.
+
+## Activity Log
+
+- 2025-10-13 @tobiu assigned to @tobiu
+- 2025-10-13 @tobiu added the `enhancement` label
+- 2025-10-13 @tobiu added the `ai` label
+- 2025-10-13 @tobiu referenced in commit `82617a3` - "REFACTOR: Assign type: 'blog' directly in createKnowledgeBase.mjs #7473"
+- 2025-10-13 @tobiu closed this issue
 

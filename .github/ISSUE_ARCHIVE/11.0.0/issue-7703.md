@@ -16,17 +16,19 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-04T18:49:07Z'
 ---
 # Convert Component Test list/Chip.mjs to Playwright
 
-**Reported by:** @tobiu on 2025-11-04
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-11-04 @tobiu assigned to @tobiu
+- 2025-11-04 @tobiu added the `enhancement` label
+- 2025-11-04 @tobiu added the `ai` label
+- 2025-11-04 @tobiu referenced in commit `6ff1ba2` - "Convert Component Test list/Chip.mjs to Playwright #7703"
+- 2025-11-04 @tobiu closed this issue
 

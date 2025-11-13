@@ -14,11 +14,17 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-16T20:15:45Z'
 ---
 # Scaffold a new addon for Open Streetmaps based on the Google maps addon.
 
-**Reported by:** @TomDakan on 2025-08-16
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-08-16 @TomDakan added the `enhancement` label
+- 2025-08-16 @TomDakan cross-referenced by PR #7196
+- 2025-08-16 @tobiu closed this issue
 

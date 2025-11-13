@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-11T08:34:13Z'
 ---
 # GridBody `onStoreLoad` Fast Path for Clearing Rows
-
-**Reported by:** @tobiu on 2025-08-11
 
 ## Motivation
 
@@ -47,4 +47,11 @@ A descriptive comment was also added to the code to explain the rationale behind
 - **Drastic Performance Improvement:** Reduces the time to clear a large grid from ~13ms to a negligible amount, making the UI feel instantaneous.
 - **Reduced CPU Load:** Avoids a large, unnecessary VDOM diffing operation.
 - **Improved Code Efficiency:** Handles a common, specific use case with a highly optimized, targeted solution.
+
+## Activity Log
+
+- 2025-08-11 @tobiu assigned to @tobiu
+- 2025-08-11 @tobiu added the `enhancement` label
+- 2025-08-11 @tobiu referenced in commit `d19f6d8` - "GridBody onStoreLoad Fast Path for Clearing Rows #7176"
+- 2025-08-11 @tobiu closed this issue
 

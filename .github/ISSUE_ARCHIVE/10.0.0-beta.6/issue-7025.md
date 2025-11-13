@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T17:56:58Z'
 ---
 # Fix: EffectBatchManager.endBatch() Infinite Loop Prevention
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Describe the bug**
 The `EffectBatchManager.endBatch()` method, responsible for executing pending effects, had a subtle bug that could lead to an infinite loop. If an effect being run within the `forEach` loop caused another effect (or itself) to be re-queued into `pendingEffects` synchronously, it could result in the `forEach` iterating indefinitely or triggering subsequent `endBatch()` calls in a recursive manner.
@@ -47,4 +41,11 @@ This bug could lead to application freezes and "Maximum call stack size exceeded
 
 **Affected Files**
 `src/core/EffectBatchManager.mjs`
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `98ff9b1` - "Fix: EffectBatchManager.endBatch() Infinite Loop Prevention #7025"
+- 2025-07-12 @tobiu closed this issue
 

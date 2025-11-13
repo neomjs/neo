@@ -16,17 +16,11 @@ parentIssue: 7501
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-16T11:11:44Z'
 ---
 # Implement Document Retrieval Services
-
-**Reported by:** @tobiu on 2025-10-16
-
----
-
-**Parent Issue:** #7501 - Architect AI Knowledge Base as MCP Server
-
----
 
 This ticket covers the implementation of the previously optional document retrieval endpoints. This will provide essential tools for inspecting and debugging the contents of the knowledge base.
 
@@ -43,4 +37,12 @@ Two distinct tools will be created:
 3.  A new `ai/mcp/server/knowledge-base/services/documentService.mjs` file is created.
 4.  The service contains `listDocuments` and `getDocumentById` functions.
 5.  The `toolService.mjs` `serviceMapping` is updated to point the new `operationId`s to their respective service functions.
+
+## Activity Log
+
+- 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu referenced in commit `2d57001` - "Implement Document Retrieval Services #7509"
+- 2025-10-16 @tobiu closed this issue
 

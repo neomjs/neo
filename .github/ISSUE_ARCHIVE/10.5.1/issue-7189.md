@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-12T23:37:55Z'
 ---
 # grid.Body: onStoreFilter() => pass arguments to onStoreLoad
 
-**Reported by:** @tobiu on 2025-08-12
-
 * `onStoreLoad()` was changed to use destructured params, so we must pass something, or it results inside a JS bug
+
+## Activity Log
+
+- 2025-08-12 @tobiu assigned to @tobiu
+- 2025-08-12 @tobiu added the `bug` label
+- 2025-08-12 @tobiu referenced in commit `65223f0` - "grid.Body: onStoreFilter() => pass arguments to onStoreLoad #7189"
+- 2025-08-12 @tobiu closed this issue
 

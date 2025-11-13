@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-28T11:20:42Z'
 ---
 # Simplify binding to reactive store properties in StateProvider
-
-**Reported by:** @tobiu on 2025-07-01
 
 **Is your feature request related to a problem? Please describe.**
 When using `Neo.state.Provider` to manage `Neo.data.Store` instances, binding to reactive properties of these stores (e.g., `store.count_`) requires a cumbersome multi-step process:
@@ -48,4 +48,9 @@ This enhancement would significantly improve developer experience and reduce boi
 
 already resolved:
 https://github.com/neomjs/neo/blob/dev/learn/guides/datahandling/StateProviders.md#managing-stores-with-state-providers
+
+## Activity Log
+
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-28 @tobiu closed this issue
 

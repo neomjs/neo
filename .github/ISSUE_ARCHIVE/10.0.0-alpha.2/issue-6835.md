@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-18T16:41:37Z'
 ---
 # vdom.Helper: findMovedNodes() => refactoring
 
-**Reported by:** @tobiu on 2025-06-18
-
 * Destructure the param inside the method head
+
+## Activity Log
+
+- 2025-06-18 @tobiu assigned to @tobiu
+- 2025-06-18 @tobiu added the `enhancement` label
+- 2025-06-18 @tobiu referenced in commit `6ba491d` - "vdom.Helper: findMovedNodes() => refactoring #6835"
+- 2025-06-18 @tobiu closed this issue
 

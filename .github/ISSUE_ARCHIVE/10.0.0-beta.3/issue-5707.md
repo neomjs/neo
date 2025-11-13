@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T12:32:10Z'
 ---
 # Getting Started => Config => simple example
-
-**Reported by:** @tobiu on 2024-08-06
 
 ![Screenshot 2024-08-06 at 09 44 11](https://github.com/user-attachments/assets/7dd72e1f-ccbf-493a-a8c1-c2267c88472f)
 
@@ -31,4 +31,11 @@ In case the first example has no valuable output, it should be read only => High
 ### @tobiu - 2025-06-30 12:32
 
 obsolete => new guide in place.
+
+## Activity Log
+
+- 2024-08-06 @tobiu added the `enhancement` label
+- 2024-08-06 @tobiu assigned to @maxrahder
+- 2024-10-07 @tobiu added the `no auto close` label
+- 2025-06-30 @tobiu closed this issue
 

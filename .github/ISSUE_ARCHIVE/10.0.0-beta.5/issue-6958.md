@@ -15,11 +15,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-06T00:40:44Z'
 ---
 # tests/config/* Update to use `core.Base#observeConfig()`
 
-**Reported by:** @tobiu on 2025-07-06
-
 related to: https://github.com/neomjs/neo/issues/6957
+
+## Activity Log
+
+- 2025-07-06 @tobiu assigned to @tobiu
+- 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu referenced in commit `932787f` - "tests/config/* Update to use core.Base#observeConfig() #6958"
+- 2025-07-06 @tobiu closed this issue
+- 2025-07-06 @tobiu closed this issue
 

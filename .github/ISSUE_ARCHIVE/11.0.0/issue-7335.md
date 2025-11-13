@@ -16,17 +16,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-03T10:57:53Z'
 ---
 # Clarify Agent Memory Protocol and Tooling
-
-**Reported by:** @tobiu on 2025-10-03
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 During the first live test of the memory core, the agent failed to follow the "save-then-respond" protocol due to two issues:
 1.  A misinterpretation of the procedural order in `AGENTS.md`, where the memory check was not performed during initialization.
@@ -38,4 +32,12 @@ This ticket covers the documentation and process improvements needed to prevent 
 
 1.  The `.github/AGENTS.md` file is updated to move the memory server check into the "Session Initialization" section.
 2.  The `buildScripts/ai/addMemory.mjs` script is updated with clear documentation for its command-line options, especially `--thought` and `--session-id`.
+
+## Activity Log
+
+- 2025-10-03 @tobiu assigned to @tobiu
+- 2025-10-03 @tobiu added the `documentation` label
+- 2025-10-03 @tobiu added the `enhancement` label
+- 2025-10-03 @tobiu referenced in commit `e358e2d` - "Clarify Agent Memory Protocol and Tooling #7335"
+- 2025-10-03 @tobiu closed this issue
 

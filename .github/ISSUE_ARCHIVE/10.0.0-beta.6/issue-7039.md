@@ -15,17 +15,11 @@ parentIssue: 7029
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T10:34:24Z'
 ---
 # Feature: Add Neo.mjs vs. Vue.js Comparison Article
-
-**Reported by:** @tobiu on 2025-07-13
-
----
-
-**Parent Issue:** #7029 - Feature: Add Framework Comparison Articles to Learn Directory
-
----
 
 **Is your feature request related to a problem? Please describe.**
 Developers evaluating or learning Neo.mjs often come from other established frameworks, including Vue.js. There is a need for a clear, concise comparison that bridges their existing knowledge to Neo.mjs concepts and highlights Neo.mjs's unique advantages.
@@ -48,4 +42,11 @@ This article will significantly improve developer onboarding for Vue.js develope
 **Affected Files (Conceptual):**
 *   `learn/comparisons/NeoVsVue.md` (new file)
 *   `learn/comparisons/Overview.md` (already updated to include this link)
+
+## Activity Log
+
+- 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `8ef8c96` - "Feature: Add Neo.mjs vs. Vue.js Comparison Article #7039"
+- 2025-07-13 @tobiu closed this issue
 

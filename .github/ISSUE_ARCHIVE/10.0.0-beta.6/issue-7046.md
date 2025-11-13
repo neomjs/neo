@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-14T13:51:03Z'
 ---
 # Reactive Updates for Nested Components in Functional VDOM
-
-**Reported by:** @tobiu on 2025-07-14
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Summary
 
@@ -59,4 +53,11 @@ The implementation relies on enhancements to `Neo.functional.component.Base`.
 -   **Performance:** Avoids costly destroy/recreate cycles by reusing component instances and applying batched updates.
 -   **State Preservation:** Child component state (both internal `useConfig` state and public config state) is preserved across parent re-renders.
 -   **Rendering Isolation:** Parent and child components can update their DOM representations independently, leading to more efficient and targeted DOM manipulations.
+
+## Activity Log
+
+- 2025-07-14 @tobiu assigned to @tobiu
+- 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu referenced in commit `3aefe2c` - "Reactive Updates for Nested Components in Functional VDOM #7046"
+- 2025-07-14 @tobiu closed this issue
 

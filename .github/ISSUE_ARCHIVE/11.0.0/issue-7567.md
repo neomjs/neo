@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-20T11:59:56Z'
 ---
 # Implement Local to GitHub Sync (Push)
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 This ticket covers the implementation of the "push" half of the synchronization process. The `SyncService` will be enhanced to detect local changes in the Markdown issue files and push them back to GitHub.
 
@@ -41,4 +35,12 @@ The sync logic will follow the "push-then-pull" model, so this push operation sh
 5.  If the local file is newer, the service parses the file to extract the title and body.
     - The title should be extracted from the main `#` heading.
     - The body should be the content of the file, excluding the frontmatter and the `
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu referenced in commit `9980bd1` - "Implement Local to GitHub Sync (Push) #7567"
+- 2025-10-20 @tobiu closed this issue
 

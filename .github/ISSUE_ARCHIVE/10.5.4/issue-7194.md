@@ -15,11 +15,16 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-16T20:15:29Z'
 ---
 # Create a copy of the sample wrapper component for Google maps utilitizing the Open Streetmaps addon
 
-**Reported by:** @TomDakan on 2025-08-16
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-08-16 @TomDakan cross-referenced by PR #7197
+- 2025-08-16 @tobiu closed this issue
 

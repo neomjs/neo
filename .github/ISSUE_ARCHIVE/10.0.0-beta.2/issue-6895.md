@@ -15,11 +15,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-29T15:59:05Z'
 ---
 # learn/benefits.Speed: improve the intro text
 
-**Reported by:** @tobiu on 2025-06-29
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-29 @tobiu added the `enhancement` label
+- 2025-06-29 @tobiu referenced in commit `fdcb8b7` - "learn/benefits.Speed: improve the intro text #6895"
+- 2025-06-29 @tobiu assigned to @tobiu
+- 2025-06-29 @tobiu closed this issue
 

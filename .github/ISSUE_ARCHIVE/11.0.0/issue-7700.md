@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-03T13:00:53Z'
 ---
 # docs: Correct Data Layer description in CodebaseOverview.md
-
-**Reported by:** @tobiu on 2025-11-03
 
 The `learn/guides/fundamentals/CodebaseOverview.md` file contained an inaccurate description of the Neo.mjs data layer. The description was reminiscent of other frameworks (like ExtJS) and did not accurately portray the lightweight, on-demand nature of Neo.mjs's record management.
 
@@ -30,4 +30,12 @@ This change corrects the documentation to:
 - Emphasize the performance-oriented, lazy-instantiation of records via the `RecordFactory`.
 
 These changes ensure that new developers and AI agents get a correct understanding of the data layer from the start.
+
+## Activity Log
+
+- 2025-11-03 @tobiu added the `documentation` label
+- 2025-11-03 @tobiu added the `ai` label
+- 2025-11-03 @tobiu assigned to @tobiu
+- 2025-11-03 @tobiu referenced in commit `eeb40d1` - "docs: Correct Data Layer description in CodebaseOverview.md #7700"
+- 2025-11-03 @tobiu closed this issue
 

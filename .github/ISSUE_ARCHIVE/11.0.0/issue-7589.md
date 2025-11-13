@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T09:37:13Z'
 ---
 # Refactor Issue Filename Convention
-
-**Reported by:** @tobiu on 2025-10-21
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 To create a more robust and scalable file naming convention, the synchronization process will be updated. This involves two key changes:
 1.  **Removing Numeric Padding:** The current method of padding issue numbers (e.g., `0123.md`) imposes an arbitrary limit on the number of issues the project can have. This will be removed.
@@ -40,4 +34,12 @@ The resulting convention (e.g., `issue-123.md`) is scalable, robust, and remains
 2.  The `issueNumberPadding` property is removed from the configuration.
 3.  The `#getIssuePath` method in `SyncService.mjs` is updated to construct filenames using the prefix and the raw, un-padded issue number.
 4.  The sync logic must gracefully handle the transition. On the next pull, it should detect and rename any existing files that use the old padded-number format to the new prefixed format.
+
+## Activity Log
+
+- 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `ec53d2a` - "Refactor Issue Filename Convention #7589"
+- 2025-10-21 @tobiu closed this issue
 

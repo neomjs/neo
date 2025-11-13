@@ -17,11 +17,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-29T11:53:05Z'
 ---
 # learn/guides/MainThreadAddons.md: add an example of extending an addon inside a workspace
 
-**Reported by:** @tobiu on 2025-06-29
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-29 @tobiu assigned to @tobiu
+- 2025-06-29 @tobiu added the `enhancement` label
+- 2025-06-29 @tobiu referenced in commit `1ca033e` - "learn/guides/MainThreadAddons.md: add an example of extending an addon inside a workspace #6892"
+- 2025-06-29 @tobiu closed this issue
 

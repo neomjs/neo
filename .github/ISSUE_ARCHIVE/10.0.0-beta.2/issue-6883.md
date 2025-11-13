@@ -17,11 +17,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-27T14:59:19Z'
 ---
 # grid.Body, table.Body: applyRendererOutput() => add support for text => alternative to html
 
-**Reported by:** @tobiu on 2025-06-27
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-27 @tobiu assigned to @tobiu
+- 2025-06-27 @tobiu added the `enhancement` label
+- 2025-06-27 @tobiu referenced in commit `4cc3059` - "grid.Body, table.Body: applyRendererOutput() => add support for text => alternative to html #6883"
+- 2025-06-27 @tobiu closed this issue
 

@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-15T11:01:48Z'
 ---
 # Architectural Enhancement: Recursive VDOM Config Diffing for Nested Components
-
-**Reported by:** @tobiu on 2025-07-14
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ## Summary
 
@@ -80,4 +74,13 @@ The architecture should be enhanced to "walk" the VDOM config and the component 
 
 -   Changing a deeply nested property in a functional component's VDOM (e.g., `grid.body.selectionModel.singleSelect = false`) results in a targeted `set()` call on the deepest affected component (`selectionModel.set({singleSelect: false})`) without re-instantiating its parents (`body` or `grid`).
 -   The implementation is generic and can handle multiple levels of nesting.
+
+## Activity Log
+
+- 2025-07-14 @tobiu assigned to @tobiu
+- 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu referenced in commit `514a988` - "#7054 grid.Container: use `body` instead of `bodyConfig`"
+- 2025-07-15 @tobiu referenced in commit `6da7594` - "#7054 grid.Container: use `headerToolbar` instead of `headerToolbarConfig`"
+- 2025-07-15 @tobiu referenced in commit `65bf8e7` - "Architectural Enhancement: Recursive VDOM Config Diffing for Nested Components #7054"
+- 2025-07-15 @tobiu closed this issue
 

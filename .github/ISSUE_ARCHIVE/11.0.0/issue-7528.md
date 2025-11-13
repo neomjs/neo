@@ -16,17 +16,11 @@ parentIssue: 7520
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-17T12:26:16Z'
 ---
 # Use Centralized AI Config in Memory Core Services
-
-**Reported by:** @tobiu on 2025-10-17
-
----
-
-**Parent Issue:** #7520 - Epic: Migrate Memory Server to stdio-based MCP
-
----
 
 Several services within the `memory-core` server are importing the old `aiConfig` from `buildScripts` instead of the new, centralized `aiConfig` located at `ai/mcp/server/config.mjs`. This ties the new server to the old build system and must be corrected.
 
@@ -37,4 +31,12 @@ Several services within the `memory-core` server are importing the old `aiConfig
 3.  The `aiConfig` import path is corrected in `healthService.mjs`.
 4.  The `aiConfig` import path is corrected in `sessionService.mjs`.
 5.  The `aiConfig` import path is corrected in `textEmbeddingService.mjs`.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `6d72263` - "Use Centralized AI Config in Memory Core Services #7528"
+- 2025-10-17 @tobiu closed this issue
 

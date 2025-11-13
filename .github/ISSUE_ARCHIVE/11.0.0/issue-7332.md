@@ -15,17 +15,11 @@ parentIssue: 7316
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-03T08:42:41Z'
 ---
 # Enhance Session Summary with Rich Metadata
-
-**Reported by:** @tobiu on 2025-10-03
-
----
-
-**Parent Issue:** #7316 - AI Knowledge Evolution
-
----
 
 The `buildScripts/ai/summarizeSession.mjs` script should be enhanced to extract more detailed, structured metadata from each agent session. This will allow for better filtering, analysis, and learning from past sessions.
 
@@ -59,4 +53,11 @@ The model will be asked to provide a JSON object with the following structure:
 1.  **Update Prompt:** Modify the `summaryPrompt` in `buildScripts/ai/summarizeSession.mjs` to instruct the model to return the data in the specified JSON format.
 2.  **Parse Response:** Parse the JSON response from the model.
 3.  **Store Metadata:** Add the new fields (`title`, `category`, `quality`, `productivity`, `impact`, `complexity`, `technologies`) to the `metadatas` object being upserted into the `sessionsCollection`. The `summary` text will remain the main document content.
+
+## Activity Log
+
+- 2025-10-03 @tobiu assigned to @tobiu
+- 2025-10-03 @tobiu added the `enhancement` label
+- 2025-10-03 @tobiu referenced in commit `52a2923` - "Enhance Session Summary with Rich Metadata #7332"
+- 2025-10-03 @tobiu closed this issue
 

@@ -14,17 +14,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T09:25:11Z'
 ---
 # Create `Neo.functional.defineComponent` Factory
-
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -69,4 +63,11 @@ const MyGreeting = defineComponent({
 -   `Neo.functional.defineComponent` factory is implemented and tested.
 -   It successfully generates functional component classes from plain functions.
 -   Generated components correctly utilize `useConfig` for state management.
+
+## Activity Log
+
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `27d6ef8` - "Create Neo.functional.defineComponent Factory
+#7013"
+- 2025-07-11 @tobiu closed this issue
 

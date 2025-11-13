@@ -14,13 +14,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-10T13:17:48Z'
 ---
 # core.Effect: simplify the constructor signature
 
-**Reported by:** @tobiu on 2025-07-10
-
 * Current state: an object based param, containing `fn`
 * `fn` is the only available and used param inside the object
 * the new param should just be `fn`
+
+## Activity Log
+
+- 2025-07-10 @tobiu added the `enhancement` label
+- 2025-07-10 @tobiu referenced in commit `6888320` - "core.Effect: simplify the constructor signature #7004"
+- 2025-07-10 @tobiu closed this issue
 

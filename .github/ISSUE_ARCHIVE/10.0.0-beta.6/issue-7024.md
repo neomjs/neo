@@ -15,17 +15,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-12T15:32:46Z'
 ---
 # Refactor `Neo.core.Effect` to Use a Reactive `isRunning` State
-
-**Reported by:** @tobiu on 2025-07-12
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 **Summary:**
 This ticket covers the refactoring of `Neo.core.Effect` to change its internal `isRunning` flag from a plain boolean to a reactive `Neo.core.Config` instance. This change was essential to break an infinite loop encountered in functional components, where an effect's execution was inadvertently creating a dependency on its own update cycle.
@@ -44,4 +38,11 @@ To break this loop, the component needed to apply the VDOM update *after* the ef
 -   `Effect.isRunning` is an instance of `Neo.core.Config`.
 -   The `run()` method correctly uses `get()` and `set()` on `isRunning`.
 -   The change successfully enables consumers to observe the effect's execution state, resolving the infinite loop problem in functional components.
+
+## Activity Log
+
+- 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu referenced in commit `3090f97` - "Refactor Neo.core.Effect to Use a Reactive isRunning State #7024"
+- 2025-07-12 @tobiu closed this issue
 

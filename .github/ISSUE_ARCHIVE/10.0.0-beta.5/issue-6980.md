@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-07T20:42:10Z'
 ---
 # Remove now obsolete `StateProvider#parseConfig()` calls within `src`
-
-**Reported by:** @tobiu on 2025-07-07
 
 * 3 spots left
 
@@ -28,4 +28,15 @@ closedAt: '2025-07-07T20:42:10Z'
 ### @tobiu - 2025-07-07 20:41
 
 while `parseConfig()` no longer exists, we need to use the 3 spots to call `createBindings()`
+
+## Activity Log
+
+- 2025-07-07 @tobiu assigned to @tobiu
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu referenced in commit `d45da2d` - "Remove now obsolete StateProvider#parseConfig() calls within src #6980"
+- 2025-07-07 @tobiu closed this issue
+- 2025-07-07 @tobiu referenced in commit `bd54261` - "#6980 createBindings()"
+- 2025-07-07 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `5b0c13b` - "Remove now obsolete StateProvider#parseConfig() calls within src #6980"
+- 2025-07-09 @tobiu referenced in commit `35d1fc2` - "#6980 createBindings()"
 

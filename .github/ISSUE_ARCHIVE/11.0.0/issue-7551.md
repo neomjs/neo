@@ -16,17 +16,11 @@ parentIssue: 7536
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-19T21:47:27Z'
 ---
 # Convert databaseService to DatabaseService Neo.mjs Class
-
-**Reported by:** @tobiu on 2025-10-19
-
----
-
-**Parent Issue:** #7536 - Epic: Integrate Neo.mjs Core into MCP Servers
-
----
 
 This ticket covers refactoring `ai/mcp/server/knowledge-base/services/databaseService.mjs` into a singleton class that extends `Neo.core.Base`. The file will also be renamed to `DatabaseService.mjs` to follow a more consistent naming convention. This service handles creating, embedding, syncing, and deleting the knowledge base.
 
@@ -38,4 +32,12 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/databaseSe
 4.  The old file `ai/mcp/server/knowledge-base/services/databaseService.mjs` is deleted.
 5.  The `ai/mcp/server/knowledge-base/services/toolService.mjs` is updated to import the `DatabaseService` class and map its methods statically.
 6.  All related tools (`sync_database`, `create_knowledge_base`, `embed_knowledge_base`, `delete_database`) continue to function correctly after the refactoring.
+
+## Activity Log
+
+- 2025-10-19 @tobiu assigned to @tobiu
+- 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu referenced in commit `b3ce94e` - "Convert databaseService to DatabaseService Neo.mjs Class #7551"
+- 2025-10-19 @tobiu closed this issue
 

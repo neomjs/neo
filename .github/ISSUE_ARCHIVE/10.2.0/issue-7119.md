@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-27T19:29:54Z'
 ---
 # Refine Technical Blog Content Strategy
-
-**Reported by:** @tobiu on 2025-07-27
 
 ## Summary
 
@@ -47,4 +47,11 @@ The following three unpublished blog posts have been rewritten to align with thi
 -   `learn/blog/v10-deep-dive-state-provider.md`
 
 These articles are now better positioned to clearly and effectively communicate the value and innovation of the Neo.mjs architecture.
+
+## Activity Log
+
+- 2025-07-27 @tobiu assigned to @tobiu
+- 2025-07-27 @tobiu added the `enhancement` label
+- 2025-07-27 @tobiu referenced in commit `8b0880a` - "Refine Technical Blog Content Strategy #7119"
+- 2025-07-27 @tobiu closed this issue
 

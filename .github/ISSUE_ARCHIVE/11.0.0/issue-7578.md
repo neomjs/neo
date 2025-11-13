@@ -16,17 +16,11 @@ parentIssue: 7564
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T08:10:05Z'
 ---
 # Harden Release Caching and Add Fallback
-
-**Reported by:** @tobiu on 2025-10-20
-
----
-
-**Parent Issue:** #7564 - Epic: Implement Two-Way GitHub Synchronization for Issues
-
----
 
 The `#fetchAndCacheReleases` method needs to be hardened to handle the edge case where no releases are found after the `syncStartDate`. Additionally, the fallback version for archiving should be made configurable.
 
@@ -35,4 +29,12 @@ The `#fetchAndCacheReleases` method needs to be hardened to handle the edge case
 1.  A new property, `defaultArchiveVersion`, is added to the `githubWorkflow.issueSync` object in `config.mjs` with a value like `'unversioned'`.
 2.  The `#fetchAndCacheReleases` method in `SyncService.mjs` is updated to log a warning if `this.releases` is empty after filtering.
 3.  The `#getIssuePath` method is updated to use the new `defaultArchiveVersion` from the config as its fallback value instead of the hardcoded `'unknown'`.
+
+## Activity Log
+
+- 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added the `enhancement` label
+- 2025-10-20 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `630920a` - "Harden Release Caching and Add Fallback #7578"
+- 2025-10-21 @tobiu closed this issue
 

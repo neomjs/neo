@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-01T14:41:14Z'
 ---
 # Fix Build-Time Conditional Template Rendering
-
-**Reported by:** @tobiu on 2025-08-01
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 #### 1. Summary
 
@@ -49,4 +43,11 @@ The build-time parser was wrapping raw JavaScript expressions (like `showDetails
 -   The build-time parser now correctly handles conditionally rendered nested `html` templates.
 -   Expressions that resolve to a template or a falsy value are correctly represented in the final VDOM.
 -   The build output for components using this pattern is now functionally correct and matches the client-side rendering logic.
+
+## Activity Log
+
+- 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu referenced in commit `505f9ef` - "Fix Build-Time Conditional Template Rendering #7155"
+- 2025-08-01 @tobiu closed this issue
 

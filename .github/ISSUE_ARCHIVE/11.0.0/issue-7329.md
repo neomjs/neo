@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-02T18:01:49Z'
 ---
 # Add missing @reactive tags and fix config JSDoc for trailing underscores
-
-**Reported by:** @tobiu on 2025-10-02
 
 This ticket addresses issues with missing `@reactive` JSDoc tags and incorrect JSDoc for reactive configs where the trailing underscore was omitted.
 The `add-reactive-tags` script was used to automatically insert missing `@reactive` tags into `src/component/Toast.mjs`, `src/dashboard/Container.mjs`, and `src/grid/Container.mjs`.
@@ -30,4 +30,12 @@ Additionally, JSDoc comments for `iconCls_` and `position_` in `src/component/To
 * `src/component/Toast.mjs`
 * `src/dashboard/Container.mjs`
 * `src/grid/Container.mjs`
+
+## Activity Log
+
+- 2025-10-02 @tobiu assigned to @tobiu
+- 2025-10-02 @tobiu added the `bug` label
+- 2025-10-02 @tobiu added the `documentation` label
+- 2025-10-02 @tobiu referenced in commit `5fa3e78` - "Add missing @reactive tags and fix config JSDoc for trailing underscores #7329"
+- 2025-10-02 @tobiu closed this issue
 

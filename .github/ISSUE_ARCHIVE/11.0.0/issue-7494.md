@@ -16,17 +16,11 @@ parentIssue: 7477
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-15T11:48:18Z'
 ---
 # Implement Zod-based Validation with JSON Schema Conversion
-
-**Reported by:** @tobiu on 2025-10-15
-
----
-
-**Parent Issue:** #7477 - Architect GitHub Workflow as MCP Server
-
----
 
 To implement MCP input validation correctly, we must use `zod`. The core challenge is that the `inputSchema` returned by the `tools/list` discovery endpoint must be a JSON-serializable object, while the actual validation requires a live `zod` schema object.
 
@@ -39,4 +33,12 @@ This ticket covers the refactoring of the tool service to manage both schema typ
 3.  The service then converts the `zod` schema to a standard JSON Schema object using `zod-to-json-schema`.
 4.  The `listTools` function is updated to return the plain JSON Schema object in the `inputSchema` field of each tool.
 5.  The `callTool` function is updated to use the internal `zod` schema to validate arguments via `.parse()` before executing the tool handler.
+
+## Activity Log
+
+- 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu referenced in commit `16c8961` - "Implement Zod-based Validation with JSON Schema Conversion #7494"
+- 2025-10-15 @tobiu closed this issue
 

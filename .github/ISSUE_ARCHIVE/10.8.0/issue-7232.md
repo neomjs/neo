@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-09-22T11:29:46Z'
 ---
 # Add Installation Instructions for Gemini CLI to AI_QUICK_START.md
-
-**Reported by:** @tobiu on 2025-09-22
 
 ## 1. Overview
 
@@ -50,4 +50,15 @@ reopening to enhance the pre-requisites further.
 ### @tobiu - 2025-09-22 11:29
 
 follow-up thought: let us convert it into a read guide.
+
+## Activity Log
+
+- 2025-09-22 @tobiu assigned to @tobiu
+- 2025-09-22 @tobiu added the `enhancement` label
+- 2025-09-22 @tobiu referenced in commit `274cb61` - "Add Installation Instructions for Gemini CLI to AI_QUICK_START.md #7232"
+- 2025-09-22 @tobiu closed this issue
+- 2025-09-22 @tobiu referenced in commit `8636fe1` - "Add Installation Instructions for Gemini CLI to AI_QUICK_START.md #7232"
+- 2025-09-22 @tobiu closed this issue
+- 2025-09-22 @tobiu referenced in commit `5f93694` - "Add Installation Instructions for Gemini CLI to AI_QUICK_START.md #7232"
+- 2025-09-22 @tobiu closed this issue
 

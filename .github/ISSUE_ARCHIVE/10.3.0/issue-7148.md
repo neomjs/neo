@@ -15,17 +15,11 @@ parentIssue: 7130
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-02T12:47:27Z'
 ---
 # Create a Robust VDOM-to-String Serializer
-
-**Reported by:** @tobiu on 2025-07-31
-
----
-
-**Parent Issue:** #7130 - String-Based VDOM Templates
-
----
 
 **Description:**
 The `JSON.stringify` + regex method for generating the VDOM string during the build process is flawed. It incorrectly handles object keys that are not valid JavaScript identifiers (e.g., `data-foo`) and produces non-idiomatic code (quoted keys). A dedicated serializer is required for correctness and code quality.
@@ -46,4 +40,10 @@ The `JSON.stringify` + regex method for generating the VDOM string during the bu
 ### @tobiu - 2025-08-02 12:47
 
 resolved
+
+## Activity Log
+
+- 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu closed this issue
 

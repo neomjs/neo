@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-29T14:25:33Z'
 ---
 # Learning Section: Define the Scope for version 1
-
-**Reported by:** @tobiu on 2024-08-06
 
 @maxrahder: this is your most important item as the product owner of the learning section.
 
@@ -41,4 +41,11 @@ Other than that, more is not in our focus for now.
 ### @tobiu - 2025-06-29 14:25
 
 closing the ticket as obsolete.
+
+## Activity Log
+
+- 2024-08-06 @tobiu added the `enhancement` label
+- 2024-08-06 @tobiu assigned to @maxrahder
+- 2024-10-07 @tobiu added the `no auto close` label
+- 2025-06-29 @tobiu closed this issue
 

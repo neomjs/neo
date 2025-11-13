@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-01T18:56:10Z'
 ---
 # Feature Request: Add reactive `count_` config to `Neo.collection.Base`
-
-**Reported by:** @tobiu on 2025-07-01
 
 **Is your feature request related to a problem? Please describe.**
 The current `getCount()` method on `Neo.collection.Base` is not reactive. This means that components or other parts of the application cannot directly observe changes in the collection's size using Neo.mjs's reactive binding system. This limits the ability to easily update UI elements that depend on the number of items in a collection without manual event handling.
@@ -32,4 +32,11 @@ Currently, developers need to listen to the `mutate` event on the collection and
 
 **Additional context**
 This enhancement would align `Neo.collection.Base` more closely with the reactive nature of other Neo.mjs components and improve integration with `Neo.state.Provider` for future enhancements (though direct binding via `stores.myStoreName.count` would still require a separate `Neo.state.Provider` enhancement).
+
+## Activity Log
+
+- 2025-07-01 @tobiu assigned to @tobiu
+- 2025-07-01 @tobiu added the `enhancement` label
+- 2025-07-01 @tobiu referenced in commit `463b16c` - "Feature Request: Add reactive count_ config to Neo.collection.Base #6929"
+- 2025-07-01 @tobiu closed this issue
 

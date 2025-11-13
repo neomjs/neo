@@ -15,18 +15,19 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-11T10:58:03Z'
 ---
 # functional.component.Base: enhance the module export
 
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
-
 * Consistency
 * We want to support multiple envs in parallel
+
+## Activity Log
+
+- 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu referenced in commit `168a21b` - "functional.component.Base: enhance the module export #7016"
+- 2025-07-11 @tobiu closed this issue
 

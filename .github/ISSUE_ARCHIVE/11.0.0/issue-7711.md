@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-06T13:55:25Z'
 ---
 # Fix VDOM Lifecycle and Update Collision Logic
-
-**Reported by:** @tobiu on 2025-11-06
 
 This ticket covers three related fixes within `src/mixin/VdomLifecycle.mjs` to improve the robustness and correctness of the VDOM update lifecycle.
 
@@ -43,4 +43,11 @@ The `afterSetVnode()` hook only triggered `syncVnodeTree()` on the initial `vnod
 
 **Change:**
 - In `afterSetVnode()`, the condition was changed to `value`, ensuring `syncVnodeTree()` runs every time a new `vnode` is assigned, keeping the `vdom` and `vnode` trees consistent.
+
+## Activity Log
+
+- 2025-11-06 @tobiu added the `bug` label
+- 2025-11-06 @tobiu added the `ai` label
+- 2025-11-06 @tobiu referenced in commit `dc18d85` - "Fix VDOM Lifecycle and Update Collision Logic #7711"
+- 2025-11-06 @tobiu closed this issue
 

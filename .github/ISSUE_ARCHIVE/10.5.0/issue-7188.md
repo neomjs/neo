@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-08-12T02:08:44Z'
 ---
 # ComboBox Display Fix and BigData Grid Example Enhancement
-
-**Reported by:** @tobiu on 2025-08-12
 
 ### Is your feature request related to a problem? Please describe.
 1.  **ComboBox Initial Display Issue:** Following the implementation of lazy record instantiation, `Neo.form.field.ComboBox` instances failed to display their initial `value` when the associated store contained raw data (e.g., arrays of strings or numbers). The input field would appear blank until the picker was opened, which would then trigger record instantiation.
@@ -45,4 +45,11 @@ The ComboBox fix ensures a better user experience by correctly displaying pre-se
 
 **BigData Grid Example Enhancement:**
 *   `examples/grid/bigData/MainStore.mjs` was updated to include new column options.
+
+## Activity Log
+
+- 2025-08-12 @tobiu assigned to @tobiu
+- 2025-08-12 @tobiu added the `enhancement` label
+- 2025-08-12 @tobiu referenced in commit `55af6a8` - "ComboBox Display Fix and BigData Grid Example Enhancement #7188"
+- 2025-08-12 @tobiu closed this issue
 

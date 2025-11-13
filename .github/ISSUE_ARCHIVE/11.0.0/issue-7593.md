@@ -16,17 +16,11 @@ parentIssue: 7590
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-21T11:39:14Z'
 ---
 # Migrate PullRequestService to GraphQL
-
-**Reported by:** @tobiu on 2025-10-21
-
----
-
-**Parent Issue:** #7590 - Epic: Migrate GitHub MCP Services from GH CLI to GraphQL API
-
----
 
 This ticket covers the migration of the `PullRequestService` to use the new `GraphqlService` for all its remote data operations.
 
@@ -45,4 +39,13 @@ This ticket covers the migration of the `PullRequestService` to use the new `Gra
 > ✦ Finally, I'll address getPullRequestDiff. The gh pr diff command is convenient because it connects to the remote and generates a standard diff output. Replicating this with GraphQL would involve fetching the base and head commit SHAs for the PR, then potentially using another API or local git commands to generate the diff between them. This is significantly more complex than the other migrations.
 > 
 >   Given that complexity, and to keep moving forward, I will leave the getPullRequestDiff method using the gh CLI for now. This is a pragmatic trade-off. The other core data-retrieval methods have been migrated, which was the main goal.
+
+## Activity Log
+
+- 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu referenced in commit `a64262b` - "Migrate PullRequestService to GraphQL #7593"
+- 2025-10-21 @tobiu closed this issue
+- 2025-10-22 @tobiu cross-referenced by #7590
 

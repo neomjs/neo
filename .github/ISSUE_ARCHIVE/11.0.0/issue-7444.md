@@ -18,17 +18,11 @@ parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-02T12:29:18Z'
 ---
 # Create Component Test form/field/Number.mjs in Playwright
-
-**Reported by:** @tobiu on 2025-10-10
-
----
-
-**Parent Issue:** #7435 - Create Component Tests in Playwright (and migrate existing tests from Siesta)
-
----
 
 **IMPORTANT:** Before starting, please read the parent epic in detail to understand the required architecture and testing patterns: https://github.com/neomjs/neo/issues/7435
 
@@ -62,4 +56,14 @@ as mentioned earlier, we can literally open 100+ additional tickets for componen
 ### @erbierc - 2025-10-22 13:14
 
 PR added: #7597 
+
+## Activity Log
+
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-13 @tobiu assigned to @erbierc
+- 2025-10-21 @erbierc cross-referenced by PR #7597
+- 2025-11-02 @tobiu closed this issue
 

@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T09:05:56Z'
 ---
 # Feat: Add startup summarization status to healthcheck
-
-**Reported by:** @tobiu on 2025-10-25
 
 The `healthcheck` endpoint has been enhanced to provide visibility into the status of the asynchronous session summarization task that runs at server startup. This allows an agent to know whether the summarization was completed, failed, or skipped, and to take appropriate action.
 
@@ -34,4 +34,12 @@ The `healthcheck` endpoint has been enhanced to provide visibility into the stat
 
 3.  **API Specification Update:**
     -   The `openapi.yaml` has been updated. The `HealthCheckResponse` schema now includes a `startup` object containing `summarizationStatus` and `summarizationDetails`.
+
+## Activity Log
+
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu referenced in commit `e88fe06` - "Feat: Add startup summarization status to healthcheck #7638"
+- 2025-10-25 @tobiu closed this issue
 

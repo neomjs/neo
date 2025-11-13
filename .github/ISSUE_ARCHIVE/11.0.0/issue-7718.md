@@ -19,11 +19,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-11-07T09:58:11Z'
 ---
 # Architectural Fix: Implement 'FIRST ACTION PROTOCOL' to ensure reliable session initialization
-
-**Reported by:** @tobiu on 2025-11-07
 
 The agent has been failing to initialize its session state in approximately 50% of new sessions. This is not due to flaws in the `AGENTS_STARTUP.md` initialization file itself, but rather a failure to execute the file at all. The root cause is a lack of salience of the initial instructions within the agent's context window.
 
@@ -35,4 +35,13 @@ This new protocol is designed to be more robust by:
 3.  **Imperative Framing:** Using direct, unambiguous commands ("execute NOW", "Your first tool call must be...").
 
 This change transforms the initialization from a passive, easily missed instruction into a direct, primary action. This ticket documents the implementation of this new protocol.
+
+## Activity Log
+
+- 2025-11-07 @tobiu added the `bug` label
+- 2025-11-07 @tobiu added the `contributor-experience` label
+- 2025-11-07 @tobiu added the `ai` label
+- 2025-11-07 @tobiu referenced in commit `d8a4189` - "Architectural Fix: Implement 'FIRST ACTION PROTOCOL' to ensure reliable session initialization #7718"
+- 2025-11-07 @tobiu assigned to @tobiu
+- 2025-11-07 @tobiu closed this issue
 

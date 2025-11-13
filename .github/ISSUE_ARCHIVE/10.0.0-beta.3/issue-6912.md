@@ -17,11 +17,18 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-30T15:38:09Z'
 ---
 # Form.view.FormPageContainer: use a tag config instead of overriding the vdom tag manually
 
-**Reported by:** @tobiu on 2025-06-30
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-06-30 @tobiu assigned to @tobiu
+- 2025-06-30 @tobiu added the `enhancement` label
+- 2025-06-30 @tobiu referenced in commit `8fed082` - "Form.view.FormPageContainer: use a tag config instead of overriding the vdom tag manually #6912"
+- 2025-06-30 @tobiu closed this issue
 

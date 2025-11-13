@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-07T20:11:20Z'
 ---
 # Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments
-
-**Reported by:** @tobiu on 2025-07-07
 
 **Description**
 The `Neo.state.Provider` currently requires the use of `setData()` to trigger reactivity when updating data properties. To enhance developer experience and align with more intuitive JavaScript patterns, we should implement a `Proxy` `set` trap on the `stateProvider.data` object. This will allow direct assignments (e.g., `stateProvider.data.myProperty = 'newValue'`) to automatically trigger the underlying `setData()` mechanism, ensuring reactivity.
@@ -48,4 +48,12 @@ The `set` trap should:
 *   Existing `setData()` calls continue to function as expected.
 *   No regressions are introduced in the `StateProvider`'s reactivity or hierarchical data access.
 *   Comprehensive unit tests are added to `test/siesta/tests/state/Provider.mjs` to cover direct assignment scenarios, including nested properties and various data types.
+
+## Activity Log
+
+- 2025-07-07 @tobiu assigned to @tobiu
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu referenced in commit `95f89f2` - "Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments #6981"
+- 2025-07-07 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `eac5988` - "Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments #6981"
 

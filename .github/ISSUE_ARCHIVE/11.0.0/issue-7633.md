@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-24T12:41:07Z'
 ---
 # bug(mcp): list_labels tool fails with schema validation error
-
-**Reported by:** @tobiu on 2025-10-24
 
 The `list_labels` tool in the GitHub Workflow MCP server is failing with a schema validation error.
 
@@ -33,4 +33,12 @@ This error likely occurs when a label in the repository has a `null` or empty de
 **Acceptance Criteria:**
 1.  Fix the `list_labels` tool to handle `null` or missing descriptions for labels.
 2.  The tool should return a valid list of labels without causing a schema validation error, likely by coercing `null` descriptions to empty strings (`''`) before returning the data.
+
+## Activity Log
+
+- 2025-10-24 @tobiu added the `bug` label
+- 2025-10-24 @tobiu added the `ai` label
+- 2025-10-24 @tobiu assigned to @tobiu
+- 2025-10-24 @tobiu referenced in commit `7a4807c` - "bug(mcp): list_labels tool fails with schema validation error #7633"
+- 2025-10-24 @tobiu closed this issue
 

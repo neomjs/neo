@@ -18,11 +18,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-25T18:21:10Z'
 ---
 # Chore: Update MCP Server Names in `.gemini/settings.json` for Branding Consistency
-
-**Reported by:** @tobiu on 2025-10-25
 
 This ticket proposes updating the names of the Neo.mjs-related MCP servers within `.gemini/settings.json` to include "neo.mjs" for improved branding and clarity.
 
@@ -38,4 +38,12 @@ Update the `mcpServers` configuration in `.gemini/settings.json` as follows:
 
 This change will be purely cosmetic at this stage, affecting only the display name within the Gemini CLI. Future steps would involve updating the internal server names and `package.json` files when these servers are externalized.
 
+
+## Activity Log
+
+- 2025-10-25 @tobiu added the `enhancement` label
+- 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu referenced in commit `c47432c` - "Chore: Update MCP Server Names in .gemini/settings.json for Branding Consistency #7653"
+- 2025-10-25 @tobiu closed this issue
 

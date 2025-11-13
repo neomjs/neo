@@ -17,11 +17,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-07T11:12:13Z'
 ---
 # core.Effect: isRunning class field => ensure that effects can not re-trigger themselves while running
 
-**Reported by:** @tobiu on 2025-07-07
-
 *(No description provided)*
+
+## Activity Log
+
+- 2025-07-07 @tobiu assigned to @tobiu
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu referenced in commit `49dae26` - "core.Effect: isRunning class field => ensure that effects can not re-trigger themselves while running #6970"
+- 2025-07-07 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `1cecffa` - "core.Effect: isRunning class field => ensure that effects can not re-trigger themselves while running #6970"
 

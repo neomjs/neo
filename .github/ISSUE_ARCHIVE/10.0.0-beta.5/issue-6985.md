@@ -15,11 +15,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-08T02:27:34Z'
 ---
 # Implement and Validate Deep Merge for `State.Provider`'s `data_` Config
-
-**Reported by:** @tobiu on 2025-07-08
 
 **Problem Statement:**
 The `Neo.state.Provider`'s `data_` config, intended to support deep merging of data from class-level definitions and instance-level overrides, was not functioning as expected. Initial attempts to leverage the `merge: 'deep'` descriptor strategy resulted in only instance-level data being present, or various `TypeError` exceptions during testing due to incompatibilities between the `createHierarchicalDataProxy` and the Siesta testing framework's deep comparison utilities.
@@ -58,4 +58,12 @@ The `Neo.state.Provider`'s `data_` config, intended to support deep merging of d
 
 **Overall Impact:**
 The `Neo.state.Provider`'s `data_` config now correctly supports deep merging of class-level and instance-level data. The `createHierarchicalDataProxy` is significantly more robust, compatible with standard JavaScript introspection methods, and fully testable with deep comparison utilities like Siesta's `t.isDeeplyStrict`. All relevant tests are now passing, confirming the correct behavior of the `State.Provider`'s reactive data system.
+
+## Activity Log
+
+- 2025-07-08 @tobiu assigned to @tobiu
+- 2025-07-08 @tobiu added the `enhancement` label
+- 2025-07-08 @tobiu referenced in commit `ba73dab` - "Implement and Validate Deep Merge for State.Provider's data_ Config #6985"
+- 2025-07-08 @tobiu closed this issue
+- 2025-07-09 @tobiu referenced in commit `bea9b43` - "Implement and Validate Deep Merge for State.Provider's data_ Config #6985"
 

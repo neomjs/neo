@@ -14,17 +14,11 @@ parentIssue: 6992
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-13T23:27:20Z'
 ---
 # DOM Event Handling for Beginner Mode Functional Components
-
-**Reported by:** @tobiu on 2025-07-11
-
----
-
-**Parent Issue:** #6992 - Functional Components
-
----
 
 ### 1. Summary
 
@@ -125,4 +119,11 @@ The `useEvent` hook will allow functional components to declare their intent to 
 1.  **Implement `useEvent` Hook:** Write the `useEvent` function. This hook will retrieve the current functional component instance by accessing `EffectManager.getActiveEffect().componentId` and then using `Neo.getComponent()` to get the instance. It will then collect event specifications and store them on the component instance's `_pendingDomEvents` property.
 2.  **Integrate with `FunctionalBase`:** Modify `Neo.functional.component.Base` to manage the `_pendingDomEvents` property and integrate the `addDomListeners`/`removeDomListeners` calls within its lifecycle (`afterSetMounted` and `destroy`).
 3.  **Testing and Documentation:** Thoroughly test the new hook and provide clear documentation and examples.
+
+## Activity Log
+
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu referenced in commit `9c17d6d` - "DOM Event Handling for Beginner Mode Functional Components #7011 WIP"
+- 2025-07-13 @tobiu referenced in commit `23a3866` - "DOM Event Handling for Beginner Mode Functional Components #7011"
+- 2025-07-13 @tobiu closed this issue
 

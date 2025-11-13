@@ -14,13 +14,19 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-15T15:16:56Z'
 ---
 # tree.List: createItem() => only add a record.iconCls in case it exists
 
-**Reported by:** @tobiu on 2025-06-15
-
 * Tree items were initially designed to always have an `iconCls`
 * Inside the Portal app, we are using plain text items
 * In this case, we get and empty item into the classList
+
+## Activity Log
+
+- 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu referenced in commit `4dabd69` - "tree.List: createItem() => only add a record.iconCls in case it exists #6801"
+- 2025-06-15 @tobiu closed this issue
 

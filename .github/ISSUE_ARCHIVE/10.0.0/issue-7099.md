@@ -17,11 +17,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-07-22T18:03:34Z'
 ---
 # Refactor `state.Provider` to Support Intuitive Deep-Merging and Runtime Data Creation
-
-**Reported by:** @tobiu on 2025-07-22
 
 ### **Description**
 
@@ -63,4 +63,11 @@ This change ensures that all methods of setting data (`proxy.prop = value`, `set
 3.  **Documentation:**
     *   The incorrect hint in `learn/guides/datahandling/StateProviders.md` must be removed. The section should be updated to accurately describe the deep-merge behavior.
     *   The code examples in the blog post `learn/blog/v10-deep-dive-state-provider.md` must be updated to demonstrate and explain the correct, intuitive API usage.
+
+## Activity Log
+
+- 2025-07-22 @tobiu assigned to @tobiu
+- 2025-07-22 @tobiu added the `enhancement` label
+- 2025-07-22 @tobiu closed this issue
+- 2025-07-22 @tobiu referenced in commit `b6c2ee7` - "Refactor state.Provider to Support Intuitive Deep-Merging and Runtime Data Creation #7099"
 

@@ -14,11 +14,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-06-26T12:07:58Z'
 ---
 # Portal.view.learn.ContentComponent: smarter content formatting
-
-**Reported by:** @tobiu on 2025-06-26
 
 * While using custom pre tags works fine inside the Portal App, it looks awful when browsing on GitHub.
 * We need new regexes based on 3 backticks plus language.
@@ -30,4 +30,11 @@ closedAt: '2025-06-26T12:07:58Z'
 Current state:
 
 <img width="1267" alt="Image" src="https://github.com/user-attachments/assets/702dabc5-1a95-4ba1-abe1-2d669c095203" />
+
+## Activity Log
+
+- 2025-06-26 @tobiu added the `enhancement` label
+- 2025-06-26 @tobiu referenced in commit `1ca08b7` - "Portal.view.learn.ContentComponent: smarter content formatting #6873"
+- 2025-06-26 @tobiu referenced in commit `0aebd47` - "#6873 replaced all pre tags inside the learning content"
+- 2025-06-26 @tobiu closed this issue
 

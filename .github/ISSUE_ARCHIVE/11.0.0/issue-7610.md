@@ -16,11 +16,11 @@ parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+blockedBy: []
+blocking: []
 closedAt: '2025-10-22T13:13:44Z'
 ---
 # Refactor `LocalFileService` to Remove `glob` Dependency
-
-**Reported by:** @tobiu on 2025-10-22
 
 The `LocalFileService` currently uses the `glob` npm package for recursively searching the `ISSUE_ARCHIVE` directory. To minimize external dependencies and maintain a leaner codebase, this dependency should be removed. The recursive file search functionality can be reimplemented using Node.js's native `fs/promises` module.
 
@@ -29,4 +29,12 @@ The `LocalFileService` currently uses the `glob` npm package for recursively sea
 1.  The `glob` import is removed from `ai/mcp/server/github-workflow/services/LocalFileService.mjs`.
 2.  A new private helper method, e.g., `#findFileRecursively(directory, filename)`, is implemented within `LocalFileService.mjs`.
 3.  This helper method performs a recursive search for the specified `filename` within the given `directory` and its subdirectories, returning the absolute path of the first match, or `null` if not found.
+
+## Activity Log
+
+- 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu added the `refactoring` label
+- 2025-10-22 @tobiu referenced in commit `03f7174` - "Refactor LocalFileService to Remove glob Dependency #7610"
+- 2025-10-22 @tobiu closed this issue
 
