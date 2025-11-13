@@ -426,12 +426,9 @@ class ViewportController extends Controller {
         let {windowId}   = this,
             DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
 
-        DocumentHead.setTitle({value: title, windowId});
-
-        DocumentHead.setTag({
-            content: description,
-            name   : 'description',
-            tag    : 'meta',
+        await DocumentHead.update({
+            tag: {tag: 'meta', name: 'description', content: description},
+            title,
             windowId
         })
     }

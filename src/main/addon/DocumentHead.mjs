@@ -33,7 +33,8 @@ class DocumentHead extends Base {
                 'setCanonical',
                 'setLdJson',
                 'setTag',
-                'setTitle'
+                'setTitle',
+                'update'
             ]
         }
     }
@@ -43,7 +44,7 @@ class DocumentHead extends Base {
      * @returns {String|null} The canonical URL, or null if not found.
      */
     getCanonical() {
-        const canonical = document.head.querySelector('link[rel="canonical"]');
+        let canonical = document.head.querySelector('link[rel="canonical"]');
         return canonical?.href || null
     }
 
@@ -52,7 +53,7 @@ class DocumentHead extends Base {
      * @returns {Object|null} The parsed JSON data, or null if the tag is not found or parsing fails.
      */
     getLdJson() {
-        const script = document.head.querySelector('script[type="application/ld+json"]');
+        let script = document.head.querySelector('script[type="application/ld+json"]');
 
         if (script) {
             try {
@@ -72,8 +73,8 @@ class DocumentHead extends Base {
      * @returns {Object|null} An object containing all attributes of the found tag, or null if not found.
      */
     getTag(config) {
-        const {tag, ...attributes} = config;
-        let selector;
+        let {tag, ...attributes} = config,
+            selector;
 
         if (tag === 'meta') {
             if (attributes.name) {
@@ -126,9 +127,10 @@ class DocumentHead extends Base {
 
     /**
      * Creates or updates the ld+json script tag with new structured data.
-     * @param {Object} data The JavaScript object to be stringified and set as the script's content.
+     * @param {Object} data
+     * @param {Object} data.value The JavaScript object to be stringified and set as the script's content.
      */
-    setLdJson({data}) {
+    setLdJson({value}) {
         let script = document.head.querySelector('script[type="application/ld+json"]');
 
         if (!script) {
@@ -137,7 +139,7 @@ class DocumentHead extends Base {
             document.head.appendChild(script)
         }
 
-        script.textContent = JSON.stringify(data, null, 2)
+        script.textContent = JSON.stringify(value, null, 2)
     }
 
     /**
@@ -145,11 +147,12 @@ class DocumentHead extends Base {
      * It finds an existing tag based on the same 'name', 'property' (for meta), or 'rel' (for link),
      * updates its attributes, or creates a new tag if one does not exist. This method is designed
      * to be efficient by modifying existing tags in place rather than removing and re-adding them.
-     * @param {Object} config The configuration for the tag, including the tag name and its attributes.
+     * @param {Object} data
+     * @param {Object} data.value The configuration for the tag, including the tag name and its attributes.
      */
-    setTag(config) {
-        const {tag, ...attributes} = config;
-        let selector, tagElement;
+    setTag({value}) {
+        let {tag, ...attributes} = value,
+            selector, tagElement;
 
         if (tag === 'meta') {
             if (attributes.name) {
@@ -166,11 +169,11 @@ class DocumentHead extends Base {
         tagElement = selector ? document.head.querySelector(selector) : null;
 
         if (!tagElement) {
-            tagElement = document.createElement(tag);
+            tagElement = document.createElement(tag)
         }
 
-        for (const [key, value] of Object.entries(attributes)) {
-            tagElement.setAttribute(key, value)
+        for (const [key, val] of Object.entries(attributes)) {
+            tagElement.setAttribute(key, val)
         }
 
         // Only append if it's a new element
@@ -186,6 +189,23 @@ class DocumentHead extends Base {
      */
     setTitle({value}) {
         document.title = value
+    }
+
+    /**
+     * Convenience shortcut to change multiple items inside one remote method access call.
+     * @param {Object} data
+     * @param {String} [data.canonicalUrl] The canonical URL to set.
+     * @param {Object} [data.ldJson]       The JavaScript object to be stringified and set as the script's content.
+     * @param {Object} [data.tag]          The configuration for the tag, including the tag name and its attributes.
+     * @param {String} [data.title]        The new title for the document.
+     */
+    update({canonicalUrl, ldJson, tag, title}) {
+        let me = this;
+
+        canonicalUrl && me.setCanonical({url: canonicalUrl});
+        ldJson       && me.setLdJson({value: ldJson});
+        tag          && me.setTag({value: tag});
+        title        && me.setTitle({value: title})
     }
 }
 
