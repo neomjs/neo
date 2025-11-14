@@ -138,8 +138,8 @@ class Controller extends Base {
     /**
      * Handles changes in the browser's URL hash. It identifies the most specific matching route
      * and dispatches the corresponding handler, optionally executing a preHandler first.
-     * @param {Object} value - The new hash history entry.
-     * @param {Object} oldValue - The previous hash history entry.
+     * @param {Object} value    The new hash history entry.
+     * @param {Object} oldValue The previous hash history entry.
      */
     async onHashChange(value, oldValue) {
         // We only want to trigger hash changes for the same browser window (SharedWorker context)
