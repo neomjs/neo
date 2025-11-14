@@ -331,7 +331,7 @@ class DatabaseService extends Base {
         logger.log(`Using collection: ${collection.name}`);
 
         logger.log('Fetching existing documents from ChromaDB...');
-        const existingDocs = await collection.get({ include: ["metadatas"] });
+        const existingDocs    = await collection.get({ include: ["metadatas"] });
         const existingDocsMap = new Map();
 
         existingDocs.ids.forEach((id, index) => {
@@ -374,8 +374,7 @@ class DatabaseService extends Base {
         logger.log(`Initialized Google AI embedding model: ${aiConfig.embeddingModel}.`);
 
         logger.log('Embedding chunks...');
-        const batchSize  = aiConfig.batchSize;
-        const maxRetries = aiConfig.maxRetries;
+        const {batchSize, maxRetries} = aiConfig;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             const batch = chunksToProcess.slice(i, i + batchSize);
@@ -402,7 +401,7 @@ class DatabaseService extends Base {
                     await collection.upsert({
                         ids      : batch.map(chunk => chunk.id),
                         embeddings,
-                        metadatas: metadatas
+                        metadatas
                     });
                     logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
                     success = true;
