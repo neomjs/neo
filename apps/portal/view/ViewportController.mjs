@@ -1,6 +1,7 @@
 import Controller        from '../../../src/controller/Component.mjs';
 import CubeLayout        from '../../../src/layout/Cube.mjs';
 import NeoArray          from '../../../src/util/Array.mjs';
+import SeoService        from '../service/Seo.mjs';
 import {getSearchParams} from '../Util.mjs';
 
 /**
@@ -23,43 +24,6 @@ class ViewportController extends Controller {
      * @static
      */
     static mainContentLayouts = ['card', 'cube', 'mixed']
-    /**
-     * A map of route-specific metadata for SEO purposes.
-     * The `onHashChange` method uses this to update the document's head.
-     * @member {Object} routeMetadata
-     * @protected
-     * @static
-     */
-    static routeMetadata = {
-        '/about-us': {
-            title      : 'About Us - Neo.mjs',
-            description: 'Learn more about the team behind Neo.mjs.'
-        },
-        '/blog': {
-            title      : 'Neo.mjs Blog',
-            description: 'The official blog for the Neo.mjs platform.'
-        },
-        '/docs': {
-            title      : 'Neo.mjs Docs',
-            description: 'Official documentation for the Neo.mjs platform.'
-        },
-        '/examples': {
-            title      : 'Neo.mjs Examples',
-            description: 'A collection of examples for the Neo.mjs platform.'
-        },
-        '/home': {
-            title      : 'Neo.mjs',
-            description: 'Solve your toughest UI performance challenges with Neo.mjs: a multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, and unmatched developer productivity.'
-        },
-        '/learn': {
-            title      : 'Learn Neo.mjs',
-            description: 'Learn the fundamentals of the Neo.mjs platform.'
-        },
-        '/services': {
-            title      : 'Neo.mjs Services',
-            description: 'Professional services for the Neo.mjs platform.'
-        }
-    }
 
     static config = {
         /**
@@ -312,24 +276,17 @@ class ViewportController extends Controller {
     }
 
     /**
-     * This is the central handler for all route changes. It is responsible for updating the
-     * document's head metadata (title and description) for SEO purposes by calling
-     * the `updateDocumentHead` method.
-     * @param {String} value
-     * @param {String} oldValue
+     * This is the central handler for all route changes. It is now responsible for delegating
+     * the document's head metadata (title and description) updates to the `Portal.service.Seo` service.
+     * @param {Object} value               The new route object.
+     * @param {String} value.hashString    The new hash string.
+     * @param {Object} oldValue            The previous route object.
+     * @param {String} oldValue.hashString The previous hash string.
      * @returns {Promise<void>}
      */
     async onHashChange(value, oldValue) {
         await super.onHashChange(value, oldValue);
-
-        const metadata = this.constructor.routeMetadata[value?.hashString];
-
-        if (metadata) {
-            await this.updateDocumentHead({
-                description: metadata.description,
-                title      : metadata.title
-            })
-        }
+        SeoService.onRouteChanged(value?.hashString)
     }
 
     /**
@@ -421,16 +378,6 @@ class ViewportController extends Controller {
      * @param {Object} config
      * @param {String} config.description
      * @param {String} config.title
-     */
-    async updateDocumentHead({description, title}) {
-        let {windowId}   = this,
-            DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
-
-        await DocumentHead.update({description, title, windowId})
-    }
-
-    /**
-     *
      */
     async updateHeaderToolbar() {
         let me                  = this,
