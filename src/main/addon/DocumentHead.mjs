@@ -172,9 +172,9 @@ class DocumentHead extends Base {
      * updates its attributes, or creates a new tag if one does not exist. This method is designed
      * to be efficient by modifying existing tags in place rather than removing and re-adding them.
      * @param {Object} data
-     * @param {Object} data.value The configuration for the tag, including the tag name and its attributes.
+     * @param {Object} data.value={} The configuration for the tag, including the tag name and its attributes.
      */
-    setTag({value}) {
+    setTag({value={}}) {
         let {tag, ...attributes} = value,
             selector, tagElement;
 

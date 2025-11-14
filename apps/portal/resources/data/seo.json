@@ -1,0 +1,30 @@
+{
+    "/about-us": {
+        "title": "About Us - Neo.mjs",
+        "description": "Learn more about the team behind Neo.mjs."
+    },
+    "/blog": {
+        "title": "Neo.mjs Blog",
+        "description": "The official blog for the Neo.mjs platform."
+    },
+    "/docs": {
+        "title": "Neo.mjs Docs",
+        "description": "Official documentation for the Neo.mjs platform."
+    },
+    "/examples": {
+        "title": "Neo.mjs Examples",
+        "description": "A collection of examples for the Neo.mjs platform."
+    },
+    "/home": {
+        "title": "Neo.mjs",
+        "description": "Solve your toughest UI performance challenges with Neo.mjs: a multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, and unmatched developer productivity."
+    },
+    "/learn": {
+        "title": "Learn Neo.mjs",
+        "description": "Learn the fundamentals of the Neo.mjs platform."
+    },
+    "/services": {
+        "title": "Neo.mjs Services",
+        "description": "Professional services for the Neo.mjs platform."
+    }
+}

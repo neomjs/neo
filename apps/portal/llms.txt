@@ -1,10 +1,34 @@
 # Neo.mjs Platform
 
-> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a distributed computing environment, not a single-threaded document renderer.
+> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 
+> files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated 
+> Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a 
+> distributed computing environment, not a single-threaded document renderer.
 >
-> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly responsive, regardless of the workload. The platform provides a holistic, managed environment with operational guarantees, a unified class config system for declaratively describing entire component trees, and critical operational primitives like multi-window state. It includes an enterprise-grade component library.
+> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and 
+> data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly 
+> responsive, regardless of the workload. The platform provides a holistic, managed environment with operational 
+> guarantees, a unified class config system for declaratively describing entire component trees, and critical operational 
+> primitives like multi-window state. It includes an enterprise-grade component library.
 >
-> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that applications evolve with the web platform itself.
+> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based 
+> on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that 
+> applications evolve with the web platform itself.
+
+Neo.mjs uniquely deploys each application and example in four equivalent environments, each serving identical 
+functionality through different code delivery methods: development mode (zero-builds), dist/development (bundled, 
+unminified), dist/esm (native ES modules, optimized), and dist/production (bundled, minified). 
+
+The URLs listed below use the development mode paths (e.g., /apps/ or /examples/), representing the zero-builds, 
+browser-native version that embodies Neo.mjs's core philosophy. To access any application in a different environment, 
+simply prefix the path with /dist/development/, /dist/esm/, or /dist/production/.
+
+For example, the Portal app is available at all four environment URLs, plus a fifth version mapped to the domain root:
+- https://neomjs.com/ (mapped to dist/production)
+- https://neomjs.com/apps/portal/index.html (dev mode)
+- https://neomjs.com/dist/development/apps/portal/index.html
+- https://neomjs.com/dist/esm/apps/portal/index.html
+- https://neomjs.com/dist/production/apps/portal/index.html
 
 ## main
 
@@ -116,4 +140,136 @@
 - [v10 Deep Dive: Reactivity](https://neomjs.com/#/learn/blog/v10-deep-dive-reactivity)
 - [v10 Post 1: A Love Story](https://neomjs.com/#/learn/blog/v10-post1-love-story)
 - [JSON Blueprints & Shared Workers](https://neomjs.com/#/learn/blog/json-blueprints-and-shared-workers)
+
+## Demo Apps and Examples
+
+- [Colors Dashboard](https://neomjs.com/apps/colors/index.html)
+- [COVID-19 IN NUMBERS](https://neomjs.com/apps/covid/index.html)
+- [Email](https://neomjs.com/apps/email/index.html)
+- [Neo.mjs Finance Dashboard](https://neomjs.com/apps/finance/index.html)
+- [Form](https://neomjs.com/apps/form/index.html)
+- [Neo.mjs](https://neomjs.com/apps/portal/index.html)
+- [Conduit](https://neomjs.com/apps/realworld/index.html)
+- [RealWorld2](https://neomjs.com/apps/realworld2/index.html)
+- [Route](https://neomjs.com/apps/route/index.html)
+- [SharedCovid MainWindow](https://neomjs.com/apps/sharedcovid/index.html)
+- [SharedDialog](https://neomjs.com/apps/shareddialog/index.html)
+- [Neo Button](https://neomjs.com/examples/button/base/index.html)
+- [Neo EffectButton](https://neomjs.com/examples/button/effect/index.html)
+- [Neo SplitButton](https://neomjs.com/examples/button/split/index.html)
+- [neo.mjs Calendar Basic](https://neomjs.com/examples/calendar/basic/index.html)
+- [neo.mjs Calendar WeekView](https://neomjs.com/examples/calendar/weekview/index.html)
+- [Neo amCharts](https://neomjs.com/examples/charts/index.html)
+- [Neo OffscreenCanvas](https://neomjs.com/examples/component/canvas/index.html)
+- [Neo Carousel](https://neomjs.com/examples/component/carousel/index.html)
+- [Neo Chip](https://neomjs.com/examples/component/chip/index.html)
+- [Neo Circle](https://neomjs.com/examples/component/circle/index.html)
+- [Neo Clock](https://neomjs.com/examples/component/clock/index.html)
+- [COVID19 Gallery](https://neomjs.com/examples/component/coronaGallery/index.html)
+- [COVID19 Helix](https://neomjs.com/examples/component/coronaHelix/index.html)
+- [Neo DateSelector](https://neomjs.com/examples/component/dateSelector/index.html)
+- [Neo Gallery](https://neomjs.com/examples/component/gallery/index.html)
+- [Neo Helix](https://neomjs.com/examples/component/helix/index.html)
+- [Neo Magic Move - Text](https://neomjs.com/examples/component/magicmovetext/index.html)
+- [Gallery Controls](https://neomjs.com/examples/component/multiWindowCoronaGallery/childapp/index.html)
+- [Neo Multi-Window Corona Gallery](https://neomjs.com/examples/component/multiWindowCoronaGallery/index.html)
+- [Helix Controls](https://neomjs.com/examples/component/multiWindowHelix/childapp/index.html)
+- [Neo Multi-Window Helix](https://neomjs.com/examples/component/multiWindowHelix/index.html)
+- [Neo MWC Button](https://neomjs.com/examples/component/mwc/button/index.html)
+- [Neo MWC Buttons](https://neomjs.com/examples/component/mwc/buttons/index.html)
+- [Neo MWC TextField](https://neomjs.com/examples/component/mwc/textField/index.html)
+- [Neo MWC TextFields](https://neomjs.com/examples/component/mwc/textFields/index.html)
+- [Neo Process Component](https://neomjs.com/examples/component/process/index.html)
+- [Neo Process Real World Example](https://neomjs.com/examples/component/process/realWorldExample/index.html)
+- [Neo Progress](https://neomjs.com/examples/component/progress/index.html)
+- [Neo Splitter](https://neomjs.com/examples/component/splitter/index.html)
+- [Neo StatusBadge](https://neomjs.com/examples/component/statusbadge/index.html)
+- [Neo Timer](https://neomjs.com/examples/component/timer/index.html)
+- [Neo Toast Component](https://neomjs.com/examples/component/toast/index.html)
+- [Neo Video](https://neomjs.com/examples/component/video/index.html)
+- [Neo CesiumJS Component](https://neomjs.com/examples/component/wrapper/cesiumJS/index.html)
+- [Neo GoogleMaps Component](https://neomjs.com/examples/component/wrapper/googleMaps/index.html)
+- [Neo Monaco Editor](https://neomjs.com/examples/component/wrapper/monacoEditor/index.html)
+- [Neo OpenStreetMaps/OpenLayers Component](https://neomjs.com/examples/component/wrapper/openStreetMaps/index.html)
+- [Neo Accordion](https://neomjs.com/examples/container/accordion/index.html)
+- [Neo Containers](https://neomjs.com/examples/container/base/index.html)
+- [neo.mjs config system](https://neomjs.com/examples/core/config/index.html)
+- [Neo Dashboard](https://neomjs.com/examples/dashboard/index.html)
+- [Neo DateSelector](https://neomjs.com/examples/date/selectorContainer/index.html)
+- [Neo Dialog](https://neomjs.com/examples/dialog/index.html)
+- [Neo Fields](https://neomjs.com/examples/fields/index.html)
+- [Field with Prefix](https://neomjs.com/examples/fieldWithPrefix/index.html)
+- [Neo CheckBoxField](https://neomjs.com/examples/form/field/checkbox/index.html)
+- [Neo ChipField](https://neomjs.com/examples/form/field/chip/index.html)
+- [Neo ColorField](https://neomjs.com/examples/form/field/color/index.html)
+- [Neo ComboBox](https://neomjs.com/examples/form/field/combobox/index.html)
+- [Neo DateField](https://neomjs.com/examples/form/field/date/index.html)
+- [Neo EmailField](https://neomjs.com/examples/form/field/email/index.html)
+- [Neo FileUploadField](https://neomjs.com/examples/form/field/fileupload/index.html)
+- [Neo NumberField](https://neomjs.com/examples/form/field/number/index.html)
+- [Neo PickerField](https://neomjs.com/examples/form/field/picker/index.html)
+- [Neo RadioField](https://neomjs.com/examples/form/field/radio/index.html)
+- [Neo SwitchField](https://neomjs.com/examples/form/field/switch/index.html)
+- [Neo TextField](https://neomjs.com/examples/form/field/text/index.html)
+- [Neo TextAreaField](https://neomjs.com/examples/form/field/textarea/index.html)
+- [Neo TimeField](https://neomjs.com/examples/form/field/time/index.html)
+- [Neo Copy to Clipboard Triggers](https://neomjs.com/examples/form/field/trigger/copyToClipboard/index.html)
+- [Neo UrlField](https://neomjs.com/examples/form/field/url/index.html)
+- [Neo Fieldset](https://neomjs.com/examples/form/fieldset/index.html)
+- [Neo Functional Button](https://neomjs.com/examples/functional/button/base/index.html)
+- [Neo Functional Component](https://neomjs.com/examples/functional/defineComponent/index.html)
+- [Functional Component Hosting Component](https://neomjs.com/examples/functional/hostComponent/index.html)
+- [Neo Functional Nested Templates](https://neomjs.com/examples/functional/nestedTemplateComponent/index.html)
+- [Neo Functional Template Component](https://neomjs.com/examples/functional/templateComponent/index.html)
+- [Neo Grid: Animated Row Sorting](https://neomjs.com/examples/grid/animatedRowSorting/index.html)
+- [Neo GridContainer - Big Data](https://neomjs.com/examples/grid/bigData/index.html)
+- [Neo Grid CellEditing](https://neomjs.com/examples/grid/cellEditing/index.html)
+- [Neo GridContainer](https://neomjs.com/examples/grid/container/index.html)
+- [Neo CovidGrid](https://neomjs.com/examples/grid/covid/index.html)
+- [Neo Grid: Nested Record Fields](https://neomjs.com/examples/grid/nestedRecordFields/index.html)
+- [Neo Card Layout](https://neomjs.com/examples/layout/card/index.html)
+- [Neo Cube Layout](https://neomjs.com/examples/layout/cube/index.html)
+- [Neo Form Layout](https://neomjs.com/examples/layout/form/index.html)
+- [Neo AnimatedList](https://neomjs.com/examples/list/animate/index.html)
+- [Neo List](https://neomjs.com/examples/list/base/index.html)
+- [Neo ChipList](https://neomjs.com/examples/list/chip/index.html)
+- [Neo CircleList](https://neomjs.com/examples/list/circle/index.html)
+- [Neo ColorList](https://neomjs.com/examples/list/color/index.html)
+- [Neo MenuList](https://neomjs.com/examples/menu/list/index.html)
+- [Neo Menu](https://neomjs.com/examples/menu/panel/index.html)
+- [Neo Panels](https://neomjs.com/examples/panel/index.html)
+- [Neo Tree](https://neomjs.com/examples/popover/index.html)
+- [Preloading Assets](https://neomjs.com/examples/preloadingAssets/index.html)
+- [Remotes API Basic](https://neomjs.com/examples/remotesApi/basic/index.html)
+- [Neo.mjs - Load Grid Container](https://neomjs.com/examples/serverside/gridContainer/index.html)
+- [Neo.mjs - Load Toolbar Items](https://neomjs.com/examples/serverside/toolbarItems/index.html)
+- [Neo Sitemap](https://neomjs.com/examples/sitemap/index.html)
+- [state.Provider: advanced](https://neomjs.com/examples/stateProvider/advanced/index.html)
+- [state.Provider: dialog](https://neomjs.com/examples/stateProvider/dialog/index.html)
+- [state.Provider: extended class](https://neomjs.com/examples/stateProvider/extendedClass/index.html)
+- [state.Provider: inline definition](https://neomjs.com/examples/stateProvider/inline/index.html)
+- [inline example without using a state.Provider](https://neomjs.com/examples/stateProvider/inlineNoStateProvider/index.html)
+- [stateProvider.multiWindow](https://neomjs.com/examples/stateProvider/multiWindow/index.html)
+- [stateProvider.multiWindow2](https://neomjs.com/examples/stateProvider/multiWindow2/index.html)
+- [state.Provider: nested data](https://neomjs.com/examples/stateProvider/nestedData/index.html)
+- [Neo table & bound store](https://neomjs.com/examples/stateProvider/table/index.html)
+- [state.Provider: 2 way binding](https://neomjs.com/examples/stateProvider/twoWay/index.html)
+- [Neo TabContainer](https://neomjs.com/examples/tab/container/index.html)
+- [Neo Table CellEditing](https://neomjs.com/examples/table/cellEditing/index.html)
+- [Neo TableContainer](https://neomjs.com/examples/table/container/index.html)
+- [Neo CovidTable](https://neomjs.com/examples/table/covid/index.html)
+- [Neo Table: Nested Record Fields](https://neomjs.com/examples/table/nestedRecordFields/index.html)
+- [Neo Table Filtering](https://neomjs.com/examples/tableFiltering/index.html)
+- [Neo Table Performance](https://neomjs.com/examples/tablePerformance/index.html)
+- [Neo Table & Store](https://neomjs.com/examples/tableStore/index.html)
+- [Neo Tabs](https://neomjs.com/examples/tabs/index.html)
+- [Neo TodoList version1](https://neomjs.com/examples/todoList/version1/index.html)
+- [Neo TodoList version2](https://neomjs.com/examples/todoList/version2/index.html)
+- [Neo Breadcrumb Toolbar](https://neomjs.com/examples/toolbar/breadcrumb/index.html)
+- [Neo Paging Toolbar](https://neomjs.com/examples/toolbar/paging/index.html)
+- [Neo Tree](https://neomjs.com/examples/tree/index.html)
+- [Neo Tree](https://neomjs.com/examples/treeAccordion/index.html)
+- [Neo.mjs - Moving a Video Tag](https://neomjs.com/examples/videoMove/index.html)
+- [Neo Viewport](https://neomjs.com/examples/viewport/index.html)
+- [Neo TaskWorker](https://neomjs.com/examples/worker/task/index.html)
 

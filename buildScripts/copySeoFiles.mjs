@@ -13,7 +13,7 @@ const
 
 const APP_DIR   = path.resolve(cwd, 'apps');
 const DIST_DIR  = path.resolve(cwd, 'dist');
-const SEO_FILES = ['robots.txt', 'llm.txt', 'sitemap.xml'];
+const SEO_FILES = ['robots.txt', 'llms.txt', 'sitemap.xml'];
 
 /**
  * Recursively finds application root directories by looking for index.html.

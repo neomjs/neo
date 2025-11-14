@@ -2,11 +2,11 @@ import Base        from '../core/Base.mjs';
 import HashHistory from '../util/HashHistory.mjs';
 
 const
-    regexAmountSlashes       = /\//g,
+    regexAmountSlashes = /\//g,
     // Regex to extract the parameter name from a single route segment (e.g., {*itemId} -> itemId)
     regexParamNameExtraction = /{(\*|\.\.\.)?([^}]+)}/,
     // Regex to match route parameters like {paramName}, {*paramName}, or {...paramName}
-    regexRouteParam          = /{(\*|\.\.\.)?([^}]+)}/g;
+    regexRouteParam    = /{(\*|\.\.\.)?([^}]+)}/g;
 
 /**
  * @class Neo.controller.Base
@@ -138,8 +138,8 @@ class Controller extends Base {
     /**
      * Handles changes in the browser's URL hash. It identifies the most specific matching route
      * and dispatches the corresponding handler, optionally executing a preHandler first.
-     * @param {Object} value - The new hash history entry.
-     * @param {Object} oldValue - The previous hash history entry.
+     * @param {Object} value    The new hash history entry.
+     * @param {Object} oldValue The previous hash history entry.
      */
     async onHashChange(value, oldValue) {
         // We only want to trigger hash changes for the same browser window (SharedWorker context)
@@ -201,6 +201,8 @@ class Controller extends Base {
 
             let responsePreHandler = true;
 
+            value.capturedRoute = bestMatchKey;
+
             if (preHandler) {
                 responsePreHandler = await me[preHandler]?.call(me, bestMatchParams, value, oldValue)
             }
@@ -210,8 +212,10 @@ class Controller extends Base {
             }
         } else {
             if (me.defaultRoute) {
+                value.capturedRoute = me.defaultRoute;
                 me[me.defaultRoute]?.(value, oldValue)
             } else {
+                value.capturedRoute = null;
                 me.onNoRouteFound(value, oldValue)
             }
         }
