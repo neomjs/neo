@@ -32,9 +32,46 @@ const PRIORITIES = new Map([
 
     // High-value content
     ['guides/fundamentals/CodebaseOverview'         , 1.0],
+
+    ['benefits/ConfigSystem'                        , 0.9],
+    ['benefits/Effort'                              , 0.9],
+    ['benefits/Features'                            , 0.9],
+    ['benefits/FormsEngine'                         , 0.9],
+    ['benefits/FourEnvironments'                    , 0.9],
     ['benefits/Introduction'                        , 0.9],
-    ['gettingstarted/Setup'                         , 0.9],
+    ['benefits/MultiWindow'                         , 0.9],
+    ['benefits/OffTheMainThread'                    , 0.9],
+    ['benefits/Quick'                               , 0.9],
+    ['benefits/RPCLayer'                            , 0.9],
+    ['benefits/Speed'                               , 0.9],
+
+    ['blog/context-engineering-done-right'          , 0.9],
+    ['blog/ai-native-platform-answers-questions'    , 0.9],
+    ['blog/v10-deep-dive-state-provider'            , 0.9],
+    ['blog/benchmarking-frontends-2025'             , 0.9],
+    ['blog/v10-deep-dive-vdom-revolution'           , 0.9],
+    ['blog/v10-deep-dive-functional-components'     , 0.9],
+    ['blog/v10-deep-dive-reactivity'                , 0.9],
+    ['blog/v10-post1-love-story'                    , 0.9],
+    ['blog/json-blueprints-and-shared-workers'      , 0.9],
+
+    ['comparisons/NeoVsAngular'                     , 0.8],
+    ['comparisons/NeoVsExtJs'                       , 0.8],
+    ['comparisons/NeoVsNextJs'                      , 0.8],
+    ['comparisons/NeoVsReact'                       , 0.8],
+    ['comparisons/NeoVsSolid'                       , 0.8],
+    ['comparisons/NeoVsVue'                         , 0.8],
+
+    ['gettingstarted/ComponentModels'               , 0.8],
+    ['gettingstarted/Config'                        , 0.8],
     ['gettingstarted/CreatingYourFirstApp'          , 0.9],
+    ['gettingstarted/DescribingTheUI'               , 0.9],
+    ['gettingstarted/Events'                        , 0.8],
+    ['gettingstarted/Extending'                     , 0.8],
+    ['gettingstarted/References'                    , 0.8],
+    ['gettingstarted/Setup'                         , 0.9],
+    ['gettingstarted/Workspaces'                    , 0.9],
+
     ['guides/fundamentals/ApplicationBootstrap'     , 0.9],
     ['guides/fundamentals/MainThreadAddons'         , 0.9],
 
