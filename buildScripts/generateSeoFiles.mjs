@@ -21,6 +21,43 @@ const TOP_LEVEL_ROUTES = [
     '/services'
 ];
 
+const PRIORITIES = new Map([
+    // Top-level pages
+    ['/home'    , 1.0],
+    ['/docs'    , 0.9],
+    ['/examples', 0.9],
+    ['/blog'    , 0.8],
+    ['/about-us', 0.7],
+    ['/services', 0.7],
+
+    // High-value content
+    ['guides/fundamentals/CodebaseOverview'         , 1.0],
+    ['benefits/Introduction'                        , 0.9],
+    ['gettingstarted/Setup'                         , 0.9],
+    ['gettingstarted/CreatingYourFirstApp'          , 0.9],
+    ['guides/fundamentals/ApplicationBootstrap'     , 0.9],
+    ['guides/fundamentals/MainThreadAddons'         , 0.9],
+
+    // Other important guides
+    ['guides/uibuildingblocks/ComponentsAndContainers', 0.8],
+    ['guides/uibuildingblocks/Layouts'                , 0.8],
+    ['guides/datahandling/Grids'                      , 0.8],
+    ['guides/userinteraction/Forms'                   , 0.8]
+]);
+
+const DEFAULT_PRIORITY = 0.5;
+
+/**
+ * Gets the priority for a given route ID.
+ * @param {String} id The route ID
+ * @returns {Number} The priority value
+ */
+function getPriority(id) {
+    // Normalize ID by removing .md extension if present
+    const cleanId = id.endsWith('.md') ? id.slice(0, -3) : id;
+    return PRIORITIES.get(cleanId) || DEFAULT_PRIORITY;
+}
+
 /**
  * Gets last modified dates for multiple files in a batch (more efficient).
  * @param {String[]} filePaths - Array of absolute file paths
@@ -299,12 +336,18 @@ export async function getSitemapXml(options={}) {
             lastmod = lastModMap.get(key);
         }
 
+        const priority = getPriority(id);
+
         const lastmodXml = lastmod
             ? `\n    <lastmod>${lastmod}</lastmod>`
             : '';
 
+        const priorityXml = priority !== DEFAULT_PRIORITY
+            ? `\n    <priority>${priority.toFixed(1)}</priority>`
+            : '';
+
         return `  <url>
-    <loc>${url}</loc>${lastmodXml}
+    <loc>${url}</loc>${lastmodXml}${priorityXml}
   </url>`;
     }).join('\n');
 
