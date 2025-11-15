@@ -60,11 +60,18 @@ class DocumentHead extends Base {
     }
 
     /**
-     * Retrieves and parses the content of the ld+json script tag.
+     * Retrieves and parses the content of a ld+json script tag.
+     * Can find a specific script tag by name, or the first one if no name is provided.
+     * @param {Object} [config={}]
+     * @param {String} [config.name] The value of the 'data-schema-name' attribute to select a specific script.
      * @returns {Object|null} The parsed JSON data, or null if the tag is not found or parsing fails.
      */
-    getLdJson() {
-        let script = document.head.querySelector('script[type="application/ld+json"]');
+    getLdJson({name}={}) {
+        let selector = name
+            ? `script[type="application/ld+json"][data-schema-name="${name}"]`
+            : 'script[type="application/ld+json"]';
+
+        let script = document.head.querySelector(selector);
 
         if (script) {
             try {
@@ -150,16 +157,25 @@ class DocumentHead extends Base {
     }
 
     /**
-     * Creates or updates the ld+json script tag with new structured data.
+     * Creates or updates a ld+json script tag with new structured data.
+     * Can target a specific script tag by name.
      * @param {Object} data
+     * @param {String} [data.name] The value for the 'data-schema-name' attribute to select a specific script.
      * @param {Object} data.value The JavaScript object to be stringified and set as the script's content.
      */
-    setLdJson({value}) {
-        let script = document.head.querySelector('script[type="application/ld+json"]');
+    setLdJson({name, value}) {
+        let selector = name
+            ? `script[type="application/ld+json"][data-schema-name="${name}"]`
+            : 'script[type="application/ld+json"]';
+
+        let script = document.head.querySelector(selector);
 
         if (!script) {
             script = document.createElement('script');
             script.type = 'application/ld+json';
+            if (name) {
+                script.dataset.schemaName = name
+            }
             document.head.appendChild(script)
         }
 

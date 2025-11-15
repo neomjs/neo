@@ -21,6 +21,80 @@ const TOP_LEVEL_ROUTES = [
     '/services'
 ];
 
+const PRIORITIES = new Map([
+    // Top-level pages
+    ['/home'    , 1.0],
+    ['/docs'    , 0.9],
+    ['/examples', 0.9],
+    ['/blog'    , 0.8],
+    ['/about-us', 0.7],
+    ['/services', 0.7],
+
+    // High-value content
+    ['guides/fundamentals/CodebaseOverview'         , 1.0],
+
+    ['benefits/ConfigSystem'                        , 0.9],
+    ['benefits/Effort'                              , 0.9],
+    ['benefits/Features'                            , 0.9],
+    ['benefits/FormsEngine'                         , 0.9],
+    ['benefits/FourEnvironments'                    , 0.9],
+    ['benefits/Introduction'                        , 0.9],
+    ['benefits/MultiWindow'                         , 0.9],
+    ['benefits/OffTheMainThread'                    , 0.9],
+    ['benefits/Quick'                               , 0.9],
+    ['benefits/RPCLayer'                            , 0.9],
+    ['benefits/Speed'                               , 0.9],
+
+    ['blog/context-engineering-done-right'          , 0.9],
+    ['blog/ai-native-platform-answers-questions'    , 0.9],
+    ['blog/v10-deep-dive-state-provider'            , 0.9],
+    ['blog/benchmarking-frontends-2025'             , 0.9],
+    ['blog/v10-deep-dive-vdom-revolution'           , 0.9],
+    ['blog/v10-deep-dive-functional-components'     , 0.9],
+    ['blog/v10-deep-dive-reactivity'                , 0.9],
+    ['blog/v10-post1-love-story'                    , 0.9],
+    ['blog/json-blueprints-and-shared-workers'      , 0.9],
+
+    ['comparisons/NeoVsAngular'                     , 0.8],
+    ['comparisons/NeoVsExtJs'                       , 0.8],
+    ['comparisons/NeoVsNextJs'                      , 0.8],
+    ['comparisons/NeoVsReact'                       , 0.8],
+    ['comparisons/NeoVsSolid'                       , 0.8],
+    ['comparisons/NeoVsVue'                         , 0.8],
+
+    ['gettingstarted/ComponentModels'               , 0.8],
+    ['gettingstarted/Config'                        , 0.8],
+    ['gettingstarted/CreatingYourFirstApp'          , 0.9],
+    ['gettingstarted/DescribingTheUI'               , 0.9],
+    ['gettingstarted/Events'                        , 0.8],
+    ['gettingstarted/Extending'                     , 0.8],
+    ['gettingstarted/References'                    , 0.8],
+    ['gettingstarted/Setup'                         , 0.9],
+    ['gettingstarted/Workspaces'                    , 0.9],
+
+    ['guides/fundamentals/ApplicationBootstrap'     , 0.9],
+    ['guides/fundamentals/MainThreadAddons'         , 0.9],
+
+    // Other important guides
+    ['guides/uibuildingblocks/ComponentsAndContainers', 0.8],
+    ['guides/uibuildingblocks/Layouts'                , 0.8],
+    ['guides/datahandling/Grids'                      , 0.8],
+    ['guides/userinteraction/Forms'                   , 0.8]
+]);
+
+const DEFAULT_PRIORITY = 0.5;
+
+/**
+ * Gets the priority for a given route ID.
+ * @param {String} id The route ID
+ * @returns {Number} The priority value
+ */
+function getPriority(id) {
+    // Normalize ID by removing .md extension if present
+    const cleanId = id.endsWith('.md') ? id.slice(0, -3) : id;
+    return PRIORITIES.get(cleanId) || DEFAULT_PRIORITY;
+}
+
 /**
  * Gets last modified dates for multiple files in a batch (more efficient).
  * @param {String[]} filePaths - Array of absolute file paths
@@ -299,12 +373,18 @@ export async function getSitemapXml(options={}) {
             lastmod = lastModMap.get(key);
         }
 
+        const priority = getPriority(id);
+
         const lastmodXml = lastmod
             ? `\n    <lastmod>${lastmod}</lastmod>`
             : '';
 
+        const priorityXml = priority !== DEFAULT_PRIORITY
+            ? `\n    <priority>${priority.toFixed(1)}</priority>`
+            : '';
+
         return `  <url>
-    <loc>${url}</loc>${lastmodXml}
+    <loc>${url}</loc>${lastmodXml}${priorityXml}
   </url>`;
     }).join('\n');
 

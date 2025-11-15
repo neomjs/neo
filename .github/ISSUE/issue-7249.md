@@ -1,22 +1,23 @@
 ---
 id: 7249
 title: Automate GitHub Issue Creation
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
 assignees:
   - tobiu
 createdAt: '2025-09-24T09:23:25Z'
-updatedAt: '2025-09-24T09:23:25Z'
+updatedAt: '2025-11-15T09:45:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7249'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-15T09:45:18Z'
 ---
 # Automate GitHub Issue Creation
 
@@ -40,10 +41,17 @@ Implement a workflow where the agent can use the GitHub CLI (`gh`) to create a n
 
 The user's environment must have the GitHub CLI (`gh`) installed and authenticated via `gh auth login`.
 
+## Comments
+
+### @tobiu - 2025-11-15 09:45
+
+already resolved.
+
 ## Activity Log
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label
 - 2025-09-24 @tobiu referenced in commit `0cadcca` - "#7249 internal ticket"
 - 2025-10-05 @ksanjeev284 cross-referenced by #1
+- 2025-11-15 @tobiu closed this issue
 
