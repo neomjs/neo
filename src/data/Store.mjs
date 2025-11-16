@@ -3,6 +3,7 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import RecordFactory   from './RecordFactory.mjs';
+import fs              from "fs/promises";
 
 /**
  * @class Neo.data.Store
@@ -541,6 +542,12 @@ class Store extends Base {
             opts.url ??= me.url;
 
             try {
+                // Fallback for non-browser based envs like nodejs
+                if (globalThis.process?.release) {
+                    const data = await fs.readFile(opts.url, 'utf-8');
+                    return JSON.parse(data)
+                }
+
                 const data = await Neo.Xhr.promiseJson(opts);
 
                 if (data) {
