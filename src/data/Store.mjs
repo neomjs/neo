@@ -542,13 +542,15 @@ class Store extends Base {
             opts.url ??= me.url;
 
             try {
+                let data;
+
                 // Fallback for non-browser based envs like nodejs
                 if (globalThis.process?.release) {
-                    const data = await fs.readFile(opts.url, 'utf-8');
-                    return JSON.parse(data)
+                    const content = await fs.readFile(opts.url, 'utf-8');
+                    data = {json: JSON.parse(content)};
+                } else {
+                    data = await Neo.Xhr.promiseJson(opts);
                 }
-
-                const data = await Neo.Xhr.promiseJson(opts);
 
                 if (data) {
                     me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
