@@ -239,6 +239,9 @@ class Manager extends Base {
                     case 'app':
                         workerConfig.cssMap = ssrData.cssMap;
                         workerConfig.vnode  = ssrData.vnode;
+                        if (ssrData.hash) {
+                            workerConfig.hash = ssrData.hash;
+                        }
                         break;
                     case 'vdom':
                         workerConfig.idCounter = ssrData.idCounter;
