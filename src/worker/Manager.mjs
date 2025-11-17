@@ -86,10 +86,10 @@ class Manager extends Base {
         webWorkersEnabled: false,
         /**
          * Using the current timestamp as a unique window identifier
-         * @member {Number} windowId=new Date().getTime()
+         * @member {Number} windowId=window.__NEO_SSR__?.windowId||new Date().getTime()
          * @protected
          */
-        windowId: new Date().getTime(),
+        windowId: window.__NEO_SSR__?.windowId || new Date().getTime(),
         /**
          * Contains the fileNames for the App, Data & Vdom workers
          * @member {Object} workers
@@ -197,6 +197,7 @@ class Manager extends Base {
             config               = Neo.clone(NeoConfig, true),
             {hash, href, search} = location,
             {windowId}           = me,
+            ssrData              = window.__NEO_SSR__,
             key, value;
 
         // remove configs which are not relevant for the workers scope
@@ -229,9 +230,25 @@ class Manager extends Base {
                 break
             }
 
+            let workerConfig = {...config, windowId};
+
+            if (ssrData) {
+                workerConfig.useSsr = true;
+
+                switch (key) {
+                    case 'app':
+                        workerConfig.cssMap = ssrData.cssMap;
+                        workerConfig.vnode  = ssrData.vnode;
+                        break;
+                    case 'vdom':
+                        workerConfig.idCounters = ssrData.idCounters;
+                        break;
+                }
+            }
+
             me.sendMessage(key, {
                 action: 'registerNeoConfig',
-                data  : {...config, windowId}
+                data  : workerConfig
             })
         }
     }

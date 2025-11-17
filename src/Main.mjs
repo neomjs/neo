@@ -252,6 +252,14 @@ class Main extends core.Base {
             {environment, mainThreadAddons, useServiceWorker} = config,
             modules;
 
+        me.addon = {};
+
+        if (window.__NEO_SSR__) {
+            config.useSSR = true;
+            let module = await import('./main/addon/ServerSideRendering.mjs');
+            me.registerAddon(module.default)
+        }
+
         DomAccess.onDomContentLoaded();
 
         // Intended for the online examples where we need an easy way to add GA to every generated app
@@ -278,8 +286,6 @@ class Main extends core.Base {
         });
 
         modules = await Promise.all(imports);
-
-        me.addon = {};
 
         modules.forEach(module => {
             me.registerAddon(module.default)
