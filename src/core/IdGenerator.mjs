@@ -15,7 +15,7 @@ const IdGenerator = {
 
     /**
      * @param name
-     * @returns {string}
+     * @returns {String}
      */
     getId(name) {
         name = name || 'neo';
@@ -26,10 +26,10 @@ const IdGenerator = {
 
         counter[name] = ++count;
 
-        return me.base + (name === 'neo' ? '' : name + '-') + count;
+        return me.base + (name === 'neo' ? '' : name + '-') + count
     }
 }
 
 export default Neo.gatekeep(IdGenerator, 'Neo.core.IdGenerator', () => {
-    Neo.getId = IdGenerator.getId.bind(IdGenerator);
+    Neo.getId = IdGenerator.getId.bind(IdGenerator)
 });

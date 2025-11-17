@@ -41,6 +41,20 @@ class VDom extends Base {
 
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2])
     }
+
+    /**
+     * @param {Object} msg
+     * @param {Object} msg.data The Neo.config content
+     */
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
+
+        let config = msg.data;
+
+        if (config.useSSR && config.idCounters) {
+            Object.assign(Neo.core.IdGenerator.idCounter, config.idCounters)
+        }
+    }
 }
 
 export default Neo.setupClass(VDom);

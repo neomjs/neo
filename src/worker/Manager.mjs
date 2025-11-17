@@ -233,7 +233,7 @@ class Manager extends Base {
             let workerConfig = {...config, windowId};
 
             if (ssrData) {
-                workerConfig.useSsr = true;
+                workerConfig.useSSR = true;
 
                 switch (key) {
                     case 'app':
