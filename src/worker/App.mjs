@@ -171,6 +171,14 @@ class App extends Base {
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
+
+        let {config} = Neo;
+
+        if (config.useSSR && config.cssMap) {
+            Object.assign(Neo.cssMap, config.cssMap);
+            delete config.cssMap
+        }
+
         this.resolveThemeFilesCache()
     }
 
