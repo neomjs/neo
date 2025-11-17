@@ -241,7 +241,7 @@ class Manager extends Base {
                         workerConfig.vnode  = ssrData.vnode;
                         break;
                     case 'vdom':
-                        workerConfig.idCounters = ssrData.idCounters;
+                        workerConfig.idCounter = ssrData.idCounter;
                         break;
                 }
             }

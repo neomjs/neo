@@ -51,8 +51,8 @@ class VDom extends Base {
 
         let config = msg.data;
 
-        if (config.useSSR && config.idCounters) {
-            Object.assign(Neo.core.IdGenerator.idCounter, config.idCounters)
+        if (config.useSSR && config.idCounter) {
+            Object.assign(Neo.core.IdGenerator.idCounter, config.idCounter)
         }
     }
 }
