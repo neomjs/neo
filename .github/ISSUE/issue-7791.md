@@ -1,7 +1,7 @@
 ---
 id: 7791
 title: Refactor ContentComponent to use new highlight.js utilities
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-18T10:13:12Z'
-updatedAt: '2025-11-18T10:23:27Z'
+updatedAt: '2025-11-18T19:27:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7791'
 author: tobiu
 commentsCount: 0
@@ -17,10 +17,11 @@ parentIssue: 7788
 subIssues:
   - 7789
   - 7790
-subIssuesCompleted: 0
+subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []
 blocking: []
+closedAt: '2025-11-18T19:27:35Z'
 ---
 # Refactor ContentComponent to use new highlight.js utilities
 
@@ -47,4 +48,9 @@ This will remove the dependency on the main thread addon for highlighting and si
 - 2025-11-18 @tobiu cross-referenced by #7788
 - 2025-11-18 @tobiu assigned to @tobiu
 - 2025-11-18 @tobiu cross-referenced by #7790
+- 2025-11-18 @tobiu referenced in commit `8f1d7b7` - "Refactor ContentComponent to use new highlight.js utilities #7791 & added Neo.util.HighlightJs"
+- 2025-11-18 @tobiu referenced in commit `4d45226` - "#7791 theming"
+- 2025-11-18 @tobiu referenced in commit `5132316` - "#7791 portal app: removed custom hljs resources, using our new util class now"
+- 2025-11-18 @tobiu referenced in commit `b0edcaa` - "#7791 removed the highlightjs devDependency (not needed when cloning the repo)"
+- 2025-11-18 @tobiu closed this issue
 
