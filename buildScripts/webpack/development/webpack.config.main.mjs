@@ -1,4 +1,5 @@
 import fs                from 'fs-extra';
+import os                from 'os';
 import path              from 'path';
 import webpack           from 'webpack';
 import WebpackHookPlugin from 'webpack-hook-plugin';
@@ -14,6 +15,7 @@ const cwd            = process.cwd(),
       copyFolder     = path.resolve(neoPath, 'buildScripts/copyFolder.mjs'),
       faFrom         = path.resolve(cwd, 'node_modules/@fortawesome/fontawesome-free'),
       faTo           = path.resolve(cwd, buildTarget.folder, 'resources/fontawesome-free'),
+      nodeCmd        = os.platform().startsWith('win') ? 'node.exe' : 'node',
       plugins        = [];
 
 let contextAdjusted = false;
@@ -53,7 +55,7 @@ export default {
             }
         }),
         new WebpackHookPlugin({
-            onBuildEnd: [`node ${copyFolder} -s ${faFrom} -t ${faTo}`]
+            onBuildEnd: [`${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo}`]
         }),
         ...plugins
     ],

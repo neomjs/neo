@@ -1,0 +1,127 @@
+
+pre.hljs {
+    margin : 0;
+    padding: 0;
+}
+
+code,
+.hljs {
+    font-family: Menlo, monospace;
+}
+
+.hljs {
+    background: var(--highlight-background-color);
+    color     : var(--highlight-color);
+    display   : block;
+    font-size : 12px;
+    overflow-x: auto;
+    padding   : 0;
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: var(--highlight-comment-color);
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+    color: var(--highlight-keyword-color);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+    color: var(--highlight-number-color);
+}
+
+.hljs-string {
+    color: var(--highlight-string-color);
+}
+
+.hljs-doctag {
+    color: var(--highlight-doctag-color);
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+    color: var(--highlight-title-color);
+    font-weight: bold;
+}
+
+.hljs-subst {
+    font-weight: normal;
+}
+
+.hljs-type,
+.hljs-title.class_,
+.hljs-title.class_.inherited__ {
+    color: var(--highlight-type-color);
+    font-weight: bold;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+    color: var(--highlight-tag-color);
+    font-weight: normal;
+}
+
+.hljs-regexp,
+.hljs-link {
+    color: var(--highlight-regexp-color);
+}
+
+.hljs-symbol,
+.hljs-bullet {
+    color: var(--highlight-symbol-color);
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+    color: var(--highlight-builtin-color);
+}
+
+.hljs-meta {
+    color: var(--highlight-meta-color);
+    font-weight: bold;
+}
+
+.hljs-deletion {
+    background: var(--highlight-deletion-background);
+}
+
+.hljs-addition {
+    background: var(--highlight-addition-background);
+}
+
+.hljs-emphasis {
+    font-style: italic;
+}
+
+.hljs-strong {
+    font-weight: bold;
+}
+
+/* dark theme only */
+.hljs-code,
+.hljs-selector-class {
+    color: var(--highlight-code-color);
+}
+
+.hljs-params {
+    color: var(--highlight-params-color);
+}
+
+.hljs-subst,
+.hljs-selector-id,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-template-tag,
+.hljs-template-variable {
+    color: var(--highlight-subst-color);
+}

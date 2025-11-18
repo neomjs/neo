@@ -21,7 +21,8 @@ class VdomLifecycle extends Base {
         className: 'Neo.mixin.VdomLifecycle',
         /**
          * True automatically initializes the vnode of a component after being created inside the init call.
-         * Use this for the top level component of your app.
+         * Recommended for dialogs & drag-proxies.
+         * Top level views should definitely use false.
          * @member {Boolean} autoInitVnode=false
          */
         autoInitVnode: false,

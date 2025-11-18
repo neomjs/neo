@@ -64,7 +64,7 @@ class ContentTreeList extends TreeList {
      *
      */
     doLoadStore() {
-        this.store.load({url: `${this.contentPath}/tree.json`})
+        this.store.load({url: `${this.contentPath}tree.json`})
     }
 
     /**

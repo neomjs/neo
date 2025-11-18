@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "11.4.0",
+    "version"    : "11.5.0",
     "description": "Neo.mjs: The AI-native web platform for building ultra-fast, desktop-like web applications. It features a truly multi-threaded architecture, an enterprise-grade component library, and a zero-builds development mode. Architected for AI collaboration from the ground up, it includes three dedicated Model Context Protocol (MCP) servers.",
     "type"       : "module",
     "repository": {
@@ -21,6 +21,7 @@
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
         "build-dist-esm"               : "node ./buildScripts/buildESModules.mjs",
+        "build-highlightjs"            : "node ./buildScripts/buildHighlightJs.mjs",
         "build-themes"                 : "node ./buildScripts/buildThemes.mjs -f",
         "build-threads"                : "node ./buildScripts/webpack/buildThreads.mjs -f",
         "bundle-parse5"                : "node ./buildScripts/bundleParse5.mjs",
@@ -137,7 +138,7 @@
         "esbuild"                      : "^0.27.0",
         "fast-glob"                    : "^3.3.3",
         "fs-extra"                     : "^11.3.2",
-        "glob"                         : "^11.0.3",
+        "glob"                         : "^11.1.0",
         "gray-matter"                  : "^4.0.3",
         "highlightjs-line-numbers.js"  : "^2.9.1",
         "html-minifier-terser"         : "^7.2.0",
@@ -146,7 +147,6 @@
         "js-yaml"                      : "^4.1.1",
         "marked"                       : "^17.0.0",
         "monaco-editor"                : "0.50.0",
-        "neo-jsdoc-x"                  : "^1.0.8",
         "parse5"                       : "^8.0.0",
         "postcss"                      : "^8.5.6",
         "sass"                         : "^1.94.0",

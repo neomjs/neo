@@ -1,4 +1,5 @@
 import Component   from '../../../../src/component/Base.mjs';
+import HighlightJs from '../../../../src/util/HighlightJs.mjs';
 import LivePreview from '../../../../src/code/LivePreview.mjs';
 import {marked}    from '../../../../node_modules/marked/lib/marked.esm.js';
 
@@ -8,7 +9,7 @@ const
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexReadonly     = /```(bash|javascript|html|css|json|scss)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
+    regexReadonly     = /```(bash|javascript|html|css|json|scss|xml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
 
 /**
  * @class Portal.view.learn.ContentComponent
@@ -67,10 +68,6 @@ class ContentComponent extends Component {
             click    : me.onClick,
             intersect: 'onIntersect', // view controller
             scope    : me
-        });
-
-        Neo.main.addon.HighlightJS.loadFiles({
-            appName: me.appName
         })
     }
 
@@ -305,12 +302,12 @@ class ContentComponent extends Component {
         let updatedContent = contentString.replace(regexReadonly, (match, language, code) => {
             const token = `__NEO-READONLY-TOKEN-${++count}__`;
             // Call HighlightJS.highlightAuto for each block.
-            // The result will be HTML. We'll wrap it in a <pre data-javascript> later.
+            // The result will be HTML. We'll wrap it in a <pre> tag with the hljs class to ensure proper styling and markdown parsing.
             replacementPromises.push(
-                Neo.main.addon.HighlightJS.highlightAuto({html: code, windowId})
+                HighlightJs.highlightAuto(code, windowId)
                     .then(highlightedHtml => ({
-                        after: `<pre data-javascript id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
-                        token: token
+                        after: `<pre data-${language} class="hljs" id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
+                        token
                     }))
             );
 

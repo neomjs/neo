@@ -82,7 +82,7 @@ class Seo extends Base {
         await super.initAsync();
 
         try {
-            const response = await fetch('../../apps/portal/resources/data/seo.json');
+            const response = await fetch(Neo.config.basePath + 'apps/portal/resources/data/seo.json');
             if (!response.ok) {
                 throw new Error(`HTTP error with status: ${response.status}`)
             }

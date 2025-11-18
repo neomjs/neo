@@ -373,11 +373,7 @@ class ViewportController extends Controller {
     }
 
     /**
-     * This method calls the DocumentHead main thread addon to update the document's
-     * title and meta description for SEO purposes.
-     * @param {Object} config
-     * @param {String} config.description
-     * @param {String} config.title
+     *
      */
     async updateHeaderToolbar() {
         let me                  = this,

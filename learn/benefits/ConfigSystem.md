@@ -482,7 +482,7 @@ Consider the ViewportController.mjs
 
 ```javascript readonly
 // From: Portal.view.ViewportController
-import Controller        from '../../../src/controller/Component.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 // ... other imports
 
 class ViewportController extends Controller {

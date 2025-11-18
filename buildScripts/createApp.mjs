@@ -1,15 +1,16 @@
-import chalk         from 'chalk';
-import { spawnSync } from 'child_process';
-import { Command }   from 'commander/esm.mjs';
-import envinfo       from 'envinfo';
-import fs            from 'fs-extra';
-import inquirer      from 'inquirer';
-import os            from 'os';
-import path          from 'path';
+import chalk       from 'chalk';
+import {spawnSync} from 'child_process';
+import {Command}   from 'commander/esm.mjs';
+import envinfo     from 'envinfo';
+import fs          from 'fs-extra';
+import inquirer    from 'inquirer';
+import os          from 'os';
+import path        from 'path';
 
 const
     __dirname    = path.resolve(),
     cwd          = process.cwd(),
+    nodeCmd      = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
     requireJson  = path => JSON.parse(fs.readFileSync((path))),
     packageJson  = requireJson(path.join(__dirname, 'package.json')),
     insideNeo    = packageJson.name.includes('neo.mjs'),
@@ -274,7 +275,7 @@ if (programOpts.info) {
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
         if (mainThreadAddons.includes('HighlightJS')) {
-            const childProcess = spawnSync('node', [
+            const childProcess = spawnSync(nodeCmd, [
                 './buildScripts/copyFolder.mjs',
                 '-s',
                 path.resolve(neoPath, 'docs/resources'),

@@ -11,17 +11,16 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# Build Ultra-Fast, Desktop-Like Web Apps
-🚀 **Break Free from UI Freezes — Experience True Multithreading & Uncompromised Responsiveness.**
+# The AI-Native Platform for Ultra-Fast Web Apps
+🚀 **True Multithreading Meets Context Engineering — Build Desktop-Class UIs with an AI Co-Developer.**
 
-💻 ***Neo.mjs isn't just an upgrade — it's a new operating system for the web. Where others optimize at the margins, we reinvented the engine.***
+💻 ***Neo.mjs is more than a framework; it's a new operating system for the web, architected for unparalleled performance and pioneering human-AI collaboration.***
 
-Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how
-many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**.
-**While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**,
-operating fundamentally different from traditional frameworks.
+Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**, operating fundamentally different from traditional frameworks.
 
-By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensures your UI remains butter-smooth, even during computationally intensive tasks like complex data processing or advanced graphics rendering. The main thread is kept free for one purpose: **flawless user interactions and seamless DOM updates.**
+By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensures your UI remains butter-smooth. The main thread is kept free for one purpose: **flawless user interactions and seamless DOM updates.**
+
+But performance is only half the story. With v11, Neo.mjs becomes the world's first **AI-native** frontend platform, designed to be developed *with* AI agents as first-class partners in your workflow.
 
 <p align="center">
   <a href="https://youtu.be/pYfM28Pz6_0"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo33s.png" alt="Neo.mjs Performance Demo 1 (YouTube Video)"></a>
@@ -37,45 +36,51 @@ Have a question or want to connect with the community? We have two channels to h
 *   **[⚡️ Slack (For Real-Time Chat)](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA):** Perfect for quick, real-time conversations. Please note that the free version's history is temporary (messages are deleted after 90 days).
 
 </br></br>
-## 🚀 Why Choose Neo.mjs? Solving the Toughest UI Challenges
-Traditional single-threaded frontend frameworks often struggle with performance bottlenecks and UI freezes, especially for
-large-scale, data-intensive, or real-time applications. Neo.mjs offers a fundamentally different solution, designed for
-**uncompromising performance, enhanced security, and superior developer experience.**
+## 🚀 The AI-Native Development Platform
 
-1. **Eliminate UI Freezes with True Multithreading**:
-   > *"The browser's main thread should be treated like a neurosurgeon: only perform precise, scheduled operations with zero distractions."*</br></br>
-   — Neo.mjs Core Philosophy
-    
-   Neo.mjs's OMT architecture inherently prevents UI freezes. With v10's optimized rendering pipeline, your UI will remain even *more*
-   consistently responsive, even during intense data processing or complex graphics rendering. It achieves an astonishing
-   rate of **over 40,000 delta updates per second** in optimized environments. This translates to an engine with vast untapped
-   potential, limited only by user interaction, not the framework.
- 
-2. **Unmatched Developer Experience: Transpilation-Free ESM**:
-   Say goodbye to complex build steps for development. Neo.mjs apps run **natively as ES Modules directly in the browser**.
-   This means **zero builds or transpilations** in dev mode, offering instant reloads and an **unmatched debugging experience**.
-   You modify code, and your app updates in real-time.
- 
-3. **Inherent Security by Design**:
-   By prioritizing direct DOM API manipulation over string-based methods (like `innerHTML`), Neo.mjs fundamentally reduces
-   the attack surface for vulnerabilities like Cross-Site Scripting (XSS), building a more robust and secure application from the ground up.
- 
-4. **Declarative, Consistent, & Reusable Architecture**:
-   Neo.mjs's unique **unified class config system** allows you to define components, layouts, and logic in a clean, declarative,
-   and highly consistent way. This significantly reduces boilerplate, improves maintainability, and makes complex UI composition surprisingly straightforward.
+Neo.mjs v11 introduces a revolutionary approach to software development: **Context Engineering**. We've moved beyond simple "AI-assisted" coding to create a truly **AI-native** platform where AI agents are deeply integrated partners in the development process. This is made possible by three dedicated **Model Context Protocol (MCP) servers** that give agents the context they need to understand, build, and reason about your code.
 
-5. **Scalability for Enterprise & Beyond**:
-   Whether building sophisticated enterprise dashboards, data-intensive Gen AI interfaces, or desktop-like multi-window applications,
-   Neo.mjs's modular, worker-driven architecture effortlessly scales. Components are persistent, stateful instances that can be unmounted,
-   moved, and even remounted across browser windows without losing their logic or state. This is key to preventing the "re-rendering madness"
-   common in other frameworks.
+This isn't just about generating code; it's about creating a self-aware development environment that accelerates velocity, improves quality, and enables a new level of human-AI collaboration.
+
+<p align="center">
+  <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.png" alt="Context Engineering Done Right" class="blog-image">
+</p>
+
+1.  **🧠 The Knowledge Base Server**: Gives agents a deep, semantic understanding of your project. Powered by ChromaDB and Gemini embeddings, it allows agents to perform semantic searches across your entire codebase, documentation, and historical tickets. An agent can ask, "How does VDOM diffing work?" and get the exact source files and architectural guides relevant to the *currently checked-out version*.
+
+2.  **💾 The Memory Core Server**: Provides agents with persistent, long-term memory. Every interaction—prompt, thought process, and response—is stored, allowing the agent to learn from experience, recall past decisions, and maintain context across multiple sessions. This transforms the agent from a stateless tool into a true collaborator that grows with your project.
+
+3.  **🤖 The GitHub Workflow Server**: Closes the loop by enabling agents to participate directly in your project's lifecycle. It provides tools for autonomous PR reviews, issue management, and bi-directional synchronization of GitHub issues into a local, queryable set of markdown files. This removes the human bottleneck in code review and project management.
+
+This powerful tooling, co-created with AI agents, resulted in **resolving 388 tickets in just 6 weeks**. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
 
 </br></br>
-## 🚀 A New Era of Frontend Architecture
+## 💡 Why Choose Neo.mjs?
 
-The v10 release marks a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. We've rebuilt the engine to provide an even more powerful and intuitive developer experience, making it simpler than ever to build complex, performant applications.
+Traditional single-threaded frameworks struggle with performance bottlenecks, especially in large-scale, data-intensive applications. Neo.mjs offers a fundamentally different solution, designed for **uncompromising performance, AI-native productivity, and superior developer experience.**
 
-To understand the depth of these changes and the philosophy behind them, we've published a five-part blog series that dives deep into the architecture of v10:
+1.  **Eliminate UI Freezes with True Multithreading**:
+    > *"The browser's main thread should be treated like a neurosurgeon: only perform precise, scheduled operations with zero distractions."*</br></br>
+    — Neo.mjs Core Philosophy
+
+    Neo.mjs's OMT architecture inherently prevents UI freezes. With our optimized rendering pipeline, your UI will remain consistently responsive, even during intense data processing. It achieves an astonishing rate of **over 40,000 delta updates per second** in optimized environments, potential, limited only by user interaction, not the platform.
+
+2.  **Unprecedented Velocity with an AI-Native Workflow**:
+    The integrated MCP servers provide a "context-rich" environment where AI agents can work alongside human developers. This enables autonomous code reviews, deep codebase analysis, and a shared understanding of project history, dramatically accelerating development and solving the "bus factor" problem for complex projects.
+
+3.  **Build Desktop-Class, Multi-Window Applications**:
+    Neo.mjs is the premier solution for building complex, multi-window web applications like **trading platforms, browser-based IDEs, Outlook-style email clients, and multi-screen LLM interfaces**. Its shared worker architecture allows a single application instance to run across multiple browser windows, with real-time state synchronization and the ability to move components between windows seamlessly.
+
+4.  **Unmatched Developer Experience: Transpilation-Free ESM**:
+    Say goodbye to complex build steps. Neo.mjs apps run **natively as ES Modules directly in the browser**. This means **zero builds or transpilation** in dev mode, offering instant reloads and an unparalleled debugging experience where what you write is what you debug.
+
+5.  **Inherent Security by Design**:
+    By prioritizing direct DOM API manipulation over string-based methods (like `innerHTML`), Neo.mjs fundamentally reduces the attack surface for vulnerabilities like Cross-Site Scripting (XSS), building a more robust and secure application from the ground up.
+
+</br></br>
+## 📚 Foundational Architecture: The Core Principles
+
+The v10 release marked a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. These principles form the bedrock of the framework today. We've published a five-part blog series that dives deep into this architecture:
 
 1.  **[A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./learn/blog/v10-post1-love-story.md)**
     *   *An introduction to the core problems in modern frontend development and the architectural vision of Neo.mjs.*
@@ -97,6 +102,22 @@ like a full calendar, carousels, and chart wrappers. All components are pre-buil
 multi-threaded architecture, significantly accelerating development and eliminating the complexity of integrating disparate
 external component libraries.
 </br></br>
+## A Platform at Scale: More Than Just a Library
+
+To appreciate the scope of Neo.mjs, it's important to understand its scale. This is not a micro-library; it's a comprehensive, enterprise-ready platform representing over a decade of architectural investment. **Neo.mjs is an innovation factory.**
+
+The stats below, from **October 2025**, provide a snapshot of the ecosystem. For a deeper dive, you can explore the full **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
+
+-   **~41,000 lines** of core platform source code
+-   **~33,000 lines** across hundreds of working examples and flagship applications
+-   **~11,000 lines** of production-grade theming
+-   **~6,000 lines** of dedicated AI-native infrastructure
+-   **~30,000 lines** of detailed JSDoc documentation
+
+**Total: Over 130,000 lines of curated code and documentation.**
+
+This is not a small library—it's a complete ecosystem with more source code than many established frameworks, designed for the most demanding use cases.
+</br></br>
 ## 📊  Real-World Win: Crushing UI Lag in Action
 
 Imagine a developer building a stock trading app with live feeds updating every millisecond. Traditional frameworks often choke,
@@ -110,7 +131,7 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 * **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved.
   No more wasteful re-creations – just surgical, efficient updates.
 
-* **Functional Components & A Modern Hook System**: Embrace a modern, hook-based development style with `defineComponent`, `useConfig`, and `useEvent`. This new paradigm, built on top of our robust class system, offers a familiar and intuitive way to build components while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, it's free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
+* **Functional & Class-Based Components**: Neo.mjs offers two powerful component models. **Functional Components**, introduced more recently, provide an easier onboarding experience and a modern, hook-based development style (`defineComponent`, `useConfig`, `useEvent`), similar to other popular frameworks. They are ideal for simpler, more declarative UIs. For advanced use cases requiring granular control over VDOM changes and deeper integration with the framework's lifecycle, **Class-Based Components** offer superior power and flexibility, albeit with slightly more code overhead. Both models seamlessly interoperate, allowing you to choose the right tool for each part of your application while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, our functional components are free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
 
 * **Reactive State Management**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
   Components declare their data needs via a concise `bind` config. These `bind` functions act as powerful inline formulas, allowing
@@ -130,16 +151,10 @@ That’s Neo.mjs in action — solving problems others can’t touch.
   from UI components for easier maintenance, testing, and team collaboration.
 
 * **Multi-Window & Single-Page Applications (SPAs)***: Beyond traditional SPAs, Neo.mjs excels at complex multi-window applications.
-  Its unique architecture, powered by seamless cross-worker communication (enabled by `Neo.worker.mixin.RemoteMethodAccess`) and
-  extensible Main Thread addons (`Neo.main.addon.*`), enables truly native-like, persistent experiences across browser windows,
-  all without a native shell. This is made possible by the same efficient delta-based DOM update engine, which can surgically
-  move and update components across window boundaries with unparalleled performance.
+  Its unique architecture, powered by seamless cross-worker communication and extensible Main Thread addons, enables truly native-like, persistent experiences across browser windows.
 
 * **No npm Dependency Hell**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling.
   This means smaller bundles, fewer conflicts, and a simpler dependency graph.
-
-* **Cutting-Edge Use Cases**: Ideal for **data-intensive applications, real-time dashboards, web-based IDEs, banking
-  applications, and complex multi-window Gen AI interfaces** where performance and responsiveness are non-negotiable.
 
 * **Unparalleled Debugging Experience**: Benefit from Neo.mjs's built-in debugging capabilities. Easily inspect the full component
   tree across workers, live-modify component configurations directly in the browser console, and observe real-time UI updates,
@@ -148,8 +163,6 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 * **Asymmetric VDOM & JSON Blueprints**: Instead of a complex, class-based VNode tree, your application logic deals with simple, serializable JSON objects. These blueprints are sent to a dedicated VDOM worker for high-performance diffing, ensuring your main thread is never blocked by rendering calculations. This architecture is not only faster but also inherently more secure and easier for AI tools to generate and manipulate.
 
 * **Async-Aware Component Lifecycle**: With the `initAsync()` lifecycle method, components can handle asynchronous setup (like fetching data or lazy-loading modules) *before* they are considered "ready." This eliminates entire classes of race conditions and UI flicker, allowing you to build complex, data-dependent components with confidence.
-
-* **AI-Native through Context Engineering**: We are pioneering **Context Engineering** to build the first framework architected to be developed *with* AI agents. Instead of just prompting, we are building a dynamic system to provide our AI partner with the right knowledge and tools at the right time. This includes a rich, queryable knowledge base and clear guidelines for both the [AI](./.github/AGENTS.md) and the [human developer](./.github/WORKING_WITH_AGENTS.md). This architectural discipline not only enables AI partnership but also results in a cleaner, more predictable, and more maintainable codebase. Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
 
 <p align="center">
   <img src="./resources/images/workers-focus.svg" alt="Neo.mjs Worker Architecture Diagram - Shows Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend connections.">
@@ -168,9 +181,10 @@ The true power of Neo.mjs lies in its foundational architectural choices, which 
 | **Component Lifecycle** | **Stable & Persistent**: Instances are created once and persist through UI changes. Features a rich lifecycle with `construct`, `initAsync`, and `afterSetMounted`. | **React**: Ephemeral (functional components are re-executed on every render). **Vue/Angular**: More stable, but lack pre-ready async hooks for complex setup. | **Robust & Predictable**. `initAsync` solves async setup (data fetching, module loading) *before* the first render, preventing UI flicker. Persistence enables complex stateful apps and multi-window operations. |
 | **State Management** | **Surgical Subscriptions**: The integrated `StateProvider` allows components to subscribe *only* to the precise state slices they need, completely bypassing intermediate components. | **React**: Context API re-renders all consumers by default, requiring manual optimization. **Vue/Angular**: Optimized state managers (Pinia, NgRx) are still bound by the main thread. | **Scalable & Decoupled**. More performant for global state changes by default. Architecturally cleaner, avoiding props drilling and the performance traps of React's Context. |
 | **DOM Updates** | **Asymmetric & Off-Thread**: Simple, serializable JSON objects (blueprints) are sent to the VDOM worker for diffing. The Main Thread only receives and applies minimal, pre-calculated patches. | VDOM diffing and DOM manipulation are computationally expensive tasks that occur on the main thread, directly competing with user interactions. | **Faster, More Secure, and AI-Friendly**. Off-thread diffing is faster. Using direct DOM APIs instead of `innerHTML` is more secure. Simple JSON blueprints are trivial for AI to generate and manipulate. |
+| **AI & Dev Tooling** | **Integrated AI-Native Platform**: Three dedicated MCP servers provide context engineering, semantic search, agent memory, and autonomous workflow automation. | **Disconnected Tooling**: Relies on external, disconnected tools (linters, IDE extensions, CI scripts). No built-in context awareness for AI agents. | **Unprecedented Developer Velocity**. Enables true human-AI collaboration, autonomous code review, and a self-aware development environment that solves the "bus factor" problem. |
 | **Dev Experience** | **Zero-Builds Development**: Native ES Modules run directly in the browser. No transpilation or bundling is needed for development. | **Build-Heavy**: Relies on tools like Vite, Webpack, or the Angular CLI, which add complexity, require source maps, and introduce delays. | **Unparalleled Simplicity & Debugging Clarity**. What you write is what you debug. Instant feedback and the absence of complex build toolchains lead to a faster, more intuitive workflow. |
 
-**The Bottom Line**: Where other frameworks optimize operations on the main thread, Neo.mjs moves them off the main thread entirely. This fundamental difference results in a framework that is not just faster, but architecturally more scalable, robust, and resilient to complexity.
+**The Bottom Line**: Where other frameworks optimize operations on the main thread, Neo.mjs moves them off the main thread entirely. This fundamental difference results in a platform that is not just faster, but architecturally more scalable, robust, and resilient to complexity.
 
 </br></br>
 ## ⚙️ Declarative Class Configuration: Build Faster, Maintain Easier
@@ -246,6 +260,7 @@ Next steps:
 * Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
   & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
 * :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
+* :robot: Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
 
 </br></br>
 ## 🧭 Vision & Roadmap

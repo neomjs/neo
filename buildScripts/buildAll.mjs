@@ -10,7 +10,8 @@ import path          from 'path';
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
       cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
-      npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
+      nodeCmd     = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
+      npmCmd      = os.platform().startsWith('win') ? 'npm.cmd'  : 'npm',  // npm binary based on OS
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.join(__dirname, 'package.json')),
       program     = new Command(),
@@ -130,22 +131,26 @@ if (programOpts.info) {
         }
 
         console.log(chalk.blue('Bundling parse5...'));
-        childProcess = spawnSync('node', [`${neoPath}/buildScripts/bundleParse5.mjs`], cpOpts);
+        childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/bundleParse5.mjs`], cpOpts);
+        childProcess.status && process.exit(childProcess.status);
+
+        console.log(chalk.blue('Bundling highlight.js...'));
+        childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/buildHighlightJs.mjs`], cpOpts);
         childProcess.status && process.exit(childProcess.status);
 
         if (themes === 'yes') {
-            childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
+            childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
 
         if (threads === 'yes') {
             if (env !== 'esm') {
-                childProcess = spawnSync('node', [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
 
             if (env === 'all' || env === 'esm') {
-                childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildESModules.mjs`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/buildESModules.mjs`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
         }
@@ -157,22 +162,22 @@ if (programOpts.info) {
             }
 
             if (parsedocs === 'yes' && (env === 'all' || env === 'dev')) {
-                childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
                 childProcess.status && process.exit(childProcess.status);
-                childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/development/docs/resources')}`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/development/docs/resources')}`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
 
             if (parsedocs === 'yes' && (env === 'all' || env === 'prod')) {
-                childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/production/docs/output')}`],    cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/production/docs/output')}`],    cpOpts);
                 childProcess.status && process.exit(childProcess.status);
-                childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/production/docs/resources')}`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/copyFolder.mjs -s ${path.resolve(cwd, 'docs/resources')} -t ${path.resolve(cwd, 'dist/production/docs/resources')}`], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
         }
 
         // Call the new script to copy SEO files
-        childProcess = spawnSync('node', [`${neoPath}/buildScripts/copySeoFiles.mjs`, '-e', env], cpOpts);
+        childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/copySeoFiles.mjs`, '-e', env], cpOpts);
         childProcess.status && process.exit(childProcess.status);
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

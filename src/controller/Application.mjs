@@ -96,12 +96,27 @@ class Application extends Base {
      */
     async afterSetMainView(value, oldValue) {
         if (value) {
-            let me = this;
+            let me       = this,
+                {config} = Neo;
 
-            // short delay to ensure changes from onHashChange() got applied
-            await me.timeout(Neo.config.hash ? 200 : 10);
+            // Short delay to ensure changes from onHashChange() got applied
+            await me.timeout(config.hash ? 200 : 10);
 
-            await value.initVnode(true)
+            if (config.useSSR && config.vnode) {
+                // SSR Takeover Path => once vnode and mounted are set, delta-updates can start
+                value.onInitVnode(config.vnode, true);
+
+                // Clean up the config to prevent re-use
+                delete config.vnode;
+
+                // Self-healing: if there happen to be different ids within vdom and vnode,
+                // the vdom worker will create patches as needed.
+                value.updateDepth = -1;
+                value.update()
+            } else {
+                // Standard Client-Side Rendering Path
+                await value.initVnode(true)
+            }
         }
     }
 
@@ -114,11 +129,19 @@ class Application extends Base {
      */
     beforeSetMainView(value, oldValue) {
         if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, null, {
-                appName : this.name,
-                parentId: this.parentId,
-                windowId: Neo.config.windowId
-            })
+            let {config} = Neo,
+                instanceConfig = {
+                    appName : this.name,
+                    parentId: this.parentId,
+                    windowId: config.windowId
+                };
+
+            if (config.useSSR && config.vnode) {
+                instanceConfig.autoInitVnode = false;
+                instanceConfig.autoMount     = false
+            }
+
+            return ClassSystemUtil.beforeSetInstance(value, null, instanceConfig)
         }
 
         return null
