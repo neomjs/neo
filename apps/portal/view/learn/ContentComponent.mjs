@@ -302,12 +302,12 @@ class ContentComponent extends Component {
         let updatedContent = contentString.replace(regexReadonly, (match, language, code) => {
             const token = `__NEO-READONLY-TOKEN-${++count}__`;
             // Call HighlightJS.highlightAuto for each block.
-            // The result will be HTML. We'll wrap it in a <pre data-javascript> later.
+            // The result will be HTML. We'll wrap it in a <pre> tag with the hljs class to ensure proper styling and markdown parsing.
             replacementPromises.push(
-                HighlightJs.highlightAutoLine(code, windowId)
+                HighlightJs.highlightAuto(code, windowId)
                     .then(highlightedHtml => ({
-                        after: highlightedHtml.trim(),
-                        token: token
+                        after: `<pre data-${language} class="hljs" id="pre-readonly-${Neo.core.IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
+                        token
                     }))
             );
 

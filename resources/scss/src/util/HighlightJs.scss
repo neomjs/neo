@@ -58,7 +58,8 @@ code,
 }
 
 .hljs-type,
-.hljs-class .hljs-title {
+.hljs-title.class_,
+.hljs-title.class_.inherited__ {
     color: var(--highlight-type-color);
     font-weight: bold;
 }
