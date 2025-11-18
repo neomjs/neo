@@ -8,6 +8,7 @@ const
  * Node.js-capable version of: https://github.com/yauhenipakala/highlightjs-line-numbers.js
  * @class Neo.util.HighlightJsLineNumbers
  * @extends Neo.core.Base
+ * @singleton
  */
 class HighlightJsLineNumbers extends Base {
     static config = {
@@ -35,7 +36,7 @@ class HighlightJsLineNumbers extends Base {
      * @param {Array} args
      * @returns {String}
      */
-    static format(format, args) {
+    format(format, args) {
         return format.replace(formatRegex, function(m, n){
             return args[n] !== undefined ? args[n] : m
         })
@@ -56,7 +57,7 @@ class HighlightJsLineNumbers extends Base {
             windowId && Neo.currentWorker.insertThemeFiles(windowId, me.__proto__);
 
             for (let i = 0; i < lines.length; i++) {
-                result += HighlightJsLineNumbers.format([
+                result += me.format([
                     '<tr>',
                         '<td class="{0} {1}" {3}="{5}">',
                             '<div class="{2}" {3}="{5}"></div>',

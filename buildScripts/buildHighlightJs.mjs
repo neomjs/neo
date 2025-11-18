@@ -51,7 +51,11 @@ async function main() {
         // 5. Copy and minify the generated bundle
         const generatedFile = path.join(tempDir, 'build/highlight.js');
         console.log(`Copying ${generatedFile} to ${outputFile}`);
-        const bundleContent = fs.readFileSync(generatedFile, 'utf-8');
+        let bundleContent = fs.readFileSync(generatedFile, 'utf-8');
+
+        // Convert to ESM
+        bundleContent += '\nexport default hljs;';
+
         fs.ensureDirSync(outputDir);
         fs.writeFileSync(outputFile, bundleContent);
 
