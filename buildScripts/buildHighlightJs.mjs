@@ -1,6 +1,6 @@
 import {execSync}      from 'child_process';
 import {fileURLToPath} from 'url';
-import fs              from 'fs-extra';
+import fs              from 'fs/promises';
 import os              from 'os';
 import path            from 'path';
 import * as terser     from 'terser';
@@ -14,9 +14,9 @@ const outputFile    = path.join(outputDir,  'highlight.custom.js');
 const minOutputFile = path.join(outputDir,  'highlight.custom.min.js');
 const tempDir       = path.resolve(neoPath, 'tmp/highlightjs');
 
-const gitCmd  = os.platform().startsWith('win') ? 'git.exe' : 'git';
+const gitCmd  = os.platform().startsWith('win') ? 'git.exe'  : 'git';
 const nodeCmd = os.platform().startsWith('win') ? 'node.exe' : 'node';
-const npmCmd  = os.platform().startsWith('win') ? 'npm.cmd' : 'npm';
+const npmCmd  = os.platform().startsWith('win') ? 'npm.cmd'  : 'npm';
 
 async function main() {
     console.log('Building custom highlight.js bundle...');
@@ -24,8 +24,8 @@ async function main() {
     try {
         // 1. Clean up the temporary directory
         console.log(`Cleaning up ${tempDir}`);
-        fs.removeSync(tempDir);
-        fs.ensureDirSync(tempDir);
+        await fs.rm(tempDir, { recursive: true, force: true });
+        await fs.mkdir(tempDir, { recursive: true });
 
         // 2. Clone the highlight.js repository
         console.log(`Cloning highlight.js into ${tempDir}`);
@@ -51,22 +51,22 @@ async function main() {
         // 5. Copy and minify the generated bundle
         const generatedFile = path.join(tempDir, 'build/highlight.js');
         console.log(`Copying ${generatedFile} to ${outputFile}`);
-        let bundleContent = fs.readFileSync(generatedFile, 'utf-8');
+        let bundleContent = await fs.readFile(generatedFile, 'utf-8');
 
         // Convert to ESM
         bundleContent += '\nexport default hljs;';
 
-        fs.ensureDirSync(outputDir);
-        fs.writeFileSync(outputFile, bundleContent);
+        await fs.mkdir(outputDir, { recursive: true });
+        await fs.writeFile(outputFile, bundleContent);
 
         console.log(`Minifying ${outputFile}`);
         const minifiedContent = await terser.minify(bundleContent);
-        fs.writeFileSync(minOutputFile, minifiedContent.code);
+        await fs.writeFile(minOutputFile, minifiedContent.code);
 
 
         // 6. Clean up the temporary directory
         console.log(`Cleaning up ${tempDir}`);
-        fs.removeSync(tempDir);
+        await fs.rm(tempDir, { recursive: true, force: true });
 
         console.log(`Custom highlight.js bundle created at: ${outputFile}`);
         console.log(`Minified highlight.js bundle created at: ${minOutputFile}`);
