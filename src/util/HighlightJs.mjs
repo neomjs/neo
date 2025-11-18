@@ -21,7 +21,13 @@ class HighlightJs extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * The custom windowIs (timestamp) this component belongs to
+         * @member {Number|null} windowId_=null
+         * @reactive
+         */
+        windowId_: null
     }
 
     /**
@@ -30,42 +36,62 @@ class HighlightJs extends Base {
     hljs = null;
 
     /**
-     * @param {String} code
-     * @param {String} language
-     * @returns {Promise<String>}
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
      */
-    async highlight(code, language) {
-        await this.load();
-        return this.hljs.highlight(code, {language}).value
-    }
-
-    /**
-     * @param {String} code
-     * @returns {Promise<String>}
-     */
-    async highlightAuto(code) {
-        await this.load();
-        return this.hljs.highlightAuto(code).value
+    afterSetWindowId(value, oldValue) {
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
     }
 
     /**
      * @param {String} code
      * @param {String} language
-     * @param {Number} [windowId]
+     * @param {Number} windowId
+     * @returns {Promise<String>}
+     */
+    async highlight(code, language, windowId) {
+        let me = this;
+
+        me.windowId = windowId;
+
+        await me.load();
+        return me.hljs.highlight(code, {language}).value
+    }
+
+    /**
+     * @param {String} code
+     * @param {Number} windowId
+     * @returns {Promise<String>}
+     */
+    async highlightAuto(code, windowId) {
+        let me = this;
+
+        me.windowId = windowId;
+
+        await me.load();
+        return me.hljs.highlightAuto(code).value
+    }
+
+    /**
+     * @param {String} code
+     * @param {String} language
+     * @param {Number} windowId
      * @returns {Promise<String>}
      */
     async highlightLine(code, language, windowId) {
-        let value = await this.highlight(code, language);
+        let value = await this.highlight(code, language, windowId);
         return HighlightJsLineNumbers.addLineNumbers(value, windowId)
     }
 
     /**
      * @param {String} code
-     * @param {Number} [windowId]
+     * @param {Number} windowId
      * @returns {Promise<String>}
      */
     async highlightAutoLine(code, windowId) {
-        let value = await this.highlightAuto(code);
+        let value = await this.highlightAuto(code, windowId);
         return HighlightJsLineNumbers.addLineNumbers(value, windowId)
     }
 

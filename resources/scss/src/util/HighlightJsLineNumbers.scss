@@ -7,7 +7,9 @@
         }
 
         td.hljs-ln-numbers {
-            border-right         : 1px solid #717171;
+            background-color     : var(--hljs-line-numbers-background-color);
+            border-right         : var(--hljs-line-numbers-border-right);
+            color                : var(--hljs-line-numbers-color);
             padding-right        : 5px;
             text-align           : right;
             user-select          : none;
@@ -26,6 +28,6 @@
     }
 
     .neo-highlighted-line {
-        background-color: #cee8fc !important;
+        background-color: var(--hljs-line-numbers-highlighted-line);
     }
 }
