@@ -6,9 +6,10 @@ labels:
   - enhancement
   - dependencies
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-18T10:12:43Z'
-updatedAt: '2025-11-18T10:12:43Z'
+updatedAt: '2025-11-18T12:12:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7790'
 author: tobiu
 commentsCount: 0
@@ -33,10 +34,35 @@ The stock npm package is CommonJS and not suitable for direct browser ESM import
 4.  The generated file will be saved into the repository at `resources/lib/highlight/highlight.custom.mjs`.
 5.  This single, custom bundle will be the **only** version of `highlight.js` used across the entire platform (Node.js and browser), ensuring consistency and maintainability.
 
+## Implementation Details
+
+We have successfully created a build script that generates a custom `highlight.js` bundle.
+
+The original plan was to use the `highlight.js` build tools directly, but we discovered that the npm package does not include them.
+
+Instead, we have implemented a build script that:
+1.  Clones the `highlight.js` repository from GitHub into a temporary directory.
+2.  Installs the dependencies.
+3.  Runs the `highlight.js` build script to generate a custom bundle with the required languages (`bash`, `css`, `javascript`, `json`, `scss`, `xml`).
+4.  Copies the generated bundle and a minified version to the `dist/highlight` directory.
+5.  The script is cross-platform compatible and is run automatically after `npm install` via a `postinstall` script. A manual `build-highlightjs` script is also available.
+
+The generated files are placed in the `dist/` folder and are not committed to the repository.
+
 ## Activity Log
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `dependencies` label
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu cross-referenced by #7791
+
+## Activity Log
+
+- 2025-11-18 @tobiu added the `enhancement` label
+- 2025-11-18 @tobiu added the `dependencies` label
+- 2025-11-18 @tobiu added the `ai` label
+- 2025-11-18 @tobiu cross-referenced by #7791
+- 2025-11-18 @tobiu cross-referenced by #7788
+- 2025-11-18 @tobiu assigned to @tobiu
+- 2025-11-18 @tobiu referenced in commit `e56cb71` - "Create a universal ESM bundle for highlight.js #7790"
 

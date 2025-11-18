@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-18T10:13:12Z'
-updatedAt: '2025-11-18T10:13:12Z'
+updatedAt: '2025-11-18T10:23:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7791'
 author: tobiu
 commentsCount: 0
@@ -43,4 +44,7 @@ This will remove the dependency on the main thread addon for highlighting and si
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu added the `refactoring` label
+- 2025-11-18 @tobiu cross-referenced by #7788
+- 2025-11-18 @tobiu assigned to @tobiu
+- 2025-11-18 @tobiu cross-referenced by #7790
 
