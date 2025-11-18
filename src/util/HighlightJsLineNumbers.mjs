@@ -43,14 +43,18 @@ class HighlightJsLineNumbers extends Base {
 
     /**
      * @param {String} html
+     * @param {Number} windowId
      * @returns {String}
      */
-    addLineNumbers(html) {
+    addLineNumbers(html, windowId) {
         let me     = this,
             lines  = me.getLines(html),
             result = '';
 
         if (lines.length > 0) {
+            // This instance is not a component and should load related CSS files into the used windows.
+            windowId && Neo.currentWorker.insertThemeFiles(windowId, me.__proto__);
+
             for (let i = 0; i < lines.length; i++) {
                 result += HighlightJsLineNumbers.format(
                     [
@@ -75,7 +79,7 @@ class HighlightJsLineNumbers extends Base {
                 )
             }
 
-            return HighlightJsLineNumbers.format('<table class="{0}">{1}</table>', [me.TABLE_NAME, result])
+            return me.format('<table class="{0}">{1}</table>', [me.TABLE_NAME, result])
         }
 
         return html
