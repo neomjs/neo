@@ -56,27 +56,24 @@ class HighlightJsLineNumbers extends Base {
             windowId && Neo.currentWorker.insertThemeFiles(windowId, me.__proto__);
 
             for (let i = 0; i < lines.length; i++) {
-                result += HighlightJsLineNumbers.format(
-                    [
-                        '<tr>',
-                            '<td class="{0} {1}" {3}="{5}">',
-                                '<div class="{2}" {3}="{5}"></div>',
-                            '</td>',
-                            '<td class="{0} {4}" {3}="{5}">',
-                                '{6}',
-                            '</td>',
-                        '</tr>'
-                    ].join(''),
-                    [
-                        me.LINE_NAME,
-                        me.NUMBERS_BLOCK_NAME,
-                        me.NUMBER_LINE_NAME,
-                        me.DATA_ATTR_NAME,
-                        me.CODE_BLOCK_NAME,
-                        i + 1,
-                        lines[i].length > 0 ? lines[i] : ' '
-                    ]
-                )
+                result += HighlightJsLineNumbers.format([
+                    '<tr>',
+                        '<td class="{0} {1}" {3}="{5}">',
+                            '<div class="{2}" {3}="{5}"></div>',
+                        '</td>',
+                        '<td class="{0} {4}" {3}="{5}">',
+                            '{6}',
+                        '</td>',
+                    '</tr>'
+                ].join(''), [
+                    me.LINE_NAME,
+                    me.NUMBERS_BLOCK_NAME,
+                    me.NUMBER_LINE_NAME,
+                    me.DATA_ATTR_NAME,
+                    me.CODE_BLOCK_NAME,
+                    i + 1,
+                    lines[i].length > 0 ? lines[i] : ' '
+                ])
             }
 
             return me.format('<table class="{0}">{1}</table>', [me.TABLE_NAME, result])
