@@ -133,6 +133,10 @@ if (programOpts.info) {
         childProcess = spawnSync('node', [`${neoPath}/buildScripts/bundleParse5.mjs`], cpOpts);
         childProcess.status && process.exit(childProcess.status);
 
+        console.log(chalk.blue('Bundling highlight.js...'));
+        childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildHighlightJs.mjs`], cpOpts);
+        childProcess.status && process.exit(childProcess.status);
+
         if (themes === 'yes') {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
             childProcess.status && process.exit(childProcess.status);
