@@ -107,7 +107,12 @@ class Application extends Base {
                 value.onInitVnode(config.vnode, true);
 
                 // Clean up the config to prevent re-use
-                delete config.vnode
+                delete config.vnode;
+
+                // Self-healing: if there happen to be different ids within vdom and vnode,
+                // the vdom worker will create patches as needed.
+                value.updateDepth = -1;
+                value.update()
             } else {
                 // Standard Client-Side Rendering Path
                 await value.initVnode(true)
