@@ -1,14 +1,15 @@
 ---
 id: 7794
 title: Move highlight.js build from postinstall to buildAll
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - developer-experience
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-18T17:23:58Z'
-updatedAt: '2025-11-18T17:23:58Z'
+updatedAt: '2025-11-18T17:26:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7794'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-18T17:26:27Z'
 ---
 # Move highlight.js build from postinstall to buildAll
 
@@ -37,4 +39,7 @@ Move the highlight.js build execution from the `postinstall` script in `package.
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `developer-experience` label
 - 2025-11-18 @tobiu added the `ai` label
+- 2025-11-18 @tobiu assigned to @tobiu
+- 2025-11-18 @tobiu referenced in commit `a9e30df` - "Move highlight.js build from postinstall to buildAll #7794"
+- 2025-11-18 @tobiu closed this issue
 
