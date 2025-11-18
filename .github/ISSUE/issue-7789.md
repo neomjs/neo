@@ -1,14 +1,14 @@
 ---
 id: 7789
 title: Create a utility for highlight.js line numbers
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-18T09:44:35Z'
-updatedAt: '2025-11-18T10:22:07Z'
+updatedAt: '2025-11-18T14:15:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7789'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-18T14:15:59Z'
 ---
 # Create a utility for highlight.js line numbers
 
@@ -76,4 +77,8 @@ The current browser-based  plugin is not compatible with Node.js as it relies on
 - 2025-11-18 @tobiu assigned to @tobiu
 - 2025-11-18 @tobiu cross-referenced by #7791
 - 2025-11-18 @tobiu cross-referenced by #7788
+- 2025-11-18 @tobiu referenced in commit `45b20ac` - "Create a utility for highlight.js line numbers #7789"
+- 2025-11-18 @tobiu referenced in commit `57ea8d9` - "#7789 theming"
+- 2025-11-18 @tobiu referenced in commit `fee73f6` - "#7789 load theme files"
+- 2025-11-18 @tobiu closed this issue
 

@@ -1,7 +1,7 @@
 ---
 id: 7790
 title: Create a universal ESM bundle for highlight.js
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - dependencies
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-18T10:12:43Z'
-updatedAt: '2025-11-18T12:12:20Z'
+updatedAt: '2025-11-18T12:12:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7790'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-18T12:12:48Z'
 ---
 # Create a universal ESM bundle for highlight.js
 
@@ -55,14 +56,8 @@ The generated files are placed in the `dist/` folder and are not committed to th
 - 2025-11-18 @tobiu added the `dependencies` label
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu cross-referenced by #7791
-
-## Activity Log
-
-- 2025-11-18 @tobiu added the `enhancement` label
-- 2025-11-18 @tobiu added the `dependencies` label
-- 2025-11-18 @tobiu added the `ai` label
-- 2025-11-18 @tobiu cross-referenced by #7791
 - 2025-11-18 @tobiu cross-referenced by #7788
 - 2025-11-18 @tobiu assigned to @tobiu
 - 2025-11-18 @tobiu referenced in commit `e56cb71` - "Create a universal ESM bundle for highlight.js #7790"
+- 2025-11-18 @tobiu closed this issue
 
