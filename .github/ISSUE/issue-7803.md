@@ -1,14 +1,15 @@
 ---
 id: 7803
 title: Support --debug flag via commander in GitHub Workflow MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-19T11:02:34Z'
-updatedAt: '2025-11-19T11:02:34Z'
+updatedAt: '2025-11-19T11:08:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7803'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T11:08:40Z'
 ---
 # Support --debug flag via commander in GitHub Workflow MCP Server
 
@@ -35,4 +37,7 @@ This consolidation ensures a single source of truth for the debug state and leve
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label
 - 2025-11-19 @tobiu added the `refactoring` label
+- 2025-11-19 @tobiu referenced in commit `9448679` - "Support --debug flag via commander in GitHub Workflow MCP Server #7803"
+- 2025-11-19 @tobiu assigned to @tobiu
+- 2025-11-19 @tobiu closed this issue
 
