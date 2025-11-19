@@ -396,14 +396,18 @@ class IssueSyncer extends Base {
 
                 // Step 2: Prepare the updated content
                 // Remove comments section and everything after it
-                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
+                let bodyContent = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0];
+
+                // Remove Activity Log section and everything after it (if present)
+                // This prevents the read-only activity log from being pushed back to the issue body
+                bodyContent = bodyContent.split('## Activity Log')[0].trim();
 
                 // Extract title from the markdown
-                const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
+                const titleMatch = bodyContent.match(/^#\s+(.+)$/m);
                 const title      = titleMatch ? titleMatch[1] : parsed.data.title;
 
                 // Remove only the title from body
-                const cleanBody = bodyWithoutComments
+                const cleanBody = bodyContent
                     .replace(/^#\s+.+$/m, '') // Remove title
                     .trim();
 
