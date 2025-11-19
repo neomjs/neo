@@ -1,13 +1,14 @@
 ---
 id: 7806
 title: Fix add_memory failure when sessionId is omitted
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-19T11:54:56Z'
-updatedAt: '2025-11-19T12:32:59Z'
+updatedAt: '2025-11-19T12:33:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7806'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T12:33:43Z'
 ---
 # Fix add_memory failure when sessionId is omitted
 
@@ -46,9 +48,7 @@ Verified that `healthcheck` returns the current session ID and that `add_memory`
 
 - 2025-11-19 @tobiu added the `bug` label
 - 2025-11-19 @tobiu added the `ai` label
-
-## Activity Log
-
-- 2025-11-19 @tobiu added the `bug` label
-- 2025-11-19 @tobiu added the `ai` label
+- 2025-11-19 @tobiu assigned to @tobiu
+- 2025-11-19 @tobiu referenced in commit `a8e2066` - "Fix add_memory failure when sessionId is omitted #7806"
+- 2025-11-19 @tobiu closed this issue
 
