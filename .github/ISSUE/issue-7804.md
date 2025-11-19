@@ -1,14 +1,15 @@
 ---
 id: 7804
 title: Add CLI argument parsing and Config refactoring to Memory Core MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-19T11:12:48Z'
-updatedAt: '2025-11-19T11:12:48Z'
+updatedAt: '2025-11-19T11:18:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7804'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T11:18:52Z'
 ---
 # Add CLI argument parsing and Config refactoring to Memory Core MCP Server
 
@@ -42,4 +44,7 @@ Standardize the configuration and startup logic across MCP servers for better ma
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label
 - 2025-11-19 @tobiu added the `refactoring` label
+- 2025-11-19 @tobiu assigned to @tobiu
+- 2025-11-19 @tobiu referenced in commit `4120324` - "Add CLI argument parsing and Config refactoring to Memory Core MCP Server #7804"
+- 2025-11-19 @tobiu closed this issue
 

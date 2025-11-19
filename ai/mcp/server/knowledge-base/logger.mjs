@@ -6,12 +6,9 @@ import aiConfig from './config.mjs';
  */
 const logger = {};
 
-// Check for --debug flag in command line arguments
-const isDebugFlagSet = process.argv.includes('--debug');
-
 const createLogMethod = (level) => {
     return (...args) => {
-        if (aiConfig.debug || isDebugFlagSet) {
+        if (aiConfig.debug) {
             console.error(`[${level.toUpperCase()}]`, ...args);
         }
     };
