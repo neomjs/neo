@@ -17,9 +17,15 @@ program
     .name('neo-github-workflow-mcp')
     .description('Neo.mjs GitHub Workflow MCP Server')
     .option('-c, --config <path>', 'Path to the configuration file')
+    .option('-d, --debug', 'Enable debug logging')
     .parse(process.argv);
 
 const options = program.opts();
+
+// Apply debug flag
+if (options.debug) {
+    aiConfig.data.debug = true;
+}
 
 // Load custom configuration if provided
 if (options.config) {

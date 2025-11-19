@@ -1,13 +1,14 @@
 ---
 id: 7802
 title: Add CLI argument parsing to GitHub Workflow MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-19T10:16:03Z'
-updatedAt: '2025-11-19T10:16:03Z'
+updatedAt: '2025-11-19T10:59:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7802'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T10:59:33Z'
 ---
 # Add CLI argument parsing to GitHub Workflow MCP Server
 
@@ -37,4 +39,7 @@ The `ai/mcp/server/github-workflow/mcp-stdio.mjs` entry point should use `comman
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label
+- 2025-11-19 @tobiu assigned to @tobiu
+- 2025-11-19 @tobiu referenced in commit `a0d5a42` - "Add CLI argument parsing to GitHub Workflow MCP Server #7802"
+- 2025-11-19 @tobiu closed this issue
 
