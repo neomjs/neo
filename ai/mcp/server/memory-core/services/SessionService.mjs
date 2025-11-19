@@ -1,6 +1,7 @@
 import {GoogleGenerativeAI}     from '@google/generative-ai';
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
+import crypto                   from 'crypto';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import HealthService            from './HealthService.mjs';
@@ -24,6 +25,11 @@ class SessionService extends Base {
          * @protected
          */
         singleton: true,
+        /**
+         * @member {String|null} currentSessionId=crypto.randomUUID()
+         * @protected
+         */
+        currentSessionId: crypto.randomUUID(),
         /**
          * @member {GoogleGenerativeAI|null} model_=null
          * @protected
@@ -56,13 +62,15 @@ class SessionService extends Base {
     construct(config) {
         super.construct(config);
 
+        logger.info(`[SessionService] Initialized new session: ${this.currentSessionId}`);
+
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
             logger.warn('⚠️  [Startup] GEMINI_API_KEY not set - skipping automatic session summarization');
             logger.warn('    Set GEMINI_API_KEY environment variable to enable summarization features');
             HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
             return;
-        };
+        }
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         this.model          = genAI.getGenerativeModel({model: 'gemini-2.5-flash'});

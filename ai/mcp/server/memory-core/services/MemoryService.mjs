@@ -1,5 +1,6 @@
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
+import SessionService       from './SessionService.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
@@ -37,6 +38,10 @@ class MemoryService extends Base {
         const timestamp    = new Date().toISOString();
         const memoryId     = `mem_${timestamp}`;
         const embedding    = await TextEmbeddingService.embedText(combinedText);
+
+        if (!sessionId) {
+            sessionId = SessionService.currentSessionId;
+        }
 
         await collection.add({
             ids: [memoryId],

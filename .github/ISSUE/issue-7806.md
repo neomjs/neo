@@ -7,7 +7,7 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-11-19T11:54:56Z'
-updatedAt: '2025-11-19T11:54:56Z'
+updatedAt: '2025-11-19T12:32:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7806'
 author: tobiu
 commentsCount: 0
@@ -31,16 +31,21 @@ The `add_memory` tool fails with a `422 Unprocessable Entity` error when the `se
 The `MemoryService.addMemory` method likely attempts to insert `undefined` or `null` as the `sessionId` into the ChromaDB metadata. ChromaDB (or the validation layer) requires metadata values to be strings, numbers, or booleans, and strictly rejects `undefined`/`null`.
 
 **Proposed Fix:**
-Modify `ai/mcp/server/memory-core/services/MemoryService.mjs` to:
-1. Detect if `sessionId` is missing.
-2. If missing, generate a default `sessionId` (e.g., using a timestamp-based string like `session_${Date.now()}`).
-3. Ensure this generated ID is used in both the metadata and the returned response.
+Modify `ai/mcp/server/memory-core/services/SessionService.mjs` to manage a `currentSessionId` (UUID generated at startup). Update `MemoryService` to use this ID as a default when `sessionId` is missing. Expose this ID via `HealthService` for visibility.
 
-**File to Modify:**
-`ai/mcp/server/memory-core/services/MemoryService.mjs`
+**Implemented Solution:**
+1.  **`SessionService.mjs`:** Added `currentSessionId` (UUID) initialized at startup.
+2.  **`MemoryService.mjs`:** Updated `addMemory` to default to `SessionService.currentSessionId` if no `sessionId` is provided.
+3.  **`HealthService.mjs`:** Updated `healthcheck` to include the `session.currentId` in its response payload.
+4.  **`openapi.yaml`:** Updated documentation to reflect the optional `sessionId` parameter and the new `session` field in the healthcheck response.
 
 **Verification:**
-After the fix, calling `add_memory` without a `sessionId` should succeed and return a valid, generated session ID.
+Verified that `healthcheck` returns the current session ID and that `add_memory` succeeds without a `sessionId` parameter, correctly using the default ID.
+
+## Activity Log
+
+- 2025-11-19 @tobiu added the `bug` label
+- 2025-11-19 @tobiu added the `ai` label
 
 ## Activity Log
 
