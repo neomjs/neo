@@ -7,7 +7,7 @@ import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
-import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from '../queries/issueQueries.mjs';
+import {FETCH_ISSUES_FOR_SYNC} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
@@ -221,7 +221,11 @@ class IssueSyncer extends Base {
                     cursor,
                     states: ['OPEN', 'CLOSED'],
                     since : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
-                    ...DEFAULT_QUERY_LIMITS
+                    maxLabels       : issueSyncConfig.maxLabelsPerIssue,
+                    maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
+                    maxComments     : issueSyncConfig.maxCommentsPerIssue,
+                    maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
+                    maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
                 },
                 true // Enable sub-issues feature
             );
