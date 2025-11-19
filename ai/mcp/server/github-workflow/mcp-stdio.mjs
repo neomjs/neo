@@ -39,7 +39,7 @@ if (options.config) {
 
 const mcpServer = new McpServer({
     name: 'neo-github-workflow',
-    version: '1.0.0',
+    version: process.env.npm_package_version || '1.0.0',
 }, {
     capabilities: {
         tools: {
