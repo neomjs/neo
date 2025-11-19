@@ -78,7 +78,7 @@ class YearContainer extends Container {
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
             style         : {marginTop: '5px'},
-            valueLabelText: 'short'
+            valueLabel    : 'short'
         }, {
             module        : RadioField,
             checked       : yearComponent.monthNameFormat === 'long',
@@ -90,7 +90,7 @@ class YearContainer extends Container {
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
             style         : {marginTop: '5px'},
-            valueLabelText: 'long'
+            valueLabel    : 'long'
         }, {
             module    : CheckBoxField,
             checked   : yearComponent.showCellBorders,

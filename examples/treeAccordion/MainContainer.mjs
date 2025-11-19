@@ -31,7 +31,7 @@ class MainContainer extends ConfigurationViewport {
             hideLabel     : true,
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'rootParentsAreCollapsible')},
-            valueLabelText: 'rootParentsAreCollapsible'
+            valueLabel    : 'rootParentsAreCollapsible'
         }, {
             module        : CheckBox,
             checked       : treeList.firstParentIsVisible,
@@ -39,7 +39,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'firstParentIsVisible')},
             style         : {marginTop: '10px'},
-            valueLabelText: 'firstParentIsVisible'
+            valueLabel    : 'firstParentIsVisible'
         }, {
             module        : CheckBox,
             checked       : treeList.showIcon,
@@ -47,7 +47,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'showIcon')},
             style         : {marginTop: '10px'},
-            valueLabelText: 'showIcon'
+            valueLabel    : 'showIcon'
         }, {
             module   : NumberField,
             clearable: true,

@@ -69,7 +69,7 @@ class WeekContainer extends Container {
             listeners     : {change: me.onConfigChange, scope: me},
             name          : 'showEventEndTime',
             style         : {marginTop: '10px'},
-            valueLabelText: 'showEventEndTime'
+            valueLabel    : 'showEventEndTime'
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
@@ -79,7 +79,7 @@ class WeekContainer extends Container {
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'start'
+            valueLabel    : 'start'
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'end',
@@ -88,7 +88,7 @@ class WeekContainer extends Container {
             labelText     : '',
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
-            valueLabelText: 'end'
+            valueLabel    : 'end'
         }])
     }
 

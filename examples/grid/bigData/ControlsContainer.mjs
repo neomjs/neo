@@ -94,24 +94,24 @@ class ControlsContainer extends Container {
                     value     : '3',
                     width     : 200
                 }, {
-                    module        : Radio,
-                    checked       : true,
-                    labelText     : 'Theme',
-                    labelWidth    : 70,
-                    listeners     : {change: 'up.onThemeRadioChange'},
-                    name          : 'theme',
-                    style         : {marginTop: '2em'},
-                    value         : 'neo-theme-dark',
-                    valueLabelText: 'Dark'
+                    module    : Radio,
+                    checked   : true,
+                    labelText : 'Theme',
+                    labelWidth: 70,
+                    listeners : {change: 'up.onThemeRadioChange'},
+                    name      : 'theme',
+                    style     : {marginTop: '2em'},
+                    value     : 'neo-theme-dark',
+                    valueLabel: 'Dark'
                 }, {
-                    module        : Radio,
-                    labelText     : '',
-                    labelWidth    : 70,
-                    listeners     : {change: 'up.onThemeRadioChange'},
-                    name          : 'theme',
-                    style         : {marginTop: '.3em'},
-                    value         : 'neo-theme-light',
-                    valueLabelText: 'Light'
+                    module    : Radio,
+                    labelText : '',
+                    labelWidth: 70,
+                    listeners : {change: 'up.onThemeRadioChange'},
+                    name      : 'theme',
+                    style     : {marginTop: '.3em'},
+                    value     : 'neo-theme-light',
+                    valueLabel: 'Light'
                 }, {
                     ntype: 'label',
                     style: {marginTop: '2em'},
@@ -163,23 +163,23 @@ class ControlsContainer extends Container {
                 }, {
                     style         : {marginTop: '1em'},
                     selectionModel: selection.CellModel,
-                    valueLabelText: 'Cell'
+                    valueLabel    : 'Cell'
                 }, {
                     selectionModel: selection.ColumnModel,
-                    valueLabelText: 'Column'
+                    valueLabel    : 'Column'
                 }, {
                     checked       : true,
                     selectionModel: selection.RowModel,
-                    valueLabelText: 'Row'
+                    valueLabel    : 'Row'
                 }, {
                     selectionModel: selection.CellColumnModel,
-                    valueLabelText: 'Cell & Column'
+                    valueLabel    : 'Cell & Column'
                 }, {
                     selectionModel: selection.CellRowModel,
-                    valueLabelText: 'Cell & Row'
+                    valueLabel    : 'Cell & Row'
                 }, {
                     selectionModel: selection.CellColumnRowModel,
-                    valueLabelText: 'Cell & Column & Row'
+                    valueLabel    : 'Cell & Column & Row'
                 }]
             }]
         }],

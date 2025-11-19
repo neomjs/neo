@@ -112,7 +112,12 @@ class CheckBox extends Field {
          */
         labelPosition_: 'left',
         /**
-         * @member {String} labelText_='LabelText'
+         * The label text or VDOM.
+         * Supports:
+         * - String: Renders as safe text (textContent).
+         * - Object: A single VDOM object.
+         * - Object[]: An array of VDOM objects.
+         * @member {Object|Object[]|String} labelText_='LabelText'
          * @reactive
          */
         labelText_: 'LabelText',
@@ -153,10 +158,15 @@ class CheckBox extends Field {
          */
         value: true,
         /**
-         * @member {String|null} valueLabelText_=null
+         * The label text or VDOM to display next to the checkbox.
+         * Supports:
+         * - String: Renders as safe text (textContent).
+         * - Object: A single VDOM object (e.g. {tag: 'i', cls: 'fa fa-check'}).
+         * - Object[]: An array of VDOM objects.
+         * @member {Object|Object[]|String|null} valueLabel_=null
          * @reactive
          */
-        valueLabelText_: null,
+        valueLabel_: null,
         /**
          * @member {Object} _vdom
          */
@@ -265,7 +275,7 @@ class CheckBox extends Field {
      * @protected
      */
     afterSetHideLabel(value, oldValue) {
-        this.vdom.cn[0].cn[0].removeDom = value;
+        this.getLabelEl().removeDom = value;
         this.update()
     }
 
@@ -306,7 +316,7 @@ class CheckBox extends Field {
      */
     afterSetLabelCls(value, oldValue) {
         let me  = this,
-            cls = me.vdom.cn[0].cn[0].cls;
+            cls = me.getLabelEl().cls;
 
         NeoArray.remove(cls, oldValue);
         NeoArray.add(cls, value);
@@ -331,18 +341,36 @@ class CheckBox extends Field {
 
     /**
      * Triggered after the labelText config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {Object|Object[]|String} value
+     * @param {Object|Object[]|String} oldValue
      * @protected
      */
     afterSetLabelText(value, oldValue) {
-        let me = this;
+        let me      = this,
+            labelEl = me.getLabelEl();
 
         if (me.labelId) {
-            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
+            value = [{
+                tag : 'span',
+                cls : me.labelIdCls,
+                text: me.labelId
+            }, {
+                tag : 'span',
+                text: me.labelIdSeparator
+            }, ...(Array.isArray(value) ? value : (Neo.isString(value) ? [{text: value}] : [value]))];
+
+            labelEl.cn = value;
+            delete labelEl.text
+        } else {
+            if (Neo.isString(value)) {
+                labelEl.text = value;
+                delete labelEl.cn
+            } else {
+                labelEl.cn = Array.isArray(value) ? value : [value];
+                delete labelEl.text
+            }
         }
 
-        me.vdom.cn[0].cn[0].html = value;
         me.update()
     }
 
@@ -356,7 +384,7 @@ class CheckBox extends Field {
         let me = this;
 
         if (!me.hideLabel) {
-            me.vdom.cn[0].cn[0].width = value;
+            me.getLabelEl().width = value;
             me.update()
         }
     }
@@ -405,17 +433,23 @@ class CheckBox extends Field {
 
     /**
      * Triggered after the valueLabel config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {Object|Object[]|String|null} value
+     * @param {Object|Object[]|String|null} oldValue
      * @protected
      */
-    afterSetValueLabelText(value, oldValue) {
+    afterSetValueLabel(value, oldValue) {
         let me         = this,
             valueLabel = me.vdom.cn[0].cn[3],
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
-            valueLabel.text = value
+            if (Neo.isString(value)) {
+                valueLabel.text = value;
+                delete valueLabel.cn
+            } else {
+                valueLabel.cn = Array.isArray(value) ? value : [value];
+                delete valueLabel.text
+            }
         }
 
         valueLabel.removeDom = !showLabel;
@@ -510,6 +544,13 @@ class CheckBox extends Field {
      */
     getInputElId() {
         return `${this.id}__input`
+    }
+
+    /**
+     * @returns {Object|null}
+     */
+    getLabelEl() {
+        return this.vdom.cn[0].cn[0]
     }
 
     /**

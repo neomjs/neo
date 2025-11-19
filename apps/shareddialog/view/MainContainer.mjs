@@ -75,19 +75,19 @@ class MainContainer extends Viewport {
                 },
 
                 items: [{
-                    labelText     : 'Dock',
-                    valueLabelText: 'Top',
-                    value         : 'top'
+                    labelText : 'Dock',
+                    valueLabel: 'Top',
+                    value     : 'top'
                 }, {
-                    checked       : true,
-                    valueLabelText: 'Right',
-                    value         : 'right'
+                    checked   : true,
+                    valueLabel: 'Right',
+                    value     : 'right'
                 }, {
-                    valueLabelText: 'Bottom',
-                    value         : 'bottom'
+                    valueLabel: 'Bottom',
+                    value     : 'bottom'
                 }, {
-                    valueLabelText: 'Left',
-                    value         : 'left'
+                    valueLabel: 'Left',
+                    value     : 'left'
                 }]
             }]
         }, {

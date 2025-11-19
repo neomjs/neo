@@ -96,7 +96,7 @@ class HeaderToolbar extends Toolbar {
             hideLabel     : true,
             listeners     : {change: 'onChangeOpenWidgetsAsPopups'},
             showValueLabel: true,
-            valueLabelText: 'Popups'
+            valueLabel    : 'Popups'
         }]
     }
 }

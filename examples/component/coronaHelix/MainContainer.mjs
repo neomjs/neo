@@ -353,7 +353,7 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 style         : {marginLeft: '10px', marginTop: '10px'},
-                valueLabelText: 'logDeltaUpdates',
+                valueLabel    : 'logDeltaUpdates',
 
                 listeners: {
                     change: function (data) {

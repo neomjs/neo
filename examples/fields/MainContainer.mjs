@@ -112,19 +112,19 @@ class MainContainer extends Container {
                 labelText     : 'Group 2',
                 name          : 'group2',
                 style         : {marginTop: '20px'},
-                valueLabelText: 'Option 1'
+                valueLabel    : 'Option 1'
             }, {
                 ntype         : 'checkboxfield',
                 hideValueLabel: false,
                 labelText     : '',
                 name          : 'group2',
-                valueLabelText: 'Option 2'
+                valueLabel    : 'Option 2'
             }, {
                 ntype         : 'checkboxfield',
                 hideValueLabel: false,
                 labelText     : '',
                 name          : 'group2',
-                valueLabelText: 'Option 3'
+                valueLabel    : 'Option 3'
             }],
 
             header: {
@@ -163,19 +163,19 @@ class MainContainer extends Container {
                 labelText     : 'Group 2',
                 name          : 'group2',
                 style         : {marginTop: '20px'},
-                valueLabelText: 'Option 1'
+                valueLabel: 'Option 1'
             }, {
                 ntype         : 'radiofield',
                 hideValueLabel: false,
                 labelText     : '',
                 name          : 'group2',
-                valueLabelText: 'Option 2'
+                valueLabel: 'Option 2'
             }, {
                 ntype         : 'radiofield',
                 hideValueLabel: false,
                 labelText     : '',
                 name          : 'group2',
-                valueLabelText: 'Option 3'
+                valueLabel: 'Option 3'
             }],
 
             header: {

@@ -1,4 +1,4 @@
-import {Server}                                        from '@modelcontextprotocol/sdk/server/index.js';
+import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import {Command}                                       from 'commander';
@@ -38,9 +38,9 @@ if (options.config) {
     }
 }
 
-const server = new Server({
+const mcpServer = new McpServer({
     name: 'neo-memory-core',
-    version: '1.0.0',
+    version: process.env.npm_package_version || '1.0.0',
 }, {
     capabilities: {
         tools: {
@@ -50,7 +50,7 @@ const server = new Server({
 });
 
 // List all available tools from OpenAPI spec
-server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
     try {
         const { cursor, limit } = request.params || {};
         const { tools, nextCursor } = listTools({ cursor, limit });
@@ -78,7 +78,7 @@ server.setRequestHandler(ListToolsRequestSchema, async (request) => {
 });
 
 // Handle tool execution
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
@@ -209,7 +209,7 @@ async function main() {
 
     // Start the stdio transport
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await mcpServer.connect(transport);
 
     logger.info('[neo-memory-core MCP] Server started on stdio transport');
     logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');

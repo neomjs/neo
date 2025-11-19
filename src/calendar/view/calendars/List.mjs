@@ -52,11 +52,11 @@ class List extends ComponentList {
             checkBox = items[index],
 
         config = {
-            checked       : record.active,
-            cls           : [`neo-color-${record.color}`],
-            fieldValue    : id,
-            id            : me.getComponentId(index),
-            valueLabelText: record.name
+            checked   : record.active,
+            cls       : [`neo-color-${record.color}`],
+            fieldValue: id,
+            id        : me.getComponentId(index),
+            valueLabel: record.name
         };
 
         if (checkBox) {

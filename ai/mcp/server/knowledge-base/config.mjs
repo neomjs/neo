@@ -33,7 +33,7 @@ const defaultConfig = {
      * The local persistence path for the agent knowledge-base server.
      * @type {string}
      */
-    path: path.resolve(process.cwd(), 'chroma'),
+    path: path.resolve(process.cwd(), 'chroma-neo-knowledge-base'),
     /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}

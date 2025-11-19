@@ -28,7 +28,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : 'badgePosition',
             listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'bottom-left')},
             name          : 'badgePosition',
-            valueLabelText: 'bottom-left'
+            valueLabel    : 'bottom-left'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.badgePosition === 'bottom-right',
@@ -36,7 +36,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'bottom-right')},
             name          : 'badgePosition',
-            valueLabelText: 'bottom-right'
+            valueLabel    : 'bottom-right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.badgePosition === 'top-left',
@@ -44,7 +44,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'top-left')},
             name          : 'badgePosition',
-            valueLabelText: 'top-left'
+            valueLabel    : 'top-left'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.badgePosition === 'top-right',
@@ -52,13 +52,13 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'badgePosition', 'top-right')},
             name          : 'badgePosition',
-            valueLabelText: 'top-right'
+            valueLabel    : 'top-right'
         }, {
-            module    :  TextField,
-            labelText : 'badgeText',
-            listeners : {change: me.onConfigChange.bind(me, 'badgeText')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.badgeText
+            module   : TextField,
+            labelText: 'badgeText',
+            listeners: {change: me.onConfigChange.bind(me, 'badgeText')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.badgeText
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.disabled,
@@ -66,26 +66,26 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'disabled')},
             style    : {marginTop: '10px'}
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 300,
-            minValue  : 30,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            module   : NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 300,
+            minValue : 30,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.height
         }, {
-            module    :  TextField, // todo: selectField with options
-            labelText : 'iconCls',
-            listeners : {change: me.onConfigChange.bind(me, 'iconCls')},
-            value     : me.exampleComponent.iconCls
+            module   : TextField, // todo: selectField with options
+            labelText: 'iconCls',
+            listeners: {change: me.onConfigChange.bind(me, 'iconCls')},
+            value    : me.exampleComponent.iconCls
         }, {
-            module    :  TextField, // todo: colorPickerField
-            clearable : true,
-            labelText : 'iconColor',
-            listeners : {change: me.onConfigChange.bind(me, 'iconColor')},
-            value     : me.exampleComponent.iconColor
+            module   : TextField, // todo: colorPickerField
+            clearable: true,
+            labelText: 'iconColor',
+            listeners: {change: me.onConfigChange.bind(me, 'iconColor')},
+            value    : me.exampleComponent.iconColor
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'top',
@@ -94,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'top')},
             name          : 'iconPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'top'
+            valueLabel    : 'top'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'right',
@@ -102,7 +102,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'right')},
             name          : 'iconPosition',
-            valueLabelText: 'right'
+            valueLabel    : 'right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'bottom',
@@ -110,7 +110,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'bottom')},
             name          : 'iconPosition',
-            valueLabelText: 'bottom'
+            valueLabel    : 'bottom'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'left',
@@ -118,31 +118,31 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'left')},
             name          : 'iconPosition',
-            valueLabelText: 'left'
+            valueLabel    : 'left'
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'rippleEffectDuration',
-            listeners : {change: me.onConfigChange.bind(me, 'rippleEffectDuration')},
-            maxValue  : 5000,
-            minValue  : 100,
-            stepSize  : 100,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.rippleEffectDuration
+            module   : NumberField,
+            clearable: true,
+            labelText: 'rippleEffectDuration',
+            listeners: {change: me.onConfigChange.bind(me, 'rippleEffectDuration')},
+            maxValue : 5000,
+            minValue : 100,
+            stepSize : 100,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.rippleEffectDuration
         }, {
-            module    :  TextField,
-            clearable : true,
-            labelText : 'text',
-            listeners : {change: me.onConfigChange.bind(me, 'text')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.text
+            module   : TextField,
+            clearable: true,
+            labelText: 'text',
+            listeners: {change: me.onConfigChange.bind(me, 'text')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.text
         }, {
-            module    :  TextField,
-            clearable : true,
-            labelText : 'tooltip',
-            listeners : {change: me.onConfigChange.bind(me, 'tooltip')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.tooltip
+            module   : TextField,
+            clearable: true,
+            labelText: 'tooltip',
+            listeners: {change: me.onConfigChange.bind(me, 'tooltip')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.tooltip
         }, {
             module        : ComboBox,
             forceSelection: true,
@@ -153,9 +153,9 @@ class MainContainer extends ConfigurationViewport {
 
             store: {
                 data: [
-                    {id: 'primary',   name: 'primary'},
+                    {id: 'primary', name: 'primary'},
                     {id: 'secondary', name: 'secondary'},
-                    {id: 'tertiary',  name: 'tertiary'}
+                    {id: 'tertiary', name: 'tertiary'}
                 ]
             }
         }, {
@@ -165,16 +165,16 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'useRippleEffect')},
             style    : {marginTop: '10px'}
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
-        }];
+            module   : NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 300,
+            minValue : 100,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.width
+        }]
     }
 
     /**

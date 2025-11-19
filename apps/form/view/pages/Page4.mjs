@@ -27,24 +27,24 @@ class Page4 extends FormPageContainer {
          * @member {Object[]} items
          */
         items: [{
-            labelText     : 'Fruits',
-            value         : 'apple',
-            valueLabelText: 'Apple'
+            labelText : 'Fruits',
+            value     : 'apple',
+            valueLabel: 'Apple'
         }, {
-            value         : 'banana',
-            valueLabelText: 'Banana'
+            value     : 'banana',
+            valueLabel: 'Banana'
         }, {
-            checked       : true,
-            value         : 'lemon',
-            valueLabelText: 'Lemon'
+            checked   : true,
+            value     : 'lemon',
+            valueLabel: 'Lemon'
         }, {
-            checked       : true,
-            value         : 'orange',
-            valueLabelText: 'Orange'
+            checked   : true,
+            value     : 'orange',
+            valueLabel: 'Orange'
         }, {
             showErrorTexts: true, // overwriting the itemDefaults value
             value         : 'strawberry',
-            valueLabelText: 'Strawberry'
+            valueLabel    : 'Strawberry'
         }, {
             labelText     : 'Boolean',
             groupRequired : false, // overwriting the itemDefaults value

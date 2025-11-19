@@ -139,7 +139,7 @@ class DemoDialog extends Dialog {
             boundaryContainerId    : me.boundaryContainerId,
             index                  : nextIndex,
             listeners              : {close: me.onWindowClose, scope: me},
-            modal                  : me.app.mainView.down({valueLabelText: 'Modal'}).checked,
+            modal                  : me.app.mainView.down({valueLabel: 'Modal'}).checked,
             trapFocus              : true,
             optionalAnimateTargetId: button.id,
             style                  : {left: me.getOffset(), top: me.getOffset()},

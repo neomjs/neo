@@ -129,7 +129,7 @@ class Layout extends Base {
 
         let me = this;
 
-        me.bind && me.container.getStateProvider()?.parseConfig(me)
+        me.bind && me.container.getStateProvider()?.createBindings(me)
     }
 
     /**

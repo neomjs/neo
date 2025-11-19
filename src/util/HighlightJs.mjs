@@ -101,7 +101,7 @@ class HighlightJs extends Base {
     async load() {
         if (!this.hljs) {
             let path   = Neo.config.basePath + 'dist/highlight/highlight.custom' + (this.debug ? '' : '.min') + '.js',
-                module = await import(path);
+                module = await import(/* webpackIgnore: true */ path);
 
             this.hljs = module.default
         }

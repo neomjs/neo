@@ -49,7 +49,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.changeSorting.bind(me, 'ASC')},
             name          : 'sort',
             style         : {marginTop: '10px'},
-            valueLabelText: 'ASC'
+            valueLabel    : 'ASC'
         }, {
             module        : Radio,
             checked       : sorter.direction === 'DESC',
@@ -58,7 +58,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.changeSorting.bind(me, 'DESC')},
             name          : 'sort',
             style         : {marginTop: '5px'},
-            valueLabelText: 'DESC'
+            valueLabel    : 'DESC'
         }, {
             module   : NumberField,
             clearable: true,

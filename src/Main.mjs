@@ -287,9 +287,9 @@ class Main extends core.Base {
 
         modules = await Promise.all(imports);
 
-        modules.forEach(module => {
-            me.registerAddon(module.default)
-        });
+        const instances = modules.map(module => me.registerAddon(module.default));
+
+        await Promise.all(instances.map(instance => instance.ready()));
 
         WorkerManager.onWorkerConstructed({
             origin: 'main'
@@ -415,6 +415,7 @@ class Main extends core.Base {
     /**
      * Helper method to register main thread addons
      * @param {Neo.core.Base} addon Can either be a neo class or instance
+     * @returns {Neo.core.Base} The addon instance
      */
     registerAddon(addon) {
         if (Neo.typeOf(addon) === 'NeoClass') {
@@ -427,7 +428,9 @@ class Main extends core.Base {
             Neo.applyToGlobalNs(addon)
         }
 
-        this.addon[addon.constructor.name] = addon
+        this.addon[addon.constructor.name] = addon;
+
+        return addon
     }
 
     /**

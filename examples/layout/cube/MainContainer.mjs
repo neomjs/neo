@@ -30,7 +30,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : 'layout',
             listeners     : {change: me.onRadioLayoutChange.bind(me, 'cube')},
             name          : 'layout',
-            valueLabelText: 'Cube'
+            valueLabel    : 'Cube'
         }, {
             module        : Radio,
             checked       : layout.ntype === 'layout-vbox',
@@ -38,7 +38,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioLayoutChange.bind(me, 'vbox')},
             name          : 'layout',
-            valueLabelText: 'VBox'
+            valueLabel    : 'VBox'
         }, {
             module   : RangeField,
             labelText: 'perspective',

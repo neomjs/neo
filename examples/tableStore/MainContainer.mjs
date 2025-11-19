@@ -111,7 +111,7 @@ class MainContainer extends Viewport {
                 listeners     : {change: 'up.updateSelectionModel'},
                 name          : 'selectionModel',
                 value         : 'selection-table-cellmodel',
-                valueLabelText: 'Cell'
+                valueLabel    : 'Cell'
             }, {
                 ntype         : 'radiofield',
                 hideLabel     : true,
@@ -120,7 +120,7 @@ class MainContainer extends Viewport {
                 name          : 'selectionModel',
                 style         : {marginLeft: '20px'},
                 value         : 'selection-table-columnmodel',
-                valueLabelText: 'Column'
+                valueLabel    : 'Column'
             }, {
                 ntype         : 'radiofield',
                 hideLabel     : true,
@@ -129,7 +129,7 @@ class MainContainer extends Viewport {
                 name          : 'selectionModel',
                 style         : {marginLeft: '20px'},
                 value         : 'selection-table-rowmodel',
-                valueLabelText: 'Row'
+                valueLabel    : 'Row'
             }, {
                 ntype         : 'radiofield',
                 hideLabel     : true,
@@ -138,7 +138,7 @@ class MainContainer extends Viewport {
                 name          : 'selectionModel',
                 style         : {marginLeft: '20px'},
                 value         : 'selection-table-cellcolumnmodel',
-                valueLabelText: 'Cell & Column'
+                valueLabel    : 'Cell & Column'
             }, {
                 ntype         : 'radiofield',
                 hideLabel     : true,
@@ -147,7 +147,7 @@ class MainContainer extends Viewport {
                 name          : 'selectionModel',
                 style         : {marginLeft: '20px'},
                 value         : 'selection-table-cellrowmodel',
-                valueLabelText: 'Cell & Row'
+                valueLabel    : 'Cell & Row'
             }]
         }, {
             module      : TableContainer,

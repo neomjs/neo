@@ -20,6 +20,11 @@ const defaultConfig = {
         generate: () => null
     },
     /**
+     * The name of the Google Generative AI model for content generation.
+     * @type {string}
+     */
+    modelName: 'gemini-2.5-flash',
+    /**
      * The name of the Google Generative AI model for text embeddings.
      * @type {string}
      */
@@ -47,7 +52,7 @@ const defaultConfig = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(process.cwd(), 'chroma-memory'),
+        path: path.resolve(process.cwd(), 'chroma-neo-memory-core'),
         /**
          * The path to store memory backups.
          * @type {string}

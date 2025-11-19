@@ -52,7 +52,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'top')},
             name          : 'labelPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'top'
+            valueLabel    : 'top'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.labelPosition === 'right',
@@ -60,7 +60,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'right')},
             name          : 'labelPosition',
-            valueLabelText: 'right'
+            valueLabel    : 'right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.labelPosition === 'bottom',
@@ -68,7 +68,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'bottom')},
             name          : 'labelPosition',
-            valueLabelText: 'bottom'
+            valueLabel    : 'bottom'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.labelPosition === 'left',
@@ -76,7 +76,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'left')},
             name          : 'labelPosition',
-            valueLabelText: 'left'
+            valueLabel    : 'left'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.labelPosition === 'inline',
@@ -84,7 +84,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'inline')},
             name          : 'labelPosition',
-            valueLabelText: 'inline'
+            valueLabel    : 'inline'
         }, {
             module   : TextField,
             labelText: 'labelText',

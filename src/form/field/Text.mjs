@@ -193,7 +193,12 @@ class Text extends Field {
          */
         labelPosition_: 'left',
         /**
-         * @member {String} labelText_='LabelText'
+         * The label text or VDOM.
+         * Supports:
+         * - String: Renders as safe text (textContent).
+         * - Object: A single VDOM object.
+         * - Object[]: An array of VDOM objects.
+         * @member {Object|Object[]|String} labelText_='LabelText'
          * @reactive
          */
         labelText_: 'LabelText',
@@ -614,19 +619,36 @@ class Text extends Field {
 
     /**
      * Triggered after the labelText config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {Object|Object[]|String} value
+     * @param {Object|Object[]|String} oldValue
      * @protected
      */
     afterSetLabelText(value, oldValue) {
         let me      = this,
-            isEmpty = me.isEmpty();
+            isEmpty = me.isEmpty(),
+            labelEl = me.getLabelEl();
 
         if (me.labelId) {
-            value = `<span class="${me.labelIdCls.join(',')}">${me.labelId}</span>${me.labelIdSeparator + value}`
-        }
+            value = [{
+                tag : 'span',
+                cls : me.labelIdCls,
+                text: me.labelId
+            }, {
+                tag : 'span',
+                text: me.labelIdSeparator
+            }, ...(Array.isArray(value) ? value : (Neo.isString(value) ? [{text: value}] : [value]))];
 
-        me.getLabelEl().html = value;
+            labelEl.cn = value;
+            delete labelEl.text
+        } else {
+            if (Neo.isString(value)) {
+                labelEl.text = value;
+                delete labelEl.cn
+            } else {
+                labelEl.cn = Array.isArray(value) ? value : [value];
+                delete labelEl.text
+            }
+        }
 
         if (!me.hideLabel) {
             if (me.labelPosition === 'inline') {

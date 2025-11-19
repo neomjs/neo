@@ -49,7 +49,7 @@ class MainContainer extends Viewport {
                 hideValueLabel: false,
                 listeners     : {change: 'up.onBoundaryContainerIdChange'},
                 style         : {marginLeft: '3em'},
-                valueLabelText: 'Limit Drag&Drop to the document.body'
+                valueLabel    : 'Limit Drag&Drop to the document.body'
             }, {
                 module        : CheckBox,
                 checked       : true,
@@ -58,7 +58,7 @@ class MainContainer extends Viewport {
                 listeners     : {change: 'up.onConfigChange'},
                 style         : {marginLeft: '3em'},
                 targetConfig  : 'animated',
-                valueLabelText: 'Animated'
+                valueLabel    : 'Animated'
             }, {
                 module        : CheckBox,
                 checked       : true,
@@ -67,7 +67,7 @@ class MainContainer extends Viewport {
                 listeners     : {change: 'up.onConfigChange'},
                 style         : {marginLeft: '1em'},
                 targetConfig  : 'modal',
-                valueLabelText: 'Modal'
+                valueLabel    : 'Modal'
             }, '->', {
                 module : Button,
                 handler: 'up.switchTheme',
@@ -99,11 +99,11 @@ class MainContainer extends Viewport {
         button.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
-            animated               : me.down({valueLabelText: 'Animated'}).checked,
+            animated               : me.down({valueLabel: 'Animated'}).checked,
             appName,
             boundaryContainerId,
             listeners              : {close: me.onWindowClose, scope: me},
-            modal                  : me.down({valueLabelText: 'Modal'}).checked,
+            modal                  : me.down({valueLabel: 'Modal'}).checked,
             trapFocus              : true,
             optionalAnimateTargetId: button.id,
             title                  : 'Dialog 1',

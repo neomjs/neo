@@ -53,7 +53,7 @@ class GeneralContainer extends Container {
             listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
-            valueLabelText: 'default'
+            valueLabel    : 'default'
         }, {
             module        : RadioField,
             checked       : data.locale === 'de-DE',
@@ -65,7 +65,7 @@ class GeneralContainer extends Container {
             listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
-            valueLabelText: 'de-DE'
+            valueLabel    : 'de-DE'
         }, {
             module        : RadioField,
             checked       : data.locale === 'en-US',
@@ -77,7 +77,7 @@ class GeneralContainer extends Container {
             listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
-            valueLabelText: 'en-US'
+            valueLabel    : 'en-US'
         }, {
             module        : RadioField,
             checked       : data.locale === 'es-ES',
@@ -89,7 +89,7 @@ class GeneralContainer extends Container {
             listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
-            valueLabelText: 'es-ES'
+            valueLabel    : 'es-ES'
         }, {
             module        : RadioField,
             checked       : data.locale === 'fr-FR',
@@ -101,7 +101,7 @@ class GeneralContainer extends Container {
             listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
-            valueLabelText: 'fr-FR'
+            valueLabel    : 'fr-FR'
         }, {
             module        : RadioField,
             checked       : data.weekStartDay === 0,

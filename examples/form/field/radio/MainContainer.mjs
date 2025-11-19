@@ -39,7 +39,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'left')},
             name          : 'labelPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'left'
+            valueLabel    : 'left'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.labelPosition === 'top',
@@ -47,7 +47,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'labelPosition', 'top')},
             name          : 'labelPosition',
-            valueLabelText: 'top'
+            valueLabel    : 'top'
         }, {
             module   : TextField,
             labelText: 'labelText',
@@ -76,10 +76,10 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : TextField,
-            labelText: 'valueLabelText',
-            listeners: {change: me.onConfigChange.bind(me, 'valueLabelText')},
+            labelText: 'valueLabel',
+            listeners: {change: me.onConfigChange.bind(me, 'valueLabel')},
             style    : {marginTop: '10px'},
-            value    : me.exampleComponent.valueLabelText
+            value    : me.exampleComponent.valueLabel
         }, {
             module   : NumberField,
             labelText: 'width',
@@ -91,7 +91,9 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.width
         }, {
             ntype  : 'button',
-            handler: (() => {me.exampleComponent.reset()}),
+            handler: (() => {
+                me.exampleComponent.reset()
+            }),
             style  : {marginTop: '10px', width: '50%'},
             text   : 'reset()'
         }]

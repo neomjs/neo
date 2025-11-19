@@ -27,7 +27,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : 'slideDirection',
             listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', 'horizontal')},
             name          : 'slideDirection',
-            valueLabelText: 'horizontal'
+            valueLabel    : 'horizontal'
         }, {
             module        : Radio,
             checked       : layout.slideDirection === 'vertical',
@@ -35,7 +35,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', 'vertical')},
             name          : 'slideDirection',
-            valueLabelText: 'vertical'
+            valueLabel    : 'vertical'
         }, {
             module        : Radio,
             checked       : layout.slideDirection === null,
@@ -43,27 +43,27 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioLayoutChange.bind(me, 'slideDirection', null)},
             name          : 'slideDirection',
-            valueLabelText: 'null'
+            valueLabel    : 'null'
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 300,
-            minValue  : 30,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            module   : NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 300,
+            minValue : 30,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.height
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
+            module   : NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 300,
+            minValue : 100,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.width
         }]
     }
 
@@ -72,9 +72,9 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create({
-            module   : Container,
-            height   : 300,
-            width    : 400,
+            module: Container,
+            height: 300,
+            width : 400,
 
             items: [{
                 module   : Container,
@@ -94,7 +94,7 @@ class MainContainer extends ConfigurationViewport {
                 style : {marginTop: '1em'},
 
                 items: [{
-                    disabled: true,
+                    disabled : true,
                     handler  : 'up.onPrevButtonClick',
                     reference: 'prev-button',
                     text     : 'Prev'
