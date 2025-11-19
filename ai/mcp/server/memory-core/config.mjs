@@ -20,6 +20,11 @@ const defaultConfig = {
         generate: () => null
     },
     /**
+     * The name of the Google Generative AI model for content generation.
+     * @type {string}
+     */
+    modelName: 'gemini-2.5-flash',
+    /**
      * The name of the Google Generative AI model for text embeddings.
      * @type {string}
      */

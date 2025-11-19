@@ -73,7 +73,7 @@ class SessionService extends Base {
         }
 
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        this.model          = genAI.getGenerativeModel({model: 'gemini-2.5-flash'});
+        this.model          = genAI.getGenerativeModel({model: aiConfig.modelName});
         this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
     }
 
