@@ -9,10 +9,6 @@
  * @module Neo.ai.mcp.server.github-workflow.queries.issueQueries
  */
 
-import aiConfig from '../../config.mjs';
-
-const issueSyncConfig = aiConfig.issueSync;
-
 /**
  * Comprehensive query to fetch issues with all nested data needed for sync.
  *
@@ -316,17 +312,7 @@ export const FETCH_SINGLE_ISSUE = `
   }
 `;
 
-/**
- * Default variable values for issue queries.
- * These are pulled from config to avoid hardcoded magic numbers in queries.
- */
-export const DEFAULT_QUERY_LIMITS = {
-    maxLabels       : issueSyncConfig.maxLabelsPerIssue,
-    maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
-    maxComments     : issueSyncConfig.maxCommentsPerIssue,
-    maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
-    maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
-};
+
 
 /**
  * Query to get an issue's current parent relationship.

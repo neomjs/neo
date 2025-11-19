@@ -7,7 +7,7 @@ import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
-import {FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from '../queries/issueQueries.mjs';
+import {FETCH_ISSUES_FOR_SYNC} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
@@ -221,7 +221,11 @@ class IssueSyncer extends Base {
                     cursor,
                     states: ['OPEN', 'CLOSED'],
                     since : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
-                    ...DEFAULT_QUERY_LIMITS
+                    maxLabels       : issueSyncConfig.maxLabelsPerIssue,
+                    maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
+                    maxComments     : issueSyncConfig.maxCommentsPerIssue,
+                    maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
+                    maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
                 },
                 true // Enable sub-issues feature
             );
@@ -392,14 +396,18 @@ class IssueSyncer extends Base {
 
                 // Step 2: Prepare the updated content
                 // Remove comments section and everything after it
-                const bodyWithoutComments = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0].trim();
+                let bodyContent = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0];
+
+                // Remove Activity Log section and everything after it (if present)
+                // This prevents the read-only activity log from being pushed back to the issue body
+                bodyContent = bodyContent.split('## Activity Log')[0].trim();
 
                 // Extract title from the markdown
-                const titleMatch = bodyWithoutComments.match(/^#\s+(.+)$/m);
+                const titleMatch = bodyContent.match(/^#\s+(.+)$/m);
                 const title      = titleMatch ? titleMatch[1] : parsed.data.title;
 
                 // Remove only the title from body
-                const cleanBody = bodyWithoutComments
+                const cleanBody = bodyContent
                     .replace(/^#\s+.+$/m, '') // Remove title
                     .trim();
 

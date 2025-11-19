@@ -4,14 +4,7 @@ import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig       from '../config.mjs';
 import logger         from '../logger.mjs';
-import {
-    ADD_COMMENT,
-    DEFAULT_QUERY_LIMITS,
-    FETCH_PULL_REQUESTS,
-    GET_CONVERSATION,
-    GET_PULL_REQUEST_ID,
-    UPDATE_COMMENT
-} from './queries/pullRequestQueries.mjs';
+import {ADD_COMMENT, FETCH_PULL_REQUESTS, GET_CONVERSATION, GET_PULL_REQUEST_ID, UPDATE_COMMENT} from './queries/pullRequestQueries.mjs';
 
 const execAsync = promisify(exec);
 
@@ -188,7 +181,7 @@ class PullRequestService extends Base {
             owner      : aiConfig.owner,
             repo       : aiConfig.repo,
             prNumber,
-            maxComments: DEFAULT_QUERY_LIMITS.maxComments
+            maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
         };
 
         try {

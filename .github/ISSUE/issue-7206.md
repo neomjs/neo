@@ -4,13 +4,14 @@ title: Initial Dashboard Drag & Drop
 state: OPEN
 labels:
   - enhancement
+  - stale
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:34:24Z'
-updatedAt: '2025-08-20T22:34:24Z'
+updatedAt: '2025-11-19T02:51:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7206'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
@@ -48,6 +49,12 @@ Implement the foundational (Phase 1) drag-and-drop reordering for the panels wit
 - Panels can be reordered within the viewport.
 - The new order is correctly applied when the drag operation is complete.
 
+## Comments
+
+### @github-actions - 2025-11-19 02:51
+
+This issue is stale because it has been open for 90 days with no activity.
+
 ## Activity Log
 
 - 2025-08-20 @tobiu assigned to @tobiu
@@ -60,4 +67,5 @@ Implement the foundational (Phase 1) drag-and-drop reordering for the panels wit
 - 2025-08-21 @tobiu referenced in commit `6e729a0` - "#7206 WIP"
 - 2025-08-21 @tobiu referenced in commit `5b1f960` - "#7206 WIP"
 - 2025-08-21 @tobiu referenced in commit `af84d7f` - "#7206 WIP"
+- 2025-11-19 @github-actions added the `stale` label
 

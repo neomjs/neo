@@ -346,9 +346,9 @@ class VdomLifecycle extends Base {
      * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
     async initVnode(mount) {
-        let me                            = this,
-            autoMount                     = mount || me.autoMount,
-            {app}                         = me,
+        let me        = this,
+            autoMount = mount || me.autoMount,
+            {app}     = me,
             {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
 
         if (unitTestMode && !allowVdomUpdatesInTests) return;
@@ -628,13 +628,14 @@ class VdomLifecycle extends Base {
             return
         }
 
-        if (Neo.config.unitTestMode && !Neo.config.allowVdomUpdatesInTests) {
+        let me                         = this,
+            {mounted, parentId, vnode} = me,
+            {config}                   = Neo;
+
+        if (config.unitTestMode && !config.allowVdomUpdatesInTests) {
             reject?.();
             return
         }
-
-        let me                         = this,
-            {mounted, parentId, vnode} = me;
 
         if (me.isVdomUpdating || !me.vnodeInitialized || me.silentVdomUpdate) {
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
@@ -671,7 +672,7 @@ class VdomLifecycle extends Base {
                     }
 
                     // Verify that the critical rendering path => CSS files for the new tree is in place
-                    if (!Neo.config.unitTestMode && currentWorker.countLoadingThemeFiles !== 0) {
+                    if (!config.isMiddleware && !config.unitTestMode && currentWorker.countLoadingThemeFiles !== 0) {
                         currentWorker.on('themeFilesLoaded', function() {
                             me.updateVdom(resolve, reject)
                         }, me, {once: true})

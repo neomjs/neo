@@ -104,13 +104,13 @@ const DefaultConfig = {
      */
     isGitHubPages: false,
     /**
-     * Flag for running the Neo main thread inside an iframe (Siesta Browser Harness)
+     * Flag for running Neo.mjs inside the middleware Node.js process.
      * @default false
      * @memberOf! module:Neo
-     * @name config.isInsideSiesta
+     * @name config.isMiddleware
      * @type Boolean
      */
-    isInsideSiesta: false,
+    isMiddleware: false,
     /**
      * delay in ms for the worker.Manager:loadApplication() call
      * @default 20
@@ -299,12 +299,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '11.5.0'
+     * @default '11.6.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '11.5.0'
+    version: '11.6.0'
 };
 
 Object.assign(DefaultConfig, {

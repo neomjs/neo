@@ -1,13 +1,13 @@
-import aiConfig                    from '../config.mjs';
-import Base                        from '../../../../../src/core/Base.mjs';
-import GraphqlService              from './GraphqlService.mjs';
-import logger                      from '../logger.mjs';
-import {exec}                      from 'child_process';
-import {promisify}                 from 'util';
-import {spawn}                     from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY} from './queries/issueQueries.mjs';
+import aiConfig          from '../config.mjs';
+import Base              from '../../../../../src/core/Base.mjs';
+import GraphqlService    from './GraphqlService.mjs';
+import RepositoryService from './RepositoryService.mjs';
+import logger            from '../logger.mjs';
+import {exec}            from 'child_process';
+import {promisify}       from 'util';
+import {spawn}           from 'child_process';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC} from './queries/issueQueries.mjs';
 import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID} from './queries/mutations.mjs';
-import RepositoryService           from './RepositoryService.mjs';
 
 const execAsync = promisify(exec);
 
@@ -345,13 +345,17 @@ class IssueService extends Base {
         const states = state ? (Array.isArray(state) ? state.map(s => s.toUpperCase()) : [state.toUpperCase()]) : undefined;
 
         const variables = {
-            owner     : aiConfig.owner,
-            repo      : aiConfig.repo,
+            owner           : aiConfig.owner,
+            repo            : aiConfig.repo,
             limit,
             cursor,
             states,
-            since     : null,
-            ...DEFAULT_QUERY_LIMITS
+            since           : null,
+            maxLabels       : aiConfig.issueSync.maxLabelsPerIssue,
+            maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue,
+            maxComments     : aiConfig.issueSync.maxCommentsPerIssue,
+            maxSubIssues    : aiConfig.issueSync.maxSubIssuesPerIssue,
+            maxTimelineItems: aiConfig.issueSync.maxTimelineItemsPerIssue
         };
 
         try {

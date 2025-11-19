@@ -545,7 +545,7 @@ class Store extends Base {
 
                 // Fallback for non-browser based envs like nodejs
                 if (globalThis.process?.release) {
-                    const { readFile } = await import('fs/promises');
+                    const { readFile } = await import(/* webpackIgnore: true */ 'fs/promises');
                     const content = await readFile(opts.url, 'utf-8');
                     data = {json: JSON.parse(content)};
                 } else {

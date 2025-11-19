@@ -1,5 +1,3 @@
-import aiConfig from '../../config.mjs';
-
 /**
  * GraphQL query definitions for GitHub Pull Requests.
  * @module Neo.ai.mcp.server.github-workflow.queries.pullRequestQueries
@@ -122,9 +120,4 @@ export const GET_CONVERSATION = `
   }
 `;
 
-/**
- * Default variable values for pull request queries.
- */
-export const DEFAULT_QUERY_LIMITS = {
-    maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
-};
+

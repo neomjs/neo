@@ -602,7 +602,7 @@ class Base {
         let {className, remote} = this,
             {currentWorker}     = Neo;
 
-        if (!Neo.config.unitTestMode) {
+        if (!Neo.config.isMiddleware && !Neo.config.unitTestMode) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
                 currentWorker.on('connected', () => {
                     Base.sendRemotes(className, remote)

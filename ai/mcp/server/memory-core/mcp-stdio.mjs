@@ -1,14 +1,42 @@
 import {Server}                                        from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import {Command}                                       from 'commander';
 import Neo                                             from '../../../../src/Neo.mjs';
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
 import Observable                                      from '../../../../src/core/Observable.mjs';
+import aiConfig                                        from './config.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import SessionService                                  from './services/SessionService.mjs';
 import logger                                          from './logger.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
+
+const program = new Command();
+
+program
+    .name('neo-memory-core-mcp')
+    .description('Neo.mjs Memory Core MCP Server')
+    .option('-c, --config <path>', 'Path to the configuration file')
+    .option('-d, --debug', 'Enable debug logging')
+    .parse(process.argv);
+
+const options = program.opts();
+
+// Apply debug flag
+if (options.debug) {
+    aiConfig.data.debug = true;
+}
+
+// Load custom configuration if provided
+if (options.config) {
+    try {
+        await aiConfig.load(options.config);
+    } catch (error) {
+        console.error('Failed to load configuration:', error);
+        process.exit(1);
+    }
+}
 
 const server = new Server({
     name: 'neo-memory-core',

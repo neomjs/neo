@@ -2,6 +2,7 @@ import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import SessionService           from './SessionService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
@@ -206,6 +207,9 @@ class HealthService extends Base {
         const payload = {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
+            session  : {
+                currentId: SessionService.currentSessionId
+            },
             database : {
                 process: DatabaseLifecycleService.getDatabaseStatus(),
                 connection: {
@@ -297,7 +301,7 @@ class HealthService extends Base {
      * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
      * to 'healthy'), we log a clear message so users know their fix worked.
      *
-     * @returns {Promise<object>} A health status payload
+     * @returns {Promise<object>} A health status payload with session information
      */
     async healthcheck() {
         const now = Date.now();
