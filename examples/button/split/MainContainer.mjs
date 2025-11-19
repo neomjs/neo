@@ -22,14 +22,14 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 300,
-            minValue  : 30,
-            stepSize  : 5,
-            value     : me.exampleComponent.height
+            module   : NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 300,
+            minValue : 30,
+            stepSize : 5,
+            value    : me.exampleComponent.height
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.hideTriggerButton,
@@ -37,17 +37,17 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'hideTriggerButton')},
             style    : {marginTop: '10px'}
         }, {
-            module    :  TextField, // todo: selectField with options
-            labelText : 'iconCls',
-            listeners : {change: me.onConfigChange.bind(me, 'iconCls')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.iconCls
+            module   : TextField, // todo: selectField with options
+            labelText: 'iconCls',
+            listeners: {change: me.onConfigChange.bind(me, 'iconCls')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.iconCls
         }, {
-            module    :  TextField, // todo: colorPickerField
-            clearable : true,
-            labelText : 'iconColor',
-            listeners : {change: me.onConfigChange.bind(me, 'iconColor')},
-            value     : me.exampleComponent.iconColor
+            module   : TextField, // todo: colorPickerField
+            clearable: true,
+            labelText: 'iconColor',
+            listeners: {change: me.onConfigChange.bind(me, 'iconColor')},
+            value    : me.exampleComponent.iconColor
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'top',
@@ -56,7 +56,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'top')},
             name          : 'iconPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'Top'
+            valueLabel    : 'Top'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'right',
@@ -64,7 +64,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'right')},
             name          : 'iconPosition',
-            valueLabelText: 'Right'
+            valueLabel    : 'Right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'bottom',
@@ -72,7 +72,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'bottom')},
             name          : 'iconPosition',
-            valueLabelText: 'Bottom'
+            valueLabel    : 'Bottom'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.iconPosition === 'left',
@@ -80,14 +80,14 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'left')},
             name          : 'iconPosition',
-            valueLabelText: 'Left'
+            valueLabel    : 'Left'
         }, {
-            module    :  TextField,
-            clearable : true,
-            labelText : 'text',
-            listeners : {change: me.onConfigChange.bind(me, 'text')},
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.text
+            module   : TextField,
+            clearable: true,
+            labelText: 'text',
+            listeners: {change: me.onConfigChange.bind(me, 'text')},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.text
         }, {
             module        : ComboBox,
             forceSelection: true,
@@ -105,14 +105,14 @@ class MainContainer extends ConfigurationViewport {
                 ]
             }
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            value     : me.exampleComponent.width
+            module   : NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 300,
+            minValue : 100,
+            stepSize : 5,
+            value    : me.exampleComponent.width
         }];
     }
 
@@ -124,13 +124,13 @@ class MainContainer extends ConfigurationViewport {
             ui     : 'ghost',
 
             handler: data => {
-                console.log('button click =>', data.component.id);
+                console.log('button click =>', data.component.id)
             },
 
             splitButtonHandler: data => {
-                console.log('split button click =>', data.component.id);
+                console.log('split button click =>', data.component.id)
             }
-        });
+        })
     }
 }
 

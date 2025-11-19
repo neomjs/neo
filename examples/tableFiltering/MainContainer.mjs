@@ -36,7 +36,7 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                valueLabelText: 'Show Filters',
+                valueLabel    : 'Show Filters',
 
                 listeners: {
                     change: function(opts) {

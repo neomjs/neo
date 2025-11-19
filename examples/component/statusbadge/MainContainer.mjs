@@ -145,7 +145,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'state', 'alert')},
             name          : 'state',
             style         : {marginTop: '20px'},
-            valueLabelText: 'alert'
+            valueLabel    : 'alert'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.state === 'error',
@@ -153,7 +153,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'state', 'error')},
             name          : 'state',
-            valueLabelText: 'error'
+            valueLabel    : 'error'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.state === 'info',
@@ -161,7 +161,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'state', 'info')},
             name          : 'state',
-            valueLabelText: 'info'
+            valueLabel    : 'info'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.state === 'neutral',
@@ -169,7 +169,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'state', 'neutral')},
             name          : 'state',
-            valueLabelText: 'neutral'
+            valueLabel    : 'neutral'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.state === 'success',
@@ -177,7 +177,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'state', 'success')},
             name          : 'state',
-            valueLabelText: 'success'
+            valueLabel    : 'success'
         }]
     }
 

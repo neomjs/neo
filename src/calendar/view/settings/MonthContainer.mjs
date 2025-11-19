@@ -38,7 +38,7 @@ class MonthContainer extends Container {
             labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'cm_dayNameFormat',
-            valueLabelText: 'narrow'
+            valueLabel    : 'narrow'
         }, {
             module        : RadioField,
             checked       : monthComponent.dayNameFormat === 'short',
@@ -50,7 +50,7 @@ class MonthContainer extends Container {
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'cm_dayNameFormat',
             style         : {marginTop: '5px'},
-            valueLabelText: 'short'
+            valueLabel    : 'short'
         }, {
             module        : RadioField,
             checked       : monthComponent.dayNameFormat === 'long',
@@ -62,7 +62,7 @@ class MonthContainer extends Container {
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'cm_dayNameFormat',
             style         : {marginTop: '5px'},
-            valueLabelText: 'long'
+            valueLabel    : 'long'
         }, {
             module        : RadioField,
             checked       : monthComponent.monthNameFormat === 'short',
@@ -74,7 +74,7 @@ class MonthContainer extends Container {
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'cm_monthNameFormat',
             style         : {marginTop: '10px'},
-            valueLabelText: 'short'
+            valueLabel    : 'short'
         }, {
             module        : RadioField,
             checked       : monthComponent.monthNameFormat === 'long',
@@ -86,7 +86,7 @@ class MonthContainer extends Container {
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'cm_monthNameFormat',
             style         : {marginTop: '5px'},
-            valueLabelText: 'long'
+            valueLabel    : 'long'
         }, {
             module        : CheckBoxField,
             checked       : monthComponent.useScrollBoxShadows,
@@ -96,7 +96,7 @@ class MonthContainer extends Container {
             listeners     : {change: me.onConfigChange, scope: me},
             name          : 'useScrollBoxShadows',
             style         : {marginTop: '10px'},
-            valueLabelText: 'useScrollBoxShadows'
+            valueLabel    : 'useScrollBoxShadows'
         }])
     }
 

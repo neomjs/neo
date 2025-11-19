@@ -153,10 +153,15 @@ class CheckBox extends Field {
          */
         value: true,
         /**
-         * @member {String|null} valueLabelText_=null
+         * The label text or VDOM to display next to the checkbox.
+         * Supports:
+         * - String: Renders as safe text (textContent).
+         * - Object: A single VDOM object (e.g. {tag: 'i', cls: 'fa fa-check'}).
+         * - Object[]: An array of VDOM objects.
+         * @member {Object|Object[]|String|null} valueLabel_=null
          * @reactive
          */
-        valueLabelText_: null,
+        valueLabel_: null,
         /**
          * @member {Object} _vdom
          */
@@ -405,17 +410,23 @@ class CheckBox extends Field {
 
     /**
      * Triggered after the valueLabel config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {Object|Object[]|String|null} value
+     * @param {Object|Object[]|String|null} oldValue
      * @protected
      */
-    afterSetValueLabelText(value, oldValue) {
+    afterSetValueLabel(value, oldValue) {
         let me         = this,
             valueLabel = me.vdom.cn[0].cn[3],
             showLabel  = !!value; // hide the label, in case value === null || value === ''
 
         if (showLabel) {
-            valueLabel.text = value
+            if (Neo.isString(value)) {
+                valueLabel.text = value;
+                delete valueLabel.cn
+            } else {
+                valueLabel.cn = Array.isArray(value) ? value : [value];
+                delete valueLabel.text
+            }
         }
 
         valueLabel.removeDom = !showLabel;

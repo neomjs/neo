@@ -27,7 +27,7 @@ class MainContainer extends ConfigurationViewport {
             hideLabel     : true,
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'disableSelection')},
-            valueLabelText: 'disableSelection'
+            valueLabel    : 'disableSelection'
         }, {
             module        : CheckBox,
             checked       : treeList.draggable,
@@ -35,7 +35,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'draggable')},
             style         : {marginTop: '10px'},
-            valueLabelText: 'draggable'
+            valueLabel    : 'draggable'
         }, {
             module        : CheckBox,
             checked       : treeList.dragZone?.leafNodesOnly || false,
@@ -43,7 +43,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onLeafNodesOnlyChange.bind(me)},
             style         : {marginTop: '10px'},
-            valueLabelText: 'DragZone.leafNodesOnly'
+            valueLabel    : 'DragZone.leafNodesOnly'
         }, {
             module   : NumberField,
             clearable: true,
@@ -61,7 +61,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
             style         : {marginTop: '10px'},
-            valueLabelText: 'sortable'
+            valueLabel    : 'sortable'
         }, {
             module   : NumberField,
             clearable: true,

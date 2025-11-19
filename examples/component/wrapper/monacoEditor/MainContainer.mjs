@@ -32,7 +32,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'blink')},
             name          : 'cursorBlinking',
             style         : {marginTop: '10px'},
-            valueLabelText: 'blink'
+            valueLabel    : 'blink'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.cursorBlinking === 'expand',
@@ -40,7 +40,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'expand')},
             name          : 'cursorBlinking',
-            valueLabelText: 'expand'
+            valueLabel    : 'expand'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.cursorBlinking === 'phase',
@@ -48,7 +48,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'phase')},
             name          : 'cursorBlinking',
-            valueLabelText: 'phase'
+            valueLabel    : 'phase'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.cursorBlinking === 'smooth',
@@ -56,7 +56,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'smooth')},
             name          : 'cursorBlinking',
-            valueLabelText: 'smooth'
+            valueLabel    : 'smooth'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.cursorBlinking === 'solid',
@@ -64,7 +64,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'cursorBlinking', 'solid')},
             name          : 'cursorBlinking',
-            valueLabelText: 'solid'
+            valueLabel    : 'solid'
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.domReadOnly,
@@ -79,7 +79,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'hc-black')},
             name          : 'editorTheme',
             style         : {marginTop: '10px'},
-            valueLabelText: 'hc-black'
+            valueLabel    : 'hc-black'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.editorTheme === 'hc-light',
@@ -87,7 +87,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'hc-light')},
             name          : 'editorTheme',
-            valueLabelText: 'hc-light'
+            valueLabel    : 'hc-light'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.editorTheme === 'vs',
@@ -95,7 +95,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'vs')},
             name          : 'editorTheme',
-            valueLabelText: 'vs'
+            valueLabel    : 'vs'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.editorTheme === 'vs-dark',
@@ -103,7 +103,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'editorTheme', 'vs-dark')},
             name          : 'editorTheme',
-            valueLabelText: 'vs-dark'
+            valueLabel    : 'vs-dark'
         }, {
             module   : NumberField,
             clearable: true,

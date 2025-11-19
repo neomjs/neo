@@ -85,7 +85,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onRadioChange.bind(me, 'triggerPosition', 'right')},
             name          : 'triggerPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'right'
+            valueLabel    : 'right'
         }, {
             module        : Radio,
             checked       : me.exampleComponent.triggerPosition === 'sides',
@@ -93,7 +93,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onRadioChange.bind(me, 'triggerPosition', 'sides')},
             name          : 'triggerPosition',
-            valueLabelText: 'sides'
+            valueLabel    : 'sides'
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.useSpinButtons,

@@ -46,36 +46,36 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             ...selectionModelRadioDefaults,
-            checked       : selectionModel.ntype === 'selection-grid-cellmodel',
-            labelText     : 'selectionModel',
-            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellModel)},
-            style         : {marginTop: '10px'},
-            valueLabelText: 'Cell'
+            checked   : selectionModel.ntype === 'selection-grid-cellmodel',
+            labelText : 'selectionModel',
+            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellModel)},
+            style     : {marginTop: '10px'},
+            valueLabel: 'Cell'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : selectionModel.ntype === 'selection-grid-columnmodel',
-            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', ColumnModel)},
-            valueLabelText: 'Column'
+            checked   : selectionModel.ntype === 'selection-grid-columnmodel',
+            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', ColumnModel)},
+            valueLabel: 'Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : selectionModel.ntype === 'selection-grid-rowmodel',
-            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', RowModel)},
-            valueLabelText: 'Row'
+            checked   : selectionModel.ntype === 'selection-grid-rowmodel',
+            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', RowModel)},
+            valueLabel: 'Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : selectionModel.ntype === 'selection-grid-cellcolumnmodel',
-            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnModel)},
-            valueLabelText: 'Cell & Column'
+            checked   : selectionModel.ntype === 'selection-grid-cellcolumnmodel',
+            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnModel)},
+            valueLabel: 'Cell & Column'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : selectionModel.ntype === 'selection-grid-cellrowmodel',
-            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellRowModel)},
-            valueLabelText: 'Cell & Row'
+            checked   : selectionModel.ntype === 'selection-grid-cellrowmodel',
+            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellRowModel)},
+            valueLabel: 'Cell & Row'
         }, {
             ...selectionModelRadioDefaults,
-            checked       : selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
-            listeners     : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnRowModel)},
-            valueLabelText: 'Cell & Column & Row'
+            checked   : selectionModel.ntype === 'selection-grid-cellcolumnrowmodel',
+            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnRowModel)},
+            valueLabel: 'Cell & Column & Row'
         }]
     }
 

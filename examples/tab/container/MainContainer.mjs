@@ -80,7 +80,7 @@ class MainContainer extends ConfigurationViewport {
             id            : 'reverseLayoutDirection',
             listeners     : {change: me.onLayoutSortDirectionChange.bind(me)},
             style         : {marginTop: '10px'},
-            valueLabelText: 'reversed layout sort-direction'
+            valueLabel    : 'reversed layout sort-direction'
         }, {
             module        : CheckBox,
             checked       : tabContainer.sortable,
@@ -88,7 +88,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
             style         : {marginTop: '10px'},
-            valueLabelText: 'sortable'
+            valueLabel    : 'sortable'
         }, {
             module        : Radio,
             checked       : tabContainer.tabBarPosition === 'top',
@@ -97,7 +97,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onTabBarPositionChange.bind(me, 'top')},
             name          : 'tabBarPosition',
             style         : {marginTop: '10px'},
-            valueLabelText: 'top'
+            valueLabel    : 'top'
         }, {
             module        : Radio,
             checked       : tabContainer.tabBarPosition === 'right',
@@ -105,7 +105,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onTabBarPositionChange.bind(me, 'right')},
             name          : 'tabBarPosition',
-            valueLabelText: 'right'
+            valueLabel    : 'right'
         }, {
             module        : Radio,
             checked       : tabContainer.tabBarPosition === 'bottom',
@@ -113,7 +113,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onTabBarPositionChange.bind(me, 'bottom')},
             name          : 'tabBarPosition',
-            valueLabelText: 'bottom'
+            valueLabel    : 'bottom'
         }, {
             module        : Radio,
             checked       : tabContainer.tabBarPosition === 'left',
@@ -121,7 +121,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onTabBarPositionChange.bind(me, 'left')},
             name          : 'tabBarPosition',
-            valueLabelText: 'left'
+            valueLabel    : 'left'
         }, {
             module   : NumberField,
             labelText: 'width',
@@ -138,7 +138,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'useActiveTabIndicator')},
             style         : {marginTop: '10px'},
-            valueLabelText: 'useActiveTabIndicator'
+            valueLabel    : 'useActiveTabIndicator'
         }, {
             module   : TextField, // todo: SelectField
             labelText: 'Tab 1 iconCls',
@@ -163,7 +163,7 @@ class MainContainer extends ConfigurationViewport {
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-left')},
             name          : 'badgePosition',
             style         : {marginTop: '50px'},
-            valueLabelText: 'bottom-left'
+            valueLabel    : 'bottom-left'
         }, {
             module        : Radio,
             checked       : me.getBadgeTabHeader().badgePosition === 'bottom-right',
@@ -171,7 +171,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'bottom-right')},
             name          : 'badgePosition',
-            valueLabelText: 'bottom-right'
+            valueLabel    : 'bottom-right'
         }, {
             module        : Radio,
             checked       : me.getBadgeTabHeader().badgePosition === 'top-left',
@@ -179,7 +179,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-left')},
             name          : 'badgePosition',
-            valueLabelText: 'top-left'
+            valueLabel    : 'top-left'
         }, {
             module        : Radio,
             checked       : me.getBadgeTabHeader().badgePosition === 'top-right',
@@ -187,7 +187,7 @@ class MainContainer extends ConfigurationViewport {
             labelText     : '',
             listeners     : {change: me.onBadgeRadioChange.bind(me, 'badgePosition', 'top-right')},
             name          : 'badgePosition',
-            valueLabelText: 'top-right'
+            valueLabel    : 'top-right'
         }, {
             module   : TextField,
             labelText: 'badgeText',

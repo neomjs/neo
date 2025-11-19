@@ -234,7 +234,7 @@ class Viewport extends BaseViewport {
                 hideValueLabel: false,
                 listeners     : {change: 'onLogDeltasCheckboxChange'},
                 style         : {marginLeft: '10px', marginTop: '10px'},
-                valueLabelText: 'logDeltaUpdates'
+                valueLabel    : 'logDeltaUpdates'
             }, {
                 ntype: 'label',
                 html : [
