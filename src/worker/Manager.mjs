@@ -232,20 +232,15 @@ class Manager extends Base {
 
             let workerConfig = {...config, windowId};
 
-            if (ssrData) {
-                workerConfig.useSSR = true;
+            if (ssrData && key === 'app') {
+                Object.assign(workerConfig, {
+                    cssMap : ssrData.cssMap,
+                    useSSR: true,
+                    vnode : ssrData.vnode
+                });
 
-                switch (key) {
-                    case 'app':
-                        workerConfig.cssMap = ssrData.cssMap;
-                        workerConfig.vnode  = ssrData.vnode;
-                        if (ssrData.hash) {
-                            workerConfig.hash = ssrData.hash;
-                        }
-                        break;
-                    case 'vdom':
-                        workerConfig.idCounter = ssrData.idCounter;
-                        break;
+                if (ssrData.hash) {
+                    workerConfig.hash = ssrData.hash;
                 }
             }
 
