@@ -1,14 +1,15 @@
 ---
 id: 7801
 title: Refactor services to use config directly instead of DEFAULT_QUERY_LIMITS
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-19T10:00:17Z'
-updatedAt: '2025-11-19T10:00:17Z'
+updatedAt: '2025-11-19T10:09:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7801'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T10:09:35Z'
 ---
 # Refactor services to use config directly instead of DEFAULT_QUERY_LIMITS
 
@@ -36,4 +38,7 @@ The `config.mjs` file should be the single source of truth used directly by the 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label
 - 2025-11-19 @tobiu added the `refactoring` label
+- 2025-11-19 @tobiu assigned to @tobiu
+- 2025-11-19 @tobiu referenced in commit `669f85f` - "Refactor services to use config directly instead of DEFAULT_QUERY_LIMITS #7801"
+- 2025-11-19 @tobiu closed this issue
 
