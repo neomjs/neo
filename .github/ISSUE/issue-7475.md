@@ -1,7 +1,7 @@
 ---
 id: 7475
 title: Create Component Test Plans (Hacktoberfest Cookbook)
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -11,19 +11,20 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-13T20:41:47Z'
-updatedAt: '2025-10-13T20:41:47Z'
+updatedAt: '2025-11-19T14:00:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7475'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - 7476
   - 7488
   - 7489
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T14:00:20Z'
 ---
 # Create Component Test Plans (Hacktoberfest Cookbook)
 
@@ -169,6 +170,12 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - [ ] **Styling States:** Test that `.neo-focus` and `.neo-hovered` classes are applied correctly on user interaction.
 ```
 
+## Comments
+
+### @tobiu - 2025-11-19 14:00
+
+closing the ticket, since resolved.
+
 ## Activity Log
 
 - 2025-10-13 @tobiu assigned to @tobiu
@@ -185,4 +192,5 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - 2025-10-14 @ritikrikm cross-referenced by PR #7490
 - 2025-10-24 @tobiu cross-referenced by PR #7548
 - 2025-10-27 @ad1tyayadav cross-referenced by PR #7676
+- 2025-11-19 @tobiu closed this issue
 

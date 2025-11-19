@@ -4,11 +4,11 @@ title: 'Phase 1: Foundational Sorting'
 state: OPEN
 labels:
   - enhancement
-  - stale
+  - no auto close
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:04:45Z'
-updatedAt: '2025-11-19T02:51:53Z'
+updatedAt: '2025-11-19T14:01:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7202'
 author: tobiu
 commentsCount: 1
@@ -49,4 +49,6 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-20 @tobiu referenced in commit `f9a9947` - "#7202 draggable.container.DragZone, draggable.container.SortZone"
 - 2025-08-20 @tobiu referenced in commit `81579aa` - "#7202 Colors.view.Viewport: using 3 panels as wrappers (drag handles)"
 - 2025-11-19 @github-actions added the `stale` label
+- 2025-11-19 @tobiu removed the `stale` label
+- 2025-11-19 @tobiu added the `no auto close` label
 

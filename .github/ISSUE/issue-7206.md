@@ -4,11 +4,11 @@ title: Initial Dashboard Drag & Drop
 state: OPEN
 labels:
   - enhancement
-  - stale
+  - no auto close
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:34:24Z'
-updatedAt: '2025-11-19T02:51:49Z'
+updatedAt: '2025-11-19T14:02:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7206'
 author: tobiu
 commentsCount: 1
@@ -68,4 +68,6 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-21 @tobiu referenced in commit `5b1f960` - "#7206 WIP"
 - 2025-08-21 @tobiu referenced in commit `af84d7f` - "#7206 WIP"
 - 2025-11-19 @github-actions added the `stale` label
+- 2025-11-19 @tobiu removed the `stale` label
+- 2025-11-19 @tobiu added the `no auto close` label
 

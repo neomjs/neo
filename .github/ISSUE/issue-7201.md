@@ -5,11 +5,11 @@ state: OPEN
 labels:
   - enhancement
   - epic
-  - stale
+  - no auto close
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:03:47Z'
-updatedAt: '2025-11-19T02:51:55Z'
+updatedAt: '2025-11-19T14:01:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7201'
 author: tobiu
 commentsCount: 1
@@ -67,4 +67,6 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-20 @tobiu referenced in commit `01020b6` - "Dashboard Drag & Drop #7201: epic md file"
 - 2025-08-21 @tobiu referenced in commit `57a5d97` - "#7201 switched drag-handles back to cursor pointer (important for e.g. tab header buttons)"
 - 2025-11-19 @github-actions added the `stale` label
+- 2025-11-19 @tobiu removed the `stale` label
+- 2025-11-19 @tobiu added the `no auto close` label
 

@@ -4,11 +4,11 @@ title: 'Phase 4: Framework-Level Dashboard Abstraction'
 state: OPEN
 labels:
   - enhancement
-  - stale
+  - no auto close
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:06:37Z'
-updatedAt: '2025-11-19T02:51:51Z'
+updatedAt: '2025-11-19T14:02:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7205'
 author: tobiu
 commentsCount: 1
@@ -46,4 +46,6 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added the `enhancement` label
 - 2025-11-19 @github-actions added the `stale` label
+- 2025-11-19 @tobiu removed the `stale` label
+- 2025-11-19 @tobiu added the `no auto close` label
 
