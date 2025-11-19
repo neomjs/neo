@@ -112,6 +112,14 @@ const DefaultConfig = {
      */
     isInsideSiesta: false,
     /**
+     * Flag for running Neo.mjs inside the middleware Node.js process.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.isMiddleware
+     * @type Boolean
+     */
+    isMiddleware: false,
+    /**
      * delay in ms for the worker.Manager:loadApplication() call
      * @default 20
      * @memberOf! module:Neo
