@@ -1,14 +1,15 @@
 ---
 id: 7805
 title: Add CLI argument parsing and Config refactoring to Knowledge Base MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-19T11:20:50Z'
-updatedAt: '2025-11-19T11:20:50Z'
+updatedAt: '2025-11-19T11:25:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7805'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-19T11:25:48Z'
 ---
 # Add CLI argument parsing and Config refactoring to Knowledge Base MCP Server
 
@@ -42,4 +44,7 @@ Standardize the configuration and startup logic across all three MCP servers (Gi
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label
 - 2025-11-19 @tobiu added the `refactoring` label
+- 2025-11-19 @tobiu assigned to @tobiu
+- 2025-11-19 @tobiu referenced in commit `bfa75e8` - "Add CLI argument parsing and Config refactoring to Knowledge Base MCP Server #7805"
+- 2025-11-19 @tobiu closed this issue
 
