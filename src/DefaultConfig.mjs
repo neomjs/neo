@@ -104,14 +104,6 @@ const DefaultConfig = {
      */
     isGitHubPages: false,
     /**
-     * Flag for running the Neo main thread inside an iframe (Siesta Browser Harness)
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.isInsideSiesta
-     * @type Boolean
-     */
-    isInsideSiesta: false,
-    /**
      * Flag for running Neo.mjs inside the middleware Node.js process.
      * @default false
      * @memberOf! module:Neo
