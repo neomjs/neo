@@ -47,7 +47,7 @@ const defaultConfig = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(process.cwd(), 'chroma-memory'),
+        path: path.resolve(process.cwd(), 'chroma-neo-memory-core'),
         /**
          * The path to store memory backups.
          * @type {string}
