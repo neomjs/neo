@@ -5,7 +5,7 @@ import logger                      from '../logger.mjs';
 import {exec}                      from 'child_process';
 import {promisify}                 from 'util';
 import {spawn}                     from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY} from './queries/issueQueries.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC, DEFAULT_QUERY_LIMITS} from './queries/issueQueries.mjs';
 import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID} from './queries/mutations.mjs';
 import RepositoryService           from './RepositoryService.mjs';
 
