@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "11.6.1",
+    "version"    : "11.7.0",
     "description": "Neo.mjs: The AI-native web platform for building ultra-fast, desktop-like web applications. It features a truly multi-threaded architecture, an enterprise-grade component library, and a zero-builds development mode. Architected for AI collaboration from the ground up, it includes three dedicated Model Context Protocol (MCP) servers.",
     "type"       : "module",
     "repository": {
