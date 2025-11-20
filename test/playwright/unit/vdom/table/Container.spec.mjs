@@ -1,13 +1,18 @@
+import {setup} from '../../../setup.mjs';
+
+// Call setup with the specific configuration for this test file
+setup({
+    neoConfig: {
+        useDomApiRenderer: false
+    }
+});
+
 import {test, expect}  from '@playwright/test';
-import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 import Neo             from '../../../../../src/Neo.mjs';
 import StringFromVnode from '../../../../../src/vdom/util/StringFromVnode.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 
 test.describe('vdom/table/Container', () => {
-    test.beforeAll(() => {
-        Neo.config.useDomApiRenderer = false;
-    });
-
     let deltas, output, vdom, vnode;
 
     test('Remove all Table Rows', () => {
