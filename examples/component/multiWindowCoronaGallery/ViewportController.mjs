@@ -73,7 +73,7 @@ class ViewportController extends Controller {
             {appName} = data;
 
         if (appName === 'GalleryControls') {
-            let {mainView} = Neo.apps[appName];
+            let {mainView} = Neo.apps[data.windowId];
 
             me.connectedApps.push(appName);
 

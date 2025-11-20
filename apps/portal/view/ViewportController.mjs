@@ -165,7 +165,7 @@ class ViewportController extends Controller {
      */
     async onAppConnect(data) {
         let {appName, windowId} = data,
-            app                 = Neo.apps[appName],
+            app                 = Neo.apps[windowId],
             mainView            = app.mainView;
 
         if (appName === 'PortalPreview') {
@@ -192,7 +192,7 @@ class ViewportController extends Controller {
      */
     async onAppDisconnect(data) {
         let {appName, windowId} = data,
-            app                 = Neo.apps[appName],
+            app                 = Neo.apps[windowId],
             mainView            = app.mainView;
 
         // Closing a code preview window needs to drop the preview back into the related main app

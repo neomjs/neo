@@ -74,7 +74,7 @@ class ViewportController extends Controller {
 
         if (appName === 'HelixControls') {
             let controlsPanel = me.getReference('controls-panel'),
-                {mainView}    = Neo.apps[appName];
+                {mainView}    = Neo.apps[data.windowId];
 
             me.connectedApps.push(appName);
 
