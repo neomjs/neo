@@ -5,6 +5,7 @@ import crypto                   from 'crypto';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import HealthService            from './HealthService.mjs';
+import Json                     from '../../../../../src/util/Json.mjs';
 import logger                   from '../logger.mjs';
 
 /**
@@ -166,7 +167,7 @@ Analyze the following development session and provide a structured summary in JS
 - "complexity": (Number) A score from 0-100 rating the task's complexity based on factors like file touchpoints, depth of changes (core vs. app-level), and cognitive load. A simple typo fix is < 10. A deep refactoring of a core module is > 90.
 - "technologies": (String[]) An array of key technologies, frameworks, or libraries involved (e.g., "neo.mjs", "chromadb", "nodejs").
 
-Do not include any markdown formatting (e.g., \`json) in your response.
+Critical: Do not include any markdown formatting (e.g., \`json) in your response.
 
 ---
 
@@ -174,14 +175,13 @@ ${aggregatedContent}
 `;
 
         const result       = await this.model.generateContent(summaryPrompt);
-        let   responseText = result.response.text().trim();
+        const responseText = result.response.text();
+        const summaryData  = Json.extract(responseText);
 
-        // Strip markdown code block delimiters if present
-        if (responseText.startsWith('```')) {
-            responseText = responseText.replace(/^```(?:json)?\s+/, '').replace(/\s+```$/, '');
+        if (!summaryData) {
+             logger.warn(`Failed to parse summary for session ${sessionId}`);
+             return null;
         }
-
-        const summaryData  = JSON.parse(responseText);
 
         const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
 

@@ -1,14 +1,14 @@
 ---
 id: 7825
 title: Fix JSON parsing in SessionService summarization
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-20T19:38:50Z'
-updatedAt: '2025-11-20T19:39:05Z'
+updatedAt: '2025-11-20T19:49:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7825'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-20T19:49:56Z'
 ---
 # Fix JSON parsing in SessionService summarization
 
@@ -36,4 +37,7 @@ Strip Markdown code block delimiters from the response text before calling `JSON
 - 2025-11-20 @tobiu added the `bug` label
 - 2025-11-20 @tobiu added the `ai` label
 - 2025-11-20 @tobiu assigned to @tobiu
+- 2025-11-20 @tobiu referenced in commit `fa76c18` - "Fix JSON parsing in SessionService summarization #7825"
+- 2025-11-20 @tobiu closed this issue
+- 2025-11-20 @tobiu cross-referenced by #7826
 
