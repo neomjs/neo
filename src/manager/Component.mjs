@@ -280,7 +280,7 @@ class Component extends Manager {
      */
     getFirst(componentDescription, returnFirstMatch = true) {
         let objects = [],
-            app     = Neo.apps[Object.keys(Neo.apps)[0]],
+            app     = Object.values(Neo.apps)[0],
             root    = app.mainView;
 
         /* create an array of objects from string */

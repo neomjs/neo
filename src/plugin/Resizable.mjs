@@ -192,7 +192,7 @@ class Resizable extends Plugin {
      *
      */
     addBodyCursorCls() {
-        Neo.applyDeltas(this.appName, {
+        Neo.applyDeltas(this.windowId, {
             id : 'document.body',
             cls: {
                 add   : [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`],
@@ -562,7 +562,7 @@ class Resizable extends Plugin {
      *
      */
     removeBodyCursorCls() {
-        Neo.applyDeltas(this.appName, {
+        Neo.applyDeltas(this.windowId, {
             id : 'document.body',
             cls: {
                 add   : [],

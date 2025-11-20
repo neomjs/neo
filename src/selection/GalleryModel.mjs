@@ -57,7 +57,7 @@ class GalleryModel extends Model {
 
         me.items.splice(0, me.items.length);
 
-        Neo.applyDeltas(view.appName, deltas).then(() => {
+        Neo.applyDeltas(view.windowId, deltas).then(() => {
             me.fire('selectionChange', me.items, oldItems)
         })
     }
@@ -259,7 +259,7 @@ class GalleryModel extends Model {
         NeoArray['add'](items, itemId);
 
         if (deltas.length > 0 && view.mounted) {
-            Neo.applyDeltas(view.appName, deltas).then(() => {
+            Neo.applyDeltas(view.windowId, deltas).then(() => {
                 view.onSelect?.(items);
                 me.fire('selectionChange', items, oldItems)
             })

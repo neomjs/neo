@@ -118,7 +118,8 @@ class Abstract extends Base {
      * @returns {Neo.controller.Application|null}
      */
     get app() {
-        return Neo.apps[this.appName] || null
+        // We need Neo.appsByName as a fallback for Playwright-based unit testing
+        return Neo.apps[this.windowId] || Neo.appsByName[this.appName]?.[0] || null
     }
 
     /**

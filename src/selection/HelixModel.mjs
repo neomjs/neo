@@ -57,7 +57,7 @@ class HelixModel extends Model {
 
         me.items.splice(0, me.items.length);
 
-        Neo.applyDeltas(view.appName, deltas).then(() => {
+        Neo.applyDeltas(view.windowId, deltas).then(() => {
             me.fire('selectionChange', me.items, oldItems)
         })
     }
@@ -266,11 +266,7 @@ class HelixModel extends Model {
 
         // console.log('select', itemId, isSelected, items);
 
-        view.mounted && Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: view.appName,
-            deltas
-        }).then(() => {
+        view.mounted && Neo.applyDeltas(view.windowId, deltas).then(() => {
             view.onSelect?.(items);
             me.fire('selectionChange', items, oldItems);
         });

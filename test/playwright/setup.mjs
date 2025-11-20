@@ -33,7 +33,8 @@ export function setup(options = {}) {
 
     const defaultNeoConfig = {
         environment : 'development',
-        unitTestMode: true
+        unitTestMode: true,
+        windowId    : 1
     };
 
     Object.assign(Neo.config, defaultNeoConfig);
@@ -45,6 +46,9 @@ export function setup(options = {}) {
         vnodeInitialising: false
     };
 
-    Neo.apps ??= [];
-    Neo.apps[appConfig.name] = { ...defaultAppConfig, ...appConfig };
+    const finalAppConfig = { ...defaultAppConfig, ...appConfig };
+
+    Neo.apps ??= {};
+    Neo.apps[appConfig.windowId || 1] = finalAppConfig;
+    Neo.appsByName = {[finalAppConfig.name]: [finalAppConfig]};
 }

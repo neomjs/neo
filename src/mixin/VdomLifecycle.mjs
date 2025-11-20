@@ -245,7 +245,7 @@ class VdomLifecycle extends Base {
 
                 // When not using a VdomWorker, we need to apply the deltas inside the App worker
                 if (!Neo.config.useVdomWorker && data.deltas?.length > 0) {
-                    await Neo.applyDeltas(me.appName, data.deltas)
+                    await Neo.applyDeltas(me.windowId, data.deltas)
                 }
 
                 me.isVdomUpdating = false;

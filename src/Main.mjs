@@ -321,7 +321,9 @@ class Main extends core.Base {
      * @param {Object} data
      */
     onUpdateDom(data) {
-        this.queueUpdate(data)
+        if (!data.windowId || data.windowId === WorkerManager.windowId) {
+            this.queueUpdate(data)
+        }
     }
 
     /**

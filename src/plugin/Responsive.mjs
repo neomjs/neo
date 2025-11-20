@@ -102,14 +102,14 @@ class Responsive extends Plugin {
      */
     handleBodyCls() {
         const
-            me        = this,
-            {appName} = me.owner,
-            apps      = Neo.Responsive;
+            me         = this,
+            {windowId} = me.owner,
+            apps       = Neo.Responsive;
 
-        if (!apps[appName]?.activeBodyUpdate) {
+        if (!apps[windowId]?.activeBodyUpdate) {
             const viewport = Neo.first('viewport'); // todo
 
-            apps[appName] = {
+            apps[windowId] = {
                 appId           : viewport.id,
                 activeBodyUpdate: true
             };

@@ -95,7 +95,7 @@ class ViewportController extends Controller {
     async onAppConnect(data) {
         if (data.appName === 'ColorsWidget') {
             let me           = this,
-                app          = Neo.apps[data.appName],
+                app          = Neo.apps[data.windowId],
                 mainView     = app.mainView,
                 {windowId}   = data,
                 url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),

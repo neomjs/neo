@@ -730,8 +730,8 @@ class Component extends BaseComponent {
     onFocusChange(data) {
         let {oldPath, path} = data;
 
-        oldPath?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
-        path   ?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.appName, {id: path[0]   .id, cls: {add:    ['neo-focus']}})
+        oldPath?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.windowId, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+        path   ?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.windowId, {id: path[0]   .id, cls: {add:    ['neo-focus']}})
     }
 
     /**

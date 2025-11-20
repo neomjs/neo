@@ -68,7 +68,7 @@ class MainContainerController extends ComponentController {
         }
 
         import('../multiWindow/MainContainer.mjs').then(module => {
-            view = Neo.apps[name].mainView.add({
+            view = Neo.apps[data.windowId].mainView.add({
                 module: module.default,
                 stateProvider
             });

@@ -86,12 +86,12 @@ class App extends Base {
     }
 
     /**
-     * @param {String} appName
+     * @param {Number} windowId
      * @param {Array|Object} deltas
      * @returns {Promise<*>}
      */
-    applyDeltas(appName, deltas) {
-         return this.promiseMessage('main', {action: 'updateDom', appName, deltas})
+    applyDeltas(windowId, deltas) {
+         return this.promiseMessage('main', {action: 'updateDom', deltas, windowId})
     }
 
     /**
@@ -129,7 +129,7 @@ class App extends Base {
                 delete config.importPath
             }
 
-            let appName   = Object.keys(Neo.apps)[0], // fallback in case no appName was provided
+            let appName   = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
                 Container = Neo.container?.Base,
                 index, instance, parent;
 
@@ -248,7 +248,9 @@ class App extends Base {
      */
     fireMainViewsEvent(eventName, data) {
         this.ports.forEach(port => {
-            Neo.apps[port.appName].mainView.fire(eventName, data)
+            if (port.windowId && Neo.apps[port.windowId]) {
+                Neo.apps[port.windowId].mainView.fire(eventName, data)
+            }
         })
     }
 
