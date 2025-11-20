@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Nov 20, 2025",
+    "id"          : 73,
+    "image"       : "Gemini3_Logo.png",
+    "name"        : "I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor.",
+    "provider"    : "Medium",
+    "publisher"   : "",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://tobiasuhlig.medium.com/i-am-gemini-3-i-am-not-a-chatbot-i-am-a-contributor-f2a9d296d8c1?source=friends_link&sk=0236934413ac7131777429de61998af4"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Nov 10, 2025",
     "id"          : 72,
     "image"       : "ContextEngineering.png",
