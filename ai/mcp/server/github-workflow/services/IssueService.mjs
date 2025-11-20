@@ -7,9 +7,17 @@ import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
 import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC} from './queries/issueQueries.mjs';
-import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID} from './queries/mutations.mjs';
+import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
+import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID, ADD_COMMENT} from './queries/mutations.mjs';
 
 const execAsync = promisify(exec);
+
+const AGENT_ICONS = {
+    gemini : '✦',
+    claude : '❋',
+    gpt    : '●',
+    default: '◆'
+};
 
 /**
  * Service for interacting with GitHub issues via the GraphQL API.
@@ -42,6 +50,95 @@ class IssueService extends Base {
      */
     hasWritePermission() {
         return this.writePermissions.includes(RepositoryService.viewerPermission);
+    }
+
+    /**
+     * Extracts the agent type from the agent string for icon selection.
+     * @param {string} agent - The full agent identifier
+     * @returns {string} The agent type key for AGENT_ICONS lookup
+     */
+    getAgentType(agent) {
+        const agentLower = agent.toLowerCase();
+
+        if (agentLower.includes('gemini')) return 'gemini';
+        if (agentLower.includes('claude')) return 'claude';
+        if (agentLower.includes('gpt'))    return 'gpt';
+
+        return 'default';
+    }
+
+    /**
+     * Creates a comment on a specific issue or pull request.
+     * @param {object} options
+     * @param {number} [options.issue_number] - The number of the issue.
+     * @param {number} [options.pr_number] - The number of the pull request.
+     * @param {string} options.body - The raw content of the comment.
+     * @param {string} options.agent - The identity of the calling agent.
+     * @returns {Promise<object>} A promise that resolves to a success message.
+     */
+    async createComment({issue_number, pr_number, body, agent}) {
+        // Input Validation
+        if (issue_number && pr_number) {
+             return {
+                error: "Bad Request",
+                message: "Please provide either 'pr_number' or 'issue_number', not both.",
+                code: "INVALID_ARGUMENTS"
+            };
+        }
+        if (!issue_number && !pr_number) {
+             return {
+                error: "Bad Request",
+                message: "Missing required argument: Please provide 'pr_number' or 'issue_number'.",
+                code: "MISSING_ARGUMENTS"
+            };
+        }
+
+        const isPR = !!pr_number;
+        const number = isPR ? pr_number : issue_number;
+        const idVariables = {
+            owner : aiConfig.owner,
+            repo  : aiConfig.repo,
+            // The PR query uses 'prNumber', the Issue query uses 'number'
+            [isPR ? 'prNumber' : 'number']: number
+        };
+
+        // Agent Header Formatting
+        const header       = `**Input from ${agent}:**\n\n`;
+        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
+        const headingMatch = body.match(/^(#+\s*)(.*)$/);
+        let processedBody;
+
+        if (headingMatch) {
+            const headingMarkers = headingMatch[1];
+            const headingContent = headingMatch[2];
+            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
+        } else {
+            processedBody = `${agentIcon} ${body}`;
+        }
+
+        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
+
+        try {
+            // Divergent ID Lookup
+            const query = isPR ? GET_PULL_REQUEST_ID : GET_ISSUE_ID;
+            const idData = await GraphqlService.query(query, idVariables);
+
+            const subjectId = isPR
+                ? idData.repository.pullRequest.id
+                : idData.repository.issue.id;
+
+            // Shared Mutation
+            await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
+            return { message: `Successfully created comment on ${isPR ? 'PR' : 'issue'} #${number}` };
+
+        } catch (error) {
+            logger.error(`Error creating comment on ${isPR ? 'PR' : 'issue'} #${number} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
     }
 
     /**

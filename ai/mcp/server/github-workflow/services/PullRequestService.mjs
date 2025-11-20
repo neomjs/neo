@@ -1,19 +1,13 @@
-import {exec}         from 'child_process';
-import {promisify}    from 'util';
-import Base           from '../../../../../src/core/Base.mjs';
-import GraphqlService from './GraphqlService.mjs';
-import aiConfig       from '../config.mjs';
-import logger         from '../logger.mjs';
-import {ADD_COMMENT, FETCH_PULL_REQUESTS, GET_CONVERSATION, GET_PULL_REQUEST_ID, UPDATE_COMMENT} from './queries/pullRequestQueries.mjs';
+import {exec}                                  from 'child_process';
+import {promisify}                             from 'util';
+import Base                                    from '../../../../../src/core/Base.mjs';
+import GraphqlService                          from './GraphqlService.mjs';
+import aiConfig                                from '../config.mjs';
+import logger                                  from '../logger.mjs';
+import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
+import {UPDATE_COMMENT}                        from './queries/mutations.mjs';
 
 const execAsync = promisify(exec);
-
-const AGENT_ICONS = {
-    gemini : '✦',
-    claude : '❋',
-    gpt    : '●',
-    default: '◆'
-};
 
 /**
  * Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
@@ -89,21 +83,6 @@ class PullRequestService extends Base {
     }
 
     /**
-     * Extracts the agent type from the agent string for icon selection.
-     * @param {string} agent - The full agent identifier (e.g., "Gemini 2.5 Pro", "Claude Sonnet 4.5", "Chat GPT 4")
-     * @returns {string} The agent type key for AGENT_ICONS lookup
-     */
-    getAgentType(agent) {
-        const agentLower = agent.toLowerCase();
-
-        if (agentLower.includes('gemini')) return 'gemini';
-        if (agentLower.includes('claude')) return 'claude';
-        if (agentLower.includes('gpt'))    return 'gpt';
-
-        return 'default';
-    }
-
-    /**
      * Gets the diff for a specific pull request.
      * @param {number} prNumber - The number of the pull request.
      * @returns {Promise<string|object>} A promise that resolves to the diff text or a structured error.
@@ -118,55 +97,6 @@ class PullRequestService extends Base {
                 error  : 'GitHub CLI command failed',
                 message: `gh pr diff ${prNumber} failed with exit code ${error.code}`,
                 code   : 'GH_CLI_ERROR'
-            };
-        }
-    }
-
-    /**
-     * Creates a comment on a specific pull request.
-     * @param {number} prNumber - The number of the pull request.
-     * @param {string} body     - The raw content of the comment. The agent should provide
-     *                            any desired markdown formatting (e.g., blockquotes, code blocks).
-     *                            This tool will only add the agent header and icon prefix.
-     * @param {string} agent    - The identity of the calling agent (e.g., "Gemini 2.5 Pro", "Claude Sonnet 4.5").
-     *                            Adds a formatted header with the appropriate icon.
-     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
-     */
-    async createComment(prNumber, body, agent) {
-        const idVariables = {
-            owner   : aiConfig.owner,
-            repo    : aiConfig.repo,
-            prNumber
-        };
-
-        const header       = `**Input from ${agent}:**\n\n`;
-        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
-        const headingMatch = body.match(/^(#+\s*)(.*)$/);
-        let processedBody;
-
-        if (headingMatch) {
-            const headingMarkers = headingMatch[1];
-            const headingContent = headingMatch[2];
-            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
-        } else {
-            processedBody = `${agentIcon} ${body}`;
-        }
-
-        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
-
-        try {
-            const idData    = await GraphqlService.query(GET_PULL_REQUEST_ID, idVariables);
-            const subjectId = idData.repository.pullRequest.id;
-
-            await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
-            return { message: `Successfully created comment on PR #${prNumber}` };
-
-        } catch (error) {
-            logger.error(`Error creating comment on PR #${prNumber} via GraphQL:`, error);
-            return {
-                error  : 'GraphQL API request failed',
-                message: error.message,
-                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }

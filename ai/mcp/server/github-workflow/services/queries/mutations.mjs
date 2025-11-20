@@ -221,3 +221,42 @@ export const REMOVE_BLOCKED_BY = `
         }
     }
 `;
+
+/**
+ * Mutation to add a comment to a subject (issue or PR).
+ *
+ * Variables required:
+ * - $subjectId: ID! - The global ID of the issue or PR
+ * - $body: String! - The comment body
+ */
+export const ADD_COMMENT = `
+  mutation AddComment($subjectId: ID!, $body: String!) {
+    addComment(input: {subjectId: $subjectId, body: $body}) {
+      commentEdge {
+        node {
+          id
+          url
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Mutation to update an existing comment.
+ *
+ * Variables required:
+ * - $commentId: ID! - The global ID of the comment to update
+ * - $body: String! - The new comment body
+ */
+export const UPDATE_COMMENT = `
+  mutation UpdateComment($commentId: ID!, $body: String!) {
+    updateIssueComment(input: {id: $commentId, body: $body}) {
+      issueComment {
+        id
+        url
+        updatedAt
+      }
+    }
+  }
+`;
