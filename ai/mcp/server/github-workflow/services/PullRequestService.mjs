@@ -30,6 +30,70 @@ class PullRequestService extends Base {
     }
 
     /**
+     * Checks out a specific pull request locally.
+     * @param {number} prNumber - The number of the pull request to check out.
+     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
+     */
+    async checkoutPullRequest(prNumber) {
+        try {
+            const {stdout} = await execAsync(`gh pr checkout ${prNumber}`);
+            return {message: `Successfully checked out PR #${prNumber}`, details: stdout.trim()};
+        } catch (error) {
+            logger.error(`Error checking out PR #${prNumber}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
+                code   : 'GH_CLI_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Gets the full conversation for a specific pull request.
+     * @param {number} prNumber - The number of the pull request.
+     * @returns {Promise<object>} A promise that resolves to the conversation data or a structured error.
+     */
+    async getConversation(prNumber) {
+        const variables = {
+            owner      : aiConfig.owner,
+            repo       : aiConfig.repo,
+            prNumber,
+            maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
+        };
+
+        try {
+            const data = await GraphqlService.query(GET_CONVERSATION, variables);
+            return data.repository.pullRequest;
+        } catch (error) {
+            logger.error(`Error getting conversation for PR #${prNumber} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Gets the diff for a specific pull request.
+     * @param {number} prNumber - The number of the pull request.
+     * @returns {Promise<string|object>} A promise that resolves to the diff text or a structured error.
+     */
+    async getPullRequestDiff(prNumber) {
+        try {
+            const {stdout} = await execAsync(`gh pr diff ${prNumber}`);
+            return { result: stdout };
+        } catch (error) {
+            logger.error(`Error getting diff for PR #${prNumber}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `gh pr diff ${prNumber} failed with exit code ${error.code}`,
+                code   : 'GH_CLI_ERROR'
+            };
+        }
+    }
+
+    /**
      * Fetches a list of pull requests from GitHub.
      * @param {object} [options] - The options for listing pull requests.
      * @param {number} [options.limit=30] - The maximum number of PRs to return.
@@ -55,70 +119,6 @@ class PullRequestService extends Base {
             };
         } catch (error) {
             logger.error('Error fetching pull requests via GraphQL:', error);
-            return {
-                error  : 'GraphQL API request failed',
-                message: error.message,
-                code   : 'GRAPHQL_API_ERROR'
-            };
-        }
-    }
-
-    /**
-     * Checks out a specific pull request locally.
-     * @param {number} prNumber - The number of the pull request to check out.
-     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
-     */
-    async checkoutPullRequest(prNumber) {
-        try {
-            const {stdout} = await execAsync(`gh pr checkout ${prNumber}`);
-            return {message: `Successfully checked out PR #${prNumber}`, details: stdout.trim()};
-        } catch (error) {
-            logger.error(`Error checking out PR #${prNumber}:`, error);
-            return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr checkout ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
-            };
-        }
-    }
-
-    /**
-     * Gets the diff for a specific pull request.
-     * @param {number} prNumber - The number of the pull request.
-     * @returns {Promise<string|object>} A promise that resolves to the diff text or a structured error.
-     */
-    async getPullRequestDiff(prNumber) {
-        try {
-            const {stdout} = await execAsync(`gh pr diff ${prNumber}`);
-            return { result: stdout };
-        } catch (error) {
-            logger.error(`Error getting diff for PR #${prNumber}:`, error);
-            return {
-                error  : 'GitHub CLI command failed',
-                message: `gh pr diff ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
-            };
-        }
-    }
-
-    /**
-     * Gets the full conversation for a specific pull request.
-     * @param {number} prNumber - The number of the pull request.
-     * @returns {Promise<object>} A promise that resolves to the conversation data or a structured error.
-     */
-    async getConversation(prNumber) {
-        const variables = {
-            owner      : aiConfig.owner,
-            repo       : aiConfig.repo,
-            prNumber,
-            maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
-        };
-
-        try {
-            const data = await GraphqlService.query(GET_CONVERSATION, variables);
-            return data.repository.pullRequest;
-        } catch (error) {
-            logger.error(`Error getting conversation for PR #${prNumber} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,

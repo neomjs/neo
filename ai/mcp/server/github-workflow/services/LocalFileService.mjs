@@ -25,6 +25,36 @@ class LocalFileService extends Base {
     }
 
     /**
+     * Recursively searches for a file within a directory and its subdirectories.
+     * @param {string} directory - The directory to start the search from.
+     * @param {string} filename - The name of the file to find.
+     * @returns {Promise<string|null>} The absolute path of the file if found, otherwise null.
+     * @private
+     */
+    async #findFileRecursively(directory, filename) {
+        try {
+            const entries = await fs.readdir(directory, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(directory, entry.name);
+
+                if (entry.isDirectory()) {
+                    const foundPath = await this.#findFileRecursively(fullPath, filename);
+                    if (foundPath) {
+                        return foundPath;
+                    }
+                } else if (entry.isFile() && entry.name === filename) {
+                    return fullPath;
+                }
+            }
+        } catch (e) {
+            // Directory might not exist, or other fs errors. Ignore and continue search.
+            logger.debug(`[LocalFileService] Error accessing directory ${directory}: ${e.message}`);
+        }
+        return null;
+    }
+
+    /**
      * Finds and returns the content of a local issue file by its number.
      * @param {string} issueNumber - The issue number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
@@ -65,36 +95,6 @@ class LocalFileService extends Base {
                 code   : 'SERVER_ERROR'
             };
         }
-    }
-
-    /**
-     * Recursively searches for a file within a directory and its subdirectories.
-     * @param {string} directory - The directory to start the search from.
-     * @param {string} filename - The name of the file to find.
-     * @returns {Promise<string|null>} The absolute path of the file if found, otherwise null.
-     * @private
-     */
-    async #findFileRecursively(directory, filename) {
-        try {
-            const entries = await fs.readdir(directory, { withFileTypes: true });
-
-            for (const entry of entries) {
-                const fullPath = path.join(directory, entry.name);
-
-                if (entry.isDirectory()) {
-                    const foundPath = await this.#findFileRecursively(fullPath, filename);
-                    if (foundPath) {
-                        return foundPath;
-                    }
-                } else if (entry.isFile() && entry.name === filename) {
-                    return fullPath;
-                }
-            }
-        } catch (e) {
-            // Directory might not exist, or other fs errors. Ignore and continue search.
-            logger.debug(`[LocalFileService] Error accessing directory ${directory}: ${e.message}`);
-        }
-        return null;
     }
 }
 

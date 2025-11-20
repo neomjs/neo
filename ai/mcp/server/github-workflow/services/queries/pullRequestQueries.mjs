@@ -4,6 +4,38 @@
  */
 
 /**
+ * Query to fetch the full conversation for a pull request.
+ *
+ * Variables required:
+ * - $owner: String! - Repository owner
+ * - $repo: String! - Repository name
+ * - $prNumber: Int! - The pull request number
+ * - $maxComments: Int! - Max comments to fetch
+ */
+export const GET_CONVERSATION = `
+  query GetConversation($owner: String!, $repo: String!, $prNumber: Int!, $maxComments: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        title
+        body
+        author {
+          login
+        }
+        comments(first: $maxComments) {
+          nodes {
+            author {
+              login
+            }
+            body
+            createdAt
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Query to fetch a list of pull requests.
  *
  * Variables required:
@@ -48,37 +80,3 @@ export const GET_PULL_REQUEST_ID = `
     }
   }
 `;
-
-/**
- * Query to fetch the full conversation for a pull request.
- *
- * Variables required:
- * - $owner: String! - Repository owner
- * - $repo: String! - Repository name
- * - $prNumber: Int! - The pull request number
- * - $maxComments: Int! - Max comments to fetch
- */
-export const GET_CONVERSATION = `
-  query GetConversation($owner: String!, $repo: String!, $prNumber: Int!, $maxComments: Int!) {
-    repository(owner: $owner, name: $repo) {
-      pullRequest(number: $prNumber) {
-        title
-        body
-        author {
-          login
-        }
-        comments(first: $maxComments) {
-          nodes {
-            author {
-              login
-            }
-            body
-            createdAt
-          }
-        }
-      }
-    }
-  }
-`;
-
-

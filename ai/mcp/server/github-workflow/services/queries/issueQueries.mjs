@@ -312,29 +312,6 @@ export const FETCH_SINGLE_ISSUE = `
   }
 `;
 
-
-
-/**
- * Query to get an issue's current parent relationship.
- *
- * Variables required:
- * - $owner: String!
- * - $repo: String!
- * - $number: Int!
- */
-export const GET_ISSUE_PARENT = `
-    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-            issue(number: $number) {
-                parent {
-                    id
-                    number
-                }
-            }
-        }
-    }
-`;
-
 /**
  * Query to get an issue's current blockedBy relationships.
  *
@@ -378,6 +355,27 @@ export const GET_ISSUE_AND_LABEL_IDS = `
                 nodes {
                     id
                     name
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Query to get an issue's current parent relationship.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_ISSUE_PARENT = `
+    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                parent {
+                    id
+                    number
                 }
             }
         }
