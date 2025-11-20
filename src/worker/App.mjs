@@ -89,7 +89,7 @@ class App extends Base {
     }
 
     /**
-     * @param {Number} windowId
+     * @param {String} windowId
      * @param {Array|Object} deltas
      * @returns {Promise<*>}
      */
@@ -260,7 +260,7 @@ class App extends Base {
     /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
      * @param {String} name
-     * @param {Number} windowId
+     * @param {String} windowId
      * @returns {Promise<Neo.main.addon.Base>} The namespace of the addon to use via remote method access
      */
     async getAddon(name, windowId) {
@@ -323,7 +323,7 @@ class App extends Base {
 
     /**
      * In case you don't want to include prototype based CSS files, use the className param instead
-     * @param {Number} windowId
+     * @param {String} windowId
      * @param {Neo.core.Base} [proto]
      * @param {String} [className]
      */

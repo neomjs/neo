@@ -48,7 +48,7 @@ class HighlightJs extends Base {
     /**
      * @param {String} code
      * @param {String} language
-     * @param {Number} windowId
+     * @param {String} windowId
      * @returns {Promise<String>}
      */
     async highlight(code, language, windowId) {
@@ -62,7 +62,7 @@ class HighlightJs extends Base {
 
     /**
      * @param {String} code
-     * @param {Number} windowId
+     * @param {String} windowId
      * @returns {Promise<String>}
      */
     async highlightAuto(code, windowId) {
@@ -77,7 +77,7 @@ class HighlightJs extends Base {
     /**
      * @param {String} code
      * @param {String} language
-     * @param {Number} windowId
+     * @param {String} windowId
      * @returns {Promise<String>}
      */
     async highlightLine(code, language, windowId) {
@@ -87,7 +87,7 @@ class HighlightJs extends Base {
 
     /**
      * @param {String} code
-     * @param {Number} windowId
+     * @param {String} windowId
      * @returns {Promise<String>}
      */
     async highlightAutoLine(code, windowId) {
