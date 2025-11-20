@@ -118,7 +118,7 @@ class Abstract extends Base {
      * @returns {Neo.controller.Application|null}
      */
     get app() {
-        return Neo.apps[this.appName] || null
+        return Neo.apps[this.windowId] || null
     }
 
     /**

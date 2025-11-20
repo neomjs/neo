@@ -1,5 +1,6 @@
 import Base            from './Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import NeoArray        from '../util/Array.mjs';
 
 /**
  * @class Neo.controller.Application
@@ -68,20 +69,24 @@ class Application extends Base {
     construct(config) {
         // to guarantee that the main view can access Neo.apps at any point,
         // we need to trigger its assignment at the end of the ctor.
-        let mainView = config.mainView;
+        let {mainView} = config;
         delete config.mainView;
 
         super.construct(config);
 
-        let me = this;
+        let me     = this,
+            {name} = me;
 
         me.windowId = Neo.config.windowId;
 
-        Neo.apps = Neo.apps || {};
+        Neo.apps ??= {};
+        Neo.apps[me.windowId] = me;
 
-        Neo.apps[me.name] = me;
+        Neo.appsByName ??= {};
+        Neo.appsByName[name] ??= [];
+        Neo.appsByName[name].push(me);
 
-        Neo.currentWorker.registerApp(me.name);
+        Neo.currentWorker.registerApp(name);
 
         if (mainView) {
             me.mainView = mainView
@@ -152,7 +157,16 @@ class Application extends Base {
      * @param args
      */
     destroy(...args) {
-        Neo.currentWorker.removeAppFromThemeMap(this.name);
+        let me     = this,
+            {name} = me;
+
+        delete Neo.apps[me.windowId];
+
+        if (Neo.appsByName?.[name]) {
+            NeoArray.remove(Neo.appsByName[name], me)
+        }
+
+        Neo.currentWorker.removeAppFromThemeMap(name);
         super.destroy(...args)
     }
 }

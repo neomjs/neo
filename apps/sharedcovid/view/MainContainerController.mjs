@@ -43,6 +43,10 @@ class MainContainerController extends ComponentController {
          */
         connectedApps: [],
         /**
+         * @member {Object} connectedAppWindows={}
+         */
+        connectedAppWindows: {},
+        /**
          * @member {Object[]|null} data=null
          */
         data: null,
@@ -200,7 +204,9 @@ class MainContainerController extends ComponentController {
             return this.component
         }
 
-        return Neo.apps[appName].mainView
+        let windowId = this.connectedAppWindows[appName];
+
+        return Neo.apps[windowId]?.mainView
     }
 
     /**
@@ -298,8 +304,9 @@ class MainContainerController extends ComponentController {
 
         if (view) {
             NeoArray.add(me.connectedApps, name);
+            me.connectedAppWindows[name] = data.windowId;
 
-            Neo.apps[name].on('vnodeInitialized', () => {
+            Neo.apps[data.windowId].on('vnodeInitialized', () => {
                 me.timeout(100).then(() => {
                     me.getMainView(name).add(view)
                 })
@@ -362,7 +369,10 @@ class MainContainerController extends ComponentController {
                     break;
             }
 
-            Neo.apps[name].destroy()
+            if (me.connectedAppWindows[name]) {
+                Neo.apps[me.connectedAppWindows[name]]?.destroy();
+                delete me.connectedAppWindows[name]
+            }
         }
     }
 

@@ -17,7 +17,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
-        Neo.apps['SharedDialog']?.mainView.controller.createDialog(data, this.component.appName)
+        let params   = new URLSearchParams(Neo.config.url.search),
+            openerId = params.get('openerId');
+
+        if (openerId) {
+            Neo.apps[openerId]?.mainView.controller.createDialog(data, this.component.appName)
+        }
     }
 }
 

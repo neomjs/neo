@@ -553,7 +553,7 @@ class MainContainerController extends ComponentController {
             }
 
             Neo.Main.windowOpen({
-                url           : 'childapps/shareddialog2/index.html',
+                url           : `childapps/shareddialog2/index.html?openerId=${windowId}`,
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                 windowId,
                 windowName    : me.dockedWindowAppName
@@ -591,7 +591,17 @@ class MainContainerController extends ComponentController {
         me.currentTheme  = theme;
 
         me.connectedApps.forEach(appName => {
-            me.switchThemeForApp(Neo.apps[appName].windowId)
+            let windowId;
+
+            if (appName === me.dockedWindowAppName) {
+                windowId = me.dockedWindowId
+            } else {
+                windowId = Neo.appsByName[appName]?.[0]?.windowId
+            }
+
+            if (windowId) {
+                me.switchThemeForApp(windowId)
+            }
         });
 
         button.set({iconCls, text: buttonText});

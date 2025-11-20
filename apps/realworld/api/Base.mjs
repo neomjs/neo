@@ -55,17 +55,18 @@ class Base extends CoreBase {
      * => Neo.apps['RealWorld'] does most likely not exist yet.
      */
     afterConstructed() {
-        let me = this;
+        let me  = this,
+            app = Neo.appsByName?.['RealWorld']?.[0];
 
-        if (!Neo.apps || !Neo.apps['RealWorld']) {
+        if (!app) {
             me.timeout(100).then(() => {
                 me.afterConstructed()
             })
         } else {
-            if (Neo.apps['RealWorld'].vnodeInitialized) {
+            if (app.vnodeInitialized) {
                 me.onAppRendered()
             } else {
-                Neo.apps['RealWorld'].on('vnodeInitialized',me.onAppRendered, me)
+                app.on('vnodeInitialized',me.onAppRendered, me)
             }
         }
     }
