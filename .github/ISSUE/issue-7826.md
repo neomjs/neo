@@ -1,14 +1,15 @@
 ---
 id: 7826
 title: Extract JSON parsing logic into Neo.util.Json
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-20T19:58:34Z'
-updatedAt: '2025-11-20T19:58:34Z'
+updatedAt: '2025-11-20T19:59:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7826'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-20T19:59:40Z'
 ---
 # Extract JSON parsing logic into Neo.util.Json
 
@@ -36,4 +38,7 @@ Tasks:
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `ai` label
 - 2025-11-20 @tobiu added the `refactoring` label
+- 2025-11-20 @tobiu assigned to @tobiu
+- 2025-11-20 @tobiu referenced in commit `1f7289e` - "Extract JSON parsing logic into Neo.util.Json #7826"
+- 2025-11-20 @tobiu closed this issue
 
