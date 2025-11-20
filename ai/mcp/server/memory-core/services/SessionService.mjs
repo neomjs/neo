@@ -174,7 +174,13 @@ ${aggregatedContent}
 `;
 
         const result       = await this.model.generateContent(summaryPrompt);
-        const responseText = result.response.text();
+        let   responseText = result.response.text().trim();
+
+        // Strip markdown code block delimiters if present
+        if (responseText.startsWith('```')) {
+            responseText = responseText.replace(/^```(?:json)?\s+/, '').replace(/\s+```$/, '');
+        }
+
         const summaryData  = JSON.parse(responseText);
 
         const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
