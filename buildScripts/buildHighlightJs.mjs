@@ -3,6 +3,7 @@ import {fileURLToPath} from 'url';
 import fs              from 'fs/promises';
 import os              from 'os';
 import path            from 'path';
+import {Command}       from 'commander/esm.mjs';
 import * as terser     from 'terser';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,7 +19,26 @@ const gitCmd  = os.platform().startsWith('win') ? 'git.exe'  : 'git';
 const nodeCmd = os.platform().startsWith('win') ? 'node.exe' : 'node';
 const npmCmd  = os.platform().startsWith('win') ? 'npm.cmd'  : 'npm';
 
+const program = new Command();
+
 async function main() {
+    program
+        .option('-f, --force', 'Force regeneration of the highlight.js bundle')
+        .parse(process.argv);
+
+    const options = program.opts();
+
+    if (!options.force) {
+        try {
+            await fs.access(outputFile);
+            await fs.access(minOutputFile);
+            console.log('highlight.js bundle already exists. Skipping build. Use -f to force regeneration.');
+            return;
+        } catch (e) {
+            // Files don't exist, proceed with build
+        }
+    }
+
     console.log('Building custom highlight.js bundle...');
 
     try {
