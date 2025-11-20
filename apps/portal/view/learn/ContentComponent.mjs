@@ -121,7 +121,8 @@ class ContentComponent extends Component {
                 Neo.main.DomAccess.scrollTo({
                     direction: 'top',
                     id       : me.parentId,
-                    value    : 0
+                    value    : 0,
+                    windowId : me.windowId
                 })
             }
         }
@@ -221,7 +222,7 @@ class ContentComponent extends Component {
                 disconnect: true,
                 id        : me.id,
                 observe   : ['.neo-h2', '.neo-h3'],
-                windowId  : me.windowId
+                windowId
             });
         }
     }

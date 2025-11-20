@@ -82,8 +82,8 @@ class MainContainerStateProvider extends StateProvider {
             }
 
             case 'currentPageRecord': {
-                let data               = me.data,
-                    countPages         = data.countPages,
+                let {data}             = me,
+                    {countPages}       = data,
                     store              = me.getStore('contentTree'),
                     index              = store.indexOf(value),
                     nextPageRecord     = null,
