@@ -86,12 +86,12 @@ class App extends Base {
     }
 
     /**
-     * @param {String} appName
+     * @param {Number} windowId
      * @param {Array|Object} deltas
      * @returns {Promise<*>}
      */
-    applyDeltas(appName, deltas) {
-         return this.promiseMessage('main', {action: 'updateDom', appName, deltas})
+    applyDeltas(windowId, deltas) {
+         return this.promiseMessage('main', {action: 'updateDom', deltas, windowId})
     }
 
     /**

@@ -564,7 +564,8 @@ class TableBody extends Component {
      * @protected
      */
     onStoreLoad(data) {
-        let me = this;
+        let me         = this,
+            {windowId} = me;
 
         /*
          * Fast path to handle clearing all rows (e.g., store.removeAll()).
@@ -583,7 +584,7 @@ class TableBody extends Component {
             vdomRoot.cn = [];
             me.getVnodeRoot().childNodes = [];
 
-            Neo.applyDeltas(me.appName, {
+            Neo.applyDeltas(windowId, {
                 id         : vdomRoot.id,
                 textContent: ''
             });
@@ -598,7 +599,8 @@ class TableBody extends Component {
                 Neo.main.DomAccess.scrollTo({
                     direction: 'top',
                     id       : me.vdom.id,
-                    value    : 0
+                    value    : 0,
+                    windowId
                 })
             })
         }

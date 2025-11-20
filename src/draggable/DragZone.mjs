@@ -264,11 +264,7 @@ class DragZone extends Base {
             id = me.dragProxy.id;
 
         me.timeout(me.moveInMainThread ? 0 : 30).then(() => {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : [{action: 'removeNode', id: id}]
-            });
+            Neo.applyDeltas(me.windowId, [{action: 'removeNode', id: id}])
         });
 
         me.dragProxy.destroy()

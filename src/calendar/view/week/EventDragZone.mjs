@@ -112,7 +112,7 @@ class EventDragZone extends DragZone {
      *
      */
     addBodyCursorCls() {
-        Neo.applyDeltas(this.appName, {id: 'document.body', cls: {add: ['neo-cursor-move']}})
+        Neo.applyDeltas(this.windowId, {id: 'document.body', cls: {add: ['neo-cursor-move']}})
     }
 
     /**
@@ -144,7 +144,7 @@ class EventDragZone extends DragZone {
 
             // check if the node did not get removed yet
             if (me.dragProxy?.vdom.cn[0].id) {
-                Neo.applyDeltas(me.appName, {
+                Neo.applyDeltas(me.windowId, {
                     action  : 'moveNode',
                     id      : me.dragProxy.id,
                     index   : 0,
@@ -486,7 +486,7 @@ class EventDragZone extends DragZone {
                         me.hasOverflow = false
                     }
 
-                    Neo.applyDeltas(me.appName, deltas)
+                    Neo.applyDeltas(me.windowId, deltas)
                 }
             }
 
@@ -529,7 +529,7 @@ class EventDragZone extends DragZone {
      *
      */
     removeBodyCursorCls() {
-        Neo.applyDeltas(this.appName, {id: 'document.body', cls: {remove: ['neo-cursor-move']}})
+        Neo.applyDeltas(this.windowId, {id: 'document.body', cls: {remove: ['neo-cursor-move']}})
     }
 }
 

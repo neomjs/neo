@@ -1132,7 +1132,7 @@ class Component extends Abstract {
 
         if (updateParentVdom && parentId) {
             if (parentId === 'document.body') {
-                Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id})
+                Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
             } else {
                 parentVdom = parent.vdom;
 
@@ -1605,7 +1605,7 @@ class Component extends Abstract {
         me._hidden = true; // silent update
         me.mounted = false;
 
-        Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id})
+        Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
     }
 
     /**

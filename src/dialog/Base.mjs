@@ -361,15 +361,15 @@ class Dialog extends Panel {
     async animateHide() {
         let me                  = this,
             {animateTarget, id} = me,
-            appName, rects;
+            rects, windowId;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = animateTarget.windowId;
-        me.appName  = appName = animateTarget.appName;
+        me.windowId = windowId = animateTarget.windowId;
+        me.appName  = animateTarget.appName;
 
         rects = await me.getDomRect([id, me.animateTargetId])
 
-        await Neo.applyDeltas(appName, {
+        await Neo.applyDeltas(windowId, {
             id,
             style: {
                 height   : `${rects[0].height}px`,
@@ -382,7 +382,7 @@ class Dialog extends Panel {
 
         await me.timeout(30);
 
-        await Neo.applyDeltas(appName, {
+        await Neo.applyDeltas(windowId, {
             id,
             cls: {
                 add: ['animated-hiding-showing']
@@ -400,7 +400,7 @@ class Dialog extends Panel {
         me.closeOrHide(false);
 
         if (me.closeAction === 'hide') {
-            await Neo.applyDeltas(appName, {id, action: 'removeNode'})
+            await Neo.applyDeltas(windowId, {id, action: 'removeNode'})
         }
     }
 
@@ -437,7 +437,7 @@ class Dialog extends Panel {
         let [dialogRect, bodyRect] = await me.waitForDomRect({id: [me.id, 'document.body']});
 
         // Move to cover the animation target
-        await Neo.applyDeltas(appName, {
+        await Neo.applyDeltas(me.windowId, {
             id,
             style: {
                 height: `${rect.height}px`,
@@ -451,7 +451,7 @@ class Dialog extends Panel {
         await me.timeout(50);
 
         // Expand to final state
-        await Neo.applyDeltas(appName, {
+        await Neo.applyDeltas(me.windowId, {
             id,
             cls: {
                 add: ['animated-hiding-showing']
@@ -467,7 +467,7 @@ class Dialog extends Panel {
         await me.timeout(200);
 
         // Remove the animation class
-        await Neo.applyDeltas(appName, {id, cls: {remove: ['animated-hiding-showing']}});
+        await Neo.applyDeltas(me.windowId, {id, cls: {remove: ['animated-hiding-showing']}});
 
         me.show(false)
     }

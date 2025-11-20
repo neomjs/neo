@@ -381,7 +381,7 @@ class Helix extends Component {
         let me = this;
 
         if (me.mounted) {
-            Neo.applyDeltas(me.appName, {
+            Neo.applyDeltas(me.windowId, {
                 id   : me.vdom.id,
                 style: {
                     perspective: value + 'px'
@@ -450,7 +450,7 @@ class Helix extends Component {
         me.transitionTimeouts.splice(0, me.transitionTimeouts.length);
 
         if (me.mounted) {
-            Neo.applyDeltas(me.appName, {
+            Neo.applyDeltas(me.windowId, {
                 id,
                 cls: {
                     add   : [cls],
@@ -462,7 +462,7 @@ class Helix extends Component {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
-                    Neo.applyDeltas(me.appName, {
+                    Neo.applyDeltas(me.windowId, {
                         id,
                         cls: {
                             add   : [],
@@ -679,9 +679,9 @@ class Helix extends Component {
 
             me.clonedItems = [];
 
-            Neo.applyDeltas(me.appName, deltas).then(data => {
+            Neo.applyDeltas(me.windowId, deltas).then(data => {
                 me.timeout(650).then(() => {
-                    Neo.applyDeltas(me.appName, removeDeltas)
+                    Neo.applyDeltas(me.windowId, removeDeltas)
                 })
             })
         }
@@ -735,12 +735,13 @@ class Helix extends Component {
                 autoMount  : true,
                 parentId   : group.id,
                 parentIndex: store.getCount(),
-                vdom       : itemVdom
+                vdom       : itemVdom,
+                windowId   : me.windowId
             }).then(data => {
                 me.clonedItems.push(itemVdom);
 
                 me.timeout(50).then(() => {
-                    Neo.applyDeltas(appName, {
+                    Neo.applyDeltas(me.windowId, {
                         id   : itemVdom.id,
                         style: {
                             opacity  : 1,
@@ -875,7 +876,7 @@ class Helix extends Component {
         if (clonedItems.length > 0) {
             id = clonedItems[0].id;
 
-            await Neo.applyDeltas(appName, {
+            await Neo.applyDeltas(me.windowId, {
                 id,
                 cls  : {remove: ['neo-transition-600']},
                 style: {transform: me.getCloneTransform()}
@@ -883,7 +884,7 @@ class Helix extends Component {
 
             await me.timeout(10);
 
-            await Neo.applyDeltas(appName, {id, cls: {add: ['neo-transition-600']}})
+            await Neo.applyDeltas(me.windowId, {id, cls: {add: ['neo-transition-600']}})
         }
     }
 
@@ -1001,7 +1002,7 @@ class Helix extends Component {
             })
         }
 
-        Neo.applyDeltas(me.appName, deltas)
+        Neo.applyDeltas(me.windowId, deltas)
     }
 
     /**
@@ -1030,7 +1031,7 @@ class Helix extends Component {
             })
         }
 
-        Neo.applyDeltas(me.appName, deltas).then(() => {
+        Neo.applyDeltas(me.windowId, deltas).then(() => {
             me.refresh()
         });
     }
@@ -1072,10 +1073,10 @@ class Helix extends Component {
                 });
             });
 
-            Neo.applyDeltas(me.appName, deltas).then(() => {
+            Neo.applyDeltas(me.windowId, deltas).then(() => {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
-                    Neo.applyDeltas(me.appName, afterDeltas)
+                    Neo.applyDeltas(me.windowId, afterDeltas)
                 }, 200);
 
                 me.transitionTimeouts.push(timeoutId)
