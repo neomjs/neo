@@ -4,13 +4,14 @@ title: Enhance container.SortZone for Complex Layouts
 state: OPEN
 labels:
   - enhancement
+  - stale
 assignees:
   - tobiu
 createdAt: '2025-08-21T09:12:52Z'
-updatedAt: '2025-08-21T09:12:52Z'
+updatedAt: '2025-11-20T02:50:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7207'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
@@ -48,6 +49,12 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 - The `DashboardSortZone` can be refactored into a minimal subclass that primarily just configures the `dragHandleSelector`.
 - Existing functionalities that use `container.SortZone` (e.g., tab header reordering) remain unaffected and work as before.
 
+## Comments
+
+### @github-actions - 2025-11-20 02:50
+
+This issue is stale because it has been open for 90 days with no activity.
+
 ## Activity Log
 
 - 2025-08-21 @tobiu assigned to @tobiu
@@ -55,4 +62,5 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 - 2025-08-21 @tobiu referenced in commit `61692a5` - "#7207 dragHandleSelector config"
 - 2025-08-21 @tobiu referenced in commit `6f2a206` - "#7207 wip"
 - 2025-08-21 @tobiu referenced in commit `2e26e1f` - "#7207"
+- 2025-11-20 @github-actions added the `stale` label
 
