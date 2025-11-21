@@ -23,12 +23,10 @@ async function main() {
     console.log('\n[1] Boot Sequence: Initializing Services...');
     
     // Start Knowledge Base
-    await KB_LifecycleService.ready();
     await KB_ChromaManager.ready(); // Ensure connection is active
     console.log('   - Knowledge Base Service: Ready');
     
     // Start Memory Core
-    await Memory_LifecycleService.ready();
     await Memory_ChromaManager.ready(); // Ensure connection is active
     console.log('   - Memory Core Service: Ready');
     
