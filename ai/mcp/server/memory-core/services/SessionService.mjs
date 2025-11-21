@@ -216,11 +216,12 @@ ${aggregatedContent}
             if (result) processed.push(result);
         } else {
             const sessionsToSummarize = await this.findUnsummarizedSessions();
-            for (const id of sessionsToSummarize) {
-                const result = await this.summarizeSession(id);
-                if (result) processed.push(result);
-            }
+            const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
+            const results             = await Promise.all(promises);
+
+            processed = results.filter(Boolean);
         }
+
         return { processed: processed.length, sessions: processed };
     }
 }
