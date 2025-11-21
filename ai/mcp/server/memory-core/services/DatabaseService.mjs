@@ -112,9 +112,15 @@ class DatabaseService extends Base {
 
         if (mode === 'replace') {
             await ChromaManager.client.deleteCollection({ name: collection.name });
-            collection = isMemoryBackup
-                ? await ChromaManager.getMemoryCollection()
-                : await ChromaManager.getSummaryCollection();
+
+            if (isMemoryBackup) {
+                ChromaManager.memoryCollection = null;
+                collection = await ChromaManager.getMemoryCollection();
+            } else {
+                ChromaManager.summaryCollection = null;
+                collection = await ChromaManager.getSummaryCollection();
+            }
+
             logger.log('Replaced mode: existing collection cleared and recreated.');
         }
 

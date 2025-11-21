@@ -1,14 +1,13 @@
-import {GoogleGenerativeAI}     from '@google/generative-ai';
-import aiConfig                 from '../config.mjs';
-import Base                     from '../../../../../src/core/Base.mjs';
-import ChromaManager            from './ChromaManager.mjs';
-import crypto                   from 'crypto';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import dotenv                   from 'dotenv';
-import fs                       from 'fs-extra';
-import logger                   from '../logger.mjs';
-import path                     from 'path';
-import readline                 from 'readline';
+import {GoogleGenerativeAI} from '@google/generative-ai';
+import aiConfig             from '../config.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import ChromaManager        from './ChromaManager.mjs';
+import crypto               from 'crypto';
+import dotenv               from 'dotenv';
+import fs                   from 'fs-extra';
+import logger               from '../logger.mjs';
+import path                 from 'path';
+import readline             from 'readline';
 
 const cwd       = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -74,8 +73,8 @@ class DatabaseService extends Base {
     async initAsync() {
         await super.initAsync();
 
-        // Wait for ChromaDB to be available
-        await DatabaseLifecycleService.ready();
+        // Wait for ChromaManager (which waits for LifecycleService) to be ready
+        await ChromaManager.ready();
 
         logger.info('[Startup] Checking knowledge base status...');
         const knowledgeBasePath = aiConfig.dataPath;

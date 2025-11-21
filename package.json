@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "11.7.0",
+    "version"    : "11.8.0",
     "description": "Neo.mjs: The AI-native web platform for building ultra-fast, desktop-like web applications. It features a truly multi-threaded architecture, an enterprise-grade component library, and a zero-builds development mode. Architected for AI collaboration from the ground up, it includes three dedicated Model Context Protocol (MCP) servers.",
     "type"       : "module",
     "repository": {
@@ -129,7 +129,7 @@
         "astring"                      : "^1.9.0",
         "autoprefixer"                 : "^10.4.22",
         "chalk"                        : "^5.6.2",
-        "chromadb"                     : "^3.1.4",
+        "chromadb"                     : "^3.1.5",
         "clean-webpack-plugin"         : "^4.0.0",
         "commander"                    : "^14.0.2",
         "cssnano"                      : "^7.1.2",
@@ -138,7 +138,7 @@
         "esbuild"                      : "^0.27.0",
         "fast-glob"                    : "^3.3.3",
         "fs-extra"                     : "^11.3.2",
-        "glob"                         : "^11.1.0",
+        "glob"                         : "^13.0.0",
         "gray-matter"                  : "^4.0.3",
         "highlightjs-line-numbers.js"  : "^2.9.1",
         "html-minifier-terser"         : "^7.2.0",
@@ -149,18 +149,18 @@
         "monaco-editor"                : "0.50.0",
         "parse5"                       : "^8.0.0",
         "postcss"                      : "^8.5.6",
-        "sass"                         : "^1.94.0",
+        "sass"                         : "^1.94.2",
         "semver"                       : "^7.7.3",
         "terser"                       : "^5.44.1",
         "url"                          : "^0.11.4",
-        "webpack"                      : "^5.102.1",
+        "webpack"                      : "^5.103.0",
         "webpack-cli"                  : "^6.0.1",
         "webpack-dev-server"           : "^5.2.2",
         "webpack-hook-plugin"          : "^1.0.7",
         "webpack-node-externals"       : "^3.0.0",
         "yargs"                        : "^18.0.0",
         "zod"                          : "^3.25.76",
-        "zod-to-json-schema"           : "^3.23.2"
+        "zod-to-json-schema"           : "^3.25.0"
     },
     "funding": {
         "type": "GitHub Sponsors",

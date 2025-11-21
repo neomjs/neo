@@ -44,7 +44,7 @@ class HighlightJsLineNumbers extends Base {
 
     /**
      * @param {String} html
-     * @param {Number} windowId
+     * @param {String} windowId
      * @returns {String}
      */
     addLineNumbers(html, windowId) {

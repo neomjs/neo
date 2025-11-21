@@ -244,34 +244,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /pull-requests/{pr_number}/comments:
+  /comments:
     post:
-      summary: Create a PR Comment
+      summary: Create a Comment on Issue or PR
       operationId: create_comment
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
-        Adds a final review comment to a pull request, either approving it or requesting changes. This is the primary tool for summarizing the outcome of a PR review.
-
+        Adds a comment to a pull request or issue.
         The tool automatically adds a header indicating the AI agent source and prefixes the comment with a special icon.
 
         **When to Use:**
-        This tool is for providing a conclusive, final review on a pull request.
 
+        **For Pull Requests:**
+        This is the primary tool for providing a conclusive, final review.
         - **To Approve a PR:** Use this tool to leave a comment indicating your approval (e.g., "LGTM, thanks for the contribution!").
         - **To Request Changes:** Use this tool to provide a clear, actionable list of changes required for the PR to be approved. This should be a summary of your findings after a detailed review.
 
-        **Note on Inline Comments:**
-        While this tool is for the final, summary comment, detailed line-by-line feedback should be provided through other means if available. This tool provides the final verdict.
-      tags: [Pull Requests]
-      parameters:
-        - name: pr_number
-          in: path
-          required: true
-          description: The number of the pull request to comment on.
-          schema:
-            type: integer
-            example: 123
+        **For Issues:**
+        Use this tool to add general comments, such as providing status updates, asking for clarification, or summarizing discussions.
+
+        **Note on Inline Comments (PRs):**
+        While this tool is for the final, summary comment on PRs, detailed line-by-line feedback should be provided through other means if available. This tool provides the final verdict.
+      tags: [Pull Requests, Issues]
       requestBody:
         required: true
         content:
@@ -282,6 +278,14 @@ paths:
                 - body
                 - agent
               properties:
+                pr_number:
+                  type: integer
+                  description: The number of the pull request (if commenting on a PR).
+                  example: 123
+                issue_number:
+                  type: integer
+                  description: The number of the issue (if commenting on an issue).
+                  example: 456
                 body:
                   type: string
                   description: The raw, unformatted content of the comment. The tool will handle templating.
@@ -297,8 +301,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (missing pr_number or issue_number).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Pull request not found.
+          description: Resource not found.
           content:
             application/json:
               schema:

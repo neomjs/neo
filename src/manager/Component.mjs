@@ -278,7 +278,7 @@ class Component extends Manager {
      * @example
      Neo.first('button', false) // => [Button, Button, Button]
      */
-    getFirst(componentDescription, returnFirstMatch = true) {
+    getFirst(componentDescription, returnFirstMatch=true) {
         let objects = [],
             app     = Object.values(Neo.apps)[0],
             root    = app.mainView;

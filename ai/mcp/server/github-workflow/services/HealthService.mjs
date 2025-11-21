@@ -43,6 +43,15 @@ class HealthService extends Base {
     }
 
     /**
+     * Duration (in milliseconds) for which cached HEALTHY results remain valid.
+     * Set to 5 minutes to balance freshness with performance.
+     * Unhealthy results are never cached to allow immediate recovery detection.
+     * @member {number} #cacheDuration
+     * @private
+     */
+    #cacheDuration = 5 * 60 * 1000;
+
+    /**
      * Cached result of the most recent health check.
      * Used to avoid redundant `gh` CLI calls within the cache TTL window.
      * @member {Object|null} #cachedHealth
@@ -56,15 +65,6 @@ class HealthService extends Base {
      * @private
      */
     #lastCheckTime = null;
-
-    /**
-     * Duration (in milliseconds) for which cached HEALTHY results remain valid.
-     * Set to 5 minutes to balance freshness with performance.
-     * Unhealthy results are never cached to allow immediate recovery detection.
-     * @member {number} #cacheDuration
-     * @private
-     */
-    #cacheDuration = 5 * 60 * 1000;
 
     /**
      * The status from the previous health check, used to detect state transitions
@@ -137,6 +137,141 @@ class HealthService extends Base {
                 error    : 'GitHub CLI is not installed or could not be queried.'
             };
         }
+    }
+
+    /**
+     * Clears the health check cache, forcing the next call to perform a fresh check.
+     *
+     * Intent: This is primarily useful for testing and debugging scenarios where
+     * you need to immediately verify a fix (e.g., after running `gh auth login`)
+     * without waiting for the 5-minute cache to expire.
+     *
+     * In production, this would rarely be called directly, but it could be useful
+     * if we later add a "refresh" tool or administrative endpoint.
+     */
+    clearCache() {
+        this.#cachedHealth  = null;
+        this.#lastCheckTime = null;
+        logger.debug('[HealthService] Cache cleared, next health check will be fresh');
+    }
+
+    /**
+     * @param stdout
+     * @param stderr
+     * @returns {string}
+     */
+    #combineOutput(stdout, stderr) {
+        return `${stdout || ''}\n${stderr || ''}`;
+    }
+
+    /**
+     * Ensures the GitHub CLI is healthy before allowing an operation to proceed.
+     *
+     * Intent: This is the "gatekeeper" method used by tool handlers and internal
+     * services (like SyncService) to fail-fast with a clear error message if the
+     * GitHub CLI is not available.
+     *
+     * By throwing an exception, we ensure that:
+     * 1. The operation doesn't attempt to use `gh` and get cryptic subprocess errors
+     * 2. The agent receives a clear, actionable error message via the MCP protocol
+     * 3. Users understand exactly what needs to be fixed
+     *
+     * This method leverages the cached health check, so calling it frequently
+     * (e.g., before each tool invocation) has minimal performance impact.
+     *
+     * @throws {Error} If the GitHub CLI is unhealthy, with a detailed message
+     * @returns {Promise<void>}
+     */
+    async ensureHealthy() {
+        const health = await this.healthcheck();
+
+        if (health.status === 'unhealthy') {
+            // Build a multi-line error message with all the issues detected
+            const details = health.githubCli.details.join('\n  - ');
+            throw new Error(`GitHub CLI is not available:\n  - ${details}`);
+        }
+    }
+
+    /**
+     * Public API: Checks the health of the GitHub CLI with intelligent caching.
+     *
+     * Intent: This is the primary entry point for all health checks. It uses a
+     * 5-minute cache to avoid hammering the `gh` CLI with redundant subprocess
+     * calls, which is especially important when:
+     * - The MCP server is handling multiple concurrent tool requests
+     * - Agents are debugging issues and repeatedly calling healthcheck
+     * - The SyncService is running frequent syncs
+     *
+     * IMPORTANT: Only 'healthy' results are cached. Unhealthy results are always
+     * fresh, allowing immediate recovery detection when users fix issues (e.g.,
+     * by running `gh auth login`). This ensures good UX - users don't have to
+     * wait 5 minutes to retry after fixing a problem.
+     *
+     * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
+     * to 'healthy'), we log a clear message so users know their fix worked.
+     *
+     * @returns {Promise<object>} A health status payload with structure:
+     *   {
+     *     status: 'healthy' | 'unhealthy',
+     *     timestamp: ISO string,
+     *     githubCli: {
+     *       installed: boolean,
+     *       authenticated: boolean,
+     *       versionOk: boolean,
+     *       version: string | null,
+     *       details: string[]
+     *     }
+     *   }
+     */
+    async healthcheck() {
+        const now = Date.now();
+
+        // Only use cache if the previous result was healthy
+        // Unhealthy results are never cached to allow immediate recovery
+        if (this.#cachedHealth &&
+            this.#cachedHealth.status === 'healthy' &&
+            this.#lastCheckTime) {
+            const age = now - this.#lastCheckTime;
+
+            // If the cache is still fresh (< 5 minutes old), return it immediately
+            if (age < this.#cacheDuration) {
+                logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
+                return this.#cachedHealth;
+            }
+        }
+
+        // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
+        logger.debug('[HealthService] Performing fresh health check');
+        const health = await this.#performHealthCheck();
+
+        // Detect and log meaningful state transitions
+        // This helps users understand when their fixes (like running `gh auth login`) succeed
+        if (this.#previousStatus && this.#previousStatus !== health.status) {
+            if (this.#previousStatus === 'unhealthy' && health.status === 'healthy') {
+                logger.info('🎉 [HealthService] System recovered! GitHub CLI is now fully operational.');
+            } else if (this.#previousStatus === 'healthy' && health.status === 'unhealthy') {
+                logger.warn('⚠️  [HealthService] System became unhealthy. Tools may fail until dependencies are resolved.');
+            }
+        }
+
+        // Update the cache with this fresh result
+        // Note: Even unhealthy results are stored, but won't be returned from cache
+        this.#cachedHealth   = health;
+        this.#lastCheckTime  = now;
+        this.#previousStatus = health.status;
+
+        return health;
+    }
+
+    /**
+     * @param err
+     * @returns {boolean}
+     */
+    #interpretExecError(err) {
+        if (!err) return false;
+        if (err.code === 'ENOENT') return true;
+        const msg = String(err.message || err || '');
+        return /not found|ENOENT|is not recognized as an internal or external command/i.test(msg);
     }
 
     /**
@@ -217,11 +352,6 @@ class HealthService extends Base {
         return payload;
     }
 
-    // ---- inlined helpers from healthHelpers.mjs (moved here as private methods) ----
-    #combineOutput(stdout, stderr) {
-        return `${stdout || ''}\n${stderr || ''}`;
-    }
-
     #parseAuthOutput(out) {
         if (typeof out !== 'string') out = String(out || '');
         if (out.includes('Logged in to github.com')) {
@@ -249,130 +379,6 @@ class HealthService extends Base {
         } catch (e) {
             return { installed: true, versionOk: false, version, error: `Could not parse gh version: ${e.message}` };
         }
-    }
-
-    #interpretExecError(err) {
-        if (!err) return false;
-        if (err.code === 'ENOENT') return true;
-        const msg = String(err.message || err || '');
-        if (/not found|ENOENT|is not recognized as an internal or external command/i.test(msg)) return true;
-        return false;
-    }
-    // ---- end inlined helpers ----
-
-    /**
-     * Public API: Checks the health of the GitHub CLI with intelligent caching.
-     *
-     * Intent: This is the primary entry point for all health checks. It uses a
-     * 5-minute cache to avoid hammering the `gh` CLI with redundant subprocess
-     * calls, which is especially important when:
-     * - The MCP server is handling multiple concurrent tool requests
-     * - Agents are debugging issues and repeatedly calling healthcheck
-     * - The SyncService is running frequent syncs
-     *
-     * IMPORTANT: Only 'healthy' results are cached. Unhealthy results are always
-     * fresh, allowing immediate recovery detection when users fix issues (e.g.,
-     * by running `gh auth login`). This ensures good UX - users don't have to
-     * wait 5 minutes to retry after fixing a problem.
-     *
-     * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
-     * to 'healthy'), we log a clear message so users know their fix worked.
-     *
-     * @returns {Promise<object>} A health status payload with structure:
-     *   {
-     *     status: 'healthy' | 'unhealthy',
-     *     timestamp: ISO string,
-     *     githubCli: {
-     *       installed: boolean,
-     *       authenticated: boolean,
-     *       versionOk: boolean,
-     *       version: string | null,
-     *       details: string[]
-     *     }
-     *   }
-     */
-    async healthcheck() {
-        const now = Date.now();
-
-        // Only use cache if the previous result was healthy
-        // Unhealthy results are never cached to allow immediate recovery
-        if (this.#cachedHealth &&
-            this.#cachedHealth.status === 'healthy' &&
-            this.#lastCheckTime) {
-            const age = now - this.#lastCheckTime;
-
-            // If the cache is still fresh (< 5 minutes old), return it immediately
-            if (age < this.#cacheDuration) {
-                logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
-                return this.#cachedHealth;
-            }
-        }
-
-        // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
-        logger.debug('[HealthService] Performing fresh health check');
-        const health = await this.#performHealthCheck();
-
-        // Detect and log meaningful state transitions
-        // This helps users understand when their fixes (like running `gh auth login`) succeed
-        if (this.#previousStatus && this.#previousStatus !== health.status) {
-            if (this.#previousStatus === 'unhealthy' && health.status === 'healthy') {
-                logger.info('🎉 [HealthService] System recovered! GitHub CLI is now fully operational.');
-            } else if (this.#previousStatus === 'healthy' && health.status === 'unhealthy') {
-                logger.warn('⚠️  [HealthService] System became unhealthy. Tools may fail until dependencies are resolved.');
-            }
-        }
-
-        // Update the cache with this fresh result
-        // Note: Even unhealthy results are stored, but won't be returned from cache
-        this.#cachedHealth   = health;
-        this.#lastCheckTime  = now;
-        this.#previousStatus = health.status;
-
-        return health;
-    }
-
-    /**
-     * Ensures the GitHub CLI is healthy before allowing an operation to proceed.
-     *
-     * Intent: This is the "gatekeeper" method used by tool handlers and internal
-     * services (like SyncService) to fail-fast with a clear error message if the
-     * GitHub CLI is not available.
-     *
-     * By throwing an exception, we ensure that:
-     * 1. The operation doesn't attempt to use `gh` and get cryptic subprocess errors
-     * 2. The agent receives a clear, actionable error message via the MCP protocol
-     * 3. Users understand exactly what needs to be fixed
-     *
-     * This method leverages the cached health check, so calling it frequently
-     * (e.g., before each tool invocation) has minimal performance impact.
-     *
-     * @throws {Error} If the GitHub CLI is unhealthy, with a detailed message
-     * @returns {Promise<void>}
-     */
-    async ensureHealthy() {
-        const health = await this.healthcheck();
-
-        if (health.status === 'unhealthy') {
-            // Build a multi-line error message with all the issues detected
-            const details = health.githubCli.details.join('\n  - ');
-            throw new Error(`GitHub CLI is not available:\n  - ${details}`);
-        }
-    }
-
-    /**
-     * Clears the health check cache, forcing the next call to perform a fresh check.
-     *
-     * Intent: This is primarily useful for testing and debugging scenarios where
-     * you need to immediately verify a fix (e.g., after running `gh auth login`)
-     * without waiting for the 5-minute cache to expire.
-     *
-     * In production, this would rarely be called directly, but it could be useful
-     * if we later add a "refresh" tool or administrative endpoint.
-     */
-    clearCache() {
-        this.#cachedHealth  = null;
-        this.#lastCheckTime = null;
-        logger.debug('[HealthService] Cache cleared, next health check will be fresh');
     }
 }
 

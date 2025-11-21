@@ -6,10 +6,18 @@ import logger            from '../logger.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC} from './queries/issueQueries.mjs';
-import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID} from './queries/mutations.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
+import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
+import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID, ADD_COMMENT} from './queries/mutations.mjs';
 
 const execAsync = promisify(exec);
+
+const AGENT_ICONS = {
+    gemini : '✦',
+    claude : '❋',
+    gpt    : '●',
+    default: '◆'
+};
 
 /**
  * Service for interacting with GitHub issues via the GraphQL API.
@@ -37,11 +45,25 @@ class IssueService extends Base {
     }
 
     /**
-     * Convenience shortcut
-     * @returns {Boolean}
+     * Adds labels to an issue or pull request.
+     * @param {number} issueNumber - The number of the issue or PR.
+     * @param {string[]} labels - An array of labels to add.
+     * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    hasWritePermission() {
-        return this.writePermissions.includes(RepositoryService.viewerPermission);
+    async addLabels(issueNumber, labels) {
+        try {
+            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+
+            await GraphqlService.query(ADD_LABELS, { labelableId, labelIds });
+            return { message: `Successfully added labels to issue #${issueNumber}` };
+        } catch (error) {
+            logger.error(`Error adding labels to issue #${issueNumber} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
     }
 
     /**
@@ -102,55 +124,75 @@ class IssueService extends Base {
     }
 
     /**
-     * Removes one or more specified assignees from a GitHub issue.
-     * This method first verifies that the user has the required permissions (`WRITE`, `MAINTAIN`, or `ADMIN`)
-     * before attempting to modify the issue.
+     * Creates a comment on a specific issue or pull request.
      * @param {object} options
-     * @param {number} options.issue_number The number of the issue to modify.
-     * @param {string[]} options.assignees An array of GitHub user logins to unassign.
-     * @returns {Promise<object>}
+     * @param {number} [options.issue_number] - The number of the issue.
+     * @param {number} [options.pr_number] - The number of the pull request.
+     * @param {string} options.body - The raw content of the comment.
+     * @param {string} options.agent - The identity of the calling agent.
+     * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async unassignIssue({issue_number, assignees}) {
-        if (!this.hasWritePermission()) {
-            const message = [
-                `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
-                `but one of [${this.writePermissions.join(', ')}] is required to unassign issues.`
-            ].join('');
-
-            logger.warn(message);
+    async createComment({issue_number, pr_number, body, agent}) {
+        // Input Validation
+        if (issue_number && pr_number) {
             return {
-                error  : 'Permission Denied',
-                message,
-                code   : 'FORBIDDEN'
+                error: "Bad Request",
+                message: "Please provide either 'pr_number' or 'issue_number', not both.",
+                code: "INVALID_ARGUMENTS"
+            };
+        }
+        if (!issue_number && !pr_number) {
+            return {
+                error: "Bad Request",
+                message: "Missing required argument: Please provide 'pr_number' or 'issue_number'.",
+                code: "MISSING_ARGUMENTS"
             };
         }
 
-        if (!assignees || assignees.length === 0) {
-            return {
-                error  : 'Bad Request',
-                message: 'The `assignees` array cannot be empty for an unassign operation.',
-                code   : 'BAD_REQUEST'
-            };
+        const isPR = !!pr_number;
+        const number = isPR ? pr_number : issue_number;
+        const idVariables = {
+            owner : aiConfig.owner,
+            repo  : aiConfig.repo,
+            // The PR query uses 'prNumber', the Issue query uses 'number'
+            [isPR ? 'prNumber' : 'number']: number
+        };
+
+        // Agent Header Formatting
+        const header       = `**Input from ${agent}:**\n\n`;
+        const agentIcon    = AGENT_ICONS[this.getAgentType(agent)];
+        const headingMatch = body.match(/^(#+\s*)(.*)$/);
+        let processedBody;
+
+        if (headingMatch) {
+            const headingMarkers = headingMatch[1];
+            const headingContent = headingMatch[2];
+            processedBody = `${headingMarkers}${agentIcon} ${headingContent}\n${body.substring(headingMatch[0].length)}`;
+        } else {
+            processedBody = `${agentIcon} ${body}`;
         }
 
-        logger.info(`Attempting to unassign issue #${issue_number} from: ${assignees.join(', ')}`);
+        const finalBody = `${header}${processedBody.split('\n').map(line => `> ${line}`).join('\n')}`;
 
         try {
-            const assigneeFlags = assignees.map(a => `--remove-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags}`;
+            // Divergent ID Lookup
+            const query = isPR ? GET_PULL_REQUEST_ID : GET_ISSUE_ID;
+            const idData = await GraphqlService.query(query, idVariables);
 
-            await execAsync(command);
+            const subjectId = isPR
+                ? idData.repository.pullRequest.id
+                : idData.repository.issue.id;
 
-            const message = `Successfully unassigned ${assignees.join(', ')} from issue #${issue_number}`;
-            logger.info(message);
-            return { message };
+            // Shared Mutation
+            await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
+            return { message: `Successfully created comment on ${isPR ? 'PR' : 'issue'} #${number}` };
 
         } catch (error) {
-            logger.error(`Error unassigning from issue #${issue_number}:`, error);
+            logger.error(`Error creating comment on ${isPR ? 'PR' : 'issue'} #${number} via GraphQL:`, error);
             return {
-                error  : 'GitHub CLI command failed',
+                error  : 'GraphQL API request failed',
                 message: error.message,
-                code   : 'GH_CLI_ERROR'
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }
@@ -244,6 +286,83 @@ class IssueService extends Base {
     }
 
     /**
+     * Extracts the agent type from the agent string for icon selection.
+     * @param {string} agent - The full agent identifier
+     * @returns {string} The agent type key for AGENT_ICONS lookup
+     */
+    getAgentType(agent) {
+        const agentLower = agent.toLowerCase();
+
+        if (agentLower.includes('gemini')) return 'gemini';
+        if (agentLower.includes('claude')) return 'claude';
+        if (agentLower.includes('gpt'))    return 'gpt';
+
+        return 'default';
+    }
+
+    /**
+     * Convenience shortcut
+     * @returns {Boolean}
+     */
+    hasWritePermission() {
+        return this.writePermissions.includes(RepositoryService.viewerPermission);
+    }
+
+    /**
+     * Removes one or more specified assignees from a GitHub issue.
+     * This method first verifies that the user has the required permissions (`WRITE`, `MAINTAIN`, or `ADMIN`)
+     * before attempting to modify the issue.
+     * @param {object} options
+     * @param {number} options.issue_number The number of the issue to modify.
+     * @param {string[]} options.assignees An array of GitHub user logins to unassign.
+     * @returns {Promise<object>}
+     */
+    async unassignIssue({issue_number, assignees}) {
+        if (!this.hasWritePermission()) {
+            const message = [
+                `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
+                `but one of [${this.writePermissions.join(', ')}] is required to unassign issues.`
+            ].join('');
+
+            logger.warn(message);
+            return {
+                error  : 'Permission Denied',
+                message,
+                code   : 'FORBIDDEN'
+            };
+        }
+
+        if (!assignees || assignees.length === 0) {
+            return {
+                error  : 'Bad Request',
+                message: 'The `assignees` array cannot be empty for an unassign operation.',
+                code   : 'BAD_REQUEST'
+            };
+        }
+
+        logger.info(`Attempting to unassign issue #${issue_number} from: ${assignees.join(', ')}`);
+
+        try {
+            const assigneeFlags = assignees.map(a => `--remove-assignee "${a}"`).join(' ');
+            const command       = `gh issue edit ${issue_number} ${assigneeFlags}`;
+
+            await execAsync(command);
+
+            const message = `Successfully unassigned ${assignees.join(', ')} from issue #${issue_number}`;
+            logger.info(message);
+            return { message };
+
+        } catch (error) {
+            logger.error(`Error unassigning from issue #${issue_number}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: error.message,
+                code   : 'GH_CLI_ERROR'
+            };
+        }
+    }
+
+    /**
      * Fetches the GraphQL node IDs for an issue and a set of labels.
      * @param {number} issueNumber - The number of the issue or PR.
      * @param {string[]} labelNames - An array of label names.
@@ -275,47 +394,76 @@ class IssueService extends Base {
     }
 
     /**
-     * Adds labels to an issue or pull request.
-     * @param {number} issueNumber - The number of the issue or PR.
-     * @param {string[]} labels - An array of labels to add.
-     * @returns {Promise<object>} A promise that resolves to a success message.
+     * Handles "blocked by" relationships between issues.
+     * @param {number} blockedIssue - The issue number being blocked
+     * @param {string} blockedIssueId - The GraphQL ID of the blocked issue
+     * @param {number|null} blockingIssue - The issue number doing the blocking (null to remove)
+     * @returns {Promise<object>} Result with updated relationship information
+     * @private
      */
-    async addLabels(issueNumber, labels) {
-        try {
-            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+    async #handleBlockedByRelationship(blockedIssue, blockedIssueId, blockingIssue) {
+        // If blockingIssue is null, we're removing a blocked-by relationship
+        if (!blockingIssue) {
+            // Fetch current blockedBy relationships
+            const blockedData = await GraphqlService.query(GET_BLOCKED_BY, {
+                owner : aiConfig.owner,
+                repo  : aiConfig.repo,
+                number: blockedIssue
+            }, true); // Enable sub-issues feature for blocked-by access
 
-            await GraphqlService.query(ADD_LABELS, { labelableId, labelIds });
-            return { message: `Successfully added labels to issue #${issueNumber}` };
-        } catch (error) {
-            logger.error(`Error adding labels to issue #${issueNumber} via GraphQL:`, error);
+            const currentBlockers = blockedData.repository.issue.blockedBy.nodes;
+
+            if (currentBlockers.length === 0) {
+                logger.info(`Issue #${blockedIssue} has no blocking relationships to remove`);
+                return {
+                    message     : `Issue #${blockedIssue} has no blocked-by relationships to remove`,
+                    blockedIssue: blockedIssue,
+                    blockingIssue: null
+                };
+            }
+
+            // Remove all blockedBy relationships
+            const removals = [];
+            for (const blocker of currentBlockers) {
+                const result = await GraphqlService.query(REMOVE_BLOCKED_BY, {
+                    issueId        : blockedIssueId,
+                    blockingIssueId: blocker.id
+                }, true);
+                removals.push(blocker.number);
+            }
+
+            logger.info(`Successfully removed blocked-by relationships from #${blockedIssue}: ${removals.join(', ')}`);
+
             return {
-                error  : 'GraphQL API request failed',
-                message: error.message,
-                code   : 'GRAPHQL_API_ERROR'
+                message       : `Successfully removed all blocked-by relationships from issue #${blockedIssue}`,
+                blockedIssue  : blockedIssue,
+                blockingIssue : null,
+                removedBlockers: removals
             };
         }
-    }
 
-    /**
-     * Removes labels from an issue or pull request.
-     * @param {number} issueNumber - The number of the issue or PR.
-     * @param {string[]} labels - An array of labels to remove.
-     * @returns {Promise<object>} A promise that resolves to a success message.
-     */
-    async removeLabels(issueNumber, labels) {
-        try {
-            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+        // Adding a blocked-by relationship
+        const blockingIdData = await GraphqlService.query(GET_ISSUE_ID, {
+            owner : aiConfig.owner,
+            repo  : aiConfig.repo,
+            number: blockingIssue
+        });
 
-            await GraphqlService.query(REMOVE_LABELS, { labelableId, labelIds });
-            return { message: `Successfully removed labels from issue #${issueNumber}` };
-        } catch (error) {
-            logger.error(`Error removing labels from issue #${issueNumber} via GraphQL:`, error);
-            return {
-                error  : 'GraphQL API request failed',
-                message: error.message,
-                code   : 'GRAPHQL_API_ERROR'
-            };
-        }
+        const blockingIssueId = blockingIdData.repository.issue.id;
+
+        // Add the blocked-by relationship
+        const result = await GraphqlService.query(ADD_BLOCKED_BY, {
+            issueId        : blockedIssueId,
+            blockingIssueId: blockingIssueId
+        }, true); // Enable sub-issues feature
+
+        logger.info(`Successfully added blocked-by relationship: #${blockedIssue} is now blocked by #${blockingIssue}`);
+
+        return {
+            message      : `Successfully set #${blockingIssue} as blocking #${blockedIssue}`,
+            blockedIssue : blockedIssue,
+            blockingIssue: blockingIssue
+        };
     }
 
     /**
@@ -350,16 +498,12 @@ class IssueService extends Base {
             limit,
             cursor,
             states,
-            since           : null,
             maxLabels       : aiConfig.issueSync.maxLabelsPerIssue,
-            maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue,
-            maxComments     : aiConfig.issueSync.maxCommentsPerIssue,
-            maxSubIssues    : aiConfig.issueSync.maxSubIssuesPerIssue,
-            maxTimelineItems: aiConfig.issueSync.maxTimelineItemsPerIssue
+            maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue
         };
 
         try {
-            const data = await GraphqlService.query(FETCH_ISSUES_FOR_SYNC, variables);
+            const data = await GraphqlService.query(FETCH_ISSUES_LIST, variables);
             let issues = data.repository.issues.nodes || [];
 
             // client-side label filtering if requested
@@ -379,12 +523,40 @@ class IssueService extends Base {
                 });
             }
 
+            // Transform in-place to match OpenAPI schema
+            for (const issue of issues) {
+                issue.labels    = issue.labels?.nodes    || [];
+                issue.assignees = issue.assignees?.nodes || [];
+            }
+
             return {
                 count: issues.length,
                 issues
             };
         } catch (error) {
             logger.error('Error fetching issues via GraphQL:', error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Removes labels from an issue or pull request.
+     * @param {number} issueNumber - The number of the issue or PR.
+     * @param {string[]} labels - An array of labels to remove.
+     * @returns {Promise<object>} A promise that resolves to a success message.
+     */
+    async removeLabels(issueNumber, labels) {
+        try {
+            const { labelableId, labelIds } = await this.#getIds(issueNumber, labels);
+
+            await GraphqlService.query(REMOVE_LABELS, { labelableId, labelIds });
+            return { message: `Successfully removed labels from issue #${issueNumber}` };
+        } catch (error) {
+            logger.error(`Error removing labels from issue #${issueNumber} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
@@ -510,79 +682,6 @@ class IssueService extends Base {
                 code   : 'GRAPHQL_API_ERROR'
             };
         }
-    }
-
-    /**
-     * Handles "blocked by" relationships between issues.
-     * @param {number} blockedIssue - The issue number being blocked
-     * @param {string} blockedIssueId - The GraphQL ID of the blocked issue
-     * @param {number|null} blockingIssue - The issue number doing the blocking (null to remove)
-     * @returns {Promise<object>} Result with updated relationship information
-     * @private
-     */
-    async #handleBlockedByRelationship(blockedIssue, blockedIssueId, blockingIssue) {
-        // If blockingIssue is null, we're removing a blocked-by relationship
-        if (!blockingIssue) {
-            // Fetch current blockedBy relationships
-            const blockedData = await GraphqlService.query(GET_BLOCKED_BY, {
-                owner : aiConfig.owner,
-                repo  : aiConfig.repo,
-                number: blockedIssue
-            }, true); // Enable sub-issues feature for blocked-by access
-
-            const currentBlockers = blockedData.repository.issue.blockedBy.nodes;
-
-            if (currentBlockers.length === 0) {
-                logger.info(`Issue #${blockedIssue} has no blocking relationships to remove`);
-                return {
-                    message     : `Issue #${blockedIssue} has no blocked-by relationships to remove`,
-                    blockedIssue: blockedIssue,
-                    blockingIssue: null
-                };
-            }
-
-            // Remove all blockedBy relationships
-            const removals = [];
-            for (const blocker of currentBlockers) {
-                const result = await GraphqlService.query(REMOVE_BLOCKED_BY, {
-                    issueId        : blockedIssueId,
-                    blockingIssueId: blocker.id
-                }, true);
-                removals.push(blocker.number);
-            }
-
-            logger.info(`Successfully removed blocked-by relationships from #${blockedIssue}: ${removals.join(', ')}`);
-
-            return {
-                message       : `Successfully removed all blocked-by relationships from issue #${blockedIssue}`,
-                blockedIssue  : blockedIssue,
-                blockingIssue : null,
-                removedBlockers: removals
-            };
-        }
-
-        // Adding a blocked-by relationship
-        const blockingIdData = await GraphqlService.query(GET_ISSUE_ID, {
-            owner : aiConfig.owner,
-            repo  : aiConfig.repo,
-            number: blockingIssue
-        });
-
-        const blockingIssueId = blockingIdData.repository.issue.id;
-
-        // Add the blocked-by relationship
-        const result = await GraphqlService.query(ADD_BLOCKED_BY, {
-            issueId        : blockedIssueId,
-            blockingIssueId: blockingIssueId
-        }, true); // Enable sub-issues feature
-
-        logger.info(`Successfully added blocked-by relationship: #${blockedIssue} is now blocked by #${blockingIssue}`);
-
-        return {
-            message      : `Successfully set #${blockingIssue} as blocking #${blockedIssue}`,
-            blockedIssue : blockedIssue,
-            blockingIssue: blockingIssue
-        };
     }
 }
 

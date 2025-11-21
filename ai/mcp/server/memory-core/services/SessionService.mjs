@@ -1,11 +1,11 @@
-import {GoogleGenerativeAI}     from '@google/generative-ai';
-import aiConfig                 from '../config.mjs';
-import Base                     from '../../../../../src/core/Base.mjs';
-import crypto                   from 'crypto';
-import ChromaManager            from './ChromaManager.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import HealthService            from './HealthService.mjs';
-import logger                   from '../logger.mjs';
+import {GoogleGenerativeAI} from '@google/generative-ai';
+import aiConfig             from '../config.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import crypto               from 'crypto';
+import ChromaManager        from './ChromaManager.mjs';
+import HealthService        from './HealthService.mjs';
+import Json                 from '../../../../../src/util/Json.mjs';
+import logger               from '../logger.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
@@ -83,8 +83,9 @@ class SessionService extends Base {
     async initAsync() {
         await super.initAsync();
 
-        // Wait for DatabaseLifecycleService to ensure ChromaDB is available
-        await DatabaseLifecycleService.ready();
+        // Wait for ChromaManager to be ready (connected)
+        // ChromaManager internally waits for DatabaseLifecycleService
+        await ChromaManager.ready();
 
         // Use ChromaManager instead of direct client access
         this.memoryCollection   = await ChromaManager.getMemoryCollection();
@@ -166,7 +167,7 @@ Analyze the following development session and provide a structured summary in JS
 - "complexity": (Number) A score from 0-100 rating the task's complexity based on factors like file touchpoints, depth of changes (core vs. app-level), and cognitive load. A simple typo fix is < 10. A deep refactoring of a core module is > 90.
 - "technologies": (String[]) An array of key technologies, frameworks, or libraries involved (e.g., "neo.mjs", "chromadb", "nodejs").
 
-Do not include any markdown formatting (e.g., \`json) in your response.
+Critical: Do not include any markdown formatting (e.g., \`json) in your response.
 
 ---
 
@@ -175,7 +176,12 @@ ${aggregatedContent}
 
         const result       = await this.model.generateContent(summaryPrompt);
         const responseText = result.response.text();
-        const summaryData  = JSON.parse(responseText);
+        const summaryData  = Json.extract(responseText);
+
+        if (!summaryData) {
+             logger.warn(`Failed to parse summary for session ${sessionId}`);
+             return null;
+        }
 
         const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
 
@@ -210,11 +216,12 @@ ${aggregatedContent}
             if (result) processed.push(result);
         } else {
             const sessionsToSummarize = await this.findUnsummarizedSessions();
-            for (const id of sessionsToSummarize) {
-                const result = await this.summarizeSession(id);
-                if (result) processed.push(result);
-            }
+            const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
+            const results             = await Promise.all(promises);
+
+            processed = results.filter(Boolean);
         }
+
         return { processed: processed.length, sessions: processed };
     }
 }

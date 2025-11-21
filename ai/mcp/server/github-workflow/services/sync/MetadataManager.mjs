@@ -39,7 +39,7 @@ class MetadataManager extends Base {
             if (error.code === 'ENOENT') {
                 return {
                     lastSync: null,
-                    issues: {},
+                    issues  : {},
                     releases: {}
                 };
             } else {

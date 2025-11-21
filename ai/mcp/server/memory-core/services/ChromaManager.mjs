@@ -1,7 +1,8 @@
-import {ChromaClient} from 'chromadb';
-import aiConfig       from '../config.mjs';
-import logger         from '../logger.mjs';
-import Base           from '../../../../../src/core/Base.mjs';
+import {ChromaClient}           from 'chromadb';
+import aiConfig                 from '../config.mjs';
+import logger                   from '../logger.mjs';
+import Base                     from '../../../../../src/core/Base.mjs';
+import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
  * Simple manager around the Chroma client that lazily caches frequently used collections.
@@ -58,6 +59,7 @@ class ChromaManager extends Base {
      */
     async initAsync() {
         await super.initAsync();
+        await DatabaseLifecycleService.ready();
         await this.connect();
     }
 

@@ -79,10 +79,8 @@ class Application extends Base {
 
         me.windowId = Neo.config.windowId;
 
-        Neo.apps ??= {};
         Neo.apps[me.windowId] = me;
 
-        Neo.appsByName ??= {};
         Neo.appsByName[name] ??= [];
         Neo.appsByName[name].push(me);
 

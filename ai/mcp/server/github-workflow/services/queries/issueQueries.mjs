@@ -220,6 +220,68 @@ export const FETCH_ISSUES_FOR_SYNC = `
 `;
 
 /**
+ * Optimized query for listing issues with minimal fields required by the Issue schema.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $limit: Int!
+ * - $cursor: String
+ * - $states: [IssueState!]
+ * - $maxLabels: Int!
+ * - $maxAssignees: Int!
+ */
+export const FETCH_ISSUES_LIST = `
+  query FetchIssuesList(
+    $owner: String!
+    $repo: String!
+    $limit: Int!
+    $cursor: String
+    $states: [IssueState!]
+    $maxLabels: Int!
+    $maxAssignees: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      issues(
+        first: $limit
+        after: $cursor
+        states: $states
+        orderBy: {field: UPDATED_AT, direction: DESC}
+      ) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          number
+          title
+          body
+          state
+          createdAt
+          url
+          
+          author {
+            login
+          }
+          
+          labels(first: $maxLabels) {
+            nodes {
+              name
+            }
+          }
+          
+          assignees(first: $maxAssignees) {
+            nodes {
+              login
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Simplified query for fetching a single issue's details.
  * Used for individual updates or debugging.
  *
@@ -312,29 +374,6 @@ export const FETCH_SINGLE_ISSUE = `
   }
 `;
 
-
-
-/**
- * Query to get an issue's current parent relationship.
- *
- * Variables required:
- * - $owner: String!
- * - $repo: String!
- * - $number: Int!
- */
-export const GET_ISSUE_PARENT = `
-    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-            issue(number: $number) {
-                parent {
-                    id
-                    number
-                }
-            }
-        }
-    }
-`;
-
 /**
  * Query to get an issue's current blockedBy relationships.
  *
@@ -378,6 +417,27 @@ export const GET_ISSUE_AND_LABEL_IDS = `
                 nodes {
                     id
                     name
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Query to get an issue's current parent relationship.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ */
+export const GET_ISSUE_PARENT = `
+    query GetIssueParent($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                parent {
+                    id
+                    number
                 }
             }
         }

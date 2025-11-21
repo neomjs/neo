@@ -268,9 +268,9 @@ class Button extends BaseButton {
 
                 filters.push({
                     property: me.dataField,
-                    operator,
                     value   : null,
-                    ...me.filterConfig
+                    ...me.filterConfig,
+                    operator
                 });
 
                 store.filters = filters
@@ -309,8 +309,8 @@ class Button extends BaseButton {
                 filters.push({
                     property: me.dataField,
                     operator: 'like',
-                    value,
-                    ...me.filterConfig
+                    ...me.filterConfig,
+                    value
                 });
 
                 store.filters = filters

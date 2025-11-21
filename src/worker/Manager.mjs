@@ -85,11 +85,11 @@ class Manager extends Base {
          */
         webWorkersEnabled: false,
         /**
-         * Using the current timestamp as a unique window identifier
-         * @member {Number} windowId=window.__NEO_SSR__?.windowId||new Date().getTime()
+         * Using crypto.randomUUID() as a unique window identifier
+         * @member {String} windowId=window.__NEO_SSR__?.windowId||crypto.randomUUID()
          * @protected
          */
-        windowId: window.__NEO_SSR__?.windowId || new Date().getTime(),
+        windowId: window.__NEO_SSR__?.windowId || crypto.randomUUID(),
         /**
          * Contains the fileNames for the App, Data & Vdom workers
          * @member {Object} workers

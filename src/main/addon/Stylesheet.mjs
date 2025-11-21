@@ -47,18 +47,20 @@ class Stylesheet extends Base {
             env       = neoConfig.environment,
             faPath;
 
-        if (neoConfig.useFontAwesome) {
-            if (env === 'development' || env === 'dist/esm') {
-                faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
-            } else {
-                faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
+        if (!neoConfig.useSSR) {
+            if (neoConfig.useFontAwesome) {
+                if (env === 'development' || env === 'dist/esm') {
+                    faPath = neoConfig.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css'
+                } else {
+                    faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
+                }
+
+                this.createStyleSheet(null, null, faPath)
             }
 
-            this.createStyleSheet(null, null, faPath)
-        }
-
-        if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
-            this.addGlobalCss()
+            if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
+                this.addGlobalCss()
+            }
         }
     }
 

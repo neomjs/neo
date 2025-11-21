@@ -616,7 +616,7 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Number} windowId
+     * @param {String} windowId
      */
     switchThemeForApp(windowId) {
         let {currentTheme, previousTheme} = this;

@@ -15,7 +15,7 @@ class Css extends Base {
 
     /**
      * Pass the selectorText of the rules which you want to remove
-     * @param {Number} windowId
+     * @param {String} windowId
      * @param {String[]|String} rules
      */
     static deleteRules(windowId, rules) {
@@ -27,7 +27,7 @@ class Css extends Base {
     }
 
     /**
-     * @param {Number} windowId
+     * @param {String} windowId
      * @param {String[]|String} rules
      */
     static insertRules(windowId, rules) {

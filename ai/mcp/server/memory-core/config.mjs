@@ -1,6 +1,10 @@
-import fs   from 'fs/promises';
-import path from 'path';
-import Base from '../../../../src/core/Base.mjs';
+import fs              from 'fs/promises';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Base            from '../../../../src/core/Base.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 /**
  * Default configuration object.
@@ -14,10 +18,26 @@ const defaultConfig = {
     debug: false,
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
-     * @returns {null}
+     *
+     * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from
+     * flagging this as a "legacy" function, which triggers a persistent console warning:
+     * "No embedding function configuration found for collection..."
+     *
+     * The `chromadb` library checks for the presence of `name`, `getConfig`, and `buildFromConfig`.
+     * If any are missing, it defaults to legacy mode.
+     * @returns {Object} The dummy embedding function satisfying IEmbeddingFunction
      */
     dummyEmbeddingFunction: {
-        generate: () => null
+        generate: () => null,
+        name: 'dummy_embedding_function',
+        getConfig: () => ({}),
+        constructor: {
+            buildFromConfig: () => ({
+                generate: () => null,
+                name: 'dummy_embedding_function',
+                getConfig: () => ({})
+            })
+        }
     },
     /**
      * The name of the Google Generative AI model for content generation.
@@ -52,12 +72,12 @@ const defaultConfig = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(process.cwd(), 'chroma-neo-memory-core'),
+        path: path.resolve(__dirname, '../../../../chroma-neo-memory-core'),
         /**
          * The path to store memory backups.
          * @type {string}
          */
-        backupPath: path.resolve(process.cwd(), 'dist/memory-backups')
+        backupPath: path.resolve(__dirname, '../../../../../dist/memory-backups')
     },
     /**
      * Configuration for the AI agent's session summary database.
@@ -77,7 +97,12 @@ const defaultConfig = {
          * The port the ChromaDB server for session summaries is listening on.
          * @type {number}
          */
-        port: 8001
+        port: 8001,
+        /**
+         * The path to store session summary backups.
+         * @type {string}
+         */
+        backupPath: path.resolve(__dirname, '../../../../../dist/session-backups')
     }
 };
 
