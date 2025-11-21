@@ -1,13 +1,14 @@
 ---
 id: 7827
 title: Initialize Neo.apps in App worker and optimize window-specific events
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-20T20:28:38Z'
-updatedAt: '2025-11-20T20:28:38Z'
+updatedAt: '2025-11-20T20:36:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7827'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-20T20:36:45Z'
 ---
 # Initialize Neo.apps in App worker and optimize window-specific events
 
@@ -36,4 +38,7 @@ The fallback logic `let appName = Object.values(Neo.apps)[0]?.name` is preserved
 
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `ai` label
+- 2025-11-20 @tobiu assigned to @tobiu
+- 2025-11-20 @tobiu referenced in commit `d6cb7fa` - "Initialize Neo.apps in App worker and optimize window-specific events #7827"
+- 2025-11-20 @tobiu closed this issue
 
