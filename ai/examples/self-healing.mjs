@@ -24,25 +24,13 @@ async function main() {
     
     // Start Knowledge Base
     await KB_LifecycleService.ready();
+    await KB_ChromaManager.ready(); // Ensure connection is active
     console.log('   - Knowledge Base Service: Ready');
     
     // Start Memory Core
     await Memory_LifecycleService.ready();
+    await Memory_ChromaManager.ready(); // Ensure connection is active
     console.log('   - Memory Core Service: Ready');
-
-    // Verify Connections (Manual wait loop pattern)
-    let kbConnected = false, memConnected = false;
-    for (let i = 0; i < 20; i++) {
-        if (!kbConnected) try { await KB_ChromaManager.client.heartbeat(); kbConnected = true; } catch(e){}
-        if (!memConnected) try { await Memory_ChromaManager.client.heartbeat(); memConnected = true; } catch(e){}
-        if (kbConnected && memConnected) break;
-        await new Promise(r => setTimeout(r, 500));
-    }
-    
-    if (!kbConnected || !memConnected) {
-        console.error(`❌ DB Connection Failed. KB: ${kbConnected}, Mem: ${memConnected}`);
-        process.exit(1);
-    }
     
     // Ensure KB content is loaded (embed if needed)
     try { await KB_DatabaseService.embedKnowledgeBase(); } catch(e) {}

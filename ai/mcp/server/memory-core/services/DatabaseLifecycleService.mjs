@@ -1,8 +1,7 @@
-import {spawn}       from 'child_process';
-import aiConfig      from '../config.mjs';
-import logger        from '../logger.mjs';
-import Base          from '../../../../../src/core/Base.mjs';
-import ChromaManager from './ChromaManager.mjs';
+import {spawn}  from 'child_process';
+import aiConfig from '../config.mjs';
+import logger   from '../logger.mjs';
+import Base     from '../../../../../src/core/Base.mjs';
 
 /**
  * Manages the lifecycle of the ChromaDB process for the Memory Core.
@@ -42,8 +41,6 @@ class DatabaseLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-
-        await ChromaManager.ready();
         await this.startDatabase();
     }
 
@@ -53,6 +50,7 @@ class DatabaseLifecycleService extends Base {
      */
     async isDbRunning() {
         try {
+            const ChromaManager = (await import('./ChromaManager.mjs')).default;
             await ChromaManager.client.heartbeat();
             return true;
         } catch (e) {
@@ -77,7 +75,7 @@ class DatabaseLifecycleService extends Base {
 
         logger.error('Starting ChromaDB (Memory Core) process...');
 
-        return new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
             const { port, path: dbPath } = aiConfig.memoryDb;
             const args = ['run', '--path', dbPath, '--port', port.toString()];
 
@@ -89,9 +87,7 @@ class DatabaseLifecycleService extends Base {
             spawnedProcess.on('spawn', () => {
                 this.chromaProcess = spawnedProcess;
                 logger.log(`ChromaDB (Memory Core) process started with PID: ${this.chromaProcess.pid}`);
-                const result = { status: 'started', pid: this.chromaProcess.pid };
-                this.fire('processActive', { pid: this.chromaProcess.pid, managedByService: true, detail: 'started by service' });
-                resolve(result);
+                resolve();
             });
 
             spawnedProcess.on('error', (err) => {
@@ -102,6 +98,28 @@ class DatabaseLifecycleService extends Base {
 
             spawnedProcess.unref();
         });
+
+        await this.waitForHeartbeat();
+
+        const result = { status: 'started', pid: this.chromaProcess.pid };
+        this.fire('processActive', { pid: this.chromaProcess.pid, managedByService: true, detail: 'started by service' });
+        return result;
+    }
+
+    /**
+     * Waits for the ChromaDB server to respond to a heartbeat.
+     * @returns {Promise<void>}
+     */
+    async waitForHeartbeat() {
+        logger.log('Waiting for ChromaDB heartbeat...');
+        for (let i = 0; i < 30; i++) {
+            if (await this.isDbRunning()) {
+                logger.log('ChromaDB heartbeat detected.');
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        throw new Error('ChromaDB failed to start (timeout waiting for heartbeat).');
     }
 
     /**

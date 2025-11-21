@@ -1,12 +1,11 @@
-import {GoogleGenerativeAI}     from '@google/generative-ai';
-import aiConfig                 from '../config.mjs';
-import Base                     from '../../../../../src/core/Base.mjs';
-import crypto                   from 'crypto';
-import ChromaManager            from './ChromaManager.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import HealthService            from './HealthService.mjs';
-import Json                     from '../../../../../src/util/Json.mjs';
-import logger                   from '../logger.mjs';
+import {GoogleGenerativeAI} from '@google/generative-ai';
+import aiConfig             from '../config.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import crypto               from 'crypto';
+import ChromaManager        from './ChromaManager.mjs';
+import HealthService        from './HealthService.mjs';
+import Json                 from '../../../../../src/util/Json.mjs';
+import logger               from '../logger.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
@@ -84,8 +83,9 @@ class SessionService extends Base {
     async initAsync() {
         await super.initAsync();
 
-        // Wait for DatabaseLifecycleService to ensure ChromaDB is available
-        await DatabaseLifecycleService.ready();
+        // Wait for ChromaManager to be ready (connected)
+        // ChromaManager internally waits for DatabaseLifecycleService
+        await ChromaManager.ready();
 
         // Use ChromaManager instead of direct client access
         this.memoryCollection   = await ChromaManager.getMemoryCollection();

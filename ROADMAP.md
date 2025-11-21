@@ -14,15 +14,15 @@ We are currently evolving our AI infrastructure to move beyond simple "tool use"
 
 **Goal:** Enable agents to import and use our intelligent services directly as libraries, without the MCP protocol overhead.
 
--   **Decouple Services:** Refactor `ai/mcp/server/*/services/*.mjs` to be importable as a standalone "AI SDK" (`ai/services.mjs`). This allows an agent to write a script that imports `QueryService` and uses it directly.
--   **Standardize Lifecycle:** Implement a `Neo.ai.ServiceBase` class that enforces the `initAsync()` and `ready()` pattern across all AI services, enabling agents to write generic "wait for readiness" logic.
+-   **Decouple Services (Completed):** Refactored `ai/mcp/server/*/services/*.mjs` to be importable as a standalone "AI SDK" (`ai/services.mjs`).
+-   **Standardize Lifecycle (Completed):** Enforced the `initAsync()` and `ready()` pattern across AI services, ensuring robust handling of hybrid database states (managed vs. external) and eliminating race conditions.
 -   **The "Neo Sandbox":** Create a lightweight boilerplate/config that sets up the Neo.mjs core in a Node.js script (handling `globalThis`, `Worker` mocks if needed) so agents can instantly start scripting.
 
 ### 2. New "Code Execution" Capabilities
 
 **Goal:** Empower agents to write "smart" scripts that perform logic on the client side, reducing token usage and increasing accuracy.
 
--   **"Smart" Search Scripts:** Agents write scripts to query the Knowledge Base, then filter and rank results using custom JavaScript logic *before* returning data to the LLM context.
+-   **"Smart" Search Scripts (Completed):** Verified with `ai/examples/smart-search.mjs`.
 -   **Automated Refactoring Agents:** Expose the `Neo.mjs` core (Component system, Config system) to the agent sandbox. Agents can instantiate components in Node.js to verify config validity using `Neo.create()` before committing code.
 
 ### 3. Visibility & Marketing ("Get Visibility")
@@ -31,7 +31,7 @@ We are currently evolving our AI infrastructure to move beyond simple "tool use"
 
 -   **"Context Engineering" Case Study:** Publish technical content comparing raw file dumping (Context Tax) vs. our semantic inheritance chain injection.
 -   **"The Agent OS" Branding:** Update documentation to explicitly highlight "AI-Native" capabilities and "Architecture designed for Agent Code Execution."
--   **"Self-Healing" Repository:** Develop a demo where an agent uses `GitHubWorkflow` + `KnowledgeBase` to autonomously read a bug report, write a reproduction test, fix the bug, and verify the fix.
+-   **"Self-Healing" Repository (Completed):** Developed `ai/examples/self-healing.mjs` where an agent uses `GitHubWorkflow` + `KnowledgeBase` to autonomously read a bug report, query context, plan, and propose a fix.
 
 ## 4. Future: Decoupling the AI Tooling Ecosystem
 
