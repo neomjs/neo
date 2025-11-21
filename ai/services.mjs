@@ -13,6 +13,7 @@ import KB_Config                   from './mcp/server/knowledge-base/config.mjs'
 
 // --- Memory Core Services ---
 import Memory_Service              from './mcp/server/memory-core/services/MemoryService.mjs';
+import Memory_DatabaseService      from './mcp/server/memory-core/services/DatabaseService.mjs';
 import Memory_SessionService       from './mcp/server/memory-core/services/SessionService.mjs';
 import Memory_LifecycleService     from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
 import Memory_HealthService        from './mcp/server/memory-core/services/HealthService.mjs';
@@ -60,6 +61,7 @@ export {
     Memory_ChromaManager,
     Memory_Service,
     Memory_SessionService,
+    Memory_DatabaseService,
     Memory_LifecycleService,
     Memory_HealthService,
 

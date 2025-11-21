@@ -14,10 +14,26 @@ const defaultConfig = {
     debug: false,
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
-     * @returns {null}
+     * 
+     * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from 
+     * flagging this as a "legacy" function, which triggers a persistent console warning:
+     * "No embedding function configuration found for collection..."
+     * 
+     * The `chromadb` library checks for the presence of `name`, `getConfig`, and `buildFromConfig`.
+     * If any are missing, it defaults to legacy mode.
+     * @returns {Object} The dummy embedding function satisfying IEmbeddingFunction
      */
     dummyEmbeddingFunction: {
-        generate: () => null
+        generate: () => null,
+        name: 'dummy_embedding_function',
+        getConfig: () => ({}),
+        constructor: {
+            buildFromConfig: () => ({
+                generate: () => null,
+                name: 'dummy_embedding_function',
+                getConfig: () => ({})
+            })
+        }
     },
     /**
      * The hostname of the ChromaDB server for the knowledge base.
