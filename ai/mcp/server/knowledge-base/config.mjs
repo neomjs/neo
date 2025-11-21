@@ -1,7 +1,10 @@
-import fs   from 'fs/promises';
-import path from 'path';
-import Base from '../../../../src/core/Base.mjs';
+import fs              from 'fs/promises';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Base            from '../../../../src/core/Base.mjs';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 /**
  * Default configuration object.
  * Defines the structure and default values for the server configuration.
@@ -14,11 +17,11 @@ const defaultConfig = {
     debug: false,
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
-     * 
-     * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from 
+     *
+     * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from
      * flagging this as a "legacy" function, which triggers a persistent console warning:
      * "No embedding function configuration found for collection..."
-     * 
+     *
      * The `chromadb` library checks for the presence of `name`, `getConfig`, and `buildFromConfig`.
      * If any are missing, it defaults to legacy mode.
      * @returns {Object} The dummy embedding function satisfying IEmbeddingFunction
@@ -49,12 +52,12 @@ const defaultConfig = {
      * The local persistence path for the agent knowledge-base server.
      * @type {string}
      */
-    path: path.resolve(process.cwd(), 'chroma-neo-knowledge-base'),
+    path: path.resolve(__dirname, '../../../../chroma-neo-knowledge-base'),
     /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}
      */
-    dataPath: path.resolve(process.cwd(), 'dist/ai-knowledge-base.jsonl'),
+    dataPath: path.resolve(__dirname, '../../../../dist/ai-knowledge-base.jsonl'),
     /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}
