@@ -5,7 +5,6 @@ import {Command}                                       from 'commander';
 import Neo                                             from '../../../../src/Neo.mjs';
 import * as core                                       from '../../../../src/core/_export.mjs';
 import InstanceManager                                 from '../../../../src/manager/Instance.mjs';
-import Observable                                      from '../../../../src/core/Observable.mjs';
 import aiConfig                                        from './config.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import SessionService                                  from './services/SessionService.mjs';
