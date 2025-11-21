@@ -1,24 +1,26 @@
 ---
 id: 7843
 title: '[AI] Implement Runtime Type Safety for AI SDK via OpenAPI Wrappers'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - developer-experience
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-21T14:14:18Z'
-updatedAt: '2025-11-21T14:14:18Z'
+updatedAt: '2025-11-21T14:31:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7843'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-21T14:31:51Z'
 ---
 # [AI] Implement Runtime Type Safety for AI SDK via OpenAPI Wrappers
 
@@ -50,10 +52,19 @@ Refactor the existing validation logic into a shared `OpenApiValidator` utility 
 - Passing invalid arguments to an SDK method throws a clear Zod validation error.
 - Existing MCP tool functionality remains unchanged (regression test).
 
+## Comments
+
+### @tobiu - 2025-11-21 14:31
+
+<img width="777" height="486" alt="Image" src="https://github.com/user-attachments/assets/71328d8d-46cb-449e-9279-7d8d06060992" />
+
 ## Activity Log
 
 - 2025-11-21 @tobiu added the `enhancement` label
 - 2025-11-21 @tobiu added the `developer-experience` label
 - 2025-11-21 @tobiu added the `ai` label
 - 2025-11-21 @tobiu added the `refactoring` label
+- 2025-11-21 @tobiu assigned to @tobiu
+- 2025-11-21 @tobiu referenced in commit `9cc5337` - "[AI] Implement Runtime Type Safety for AI SDK via OpenAPI Wrappers #7843"
+- 2025-11-21 @tobiu closed this issue
 
