@@ -6,7 +6,7 @@ import logger            from '../logger.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC} from './queries/issueQueries.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID, ADD_COMMENT} from './queries/mutations.mjs';
 
@@ -498,16 +498,12 @@ class IssueService extends Base {
             limit,
             cursor,
             states,
-            since           : null,
             maxLabels       : aiConfig.issueSync.maxLabelsPerIssue,
-            maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue,
-            maxComments     : aiConfig.issueSync.maxCommentsPerIssue,
-            maxSubIssues    : aiConfig.issueSync.maxSubIssuesPerIssue,
-            maxTimelineItems: aiConfig.issueSync.maxTimelineItemsPerIssue
+            maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue
         };
 
         try {
-            const data = await GraphqlService.query(FETCH_ISSUES_FOR_SYNC, variables);
+            const data = await GraphqlService.query(FETCH_ISSUES_LIST, variables);
             let issues = data.repository.issues.nodes || [];
 
             // client-side label filtering if requested
@@ -525,6 +521,12 @@ class IssueService extends Base {
                     const assignees = (issue.assignees && issue.assignees.nodes || []).map(a => a.login);
                     return assignees.includes(assignee);
                 });
+            }
+
+            // Transform in-place to match OpenAPI schema
+            for (const issue of issues) {
+                issue.labels    = issue.labels?.nodes    || [];
+                issue.assignees = issue.assignees?.nodes || [];
             }
 
             return {
