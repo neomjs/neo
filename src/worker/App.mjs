@@ -458,6 +458,10 @@ class App extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
+        if (Neo.config.useSharedWorkers) {
+            import('../manager/Window.mjs')
+        }
+
         let {config} = Neo,
             {data}   = msg,
             url      = 'resources/theme-map.json';
@@ -511,9 +515,13 @@ class App extends Base {
 
     /**
      * @param {Object} data
+     * @param {Object} data.data
      */
-    onWindowPositionChange(data) {
-        this.fireMainViewsEvent('windowPositionChange', data.data)
+    onWindowPositionChange({data}) {
+        // Only available in shared workers
+        Neo.manager.Window?.onWindowPositionChange(data);
+
+        this.fireMainViewsEvent('windowPositionChange', data)
     }
 
     /**
@@ -522,7 +530,7 @@ class App extends Base {
      */
     registerApp(appName) {
         // register the name as fast as possible
-        this.onRegisterApp({ appName });
+        this.onRegisterApp({appName});
         this.sendMessage('main', {action: 'registerAppName', appName})
     }
 
