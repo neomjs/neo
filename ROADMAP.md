@@ -24,6 +24,7 @@ We are currently evolving our AI infrastructure to move beyond simple "tool use"
 
 -   **"Smart" Search Scripts (Completed):** Verified with `ai/examples/smart-search.mjs`.
 -   **Automated Refactoring Agents:** Expose the `Neo.mjs` core (Component system, Config system) to the agent sandbox. Agents can instantiate components in Node.js to verify config validity using `Neo.create()` before committing code.
+-   **AI SDK Testing:** Implement a dedicated test suite for `ai/services.mjs` to ensure the stability of the Agent OS infrastructure, treating it as a first-class framework component.
 
 ### 3. Visibility & Marketing ("Get Visibility")
 
@@ -38,3 +39,5 @@ We are currently evolving our AI infrastructure to move beyond simple "tool use"
 **Goal:** Evolve our general-purpose AI tools into standalone, reusable packages.
 
 -   **Publish MCP Servers to npm:** The **Memory Core** and **GitHub Sync** MCP servers will be published as independent packages to npm. This will allow the general-purpose servers to be consumed via `npx` by the broader AI development community. The Knowledge Base server will remain internal as it is tightly coupled with this project's source code.
+-   **Sighted Agent Service:** Evolve the "Sighted Agent" concept into a `VisualService` within the AI SDK, allowing agents to programmatically capture screenshots, inspect the A11y tree, and run visual regression tests via Chrome DevTools.
+-   **Multi-Agent Coordination:** Explore patterns for multiple agents to collaborate on complex tasks using the Memory Core as a shared blackboard state.
