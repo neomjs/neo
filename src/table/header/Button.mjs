@@ -314,7 +314,7 @@ class Button extends BaseButton {
                 });
 
                 store.filters = filters
-            } else {console.log(value);
+            } else {
                 filter.value = value
             }
         }
