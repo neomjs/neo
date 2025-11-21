@@ -5,6 +5,7 @@ import Base            from '../../../../src/core/Base.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+
 /**
  * Default configuration object.
  * Defines the structure and default values for the server configuration.
