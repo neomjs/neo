@@ -1,14 +1,15 @@
 ---
 id: 7831
 title: 'Exploration: Enable AI Agent Code Execution with Standalone AI SDK'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - developer-experience
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-21T00:37:14Z'
-updatedAt: '2025-11-21T00:37:14Z'
+updatedAt: '2025-11-21T00:45:39Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7831'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-21T00:45:39Z'
 ---
 # Exploration: Enable AI Agent Code Execution with Standalone AI SDK
 
@@ -43,4 +45,7 @@ Anthropic's "Code Execution" pattern demonstrates that agents are more efficient
 - 2025-11-21 @tobiu added the `enhancement` label
 - 2025-11-21 @tobiu added the `developer-experience` label
 - 2025-11-21 @tobiu added the `ai` label
+- 2025-11-21 @tobiu referenced in commit `8de1415` - "feat(ai): Add standalone AI SDK and Code Execution PoC (#7831)"
+- 2025-11-21 @tobiu assigned to @tobiu
+- 2025-11-21 @tobiu closed this issue
 

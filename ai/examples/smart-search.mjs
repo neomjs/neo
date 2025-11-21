@@ -1,4 +1,4 @@
-import { QueryService, HealthService, DatabaseLifecycleService, DatabaseService } from '../services.mjs';
+import { KB_QueryService, KB_HealthService, KB_LifecycleService, KB_DatabaseService, KB_ChromaManager } from '../services.mjs';
 
 /**
  * Example: "Smart" Code Execution Script
@@ -17,16 +17,41 @@ async function main() {
 
     // Wait for the DB Lifecycle service to initialize (which starts the DB)
     console.log('⏳ Waiting for Database Lifecycle...');
-    await DatabaseLifecycleService.ready();
+    await KB_LifecycleService.ready();
     
-    console.log('⏳ Waiting for Database Service (Sync/Embed)...');
-    await DatabaseService.ready(); // Ensure KB is fully loaded
+    // Manual "Wait for DB" loop (since spawn !== ready)
+    console.log('⏳ Waiting for ChromaDB heartbeat...');
+    let connected = false;
+    for (let i = 0; i < 20; i++) {
+        try {
+            await KB_ChromaManager.client.heartbeat();
+            connected = true;
+            break;
+        } catch (e) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    
+    if (!connected) {
+        console.error('❌ ChromaDB failed to start.');
+        process.exit(1);
+    }
+    console.log('✅ ChromaDB is responding.');
+
+    // Trigger embedding manually to ensure collection exists
+    // (In case the automatic init failed due to timing)
+    console.log('⏳ Ensuring Knowledge Base is embedded...');
+    try {
+        await KB_DatabaseService.embedKnowledgeBase();
+    } catch (e) {
+        console.error('⚠️ Embedding failed (might be ready though):', e.message);
+    }
 
     // 1. Verify System Health
     // This mimics an agent "checking its tools" before starting work.
     let health;
     for (let i = 0; i < 10; i++) {
-        health = await HealthService.healthcheck();
+        health = await KB_HealthService.healthcheck();
         if (health.status === 'healthy' || health.status === 'degraded') break;
         console.log(`⏳ Waiting for system health... (${health.status})`);
         await new Promise(r => setTimeout(r, 1000));
@@ -46,7 +71,7 @@ async function main() {
     console.log(`🔍 Querying: "${query}"...`);
 
     try {
-        const results = await QueryService.queryDocuments({ query, type: 'guide' });
+        const results = await KB_QueryService.queryDocuments({ query, type: 'guide' });
 
         if (results.results) {
             console.log(`✅ Found ${results.results.length} results.`);
