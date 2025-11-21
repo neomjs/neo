@@ -41,3 +41,13 @@ We are currently evolving our AI infrastructure to move beyond simple "tool use"
 -   **Publish MCP Servers to npm:** The **Memory Core** and **GitHub Sync** MCP servers will be published as independent packages to npm. This will allow the general-purpose servers to be consumed via `npx` by the broader AI development community. The Knowledge Base server will remain internal as it is tightly coupled with this project's source code.
 -   **Sighted Agent Service:** Evolve the "Sighted Agent" concept into a `VisualService` within the AI SDK, allowing agents to programmatically capture screenshots, inspect the A11y tree, and run visual regression tests via Chrome DevTools.
 -   **Multi-Agent Coordination:** Explore patterns for multiple agents to collaborate on complex tasks using the Memory Core as a shared blackboard state.
+
+## 5. Architectural Evolution: Hybrid Distribution Model
+
+**Goal:** Solve the tension between "Agent OS" (Direct SDK access) and "Standalone Tooling" (npx execution).
+
+-   **Strategy:** Split future AI capabilities into "Core" vs. "Server" packages.
+    -   **Core (`@neomjs/ai-*-core`):** Pure logic libraries (Services) that can be imported directly by the Agent SDK for high-performance "Code Execution".
+    -   **Server (`@neomjs/ai-*-server`):** MCP wrappers around the Core libraries for external consumption via `npx`.
+-   **Execution:** We will maintain the current monorepo structure to iterate quickly on the "Agent OS" SDK. Extraction into separate packages will occur only once the service APIs are stable. This ensures we don't lose the "Thick Client" performance advantage while eventually enabling broader ecosystem adoption.
+
