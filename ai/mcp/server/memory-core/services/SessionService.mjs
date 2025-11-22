@@ -288,7 +288,12 @@ class SessionService extends Base {
             // Case B: Partial / Outdated Summary
             // If the memory count differs (new memories added OR deleted), we update.
             // This self-corrects: once updated, the counts match, and it won't run again.
-            else if (sessionData.count !== summaryCount) {
+            //
+            // We explicitly exclude the current session. Since it is active, its memory count
+            // is constantly changing (drift is expected). We only want to summarize it once it ends.
+            // Note: This check is irrelevant for startup (since no memories exist yet for the new session),
+            // but crucial when an agent manually triggers the summarization tool during an active session.
+            else if (sessionData.count !== summaryCount && sessionId !== this.currentSessionId) {
                 logger.info(`[SessionService] Updating active session ${sessionId} (DB: ${sessionData.count} !== Summary: ${summaryCount})`);
                 sessionsToUpdate.push(sessionId);
             }
@@ -365,6 +370,7 @@ ${aggregatedContent}
 
     /**
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
+     * Note: If the current active sessionId is explicitly passed, it WILL be summarized.
      * @param {Object} options
      * @param {Boolean} [options.includeAll]
      * @param {String} [options.sessionId]
