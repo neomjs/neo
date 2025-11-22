@@ -128,11 +128,59 @@ A critical part of the workflow is that the AI agent is not just a consumer, but
 
 This cycle turns technical debt into an asset, continuously improving the project's "AI-friendliness."
 
-## Configuration
+## Configuration: Tuning the Cortex
 
-The server is configured via `ai/mcp/server/knowledge-base/config.mjs` or environment variables.
+The server is designed to be self-contained. It manages its own database process and configuration to ensure it doesn't conflict with other services.
 
-**Key Environment Variables:**
+### Architecture: Service Isolation
+The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical facts) and **Memory Core** (personal history) each require their own dedicated vector storage. To prevent cross-contamination and ensure reliability, they operate as **independent services**.
+
+**Do NOT use global environment variables** (like `CHROMA_PORT` or `CHROMA_DATA_PATH`) to configure these services, as this would force them to share the same database instance, leading to conflicts. Instead, use the dedicated configuration file.
+
+### Key Configurable Items
+
+The server's default configuration is defined in `ai/mcp/server/knowledge-base/config.mjs`, but you are not expected to modify this file directly. Instead, you can load a custom configuration file at runtime.
+
+#### Loading Custom Configs
+You can override any part of the default configuration by passing the `-c` or `--config` flag when starting the server. This loads a `.json` or `.mjs` file and deeply merges it with the defaults.
+
+**Example:**
+```bash
+npm run ai:mcp-server-knowledge-base -- -c ./my-custom-config.mjs
+```
+
+**Example `my-custom-config.mjs`:**
+```javascript
+export default {
+    // Isolate this instance on a different port
+    port: 8100,
+    path: './my-custom-chroma-db',
+    
+    // Tune the brain to be more sensitive to bug reports
+    queryScoreWeights: {
+        ticketPenalty: -20, // Reduce penalty from -70
+        guideMatch: 60      // Increase boost from 50
+    }
+};
+```
+
+#### Configuration Options
+
+*   **Database Isolation:**
+    *   `port`: The port for the local ChromaDB instance (default: `8000`).
+    *   `path`: The filesystem path for vector storage (default: `chroma-neo-knowledge-base`).
+    *   `dataPath`: The location of the source-of-truth JSONL file.
+    *   *Note:* Ensure these do not overlap with the Memory Core's configuration.
+
+*   **Scoring Weights (`queryScoreWeights`):**
+    *   You can fine-tune the brain's retrieval logic here.
+    *   *Example:* Decrease `ticketPenalty` if you want the agent to focus more on historical bug reports.
+    *   *Example:* Increase `sourcePathMatch` to prioritize exact file location matches.
+
+*   **Performance:**
+    *   `nResults`: Retrieval depth (default: 100).
+    *   `batchSize`: Embedding throughput.
+
+### Environment Variables
+
 *   `GEMINI_API_KEY`: **Required.** Used for generating text embeddings.
-*   `CHROMA_DATA_PATH`: Path to store vector data (default: `./chroma-neo-knowledge-base`).
-*   `CHROMA_PORT`: Port for the database (default: `8000`).
