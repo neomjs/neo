@@ -159,30 +159,40 @@ class SessionService extends Base {
      * -   **Parallel / Crash Path:** Session A crashes after adding 5 memories. Summary has 10, DB has 15.
      *     Next startup sees Mismatch. Re-summarizes to capture the lost 5 memories.
      *
+     * @param {Boolean} [includeAll=false] If true, ignores the 30-day limit and scans all sessions.
      * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findSessionsToSummarize() {
-        // 1. Get metadata for memories (Last 30 Days only)
-        // This limits the scope to recent active work.
+    async findSessionsToSummarize(includeAll=false) {
+        // 1. Get metadata for memories
+        // Default: Last 30 Days only (limits scope to recent active work).
+        // Override: All time (if includeAll is true).
         const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
         const minTimestamp = new Date(Date.now() - ONE_MONTH_MS).toISOString();
+        const limit        = 2000;
 
         let allMetadatas = [];
         let offset       = 0;
-        const limit      = 2000;
         let hasMore      = true;
 
-        while (hasMore) {
-            const batch = await this.memoryCollection.get({
-                include: ['metadatas'],
-                limit,
-                offset,
-                where  : {
-                    timestamp: {
-                        '$gt': minTimestamp
-                    }
+        // Build query options dynamically to avoid passing `where: undefined`
+        const baseQueryOptions = {
+            include: ['metadatas'],
+            limit
+        };
+
+        const memoryQueryOptions = {...baseQueryOptions};
+
+        if (!includeAll) {
+            memoryQueryOptions.where = {
+                timestamp: {
+                    '$gt': minTimestamp
                 }
-            });
+            };
+        }
+
+        while (hasMore) {
+            memoryQueryOptions.offset = offset;
+            const batch = await this.memoryCollection.get(memoryQueryOptions);
 
             if (batch.ids.length === 0) {
                 hasMore = false;
@@ -211,22 +221,25 @@ class SessionService extends Base {
             sessions[m.sessionId].count++;
         });
 
-        // 3. Fetch existing summaries (Last 30 Days only)
+        // 3. Fetch existing summaries
+        // Matches the scope of the memory fetch (30 days or all).
         let allSummaryMetadatas = [];
         offset  = 0;
         hasMore = true;
 
-        while (hasMore) {
-            const batch = await this.sessionsCollection.get({
-                include: ['metadatas'],
-                limit,
-                offset,
-                where  : {
-                    timestamp: {
-                        '$gt': minTimestamp
-                    }
+        const summaryQueryOptions = {...baseQueryOptions};
+
+        if (!includeAll) {
+            summaryQueryOptions.where = {
+                timestamp: {
+                    '$gt': minTimestamp
                 }
-            });
+            };
+        }
+
+        while (hasMore) {
+            summaryQueryOptions.offset = offset;
+            const batch = await this.sessionsCollection.get(summaryQueryOptions);
 
             if (batch.ids.length === 0) {
                 hasMore = false;
@@ -255,7 +268,7 @@ class SessionService extends Base {
             const sessionData  = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
-            // Case A: Completely Missing Summary (within the 30-day window)
+            // Case A: Completely Missing Summary (within the scoped window)
             if (summaryCount === undefined) {
                 sessionsToUpdate.push(sessionId);
             }
@@ -340,17 +353,18 @@ ${aggregatedContent}
     /**
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
      * @param {Object} options
+     * @param {Boolean} [options.includeAll]
      * @param {String} [options.sessionId]
      * @returns {Promise<{processed: number, sessions: object[]}>}
      */
-    async summarizeSessions({ sessionId }) {
+    async summarizeSessions({ includeAll, sessionId }) {
         let processed = [];
 
         if (sessionId) {
             const result = await this.summarizeSession(sessionId);
             if (result) processed.push(result);
         } else {
-            const sessionsToSummarize = await this.findSessionsToSummarize();
+            const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
             const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
             const results             = await Promise.all(promises);
 

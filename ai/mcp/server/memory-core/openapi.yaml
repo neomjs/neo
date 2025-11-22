@@ -904,6 +904,14 @@ components:
           type: string
           description: Optional specific session to summarize. If omitted, all unsummarized sessions will be processed.
           example: "session_1696800000000"
+        includeAll:
+          type: boolean
+          default: false
+          description: |
+            If true, scans ALL sessions in the database for summarization, ignoring the default 30-day "active window" limit.
+            Use this only if you need to catch up on ancient, unsummarized sessions (e.g., > 1 month old).
+            Default is `false` (last 30 days only).
+          example: false
 
     SummarizeSessionResponse:
       type: object
