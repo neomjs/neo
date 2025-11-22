@@ -2,15 +2,40 @@
 
 The **Knowledge Base Server** (`neo.mjs-knowledge-base`) is the AI agent's "Technical Cortex." It provides a deep, semantic understanding of the Neo.mjs framework, enabling agents to answer questions like "How does the VDOM diffing work?" or "What is the proper way to extend a component?" with high accuracy.
 
-## Purpose
+## The Philosophy: Context Engineering
 
-In a traditional RAG (Retrieval-Augmented Generation) system, an agent searches for keywords. In the Agent OS, the Knowledge Base Server uses **semantic vector embeddings** to understand the *intent* behind a query.
+Traditional AI coding assistants often fail because they rely on shallow context—keyword searches or whatever file happens to be open in the editor. This approach breaks down in large, complex frameworks like Neo.mjs.
 
-It indexes four distinct types of content:
-1.  **Source Code (`src`):** Class definitions, methods, and configs. The server pre-calculates inheritance chains, so asking about `Button` also retrieves relevant context from `component.Base`.
-2.  **Guides (`guide`):** Conceptual documentation (like this file).
-3.  **Tickets (`ticket`):** Historical GitHub issues (both open and closed), providing context on *why* certain decisions were made.
-4.  **Release Notes (`release`):** Changelogs and feature announcements.
+The Knowledge Base Server implements **Context Engineering**, a discipline focused on providing AI agents with the *right* context, structured in a way they can understand.
+
+### Why We Built This
+1.  **Beyond Script Brittleness:** We moved from fragile shell scripts to a robust, type-safe MCP server to ensure reliability.
+2.  **Semantic Intent vs. Keywords:** A search for "table" shouldn't just find files named "table.js"—it should find `Grid`, `List`, and `Collection` because they are semantically related. Vector embeddings make this possible.
+3.  **The Versioning Problem:** Agents need to know *exactly* which version of the code they are working on. By indexing the local repository state, the Knowledge Base reflects the current branch, commit, and modifications, ensuring the agent never hallucinates about features that don't exist in the current version.
+
+### The Three Dimensions of Context
+This server provides the first dimension of the Agent OS's context model:
+
+1.  **Knowledge (The "How"):** Provided by **this server**. Immutable facts, source code, and documentation.
+2.  **Memory (The "Why"):** Provided by the **[Memory Core Server](./MemoryCore.md)**. Personal history, past decisions, and reasoning chains.
+3.  **Plan (The "What"):** Provided by the **[GitHub Workflow Server](./GitHubWorkflow.md)**. Formal requirements, issues, and project tracking.
+
+## Real-World Use Cases
+
+### 1. The Discovery Pattern (Learning)
+**Goal:** An agent needs to understand how to use a specific component.
+**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`
+**Result:** The server returns the "Grid" guide first, followed by relevant examples. The agent learns the *concept* before diving into the code.
+
+### 2. Forensic Debugging (History)
+**Goal:** An agent encounters a regression in the VDOM engine.
+**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`
+**Result:** The server returns closed tickets describing previous bugs and fixes. The agent learns *why* the current logic exists, preventing it from re-introducing an old bug.
+
+### 3. Architectural Analysis (Intent)
+**Goal:** An agent needs to refactor a worker.
+**Query:** `query_documents(query="worker thread communication patterns", type="src")`
+**Result:** Thanks to the **inheritance boosting** algorithm, the server returns not just the worker file, but its parent class `Neo.worker.Base` and `Neo.core.Base`, giving the agent the full architectural picture.
 
 ## Architecture
 
@@ -26,12 +51,12 @@ Unlike typical MCP servers that hardcode their tools, this server is entirely dr
 The server logic is distributed across specialized services:
 
 #### QueryService (`services/QueryService.mjs`)
-The brain of the operation. It handles the "Two-Stage Query Protocol" (Stage 1).
-- **Embeddings:** Uses Google's `text-embedding-004` model via the Gemini API to convert queries into vectors.
-- **Hybrid Search:** Combines vector similarity with a sophisticated **Weighted Scoring Algorithm**:
-    - **Boosts:** Matches in file paths (+40), filenames (+30), class names (+20), guides (+50).
-    - **Penalties:** Tickets (-70) and Release Notes (-50) are penalized to prioritize current code and documentation, unless explicitly requested.
-    - **Inheritance:** Uses pre-calculated inheritance chains to boost parent classes (+80) with a decay factor, ensuring architectural context is preserved.
+The brain of the operation. It handles the search logic and implements the **Weighted Scoring Algorithm** that makes the search "smart":
+- **Hybrid Search:** Combines vector similarity (meaning) with keyword matching (precision).
+- **Content Prioritization:**
+    - **Boosts:** Guides (+50) and Source Code (+40) are prioritized for implementation tasks.
+    - **Penalties:** Historical Tickets (-70) and Release Notes (-50) are penalized in general searches to avoid confusing the agent with outdated information, unless explicitly requested via `type='ticket'`.
+    - **Inheritance:** When a class is found, its parent classes get a boost (+80). This is crucial: it ensures the agent sees the full prototype chain, understanding methods inherited from `Base` classes.
 
 #### DatabaseService (`services/DatabaseService.mjs`)
 The ETL (Extract, Transform, Load) engine.
@@ -91,6 +116,18 @@ These tools manage the underlying services.
 *   **`start_database`**: Starts the local ChromaDB process.
 *   **`stop_database`**: Stops the local ChromaDB process.
 
+## The Virtuous Cycle: Enhancing the Knowledge Base
+
+A critical part of the workflow is that the AI agent is not just a consumer, but a **contributor** to the Knowledge Base.
+
+1.  **Query:** The agent searches for information.
+2.  **Analyze:** If the returned source code lacks comments or intent, the agent struggles.
+3.  **Enhance:** The agent applies the **Knowledge Base Enhancement Strategy** (defined in `AGENTS_STARTUP.md`). It adds rich JSDoc comments, `@summary` tags, and semantic keywords to the code.
+4.  **Sync:** The agent runs `sync_database`.
+5.  **Improve:** The next query (by this agent or another) will find this enhanced content, yielding a higher score and better understanding.
+
+This cycle turns technical debt into an asset, continuously improving the project's "AI-friendliness."
+
 ## Configuration
 
 The server is configured via `ai/mcp/server/knowledge-base/config.mjs` or environment variables.
@@ -99,21 +136,3 @@ The server is configured via `ai/mcp/server/knowledge-base/config.mjs` or enviro
 *   `GEMINI_API_KEY`: **Required.** Used for generating text embeddings.
 *   `CHROMA_DATA_PATH`: Path to store vector data (default: `./chroma-neo-knowledge-base`).
 *   `CHROMA_PORT`: Port for the database (default: `8000`).
-
-## The Two-Stage Query Protocol
-
-Effective Context Engineering requires distinguishing between "Knowledge" (Technical Facts) and "Memory" (Personal History). The Knowledge Base Server handles the first stage.
-
-### Stage 1: Querying Knowledge (`query_documents`)
-This tool searches the framework's documentation and codebase.
-
-**Example:**
-```javascript
-await KB_QueryService.queryDocuments({
-    query: "How do I create a custom form field?",
-    type: "guide" // Filter for conceptual guides
-});
-```
-
-### Stage 2: Querying Memory
-(Handled by the [Memory Core Server](./MemoryCore.md))
