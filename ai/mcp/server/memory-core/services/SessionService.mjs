@@ -168,11 +168,13 @@ class SessionService extends Base {
         // Override: All time (if includeAll is true).
         const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
         const minTimestamp = new Date(Date.now() - ONE_MONTH_MS).toISOString();
-        const limit        = 2000;
+        const limit        = aiConfig.summarizationBatchLimit || 2000;
+        const maxIterations= 1000; // Safety break: max 2M records (2000 * 1000)
 
-        let allMetadatas = [];
-        let offset       = 0;
-        let hasMore      = true;
+        let allMetadatas  = [];
+        let offset        = 0;
+        let hasMore       = true;
+        let iterations    = 0;
 
         // Build query options dynamically to avoid passing `where: undefined`
         const baseQueryOptions = {
@@ -191,6 +193,11 @@ class SessionService extends Base {
         }
 
         while (hasMore) {
+            if (iterations++ > maxIterations) {
+                logger.warn(`[SessionService] Scanned ${iterations * limit} memory records. Stopping safety break.`);
+                break;
+            }
+
             memoryQueryOptions.offset = offset;
             const batch = await this.memoryCollection.get(memoryQueryOptions);
 
@@ -224,8 +231,9 @@ class SessionService extends Base {
         // 3. Fetch existing summaries
         // Matches the scope of the memory fetch (30 days or all).
         let allSummaryMetadatas = [];
-        offset  = 0;
-        hasMore = true;
+        offset     = 0;
+        hasMore    = true;
+        iterations = 0;
 
         const summaryQueryOptions = {...baseQueryOptions};
 
@@ -238,6 +246,11 @@ class SessionService extends Base {
         }
 
         while (hasMore) {
+            if (iterations++ > maxIterations) {
+                logger.warn(`[SessionService] Scanned ${iterations * limit} summary records. Stopping safety break.`);
+                break;
+            }
+
             summaryQueryOptions.offset = offset;
             const batch = await this.sessionsCollection.get(summaryQueryOptions);
 
@@ -355,23 +368,33 @@ ${aggregatedContent}
      * @param {Object} options
      * @param {Boolean} [options.includeAll]
      * @param {String} [options.sessionId]
-     * @returns {Promise<{processed: number, sessions: object[]}>}
+     * @returns {Promise<{processed: number, sessions: object[]}|{error: string, message: string, code: string}>}
      */
     async summarizeSessions({ includeAll, sessionId }) {
-        let processed = [];
+        try {
+            let processed = [];
 
-        if (sessionId) {
-            const result = await this.summarizeSession(sessionId);
-            if (result) processed.push(result);
-        } else {
-            const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
-            const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
-            const results             = await Promise.all(promises);
+            if (sessionId) {
+                const result = await this.summarizeSession(sessionId);
+                if (result) processed.push(result);
+            } else {
+                const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
+                const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
+                const results             = await Promise.all(promises);
 
-            processed = results.filter(Boolean);
+                processed = results.filter(Boolean);
+            }
+
+            return { processed: processed.length, sessions: processed };
+
+        } catch (error) {
+            logger.error('[SessionService] Error during session summarization:', error);
+            return {
+                error  : 'Session summarization failed',
+                message: error.message,
+                code   : 'SUMMARIZATION_ERROR'
+            };
         }
-
-        return { processed: processed.length, sessions: processed };
     }
 }
 
