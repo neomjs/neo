@@ -108,7 +108,7 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 ```json
 {
     "debug": true,
-    "modelName": "gemini-1.5-pro",
+    "modelName": "gemini-2.5-pro",
     "memoryDb": {
         "port": 8005,
         "collectionName": "my-custom-memory"
