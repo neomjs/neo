@@ -13,6 +13,7 @@ This server transforms the workflow by implementing **Context Engineering**: giv
     2.  **Requirements:** The local tickets provide the formal plan and acceptance criteria.
     3.  **Intent:** The agent's own Memory Core provides the reasoning behind past decisions.
 *   **Zero-Latency Access:** Agents can read, search, and cross-reference tickets instantly without API round-trips.
+*   **Semantic Intelligence:** The local markdown files are automatically indexed by the **Knowledge Base Server** (`neo.mjs-knowledge-base`). This enables **semantic vector search**, allowing agents to query tickets by *meaning* (e.g., "find past VDOM regressions") rather than just keywords.
 *   **Platform Independence:** Your project management data lives in your repo, not just on GitHub's servers.
 
 ## 2. Real-World Use Case: The Autonomous Review Loop
