@@ -1,5 +1,6 @@
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
+import crypto               from 'crypto';
 import SessionService       from './SessionService.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
 
@@ -37,7 +38,7 @@ class MemoryService extends Base {
         const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
         const now          = Date.now();
         const timestamp    = new Date(now).toISOString();
-        const memoryId     = `mem_${timestamp}`;
+        const memoryId     = crypto.randomUUID();
         const embedding    = await TextEmbeddingService.embedText(combinedText);
 
         if (!sessionId) {
