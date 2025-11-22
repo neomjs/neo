@@ -54,6 +54,23 @@ The Agent OS consists of three specialized MCP servers that work together to giv
 *   **Function:** Bridges the local environment with GitHub. It syncs issues and PRs as local markdown files.
 *   **Capability:** Enables "Offline-First" project management. Agents can review PRs, manage tickets, and plan sprints without hitting API rate limits.
 
+## Shared Architectural Patterns
+
+All three servers share a common architectural DNA, leveraging the Neo.mjs framework itself for backend development:
+
+### 1. OpenAPI-Driven Design
+Each server defines its capabilities in a strict **OpenAPI 3.0 Specification** (`openapi.yaml`). This file is the single source of truth.
+*   **Automatic Tool Generation:** The server reads this file at startup to generate Zod validation schemas and MCP tool definitions dynamically.
+*   **Self-Documentation:** The API documentation *is* the tool definition, ensuring agents always have accurate descriptions.
+
+### 2. Neo.mjs Singleton Services
+The servers are built using the **Neo.mjs Class System**. Every service (e.g., `QueryService`, `SessionService`) is a Neo.mjs Singleton.
+*   **Lifecycle Management:** Services use `initAsync()` and `ready()` hooks for robust dependency orchestration.
+*   **Reactive Configs:** Runtime configuration is handled via the framework's reactive config system, ensuring type safety and validation.
+
+### 3. Transport Agnosticism
+While our default configuration uses `stdio` (standard input/output) for maximum security (local subprocesses only), the architecture is transport-agnostic. The servers can be easily exposed via HTTP/SSE for remote usage if needed, as the business logic is fully decoupled from the transport layer.
+
 ## Getting Started
 
 To start using the Agent OS, you need to configure your AI client to connect to these servers.
