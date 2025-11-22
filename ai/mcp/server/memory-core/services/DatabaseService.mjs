@@ -73,20 +73,29 @@ class DatabaseService extends Base {
      * @returns {Promise<{message: string}>}
      */
     async exportDatabase({ include }) {
-        logger.log('Starting agent memory export...');
-        let memoryCount = 0, summaryCount = 0;
+        try {
+            logger.log('Starting agent memory export...');
+            let memoryCount = 0, summaryCount = 0;
 
-        if (include.includes('memories')) {
-            const collection = await ChromaManager.getMemoryCollection();
-            memoryCount = await this.#exportCollection(collection, aiConfig.memoryDb.backupPath, 'memory-backup');
+            if (include.includes('memories')) {
+                const collection = await ChromaManager.getMemoryCollection();
+                memoryCount = await this.#exportCollection(collection, aiConfig.memoryDb.backupPath, 'memory-backup');
+            }
+
+            if (include.includes('summaries')) {
+                const collection = await ChromaManager.getSummaryCollection();
+                summaryCount = await this.#exportCollection(collection, aiConfig.sessionDb.backupPath, 'summaries-backup');
+            }
+
+            return { message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.` };
+        } catch (error) {
+            logger.error('[DatabaseService] Error exporting database:', error);
+            return {
+                error  : 'Failed to export database',
+                message: error.message,
+                code   : 'DATABASE_EXPORT_ERROR'
+            };
         }
-
-        if (include.includes('summaries')) {
-            const collection = await ChromaManager.getSummaryCollection();
-            summaryCount = await this.#exportCollection(collection, aiConfig.sessionDb.backupPath, 'summaries-backup');
-        }
-
-        return { message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.` };
     }
 
     /**
@@ -97,57 +106,66 @@ class DatabaseService extends Base {
      * @returns {Promise<{imported: number, total: number, mode: string}>}
      */
     async importDatabase({ file, mode }) {
-        const filePath = file; // Assuming file object contains path
-        logger.log(`Starting agent memory import from: ${filePath}`);
+        try {
+            const filePath = file; // Assuming file object contains path
+            logger.log(`Starting agent memory import from: ${filePath}`);
 
-        if (!await fs.pathExists(filePath)) {
-            throw new Error(`Backup file not found at ${filePath}`);
-        }
-
-        // Determine which collection to import into based on filename
-        const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
-        let collection = isMemoryBackup
-            ? await ChromaManager.getMemoryCollection()
-            : await ChromaManager.getSummaryCollection();
-
-        if (mode === 'replace') {
-            await ChromaManager.client.deleteCollection({ name: collection.name });
-
-            if (isMemoryBackup) {
-                ChromaManager.memoryCollection = null;
-                collection = await ChromaManager.getMemoryCollection();
-            } else {
-                ChromaManager.summaryCollection = null;
-                collection = await ChromaManager.getSummaryCollection();
+            if (!await fs.pathExists(filePath)) {
+                throw new Error(`Backup file not found at ${filePath}`);
             }
 
-            logger.log('Replaced mode: existing collection cleared and recreated.');
+            // Determine which collection to import into based on filename
+            const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
+            let collection = isMemoryBackup
+                ? await ChromaManager.getMemoryCollection()
+                : await ChromaManager.getSummaryCollection();
+
+            if (mode === 'replace') {
+                await ChromaManager.client.deleteCollection({ name: collection.name });
+
+                if (isMemoryBackup) {
+                    ChromaManager.memoryCollection = null;
+                    collection = await ChromaManager.getMemoryCollection();
+                } else {
+                    ChromaManager.summaryCollection = null;
+                    collection = await ChromaManager.getSummaryCollection();
+                }
+
+                logger.log('Replaced mode: existing collection cleared and recreated.');
+            }
+
+            const fileStream = fs.createReadStream(filePath);
+            const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+            const records    = [];
+
+            for await (const line of rl) {
+                records.push(JSON.parse(line));
+            }
+
+            if (records.length === 0) {
+                return { message: 'No records found in backup file to import.' };
+            }
+
+            logger.log(`Importing ${records.length} documents into ${collection.name}...`);
+
+            await collection.upsert({
+                ids       : records.map(r => r.id),
+                embeddings: records.map(r => r.embedding),
+                metadatas : records.map(r => r.metadata),
+                documents : records.map(r => r.document)
+            });
+
+            const count = await collection.count();
+            logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
+            return { imported: records.length, total: count, mode };
+        } catch (error) {
+            logger.error('[DatabaseService] Error importing database:', error);
+            return {
+                error  : 'Failed to import database',
+                message: error.message,
+                code   : 'DATABASE_IMPORT_ERROR'
+            };
         }
-
-        const fileStream = fs.createReadStream(filePath);
-        const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
-        const records    = [];
-
-        for await (const line of rl) {
-            records.push(JSON.parse(line));
-        }
-
-        if (records.length === 0) {
-            return { message: 'No records found in backup file to import.' };
-        }
-
-        logger.log(`Importing ${records.length} documents into ${collection.name}...`);
-
-        await collection.upsert({
-            ids       : records.map(r => r.id),
-            embeddings: records.map(r => r.embedding),
-            metadatas : records.map(r => r.metadata),
-            documents : records.map(r => r.document)
-        });
-
-        const count = await collection.count();
-        logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
-        return { imported: records.length, total: count, mode };
     }
 }
 
