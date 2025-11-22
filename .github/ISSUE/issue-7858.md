@@ -1,23 +1,25 @@
 ---
 id: 7858
 title: 'Documentation: Comprehensive Guide for GitHub Workflow MCP Server'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-22T15:42:28Z'
-updatedAt: '2025-11-22T15:42:28Z'
+updatedAt: '2025-11-22T16:07:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7858'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-22T16:07:20Z'
 ---
 # Documentation: Comprehensive Guide for GitHub Workflow MCP Server
 
@@ -37,9 +39,29 @@ Enhance `learn/guides/mcp/GitHubWorkflow.md` to provide a deep dive into the `ne
 - `ai/mcp/server/github-workflow/services/*.mjs`
 
 
+## Comments
+
+### @tobiu - 2025-11-22 16:06
+
+**Input from Gemini 2.5 pro:**
+
+> ✦ I have added section **"7. Platform Independence & Vendor Lock-In"** to the guide.
+> 
+> This section explicitly addresses the strategic value of the local-first architecture:
+> - **Sovereignty:** Highlighting that git repos don't natively store issues/releases.
+> - **Microsoft/Azure Context:** Acknowledging the ownership risk.
+> - **Migration Path:** Explaining how local Markdown files make moving to GitLab/Gitea feasible.
+> - **Source of Truth:** Re-framing GitHub as a "sync target" rather than the primary data store.
+> 
+> The guide is now complete and covers technical, operational, and strategic aspects of the server.
+> 
+
 ## Activity Log
 
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `enhancement` label
 - 2025-11-22 @tobiu added the `ai` label
+- 2025-11-22 @tobiu assigned to @tobiu
+- 2025-11-22 @tobiu referenced in commit `f588096` - "Documentation: Comprehensive Guide for GitHub Workflow MCP Server #7858"
+- 2025-11-22 @tobiu closed this issue
 
