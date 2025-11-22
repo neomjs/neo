@@ -35,7 +35,8 @@ class MemoryService extends Base {
     async addMemory({ prompt, response, thought, sessionId }) {
         const collection   = await ChromaManager.getMemoryCollection();
         const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
-        const timestamp    = new Date().toISOString();
+        const now          = Date.now();
+        const timestamp    = new Date(now).toISOString();
         const memoryId     = `mem_${timestamp}`;
         const embedding    = await TextEmbeddingService.embedText(combinedText);
 
@@ -51,7 +52,7 @@ class MemoryService extends Base {
                 response,
                 thought,
                 sessionId,
-                timestamp,
+                timestamp: now,
                 type: 'agent-interaction'
             }],
             documents: [combinedText]

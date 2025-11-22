@@ -167,7 +167,7 @@ class SessionService extends Base {
         // Default: Last 30 Days only (limits scope to recent active work).
         // Override: All time (if includeAll is true).
         const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-        const minTimestamp = new Date(Date.now() - ONE_MONTH_MS).toISOString();
+        const minTimestamp = Date.now() - ONE_MONTH_MS;
         const limit        = aiConfig.summarizationBatchLimit || 2000;
         const maxIterations= 1000; // Safety break: max 2M records (2000 * 1000)
 
@@ -354,7 +354,7 @@ ${aggregatedContent}
             ids: [summaryId],
             embeddings: [embedding],
             metadatas: [{
-                sessionId, timestamp: new Date().toISOString(), memoryCount: memories.ids.length,
+                sessionId, timestamp: Date.now(), memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity, technologies: technologies.join(',')
             }],
             documents: [summary]
