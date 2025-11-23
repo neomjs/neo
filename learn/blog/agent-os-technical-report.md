@@ -287,16 +287,16 @@ A unique aspect of this implementation is that the MCP servers themselves are bu
 │         Neo.mjs Universal Runtime               │
 ├─────────────────────────────────────────────────┤
 │                                                 │
-│  Browser (App Worker)    │    Node.js (MCP)    │
-│  ─────────────────────   │   ───────────────   │
-│  • UI Components         │   • Service Classes │
-│  • State Providers       │   • Database Mgmt   │
-│  • VDOM Engine           │   • GitHub Sync     │
-│                          │                     │
-│  Shared Foundation:                            │
-│  • Neo.core.Base (inheritance, lifecycle)      │
-│  • initAsync() / ready() (dependency injection)│
-│  • Reactive Configs (state management)         │
+│  Browser (App Worker)    │    Node.js (MCP)     │
+│  ─────────────────────   │   ───────────────    │
+│  • UI Components         │   • Service Classes  │
+│  • State Providers       │   • Database Mgmt    │
+│  • VDOM Engine           │   • GitHub Sync      │
+│                          │                      │
+│  Shared Foundation:                             │
+│  • Neo.core.Base (inheritance, lifecycle)       │
+│  • initAsync() / ready() (dependency injection) │
+│  • Reactive Configs (state management)          │
 │                                                 │
 └─────────────────────────────────────────────────┘
 ```
@@ -341,5 +341,5 @@ This work provides a concrete reference implementation of Anthropic's Code Execu
 
 **Reproduce our results:**
 *   **Repository:** [Neo.mjs on GitHub](https://github.com/neomjs/neo)
-*   **Migration Script:** `ai/examples/migrate_timestamps.mjs`
-*   **Triage Script:** `ai/examples/self-healing.mjs`
+*   **Migration Script:** [ai/examples/migrate_timestamps.mjs](https://github.com/neomjs/neo/blob/dev/ai/examples/migrate_timestamps.mjs)
+*   **Triage Script:** [ai/examples/self-healing.mjs](https://github.com/neomjs/neo/blob/dev/ai/examples/self-healing.mjs)
