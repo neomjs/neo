@@ -9,6 +9,25 @@ import logger               from '../logger.mjs';
 
 /**
  * Service for handling adding, listing, and querying agent memories.
+ *
+ * **Architecture & Strategy:**
+ * The primary challenge in managing session summaries is that agents are stateless and sessions
+ * rarely have a clean, explicit "end" event (e.g., crashes, network disconnects, or simply stopping work).
+ *
+ * To address this, this service employs an **"Eventual Consistency"** strategy for summarization:
+ * 1.  **Startup Scan:** On initialization, we scan for sessions that have been active recently (last 30 days).
+ * 2.  **Drift Detection:** We compare the actual number of memories in the database against the `memoryCount`
+ *     recorded in the existing summary.
+ * 3.  **Self-Healing:** If the counts differ (indicating new memories added or old ones deleted), we
+ *     trigger a re-summarization.
+ *
+ * **Parallel Sessions Trade-off:**
+ * In a scenario where multiple sessions are running in parallel (e.g., Session A and Session B),
+ * they may continuously update the memory count. This strategy accepts the overhead of
+ * potentially re-summarizing an active session multiple times to ensure that if any session
+ * crashes or ends abruptly, its context is preserved and up-to-date for the next agent.
+ * Data integrity and context availability are prioritized over minimizing LLM token usage.
+ *
  * @class AI.mcp.server.memory-core.services.SessionService
  * @extends Neo.core.Base
  * @singleton
@@ -122,18 +141,165 @@ class SessionService extends Base {
     }
 
     /**
-     * Finds sessions that have not yet been summarized.
-     * @returns {Promise<String[]>}
+     * Finds sessions that need summarization by detecting "Drift" between the database state
+     * and the summary metadata.
+     *
+     * **Logic:**
+     * 1.  **Scope:** Fetches memory and summary metadata for the last 30 days. This optimization
+     *     prevents full-table scans on large databases while covering the vast majority of active work.
+     * 2.  **Grouping:** Aggregates actual memory counts per session from the raw memory data.
+     * 3.  **Comparison:**
+     *     -   **Missing Summary:** If a session has memories but no summary, it is flagged.
+     *     -   **Count Mismatch:** If `DB_Count !== Summary_Count`, it implies the session has changed
+     *         (new memories added or removed) since the last summary. It is flagged for update.
+     *
+     * **Scenarios:**
+     * -   **Happy Path (Sequential):** Session A ends. Summary is created (Count: 10). Next startup sees
+     *     DB: 10, Summary: 10. Match. No action. Zero overhead.
+     * -   **Parallel / Crash Path:** Session A crashes after adding 5 memories. Summary has 10, DB has 15.
+     *     Next startup sees Mismatch. Re-summarizes to capture the lost 5 memories.
+     *
+     * @param {Boolean} [includeAll=false] If true, ignores the 30-day limit and scans all sessions.
+     * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findUnsummarizedSessions() {
-        const memories = await this.memoryCollection.get({ include: ['metadatas'] });
-        if (memories.ids.length === 0) return [];
+    async findSessionsToSummarize(includeAll=false) {
+        // 1. Get metadata for memories
+        // Default: Last 30 Days only (limits scope to recent active work).
+        // Override: All time (if includeAll is true).
+        const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+        const minTimestamp = Date.now() - ONE_MONTH_MS;
+        const limit        = aiConfig.summarizationBatchLimit || 2000;
+        const maxIterations= 1000; // Safety break: max 2M records (2000 * 1000)
 
-        const sessionIds           = [...new Set(memories.metadatas.map(m => m.sessionId).filter(Boolean))];
-        const summaries            = await this.sessionsCollection.get({include: ['metadatas']});
-        const summarizedSessionIds = new Set(summaries.metadatas.map(m => m.sessionId));
+        let allMetadatas  = [];
+        let offset        = 0;
+        let hasMore       = true;
+        let iterations    = 0;
 
-        return sessionIds.filter(id => !summarizedSessionIds.has(id));
+        // Build query options dynamically to avoid passing `where: undefined`
+        const baseQueryOptions = {
+            include: ['metadatas'],
+            limit
+        };
+
+        const memoryQueryOptions = {...baseQueryOptions};
+
+        if (!includeAll) {
+            memoryQueryOptions.where = {
+                timestamp: {
+                    '$gt': minTimestamp
+                }
+            };
+        }
+
+        while (hasMore) {
+            if (iterations++ > maxIterations) {
+                logger.warn(`[SessionService] Scanned ${iterations * limit} memory records. Stopping safety break.`);
+                break;
+            }
+
+            memoryQueryOptions.offset = offset;
+            const batch = await this.memoryCollection.get(memoryQueryOptions);
+
+            if (batch.ids.length === 0) {
+                hasMore = false;
+            } else {
+                allMetadatas = allMetadatas.concat(batch.metadatas);
+                offset += limit;
+
+                if (batch.ids.length < limit) {
+                    hasMore = false;
+                }
+            }
+        }
+
+        if (allMetadatas.length === 0) return [];
+
+        // 2. Group memories by session
+        const sessions = {}; // { sessionId: { count: number } }
+
+        allMetadatas.forEach(m => {
+            if (!m.sessionId) return;
+
+            if (!sessions[m.sessionId]) {
+                sessions[m.sessionId] = { count: 0 };
+            }
+
+            sessions[m.sessionId].count++;
+        });
+
+        // 3. Fetch existing summaries
+        // Matches the scope of the memory fetch (30 days or all).
+        let allSummaryMetadatas = [];
+        offset     = 0;
+        hasMore    = true;
+        iterations = 0;
+
+        const summaryQueryOptions = {...baseQueryOptions};
+
+        if (!includeAll) {
+            summaryQueryOptions.where = {
+                timestamp: {
+                    '$gt': minTimestamp
+                }
+            };
+        }
+
+        while (hasMore) {
+            if (iterations++ > maxIterations) {
+                logger.warn(`[SessionService] Scanned ${iterations * limit} summary records. Stopping safety break.`);
+                break;
+            }
+
+            summaryQueryOptions.offset = offset;
+            const batch = await this.sessionsCollection.get(summaryQueryOptions);
+
+            if (batch.ids.length === 0) {
+                hasMore = false;
+            } else {
+                allSummaryMetadatas = allSummaryMetadatas.concat(batch.metadatas);
+                offset += limit;
+
+                if (batch.ids.length < limit) {
+                    hasMore = false;
+                }
+            }
+        }
+
+        const summaryMap = {}; // { sessionId: memoryCount }
+
+        allSummaryMetadatas.forEach(m => {
+            if (m.sessionId) {
+                summaryMap[m.sessionId] = m.memoryCount || 0;
+            }
+        });
+
+        // 4. Determine candidates
+        const sessionsToUpdate = [];
+
+        Object.keys(sessions).forEach(sessionId => {
+            const sessionData  = sessions[sessionId];
+            const summaryCount = summaryMap[sessionId];
+
+            // Case A: Completely Missing Summary (within the scoped window)
+            if (summaryCount === undefined) {
+                sessionsToUpdate.push(sessionId);
+            }
+            // Case B: Partial / Outdated Summary
+            // If the memory count differs (new memories added OR deleted), we update.
+            // This self-corrects: once updated, the counts match, and it won't run again.
+            //
+            // We explicitly exclude the current session. Since it is active, its memory count
+            // is constantly changing (drift is expected). We only want to summarize it once it ends.
+            // Note: This check is irrelevant for startup (since no memories exist yet for the new session),
+            // but crucial when an agent manually triggers the summarization tool during an active session.
+            else if (sessionData.count !== summaryCount && sessionId !== this.currentSessionId) {
+                logger.info(`[SessionService] Updating active session ${sessionId} (DB: ${sessionData.count} !== Summary: ${summaryCount})`);
+                sessionsToUpdate.push(sessionId);
+            }
+        });
+
+        return sessionsToUpdate;
     }
 
     /**
@@ -193,7 +359,7 @@ ${aggregatedContent}
             ids: [summaryId],
             embeddings: [embedding],
             metadatas: [{
-                sessionId, timestamp: new Date().toISOString(), memoryCount: memories.ids.length,
+                sessionId, timestamp: Date.now(), memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity, technologies: technologies.join(',')
             }],
             documents: [summary]
@@ -204,25 +370,37 @@ ${aggregatedContent}
 
     /**
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
+     * Note: If the current active sessionId is explicitly passed, it WILL be summarized.
      * @param {Object} options
+     * @param {Boolean} [options.includeAll]
      * @param {String} [options.sessionId]
-     * @returns {Promise<{processed: number, sessions: object[]}>}
+     * @returns {Promise<{processed: number, sessions: object[]}|{error: string, message: string, code: string}>}
      */
-    async summarizeSessions({ sessionId }) {
-        let processed = [];
+    async summarizeSessions({ includeAll, sessionId }) {
+        try {
+            let processed = [];
 
-        if (sessionId) {
-            const result = await this.summarizeSession(sessionId);
-            if (result) processed.push(result);
-        } else {
-            const sessionsToSummarize = await this.findUnsummarizedSessions();
-            const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
-            const results             = await Promise.all(promises);
+            if (sessionId) {
+                const result = await this.summarizeSession(sessionId);
+                if (result) processed.push(result);
+            } else {
+                const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
+                const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
+                const results             = await Promise.all(promises);
 
-            processed = results.filter(Boolean);
+                processed = results.filter(Boolean);
+            }
+
+            return { processed: processed.length, sessions: processed };
+
+        } catch (error) {
+            logger.error('[SessionService] Error during session summarization:', error);
+            return {
+                error  : 'Session summarization failed',
+                message: error.message,
+                code   : 'SUMMARIZATION_ERROR'
+            };
         }
-
-        return { processed: processed.length, sessions: processed };
     }
 }
 

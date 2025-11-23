@@ -50,6 +50,12 @@ const defaultConfig = {
      */
     embeddingModel: 'text-embedding-004',
     /**
+     * Pagination limit for fetching records during session summarization scans.
+     * Controls the batch size for memory and summary retrieval.
+     * @type {number}
+     */
+    summarizationBatchLimit: 2000,
+    /**
      * Configuration for the AI agent's persistent memory database.
      */
     memoryDb: {

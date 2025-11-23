@@ -225,7 +225,7 @@ class HealthService extends Base {
                 summarizationDetails: this.#startupSummarizationDetails
             },
             details: [],
-            version: '1.0.0',
+            version: process.env.npm_package_version || '1.0.0',
             uptime : process.uptime()
         };
 
@@ -304,47 +304,58 @@ class HealthService extends Base {
      * @returns {Promise<object>} A health status payload with session information
      */
     async healthcheck() {
-        const now = Date.now();
+        try {
+            const now = Date.now();
 
-        // Only use cache if the previous result was healthy
-        // Unhealthy/degraded results are never cached to allow immediate recovery
-        if (this.#cachedHealth &&
-            this.#cachedHealth.status === 'healthy' &&
-            this.#lastCheckTime) {
-            const age = now - this.#lastCheckTime;
+            // Only use cache if the previous result was healthy
+            // Unhealthy/degraded results are never cached to allow immediate recovery
+            if (this.#cachedHealth &&
+                this.#cachedHealth.status === 'healthy' &&
+                this.#lastCheckTime) {
+                const age = now - this.#lastCheckTime;
 
-            // If the cache is still fresh (< 5 minutes old), return it immediately
-            if (age < this.#cacheDuration) {
-                logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
-                return this.#cachedHealth;
+                // If the cache is still fresh (< 5 minutes old), return it immediately
+                if (age < this.#cacheDuration) {
+                    logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
+                    return this.#cachedHealth;
+                }
             }
-        }
 
-        // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
-        logger.debug('[HealthService] Performing fresh health check');
-        const health = await this.#performHealthCheck();
+            // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
+            logger.debug('[HealthService] Performing fresh health check');
+            const health = await this.#performHealthCheck();
 
-        // Detect and log meaningful state transitions
-        // This helps users understand when their fixes (like starting ChromaDB) succeed
-        if (this.#previousStatus && this.#previousStatus !== health.status) {
-            if (this.#previousStatus === 'unhealthy' && health.status === 'healthy') {
-                logger.info('🎉 [HealthService] System recovered! Memory Core is now fully operational.');
-            } else if (this.#previousStatus === 'unhealthy' && health.status === 'degraded') {
-                logger.info('⚠️  [HealthService] System partially recovered. ChromaDB is running but some features unavailable.');
-            } else if (this.#previousStatus === 'degraded' && health.status === 'healthy') {
-                logger.info('✅ [HealthService] System fully recovered! All features now operational.');
-            } else if ((this.#previousStatus === 'healthy' || this.#previousStatus === 'degraded') && health.status === 'unhealthy') {
-                logger.warn('⚠️  [HealthService] System became unhealthy. Tools may fail until dependencies are resolved.');
+            // Detect and log meaningful state transitions
+            // This helps users understand when their fixes (like starting ChromaDB) succeed
+            if (this.#previousStatus && this.#previousStatus !== health.status) {
+                if (this.#previousStatus === 'unhealthy' && health.status === 'healthy') {
+                    logger.info('🎉 [HealthService] System recovered! Memory Core is now fully operational.');
+                } else if (this.#previousStatus === 'unhealthy' && health.status === 'degraded') {
+                    logger.info('⚠️  [HealthService] System partially recovered. ChromaDB is running but some features unavailable.');
+                } else if (this.#previousStatus === 'degraded' && health.status === 'healthy') {
+                    logger.info('✅ [HealthService] System fully recovered! All features now operational.');
+                } else if ((this.#previousStatus === 'healthy' || this.#previousStatus === 'degraded') && health.status === 'unhealthy') {
+                    logger.warn('⚠️  [HealthService] System became unhealthy. Tools may fail until dependencies are resolved.');
+                }
             }
+
+            // Update the cache with this fresh result
+            // Note: Even unhealthy results are stored, but won't be returned from cache
+            this.#cachedHealth   = health;
+            this.#lastCheckTime  = now;
+            this.#previousStatus = health.status;
+
+            return health;
+        } catch (error) {
+            logger.error('[HealthService] Unexpected error during health check:', error);
+            return {
+                status : 'unhealthy',
+                details: [`Unexpected error: ${error.message}`],
+                error  : 'Health check failed unexpectedly',
+                message: error.message,
+                code   : 'HEALTH_CHECK_ERROR'
+            };
         }
-
-        // Update the cache with this fresh result
-        // Note: Even unhealthy results are stored, but won't be returned from cache
-        this.#cachedHealth   = health;
-        this.#lastCheckTime  = now;
-        this.#previousStatus = health.status;
-
-        return health;
     }
 
     /**

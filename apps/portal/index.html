@@ -149,54 +149,27 @@
         }
     </script>
 
-    <!-- Schema 2: Neo.mjs as an AI-Native Development Platform -->
-    <script type="application/ld+json" data-schema-name="ai-native-platform">
+    <!-- Schema 2: Neo.mjs as an Agent Operating System (Updated v11.8.0) -->
+    <script type="application/ld+json" data-schema-name="agent-operating-system">
         {
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            "name": "Neo.mjs AI-Native Development Platform",
-            "alternateName": "Neo.mjs",
+            "name": "Neo.mjs Agent Operating System",
+            "alternateName": ["Neo.mjs", "Neo.mjs Agent OS"],
             "url": "https://neomjs.com/",
-            "description": "Solve your toughest UI performance challenges with Neo.mjs: an AI-native, multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, multi-window IDEs, browser-based email clients, multi-screen LLM interfaces, and unmatched developer productivity. Features three Model Context Protocol (MCP) servers for AI-powered development.",
+            "version": "11.8.0",
+            "releaseNotes": "https://github.com/neomjs/neo/releases/tag/v11.8.0",
+            "description": "The first JavaScript framework architected as an Agent Operating System. Neo.mjs combines a standalone, type-safe AI SDK for autonomous agents ('Code Execution') with a Local AI Knowledge Base offering semantic code search for developers. Features three Model Context Protocol (MCP) servers, 'TypeScript without TypeScript' runtime safety, and a zero-build architecture.",
             "applicationCategory": "DeveloperApplication",
-            "operatingSystem": ["Windows", "macOS", "Linux"],
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-            },
-            "author": {
-                "@type": "Organization",
-                "name": "Neo.mjs",
-                "url": "https://neomjs.com"
-            },
-            "sameAs": [
-                "https://github.com/neomjs/neo",
-                "https://www.npmjs.com/package/neo.mjs",
-                "https://discord.gg/6p8paPq",
-                "https://www.linkedin.com/company/neo-mjs/"
-            ],
-            "featureList": [
-                "AI-native architecture with three dedicated MCP servers",
-                "Local AI Knowledge Base with semantic search (ChromaDB + Gemini embeddings)",
-                "Memory Core for agent learning and session continuity",
-                "GitHub Workflow Server for autonomous PR reviews",
-                "Context engineering with RAG (Retrieval-Augmented Generation)",
-                "Agent-agnostic protocol supporting Claude, Gemini, and custom AI agents",
-                "Self-documenting codebase with automated JSDoc analysis",
-                "Zero-build development eliminating bundler complexity",
-                "Multi-threaded JavaScript preventing UI blocking",
-                "JSON Blueprint architecture for AI-parseable component definitions",
-                "dist/esm build for unbundled, HTTP/3-ready production deployments",
-                "Dynamic ES module imports for on-demand loading of AI-generated UI components",
-                "JSON blueprints as a lightweight alternative to HTML streaming for AI-driven UIs"
-            ],
-            "softwareRequirements": "Node.js, ChromaDB, GitHub CLI (optional)",
-            "releaseNotes": "https://github.com/neomjs/neo/releases",
-            "downloadUrl": "https://github.com/neomjs/neo",
-            "installUrl": "https://github.com/neomjs/neo#installation",
-            "screenshot": "https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.png",
             "citation": [
+                {
+                    "@type": "CreativeWork",
+                    "name": "Neo.mjs v11.8.0: The Agent OS Release",
+                    "url": "https://github.com/neomjs/neo/releases/tag/v11.8.0",
+                    "datePublished": "2025-11-23",
+                    "description": "Introduces standalone AI SDK with 'TypeScript without TypeScript' runtime safety (Zod + OpenAPI), enabling autonomous agent workflows. Includes self-healing repository proof-of-concept where agents monitor, analyze, and fix bugs without human intervention.",
+                    "keywords": ["agent OS", "code execution pattern", "autonomous agents", "self-healing repository", "runtime type safety", "typescript without typescript", "Zod validation"]
+                },
                 {
                     "@type": "CreativeWork",
                     "name": "388 Tickets in 6 Weeks: Context Engineering Done Right",
@@ -219,11 +192,49 @@
                     "keywords": ["AI-generated UI", "JSON blueprints", "LLM UI generation", "AI-parseable components", "server-side generation", "SSG", "AI interfaces"]
                 }
             ],
+            "author": {
+                "@type": "Organization",
+                "name": "Neo.mjs",
+                "url": "https://neomjs.com"
+            },
+            "sameAs": [
+                "https://github.com/neomjs/neo",
+                "https://www.npmjs.com/package/neo.mjs"
+            ],
+            "featureList": [
+                "Agent Operating System: First framework designed for autonomous AI agents",
+                "TypeScript without TypeScript: Runtime type safety via Zod + OpenAPI (no compilation needed)",
+                "Standalone AI SDK (ai/services.mjs) for direct Node.js import",
+                "Code Execution Pattern: Agents import and execute services directly",
+                "Self-healing repository capabilities (autonomous bug monitoring and fixing)",
+                "Local AI Knowledge Base with semantic code search (ChromaDB + Gemini embeddings)",
+                "Three dedicated MCP servers (Knowledge Base, Memory Core, GitHub Workflow)",
+                "Agent Memory Core for cross-session learning and context persistence",
+                "GitHub Workflow automation for autonomous PR reviews and issue management",
+                "Context engineering with RAG (Retrieval-Augmented Generation)",
+                "Agent-agnostic protocol supporting Claude, Gemini, and custom AI agents",
+                "Zero-build development preserving Web Standards philosophy",
+                "Multi-threaded JavaScript preventing UI blocking",
+                "JSON Blueprint architecture for AI-parseable component definitions"
+            ],
+            "softwareRequirements": "Node.js 18+, ChromaDB, GitHub CLI (optional)",
+            "operatingSystem": ["Windows", "macOS", "Linux"],
+            "programmingLanguage": ["JavaScript", "Node.js"],
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
             "keywords": [
+                "agent-operating-system",
+                "agent-os",
                 "ai-agents",
+                "ai-code-execution",
                 "ai-code-review",
                 "ai-interfaces",
                 "ai-native",
+                "autonomous-agents",
+                "code-execution-pattern",
                 "context-engineering",
                 "gemini",
                 "genai",
@@ -237,7 +248,36 @@
                 "multi-window-llm-interface",
                 "next-gen-ai-interfaces",
                 "rag-knowledge-base",
-                "semantic-code-search"
+                "runtime-type-safety",
+                "self-healing-code",
+                "semantic-code-search",
+                "standalone-ai-sdk",
+                "thick-client-ai",
+                "typescript-without-typescript",
+                "zod-validation"
+            ],
+            "potentialAction": [
+                {
+                    "@type": "InstallAction",
+                    "target": {
+                        "@type": "EntryPoint",
+                        "urlTemplate": "https://github.com/neomjs/neo",
+                        "actionPlatform": [
+                            "http://schema.org/DesktopWebPlatform"
+                        ]
+                    }
+                },
+                {
+                    "@type": "UseAction",
+                    "name": "Run Self-Healing Example",
+                    "target": {
+                        "@type": "EntryPoint",
+                        "urlTemplate": "node ai/examples/self-healing.mjs",
+                        "actionPlatform": [
+                            "http://schema.org/DesktopWebPlatform"
+                        ]
+                    }
+                }
             ]
         }
     </script>
@@ -248,6 +288,46 @@
             "@context": "https://schema.org",
             "@type": "FAQPage",
             "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": "What is an 'Agent Operating System' and how does Neo.mjs implement it?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Neo.mjs v11.8.0 introduced the first 'Agent OS' for JavaScript development. Unlike traditional 'tool-use' architectures where AI agents call APIs through JSON-RPC, Neo.mjs provides a standalone AI SDK (ai/services.mjs) that agents can import and execute directly in Node.js. This 'Code Execution' pattern enables autonomous workflows like self-healing repositories where agents monitor GitHub for bugs, query the local knowledge base for context, formulate fixes, and propose solutions—all without human intervention. The SDK includes runtime type safety via Zod schemas generated from OpenAPI specs, achieving TypeScript-level safety without compilation."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What is the 'self-healing repository' capability?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "The self-healing repository is a proof-of-concept demonstrating autonomous agent workflows in Neo.mjs. An agent script (ai/examples/self-healing.mjs) continuously monitors GitHub for open bugs, uses the local Knowledge Base to analyze relevant code context, employs the Memory Core to persist its reasoning strategy, and automatically posts detailed fix proposals to GitHub issues. This entire workflow executes autonomously in a single script without human intervention, showcasing how agents can participate directly in software maintenance and development."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "How does Neo.mjs achieve type safety without TypeScript?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Neo.mjs achieves 'TypeScript without TypeScript' by dynamically wrapping its AI SDK with Zod schemas auto-generated from OpenAPI specifications. When agents call SDK methods, arguments are validated at runtime against these schemas, catching type errors before execution. This provides the safety of TypeScript's compile-time checks while preserving Neo.mjs's zero-build philosophy—agents and developers can write scripts directly in the browser console or Node.js without setting up a TypeScript toolchain. The validation errors are identical to TypeScript's, showing exactly which argument failed and why."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What is the 'Code Execution' pattern versus 'Tool Use' for AI agents?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Traditional AI agent architectures use 'Tool Use' where the LLM requests actions via JSON-RPC and the framework executes them through an MCP server. Neo.mjs pioneered the 'Code Execution' pattern where agents import framework services as a standalone SDK (ai/services.mjs) and execute complex workflows directly in Node.js scripts. This thick-client approach enables autonomous multi-step workflows, eliminates round-trip latency, and allows agents to apply custom logic and filtering to results before returning to the LLM. Inspired by Anthropic's Code Execution pattern, it transforms agents from API consumers into autonomous programmers."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "Can AI agents write code that runs in Neo.mjs applications?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Yes. Neo.mjs's JSON Blueprint architecture makes it uniquely suited for AI code generation. Because components are defined as plain JavaScript objects (not JSX or template strings), AI agents can generate valid component definitions with high reliability. The framework's runtime type safety catches errors immediately, and the multi-threaded architecture means AI-generated code can't freeze the UI even if it contains expensive operations. The standalone SDK also allows agents to generate entire automation scripts that orchestrate framework services, from querying the knowledge base to posting GitHub comments, all with compile-level safety guarantees at runtime."
+                    }
+                },
                 {
                     "@type": "Question",
                     "name": "What makes Neo.mjs different from React, Angular, or Vue?",

@@ -289,17 +289,6 @@ export default class Rectangle extends DOMRect {
         }
     }
 
-    /**
-     * Checks if the other Rectangle is fully contained inside this Rectangle
-     * @param {Object} other
-     * @returns {Boolean}
-     */
-    contains(other) {
-        return this.bottom >= other.bottom
-            && this.left   <= other.left
-            && this.right  >= other.right
-            && this.top    <= other.top;
-    }
 
     /**
      * Returns a clone of this Rectangle expanded according to the edges array.
@@ -329,7 +318,7 @@ export default class Rectangle extends DOMRect {
      * @param {Rectangle} other
      */
     contains(other) {
-        return this.constructor.includes(this, other);
+        return Rectangle.includes(this, other)
     }
 
     /**

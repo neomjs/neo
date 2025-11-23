@@ -47,10 +47,16 @@ This isn't just about generating code; it's about creating a self-aware developm
 </p>
 
 1.  **🧠 The Knowledge Base Server**: Gives agents a deep, semantic understanding of your project. Powered by ChromaDB and Gemini embeddings, it allows agents to perform semantic searches across your entire codebase, documentation, and historical tickets. An agent can ask, "How does VDOM diffing work?" and get the exact source files and architectural guides relevant to the *currently checked-out version*.
+    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/KnowledgeBase.md)**
 
 2.  **💾 The Memory Core Server**: Provides agents with persistent, long-term memory. Every interaction—prompt, thought process, and response—is stored, allowing the agent to learn from experience, recall past decisions, and maintain context across multiple sessions. This transforms the agent from a stateless tool into a true collaborator that grows with your project.
+    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/MemoryCore.md)**
 
 3.  **🤖 The GitHub Workflow Server**: Closes the loop by enabling agents to participate directly in your project's lifecycle. It provides tools for autonomous PR reviews, issue management, and bi-directional synchronization of GitHub issues into a local, queryable set of markdown files. This removes the human bottleneck in code review and project management.
+    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/GitHubWorkflow.md)**
+
+4.  **⚡️ Code Execution (The "Thick Client")**: Empower your agents to act as autonomous developers. Instead of passively asking for information, agents can write and execute complex scripts using the **Neo.mjs AI SDK**. This enables advanced workflows like self-healing code, automated refactoring, and data migration—running locally at machine speed.
+    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
 
 This powerful tooling, co-created with AI agents, resulted in **resolving 388 tickets in just 6 weeks**. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
 

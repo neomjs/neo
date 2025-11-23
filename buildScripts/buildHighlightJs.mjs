@@ -9,7 +9,7 @@ import * as terser     from 'terser';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const neoPath   = path.resolve(__dirname, '../');
 
-const languages     = ['bash', 'css', 'javascript', 'json', 'scss', 'xml'];
+const languages     = ['bash', 'css', 'javascript', 'json', 'markdown', 'scss', 'xml', 'yaml'];
 const outputDir     = path.resolve(neoPath, 'dist/highlight');
 const outputFile    = path.join(outputDir,  'highlight.custom.js');
 const minOutputFile = path.join(outputDir,  'highlight.custom.min.js');
