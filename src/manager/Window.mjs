@@ -1,4 +1,4 @@
-import Base      from '../core/Base.mjs';
+import Manager   from './Base.mjs';
 import Rectangle from '../util/Rectangle.mjs';
 
 /**
@@ -11,11 +11,11 @@ import Rectangle from '../util/Rectangle.mjs';
  * and provides intersection testing APIs to determine which window is under a given screen coordinate.
  *
  * @class Neo.manager.Window
- * @extends Neo.core.Base
+ * @extends Neo.manager.Base
  * @singleton
  * @see Neo.main.addon.WindowPosition
  */
-class Window extends Base {
+class Window extends Manager {
     static config = {
         /**
          * @member {String} className='Neo.manager.Window'
@@ -26,12 +26,7 @@ class Window extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {Map} windowMap=new Map()
-         * @protected
-         */
-        windowMap: new Map()
+        singleton: true
     }
 
     /**
@@ -57,16 +52,9 @@ class Window extends Base {
      * @returns {String|null} The windowId of the target window, or null if no intersection.
      */
     getWindowAt(x, y) {
-        let map = this.windowMap;
+        let item = this.items.find(item => item.rect?.contains({x, y, right: x, bottom: y}));
 
-        for (const [id, rect] of map) {
-            // Using a point check. Rectangle.contains expects a rect or point-like object.
-            if (rect.contains({x, y, right: x, bottom: y})) {
-                return id
-            }
-        }
-
-        return null
+        return item ? item.id : null
     }
 
     /**
@@ -74,8 +62,8 @@ class Window extends Base {
      * @param {Number} data.appName
      * @param {String} data.windowId
      */
-    onWindowConnect(data) {
-
+    onWindowConnect({appName, windowId}) {
+        this.register({appName, id: windowId, rect: null})
     }
 
     /**
@@ -83,8 +71,8 @@ class Window extends Base {
      * @param {Number} data.appName
      * @param {String} data.windowId
      */
-    onWindowDisconnect(data) {
-        this.windowMap.delete(data.windowId)
+    onWindowDisconnect({windowId}) {
+        this.unregister(windowId)
     }
 
     /**
@@ -98,7 +86,14 @@ class Window extends Base {
      * @param {String} data.windowId
      */
     onWindowPositionChange({outerHeight, outerWidth, screenLeft, screenTop, windowId}) {
-        this.windowMap.set(windowId, new Rectangle(screenLeft, screenTop, outerWidth, outerHeight))
+        let item = this.get(windowId),
+            rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight);
+
+        if (item) {
+            item.rect = rect
+        } else {
+            this.register({id: windowId, rect})
+        }
     }
 }
 
