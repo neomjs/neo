@@ -79,7 +79,7 @@ If you are using **Claude Desktop** or a compatible generic MCP client, the conf
 
 If you are building **autonomous agents**, you can import the SDK directly:
 
-```javascript
+```javascript readonly
 import { KB_QueryService, GH_IssueService } from './ai/services.mjs';
 
 // Your agent code here...

@@ -95,7 +95,7 @@ The server supports loading a custom configuration file via the `-c` or `--confi
 
 ### Usage
 
-```bash
+```bash readonly
 node ai/mcp/server/memory-core/mcp-stdio.mjs -c ./my-config.json
 ```
 
@@ -105,7 +105,7 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 
 **Example `my-config.json`:**
 
-```json
+```json readonly
 {
     "debug": true,
     "modelName": "gemini-2.5-pro",

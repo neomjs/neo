@@ -145,12 +145,12 @@ The server's default configuration is defined in `ai/mcp/server/knowledge-base/c
 You can override any part of the default configuration by passing the `-c` or `--config` flag when starting the server. This loads a `.json` or `.mjs` file and deeply merges it with the defaults.
 
 **Example:**
-```bash
+```bash readonly
 npm run ai:mcp-server-knowledge-base -- -c ./my-custom-config.mjs
 ```
 
 **Example `my-custom-config.mjs`:**
-```javascript
+```javascript readonly
 export default {
     // Isolate this instance on a different port
     port: 8100,

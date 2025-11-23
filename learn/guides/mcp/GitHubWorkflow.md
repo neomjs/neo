@@ -115,7 +115,7 @@ The server is highly configurable via `config.mjs` or a custom configuration fil
 
 ### Usage
 
-```bash
+```bash readonly
 node ai/mcp/server/github-workflow/mcp-stdio.mjs -c ./my-config.json
 ```
 
@@ -125,7 +125,7 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 
 **Example `my-config.json`:**
 
-```json
+```json readonly
 {
     "owner": "my-org",
     "repo": "my-project",
@@ -157,7 +157,7 @@ This flexibility is crucial for:
 ### The Markdown Format
 Each issue is stored as a YAML-frontmatter Markdown file. The frontmatter contains rich metadata derived from the GraphQL response:
 
-```markdown
+```markdown readonly
 ---
 id: 7852
 title: Documentation: Create Guide for "The GitHub Workflow Server"

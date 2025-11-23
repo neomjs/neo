@@ -37,7 +37,7 @@ The agent imports the **Neo.mjs AI SDK** directly into its script. This SDK expo
 The heart of this system is the **Neo.mjs AI SDK**. It serves as a bridge, exporting the internal service classes of our MCP servers for direct use in Node.js scripts.
 
 **Import Path:**
-```javascript
+```javascript readonly
 import { 
     KB_QueryService, 
     GH_IssueService, 
@@ -72,7 +72,7 @@ This decoupled architecture is made possible by the Neo.mjs lifecycle. Services 
 
 When you import a service in a script, it boots itself up. You simply await its readiness:
 
-```javascript
+```javascript readonly
 import { KB_QueryService } from './ai/services.mjs';
 
 // Wait for the service to initialize its dependencies (e.g. ChromaDB)
@@ -100,7 +100,7 @@ To solve this, the SDK implements a robust **Runtime Type Safety** layer that ac
 ### The Result
 If an agent writes a script that calls `GH_IssueService.createIssue({ title: 123 })` (passing a number instead of a string), the SDK throws a descriptive error immediately:
 
-```text
+```bash readonly
 Error: Validation failed
 [
   {
@@ -117,7 +117,7 @@ This precise feedback allows the agent (or developer) to self-correct immediatel
 
 ### Example Output: `ai/examples/test-safety.mjs`
 
-```text
+```bash readonly
 🧪 Testing Runtime Type Safety...
 
 [1] Testing Valid Call...
@@ -172,7 +172,7 @@ The script does:
 
 ### Example Output: `ai/examples/smart-search.mjs`
 
-```text
+```bash readonly
 🤖 Agent: Initializing Knowledge Base SDK...
 ⏳ Waiting for Database Lifecycle...
 ✅ ChromaDB is responding.
@@ -199,7 +199,7 @@ The flagship example of this pattern is `ai/examples/self-healing.mjs`. This scr
 ### Phase 1: Monitor
 The script starts by scanning GitHub for open bugs, filtering for specific labels.
 
-```javascript
+```javascript readonly
 // Monitor: Find open bugs
 const issues = await GH_IssueService.listIssues({
     state: 'open',
@@ -212,7 +212,7 @@ const targetIssue = issues.issues.find(i => i.title.includes('mobile click'));
 ### Phase 2: Understand
 Instead of asking the LLM "how do I fix this?", the script queries the local Knowledge Base for technical context.
 
-```javascript
+```javascript readonly
 // Understand: Get context from the codebase
 const query = `mobile button click event handler conflict ${targetIssue.body}`;
 const docs = await KB_QueryService.queryDocuments({ query, type: 'src' });
@@ -223,7 +223,7 @@ console.log(`Context found: ${docs.topResult}`);
 ### Phase 3: Plan
 The script persists its reasoning to the Memory Core. This ensures that even if the script crashes or the session ends, the "thought process" is saved.
 
-```javascript
+```javascript readonly
 // Plan: Save strategy to long-term memory
 await Memory_Service.addMemory({
     prompt: `Fix bug #${targetIssue.number}`,
@@ -236,7 +236,7 @@ await Memory_Service.addMemory({
 ### Phase 4: Act
 Finally, the script takes action in the real world by posting a comment to the GitHub issue.
 
-```javascript
+```javascript readonly
 // Act: Post the solution
 await GH_IssueService.createComment({
     issue_number: targetIssue.number,
@@ -247,7 +247,7 @@ await GH_IssueService.createComment({
 
 ### Example Output: `ai/examples/self-healing.mjs`
 
-```text
+```bash readonly
 🤖 Agent OS: Starting Self-Healing Routine...
 
 [1] Boot Sequence: Initializing Services...
@@ -288,7 +288,7 @@ Instead of asking a human to manually fix the database, the agent leveraged Code
 1.  **Diagnosis (`debug_session_state.mjs`):**
     The agent wrote a script to bypass the service layer and inspect the raw ChromaDB collections. It scanned thousands of records, logging the data types, and confirmed that `timestamp` fields were indeed strings, causing the query failures.
 
-    ```javascript
+    ```javascript readonly
     // Snippet from debug_session_state.mjs
     // The agent accesses the raw collection to verify data integrity
     const memCol = Memory_SessionService.memoryCollection;
@@ -312,7 +312,7 @@ Instead of asking a human to manually fix the database, the agent leveraged Code
     *   Parse them into numeric Unix timestamps (`Date.parse()`).
     *   Perform safe batch updates using `collection.update`.
 
-    ```javascript
+    ```javascript readonly
     // Snippet from migrate_timestamps.mjs
     // Autonomous data migration logic
     for (let i = 0; i < batch.ids.length; i++) {
