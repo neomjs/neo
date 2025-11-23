@@ -44,7 +44,7 @@ class QueryService extends Base {
      * @param {string} [type='all'] - The content type to filter by.
      * @returns {Promise<object>} A promise that resolves to the query results object.
      */
-    async queryDocuments({ query, type = 'all' }) {
+    async queryDocuments({query, type='all'}) {
         if (!query) {
             throw new Error('A query string must be provided.');
         }
@@ -60,14 +60,14 @@ class QueryService extends Base {
         const collection = await ChromaManager.getKnowledgeBaseCollection();
 
         const queryEmbedding = await model.embedContent(query);
-        const queryLower = query.toLowerCase();
+        const queryLower     = query.toLowerCase();
 
         const whereClause = (type && type !== 'all') ? { type } : {};
 
         const queryOptions = {
             queryEmbeddings: [queryEmbedding.embedding.values],
-            nResults: aiConfig.nResults,
-            where: whereClause
+            nResults       : aiConfig.nResults,
+            where          : whereClause
         };
 
         if (Object.keys(whereClause).length === 0) {
@@ -86,11 +86,11 @@ class QueryService extends Base {
         results.metadatas[0].forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
 
-            let score = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
-            const sourcePath = metadata.source;
+            let score             = (results.metadatas[0].length - index) * queryScoreWeights.baseIncrement;
+            const sourcePath      = metadata.source;
             const sourcePathLower = sourcePath.toLowerCase();
-            const fileName = sourcePath.split('/').pop().toLowerCase();
-            const nameLower = (metadata.name || '').toLowerCase();
+            const fileName        = sourcePath.split('/').pop().toLowerCase();
+            const nameLower       = (metadata.name || '').toLowerCase();
 
             queryWords.forEach(queryWord => {
                 const keyword = queryWord;
@@ -155,7 +155,7 @@ class QueryService extends Base {
         if (finalSorted.length > 0) {
             return {
                 topResult: finalSorted[0].source,
-                results: finalSorted
+                results  : finalSorted
             };
         }
 
