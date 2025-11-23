@@ -270,6 +270,91 @@ await GH_IssueService.createComment({
 ✅ Fix proposed on issue #7834.
 ```
 
+---
+
+## Case Study: Database Schema Evolution
+
+This real-world example illustrates how the "Thick Client" pattern allows the agent to handle complex infrastructure maintenance that would be impossible via standard chat interfaces.
+
+**The Context:**
+Feature work in **[Ticket #7862](https://github.com/neomjs/neo/issues/7862)** (adding an `includeAll` parameter to force-summarize ancient sessions) exposed a critical latent bug. The new logic relied on ChromaDB's `$gt` (greater than) operator to filter sessions by time. However, the database contained legacy timestamps stored as **ISO Strings**, while ChromaDB's operators strictly require **Numbers**.
+
+**The Consequence:**
+As soon as the new feature was deployed, the Memory Core's query system silently failed. The mismatched types meant the database returned zero results for time-based queries, breaking the session summarization pipeline. *From the user's perspective, summaries simply stopped appearing without error messages.*
+
+**The Autonomous Resolution ([Ticket #7865](https://github.com/neomjs/neo/issues/7865)):**
+Instead of asking a human to manually fix the database, the agent leveraged Code Execution to perform a hot-fix migration:
+
+1.  **Diagnosis (`debug_session_state.mjs`):**
+    The agent wrote a script to bypass the service layer and inspect the raw ChromaDB collections. It scanned thousands of records, logging the data types, and confirmed that `timestamp` fields were indeed strings, causing the query failures.
+
+    ```javascript
+    // Snippet from debug_session_state.mjs
+    // The agent accesses the raw collection to verify data integrity
+    const memCol = Memory_SessionService.memoryCollection;
+    
+    const memQuery = {
+        include: ['metadatas'],
+        limit: 2000
+    };
+    
+    // Direct query to inspect what's actually in the DB
+    const batch = await memCol.get(memQuery);
+    
+    // The agent then iterates through 'batch.metadatas' to check the 'timestamp' type
+    // and identifying the mismatch between ISO strings and expected numbers.
+    ```
+
+2.  **Remediation (`migrate_timestamps.mjs`):**
+    The agent wrote a migration utility to:
+    *   Iterate through the entire database (Memories and Summaries).
+    *   Detect string-based timestamps.
+    *   Parse them into numeric Unix timestamps (`Date.parse()`).
+    *   Perform safe batch updates using `collection.update`.
+
+    ```javascript
+    // Snippet from migrate_timestamps.mjs
+    // Autonomous data migration logic
+    for (let i = 0; i < batch.ids.length; i++) {
+        const id = batch.ids[i];
+        const metadata = batch.metadatas[i];
+        const currentTimestamp = metadata.timestamp;
+
+        // Check if migration is needed (is it a string?)
+        if (typeof currentTimestamp === 'string') {
+            const numericTimestamp = Date.parse(currentTimestamp);
+            
+            if (!isNaN(numericTimestamp)) {
+                // Create updated metadata with numeric timestamp
+                const newMetadata = { ...metadata, timestamp: numericTimestamp };
+                
+                updates.ids.push(id);
+                updates.metadatas.push(newMetadata);
+            }
+        }
+    }
+
+    // Perform safe batch update
+    if (updates.ids.length > 0) {
+        await collection.update({
+            ids: updates.ids,
+            metadatas: updates.metadatas
+        });
+        process.stdout.write(`\r   Migrated ${updates.ids.length} records...`);
+    }
+    ```
+
+3.  **Execution:**
+    The agent executed the migration script autonomously. It processed and fixed **2,000+ records in under 3 seconds**, instantly restoring the health of the Memory Core.
+
+**The Takeaway:**
+By moving the logic to the code (Thick Client), the agent transformed from a passive user into an active maintainer, capable of diagnosing and patching the very infrastructure it runs on.
+
+**Architectural Lesson:**
+This incident demonstrates why the SDK's Runtime Type Safety (Zod validation) only protects against *incorrect argument types*, not *incorrect data in the database*. The agent's ability to write diagnostic scripts filled this gap, allowing it to inspect and repair data integrity issues that validation alone couldn't catch.
+
+---
+
 ## When to Use Code Execution
 
 Use the **Thick Client** pattern when:
