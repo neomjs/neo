@@ -83,23 +83,25 @@ Rather than replacing Tool Use entirely, we implement a hybrid architecture that
     │   (Direct MCP) │      │  (Write Script)  │
     └────────────────┘      └──────────────────┘
              │                        │
-             │                        ▼
-             │              ┌──────────────────┐
-             │              │   Agent OS SDK   │
-             │              │  (ai/services)   │
-             │              └──────────────────┘
-             │                        │
-             └────────┬───────────────┘
-                      ▼
-          ┌───────────────────────┐
-          │   MCP Server Layer    │
-          │  (stdio transport)    │
-          └───────────────────────┘
-                      │
-          ┌───────────┴───────────┐
-          ▼           ▼           ▼
-    Knowledge     Memory      GitHub
-      Base         Core       Workflow
+             ▼                        ▼
+    ┌────────────────┐      ┌──────────────────┐
+    │   MCP Server   │      │   Agent OS SDK   │
+    │   (Transport)  │      │  (ai/services)   │
+    └────────┬───────┘      └────────┬─────────┘
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+             ┌───────────────────────┐
+             │     Service Layer     │
+             │   (Business Logic)    │
+             └───────────────────────┘
+                         │
+          ┌──────────────┴──────────────┐
+          ▼              ▼              ▼
+      Knowledge        Memory         GitHub
+        Base            Core         Workflow
+     (ChromaDB)      (ChromaDB)     (API + FS)
+    [1 Collection]  [2 Collections]
 ```
 
 **Design Rationale:**
@@ -222,15 +224,18 @@ Traditional Tool Use forces agents to pass intermediate results through the LLM 
 ```javascript
 // Agent writes this script once
 const results = await KB_QueryService.queryDocuments({
-    query: "reactive config system"
+    query: "reactive config system",
+    type: "guide",
+    limit: 100 // Fetch broad candidate set
 });
 
-// CPU-speed filtering, zero LLM cost
+// Local post-processing (filtering by score threshold)
 const top3 = results.results
+    .filter(r => r.score > 0.85)
     .slice(0, 3)
     .map(r => `${r.source} (${r.score})`);
 
-return top3;  // Only 500 tokens returned
+return top3;  // Return only the most relevant matches
 ```
 **Benefit:** The agent pays to generate the script once, then all data processing happens at CPU speed.
 
