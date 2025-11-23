@@ -78,6 +78,12 @@ class Base {
      *     by using the `Neo.overwrites` mechanism, which modifies these prototype values at
      *     load time.
      *
+     *     **vs. Class Fields:**
+     *     Use a non-reactive config when you want the property to be eligible for the `Neo.overwrites`
+     *     mechanism. This allows external code (like themes or application-level overrides) to change
+     *     the default value for the class, which then propagates to all subclasses and instances
+     *     globally. Use standard class fields for internal state that should not be globally reconfigured.
+     *
      * @returns {Object} config
      */
     static config = {
