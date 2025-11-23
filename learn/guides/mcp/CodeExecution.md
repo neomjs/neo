@@ -7,6 +7,7 @@ This guide explains how to move beyond simple "Tool Use" and empower agents to a
 ## The Paradigm Shift
 
 ### The Old Way: "Tool Use" (Thin Client)
+
 In a traditional "Tool Use" model, the agent acts as a passive orchestrator, relying on the server for every single step. This creates a chatty, inefficient loop:
 
 1.  **Agent:** "I need to check for bugs."
@@ -21,6 +22,7 @@ In a traditional "Tool Use" model, the agent acts as a passive orchestrator, rel
 *   **Fragility:** The agent must maintain the entire state of the task in its context window.
 
 ### The New Way: "Code Execution" (Thick Client)
+
 In the **Agent OS** model, the agent acts as a **developer**. Instead of asking the server to do things one by one, the agent **writes a script** to perform the entire task autonomously.
 
 The agent imports the **Neo.mjs AI SDK** directly into its script. This SDK exposes all the capabilities of our MCP servers (Knowledge Base, Memory, GitHub) as standard Node.js libraries. The script then runs locally, processing data at machine speed without constant round-trips to the LLM.
@@ -91,6 +93,7 @@ A major challenge with AI-generated code is ensuring it uses APIs correctly. If 
 To solve this, the SDK implements a robust **Runtime Type Safety** layer that acts like a dynamic compiler. It provides **JS-based run-time type safety 1:1 on the same level as MCP server tools**, protecting the system from agent hallucinations.
 
 ### How It Works
+
 1.  **OpenAPI as Source of Truth:** Each MCP server defines its capabilities in a strict `openapi.yaml` specification.
 2.  **Dynamic Derivation:** Just like the server-side `toolService.mjs` derives tool definitions for the MCP protocol, the SDK dynamically derives method signatures and validation logic from these same specs.
 3.  **Zod Validation:** When the SDK loads, it parses the OpenAPI specs and builds **Zod** validation schemas for every method using `ai/mcp/validation/OpenApiValidator.mjs`.
@@ -98,6 +101,7 @@ To solve this, the SDK implements a robust **Runtime Type Safety** layer that ac
 5.  **Validation:** The wrapper validates the arguments against the Zod schema *before* the business logic executes.
 
 ### The Result
+
 If an agent writes a script that calls `GH_IssueService.createIssue({ title: 123 })` (passing a number instead of a string), the SDK throws a descriptive error immediately:
 
 ```bash readonly
@@ -197,6 +201,7 @@ Score:  5378
 The flagship example of this pattern is `ai/examples/self-healing.mjs`. This script demonstrates a fully autonomous workflow where the agent acts as a "repair bot."
 
 ### Phase 1: Monitor
+
 The script starts by scanning GitHub for open bugs, filtering for specific labels.
 
 ```javascript readonly
@@ -210,6 +215,7 @@ const targetIssue = issues.issues.find(i => i.title.includes('mobile click'));
 ```
 
 ### Phase 2: Understand
+
 Instead of asking the LLM "how do I fix this?", the script queries the local Knowledge Base for technical context.
 
 ```javascript readonly
@@ -221,6 +227,7 @@ console.log(`Context found: ${docs.topResult}`);
 ```
 
 ### Phase 3: Plan
+
 The script persists its reasoning to the Memory Core. This ensures that even if the script crashes or the session ends, the "thought process" is saved.
 
 ```javascript readonly
@@ -234,6 +241,7 @@ await Memory_Service.addMemory({
 ```
 
 ### Phase 4: Act
+
 Finally, the script takes action in the real world by posting a comment to the GitHub issue.
 
 ```javascript readonly

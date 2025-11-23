@@ -86,11 +86,13 @@ When `sync_all` is called, `SyncService` executes a precise 8-step orchestration
 The server exposes a comprehensive suite of tools via the Model Context Protocol (MCP), mapped directly to service methods.
 
 ### 4.1 Synchronization & Health
+
 *   **`sync_all`**: Triggers the full bi-directional sync workflow described above.
 *   **`healthcheck`**: Verifies `gh` CLI status. Returns cached healthy results for speed, but performs immediate checks if the system was previously unhealthy.
 *   **`get_viewer_permission`**: Returns the bot's permission level (`ADMIN`, `WRITE`, `READ`).
 
 ### 4.2 Issue Management
+
 *   **`create_issue`**: **Authoritative** tool for creating tickets. Uses `gh issue create`.
 *   **`list_issues`**: Lists issues with filtering. Uses client-side filtering for labels/assignees to reduce API complexity.
 *   **`get_local_issue_by_id`**: Fast, offline retrieval of an issue's full Markdown content from the local file system.
@@ -99,6 +101,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`update_issue_relationship`**: Configures parent-child (Epic) or blocked-by dependencies using GraphQL mutations (`ADD_SUB_ISSUE`, `ADD_BLOCKED_BY`, etc.).
 
 ### 4.3 Pull Request Management
+
 *   **`list_pull_requests`**: Lists PRs with status filtering.
 *   **`checkout_pull_request`**: Checks out a PR branch locally using `gh pr checkout`.
 *   **`get_pull_request_diff`**: Fetches the code difference via `gh pr diff`.
@@ -107,6 +110,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`update_comment`**: Edits an existing comment.
 
 ### 4.4 Discovery
+
 *   **`list_labels`**: Enumerates all valid labels in the repository. *Always check this before applying labels.*
 
 ## 5. Configuration
@@ -150,11 +154,13 @@ This flexibility is crucial for:
 ## 6. Data Structures
 
 ### The Directory Structure
+
 *   **`.github/ISSUE/`**: The "Active Workspace." Contains all open tickets as Markdown files.
 *   **`.github/ISSUE_ARCHIVE/`**: The "Historical Record." Contains closed tickets, organized by Release Version (e.g., `v5.0.0/`).
 *   **`.github/RELEASE_NOTES/`**: Contains the content of GitHub Releases.
 
 ### The Markdown Format
+
 Each issue is stored as a YAML-frontmatter Markdown file. The frontmatter contains rich metadata derived from the GraphQL response:
 
 ```markdown readonly
@@ -181,6 +187,7 @@ This looks correct.
 ```
 
 ### The Metadata Cache
+
 Stored at `.github/.sync-metadata.json`, this file allows the server to perform "delta syncs." It tracks:
 *   **`contentHash`**: SHA-256 hash of the Markdown content to detect local modifications.
 *   **`updatedAt`**: Timestamp of the last update from GitHub to detect remote changes.

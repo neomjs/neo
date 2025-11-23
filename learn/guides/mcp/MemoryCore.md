@@ -52,17 +52,20 @@ This means the agent starts every new session with an indexed "Recap" of its pas
 The server exposes a suite of tools via the Model Context Protocol (MCP).
 
 ### Memory Operations
+
 *   **`add_memory`**: The core persistence tool. Saves the `{prompt, thought, response}` triplet.
 *   **`get_session_memories`**: Retrieves the full chronological history of a specific session. Useful for context recovery.
 *   **`query_raw_memories`**: Performs a semantic vector search across *all* raw memories. Use this to find specific details (e.g., "What was the error message in the grid component?").
 
 ### Summary Operations
+
 *   **`query_summaries`**: Performs a semantic vector search across session summaries. Use this to find relevant *past sessions* (e.g., "Have I worked on the Grid component before?").
 *   **`get_all_summaries`**: Lists all session summaries, sorted by date.
 *   **`delete_all_summaries`**: A destructive tool to clear the summary index (useful if you want to re-summarize everything with a new model).
 *   **`summarize_sessions`**: Manually triggers the summarization process for specific or all pending sessions.
 
 ### Database Management
+
 *   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, and API key configuration.
 *   **`start_database`**: Starts the local ChromaDB process.
 *   **`stop_database`**: Stops the local ChromaDB process.
@@ -126,9 +129,11 @@ This flexibility is crucial for:
 This server isn't just a standard Node.js application; it demonstrates the versatility of the Neo.mjs framework beyond the browser. By leveraging the **Neo.mjs Class System** for backend services, the server achieves a robust and maintainable architecture.
 
 ### 1. Singleton Services
+
 Every service (e.g., `SessionService`, `MemoryService`) is a **Neo.mjs Singleton**. This ensures a single source of truth for application state, global accessibility, and consistent lifecycle management without the need for complex dependency injection frameworks.
 
 ### 2. Asynchronous Initialization (`initAsync`)
+
 The server relies on the framework's `initAsync()` lifecycle hook to orchestrate complex dependency chains without race conditions.
 *   `ChromaManager` establishes the database connection.
 *   `DatabaseLifecycleService` waits for `ChromaManager` and ensures the DB process is running.
@@ -137,4 +142,5 @@ The server relies on the framework's `initAsync()` lifecycle hook to orchestrate
 All of this happens automatically during the startup sequence, ensuring a fully initialized environment before the first tool call is accepted.
 
 ### 3. Reactive Configurations
+
 The server uses Neo.mjs **Reactive Configs** to manage state. Configuration properties (like `model_` or `connected_`) automatically generate getters, setters, and change hooks (`afterSet...`). This allows services to react dynamically to environment changes or state transitions (e.g., re-initializing a model if the API key changes) with clean, declarative code.

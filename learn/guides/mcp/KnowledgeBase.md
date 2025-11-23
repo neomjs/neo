@@ -9,11 +9,13 @@ Traditional AI coding assistants often fail because they rely on shallow context
 The Knowledge Base Server implements **Context Engineering**, a discipline focused on providing AI agents with the *right* context, structured in a way they can understand.
 
 ### Why We Built This
+
 1.  **Beyond Script Brittleness:** We moved from fragile shell scripts to a robust, type-safe MCP server to ensure reliability.
 2.  **Semantic Intent vs. Keywords:** A search for "table" shouldn't just find files named "table.js"—it should find `Grid`, `List`, and `Collection` because they are semantically related. Vector embeddings make this possible.
 3.  **The Versioning Problem:** Agents need to know *exactly* which version of the code they are working on. By indexing the local repository state, the Knowledge Base reflects the current branch, commit, and modifications, ensuring the agent never hallucinates about features that don't exist in the current version.
 
 ### The Three Dimensions of Context
+
 This server provides the first dimension of the Agent OS's context model:
 
 1.  **Knowledge (The "How"):** Provided by **this server**. Immutable facts, source code, and documentation.
@@ -23,18 +25,21 @@ This server provides the first dimension of the Agent OS's context model:
 ## Real-World Use Cases
 
 ### 1. The Discovery Pattern (Learning)
-**Goal:** An agent needs to understand how to use a specific component.
-**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`
+
+**Goal:** An agent needs to understand how to use a specific component.  
+**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`  
 **Result:** The server returns the "Grid" guide first, followed by relevant examples. The agent learns the *concept* before diving into the code.
 
 ### 2. Forensic Debugging (History)
-**Goal:** An agent encounters a regression in the VDOM engine.
-**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`
+
+**Goal:** An agent encounters a regression in the VDOM engine.  
+**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`  
 **Result:** The server returns closed tickets describing previous bugs and fixes. The agent learns *why* the current logic exists, preventing it from re-introducing an old bug.
 
 ### 3. Architectural Analysis (Intent)
-**Goal:** An agent needs to refactor a worker.
-**Query:** `query_documents(query="worker thread communication patterns", type="src")`
+
+**Goal:** An agent needs to refactor a worker.  
+**Query:** `query_documents(query="worker thread communication patterns", type="src")`  
 **Result:** Thanks to the **inheritance boosting** algorithm, the server returns not just the worker file, but its parent class `Neo.worker.Base` and `Neo.core.Base`, giving the agent the full architectural picture.
 
 ## Architecture
@@ -42,15 +47,18 @@ This server provides the first dimension of the Agent OS's context model:
 The server is built on a robust, service-oriented architecture designed for reliability and extensibility.
 
 ### 1. OpenAPI-Driven Design
+
 Unlike typical MCP servers that hardcode their tools, this server is entirely driven by an **OpenAPI 3.0 Specification**.
 - **Source of Truth:** `openapi.yaml` defines every tool, argument, and return type.
 - **Dynamic Validation:** `OpenApiValidator.mjs` generates Zod schemas at runtime to ensure strict type safety for all tool calls.
 - **Tool Discovery:** `toolService.mjs` dynamically maps OpenAPI operations to service handlers.
 
 ### 2. Core Services
+
 The server logic is distributed across specialized services:
 
 #### QueryService (`services/QueryService.mjs`)
+
 The brain of the operation. It handles the search logic and implements the **Weighted Scoring Algorithm** that makes the search "smart":
 - **Hybrid Search:** Combines vector similarity (meaning) with keyword matching (precision).
 - **Content Prioritization:**
@@ -59,26 +67,31 @@ The brain of the operation. It handles the search logic and implements the **Wei
     - **Inheritance:** When a class is found, its parent classes get a boost (+80). This is crucial: it ensures the agent sees the full prototype chain, understanding methods inherited from `Base` classes.
 
 #### DatabaseService (`services/DatabaseService.mjs`)
+
 The ETL (Extract, Transform, Load) engine.
 - **Extract:** Reads from `docs/output/all.json` (JSDoc), `learn/tree.json` (Guides), and `.github/` (Tickets/Releases).
 - **Transform:** Normalizes content into a unified JSONL format (`dist/ai-knowledge-base.jsonl`). It generates a **Content Hash** (SHA-256) for each chunk to detect changes.
 - **Load:** "Upserts" vectors into ChromaDB. It uses the content hash to perform a diff, ensuring only new or modified chunks are re-embedded, saving time and API costs.
 
 #### HealthService (`services/HealthService.mjs`)
+
 The gatekeeper.
 - **Intelligent Caching:** Caches "healthy" status for 5 minutes to reduce overhead. Unhealthy states are never cached, allowing immediate recovery detection.
 - **Gatekeeping:** Every tool call passes through `ensureHealthy()`. If dependencies (ChromaDB, API Key) are missing, it fails fast with actionable error messages.
 
 #### DatabaseLifecycleService (`services/DatabaseLifecycleService.mjs`)
+
 Process manager.
 - Automatically manages the local `chroma` server process.
 - Can start/stop the database on demand via tools.
 
 #### DocumentService (`services/DocumentService.mjs`)
+
 Inspection and debugging.
 - Allows raw access to the indexed documents in ChromaDB to verify content and metadata.
 
 ### 3. ChromaDB & Vector Search
+
 The server manages a local instance of **ChromaDB**, a high-performance vector database.
 - **Persistence:** Data is stored locally in `chroma-neo-knowledge-base/`.
 - **Collection:** Uses a single collection `neo-knowledge-base` for all content types.
@@ -86,6 +99,7 @@ The server manages a local instance of **ChromaDB**, a high-performance vector d
 ## Available Tools
 
 ### Query Tools
+
 These are the primary tools used by agents to retrieve information.
 
 *   **`query_documents`**: Performs a semantic search.
@@ -97,6 +111,7 @@ These are the primary tools used by agents to retrieve information.
 *   **`get_document_by_id`**: Retrieves a specific document chunk by its ID.
 
 ### Database Management Tools
+
 These tools manage the knowledge base lifecycle.
 
 *   **`sync_database`**: **The "One Button" Update.** Triggers the full ETL pipeline:
@@ -110,6 +125,7 @@ These tools manage the knowledge base lifecycle.
 *   **`delete_database`**: **Destructive.** Deletes the entire ChromaDB collection.
 
 ### Infrastructure Tools
+
 These tools manage the underlying services.
 
 *   **`healthcheck`**: Diagnostic tool. Checks ChromaDB connectivity, collection status, and API key presence.
@@ -133,6 +149,7 @@ This cycle turns technical debt into an asset, continuously improving the projec
 The server is designed to be self-contained. It manages its own database process and configuration to ensure it doesn't conflict with other services.
 
 ### Architecture: Service Isolation
+
 The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical facts) and **Memory Core** (personal history) each require their own dedicated vector storage. To prevent cross-contamination and ensure reliability, they operate as **independent services**.
 
 **Do NOT use global environment variables** (like `CHROMA_PORT` or `CHROMA_DATA_PATH`) to configure these services, as this would force them to share the same database instance, leading to conflicts. Instead, use the dedicated configuration file.
@@ -142,6 +159,7 @@ The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical
 The server's default configuration is defined in `ai/mcp/server/knowledge-base/config.mjs`, but you are not expected to modify this file directly. Instead, you can load a custom configuration file at runtime.
 
 #### Loading Custom Configs
+
 You can override any part of the default configuration by passing the `-c` or `--config` flag when starting the server. This loads a `.json` or `.mjs` file and deeply merges it with the defaults.
 
 **Example:**
