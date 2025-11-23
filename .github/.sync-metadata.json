@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-11-22T19:48:15.452Z",
-  "releasesLastFetched": "2025-11-22T19:48:15.466Z",
+  "lastSync": "2025-11-23T09:33:00.382Z",
+  "releasesLastFetched": "2025-11-23T09:33:00.391Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -6948,11 +6948,39 @@
       "contentHash": "8c277f5f782ab9ae49655d62b351e20192e3f8fbf6c80e759239f22ee1b349fd"
     },
     "7865": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7865.md",
+      "closedAt": "2025-11-22T20:05:57Z",
+      "updatedAt": "2025-11-22T20:05:58Z",
+      "contentHash": "67f0d70de9c569fe747b094ca252257dc6501541ddc68d713ef2ddd89561cc54"
+    },
+    "7866": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7866.md",
+      "closedAt": "2025-11-22T21:04:12Z",
+      "updatedAt": "2025-11-22T21:04:12Z",
+      "contentHash": "061b5f9037a068d2865e243a93797e1192baca7575d29a273113922c83e79b55"
+    },
+    "7867": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7867.md",
+      "closedAt": "2025-11-22T21:09:10Z",
+      "updatedAt": "2025-11-22T21:09:10Z",
+      "contentHash": "890101a47fb2e25f5b0d880d3ef0a2df5052c5414456d2ad970de36c3eb0a7cd"
+    },
+    "7868": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7868.md",
+      "closedAt": "2025-11-22T21:20:22Z",
+      "updatedAt": "2025-11-22T21:20:22Z",
+      "contentHash": "5f7fab12a47530e5238970aa98ea779080080dff1981d9227b25859f76bc0d1b"
+    },
+    "7869": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7869.md",
       "closedAt": null,
-      "updatedAt": "2025-11-22T19:47:52Z",
-      "contentHash": "c103d26fd5ceba79fe4b80d025f6200a70ebb54652163b03edea5e45765039c5"
+      "updatedAt": "2025-11-23T09:32:52Z",
+      "contentHash": "327322807233d53514f3d13d40818356941447661730ced07e5f435a70a091b6"
     }
   },
   "releases": {
