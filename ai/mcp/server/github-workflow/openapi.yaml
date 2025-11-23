@@ -761,7 +761,7 @@ paths:
             Body:
             [Proposed Body]
             ```
-        4.  **Call Tool:** Only *after* displaying the proposal, call `create_issue`.
+        4.  **Call Tool:** Immediately call `create_issue` after displaying the proposal. Do not ask for permission first (the user can decline the tool call).
 
         **STRICT LABELING RULES:**
         - **MANDATORY:** The `ai` label is REQUIRED on ALL tickets you create.
