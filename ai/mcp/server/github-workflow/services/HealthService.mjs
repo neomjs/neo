@@ -293,6 +293,7 @@ class HealthService extends Base {
         const payload = {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
+            version  : process.env.npm_package_version || '1.0.0',
             githubCli: {
                 installed    : false,
                 authenticated: false,

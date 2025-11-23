@@ -966,6 +966,10 @@ components:
           type: string
           format: date-time
           description: The ISO 8601 timestamp of when the health check was performed.
+        version:
+          type: string
+          description: The version of the MCP server.
+          example: "1.0.0"
         githubCli:
           type: object
           properties:
