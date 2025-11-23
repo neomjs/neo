@@ -1,14 +1,14 @@
 ---
 id: 7873
 title: Standardize version reporting across MCP servers
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-23T10:58:47Z'
-updatedAt: '2025-11-23T10:59:13Z'
+updatedAt: '2025-11-23T11:01:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7873'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-23T11:01:42Z'
 ---
 # Standardize version reporting across MCP servers
 
@@ -34,4 +35,6 @@ This task involves:
 - 2025-11-23 @tobiu added the `enhancement` label
 - 2025-11-23 @tobiu added the `ai` label
 - 2025-11-23 @tobiu assigned to @tobiu
+- 2025-11-23 @tobiu referenced in commit `ca1220a` - "Standardize version reporting across MCP servers #7873"
+- 2025-11-23 @tobiu closed this issue
 
