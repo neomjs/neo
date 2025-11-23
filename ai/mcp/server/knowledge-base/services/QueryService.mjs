@@ -40,11 +40,12 @@ class QueryService extends Base {
     /**
      * Performs a semantic search on the knowledge base using a natural language query.
      * Returns a scored and ranked list of the most relevant source files.
-     * @param {string} query - The natural language search query.
-     * @param {string} [type='all'] - The content type to filter by.
+     * @param {string} query        - The natural language search query.
+     * @param {string} [type='all'] - The content type to filter by. Valid values: 'all', 'blog', 'guide', 'src', 'example', 'ticket', 'release'.
+     * @param {number} [limit=25]   - The maximum number of results to return.
      * @returns {Promise<object>} A promise that resolves to the query results object.
      */
-    async queryDocuments({query, type='all'}) {
+    async queryDocuments({query, type='all', limit=25}) {
         if (!query) {
             throw new Error('A query string must be provided.');
         }
@@ -149,7 +150,7 @@ class QueryService extends Base {
 
         const finalSorted = Object.entries(finalScores)
             .sort(([, a], [, b]) => b - a)
-            .slice(0, 25)
+            .slice(0, limit)
             .map(([source, score]) => ({ source, score: score.toFixed(0) }));
 
         if (finalSorted.length > 0) {
