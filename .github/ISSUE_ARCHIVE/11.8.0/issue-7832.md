@@ -63,4 +63,6 @@ The initial PoC (#7831) proved the viability of the "Code Execution" pattern usi
 - 2025-11-21 @tobiu added the `ai` label
 - 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu closed this issue
+- 2025-11-21 @tobiu cross-referenced by #7833
+- 2025-11-21 @tobiu referenced in commit `191502b` - "feat(ai): Expand AI SDK to include Memory and GitHub services (#7832)"
 

@@ -70,4 +70,5 @@ Closing ticket.
 - 2025-11-21 @tobiu added the `ai` label
 - 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu closed this issue
+- 2025-11-21 @tobiu referenced in commit `e90762c` - "feat(ai): Add Self-Healing Repository demo script (#7833)"
 

@@ -45,4 +45,5 @@ Current `SessionService` limits automatic summarization to sessions active in th
 - 2025-11-22 @tobiu added the `ai` label
 - 2025-11-22 @tobiu referenced in commit `bc4595e` - "Add capability to force summarize all sessions (ignoring 30-day limit) #7862"
 - 2025-11-22 @tobiu closed this issue
+- 2025-11-23 @tobiu cross-referenced by #7876
 

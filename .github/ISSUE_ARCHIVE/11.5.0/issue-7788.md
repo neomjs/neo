@@ -1,24 +1,25 @@
 ---
 id: 7788
 title: 'Epic: Unify highlight.js architecture for Browser and SSR'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-18T09:24:44Z'
-updatedAt: '2025-11-18T10:21:43Z'
+updatedAt: '2025-11-18T20:07:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7788'
 author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
   - 7791
-subIssuesCompleted: 0
+subIssuesCompleted: 1
 subIssuesTotal: 1
 blockedBy: []
 blocking: []
+closedAt: '2025-11-18T20:07:27Z'
 ---
 # Epic: Unify highlight.js architecture for Browser and SSR
 
@@ -40,4 +41,5 @@ This epic will be achieved by completing the following sub-tasks:
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu cross-referenced by #7789
 - 2025-11-18 @tobiu assigned to @tobiu
+- 2025-11-18 @tobiu closed this issue
 

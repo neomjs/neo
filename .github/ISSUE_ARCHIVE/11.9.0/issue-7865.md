@@ -65,4 +65,5 @@ We need to refactor `MemoryService` and `SessionService` to store and query time
 - 2025-11-22 @tobiu assigned to @tobiu
 - 2025-11-22 @tobiu referenced in commit `ecda364` - "Refactor Memory Core to use numeric timestamps for ChromaDB compatibility #7865"
 - 2025-11-22 @tobiu closed this issue
+- 2025-11-23 @tobiu cross-referenced by #7876
 
