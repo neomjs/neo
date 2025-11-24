@@ -10,15 +10,18 @@ const {queryScoreWeights} = aiConfig;
 const cwd = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
 dotenv.config({
-    path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
+    path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
     quiet: true
 });
 
 /**
+ * @summary Performs semantic search against the knowledge base.
+ *
  * This service is responsible for performing semantic search against the knowledge base.
  * It takes a natural language query, generates an embedding for it, and queries the
  * ChromaDB vector store. It then applies a sophisticated scoring and ranking algorithm
  * to the results to provide the most relevant source files to the user.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.services.QueryService
  * @extends Neo.core.Base
  * @singleton
@@ -40,10 +43,10 @@ class QueryService extends Base {
     /**
      * Performs a semantic search on the knowledge base using a natural language query.
      * Returns a scored and ranked list of the most relevant source files.
-     * @param {string} query        - The natural language search query.
-     * @param {string} [type='all'] - The content type to filter by. Valid values: 'all', 'blog', 'guide', 'src', 'example', 'ticket', 'release'.
-     * @param {number} [limit=25]   - The maximum number of results to return.
-     * @returns {Promise<object>} A promise that resolves to the query results object.
+     * @param {String} query        The natural language search query.
+     * @param {String} [type='all'] The content type to filter by. Valid values: 'all', 'blog', 'guide', 'src', 'example', 'ticket', 'release'.
+     * @param {Number} [limit=25]   The maximum number of results to return.
+     * @returns {Promise<Object>} A promise that resolves to the query results object.
      */
     async queryDocuments({query, type='all', limit=25}) {
         if (!query) {
@@ -76,7 +79,7 @@ class QueryService extends Base {
         const results = await collection.query(queryOptions);
 
         if (!results.metadatas || results.metadatas.length === 0 || results.metadatas[0].length === 0) {
-            return { message: 'No results found for your query and type.' };
+            return {message: 'No results found for your query and type.'};
         }
 
         const sourceScores = {};
@@ -130,7 +133,7 @@ class QueryService extends Base {
         });
 
         if (Object.keys(sourceScores).length === 0) {
-            return { message: 'No relevant source files found for the specified type.' };
+            return {message: 'No relevant source files found for the specified type.'};
         }
 
         const sortedSources = Object.entries(sourceScores).sort(([, a], [, b]) => b - a);
@@ -158,7 +161,7 @@ class QueryService extends Base {
             };
         }
 
-        return { message: 'No relevant source files found after scoring.' };
+        return {message: 'No relevant source files found after scoring.'};
     }
 }
 

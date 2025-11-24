@@ -5,7 +5,11 @@ import Base                     from '../../../../../src/core/Base.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
- * Simple manager around the Chroma client that lazily caches the knowledge-base collection.
+ * @summary Simple manager around the Chroma client that lazily caches the knowledge-base collection.
+ *
+ * This class provides a wrapper around the ChromaDB client, ensuring that the connection
+ * and the specific knowledge-base collection are initialized and cached for subsequent use.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.services.ChromaManager
  * @extends Neo.core.Base
  * @singleton

@@ -20,6 +20,8 @@ dotenv.config({
 const sectionsRegex = /(?=^#+\s)/m;
 
 /**
+ * @summary Core engine for building and maintaining the AI's knowledge base.
+ *
  * This service is the core engine for building and maintaining the AI's knowledge base.
  * It orchestrates the entire ETL (Extract, Transform, Load) process for knowledge and
  * ensures the database is synchronized on application startup.
@@ -34,6 +36,7 @@ const sectionsRegex = /(?=^#+\s)/m;
  *     - **Load:** Generates vector embeddings and upserts them into ChromaDB (`embedKnowledgeBase`).
  * 3.  **Lifecycle Management:** Provides methods for the full lifecycle of the knowledge base,
  *     from creation and synchronization to deletion.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
  * @extends Neo.core.Base
  * @singleton
@@ -98,8 +101,8 @@ class DatabaseService extends Base {
     /**
      * Creates a SHA-256 hash from a stable JSON string representation of a chunk's content.
      * This hash is used to detect changes in content without having to compare the full text.
-     * @param {object} chunk The chunk object.
-     * @returns {string} The hexadecimal hash string.
+     * @param {Object} chunk The chunk object.
+     * @returns {String} The hexadecimal hash string.
      * @private
      */
     createContentHash(chunk) {
