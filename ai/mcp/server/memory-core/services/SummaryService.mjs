@@ -51,7 +51,7 @@ class SummaryService extends Base {
      * @param {Number} options.offset=0
      * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
      */
-    async listSummaries({limit=50, offset=0}) {
+    async listSummaries({limit=50, offset=0} = {}) {
         try {
             const collection = await ChromaManager.getSummaryCollection();
 

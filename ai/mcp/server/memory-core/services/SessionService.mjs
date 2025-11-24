@@ -376,7 +376,7 @@ ${aggregatedContent}
      * @param {String} [options.sessionId]
      * @returns {Promise<{processed: number, sessions: object[]}|{error: string, message: string, code: string}>}
      */
-    async summarizeSessions({ includeAll, sessionId }) {
+    async summarizeSessions({includeAll, sessionId} = {}) {
         try {
             let processed = [];
 

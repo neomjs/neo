@@ -46,8 +46,8 @@ class IssueService extends Base {
 
     /**
      * Adds labels to an issue or pull request.
-     * @param {number} issueNumber - The number of the issue or PR.
-     * @param {string[]} labels - An array of labels to add.
+     * @param {number} issueNumber The number of the issue or PR.
+     * @param {string[]} labels    An array of labels to add.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
     async addLabels(issueNumber, labels) {
@@ -74,7 +74,7 @@ class IssueService extends Base {
      * - To clear all assignees, provide an empty array.
      * @param {object} options
      * @param {number} options.issue_number The number of the issue to modify.
-     * @param {string[]} options.assignees An array of GitHub user logins to assign, or an empty array to clear all assignees.
+     * @param {string[]} options.assignees  An array of GitHub user logins to assign, or an empty array to clear all assignees.
      * @returns {Promise<object>}
      */
     async assignIssue({issue_number, assignees}) {
@@ -126,10 +126,10 @@ class IssueService extends Base {
     /**
      * Creates a comment on a specific issue or pull request.
      * @param {object} options
-     * @param {number} [options.issue_number] - The number of the issue.
-     * @param {number} [options.pr_number] - The number of the pull request.
-     * @param {string} options.body - The raw content of the comment.
-     * @param {string} options.agent - The identity of the calling agent.
+     * @param {number} [options.issue_number] The number of the issue.
+     * @param {number} [options.pr_number]    The number of the pull request.
+     * @param {string} options.body           The raw content of the comment.
+     * @param {string} options.agent          The identity of the calling agent.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
     async createComment({issue_number, pr_number, body, agent}) {
@@ -199,13 +199,13 @@ class IssueService extends Base {
 
     /**
      * Creates a new GitHub issue using the `gh` CLI.
-     * @param {object} options - The options for creating the issue.
-     * @param {string} options.title - The title of the issue.
-     * @param {string} [options.body=''] - The Markdown body of the issue.
-     * @param {string[]} [options.labels=[]] - An array of labels to add to the issue.
+     * @param {object} options               The options for creating the issue.
+     * @param {string} options.title         The title of the issue.
+     * @param {string} [options.body='']     The Markdown body of the issue.
+     * @param {string[]} [options.labels=[]] An array of labels to add to the issue.
      * @returns {Promise<object>} A promise that resolves to the new issue's data or a structured error.
      */
-    async createIssue({title, body = '', labels = [], assignees = []}) {
+    async createIssue({title, body='', labels=[], assignees=[]}) {
         logger.info(`Attempting to create GitHub issue: "${title}"`);
 
         // Permission check is only required if we are trying to assign users.
@@ -314,7 +314,7 @@ class IssueService extends Base {
      * before attempting to modify the issue.
      * @param {object} options
      * @param {number} options.issue_number The number of the issue to modify.
-     * @param {string[]} options.assignees An array of GitHub user logins to unassign.
+     * @param {string[]} options.assignees  An array of GitHub user logins to unassign.
      * @returns {Promise<object>}
      */
     async unassignIssue({issue_number, assignees}) {
@@ -480,14 +480,7 @@ class IssueService extends Base {
      * @param {string} [options.cursor]
      * @returns {Promise<object>}
      */
-    async listIssues(options = {}) {
-        const {
-            limit = 30,
-            state = 'open',
-            labels = null,
-            assignee = null,
-            cursor = null
-        } = options;
+    async listIssues({limit=30, state='open', labels=null, assignee=null, cursor=null} = {}) {
 
         // normalize state to uppercase array (GraphQL expects IssueState enum values)
         const states = state ? (Array.isArray(state) ? state.map(s => s.toUpperCase()) : [state.toUpperCase()]) : undefined;
@@ -545,8 +538,8 @@ class IssueService extends Base {
 
     /**
      * Removes labels from an issue or pull request.
-     * @param {number} issueNumber - The number of the issue or PR.
-     * @param {string[]} labels - An array of labels to remove.
+     * @param {number} issueNumber The number of the issue or PR.
+     * @param {string[]} labels    An array of labels to remove.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
     async removeLabels(issueNumber, labels) {
@@ -570,13 +563,13 @@ class IssueService extends Base {
      * This method allows setting or unsetting relationships between issues on GitHub.
      *
      * @param {object} options
-     * @param {string} [options.relationship_type='parent_child'] - Type of relationship: 'parent_child' or 'blocked_by'
-     * @param {number} options.child_issue - The issue number of the child/blocked issue
-     * @param {number} [options.parent_issue] - The issue number of the parent/blocking issue (omit to unset relationship)
-     * @param {boolean} [options.replace_parent=false] - If true, replaces existing parent relationship (parent_child only)
+     * @param {string} [options.relationship_type='parent_child'] Type of relationship: 'parent_child' or 'blocked_by'
+     * @param {number} options.child_issue                        The issue number of the child/blocked issue
+     * @param {number} [options.parent_issue]                     The issue number of the parent/blocking issue (omit to unset relationship)
+     * @param {boolean} [options.replace_parent=false]            If true, replaces existing parent relationship (parent_child only)
      * @returns {Promise<object>} Result with updated relationship information or error
      */
-    async updateIssueRelationship({relationship_type = 'parent_child', child_issue, parent_issue = null, replace_parent = false}) {
+    async updateIssueRelationship({relationship_type='parent_child', child_issue, parent_issue=null, replace_parent=false}) {
         try {
             // Validate relationship type
             const validTypes = ['parent_child', 'blocked_by'];

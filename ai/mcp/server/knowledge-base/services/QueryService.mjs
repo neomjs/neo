@@ -55,11 +55,9 @@ class QueryService extends Base {
             throw new Error('The GEMINI_API_KEY environment variable is not set.');
         }
 
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: aiConfig.embeddingModel });
-
-        const collection = await ChromaManager.getKnowledgeBaseCollection();
-
+        const genAI          = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model          = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
+        const collection     = await ChromaManager.getKnowledgeBaseCollection();
         const queryEmbedding = await model.embedContent(query);
         const queryLower     = query.toLowerCase();
 

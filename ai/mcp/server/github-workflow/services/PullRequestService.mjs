@@ -96,12 +96,11 @@ class PullRequestService extends Base {
     /**
      * Fetches a list of pull requests from GitHub.
      * @param {object} [options] - The options for listing pull requests.
-     * @param {number} [options.limit=30] - The maximum number of PRs to return.
-     * @param {string} [options.state='open'] - The state of the pull requests to list (open, closed, merged, all).
+     * @param {number} [options.limit=aiConfig.pullRequest.defaults.limit] - The maximum number of PRs to return.
+     * @param {string} [options.state=aiConfig.pullRequest.defaults.state] - The state of the pull requests to list (open, closed, merged, all).
      * @returns {Promise<object>} A promise that resolves to the list of pull requests or a structured error.
      */
-    async listPullRequests(options = {}) {
-        const {limit = aiConfig.pullRequest.defaults.limit, state = aiConfig.pullRequest.defaults.state} = options;
+    async listPullRequests({limit=aiConfig.pullRequest.defaults.limit, state=aiConfig.pullRequest.defaults.state} = {}) {
 
         const variables = {
             owner : aiConfig.owner,

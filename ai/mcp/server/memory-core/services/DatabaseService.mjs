@@ -69,10 +69,10 @@ class DatabaseService extends Base {
     /**
      * Exports the entire memory database (both memories and summaries) to a JSONL file.
      * @param {Object} options
-     * @param {String[]} options.include
+     * @param {String[]} [options.include=['memories', 'summaries']]
      * @returns {Promise<{message: string}>}
      */
-    async exportDatabase({ include }) {
+    async exportDatabase({include=['memories', 'summaries']} = {}) {
         try {
             logger.log('Starting agent memory export...');
             let memoryCount = 0, summaryCount = 0;
@@ -105,7 +105,7 @@ class DatabaseService extends Base {
      * @param {String} options.mode
      * @returns {Promise<{imported: number, total: number, mode: string}>}
      */
-    async importDatabase({ file, mode }) {
+    async importDatabase({file, mode}) {
         try {
             const filePath = file; // Assuming file object contains path
             logger.log(`Starting agent memory import from: ${filePath}`);

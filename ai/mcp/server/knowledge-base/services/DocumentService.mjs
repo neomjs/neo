@@ -29,7 +29,7 @@ class DocumentService extends Base {
      * @param {number} [params.offset=0] - The number of documents to skip for pagination.
      * @returns {Promise<object>} A promise that resolves to the list of documents.
      */
-    async listDocuments({ limit = 100, offset = 0 } = {}) {
+    async listDocuments({limit=100, offset=0} = {}) {
         const collection = await ChromaManager.getKnowledgeBaseCollection();
 
         const results = await collection.get({
@@ -55,7 +55,7 @@ class DocumentService extends Base {
      * @param {string} id - The unique ID of the document to retrieve.
      * @returns {Promise<object>} A promise that resolves to the requested document.
      */
-    async getDocumentById({ id }) {
+    async getDocumentById({id}) {
         const collection = await ChromaManager.getKnowledgeBaseCollection();
 
         const result = await collection.get({
