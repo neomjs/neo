@@ -12,17 +12,17 @@ import TextEmbeddingService from './TextEmbeddingService.mjs';
  * It handles the creation of new memory entries (including embedding generation), retrieving memories by session,
  * and performing semantic searches to find relevant past interactions.
  *
- * @class AI.mcp.server.memory-core.services.MemoryService
+ * @class Neo.ai.mcp.server.memory-core.services.MemoryService
  * @extends Neo.core.Base
  * @singleton
  */
 class MemoryService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.MemoryService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.MemoryService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.MemoryService',
+        className: 'Neo.ai.mcp.server.memory-core.services.MemoryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

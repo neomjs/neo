@@ -9,17 +9,17 @@ import Base                 from '../../../../../src/core/Base.mjs';
  * for text inputs. These embeddings are essential for the semantic search capabilities of the memory
  * and summary collections.
  *
- * @class AI.mcp.server.memory-core.services.TextEmbeddingService
+ * @class Neo.ai.mcp.server.memory-core.services.TextEmbeddingService
  * @extends Neo.core.Base
  * @singleton
  */
 class TextEmbeddingService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.TextEmbeddingService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.TextEmbeddingService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.TextEmbeddingService',
+        className: 'Neo.ai.mcp.server.memory-core.services.TextEmbeddingService',
         /**
          * @member {Boolean} singleton=true
          * @protected

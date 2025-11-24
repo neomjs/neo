@@ -28,17 +28,17 @@ import logger               from '../logger.mjs';
  * crashes or ends abruptly, its context is preserved and up-to-date for the next agent.
  * Data integrity and context availability are prioritized over minimizing LLM token usage.
  *
- * @class AI.mcp.server.memory-core.services.SessionService
+ * @class Neo.ai.mcp.server.memory-core.services.SessionService
  * @extends Neo.core.Base
  * @singleton
  */
 class SessionService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.SessionService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.SessionService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.SessionService',
+        className: 'Neo.ai.mcp.server.memory-core.services.SessionService',
         /**
          * @member {Boolean} singleton=true
          * @protected

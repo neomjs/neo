@@ -10,7 +10,7 @@ import Base     from '../../../../../src/core/Base.mjs';
  * It handles the spawning of the `chroma` command, tracks the process ID (PID), and provides a mechanism
  * to ensure the database is running before other services attempt to connect. It also handles graceful shutdown.
  *
- * @class AI.mcp.server.memory-core.services.DatabaseLifecycleService
+ * @class Neo.ai.mcp.server.memory-core.services.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
@@ -24,10 +24,10 @@ class DatabaseLifecycleService extends Base {
 
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.DatabaseLifecycleService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.DatabaseLifecycleService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.DatabaseLifecycleService',
+        className: 'Neo.ai.mcp.server.memory-core.services.DatabaseLifecycleService',
         /**
          * Holds the child process object for the ChromaDB server.
          * @member {ChildProcess|null} chromaProcess=null

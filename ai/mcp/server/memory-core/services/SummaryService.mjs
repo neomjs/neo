@@ -9,17 +9,17 @@ import TextEmbeddingService from './TextEmbeddingService.mjs';
  * This service manages the high-level session summaries. It allows for retrieving past summaries to provide context,
  * searching summaries by content or metadata, and performing administrative tasks like deleting all summaries.
  *
- * @class AI.mcp.server.memory-core.services.SummaryService
+ * @class Neo.ai.mcp.server.memory-core.services.SummaryService
  * @extends Neo.core.Base
  * @singleton
  */
 class SummaryService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.SummaryService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.SummaryService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.SummaryService',
+        className: 'Neo.ai.mcp.server.memory-core.services.SummaryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

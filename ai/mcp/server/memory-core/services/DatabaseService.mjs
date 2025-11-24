@@ -13,17 +13,17 @@ import ChromaManager from './ChromaManager.mjs';
  * It supports exporting collections to JSONL files and importing them back, with options to either merge
  * or replace existing data. This is crucial for data migration and disaster recovery.
  *
- * @class AI.mcp.server.memory-core.services.DatabaseService
+ * @class Neo.ai.mcp.server.memory-core.services.DatabaseService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.DatabaseService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.DatabaseService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.DatabaseService',
+        className: 'Neo.ai.mcp.server.memory-core.services.DatabaseService',
         /**
          * @member {Boolean} singleton=true
          * @protected

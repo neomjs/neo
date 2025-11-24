@@ -15,16 +15,16 @@ import {listTools, callTool}                           from './services/toolServ
  * It sets up the MCP server instance, connects the stdio transport, registers tool handlers,
  * and performs initial health checks and permission validation.
  *
- * @class AI.mcp.server.github-workflow.Server
+ * @class Neo.ai.mcp.server.github-workflow.Server
  * @extends Neo.core.Base
  */
 class Server extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.github-workflow.Server'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.Server'
          * @protected
          */
-        className: 'AI.mcp.server.github-workflow.Server'
+        className: 'Neo.ai.mcp.server.github-workflow.Server'
     }
 
     /**

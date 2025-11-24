@@ -13,16 +13,16 @@ import {listTools, callTool}                           from './services/toolServ
  *
  * Handles initialization, configuration, and lifecycle management for the MCP server.
  *
- * @class AI.mcp.server.memory-core.Server
+ * @class Neo.ai.mcp.server.memory-core.Server
  * @extends Neo.core.Base
  */
 class Server extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.Server'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.Server'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.Server'
+        className: 'Neo.ai.mcp.server.memory-core.Server'
     }
 
     /**

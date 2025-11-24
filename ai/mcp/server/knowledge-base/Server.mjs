@@ -14,16 +14,16 @@ import {listTools, callTool}                           from './services/toolServ
  * The Knowledge Base MCP Server application.
  * Handles initialization, configuration, and lifecycle management for the MCP server.
  *
- * @class AI.mcp.server.knowledge-base.Server
+ * @class Neo.ai.mcp.server.knowledge-base.Server
  * @extends Neo.core.Base
  */
 class Server extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.knowledge-base.Server'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.Server'
          * @protected
          */
-        className: 'AI.mcp.server.knowledge-base.Server'
+        className: 'Neo.ai.mcp.server.knowledge-base.Server'
     }
 
     /**

@@ -12,17 +12,17 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
  * collections are created if they don't exist. It handles the `dummyEmbeddingFunction` requirement for ChromaDB
  * to prevent warnings.
  *
- * @class AI.mcp.server.memory-core.services.ChromaManager
+ * @class Neo.ai.mcp.server.memory-core.services.ChromaManager
  * @extends Neo.core.Base
  * @singleton
  */
 class ChromaManager extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.ChromaManager'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.ChromaManager'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.ChromaManager',
+        className: 'Neo.ai.mcp.server.memory-core.services.ChromaManager',
         /**
          * @member {ChromaClient|null} client=null
          * @protected
