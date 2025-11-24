@@ -8,7 +8,7 @@ import semver      from 'semver';
 const execAsync = promisify(exec);
 
 /**
- * Monitors and validates the GitHub CLI dependency for the MCP server.
+ * @summary Monitors and validates the GitHub CLI dependency for the MCP server.
  *
  * This service acts as a gatekeeper, ensuring that the GitHub CLI (`gh`) is properly
  * installed, authenticated, and meets version requirements before any tools are executed.

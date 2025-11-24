@@ -13,7 +13,15 @@ import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
- * Handles fetching, creating, and updating local issue files from GitHub.
+ * @summary Handles fetching, creating, and updating local issue files from GitHub.
+ *
+ * This service manages the conversion between the GitHub issue JSON format and
+ * the local Markdown format with frontmatter. It handles the logic for:
+ * - Formatting issue bodies and comments
+ * - Archiving closed issues based on milestones or release dates
+ * - Detecting content changes via hashing
+ * - Pushing local edits back to GitHub
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer
  * @extends Neo.core.Base
  * @singleton

@@ -5,7 +5,12 @@ import logger   from '../logger.mjs';
 import path     from 'path';
 
 /**
- * Service for local file system lookups related to the GitHub workflow.
+ * @summary Service for local file system lookups related to the GitHub workflow.
+ *
+ * This service provides efficient mechanisms to locate and read local issue files.
+ * It implements a recursive search strategy to handle nested issue directories
+ * (e.g., in the `ISSUE_ARCHIVE`) and supports finding files by their issue ID prefix.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.LocalFileService
  * @extends Neo.core.Base
  * @singleton

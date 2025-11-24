@@ -10,7 +10,13 @@ import {UPDATE_COMMENT}                        from './queries/mutations.mjs';
 const execAsync = promisify(exec);
 
 /**
- * Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
+ * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
+ *
+ * This service acts as a unified interface for Pull Request operations.
+ * It combines the `gh` CLI (for operations like `checkout` and `diff`) with
+ * the GraphQL API (for metadata retrieval, listing, and conversation history)
+ * to provide a comprehensive toolset for managing PRs.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.PullRequestService
  * @extends Neo.core.Base
  * @singleton

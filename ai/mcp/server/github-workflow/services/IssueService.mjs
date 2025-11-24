@@ -20,7 +20,16 @@ const AGENT_ICONS = {
 };
 
 /**
- * Service for interacting with GitHub issues via the GraphQL API.
+ * @summary Service for interacting with GitHub issues via the GraphQL API.
+ *
+ * This service provides a high-level abstraction for managing GitHub issues.
+ * Capabilities include:
+ * - Listing issues with advanced filtering (state, labels, assignees)
+ * - Creating, updating, and assigning issues
+ * - Managing issue labels
+ * - Handling issue relationships (parent-child, blocked-by) via custom GraphQL mutations
+ * - Commenting on issues
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.IssueService
  * @extends Neo.core.Base
  * @singleton

@@ -11,7 +11,14 @@ import {FETCH_RELEASES, FETCH_LATEST_RELEASE} from '../queries/releaseQueries.mj
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
- * Handles the fetching and local synchronization of GitHub Release notes.
+ * @summary Handles the fetching and local synchronization of GitHub Release notes.
+ *
+ * This service is responsible for:
+ * - Fetching release data from GitHub, optimized with an "early exit" strategy to avoid fetching old history
+ * - Detecting new releases by comparing against cached data
+ * - Generating and updating local Markdown files for each release
+ * - Sorting releases chronologically to support issue archiving logic
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.sync.ReleaseSyncer
  * @extends Neo.core.Base
  * @singleton

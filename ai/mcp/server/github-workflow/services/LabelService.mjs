@@ -5,7 +5,12 @@ import logger         from '../logger.mjs';
 import {FETCH_LABELS} from './queries/labelQueries.mjs';
 
 /**
- * Service for interacting with GitHub labels via the GraphQL API.
+ * @summary Service for interacting with GitHub labels via the GraphQL API.
+ *
+ * This service manages the retrieval of repository labels. It handles pagination
+ * to ensure all labels are fetched, providing a complete list for validation
+ * and autocompletion purposes in other parts of the workflow.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.LabelService
  * @extends Neo.core.Base
  * @singleton

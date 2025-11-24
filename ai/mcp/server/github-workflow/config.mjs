@@ -178,8 +178,11 @@ const defaultConfig = {
 };
 
 /**
- * Configuration manager for the GitHub Workflow MCP server.
+ * @summary Configuration manager for the GitHub Workflow MCP server.
+ *
  * Supports loading configuration from a custom file and merging with defaults.
+ * The configuration handles GitHub repository details, sync settings, and server behavior options.
+ *
  * @class Neo.ai.mcp.server.github-workflow.Config
  * @extends Neo.core.Base
  * @singleton
