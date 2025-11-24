@@ -1,15 +1,16 @@
 ---
 id: 7892
 title: Review and Update JSDoc Comments in Memory Core MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-24T10:07:06Z'
-updatedAt: '2025-11-24T10:07:06Z'
+updatedAt: '2025-11-24T11:25:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7892'
 author: tobiu
 commentsCount: 0
@@ -19,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-24T11:25:49Z'
 ---
 # Review and Update JSDoc Comments in Memory Core MCP Server
 
@@ -34,4 +36,7 @@ The Memory Core MCP server (`ai/mcp/server/memory-core`) requires a review of it
 - 2025-11-24 @tobiu added the `enhancement` label
 - 2025-11-24 @tobiu added the `ai` label
 - 2025-11-24 @tobiu added the `refactoring` label
+- 2025-11-24 @tobiu assigned to @tobiu
+- 2025-11-24 @tobiu referenced in commit `f2d1b3f` - "Review and Update JSDoc Comments in Memory Core MCP Server #7892"
+- 2025-11-24 @tobiu closed this issue
 

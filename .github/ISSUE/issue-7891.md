@@ -1,7 +1,7 @@
 ---
 id: 7891
 title: Add Class-Level JSDoc Comments to GitHub Workflow MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-24T10:06:43Z'
-updatedAt: '2025-11-24T10:08:45Z'
+updatedAt: '2025-11-24T10:56:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7891'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-24T10:56:33Z'
 ---
 # Add Class-Level JSDoc Comments to GitHub Workflow MCP Server
 
@@ -33,4 +34,6 @@ Add a `@summary` tag followed by an empty line and a detailed description to all
 - 2025-11-24 @tobiu added the `enhancement` label
 - 2025-11-24 @tobiu added the `ai` label
 - 2025-11-24 @tobiu assigned to @tobiu
+- 2025-11-24 @tobiu referenced in commit `1ff346f` - "Add Class-Level JSDoc Comments to GitHub Workflow MCP Server #7891"
+- 2025-11-24 @tobiu closed this issue
 

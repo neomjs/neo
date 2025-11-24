@@ -1,15 +1,16 @@
 ---
 id: 7893
 title: Review and Update JSDoc Comments in Knowledge Base MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-24T10:07:18Z'
-updatedAt: '2025-11-24T10:07:18Z'
+updatedAt: '2025-11-24T11:47:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7893'
 author: tobiu
 commentsCount: 0
@@ -19,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-24T11:47:31Z'
 ---
 # Review and Update JSDoc Comments in Knowledge Base MCP Server
 
@@ -34,4 +36,7 @@ The Knowledge Base MCP server (`ai/mcp/server/knowledge-base`) requires a review
 - 2025-11-24 @tobiu added the `enhancement` label
 - 2025-11-24 @tobiu added the `ai` label
 - 2025-11-24 @tobiu added the `refactoring` label
+- 2025-11-24 @tobiu assigned to @tobiu
+- 2025-11-24 @tobiu referenced in commit `4c95b57` - "Review and Update JSDoc Comments in Knowledge Base MCP Server #7893"
+- 2025-11-24 @tobiu closed this issue
 
