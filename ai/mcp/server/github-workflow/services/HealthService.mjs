@@ -178,7 +178,6 @@ class HealthService extends Base {
      *
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
-     *
      * @throws {Error} If the GitHub CLI is unhealthy, with a detailed message
      * @returns {Promise<void>}
      */
@@ -209,7 +208,6 @@ class HealthService extends Base {
      *
      * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
      * to 'healthy'), we log a clear message so users know their fix worked.
-     *
      * @returns {Promise<object>} A health status payload with structure:
      *   {
      *     status: 'healthy' | 'unhealthy',

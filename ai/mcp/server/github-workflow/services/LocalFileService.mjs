@@ -26,8 +26,8 @@ class LocalFileService extends Base {
 
     /**
      * Recursively searches for a file within a directory and its subdirectories.
-     * @param {string} directory - The directory to start the search from.
-     * @param {string} filename - The name of the file to find.
+     * @param {string} directory The directory to start the search from.
+     * @param {string} filename  The name of the file to find.
      * @returns {Promise<string|null>} The absolute path of the file if found, otherwise null.
      * @private
      */
@@ -56,7 +56,7 @@ class LocalFileService extends Base {
 
     /**
      * Finds and returns the content of a local issue file by its number.
-     * @param {string} issueNumber - The issue number, with or without a leading '#'.
+     * @param {string} issueNumber The issue number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
      */
     async getIssueById(issueNumber) {

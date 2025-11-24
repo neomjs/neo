@@ -31,7 +31,7 @@ class PullRequestService extends Base {
 
     /**
      * Checks out a specific pull request locally.
-     * @param {number} prNumber - The number of the pull request to check out.
+     * @param {number} prNumber The number of the pull request to check out
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
     async checkoutPullRequest(prNumber) {
@@ -50,7 +50,7 @@ class PullRequestService extends Base {
 
     /**
      * Gets the full conversation for a specific pull request.
-     * @param {number} prNumber - The number of the pull request.
+     * @param {number} prNumber The number of the pull request
      * @returns {Promise<object>} A promise that resolves to the conversation data or a structured error.
      */
     async getConversation(prNumber) {
@@ -76,7 +76,7 @@ class PullRequestService extends Base {
 
     /**
      * Gets the diff for a specific pull request.
-     * @param {number} prNumber - The number of the pull request.
+     * @param {number} prNumber The number of the pull request
      * @returns {Promise<string|object>} A promise that resolves to the diff text or a structured error.
      */
     async getPullRequestDiff(prNumber) {
@@ -95,9 +95,9 @@ class PullRequestService extends Base {
 
     /**
      * Fetches a list of pull requests from GitHub.
-     * @param {object} [options] - The options for listing pull requests.
-     * @param {number} [options.limit=aiConfig.pullRequest.defaults.limit] - The maximum number of PRs to return.
-     * @param {string} [options.state=aiConfig.pullRequest.defaults.state] - The state of the pull requests to list (open, closed, merged, all).
+     * @param {object} [options]                                           The options for listing pull requests
+     * @param {number} [options.limit=aiConfig.pullRequest.defaults.limit] The maximum number of PRs to return
+     * @param {string} [options.state=aiConfig.pullRequest.defaults.state] The state of the pull requests to list (open, closed, merged, all)
      * @returns {Promise<object>} A promise that resolves to the list of pull requests or a structured error.
      */
     async listPullRequests({limit=aiConfig.pullRequest.defaults.limit, state=aiConfig.pullRequest.defaults.state} = {}) {
@@ -128,8 +128,8 @@ class PullRequestService extends Base {
 
     /**
      * Updates an existing comment on a pull request or issue.
-     * @param {string} comment_id - The global node ID of the comment to update.
-     * @param {string} body       - The new body content for the comment.
+     * @param {string} comment_id The global node ID of the comment to update
+     * @param {string} body       The new body content for the comment
      * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
      */
     async updateComment(comment_id, body) {

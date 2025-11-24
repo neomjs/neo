@@ -67,8 +67,8 @@ class GraphqlService extends Base {
 
     /**
      * Executes a GraphQL query or mutation against the GitHub API.
-     * @param {string} query The GraphQL query string.
-     * @param {object} [variables={}] Optional variables for the query.
+     * @param {string}  query                   The GraphQL query string.
+     * @param {object}  [variables={}]          Optional variables for the query.
      * @param {boolean} [enableSubIssues=false] Whether to enable sub-issues feature header
      * @returns {Promise<object>} The `data` object from the GraphQL response.
      * @throws {Error} If the request fails or the API returns errors.

@@ -45,7 +45,6 @@ class SyncService extends Base {
      * 5.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
      * 6.  Syncs release notes into local Markdown files via `ReleaseSyncer`.
      * 7.  Saves the updated, pruned metadata to disk via `MetadataManager`.
-     *
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync.
      */

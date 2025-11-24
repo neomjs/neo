@@ -64,7 +64,8 @@ class RepositoryService extends Base {
             logger.warn('Viewer permission not cached, attempting to fetch now...');
             await this.fetchAndCacheViewerPermission();
         }
-        return { permission: this.viewerPermission };
+
+        return {permission: this.viewerPermission};
     }
 }
 

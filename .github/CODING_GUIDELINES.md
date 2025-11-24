@@ -372,12 +372,13 @@ do get sorted chronologically as well.
 ```javascript
 
 /**
- * @param {Object} data
- * @param {Neo.component.Base} data.component
- * @param {Number} data.rowHeight
- * @param {Number} data.rowsPerItem
- * @param {Number} data.totalHeight
- * @param {Boolean} [silent=false]
+ * Adjusts the total height of the component based on the provided data.
+ * @param {Object}             data             The data object containing height information
+ * @param {Neo.component.Base} data.component   The component to adjust
+ * @param {Number}             data.rowHeight   The height of a single row
+ * @param {Number}             data.rowsPerItem The number of rows per item
+ * @param {Number}             data.totalHeight The total height to set
+ * @param {Boolean}            [silent=false]   True to suppress the update event
  */
 adjustTotalHeight(data, silent=false) {
     let me          = this,
@@ -406,8 +407,15 @@ adjustTotalHeight(data, silent=false) {
 }
 ```
 * (29) Above every class method is one empty line
-* (30) Each class method has JSDoc comments for the params
-  + While doc commons support `@returns` & `@return`, we do stick to `@returns` (consistency)
+* (30) Each class method has JSDoc comments.
+  + **No empty line** allowed between the method description and the first `@param` tag.
+  + `@returns` is used instead of `@return` for consistency.
+  + All `@param` tags must have a description.
+  + Use **Block Formatting**: Vertically align `{Type}`, `parameterName`, and `Description`.
+    + **Type Column Width**: Determined by the longest `{Type}` + 1 space.
+    + **Name Column Width**: Determined by the longest `parameterName` + 1 space.
+    + **Description Column**: Starts exactly at the `Type Column Width` + `Name Column Width` offset.
+  + Do **not** use hyphens (`-`) to separate the parameter name from the description. Use whitespace for alignment.
 * (31) Try to define most (if not all) variables at the top of the method body.
 * (32) Variables do use block formatting
 * (33) Variables are separated by commas (file size)

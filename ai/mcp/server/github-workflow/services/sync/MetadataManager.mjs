@@ -52,7 +52,7 @@ class MetadataManager extends Base {
      * Saves the provided metadata object to the configured metadata file on disk,
      * ensuring the directory exists. This method also prunes the data to save only
      * essential fields for change detection.
-     * @param {object} metadata - The metadata object to serialize and save.
+     * @param {object} metadata The metadata object to serialize and save.
      * @returns {Promise<void>}
      */
     async save(metadata) {

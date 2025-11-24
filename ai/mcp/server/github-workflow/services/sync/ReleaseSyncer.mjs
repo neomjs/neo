@@ -41,7 +41,7 @@ class ReleaseSyncer extends Base {
 
     /**
      * Calculates a SHA-256 hash of the given content for change detection.
-     * @param {string} content - The content to hash.
+     * @param {string} content The content to hash.
      * @returns {string} The hex-encoded hash.
      * @private
      */
