@@ -79,7 +79,7 @@ class HealthService extends Base {
      * Intent: This is the most critical check. Without ChromaDB running, no knowledge base
      * operations are possible. We use the heartbeat endpoint to verify connectivity.
      *
-     * @returns {Promise<{running: boolean, error?: string}>}
+     * @returns {Promise<Object>} {running: boolean, error?: string}
      * @private
      */
     async #checkChromaConnection() {
@@ -101,7 +101,7 @@ class HealthService extends Base {
      * is properly initialized. This check confirms the knowledge base collection
      * is available for operations.
      *
-     * @returns {Promise<{knowledgeBase: Object|null, error?: string}>}
+     * @returns {Promise<Object>} {knowledgeBase: Object|null, error?: string}
      * @private
      */
     async #checkCollections() {

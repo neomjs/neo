@@ -120,6 +120,70 @@ class DatabaseService extends Base {
     }
 
     /**
+     * Recursively scans a directory and indexes files as raw source chunks.
+     * @param {Object} writeStream The stream to write chunks to.
+     * @param {String} relativePath The relative path from cwd to scan.
+     * @param {String} defaultType The default type to assign to chunks.
+     * @param {Object} options Configuration options.
+     * @param {String[]} options.include Array of file extensions to include (e.g. ['.mjs', '.md']).
+     * @param {String[]} options.exclude Array of directory names to exclude.
+     * @param {Object} options.typeOverrides Map of path segments to type values (e.g. {'examples': 'example'}).
+     * @returns {Promise<Number>} The number of chunks created.
+     */
+    async indexRawDirectory(writeStream, relativePath, defaultType, options={}) {
+        let count = 0;
+        const fullPath = path.resolve(process.cwd(), relativePath);
+
+        if (!await fs.pathExists(fullPath)) return 0;
+
+        const entries = await fs.readdir(fullPath, {withFileTypes: true});
+
+        for (const entry of entries) {
+            const entryName = entry.name;
+            const entryPath = path.join(fullPath, entryName);
+            const relativeEntryPath = path.join(relativePath, entryName);
+
+            if (entry.isDirectory()) {
+                if (options.exclude?.includes(entryName)) continue;
+                count += await this.indexRawDirectory(writeStream, relativeEntryPath, defaultType, options);
+            } else if (entry.isFile()) {
+                const ext = path.extname(entryName);
+                if (options.include?.includes(ext)) {
+                    const content = await fs.readFile(entryPath, 'utf-8');
+                    let type = defaultType;
+
+                    if (options.typeOverrides) {
+                        for (const [key, value] of Object.entries(options.typeOverrides)) {
+                            if (relativeEntryPath.includes(`/${key}/`)) {
+                                type = value;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Determine kind based on extension or content
+                    let kind = 'module';
+                    if (type === 'test') kind = 'test-spec';
+                    if (ext === '.md') kind = 'documentation';
+
+                    const chunk = {
+                        type,
+                        kind,
+                        name: relativeEntryPath,
+                        content,
+                        source: relativeEntryPath
+                    };
+
+                    chunk.hash = this.createContentHash(chunk);
+                    writeStream.write(JSON.stringify(chunk) + '\n');
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
      * Parses all knowledge sources (JSDoc, guides, release notes, tickets) and generates
      * a structured JSONL file at `dist/ai-knowledge-base.jsonl`.
      *
@@ -259,6 +323,13 @@ class DatabaseService extends Base {
                 }
             }
         }
+
+        // 5. Process Test Directory (Playwright)
+        logger.log('Indexing Playwright tests...');
+        totalChunks += await this.indexRawDirectory(writeStream, 'test/playwright', 'test', {
+            include: ['.mjs'],
+            exclude: ['node_modules', 'test-results', 'reports']
+        });
 
         return new Promise((resolve, reject) => {
             writeStream.on('finish', () => {

@@ -33,9 +33,9 @@ class DatabaseService extends Base {
 
     /**
      * Helper method to export a ChromaDB collection.
-     * @param {import('chromadb').Collection} collection The ChromaDB collection to export.
-     * @param {String}                        backupPath The directory to save the backup file.
-     * @param {String}                        filePrefix The prefix for the backup filename.
+     * @param {Object} collection The ChromaDB collection to export.
+     * @param {String} backupPath The directory to save the backup file.
+     * @param {String} filePrefix The prefix for the backup filename.
      * @returns {Promise<number>} The number of exported documents.
      * @private
      */

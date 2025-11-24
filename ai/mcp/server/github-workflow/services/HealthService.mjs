@@ -80,7 +80,7 @@ class HealthService extends Base {
      * Intent: Authentication is required for all GitHub API operations. This check
      * ensures the user has run `gh auth login` and has valid credentials stored.
      *
-     * @returns {Promise<{authenticated: boolean, error?: string}>}
+     * @returns {Promise<Object>} {authenticated: boolean, error?: string}
      * @private
      */
     async #checkGhAuth() {
@@ -113,7 +113,7 @@ class HealthService extends Base {
      * handle version strings like "2.10.0" vs "2.9.0" (which would fail with string
      * comparison).
      *
-     * @returns {Promise<{installed: boolean, versionOk: boolean, version: string|null, error?: string}>}
+     * @returns {Promise<Object>} {installed: boolean, versionOk: boolean, version: string|null, error?: string}
      * @private
      */
     async #checkGhVersion() {

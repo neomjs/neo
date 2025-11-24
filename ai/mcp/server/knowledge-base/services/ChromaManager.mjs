@@ -31,7 +31,7 @@ class ChromaManager extends Base {
          */
         connected: false,
         /**
-         * @member {import('chromadb').Collection|null} knowledgeBaseCollection=null
+         * @member {Object|null} knowledgeBaseCollection=null
          * @protected
          */
         knowledgeBaseCollection: null,
@@ -93,7 +93,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @returns {Promise<import('chromadb').Collection>}
+     * @returns {Promise<Object>}
      */
     async getKnowledgeBaseCollection() {
         if (!this.knowledgeBaseCollection) {

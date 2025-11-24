@@ -33,7 +33,7 @@ class ChromaManager extends Base {
          */
         connected: false,
         /**
-         * @member {import('chromadb').Collection|null} memoryCollection=null
+         * @member {Object|null} memoryCollection=null
          * @protected
          */
         memoryCollection: null,
@@ -43,7 +43,7 @@ class ChromaManager extends Base {
          */
         singleton: true,
         /**
-         * @member {import('chromadb').Collection|null} summaryCollection=null
+         * @member {Object|null} summaryCollection=null
          * @protected
          */
         summaryCollection: null
@@ -102,7 +102,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @returns {Promise<import('chromadb').Collection>}
+     * @returns {Promise<Object>}
      */
     async getMemoryCollection() {
         if (!this.memoryCollection) {
@@ -123,7 +123,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @returns {Promise<import('chromadb').Collection>}
+     * @returns {Promise<Object>}
      */
     async getSummaryCollection() {
         if (!this.summaryCollection) {

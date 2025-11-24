@@ -15,7 +15,7 @@ const __dirname   = path.resolve(),
       appNames    = [],
       options = {
           access        : 'all',
-          files         : [`${neoPath}src/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
+          files         : [`${neoPath}src/**/*.mjs`, `${neoPath}ai/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
@@ -232,43 +232,51 @@ function processPath(itemPath, filename, appNames) {
     }
 
     let path = itemPath.replace(/\\/g, '/'); // sync windows paths to macOS
-    let index = path.indexOf('/src/');
+    let index = path.indexOf('/ai/');
 
     if (index > -1) {
-        path = path.substr(index + 5) + '.';
+        path = 'ai.' + path.substr(index + 4) + '.';
+    } else if (path.endsWith('/ai')) {
+        path = 'ai.';
     } else {
-        index = path.indexOf('/src');
+        index = path.indexOf('/src/');
 
         if (index > -1) {
-            path = path.substr(index + 4); // top level files
+            path = path.substr(index + 5) + '.';
         } else {
-            index = path.indexOf('/apps/');
+            index = path.indexOf('/src');
 
             if (index > -1) {
-                for (const appName of appNames) {
-                    const lAppName = appName.toLowerCase();
-                    let pathLen = path.lastIndexOf('/' + lAppName);
+                path = path.substr(index + 4); // top level files
+            } else {
+                index = path.indexOf('/apps/');
 
-                    if (pathLen !== -1) {
-                        // top level files
-                        if (pathLen === path.length - appName.length - 1) {
-                            path = appName + path.substr(index + appName.length + 6) + '.';
-                            break;
-                        } else {
-                            pathLen = path.indexOf(lAppName + '/');
+                if (index > -1) {
+                    for (const appName of appNames) {
+                        const lAppName = appName.toLowerCase();
+                        let pathLen = path.lastIndexOf('/' + lAppName);
 
-                            if (pathLen > -1) {
+                        if (pathLen !== -1) {
+                            // top level files
+                            if (pathLen === path.length - appName.length - 1) {
                                 path = appName + path.substr(index + appName.length + 6) + '.';
                                 break;
+                            } else {
+                                pathLen = path.indexOf(lAppName + '/');
+
+                                if (pathLen > -1) {
+                                    path = appName + path.substr(index + appName.length + 6) + '.';
+                                    break;
+                                }
                             }
                         }
                     }
-                }
-            } else {
-                index = path.indexOf('/docs/');
+                } else {
+                    index = path.indexOf('/docs/');
 
-                if (index > -1) {
-                    path = 'Docs.' + path.substr(index + 10) + '.';
+                    if (index > -1) {
+                        path = 'Docs.' + path.substr(index + 10) + '.';
+                    }
                 }
             }
         }

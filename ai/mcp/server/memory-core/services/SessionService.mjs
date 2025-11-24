@@ -62,13 +62,13 @@ class SessionService extends Base {
          */
         embeddingModel_: null,
         /**
-         * @member {import('chromadb').Collection|null} memoryCollection_=null
+         * @member {Object|null} memoryCollection_=null
          * @protected
          * @reactive
          */
         memoryCollection_: null,
         /**
-         * @member {import('chromadb').Collection|null} sessionsCollection_=null
+         * @member {Object|null} sessionsCollection_=null
          * @protected
          * @reactive
          */
