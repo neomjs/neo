@@ -3,8 +3,17 @@ import NeoArray       from '../util/Array.mjs';
 import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
+ * @summary The default button component for the Neo.mjs framework.
+ *
+ * This class extends `Neo.component.Base` and offers comprehensive configurations for
+ * text, icons, badges, and event handling. It supports advanced features like
+ * internal routing, external URL redirection, and optional ripple effects on click.
+ * This class serves as the foundation for other specialized button types like
+ * SplitButton, TabHeaderButton, and GridHeaderButton.
+ *
  * @class Neo.button.Base
  * @extends Neo.component.Base
+ * @see Neo.examples.button.base.MainContainer
  */
 class Button extends Component {
     /**
@@ -204,7 +213,7 @@ class Button extends Component {
     }
 
     /**
-     * @param {Object} config
+     * @param {Object} config The configuration object for the button instance.
      */
     construct(config) {
         super.construct(config);
@@ -221,8 +230,8 @@ class Button extends Component {
      * Workaround fix for: https://github.com/neomjs/neo/issues/6659
      * Todo: inspect this further (we do not want to add fixed ids for all child nodes)
      * Triggered after the id config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the id config.
+     * @param {String} oldValue The old value of the id config.
      * @protected
      */
     afterSetId(value, oldValue) {
@@ -233,8 +242,8 @@ class Button extends Component {
 
     /**
      * Triggered after the badgePosition config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the badgePosition config.
+     * @param {String} oldValue The old value of the badgePosition config.
      * @protected
      */
     afterSetBadgePosition(value, oldValue) {
@@ -252,8 +261,8 @@ class Button extends Component {
 
     /**
      * Triggered after the badgeText config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {String|null} value    The new value of the badgeText config.
+     * @param {String|null} oldValue The old value of the badgeText config.
      * @protected
      */
     afterSetBadgeText(value, oldValue) {
@@ -267,8 +276,8 @@ class Button extends Component {
 
     /**
      * Triggered after the iconCls config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the iconCls config.
+     * @param {String} oldValue The old value of the iconCls config.
      * @protected
      */
     afterSetIconCls(value, oldValue) {
@@ -283,8 +292,8 @@ class Button extends Component {
 
     /**
      * Triggered after the iconColor config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {String|null} value    The new value of the iconColor config.
+     * @param {String|null} oldValue The old value of the iconColor config.
      * @protected
      */
     afterSetIconColor(value, oldValue) {
@@ -304,8 +313,8 @@ class Button extends Component {
 
     /**
      * Triggered after the iconPosition config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the iconPosition config.
+     * @param {String} oldValue The old value of the iconPosition config.
      * @protected
      */
     afterSetIconPosition(value, oldValue) {
@@ -319,8 +328,8 @@ class Button extends Component {
 
     /**
      * Triggered after the menu config got changed
-     * @param {Object|Object[]|null} value
-     * @param {Object|Object[]|null} oldValue
+     * @param {Object|Object[]|null} value    The new value of the menu config.
+     * @param {Object|Object[]|null} oldValue The old value of the menu config.
      * @protected
      */
     afterSetMenu(value, oldValue) {
@@ -360,8 +369,8 @@ class Button extends Component {
 
     /**
      * Triggered after the pressed config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Boolean} value    The new value of the pressed config.
+     * @param {Boolean} oldValue The old value of the pressed config.
      * @protected
      */
     afterSetPressed(value, oldValue) {
@@ -373,8 +382,8 @@ class Button extends Component {
 
     /**
      * Triggered after the route config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {String|null} value    The new value of the route config.
+     * @param {String|null} oldValue The old value of the route config.
      * @protected
      */
     afterSetRoute(value, oldValue) {
@@ -383,8 +392,8 @@ class Button extends Component {
 
     /**
      * Triggered after the theme config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {String|null} value    The new value of the theme config.
+     * @param {String|null} oldValue The old value of the theme config.
      * @protected
      */
     afterSetTheme(value, oldValue) {
@@ -399,8 +408,8 @@ class Button extends Component {
 
     /**
      * Triggered after the text config got changed
-     * @param {Object[]|String|null} value
-     * @param {Object[]|String|null} oldValue
+     * @param {Object[]|String|null} value    The new value of the text config.
+     * @param {Object[]|String|null} oldValue The old value of the text config.
      * @protected
      */
     afterSetText(value, oldValue) {
@@ -428,8 +437,8 @@ class Button extends Component {
 
     /**
      * Triggered after the url config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {String|null} value    The new value of the url config.
+     * @param {String|null} oldValue The old value of the url config.
      * @protected
      */
     afterSetUrl(value, oldValue) {
@@ -438,8 +447,8 @@ class Button extends Component {
 
     /**
      * Triggered after the useRippleEffect config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Boolean} value    The new value of the useRippleEffect config.
+     * @param {Boolean} oldValue The old value of the useRippleEffect config.
      * @protected
      */
     afterSetUseRippleEffect(value, oldValue) {
@@ -450,8 +459,8 @@ class Button extends Component {
 
     /**
      * Triggered after the urlTarget config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the urlTarget config.
+     * @param {String} oldValue The old value of the urlTarget config.
      * @protected
      */
     afterSetUrlTarget(value, oldValue) {
@@ -469,8 +478,8 @@ class Button extends Component {
 
     /**
      * Triggered after the windowId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
+     * @param {Number|null} value    The new value of the windowId config.
+     * @param {Number|null} oldValue The old value of the windowId config.
      * @protected
      */
     afterSetWindowId(value, oldValue) {
@@ -500,8 +509,8 @@ class Button extends Component {
 
     /**
      * Triggered before the badgePosition config gets changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the badgePosition config.
+     * @param {String} oldValue The old value of the badgePosition config.
      * @returns {String}
      * @protected
      */
@@ -511,8 +520,8 @@ class Button extends Component {
 
     /**
      * Triggered before the iconCls config gets changed. Converts the string into an array if needed.
-     * @param {Array|String|null} value
-     * @param {Array|String|null} oldValue
+     * @param {Array|String|null} value    The new value of the iconCls config.
+     * @param {Array|String|null} oldValue The old value of the iconCls config.
      * @returns {Array}
      * @protected
      */
@@ -526,8 +535,8 @@ class Button extends Component {
 
     /**
      * Triggered before the iconPosition config gets changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String} value    The new value of the iconPosition config.
+     * @param {String} oldValue The old value of the iconPosition config.
      * @protected
      */
     beforeSetIconPosition(value, oldValue) {
@@ -535,6 +544,7 @@ class Button extends Component {
     }
 
     /**
+     * Changes the application's route based on the button's route config.
      * @protected
      */
     changeRoute() {
@@ -542,7 +552,8 @@ class Button extends Component {
     }
 
     /**
-     * @param args
+     * Destroys the button instance, its menu (if present), and calls the superclass destroy method.
+     * @param {...*} args Arguments to pass to the superclass destroy method.
      */
     destroy(...args) {
         this.menuList?.destroy(true, false);
@@ -550,7 +561,9 @@ class Button extends Component {
     }
 
     /**
-     * @param {Object} data
+     * Handles the click event on the button.
+     * Triggers the configured handler, toggles the menu, updates the route, and shows the ripple effect if applicable.
+     * @param {Object} data The click event data object.
      */
     onClick(data) {
         let me = this;
@@ -564,7 +577,8 @@ class Button extends Component {
     }
 
     /**
-     * @param {Object} data
+     * Displays a ripple animation effect on the button.
+     * @param {Object} data The click event data object used to calculate the ripple position.
      */
     async showRipple(data) {
         let me                   = this,
@@ -604,7 +618,7 @@ class Button extends Component {
     }
 
     /**
-     *
+     * Toggles the visibility of the button's menu, if one is configured.
      */
     async toggleMenu() {
         let {menuList} = this,
@@ -618,7 +632,7 @@ class Button extends Component {
     }
 
     /**
-     *
+     * Updates the VDOM tag of the button (e.g., switching between 'button' and 'a' tags) based on the current configuration.
      */
     updateTag() {
         let me                      = this,

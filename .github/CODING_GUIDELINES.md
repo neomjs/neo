@@ -69,8 +69,17 @@ import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
+ * @summary The default button component for the Neo.mjs framework.
+ *
+ * This class extends `Neo.component.Base` and offers comprehensive configurations for
+ * text, icons, badges, and event handling. It supports advanced features like
+ * internal routing, external URL redirection, and optional ripple effects on click.
+ * This class serves as the foundation for other specialized button types like
+ * SplitButton, TabHeaderButton, and GridHeaderButton.
+ *
  * @class Neo.button.Base
  * @extends Neo.component.Base
+ * @see Neo.examples.button.base.MainContainer
  */
 class Base extends Component {
     /**
@@ -175,7 +184,9 @@ Neo.applyClassConfig(Base);
 export default Base;
 
 ```
-* (18) Use JSDoc based comments for all top level items as well as top level configs
+* (18) Use JSDoc based comments for all top-level items (classes, methods, configs).
+  + For class top-level comments, a `@summary` tag is **mandatory** and **must** be followed by an empty line, then a detailed description of the class.
+  + Single-line tags like `@class` and `@extends` do not require an empty line after them.
 * (19) Class content order:
   - static configs (ordered chronologically)
   - static config as the last item. This one does not need a comment, but is prefixed with an empty line.
