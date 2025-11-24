@@ -87,7 +87,7 @@ function setNamespace(tree, names, value) {
     current[names[names.length - 1]] = value;
 }
 
-const neoStructure = [{
+let neoStructure = [{
     className: null,
     id       : 1,
     isLeaf   : false,
@@ -459,13 +459,36 @@ parse(options)
             fs.writeFile('./docs/output/class-hierarchy.yaml', yamlString)
         );
 
+        // Filter out leaf nodes with null srcPath
+        neoStructure = neoStructure.filter(item => !item.isLeaf || item.srcPath !== null);
+
+        // Prune empty folders
+        let changed = true;
+        while (changed) {
+            changed = false;
+            const parentIds = new Set(neoStructure.map(item => item.parentId));
+            const initialLength = neoStructure.length;
+
+            neoStructure = neoStructure.filter(item => {
+                if (item.isLeaf) return true;
+                // Keep items that are parents of existing nodes
+                if (parentIds.has(item.id)) return true;
+                return false;
+            });
+
+            if (neoStructure.length !== initialLength) changed = true;
+        }
+
         // Sort structure
         neoStructure.sort(function (a, b) {
-            if (a.name[0] === a.name[0].toLocaleLowerCase() && b.name[0] === b.name[0].toLocaleLowerCase() ||
-                a.name[0] === a.name[0].toLocaleUpperCase() && b.name[0] === b.name[0].toLocaleUpperCase()) {
-                return a.name.localeCompare(b.name);
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+
+            if (nameA[0] === nameA[0].toLocaleLowerCase() && nameB[0] === nameB[0].toLocaleLowerCase() ||
+                nameA[0] === nameA[0].toLocaleUpperCase() && nameB[0] === nameB[0].toLocaleUpperCase()) {
+                return nameA.localeCompare(nameB);
             }
-            if (a.name[0] === a.name[0].toLocaleLowerCase()) {
+            if (nameA[0] === nameA[0].toLocaleLowerCase()) {
                 return -1;
             }
             return 1;
