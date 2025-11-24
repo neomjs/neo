@@ -1,6 +1,7 @@
 /**
  * GraphQL query definitions for GitHub Pull Requests.
  * @module Neo.ai.mcp.server.github-workflow.queries.pullRequestQueries
+ * @ignoreDocs
  */
 
 /**

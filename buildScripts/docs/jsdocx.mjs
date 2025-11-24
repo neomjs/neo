@@ -312,6 +312,12 @@ parse(options)
         // Single pass through docs - do everything at once
         for (let i = 0; i < docs.length; i++) {
             const item = docs[i];
+
+            // Check for @ignoreDocs tag
+            if (item.tags && item.tags.some(tag => tag.title === 'ignoredocs')) {
+                continue;
+            }
+
             docs[i].id = i + 1;
 
             const filename = item.meta.filename.substr(0, item.meta.filename.lastIndexOf('.'));
