@@ -185,7 +185,7 @@ export default Base;
 
 ```
 * (18) Use JSDoc based comments for all top-level items (classes, methods, configs).
-  + For class top-level comments, a `@summary` tag is **mandatory** and **must** be followed by an empty line, then a detailed description of the class.
+  + For class top-level comments, a `@summary` tag is **mandatory**. It **must** be the first tag and **must** be followed by an empty line, then a detailed description of the class.
   + Single-line tags like `@class` and `@extends` do not require an empty line after them.
 * (19) Class content order:
   - static configs (ordered chronologically)
