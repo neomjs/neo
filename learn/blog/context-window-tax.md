@@ -1,7 +1,4 @@
 # The Context Window Tax: Efficient Multi-Step AI Workflows via Code Execution
-*Tobias Uhlig*  
-*Neo.mjs Project*  
-*November 2025*
 
 **Abstract**
 The Model Context Protocol (MCP) enables AI agents to interact with development tools through a standardized interface. However, the predominant "Tool Use" pattern—where agents call individual tools sequentially and process all results through the Large Language Model—creates a scalability bottleneck we term the **"Context Window Tax"**. This tax manifests as O(n) growth in latency and token consumption for workflows with *n* sequential steps, each requiring data to round-trip through the LLM's context window.
@@ -18,6 +15,7 @@ This work provides a concrete reference implementation of Anthropic's Code Execu
 ## 1. Introduction
 
 ### 1.1 The MCP Ecosystem
+
 The Model Context Protocol, introduced by Anthropic in late 2024, standardized how AI agents connect to external tools and data sources. Early implementations adopted a "Tool Use" pattern where:
 1.  The agent receives tool definitions in its context window
 2.  It calls tools one at a time via JSON-RPC
@@ -27,6 +25,7 @@ The Model Context Protocol, introduced by Anthropic in late 2024, standardized h
 This pattern works well for simple, single-step tasks ("What's the weather?", "Create a calendar event"). However, for complex workflows involving multiple data sources or iterative processing, this architecture creates significant overhead.
 
 ### 1.2 The Context Window Tax
+
 We define the Context Window Tax as the cumulative cost of passing intermediate data through the LLM's context window during multi-step workflows. For a workflow $W$ with $n$ sequential steps:
 
 $$ Cost(W) = \sum_{i=1}^{n} (Context_{prev} + ToolDef_i + Result_i + Reasoning_i) $$
@@ -49,13 +48,15 @@ In a **Tool Use** architecture:
 **Result:** 20+ round-trips, ~500,000 tokens consumed, significant latency.
 
 ### 1.3 The Code Execution Alternative
-In November 2024, Anthropic published **[Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)**, proposing an alternative pattern where agents write scripts to orchestrate tool calls locally:
+
+In November 2025, Anthropic published **[Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)**, proposing an alternative pattern where agents write scripts to orchestrate tool calls locally:
 
 > *"Direct tool calls consume context for each definition and result. Agents scale better by writing code to call tools instead."*
 
 Rather than bringing data to the code (the LLM), this pattern sends code to the data. The agent writes a script once, which then executes all tool calls and data processing locally, returning only the final summary.
 
 ### 1.4 Our Contribution
+
 We present a production implementation of this pattern through the Neo.mjs Agent OS, demonstrating:
 *   **A Type-Validated SDK Architecture:** Tool capabilities exposed as importable JavaScript modules with runtime argument validation via Zod schemas derived from OpenAPI specifications.
 *   **Empirical Performance Metrics:** Quantified improvements for real-world tasks including database migrations and multi-service workflow orchestration.
@@ -68,6 +69,7 @@ This work serves as a reference implementation for teams building Code Execution
 ## 2. Architecture
 
 ### 2.1 The Hybrid Model
+
 Rather than replacing Tool Use entirely, we implement a hybrid architecture that combines the strengths of both patterns:
 
 ```
@@ -111,6 +113,7 @@ Rather than replacing Tool Use entirely, we implement a hybrid architecture that
 This hybrid approach keeps session startup contexts manageable (~115k tokens for our monorepo) while enabling infinite scalability for data-intensive tasks.
 
 ### 2.2 The Agent OS SDK
+
 The core of our implementation is `ai/services.mjs`, a standalone JavaScript module that exports the internal service classes powering our three MCP servers:
 
 ```javascript
@@ -137,6 +140,7 @@ const results = await KB_QueryService.queryDocuments({
 *   **Namespace Prefixes:** Services are organized by domain (`KB_*`, `Memory_*`, `GH_*`).
 
 ### 2.3 Runtime Argument Validation
+
 A critical challenge with LLM-generated code is ensuring correct API usage. Agents frequently hallucinate method signatures, invert argument order, or use incorrect types.
 
 Our solution: **Runtime argument validation** via Zod schemas dynamically derived from OpenAPI specifications.
@@ -166,6 +170,7 @@ This precise feedback enables agents to self-correct immediately without needing
 **Important Distinction:** This is **argument validation**, not full type safety. It protects against hallucinated API calls but cannot guarantee data integrity within external systems (databases, APIs). For those cases, agents write diagnostic scripts to inspect actual data.
 
 ### 2.4 Services vs. Servers: Decoupled Architecture
+
 A crucial architectural decision: **MCP servers are just transport adapters.** The actual business logic lives in **Service classes** that exist independently.
 
 ```
@@ -192,6 +197,7 @@ This decoupling enables testing and reusability without MCP server overhead.
 The Agent OS provides three specialized MCP servers, each addressing a distinct dimension of software development:
 
 ### 3.1 Dimension 1: Technical Understanding (`neo.mjs-knowledge-base`)
+
 **Role:** Understanding *How* the code works.
 The Knowledge Base implements a RAG system using ChromaDB and Google's Gemini embeddings, with a custom scoring algorithm that prioritizes parent classes and source files over documentation.
 
@@ -199,6 +205,7 @@ The Knowledge Base implements a RAG system using ChromaDB and Google's Gemini em
 Agents can `git checkout v10.9.0`, trigger `KB_DatabaseService.syncDatabase()`, and have a knowledge base scoped precisely to that version.
 
 ### 3.2 Dimension 2: Intent Memory (`neo.mjs-memory-core`)
+
 **Role:** Understanding *Why* decisions were made.
 The Memory Core persists not just conversation logs, but the agent's internal reasoning (Prompt, Thought, Response).
 
@@ -206,6 +213,7 @@ The Memory Core persists not just conversation logs, but the agent's internal re
 The system implements drift detection for parallel sessions. If a session crashes, the next agent startup automatically detects the discrepancy and re-summarizes.
 
 ### 3.3 Dimension 3: Requirements (`neo.mjs-github-workflow`)
+
 **Role:** Understanding *What* needs to be done.
 The GitHub Workflow server maintains a **local, offline-first mirror** of project management data as markdown files (`.github/ISSUE/`).
 
@@ -217,6 +225,7 @@ Closed issues automatically move into version-specific folders based on release 
 ## 4. Case Studies
 
 ### 4.1 Pattern: Logic Near Data
+
 **The Baseline Problem:**
 Traditional Tool Use forces agents to pass intermediate results through the LLM for simple filtering (e.g., "Find top 3 guides").
 
@@ -240,6 +249,7 @@ return top3;  // Return only the most relevant matches
 **Benefit:** The agent pays to generate the script once, then all data processing happens at CPU speed.
 
 ### 4.2 Autonomous Infrastructure Repair: Quantitative Analysis
+
 **Context:** Feature work in [Issue #7862](https://github.com/neomjs/neo/issues/7862) introduced a schema drift (ISO Strings vs Numbers) in the vector database, causing silent query failures.
 
 **Tool Use Approach (Simulated):**
@@ -265,6 +275,7 @@ The agent autonomously resolved this via a two-phase approach:
 **Architectural Insight:** This demonstrates why **Runtime Argument Validation** is not enough. Zod catches invalid API calls, but cannot detect *data integrity* issues. Only by writing diagnostic code ("Thick Client") could the agent inspect the raw data and fix it.
 
 ### 4.3 Multi-Service Orchestration: Bug Triage Workflow
+
 **Task:** Monitor GitHub for bug reports, analyze root causes, and provide structured feedback.
 
 **Script:** `ai/examples/self-healing.mjs`
@@ -287,6 +298,7 @@ The agent autonomously resolved this via a two-phase approach:
 A unique aspect of this implementation is that the MCP servers themselves are built using the **Neo.mjs framework**—demonstrating a universal JavaScript runtime.
 
 ### 5.1 The Neo.mjs Class System in Node.js
+
 ```
 ┌─────────────────────────────────────────────────┐
 │         Neo.mjs Universal Runtime               │
@@ -307,9 +319,11 @@ A unique aspect of this implementation is that the MCP servers themselves are bu
 ```
 
 ### 5.2 Dependency Injection via Async Lifecycle
+
 Neo.mjs solves Node.js initialization ordering with a standardized lifecycle: `mcp-stdio` waits for `SessionService`, which waits for `ChromaManager`, which waits for `DatabaseLifecycleService`. Zero race conditions, zero boilerplate.
 
 ### 5.3 Reactive State Management
+
 The same reactive config system that powers UI components manages backend state (e.g., connecting models, handling API key changes).
 
 ---
@@ -328,6 +342,7 @@ The same reactive config system that powers UI components manages backend state 
 | **Production** | ❌ Expensive at scale | ✅ Cost-effective |
 
 ### 6.2 Limitations
+
 *   **Single-Repo Scope:** Current system cannot orchestrate across multiple repositories.
 *   **Human Judgment:** Complex merge conflicts and architectural decisions still require human review.
 *   **Safety:** Automated code execution requires sandboxing for production deployment.
