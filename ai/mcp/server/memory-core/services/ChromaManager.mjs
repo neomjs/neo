@@ -5,7 +5,13 @@ import Base                     from '../../../../../src/core/Base.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
- * Simple manager around the Chroma client that lazily caches frequently used collections.
+ * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
+ *
+ * This class abstracts the lower-level ChromaDB client interactions. It provides methods to connect to the database
+ * and retrieve specific collections (memory and summary), ensuring that the connection is established and
+ * collections are created if they don't exist. It handles the `dummyEmbeddingFunction` requirement for ChromaDB
+ * to prevent warnings.
+ *
  * @class AI.mcp.server.memory-core.services.ChromaManager
  * @extends Neo.core.Base
  * @singleton

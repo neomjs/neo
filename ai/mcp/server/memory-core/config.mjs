@@ -113,8 +113,10 @@ const defaultConfig = {
 };
 
 /**
- * Configuration manager for the Memory Core MCP server.
+ * @summary Configuration manager for the Memory Core MCP server.
+ *
  * Supports loading configuration from a custom file and merging with defaults.
+ *
  * @class Neo.ai.mcp.server.memory-core.Config
  * @extends Neo.core.Base
  * @singleton
@@ -151,7 +153,7 @@ class Config extends Base {
 
     /**
      * Loads configuration from a JSON file and merges it with defaults.
-     * @param {string} filePath - The path to the configuration file.
+     * @param {String} filePath The path to the configuration file.
      * @returns {Promise<void>}
      */
     async load(filePath) {

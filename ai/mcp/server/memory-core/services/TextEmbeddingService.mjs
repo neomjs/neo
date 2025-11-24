@@ -3,7 +3,12 @@ import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 
 /**
- * Service for creating embedding vectors for text.
+ * @summary Service for creating embedding vectors for text.
+ *
+ * This wrapper service interfaces with the Google Generative AI API (Gemini) to generate vector embeddings
+ * for text inputs. These embeddings are essential for the semantic search capabilities of the memory
+ * and summary collections.
+ *
  * @class AI.mcp.server.memory-core.services.TextEmbeddingService
  * @extends Neo.core.Base
  * @singleton
@@ -29,7 +34,7 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @param {Object} config
+     * @param {Object} config The configuration object.
      */
     construct(config) {
         super.construct(config);
@@ -49,7 +54,7 @@ class TextEmbeddingService extends Base {
 
     /**
      * Creates an embedding vector for the provided text.
-     * @param {String} text
+     * @param {String} text The text to embed.
      * @returns {Promise<number[]>}
      */
     async embedText(text) {

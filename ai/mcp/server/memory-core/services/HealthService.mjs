@@ -6,7 +6,7 @@ import SessionService           from './SessionService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
- * Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
+ * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
  * accessible, and contains the expected collections before any memory operations proceed.
@@ -393,10 +393,10 @@ class HealthService extends Base {
     /**
      * Records the result of startup summarization attempt.
      * Called by the startup sequence in mcp-stdio.mjs
-     * @param {string} status - One of: 'completed', 'failed', 'skipped'
-     * @param {Object} details - Additional information about the summarization
+     * @param {string} status  One of: 'completed', 'failed', 'skipped'
+     * @param {Object} details Additional information about the summarization
      */
-    recordStartupSummarization(status, details = null) {
+    recordStartupSummarization(status, details=null) {
         this.#startupSummarizationStatus  = status;
         this.#startupSummarizationDetails = details;
 

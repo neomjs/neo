@@ -4,7 +4,11 @@ import logger               from '../logger.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
- * Service for handling deleting, listing, and querying session summaries.
+ * @summary Service for handling deleting, listing, and querying session summaries.
+ *
+ * This service manages the high-level session summaries. It allows for retrieving past summaries to provide context,
+ * searching summaries by content or metadata, and performing administrative tasks like deleting all summaries.
+ *
  * @class AI.mcp.server.memory-core.services.SummaryService
  * @extends Neo.core.Base
  * @singleton
@@ -47,8 +51,8 @@ class SummaryService extends Base {
     /**
      * Retrieves summaries in reverse chronological order.
      * @param {Object} options
-     * @param {Number} options.limit=50
-     * @param {Number} options.offset=0
+     * @param {Number} options.limit=50 The maximum number of summaries to return.
+     * @param {Number} options.offset=0 The number of summaries to skip.
      * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
      */
     async listSummaries({limit=50, offset=0} = {}) {
@@ -103,9 +107,9 @@ class SummaryService extends Base {
     /**
      * Executes a semantic search across all session summaries.
      * @param {Object} options
-     * @param {String} options.query
-     * @param {Number} options.nResults
-     * @param {String} [options.category]
+     * @param {String} options.query      The search query string.
+     * @param {Number} options.nResults   The number of results to return.
+     * @param {String} [options.category] Optional category to filter results.
      * @returns {Promise<{query: string, count: number, results: Object[]}>}
      */
     async querySummaries({query, nResults, category}) {
