@@ -34,7 +34,7 @@ class MemoryService extends Base {
      * @param {String} options.sessionId
      * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string}>}
      */
-    async addMemory({ prompt, response, thought, sessionId }) {
+    async addMemory({prompt, response, thought, sessionId}) {
         try {
             const collection   = await ChromaManager.getMemoryCollection();
             const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
@@ -80,7 +80,7 @@ class MemoryService extends Base {
      * @param {Number} options.offset
      * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
      */
-    async listMemories({sessionId, limit, offset}) {
+    async listMemories({sessionId, limit=100, offset=0} = {}) {
         try {
             if (!sessionId) {
                 return { sessionId, count: 0, total: 0, memories: [] };

@@ -47,11 +47,11 @@ class SummaryService extends Base {
     /**
      * Retrieves summaries in reverse chronological order.
      * @param {Object} options
-     * @param {Number} options.limit
-     * @param {Number} options.offset
+     * @param {Number} options.limit=50
+     * @param {Number} options.offset=0
      * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
      */
-    async listSummaries({limit, offset}) {
+    async listSummaries({limit=50, offset=0}) {
         try {
             const collection = await ChromaManager.getSummaryCollection();
 
