@@ -106,8 +106,11 @@ const defaultConfig = {
 };
 
 /**
+ * @summary Configuration manager for the Knowledge Base MCP server.
+ *
  * Configuration manager for the Knowledge Base MCP server.
  * Supports loading configuration from a custom file and merging with defaults.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.Config
  * @extends Neo.core.Base
  * @singleton
@@ -144,7 +147,7 @@ class Config extends Base {
 
     /**
      * Loads configuration from a JSON file and merges it with defaults.
-     * @param {string} filePath - The path to the configuration file.
+     * @param {String} filePath The path to the configuration file.
      * @returns {Promise<void>}
      */
     async load(filePath) {

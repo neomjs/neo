@@ -1,6 +1,7 @@
 /**
  * GraphQL query definitions for GitHub labels.
  * @module Neo.ai.mcp.server.github-workflow.queries.labelQueries
+ * @ignoreDocs
  */
 
 /**

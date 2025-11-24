@@ -75,4 +75,6 @@ We need to support:
 - 2025-11-21 @tobiu added the `refactoring` label
 - 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu closed this issue
+- 2025-11-21 @tobiu referenced in commit `74edfca` - "refactor(ai): Robust Hybrid Database Lifecycle and Roadmap update (#7836)"
+- 2025-11-21 @tobiu cross-referenced by #7837
 

@@ -1,0 +1,38 @@
+---
+id: 6202
+title: 'grid.Container & View: disable overscrolling on mobile'
+state: CLOSED
+labels:
+  - enhancement
+assignees:
+  - tobiu
+createdAt: '2025-01-12T03:03:18Z'
+updatedAt: '2025-01-12T04:13:36Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/6202'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+closedAt: '2025-01-12T04:13:36Z'
+---
+# grid.Container & View: disable overscrolling on mobile
+
+I will try both:
+
+https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-anchor => none
+
+https://developer.mozilla.org/en-US/docs/Web/CSS/overscroll-behavior => none
+
+## Activity Log
+
+- 2025-01-12 @tobiu added the `enhancement` label
+- 2025-01-12 @tobiu assigned to @tobiu
+- 2025-01-12 @tobiu referenced in commit `d489f89` - "grid.Container & View: disable overscrolling on mobile #6202"
+- 2025-01-12 @tobiu closed this issue
+- 2025-01-12 @tobiu referenced in commit `6277f87` - "grid.Container & View: disable overscrolling on mobile #6202"
+- 2025-01-12 @tobiu closed this issue
+

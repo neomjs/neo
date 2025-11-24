@@ -20,6 +20,8 @@ dotenv.config({
 const sectionsRegex = /(?=^#+\s)/m;
 
 /**
+ * @summary Core engine for building and maintaining the AI's knowledge base.
+ *
  * This service is the core engine for building and maintaining the AI's knowledge base.
  * It orchestrates the entire ETL (Extract, Transform, Load) process for knowledge and
  * ensures the database is synchronized on application startup.
@@ -34,6 +36,7 @@ const sectionsRegex = /(?=^#+\s)/m;
  *     - **Load:** Generates vector embeddings and upserts them into ChromaDB (`embedKnowledgeBase`).
  * 3.  **Lifecycle Management:** Provides methods for the full lifecycle of the knowledge base,
  *     from creation and synchronization to deletion.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
  * @extends Neo.core.Base
  * @singleton
@@ -98,8 +101,8 @@ class DatabaseService extends Base {
     /**
      * Creates a SHA-256 hash from a stable JSON string representation of a chunk's content.
      * This hash is used to detect changes in content without having to compare the full text.
-     * @param {object} chunk The chunk object.
-     * @returns {string} The hexadecimal hash string.
+     * @param {Object} chunk The chunk object.
+     * @returns {String} The hexadecimal hash string.
      * @private
      */
     createContentHash(chunk) {
@@ -114,6 +117,70 @@ class DatabaseService extends Base {
             returns    : chunk.returns
         });
         return crypto.createHash('sha256').update(contentString).digest('hex');
+    }
+
+    /**
+     * Recursively scans a directory and indexes files as raw source chunks.
+     * @param {Object} writeStream The stream to write chunks to.
+     * @param {String} relativePath The relative path from cwd to scan.
+     * @param {String} defaultType The default type to assign to chunks.
+     * @param {Object} options Configuration options.
+     * @param {String[]} options.include Array of file extensions to include (e.g. ['.mjs', '.md']).
+     * @param {String[]} options.exclude Array of directory names to exclude.
+     * @param {Object} options.typeOverrides Map of path segments to type values (e.g. {'examples': 'example'}).
+     * @returns {Promise<Number>} The number of chunks created.
+     */
+    async indexRawDirectory(writeStream, relativePath, defaultType, options={}) {
+        let count = 0;
+        const fullPath = path.resolve(process.cwd(), relativePath);
+
+        if (!await fs.pathExists(fullPath)) return 0;
+
+        const entries = await fs.readdir(fullPath, {withFileTypes: true});
+
+        for (const entry of entries) {
+            const entryName = entry.name;
+            const entryPath = path.join(fullPath, entryName);
+            const relativeEntryPath = path.join(relativePath, entryName);
+
+            if (entry.isDirectory()) {
+                if (options.exclude?.includes(entryName)) continue;
+                count += await this.indexRawDirectory(writeStream, relativeEntryPath, defaultType, options);
+            } else if (entry.isFile()) {
+                const ext = path.extname(entryName);
+                if (options.include?.includes(ext)) {
+                    const content = await fs.readFile(entryPath, 'utf-8');
+                    let type = defaultType;
+
+                    if (options.typeOverrides) {
+                        for (const [key, value] of Object.entries(options.typeOverrides)) {
+                            if (relativeEntryPath.includes(`/${key}/`)) {
+                                type = value;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Determine kind based on extension or content
+                    let kind = 'module';
+                    if (type === 'test') kind = 'test-spec';
+                    if (ext === '.md') kind = 'documentation';
+
+                    const chunk = {
+                        type,
+                        kind,
+                        name: relativeEntryPath,
+                        content,
+                        source: relativeEntryPath
+                    };
+
+                    chunk.hash = this.createContentHash(chunk);
+                    writeStream.write(JSON.stringify(chunk) + '\n');
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**
@@ -256,6 +323,13 @@ class DatabaseService extends Base {
                 }
             }
         }
+
+        // 5. Process Test Directory (Playwright)
+        logger.log('Indexing Playwright tests...');
+        totalChunks += await this.indexRawDirectory(writeStream, 'test/playwright', 'test', {
+            include: ['.mjs'],
+            exclude: ['node_modules', 'test-results', 'reports']
+        });
 
         return new Promise((resolve, reject) => {
             writeStream.on('finish', () => {

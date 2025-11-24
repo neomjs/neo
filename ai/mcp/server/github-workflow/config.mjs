@@ -68,7 +68,7 @@ const defaultConfig = {
          * The date from which to start synchronizing issues and releases.
          * @type {string}
          */
-        syncStartDate: '2025-06-15T00:00:00Z',
+        syncStartDate: '2025-01-01T00:00:00Z',
         /**
          * The path to the directory for release notes.
          * @type {string}
@@ -178,8 +178,11 @@ const defaultConfig = {
 };
 
 /**
- * Configuration manager for the GitHub Workflow MCP server.
+ * @summary Configuration manager for the GitHub Workflow MCP server.
+ *
  * Supports loading configuration from a custom file and merging with defaults.
+ * The configuration handles GitHub repository details, sync settings, and server behavior options.
+ *
  * @class Neo.ai.mcp.server.github-workflow.Config
  * @extends Neo.core.Base
  * @singleton

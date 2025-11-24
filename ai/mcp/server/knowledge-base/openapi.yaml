@@ -545,8 +545,13 @@ components:
             - `blog`: Historical context and evolution (code may be outdated)
             - `ticket`: Issues from GitHub. Can be open (potential work) or closed (historical context).
             - `release`: Release notes and changelogs
-          enum: [all, blog, guide, src, example, ticket, release]
+            - `test`: Automated tests and specs
+          enum: [all, blog, guide, src, example, ticket, release, test]
           default: all
+        limit:
+          type: integer
+          description: The maximum number of results to return.
+          default: 25
 
     QueryResultItem:
       type: object

@@ -6,7 +6,13 @@ import path     from 'path';
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
- * Manages loading, saving, and pruning of the .sync-metadata.json file.
+ * @summary Manages loading, saving, and pruning of the .sync-metadata.json file.
+ *
+ * This service handles the persistence of the synchronization state.
+ * It ensures that the metadata file is properly loaded on startup and saved after sync operations.
+ * Crucially, it "prunes" the metadata before saving to ensure only essential change-detection
+ * fields (like `contentHash` and `updatedAt`) are stored, keeping the file size manageable.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.sync.MetadataManager
  * @extends Neo.core.Base
  * @singleton
@@ -52,7 +58,7 @@ class MetadataManager extends Base {
      * Saves the provided metadata object to the configured metadata file on disk,
      * ensuring the directory exists. This method also prunes the data to save only
      * essential fields for change detection.
-     * @param {object} metadata - The metadata object to serialize and save.
+     * @param {object} metadata The metadata object to serialize and save.
      * @returns {Promise<void>}
      */
     async save(metadata) {

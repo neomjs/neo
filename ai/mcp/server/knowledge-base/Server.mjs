@@ -9,18 +9,21 @@ import HealthService                                   from './services/HealthSe
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
+ * @summary The Knowledge Base MCP Server application.
+ *
  * The Knowledge Base MCP Server application.
  * Handles initialization, configuration, and lifecycle management for the MCP server.
- * @class AI.mcp.server.knowledge-base.Server
+ *
+ * @class Neo.ai.mcp.server.knowledge-base.Server
  * @extends Neo.core.Base
  */
 class Server extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.knowledge-base.Server'
+         * @member {String} className='Neo.ai.mcp.server.knowledge-base.Server'
          * @protected
          */
-        className: 'AI.mcp.server.knowledge-base.Server'
+        className: 'Neo.ai.mcp.server.knowledge-base.Server'
     }
 
     /**
@@ -92,7 +95,7 @@ class Server extends Base {
 
     /**
      * Helper to log collection statistics.
-     * @param {Object} health
+     * @param {Object} health The health object
      */
     logCollectionStats(health) {
         if (health.database.connection.collections) {
@@ -133,8 +136,8 @@ class Server extends Base {
         // List Tools Handler
         this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
-                const { cursor, limit } = request.params || {};
-                const { tools, nextCursor } = listTools({ cursor, limit });
+                const {cursor, limit}     = request.params || {};
+                const {tools, nextCursor} = listTools({cursor, limit});
 
                 const mcpTools = tools.map(tool => ({
                     name        : tool.name,
@@ -153,13 +156,13 @@ class Server extends Base {
                 return result;
             } catch (error) {
                 logger.error('[MCP] Error listing tools:', error);
-                return { tools: [], nextCursor: null, error: error.message };
+                return {tools: [], nextCursor: null, error: error.message};
             }
         });
 
         // Call Tool Handler
         this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-            const { name, arguments: args } = request.params;
+            const {name, arguments: args} = request.params;
 
             try {
                 logger.debug(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));

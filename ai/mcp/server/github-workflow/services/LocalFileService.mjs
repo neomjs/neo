@@ -5,7 +5,12 @@ import logger   from '../logger.mjs';
 import path     from 'path';
 
 /**
- * Service for local file system lookups related to the GitHub workflow.
+ * @summary Service for local file system lookups related to the GitHub workflow.
+ *
+ * This service provides efficient mechanisms to locate and read local issue files.
+ * It implements a recursive search strategy to handle nested issue directories
+ * (e.g., in the `ISSUE_ARCHIVE`) and supports finding files by their issue ID prefix.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.LocalFileService
  * @extends Neo.core.Base
  * @singleton
@@ -26,8 +31,8 @@ class LocalFileService extends Base {
 
     /**
      * Recursively searches for a file within a directory and its subdirectories.
-     * @param {string} directory - The directory to start the search from.
-     * @param {string} filename - The name of the file to find.
+     * @param {string} directory The directory to start the search from.
+     * @param {string} filename  The name of the file to find.
      * @returns {Promise<string|null>} The absolute path of the file if found, otherwise null.
      * @private
      */
@@ -56,7 +61,7 @@ class LocalFileService extends Base {
 
     /**
      * Finds and returns the content of a local issue file by its number.
-     * @param {string} issueNumber - The issue number, with or without a leading '#'.
+     * @param {string} issueNumber The issue number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
      */
     async getIssueById(issueNumber) {

@@ -5,6 +5,8 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
+ * @summary Monitors and validates the ChromaDB dependency for the Knowledge Base MCP server.
+ *
  * Monitors and validates the ChromaDB dependency for the Knowledge Base MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -77,17 +79,17 @@ class HealthService extends Base {
      * Intent: This is the most critical check. Without ChromaDB running, no knowledge base
      * operations are possible. We use the heartbeat endpoint to verify connectivity.
      *
-     * @returns {Promise<{running: boolean, error?: string}>}
+     * @returns {Promise<Object>} {running: boolean, error?: string}
      * @private
      */
     async #checkChromaConnection() {
         try {
             await ChromaManager.client.heartbeat();
-            return { running: true };
+            return {running: true};
         } catch (e) {
             return {
                 running: false,
-                error: `ChromaDB is not accessible at ${aiConfig.host}:${aiConfig.port}. Please start ChromaDB or use the start_database tool.`
+                error  : `ChromaDB is not accessible at ${aiConfig.host}:${aiConfig.port}. Please start ChromaDB or use the start_database tool.`
             };
         }
     }
@@ -99,7 +101,7 @@ class HealthService extends Base {
      * is properly initialized. This check confirms the knowledge base collection
      * is available for operations.
      *
-     * @returns {Promise<{knowledgeBase: Object|null, error?: string}>}
+     * @returns {Promise<Object>} {knowledgeBase: Object|null, error?: string}
      * @private
      */
     async #checkCollections() {
@@ -113,15 +115,15 @@ class HealthService extends Base {
             if (knowledgeBaseCollection) {
                 const count = await knowledgeBaseCollection.count();
                 result.knowledgeBase = {
-                    name: aiConfig.collectionName,
+                    name  : aiConfig.collectionName,
                     exists: true,
                     count
                 };
             } else {
                 result.knowledgeBase = {
-                    name: aiConfig.collectionName,
+                    name  : aiConfig.collectionName,
                     exists: false,
-                    count: 0
+                    count : 0
                 };
             }
 
@@ -323,7 +325,7 @@ class HealthService extends Base {
 
         if (health.status !== 'healthy') {
             // Build a multi-line error message with all the issues detected
-            const details = health.details.join('\n  - ');
+            const details   = health.details.join('\n  - ');
             const statusMsg = health.status === 'unhealthy' ? 'not available' : 'not fully operational';
             throw new Error(`Knowledge Base is ${statusMsg}:\n  - ${details}`);
         }

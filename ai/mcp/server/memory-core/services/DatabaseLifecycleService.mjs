@@ -4,8 +4,13 @@ import logger   from '../logger.mjs';
 import Base     from '../../../../../src/core/Base.mjs';
 
 /**
- * Manages the lifecycle of the ChromaDB process for the Memory Core.
- * @class AI.mcp.server.memory-core.services.DatabaseLifecycleService
+ * @summary Manages the lifecycle of the ChromaDB process for the Memory Core.
+ *
+ * This service is responsible for starting, stopping, and monitoring the ChromaDB background process.
+ * It handles the spawning of the `chroma` command, tracks the process ID (PID), and provides a mechanism
+ * to ensure the database is running before other services attempt to connect. It also handles graceful shutdown.
+ *
+ * @class Neo.ai.mcp.server.memory-core.services.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
@@ -19,10 +24,10 @@ class DatabaseLifecycleService extends Base {
 
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.DatabaseLifecycleService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.DatabaseLifecycleService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.DatabaseLifecycleService',
+        className: 'Neo.ai.mcp.server.memory-core.services.DatabaseLifecycleService',
         /**
          * Holds the child process object for the ChromaDB server.
          * @member {ChildProcess|null} chromaProcess=null
@@ -65,11 +70,11 @@ class DatabaseLifecycleService extends Base {
     async startDatabase() {
         try {
             if (this.chromaProcess && !this.chromaProcess.killed) {
-                return { status: 'already_running', pid: this.chromaProcess.pid, detail: 'Server was started by this process.' };
+                return {status: 'already_running', pid: this.chromaProcess.pid, detail: 'Server was started by this process.'};
             }
 
             if (await this.isDbRunning()) {
-                const result = { status: 'already_running', pid: null, detail: 'Server was started externally.' };
+                const result = {status: 'already_running', pid: null, detail: 'Server was started externally.'};
                 this.fire('processActive', { pid: null, managedByService: false, detail: result.detail });
                 return result;
             }
@@ -77,7 +82,7 @@ class DatabaseLifecycleService extends Base {
             logger.error('Starting ChromaDB (Memory Core) process...');
 
             await new Promise((resolve, reject) => {
-                const { port, path: dbPath } = aiConfig.memoryDb;
+                const {port, path: dbPath} = aiConfig.memoryDb;
                 const args = ['run', '--path', dbPath, '--port', port.toString()];
 
                 const spawnedProcess = spawn('chroma', args, {
@@ -102,8 +107,8 @@ class DatabaseLifecycleService extends Base {
 
             await this.waitForHeartbeat();
 
-            const result = { status: 'started', pid: this.chromaProcess.pid };
-            this.fire('processActive', { pid: this.chromaProcess.pid, managedByService: true, detail: 'started by service' });
+            const result = {status: 'started', pid: this.chromaProcess.pid};
+            this.fire('processActive', {pid: this.chromaProcess.pid, managedByService: true, detail: 'started by service'});
             return result;
         } catch (error) {
             logger.error('[DatabaseLifecycleService] Error starting database:', error);
@@ -138,7 +143,7 @@ class DatabaseLifecycleService extends Base {
     async stopDatabase() {
         try {
             if (!this.chromaProcess || this.chromaProcess.killed) {
-                return { status: 'not_running', detail: 'No process was started by this server.' };
+                return {status: 'not_running', detail: 'No process was started by this server.'};
             }
 
             return new Promise((resolve) => {
@@ -169,9 +174,9 @@ class DatabaseLifecycleService extends Base {
      */
     getDatabaseStatus() {
         if (this.chromaProcess && !this.chromaProcess.killed) {
-            return { running: true, pid: this.chromaProcess.pid, managed: true };
+            return {running: true, pid: this.chromaProcess.pid, managed: true};
         }
-        return { running: false, pid: null, managed: false };
+        return {running: false, pid: null, managed: false};
     }
 }
 

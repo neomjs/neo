@@ -8,7 +8,7 @@ import semver      from 'semver';
 const execAsync = promisify(exec);
 
 /**
- * Monitors and validates the GitHub CLI dependency for the MCP server.
+ * @summary Monitors and validates the GitHub CLI dependency for the MCP server.
  *
  * This service acts as a gatekeeper, ensuring that the GitHub CLI (`gh`) is properly
  * installed, authenticated, and meets version requirements before any tools are executed.
@@ -80,7 +80,7 @@ class HealthService extends Base {
      * Intent: Authentication is required for all GitHub API operations. This check
      * ensures the user has run `gh auth login` and has valid credentials stored.
      *
-     * @returns {Promise<{authenticated: boolean, error?: string}>}
+     * @returns {Promise<Object>} {authenticated: boolean, error?: string}
      * @private
      */
     async #checkGhAuth() {
@@ -113,7 +113,7 @@ class HealthService extends Base {
      * handle version strings like "2.10.0" vs "2.9.0" (which would fail with string
      * comparison).
      *
-     * @returns {Promise<{installed: boolean, versionOk: boolean, version: string|null, error?: string}>}
+     * @returns {Promise<Object>} {installed: boolean, versionOk: boolean, version: string|null, error?: string}
      * @private
      */
     async #checkGhVersion() {
@@ -178,7 +178,6 @@ class HealthService extends Base {
      *
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
-     *
      * @throws {Error} If the GitHub CLI is unhealthy, with a detailed message
      * @returns {Promise<void>}
      */
@@ -209,7 +208,6 @@ class HealthService extends Base {
      *
      * Recovery detection: If the status changes between checks (e.g., from 'unhealthy'
      * to 'healthy'), we log a clear message so users know their fix worked.
-     *
      * @returns {Promise<object>} A health status payload with structure:
      *   {
      *     status: 'healthy' | 'unhealthy',

@@ -1,6 +1,8 @@
 import aiConfig from './config.mjs';
 
 /**
+ * @summary A simple logger that writes to stderr only when the global debug flag is enabled.
+ *
  * A simple logger that writes to stderr only when the global debug flag is enabled.
  * This prevents corrupting the MCP stdio transport and keeps production output clean.
  */

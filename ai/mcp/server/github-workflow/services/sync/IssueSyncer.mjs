@@ -13,7 +13,15 @@ import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
- * Handles fetching, creating, and updating local issue files from GitHub.
+ * @summary Handles fetching, creating, and updating local issue files from GitHub.
+ *
+ * This service manages the conversion between the GitHub issue JSON format and
+ * the local Markdown format with frontmatter. It handles the logic for:
+ * - Formatting issue bodies and comments
+ * - Archiving closed issues based on milestones or release dates
+ * - Detecting content changes via hashing
+ * - Pushing local edits back to GitHub
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer
  * @extends Neo.core.Base
  * @singleton
@@ -34,7 +42,7 @@ class IssueSyncer extends Base {
 
     /**
      * Calculates a SHA-256 hash of the given content for change detection.
-     * @param {string} content - The content to hash.
+     * @param {string} content The content to hash.
      * @returns {string} The hex-encoded hash.
      * @private
      */
@@ -44,8 +52,8 @@ class IssueSyncer extends Base {
 
     /**
      * Formats a GitHub issue and its comments into a single Markdown string with YAML frontmatter.
-     * @param {object} issue - The GitHub issue object.
-     * @param {object[]} comments - An array of comment objects associated with the issue.
+     * @param {object}   issue    The GitHub issue object.
+     * @param {object[]} comments An array of comment objects associated with the issue.
      * @returns {string} The fully formatted Markdown string.
      * @private
      */
@@ -106,7 +114,7 @@ class IssueSyncer extends Base {
 
     /**
      * Formats a single timeline event into a human-readable Markdown string.
-     * @param {object} event - The timeline event object.
+     * @param {object} event The timeline event object.
      * @returns {string} The formatted Markdown string for the event.
      * @private
      */
@@ -149,7 +157,7 @@ class IssueSyncer extends Base {
     /**
      * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
      * labels (dropped), and milestone or closed date (for archiving).
-     * @param {object} issue - The GitHub issue object.
+     * @param {object} issue The GitHub issue object.
      * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
      * @private
      */
@@ -215,12 +223,12 @@ class IssueSyncer extends Base {
             const data = await GraphqlService.query(
                 FETCH_ISSUES_FOR_SYNC,
                 {
-                    owner : aiConfig.owner,
-                    repo  : aiConfig.repo,
-                    limit : 100,
+                    owner           : aiConfig.owner,
+                    repo            : aiConfig.repo,
+                    limit           : 100,
                     cursor,
-                    states: ['OPEN', 'CLOSED'],
-                    since : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
+                    states          : ['OPEN', 'CLOSED'],
+                    since           : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
                     maxLabels       : issueSyncConfig.maxLabelsPerIssue,
                     maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
                     maxComments     : issueSyncConfig.maxCommentsPerIssue,
@@ -449,8 +457,7 @@ class IssueSyncer extends Base {
      * 1. Currently in the active issues directory (not already archived)
      * 2. In a CLOSED state
      * 3. Should be archived based on milestone or release date
-     *
-     * @param {object} metadata - The current metadata object
+     * @param {object} metadata The current metadata object
      * @returns {Promise<object>} Stats about reconciled issues
      */
     async reconcileClosedIssueLocations(metadata) {

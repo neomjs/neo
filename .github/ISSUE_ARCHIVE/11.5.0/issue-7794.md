@@ -42,4 +42,5 @@ Move the highlight.js build execution from the `postinstall` script in `package.
 - 2025-11-18 @tobiu assigned to @tobiu
 - 2025-11-18 @tobiu referenced in commit `a9e30df` - "Move highlight.js build from postinstall to buildAll #7794"
 - 2025-11-18 @tobiu closed this issue
+- 2025-11-18 @tobiu referenced in commit `a8b33a0` - "Move highlight.js build from postinstall to buildAll #7794"
 

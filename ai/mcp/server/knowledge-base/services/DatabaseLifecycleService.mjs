@@ -4,7 +4,11 @@ import logger   from '../logger.mjs';
 import Base     from '../../../../../src/core/Base.mjs';
 
 /**
- * Manages the lifecycle of the ChromaDB process for the Knowledge Base.
+ * @summary Manages the lifecycle of the ChromaDB process for the Knowledge Base.
+ *
+ * This service is responsible for starting, stopping, and monitoring the ChromaDB server process.
+ * It ensures that the database is running when needed and handles graceful shutdowns.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton

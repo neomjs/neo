@@ -9,18 +9,22 @@ import RepositoryService                               from './services/Reposito
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
- * The GitHub Workflow MCP Server application.
+ * @summary The GitHub Workflow MCP Server application.
+ *
  * Handles initialization, configuration, and lifecycle management for the MCP server.
- * @class AI.mcp.server.github-workflow.Server
+ * It sets up the MCP server instance, connects the stdio transport, registers tool handlers,
+ * and performs initial health checks and permission validation.
+ *
+ * @class Neo.ai.mcp.server.github-workflow.Server
  * @extends Neo.core.Base
  */
 class Server extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.github-workflow.Server'
+         * @member {String} className='Neo.ai.mcp.server.github-workflow.Server'
          * @protected
          */
-        className: 'AI.mcp.server.github-workflow.Server'
+        className: 'Neo.ai.mcp.server.github-workflow.Server'
     }
 
     /**

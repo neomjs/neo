@@ -9,18 +9,20 @@ import SessionService                                  from './services/SessionS
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
- * The Memory Core MCP Server application.
+ * @summary The Memory Core MCP Server application.
+ *
  * Handles initialization, configuration, and lifecycle management for the MCP server.
- * @class AI.mcp.server.memory-core.Server
+ *
+ * @class Neo.ai.mcp.server.memory-core.Server
  * @extends Neo.core.Base
  */
 class Server extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.Server'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.Server'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.Server'
+        className: 'Neo.ai.mcp.server.memory-core.Server'
     }
 
     /**
@@ -92,7 +94,7 @@ class Server extends Base {
 
     /**
      * Helper to log collection statistics.
-     * @param {Object} health
+     * @param {Object} health The health check result object.
      */
     logCollectionStats(health) {
         if (health.database.connection.collections) {

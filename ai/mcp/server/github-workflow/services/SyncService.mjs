@@ -6,7 +6,7 @@ import MetadataManager from './sync/MetadataManager.mjs';
 import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
 
 /**
- * Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
+ * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
  *
  * This service is the core engine for the GitHub sync workflow. Its primary responsibilities include:
  * - **Orchestration:** It calls specialized syncer modules (`IssueSyncer`, `ReleaseSyncer`) in the
@@ -15,6 +15,7 @@ import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
  *   and save the updated metadata at the end.
  *
  * The main entry point is the `runFullSync` method, which executes the entire orchestration sequence.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.SyncService
  * @extends Neo.core.Base
  * @singleton
@@ -45,7 +46,6 @@ class SyncService extends Base {
      * 5.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
      * 6.  Syncs release notes into local Markdown files via `ReleaseSyncer`.
      * 7.  Saves the updated, pruned metadata to disk via `MetadataManager`.
-     *
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync.
      */

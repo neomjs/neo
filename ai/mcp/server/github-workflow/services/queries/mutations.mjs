@@ -4,6 +4,7 @@
  * This module contains all mutations for modifying GitHub issues via the GraphQL API.
  *
  * @module Neo.ai.mcp.server.github-workflow.queries.mutations
+ * @ignoreDocs
  */
 
 /**

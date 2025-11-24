@@ -15,7 +15,7 @@ const __dirname   = path.resolve(),
       appNames    = [],
       options = {
           access        : 'all',
-          files         : [`${neoPath}src/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
+          files         : [`${neoPath}src/**/*.mjs`, `${neoPath}ai/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
@@ -87,7 +87,7 @@ function setNamespace(tree, names, value) {
     current[names[names.length - 1]] = value;
 }
 
-const neoStructure = [{
+let neoStructure = [{
     className: null,
     id       : 1,
     isLeaf   : false,
@@ -232,43 +232,51 @@ function processPath(itemPath, filename, appNames) {
     }
 
     let path = itemPath.replace(/\\/g, '/'); // sync windows paths to macOS
-    let index = path.indexOf('/src/');
+    let index = path.indexOf('/ai/');
 
     if (index > -1) {
-        path = path.substr(index + 5) + '.';
+        path = 'ai.' + path.substr(index + 4) + '.';
+    } else if (path.endsWith('/ai')) {
+        path = 'ai.';
     } else {
-        index = path.indexOf('/src');
+        index = path.indexOf('/src/');
 
         if (index > -1) {
-            path = path.substr(index + 4); // top level files
+            path = path.substr(index + 5) + '.';
         } else {
-            index = path.indexOf('/apps/');
+            index = path.indexOf('/src');
 
             if (index > -1) {
-                for (const appName of appNames) {
-                    const lAppName = appName.toLowerCase();
-                    let pathLen = path.lastIndexOf('/' + lAppName);
+                path = path.substr(index + 4); // top level files
+            } else {
+                index = path.indexOf('/apps/');
 
-                    if (pathLen !== -1) {
-                        // top level files
-                        if (pathLen === path.length - appName.length - 1) {
-                            path = appName + path.substr(index + appName.length + 6) + '.';
-                            break;
-                        } else {
-                            pathLen = path.indexOf(lAppName + '/');
+                if (index > -1) {
+                    for (const appName of appNames) {
+                        const lAppName = appName.toLowerCase();
+                        let pathLen = path.lastIndexOf('/' + lAppName);
 
-                            if (pathLen > -1) {
+                        if (pathLen !== -1) {
+                            // top level files
+                            if (pathLen === path.length - appName.length - 1) {
                                 path = appName + path.substr(index + appName.length + 6) + '.';
                                 break;
+                            } else {
+                                pathLen = path.indexOf(lAppName + '/');
+
+                                if (pathLen > -1) {
+                                    path = appName + path.substr(index + appName.length + 6) + '.';
+                                    break;
+                                }
                             }
                         }
                     }
-                }
-            } else {
-                index = path.indexOf('/docs/');
+                } else {
+                    index = path.indexOf('/docs/');
 
-                if (index > -1) {
-                    path = 'Docs.' + path.substr(index + 10) + '.';
+                    if (index > -1) {
+                        path = 'Docs.' + path.substr(index + 10) + '.';
+                    }
                 }
             }
         }
@@ -304,6 +312,12 @@ parse(options)
         // Single pass through docs - do everything at once
         for (let i = 0; i < docs.length; i++) {
             const item = docs[i];
+
+            // Check for @ignoreDocs tag
+            if (item.tags && item.tags.some(tag => tag.title === 'ignoredocs')) {
+                continue;
+            }
+
             docs[i].id = i + 1;
 
             const filename = item.meta.filename.substr(0, item.meta.filename.lastIndexOf('.'));
@@ -451,13 +465,36 @@ parse(options)
             fs.writeFile('./docs/output/class-hierarchy.yaml', yamlString)
         );
 
+        // Filter out leaf nodes with null srcPath
+        neoStructure = neoStructure.filter(item => !item.isLeaf || item.srcPath !== null);
+
+        // Prune empty folders
+        let changed = true;
+        while (changed) {
+            changed = false;
+            const parentIds = new Set(neoStructure.map(item => item.parentId));
+            const initialLength = neoStructure.length;
+
+            neoStructure = neoStructure.filter(item => {
+                if (item.isLeaf) return true;
+                // Keep items that are parents of existing nodes
+                if (parentIds.has(item.id)) return true;
+                return false;
+            });
+
+            if (neoStructure.length !== initialLength) changed = true;
+        }
+
         // Sort structure
         neoStructure.sort(function (a, b) {
-            if (a.name[0] === a.name[0].toLocaleLowerCase() && b.name[0] === b.name[0].toLocaleLowerCase() ||
-                a.name[0] === a.name[0].toLocaleUpperCase() && b.name[0] === b.name[0].toLocaleUpperCase()) {
-                return a.name.localeCompare(b.name);
+            const nameA = a.name || '';
+            const nameB = b.name || '';
+
+            if (nameA[0] === nameA[0].toLocaleLowerCase() && nameB[0] === nameB[0].toLocaleLowerCase() ||
+                nameA[0] === nameA[0].toLocaleUpperCase() && nameB[0] === nameB[0].toLocaleUpperCase()) {
+                return nameA.localeCompare(nameB);
             }
-            if (a.name[0] === a.name[0].toLocaleLowerCase()) {
+            if (nameA[0] === nameA[0].toLocaleLowerCase()) {
                 return -1;
             }
             return 1;

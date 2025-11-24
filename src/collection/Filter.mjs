@@ -21,8 +21,8 @@ class Filter extends Base {
      * @static
      */
     static operators = [
-        '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'endsWith', 'excluded', 'included',
-        'isDefined', 'isUndefined', 'like', 'startsWith'
+        '==', '===', '!=', '!==', '<', '<=', '>', '>=', 'doesNotStartWith', 'endsWith', 'excluded',
+        'included', 'isDefined', 'isUndefined', 'like', 'startsWith'
     ]
 
     static config = {
@@ -223,6 +223,13 @@ class Filter extends Base {
     static ['<='] (a, b) {return a <= b}
     static ['>']  (a, b) {return a > b}
     static ['>='] (a, b) {return a >= b}
+
+    static ['doesNotStartWith'](a, b) {
+        if (!Neo.isString(a)) {a = String(a)}
+        if (!Neo.isString(b)) {b = String(b)}
+
+        return !a?.toLowerCase().startsWith(b?.toLowerCase())
+    }
 
     static ['endsWith'](a, b) {
         if (!Neo.isString(a)) {a = String(a)}

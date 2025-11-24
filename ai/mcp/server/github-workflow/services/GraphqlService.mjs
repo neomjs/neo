@@ -6,12 +6,13 @@ import logger      from '../logger.mjs';
 const execAsync = promisify(exec);
 
 /**
- * A centralized, singleton service for interacting with the GitHub GraphQL API.
+ * @summary A centralized, singleton service for interacting with the GitHub GraphQL API.
  *
  * This service encapsulates all the logic for making authenticated GraphQL queries and mutations.
  * It handles fetching the auth token from the `gh` CLI, caching it, and attaching it to
  * all outgoing requests. It also provides a generic `query` method for executing
  * GraphQL operations and basic error handling.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.GraphqlService
  * @extends Neo.core.Base
  * @singleton
@@ -67,8 +68,8 @@ class GraphqlService extends Base {
 
     /**
      * Executes a GraphQL query or mutation against the GitHub API.
-     * @param {string} query The GraphQL query string.
-     * @param {object} [variables={}] Optional variables for the query.
+     * @param {string}  query                   The GraphQL query string.
+     * @param {object}  [variables={}]          Optional variables for the query.
      * @param {boolean} [enableSubIssues=false] Whether to enable sub-issues feature header
      * @returns {Promise<object>} The `data` object from the GraphQL response.
      * @throws {Error} If the request fails or the API returns errors.

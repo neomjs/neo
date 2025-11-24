@@ -7,6 +7,7 @@
  * IMPORTANT: Sub-issue queries require the header: GraphQL-Features: sub_issues
  *
  * @module Neo.ai.mcp.server.github-workflow.queries.issueQueries
+ * @ignoreDocs
  */
 
 /**

@@ -747,18 +747,30 @@ paths:
       description: |
         Creates a new issue on GitHub. This is the authoritative first step for creating a new ticket.
 
-        **Workflow:**
-        1. **Formulate:** Determine the appropriate `title`, `body`, and `labels` for the issue.
-        2. **Propose to User:** Before calling the tool, you MUST output the proposed `title`, `labels`, and `body` in a clear format for the user to review.
-        3. **Call Tool:** Immediately after proposing, call the `create_issue` tool. The user can review the content and approve/deny the tool call itself.
+        ## CRITICAL PROTOCOL: READ BEFORE USING
+        You generally FAIL to show the proposal to the user before calling this tool. Do not let that happen.
 
-        After the issue is created on GitHub, you can get a local copy of it by running the `sync_all` tool at an appropriate time, such as when you are ready to push other local changes or when you want to refresh your local environment.
+        **MANDATORY WORKFLOW (Do Not Skip):**
 
-        **Labeling Rules (VERY IMPORTANT):**
-        - You MUST include the `ai` label on all tickets you create.
-        - You SHOULD also include one of the primary labels (`epic`, `enhancement`, `bug`) whenever applicable. Most tickets will fit into one of these categories.
-        - For other cases, like `documentation`, use the most appropriate label.
-        - Before using any labels, verify they exist by using the `list_labels` tool.
+        1.  **Check Labels:** Run `list_labels` to verify available labels.
+        2.  **Draft Content:** Formulate the `title`, `body`, and `labels`.
+        3.  **VISUAL PROPOSAL (REQUIRED):** You **MUST** display the proposed ticket content to the user **IN THE CHAT** before calling this tool. Use this format:
+            ```text
+            Title: [Proposed Title]
+            Labels: [label1, label2]
+            Body:
+            [Proposed Body]
+            ```
+        4.  **Call Tool:** Immediately call `create_issue` after displaying the proposal. Do not ask for permission first (the user can decline the tool call).
+
+        **STRICT LABELING RULES:**
+        - **MANDATORY:** The `ai` label is REQUIRED on ALL tickets you create.
+        - **PRIMARY:** Include one primary label: `epic`, `enhancement`, or `bug`.
+        - **SECONDARY:** Add other relevant labels (e.g., `documentation`) if they exist.
+
+        **Post-Creation:**
+        The tool returns the new issue number. You can use this number immediately for other tools (e.g., `create_comment`, `assign_issue`).
+        To update the issue body later, use `run_shell_command` with `gh issue edit {number} --body "..."`.
       tags: [Issues]
       requestBody:
         required: true

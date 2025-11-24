@@ -2,8 +2,11 @@ import Base          from '../../../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
 
 /**
+ * @summary Retrieves documents from the knowledge base.
+ *
  * This service provides methods for retrieving documents from the knowledge base.
  * It uses the ChromaManager to interact with the underlying ChromaDB collection.
+ *
  * @class Neo.ai.mcp.server.knowledge-base.services.DocumentService
  * @extends Neo.core.Base
  * @singleton
@@ -24,12 +27,12 @@ class DocumentService extends Base {
 
     /**
      * Retrieves a paginated list of all documents from the knowledge base collection.
-     * @param {object} params - The parameters for listing documents.
-     * @param {number} [params.limit=100] - The maximum number of documents to return.
-     * @param {number} [params.offset=0] - The number of documents to skip for pagination.
-     * @returns {Promise<object>} A promise that resolves to the list of documents.
+     * @param {Object} params             The parameters for listing documents.
+     * @param {Number} [params.limit=100] The maximum number of documents to return.
+     * @param {Number} [params.offset=0]  The number of documents to skip for pagination.
+     * @returns {Promise<Object>} A promise that resolves to the list of documents.
      */
-    async listDocuments({ limit = 100, offset = 0 } = {}) {
+    async listDocuments({limit=100, offset=0} = {}) {
         const collection = await ChromaManager.getKnowledgeBaseCollection();
 
         const results = await collection.get({
@@ -52,10 +55,10 @@ class DocumentService extends Base {
 
     /**
      * Retrieves a single document from the collection by its unique ID.
-     * @param {string} id - The unique ID of the document to retrieve.
-     * @returns {Promise<object>} A promise that resolves to the requested document.
+     * @param {String} id The unique ID of the document to retrieve.
+     * @returns {Promise<Object>} A promise that resolves to the requested document.
      */
-    async getDocumentById({ id }) {
+    async getDocumentById({id}) {
         const collection = await ChromaManager.getKnowledgeBaseCollection();
 
         const result = await collection.get({

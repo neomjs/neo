@@ -69,8 +69,17 @@ import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
+ * @summary The default button component for the Neo.mjs framework.
+ *
+ * This class extends `Neo.component.Base` and offers comprehensive configurations for
+ * text, icons, badges, and event handling. It supports advanced features like
+ * internal routing, external URL redirection, and optional ripple effects on click.
+ * This class serves as the foundation for other specialized button types like
+ * SplitButton, TabHeaderButton, and GridHeaderButton.
+ *
  * @class Neo.button.Base
  * @extends Neo.component.Base
+ * @see Neo.examples.button.base.MainContainer
  */
 class Base extends Component {
     /**
@@ -175,7 +184,9 @@ Neo.applyClassConfig(Base);
 export default Base;
 
 ```
-* (18) Use JSDoc based comments for all top level items as well as top level configs
+* (18) Use JSDoc based comments for all top-level items (classes, methods, configs).
+  + For class top-level comments, a `@summary` tag is **mandatory**. It **must** be the first tag and **must** be followed by an empty line, then a detailed description of the class.
+  + Single-line tags like `@class` and `@extends` do not require an empty line after them.
 * (19) Class content order:
   - static configs (ordered chronologically)
   - static config as the last item. This one does not need a comment, but is prefixed with an empty line.
@@ -372,12 +383,13 @@ do get sorted chronologically as well.
 ```javascript
 
 /**
- * @param {Object} data
- * @param {Neo.component.Base} data.component
- * @param {Number} data.rowHeight
- * @param {Number} data.rowsPerItem
- * @param {Number} data.totalHeight
- * @param {Boolean} [silent=false]
+ * Adjusts the total height of the component based on the provided data.
+ * @param {Object}             data             The data object containing height information
+ * @param {Neo.component.Base} data.component   The component to adjust
+ * @param {Number}             data.rowHeight   The height of a single row
+ * @param {Number}             data.rowsPerItem The number of rows per item
+ * @param {Number}             data.totalHeight The total height to set
+ * @param {Boolean}            [silent=false]   True to suppress the update event
  */
 adjustTotalHeight(data, silent=false) {
     let me          = this,
@@ -406,8 +418,15 @@ adjustTotalHeight(data, silent=false) {
 }
 ```
 * (29) Above every class method is one empty line
-* (30) Each class method has JSDoc comments for the params
-  + While doc commons support `@returns` & `@return`, we do stick to `@returns` (consistency)
+* (30) Each class method has JSDoc comments.
+  + **No empty line** allowed between the method description and the first `@param` tag.
+  + `@returns` is used instead of `@return` for consistency.
+  + All `@param` tags must have a description.
+  + Use **Block Formatting**: Vertically align `{Type}`, `parameterName`, and `Description`.
+    + **Type Column Width**: Determined by the longest `{Type}` + 1 space.
+    + **Name Column Width**: Determined by the longest `parameterName` + 1 space.
+    + **Description Column**: Starts exactly at the `Type Column Width` + `Name Column Width` offset.
+  + Do **not** use hyphens (`-`) to separate the parameter name from the description. Use whitespace for alignment.
 * (31) Try to define most (if not all) variables at the top of the method body.
 * (32) Variables do use block formatting
 * (33) Variables are separated by commas (file size)

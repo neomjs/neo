@@ -6,7 +6,7 @@ import SessionService           from './SessionService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
- * Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
+ * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
  * accessible, and contains the expected collections before any memory operations proceed.
@@ -22,17 +22,17 @@ import logger                   from '../logger.mjs';
  * when ChromaDB is not available, while failing gracefully at the tool-call level with helpful
  * error messages to guide users toward resolution.
  *
- * @class AI.mcp.server.memory-core.services.HealthService
+ * @class Neo.ai.mcp.server.memory-core.services.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.HealthService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.HealthService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.HealthService',
+        className: 'Neo.ai.mcp.server.memory-core.services.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -94,7 +94,7 @@ class HealthService extends Base {
      * Intent: This is the most critical check. Without ChromaDB running, no memory
      * operations are possible. We use the heartbeat endpoint to verify connectivity.
      *
-     * @returns {Promise<{running: boolean, error?: string}>}
+     * @returns {Promise<Object>} {running: boolean, error?: string}
      * @private
      */
     async #checkChromaConnection() {
@@ -116,7 +116,7 @@ class HealthService extends Base {
      * are properly initialized. This check confirms both memory and summary collections
      * are available for operations.
      *
-     * @returns {Promise<{memories: Object|null, summaries: Object|null, error?: string}>}
+     * @returns {Promise<Object>} {memories: Object|null, summaries: Object|null, error?: string}
      * @private
      */
     async #checkCollections() {
@@ -393,10 +393,10 @@ class HealthService extends Base {
     /**
      * Records the result of startup summarization attempt.
      * Called by the startup sequence in mcp-stdio.mjs
-     * @param {string} status - One of: 'completed', 'failed', 'skipped'
-     * @param {Object} details - Additional information about the summarization
+     * @param {string} status  One of: 'completed', 'failed', 'skipped'
+     * @param {Object} details Additional information about the summarization
      */
-    recordStartupSummarization(status, details = null) {
+    recordStartupSummarization(status, details=null) {
         this.#startupSummarizationStatus  = status;
         this.#startupSummarizationDetails = details;
 

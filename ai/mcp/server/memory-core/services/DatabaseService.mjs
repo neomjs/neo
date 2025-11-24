@@ -7,18 +7,23 @@ import Base          from '../../../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
 
 /**
- * Service for exporting and importing memory core data.
- * @class AI.mcp.server.memory-core.services.DatabaseService
+ * @summary Service for exporting and importing memory core data.
+ *
+ * This class provides functionality to backup and restore the agent's memory and session summary data.
+ * It supports exporting collections to JSONL files and importing them back, with options to either merge
+ * or replace existing data. This is crucial for data migration and disaster recovery.
+ *
+ * @class Neo.ai.mcp.server.memory-core.services.DatabaseService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.DatabaseService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.DatabaseService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.DatabaseService',
+        className: 'Neo.ai.mcp.server.memory-core.services.DatabaseService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -28,10 +33,10 @@ class DatabaseService extends Base {
 
     /**
      * Helper method to export a ChromaDB collection.
-     * @param {import('chromadb').Collection} collection
-     * @param {String} backupPath
-     * @param {String} filePrefix
-     * @returns {Promise<number>}
+     * @param {Object} collection The ChromaDB collection to export.
+     * @param {String} backupPath The directory to save the backup file.
+     * @param {String} filePrefix The prefix for the backup filename.
+     * @returns {Promise<number>} The number of exported documents.
      * @private
      */
     async #exportCollection(collection, backupPath, filePrefix) {
@@ -69,10 +74,10 @@ class DatabaseService extends Base {
     /**
      * Exports the entire memory database (both memories and summaries) to a JSONL file.
      * @param {Object} options
-     * @param {String[]} options.include
+     * @param {String[]} [options.include=['memories', 'summaries']] Array of collections to export.
      * @returns {Promise<{message: string}>}
      */
-    async exportDatabase({ include }) {
+    async exportDatabase({include=['memories', 'summaries']} = {}) {
         try {
             logger.log('Starting agent memory export...');
             let memoryCount = 0, summaryCount = 0;
@@ -87,7 +92,7 @@ class DatabaseService extends Base {
                 summaryCount = await this.#exportCollection(collection, aiConfig.sessionDb.backupPath, 'summaries-backup');
             }
 
-            return { message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.` };
+            return {message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.`};
         } catch (error) {
             logger.error('[DatabaseService] Error exporting database:', error);
             return {
@@ -101,11 +106,11 @@ class DatabaseService extends Base {
     /**
      * Imports a previously exported JSONL file back into the database.
      * @param {Object} options
-     * @param {String} options.file
-     * @param {String} options.mode
+     * @param {String} options.file The path to the backup file to import.
+     * @param {String} options.mode The import mode: 'merge' or 'replace'.
      * @returns {Promise<{imported: number, total: number, mode: string}>}
      */
-    async importDatabase({ file, mode }) {
+    async importDatabase({file, mode}) {
         try {
             const filePath = file; // Assuming file object contains path
             logger.log(`Starting agent memory import from: ${filePath}`);
@@ -157,7 +162,7 @@ class DatabaseService extends Base {
 
             const count = await collection.count();
             logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
-            return { imported: records.length, total: count, mode };
+            return {imported: records.length, total: count, mode};
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
             return {

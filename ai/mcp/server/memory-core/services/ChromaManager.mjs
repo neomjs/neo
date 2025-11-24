@@ -5,18 +5,24 @@ import Base                     from '../../../../../src/core/Base.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**
- * Simple manager around the Chroma client that lazily caches frequently used collections.
- * @class AI.mcp.server.memory-core.services.ChromaManager
+ * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
+ *
+ * This class abstracts the lower-level ChromaDB client interactions. It provides methods to connect to the database
+ * and retrieve specific collections (memory and summary), ensuring that the connection is established and
+ * collections are created if they don't exist. It handles the `dummyEmbeddingFunction` requirement for ChromaDB
+ * to prevent warnings.
+ *
+ * @class Neo.ai.mcp.server.memory-core.services.ChromaManager
  * @extends Neo.core.Base
  * @singleton
  */
 class ChromaManager extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.ChromaManager'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.ChromaManager'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.ChromaManager',
+        className: 'Neo.ai.mcp.server.memory-core.services.ChromaManager',
         /**
          * @member {ChromaClient|null} client=null
          * @protected
@@ -27,7 +33,7 @@ class ChromaManager extends Base {
          */
         connected: false,
         /**
-         * @member {import('chromadb').Collection|null} memoryCollection=null
+         * @member {Object|null} memoryCollection=null
          * @protected
          */
         memoryCollection: null,
@@ -37,7 +43,7 @@ class ChromaManager extends Base {
          */
         singleton: true,
         /**
-         * @member {import('chromadb').Collection|null} summaryCollection=null
+         * @member {Object|null} summaryCollection=null
          * @protected
          */
         summaryCollection: null
@@ -96,7 +102,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @returns {Promise<import('chromadb').Collection>}
+     * @returns {Promise<Object>}
      */
     async getMemoryCollection() {
         if (!this.memoryCollection) {
@@ -117,7 +123,7 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @returns {Promise<import('chromadb').Collection>}
+     * @returns {Promise<Object>}
      */
     async getSummaryCollection() {
         if (!this.summaryCollection) {

@@ -2,6 +2,7 @@
  * GraphQL query definitions for GitHub releases.
  *
  * @module Neo.ai.mcp.server.github-workflow.queries.releaseQueries
+ * @ignoreDocs
  */
 
 /**

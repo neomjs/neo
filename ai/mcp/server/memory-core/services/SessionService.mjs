@@ -8,7 +8,7 @@ import Json                 from '../../../../../src/util/Json.mjs';
 import logger               from '../logger.mjs';
 
 /**
- * Service for handling adding, listing, and querying agent memories.
+ * @summary Service for handling session summarization and drift detection.
  *
  * **Architecture & Strategy:**
  * The primary challenge in managing session summaries is that agents are stateless and sessions
@@ -28,17 +28,17 @@ import logger               from '../logger.mjs';
  * crashes or ends abruptly, its context is preserved and up-to-date for the next agent.
  * Data integrity and context availability are prioritized over minimizing LLM token usage.
  *
- * @class AI.mcp.server.memory-core.services.SessionService
+ * @class Neo.ai.mcp.server.memory-core.services.SessionService
  * @extends Neo.core.Base
  * @singleton
  */
 class SessionService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.SessionService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.SessionService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.SessionService',
+        className: 'Neo.ai.mcp.server.memory-core.services.SessionService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -62,13 +62,13 @@ class SessionService extends Base {
          */
         embeddingModel_: null,
         /**
-         * @member {import('chromadb').Collection|null} memoryCollection_=null
+         * @member {Object|null} memoryCollection_=null
          * @protected
          * @reactive
          */
         memoryCollection_: null,
         /**
-         * @member {import('chromadb').Collection|null} sessionsCollection_=null
+         * @member {Object|null} sessionsCollection_=null
          * @protected
          * @reactive
          */
@@ -266,7 +266,7 @@ class SessionService extends Base {
             }
         }
 
-        const summaryMap = {}; // { sessionId: memoryCount }
+        const summaryMap = {}; // {sessionId: memoryCount}
 
         allSummaryMetadatas.forEach(m => {
             if (m.sessionId) {
@@ -304,7 +304,7 @@ class SessionService extends Base {
 
     /**
      * Summarizes a single session.
-     * @param {String} sessionId
+     * @param {String} sessionId The ID of the session to summarize.
      * @returns {Promise<object|null>}
      */
     async summarizeSession(sessionId) {
@@ -349,7 +349,7 @@ ${aggregatedContent}
              return null;
         }
 
-        const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
+        const {summary, title, category, quality, productivity, impact, complexity, technologies} = summaryData;
 
         const summaryId       = `summary_${sessionId}`;
         const embeddingResult = await this.embeddingModel.embedContent(summary);
@@ -365,18 +365,18 @@ ${aggregatedContent}
             documents: [summary]
         });
 
-        return { sessionId, summaryId, title, memoryCount: memories.ids.length };
+        return {sessionId, summaryId, title, memoryCount: memories.ids.length};
     }
 
     /**
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
      * Note: If the current active sessionId is explicitly passed, it WILL be summarized.
-     * @param {Object} options
-     * @param {Boolean} [options.includeAll]
-     * @param {String} [options.sessionId]
+     * @param {Object}  options
+     * @param {Boolean} [options.includeAll] If true, scans all sessions regardless of time window.
+     * @param {String}  [options.sessionId]  A specific session ID to summarize.
      * @returns {Promise<{processed: number, sessions: object[]}|{error: string, message: string, code: string}>}
      */
-    async summarizeSessions({ includeAll, sessionId }) {
+    async summarizeSessions({includeAll, sessionId} = {}) {
         try {
             let processed = [];
 
@@ -391,7 +391,7 @@ ${aggregatedContent}
                 processed = results.filter(Boolean);
             }
 
-            return { processed: processed.length, sessions: processed };
+            return {processed: processed.length, sessions: processed};
 
         } catch (error) {
             logger.error('[SessionService] Error during session summarization:', error);

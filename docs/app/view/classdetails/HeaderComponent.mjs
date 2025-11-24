@@ -67,7 +67,7 @@ class HeaderComponent extends Component {
 
         me.vdom.cn[0].html = singleton ? (className + ' → Singleton') : className;
 
-        if (record.description) {
+        if (record?.description) {
             me.vdom.cn.push({
                 cls : ['neo-docs-header-description'],
                 html: record.description

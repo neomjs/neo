@@ -48,4 +48,6 @@ Anthropic's "Code Execution" pattern demonstrates that agents are more efficient
 - 2025-11-21 @tobiu referenced in commit `8de1415` - "feat(ai): Add standalone AI SDK and Code Execution PoC (#7831)"
 - 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu closed this issue
+- 2025-11-21 @tobiu cross-referenced by #7832
+- 2025-11-21 @tobiu cross-referenced by #7833
 

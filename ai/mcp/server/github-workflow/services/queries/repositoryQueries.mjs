@@ -2,6 +2,7 @@
  * GraphQL query definitions for GitHub repository data.
  *
  * @module Neo.ai.mcp.server.github-workflow.queries.repositoryQueries
+ * @ignoreDocs
  */
 
 /**

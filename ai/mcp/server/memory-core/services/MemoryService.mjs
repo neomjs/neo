@@ -6,18 +6,23 @@ import SessionService       from './SessionService.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
- * Service for handling adding, listing, and querying agent memories.
- * @class AI.mcp.server.memory-core.services.MemoryService
+ * @summary Service for handling adding, listing, and querying agent memories.
+ *
+ * This service acts as the primary interface for interacting with the 'memories' collection in ChromaDB.
+ * It handles the creation of new memory entries (including embedding generation), retrieving memories by session,
+ * and performing semantic searches to find relevant past interactions.
+ *
+ * @class Neo.ai.mcp.server.memory-core.services.MemoryService
  * @extends Neo.core.Base
  * @singleton
  */
 class MemoryService extends Base {
     static config = {
         /**
-         * @member {String} className='AI.mcp.server.memory-core.services.MemoryService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.MemoryService'
          * @protected
          */
-        className: 'AI.mcp.server.memory-core.services.MemoryService',
+        className: 'Neo.ai.mcp.server.memory-core.services.MemoryService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -28,13 +33,13 @@ class MemoryService extends Base {
     /**
      * Adds a new memory to the collection.
      * @param {Object} options
-     * @param {String} options.prompt
-     * @param {String} options.response
-     * @param {String} options.thought
-     * @param {String} options.sessionId
+     * @param {String} options.prompt    The user's prompt.
+     * @param {String} options.response  The agent's response.
+     * @param {String} options.thought   The agent's internal thought process.
+     * @param {String} options.sessionId The ID of the session this memory belongs to.
      * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string}>}
      */
-    async addMemory({ prompt, response, thought, sessionId }) {
+    async addMemory({prompt, response, thought, sessionId}) {
         try {
             const collection   = await ChromaManager.getMemoryCollection();
             const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
@@ -61,7 +66,7 @@ class MemoryService extends Base {
                 documents: [combinedText]
             });
 
-            return { id: memoryId, sessionId, timestamp, message: "Memory successfully added" };
+            return {id: memoryId, sessionId, timestamp, message: "Memory successfully added"};
         } catch (error) {
             logger.error('[MemoryService] Error adding memory:', error);
             return {
@@ -75,12 +80,12 @@ class MemoryService extends Base {
     /**
      * Retrieves all memories for a session and returns a paginated payload.
      * @param {Object} options
-     * @param {String} options.sessionId
-     * @param {Number} options.limit
-     * @param {Number} options.offset
+     * @param {String} options.sessionId The ID of the session to list memories for.
+     * @param {Number} options.limit     The maximum number of memories to return.
+     * @param {Number} options.offset    The number of memories to skip.
      * @returns {Promise<{sessionId: string, count: number, total: number, memories: Object[]}>}
      */
-    async listMemories({sessionId, limit, offset}) {
+    async listMemories({sessionId, limit=100, offset=0} = {}) {
         try {
             if (!sessionId) {
                 return { sessionId, count: 0, total: 0, memories: [] };
@@ -129,9 +134,9 @@ class MemoryService extends Base {
     /**
      * Executes a semantic search against the memory collection.
      * @param {Object} options
-     * @param {String} options.query
-     * @param {Number} options.nResults
-     * @param {String} [options.sessionId]
+     * @param {String} options.query       The search query string.
+     * @param {Number} options.nResults    The number of results to return.
+     * @param {String} [options.sessionId] Optional session ID to filter results.
      * @returns {Promise<{query: string, count: number, results: Object[]}>}
      */
     async queryMemories({query, nResults, sessionId}) {

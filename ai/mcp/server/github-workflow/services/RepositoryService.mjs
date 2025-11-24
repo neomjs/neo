@@ -5,7 +5,13 @@ import logger                  from '../logger.mjs';
 import {GET_VIEWER_PERMISSION} from './queries/repositoryQueries.mjs';
 
 /**
- * Service for interacting with the GitHub repository itself.
+ * @summary Service for interacting with the GitHub repository itself.
+ *
+ * This service is responsible for repository-level checks and configurations.
+ * Its primary role is to fetch and cache the current user's viewer permissions
+ * (e.g., ADMIN, WRITE, READ), which are used by other services to gate
+ * privileged operations like assigning issues.
+ *
  * @class Neo.ai.mcp.server.github-workflow.services.RepositoryService
  * @extends Neo.core.Base
  * @singleton
@@ -64,7 +70,8 @@ class RepositoryService extends Base {
             logger.warn('Viewer permission not cached, attempting to fetch now...');
             await this.fetchAndCacheViewerPermission();
         }
-        return { permission: this.viewerPermission };
+
+        return {permission: this.viewerPermission};
     }
 }
 
