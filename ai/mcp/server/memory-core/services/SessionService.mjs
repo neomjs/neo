@@ -40,21 +40,10 @@ class SessionService extends Base {
          */
         className: 'Neo.ai.mcp.server.memory-core.services.SessionService',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * @member {String|null} currentSessionId=crypto.randomUUID()
          * @protected
          */
         currentSessionId: crypto.randomUUID(),
-        /**
-         * @member {GoogleGenerativeAI|null} model_=null
-         * @protected
-         * @reactive
-         */
-        model_: null,
         /**
          * @member {GoogleGenerativeAI|null} embeddingModel_=null
          * @protected
@@ -68,11 +57,22 @@ class SessionService extends Base {
          */
         memoryCollection_: null,
         /**
+         * @member {GoogleGenerativeAI|null} model_=null
+         * @protected
+         * @reactive
+         */
+        model_: null,
+        /**
          * @member {Object|null} sessionsCollection_=null
          * @protected
          * @reactive
          */
-        sessionsCollection_: null
+        sessionsCollection_: null,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 
     /**
@@ -87,7 +87,7 @@ class SessionService extends Base {
         if (!GEMINI_API_KEY) {
             logger.warn('⚠️  [Startup] GEMINI_API_KEY not set - skipping automatic session summarization');
             logger.warn('    Set GEMINI_API_KEY environment variable to enable summarization features');
-            HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
+            HealthService.recordStartupSummarization('skipped', {reason: 'GEMINI_API_KEY not set'});
             return;
         }
 
@@ -127,16 +127,16 @@ class SessionService extends Base {
                 });
                 HealthService.recordStartupSummarization('completed', {
                     processed: result.processed,
-                    sessions : result.sessions.map(s => ({ title: s.title, memoryCount: s.memoryCount }))
+                    sessions : result.sessions.map(s => ({title: s.title, memoryCount: s.memoryCount}))
                 });
             } else {
                 logger.info('[Startup] No unsummarized sessions found');
-                HealthService.recordStartupSummarization('completed', { processed: 0 });
+                HealthService.recordStartupSummarization('completed', {processed: 0});
             }
         } catch (error) {
             logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
             logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
-            HealthService.recordStartupSummarization('failed', { error: error.message });
+            HealthService.recordStartupSummarization('failed', {error: error.message});
         }
     }
 
@@ -216,13 +216,13 @@ class SessionService extends Base {
         if (allMetadatas.length === 0) return [];
 
         // 2. Group memories by session
-        const sessions = {}; // { sessionId: { count: number } }
+        const sessions = {}; // {sessionId: {count: number}}
 
         allMetadatas.forEach(m => {
             if (!m.sessionId) return;
 
             if (!sessions[m.sessionId]) {
-                sessions[m.sessionId] = { count: 0 };
+                sessions[m.sessionId] = {count: 0};
             }
 
             sessions[m.sessionId].count++;
@@ -314,7 +314,7 @@ class SessionService extends Base {
         }
 
         const memories = await this.memoryCollection.get({
-            where  : {sessionId: sessionId},
+            where  : {sessionId},
             include: ['documents', 'metadatas']
         });
 
@@ -356,13 +356,13 @@ ${aggregatedContent}
         const embedding       = embeddingResult.embedding.values;
 
         await this.sessionsCollection.upsert({
-            ids: [summaryId],
+            ids       : [summaryId],
+            documents : [summary],
             embeddings: [embedding],
-            metadatas: [{
+            metadatas : [{
                 sessionId, timestamp: Date.now(), memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity, technologies: technologies.join(',')
-            }],
-            documents: [summary]
+            }]
         });
 
         return {sessionId, summaryId, title, memoryCount: memories.ids.length};
