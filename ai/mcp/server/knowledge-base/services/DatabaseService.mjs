@@ -2,15 +2,17 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
+import ApiSource            from '../source/ApiSource.mjs';
+import LearningSource       from '../source/LearningSource.mjs';
+import ReleaseNotesSource   from '../source/ReleaseNotesSource.mjs';
+import TestSource           from '../source/TestSource.mjs';
+import TicketSource         from '../source/TicketSource.mjs';
 import crypto               from 'crypto';
 import dotenv               from 'dotenv';
 import fs                   from 'fs-extra';
 import logger               from '../logger.mjs';
 import path                 from 'path';
 import readline             from 'readline';
-import ApiParser            from '../parser/ApiParser.mjs';
-import DocumentationParser  from '../parser/DocumentationParser.mjs';
-import TestParser           from '../parser/TestParser.mjs';
 
 const cwd       = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -121,84 +123,6 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Recursively scans a directory and indexes files as raw source chunks.
-     * @param {Object} writeStream The stream to write chunks to.
-     * @param {String} relativePath The relative path from cwd to scan.
-     * @param {String} defaultType The default type to assign to chunks.
-     * @param {Object} options Configuration options.
-     * @param {String[]} options.include Array of file extensions to include (e.g. ['.mjs', '.md']).
-     * @param {String[]} options.exclude Array of directory names to exclude.
-     * @param {Object} options.typeOverrides Map of path segments to type values (e.g. {'examples': 'example'}).
-     * @returns {Promise<Number>} The number of chunks created.
-     */
-    async indexRawDirectory(writeStream, relativePath, defaultType, options={}) {
-        let count = 0;
-        const fullPath = path.resolve(process.cwd(), relativePath);
-
-        if (!await fs.pathExists(fullPath)) return 0;
-
-        const entries = await fs.readdir(fullPath, {withFileTypes: true});
-
-        for (const entry of entries) {
-            const entryName         = entry.name;
-            const entryPath         = path.join(fullPath, entryName);
-            const relativeEntryPath = path.join(relativePath, entryName);
-
-            if (entry.isDirectory()) {
-                if (options.exclude?.includes(entryName)) continue;
-                count += await this.indexRawDirectory(writeStream, relativeEntryPath, defaultType, options);
-            } else if (entry.isFile()) {
-                const ext = path.extname(entryName);
-                if (options.include?.includes(ext)) {
-                    const content = await fs.readFile(entryPath, 'utf-8');
-                    let type = defaultType;
-
-                    if (options.typeOverrides) {
-                        for (const [key, value] of Object.entries(options.typeOverrides)) {
-                            if (relativeEntryPath.includes(`/${key}/`)) {
-                                type = value;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Special handling for Playwright test files to split them into granular chunks
-                    if (type === 'test' && ext === '.mjs') {
-                        const testChunks = TestParser.parse(content, relativeEntryPath);
-                        if (testChunks.length > 0) {
-                            testChunks.forEach(chunk => {
-                                chunk.hash = this.createContentHash(chunk);
-                                writeStream.write(JSON.stringify(chunk) + '\n');
-                                count++;
-                            });
-                            continue; // Skip default processing
-                        }
-                        // If parsing returned no chunks (e.g. no tests found), fall through to default
-                    }
-
-                    // Determine kind based on extension or content
-                    let kind = 'module';
-                    if (type === 'test') kind = 'test-spec';
-                    if (ext === '.md') kind = 'documentation';
-
-                    const chunk = {
-                        type,
-                        kind,
-                        name  : relativeEntryPath,
-                        content,
-                        source: relativeEntryPath
-                    };
-
-                    chunk.hash = this.createContentHash(chunk);
-                    writeStream.write(JSON.stringify(chunk) + '\n');
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
-
-    /**
      * Parses all knowledge sources (JSDoc, guides, release notes, tickets) and generates
      * a structured JSONL file at `dist/ai-knowledge-base.jsonl`.
      *
@@ -219,89 +143,23 @@ class DatabaseService extends Base {
         const outputPath = aiConfig.dataPath;
         await fs.ensureDir(path.dirname(outputPath));
         const writeStream = fs.createWriteStream(outputPath);
-        let totalChunks = 0;
+        let totalChunks   = 0;
 
-        // 1. Process JSDoc API data
-        const apiPath = path.resolve(process.cwd(), 'docs/output/all.json');
-        if (await fs.pathExists(apiPath)) {
-            const apiData   = await fs.readJson(apiPath);
-            const apiChunks = ApiParser.parse(apiData);
+        const sources = [
+            ApiSource,
+            LearningSource,
+            ReleaseNotesSource,
+            TicketSource,
+            TestSource
+        ];
 
-            apiChunks.forEach(chunk => {
-                chunk.hash = this.createContentHash(chunk);
-                writeStream.write(JSON.stringify(chunk) + '\n');
-                totalChunks++;
-            });
+        const createHashFn = this.createContentHash.bind(this);
+
+        for (const source of sources) {
+            const sourceName = source.className.split('.').pop();
+            logger.log(`Extracting knowledge from ${sourceName}...`);
+            totalChunks += await source.extract(writeStream, createHashFn);
         }
-
-        // 2. Process Markdown learning content
-        const learnTreePath = path.resolve(process.cwd(), 'learn/tree.json');
-        if (await fs.pathExists(learnTreePath)) {
-            const learnTree         = await fs.readJson(learnTreePath);
-            const learnBasePath     = path.resolve(process.cwd(), 'learn');
-            const filteredLearnData = learnTree.data.filter(item => item.id !== 'comparisons' && item.parentId !== 'comparisons');
-            for (const item of filteredLearnData) {
-                if (item.id && item.isLeaf !== false) {
-                    const filePath = path.join(learnBasePath, `${item.id}.md`);
-                    if (await fs.pathExists(filePath)) {
-                        const content = await fs.readFile(filePath, 'utf-8');
-                        const chunks  = DocumentationParser.parse(item, content, filePath);
-
-                        chunks.forEach(chunk => {
-                            chunk.hash = this.createContentHash(chunk);
-                            writeStream.write(JSON.stringify(chunk) + '\n');
-                            totalChunks++;
-                        });
-                    }
-                }
-            }
-        }
-
-        // 3. Process Release Notes
-        const releaseNotesPath = path.resolve(process.cwd(), '.github/RELEASE_NOTES');
-        if (await fs.pathExists(releaseNotesPath)) {
-            const releaseFiles = await fs.readdir(releaseNotesPath);
-            for (const file of releaseFiles) {
-                if (file.endsWith('.md')) {
-                    const filePath = path.join(releaseNotesPath, file);
-                    const content  = await fs.readFile(filePath, 'utf-8');
-                    const chunk    = { type: 'release', kind: 'release', name: file.replace('.md', ''), content, source: filePath };
-                    chunk.hash = this.createContentHash(chunk);
-                    writeStream.write(JSON.stringify(chunk) + '\n');
-                    totalChunks++;
-                }
-            }
-        }
-
-        // 4. Process Ticket Archives
-        const ticketArchivePath = path.resolve(process.cwd(), '.github/ISSUE_ARCHIVE');
-        if (await fs.pathExists(ticketArchivePath)) {
-            const releaseVersions = await fs.readdir(ticketArchivePath);
-            for (const version of releaseVersions) {
-                const versionPath = path.join(ticketArchivePath, version);
-                if ((await fs.stat(versionPath)).isDirectory()) {
-                    const ticketFiles = await fs.readdir(versionPath);
-                    for (const file of ticketFiles) {
-                        if (file.endsWith('.md')) {
-                            const filePath   = path.join(versionPath, file);
-                            const content    = await fs.readFile(filePath, 'utf-8');
-                            const titleMatch = content.match(/^# Ticket: (.*)/m);
-                            const chunk      = { type: 'ticket', kind: 'ticket', name: titleMatch ? titleMatch[1] : file.replace('.md', ''), content, source: filePath };
-                            chunk.hash = this.createContentHash(chunk);
-                            writeStream.write(JSON.stringify(chunk) + '\n');
-                            totalChunks++;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 5. Process Test Directory (Playwright)
-        logger.log('Indexing Playwright tests...');
-        totalChunks += await this.indexRawDirectory(writeStream, 'test/playwright', 'test', {
-            include: ['.mjs'],
-            exclude: ['node_modules', 'test-results', 'reports']
-        });
 
         return new Promise((resolve, reject) => {
             writeStream.on('finish', () => {
@@ -489,10 +347,10 @@ class DatabaseService extends Base {
     async deleteDatabase() {
         const collectionName = aiConfig.collectionName;
         try {
-            await ChromaManager.client.deleteCollection({name: collectionName});
+            await ChromaManager.client.deleteCollection({ name: collectionName });
             const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
             logger.log(message);
-            return { message };
+            return {message};
         } catch (error) {
             if (error.message.includes(`Collection ${collectionName} does not exist.`)) {
                 const message = `Knowledge base collection '${collectionName}' did not exist. No action taken.`;
