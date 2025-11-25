@@ -1,5 +1,4 @@
 import {GoogleGenerativeAI} from '@google/generative-ai';
-import * as acorn           from 'acorn';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
@@ -9,6 +8,9 @@ import fs                   from 'fs-extra';
 import logger               from '../logger.mjs';
 import path                 from 'path';
 import readline             from 'readline';
+import ApiParser            from '../parser/ApiParser.mjs';
+import DocumentationParser  from '../parser/DocumentationParser.mjs';
+import TestParser           from '../parser/TestParser.mjs';
 
 const cwd       = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -17,8 +19,6 @@ dotenv.config({
     path: insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
     quiet: true
 });
-
-const sectionsRegex = /(?=^#+\s)/m;
 
 /**
  * @summary Core engine for building and maintaining the AI's knowledge base.
@@ -121,109 +121,6 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Parses a Playwright test file into granular chunks.
-     * @param {String} content The raw file content.
-     * @param {String} filePath The relative file path.
-     * @returns {Array<Object>} An array of chunks (header + test cases).
-     * @private
-     */
-    parseTestFile(content, filePath) {
-        const chunks = [];
-        let ast;
-        try {
-            ast = acorn.parse(content, { sourceType: 'module', locations: true, ecmaVersion: 2022 });
-        } catch (e) {
-            logger.warn(`Failed to parse test file ${filePath}: ${e.message}`);
-            return [];
-        }
-
-        const testNodes = [];
-
-        const visit = (node) => {
-            if (!node) return;
-
-            // Handle ExpressionStatement (wraps calls at top level)
-            if (node.type === 'ExpressionStatement') {
-                visit(node.expression);
-                return;
-            }
-
-            // Handle CallExpression
-            if (node.type === 'CallExpression') {
-                const callee = node.callee;
-                // Check for test() or test.only(), test.skip(), test.fixme()
-                const isTest =
-                    (callee.name === 'test' && (!callee.property || ['only', 'skip', 'fixme'].includes(callee.property?.name))) ||
-                    (callee.object?.name === 'test' && ['only', 'skip', 'fixme'].includes(callee.property?.name));
-
-                if (isTest) {
-                    testNodes.push(node);
-                    return; // Do not recurse into test body
-                }
-
-                // Recurse into arguments to find nested tests (e.g. inside describe blocks)
-                if (node.arguments) {
-                    node.arguments.forEach(arg => {
-                        if (arg.type === 'ArrowFunctionExpression' || arg.type === 'FunctionExpression') {
-                            visit(arg.body);
-                        }
-                    });
-                }
-                return;
-            }
-
-            // Recurse standard block structures
-            if (node.body) {
-                if (Array.isArray(node.body)) node.body.forEach(visit);
-                else visit(node.body);
-            }
-        };
-
-        visit(ast);
-
-        if (testNodes.length === 0) return [];
-
-        // Sort by position to find the "header" cut-off
-        testNodes.sort((a, b) => a.start - b.start);
-
-        // 1. Header Chunk
-        // Content up to the start of the first test.
-        // This includes imports, setup, and the opening lines of any wrapping describe blocks.
-        const headerEnd = testNodes[0].start;
-        const headerContent = content.substring(0, headerEnd).trim();
-
-        if (headerContent.length > 0) {
-            chunks.push({
-                type: 'test',
-                kind: 'test-header',
-                name: `${filePath} - [Context]`,
-                content: headerContent,
-                source: filePath
-            });
-        }
-
-        // 2. Test Chunks
-        testNodes.forEach(node => {
-            let description = 'Unknown Test';
-            if (node.arguments && node.arguments[0] && node.arguments[0].type === 'Literal') {
-                description = node.arguments[0].value;
-            }
-
-            chunks.push({
-                type: 'test',
-                kind: 'test-case',
-                name: `${filePath} - ${description}`,
-                content: content.substring(node.start, node.end),
-                source: filePath,
-                line_start: node.loc.start.line,
-                line_end: node.loc.end.line
-            });
-        });
-
-        return chunks;
-    }
-
-    /**
      * Recursively scans a directory and indexes files as raw source chunks.
      * @param {Object} writeStream The stream to write chunks to.
      * @param {String} relativePath The relative path from cwd to scan.
@@ -243,8 +140,8 @@ class DatabaseService extends Base {
         const entries = await fs.readdir(fullPath, {withFileTypes: true});
 
         for (const entry of entries) {
-            const entryName = entry.name;
-            const entryPath = path.join(fullPath, entryName);
+            const entryName         = entry.name;
+            const entryPath         = path.join(fullPath, entryName);
             const relativeEntryPath = path.join(relativePath, entryName);
 
             if (entry.isDirectory()) {
@@ -267,7 +164,7 @@ class DatabaseService extends Base {
 
                     // Special handling for Playwright test files to split them into granular chunks
                     if (type === 'test' && ext === '.mjs') {
-                        const testChunks = this.parseTestFile(content, relativeEntryPath);
+                        const testChunks = TestParser.parse(content, relativeEntryPath);
                         if (testChunks.length > 0) {
                             testChunks.forEach(chunk => {
                                 chunk.hash = this.createContentHash(chunk);
@@ -287,7 +184,7 @@ class DatabaseService extends Base {
                     const chunk = {
                         type,
                         kind,
-                        name: relativeEntryPath,
+                        name  : relativeEntryPath,
                         content,
                         source: relativeEntryPath
                     };
@@ -327,46 +224,13 @@ class DatabaseService extends Base {
         // 1. Process JSDoc API data
         const apiPath = path.resolve(process.cwd(), 'docs/output/all.json');
         if (await fs.pathExists(apiPath)) {
-            const apiData = await fs.readJson(apiPath);
-            apiData.forEach(item => {
-                const sourceFile = item.meta ? path.join(item.meta.path, item.meta.filename) : 'unknown';
-                let chunk, type = sourceFile.includes('/examples/') ? 'example' : 'src';
-                if (item.kind === 'class') {
-                    chunk = {
-                        type,
-                        kind       : 'class',
-                        name       : item.longname,
-                        description: item.comment,
-                        extends    : item.augments?.[0],
-                        source     : sourceFile
-                    };
-                } else if (item.kind === 'member' && item.memberof) {
-                    chunk = {
-                        type,
-                        kind       : 'config',
-                        className  : item.memberof,
-                        name       : item.name,
-                        description: item.description,
-                        configType : item.type?.names.join('|') || 'unknown',
-                        source     : sourceFile
-                    };
-                } else if (item.kind === 'function' && item.memberof) {
-                    chunk = {
-                        type,
-                        kind       : 'method',
-                        className  : item.memberof,
-                        name       : item.name,
-                        description: item.description,
-                        params     : item.params?.map(p => ({name: p.name, type: p.type?.names.join('|')})),
-                        returns    : item.returns?.map(r => r.type?.names.join('|')).join('|'),
-                        source     : sourceFile
-                    };
-                }
-                if (chunk) {
-                    chunk.hash = this.createContentHash(chunk);
-                    writeStream.write(JSON.stringify(chunk) + '\n');
-                    totalChunks++;
-                }
+            const apiData   = await fs.readJson(apiPath);
+            const apiChunks = ApiParser.parse(apiData);
+
+            apiChunks.forEach(chunk => {
+                chunk.hash = this.createContentHash(chunk);
+                writeStream.write(JSON.stringify(chunk) + '\n');
+                totalChunks++;
             });
         }
 
@@ -380,24 +244,14 @@ class DatabaseService extends Base {
                 if (item.id && item.isLeaf !== false) {
                     const filePath = path.join(learnBasePath, `${item.id}.md`);
                     if (await fs.pathExists(filePath)) {
-                        const content  = await fs.readFile(filePath, 'utf-8');
-                        const sections = content.split(sectionsRegex);
-                        const type     = item.parentId === 'Blog' ? 'blog' : 'guide';
-                        if (sections.length > 1) {
-                            sections.forEach(section => {
-                                if (section.trim() === '') return;
-                                const headingMatch = section.match(/^#+\s(.*)/);
-                                const chunk = { type, kind: 'guide', name: `${item.name} - ${headingMatch ? headingMatch[1] : item.name}`, id: item.id, content: section, source: filePath };
-                                chunk.hash = this.createContentHash(chunk);
-                                writeStream.write(JSON.stringify(chunk) + '\n');
-                                totalChunks++;
-                            });
-                        } else {
-                            const chunk = { type, kind: 'guide', name: item.name, id: item.id, content, source: filePath };
+                        const content = await fs.readFile(filePath, 'utf-8');
+                        const chunks  = DocumentationParser.parse(item, content, filePath);
+
+                        chunks.forEach(chunk => {
                             chunk.hash = this.createContentHash(chunk);
                             writeStream.write(JSON.stringify(chunk) + '\n');
                             totalChunks++;
-                        }
+                        });
                     }
                 }
             }
@@ -453,7 +307,7 @@ class DatabaseService extends Base {
             writeStream.on('finish', () => {
                 const message = `Knowledge base file created with ${totalChunks} chunks.`;
                 logger.log(message);
-                resolve({ message });
+                resolve({message});
             });
             writeStream.on('error', reject);
             writeStream.end();
@@ -498,7 +352,7 @@ class DatabaseService extends Base {
         const classNameToDataMap = {};
         knowledgeBase.forEach(chunk => {
             if (chunk.kind === 'class') {
-                classNameToDataMap[chunk.name] = { source: chunk.source, parent: chunk.extends };
+                classNameToDataMap[chunk.name] = {source: chunk.source, parent: chunk.extends};
             }
         });
 
@@ -509,7 +363,7 @@ class DatabaseService extends Base {
             while (currentClass && classNameToDataMap[currentClass]?.parent && !visited.has(currentClass)) {
                 visited.add(currentClass);
                 const parentClassName = classNameToDataMap[currentClass].parent;
-                const parentData = classNameToDataMap[parentClassName];
+                const parentData      = classNameToDataMap[parentClassName];
                 if (parentData) {
                     inheritanceChain.push({ className: parentClassName, source: parentData.source });
                 }
@@ -531,7 +385,7 @@ class DatabaseService extends Base {
         logger.log(`Found ${existingDocsMap.size} existing documents.`);
 
         const chunksToProcess = [];
-        const allIds = new Set();
+        const allIds          = new Set();
 
         knowledgeBase.forEach((chunk, index) => {
             const chunkId = `id_${index}`;
@@ -554,7 +408,7 @@ class DatabaseService extends Base {
         if (chunksToProcess.length === 0) {
             const message = 'No changes detected. Knowledge base is up to date.';
             logger.log(message);
-            return { message };
+            return {message};
         }
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -577,7 +431,7 @@ class DatabaseService extends Base {
             while (retries < maxRetries && !success) {
                 try {
                     const result = await model.batchEmbedContents({
-                        requests: textsToEmbed.map(text => ({ model: aiConfig.embeddingModel, content: { parts: [{ text }] } }))
+                        requests: textsToEmbed.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}))
                     });
                     const embeddings = result.embeddings.map(e => e.values);
 
@@ -590,7 +444,7 @@ class DatabaseService extends Base {
                     });
 
                     await collection.upsert({
-                        ids      : batch.map(chunk => chunk.id),
+                        ids: batch.map(chunk => chunk.id),
                         embeddings,
                         metadatas
                     });
@@ -611,7 +465,7 @@ class DatabaseService extends Base {
         const count   = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
-        return { message };
+        return {message};
     }
 
     /**
@@ -635,7 +489,7 @@ class DatabaseService extends Base {
     async deleteDatabase() {
         const collectionName = aiConfig.collectionName;
         try {
-            await ChromaManager.client.deleteCollection({ name: collectionName });
+            await ChromaManager.client.deleteCollection({name: collectionName});
             const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
             logger.log(message);
             return { message };
@@ -643,7 +497,7 @@ class DatabaseService extends Base {
             if (error.message.includes(`Collection ${collectionName} does not exist.`)) {
                 const message = `Knowledge base collection '${collectionName}' did not exist. No action taken.`;
                 logger.log(message);
-                return { message };
+                return {message};
             }
             throw error;
         }
