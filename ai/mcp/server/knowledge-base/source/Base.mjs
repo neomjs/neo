@@ -13,12 +13,7 @@ class Base extends CoreBase {
          * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.Base'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.Base',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        className: 'Neo.ai.mcp.server.knowledge-base.source.Base'
     }
 
     /**
