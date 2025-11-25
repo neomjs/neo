@@ -59,49 +59,6 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Orchestrates the automated startup synchronization of the knowledge base.
-     *
-     * This method is called automatically by the framework after the service is constructed.
-     * It ensures that the knowledge base is ready and up-to-date before the application
-     * proceeds.
-     *
-     * The logic is as follows:
-     * 1. It first waits for the underlying database connection to be ready.
-     * 2. It then checks for the existence of the `ai-knowledge-base.jsonl` file.
-     * 3. If the file does not exist, it triggers a full `syncDatabase()` (create + embed).
-     * 4. If the file exists, it triggers `embedKnowledgeBase()` to process any new or changed content.
-     *
-     * This entire process is awaited via the `ready()` promise on the service, ensuring
-     * that dependent services or startup sequences only proceed once the knowledge base is
-     * fully initialized.
-     * @protected
-     */
-    async initAsync() {
-        await super.initAsync();
-
-        // Wait for ChromaManager (which waits for LifecycleService) to be ready
-        await ChromaManager.ready();
-
-        logger.info('[Startup] Checking knowledge base status...');
-        const knowledgeBasePath = aiConfig.dataPath;
-        const kbExists          = await fs.pathExists(knowledgeBasePath);
-
-        try {
-            if (!kbExists) {
-                logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
-                await this.syncDatabase();
-                logger.info('✅ [Startup] Full synchronization complete.');
-            } else {
-                logger.info('[Startup] Knowledge base file found. Starting embedding process...');
-                await this.embedKnowledgeBase();
-                logger.info('✅ [Startup] Embedding process complete.');
-            }
-        } catch (error) {
-            logger.warn('⚠️  [Startup] Knowledge base synchronization/embedding failed:', error.message);
-        }
-    }
-
-    /**
      * Creates a SHA-256 hash from a stable JSON string representation of a chunk's content.
      * This hash is used to detect changes in content without having to compare the full text.
      * @param {Object} chunk The chunk object.
@@ -170,6 +127,29 @@ class DatabaseService extends Base {
             writeStream.on('error', reject);
             writeStream.end();
         });
+    }
+
+    /**
+     * Permanently deletes the entire knowledge base collection from ChromaDB.
+     * This is a destructive but necessary operation for performing a clean reset of the knowledge base.
+     * It handles cases where the collection may not exist gracefully.
+     * @returns {Promise<object>} A promise that resolves to a success message.
+     */
+    async deleteDatabase() {
+        const collectionName = aiConfig.collectionName;
+        try {
+            await ChromaManager.client.deleteCollection({name: collectionName});
+            const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
+            logger.log(message);
+            return {message};
+        } catch (error) {
+            if (error.message.includes(`Collection ${collectionName} does not exist.`)) {
+                const message = `Knowledge base collection '${collectionName}' did not exist. No action taken.`;
+                logger.log(message);
+                return {message};
+            }
+            throw error;
+        }
     }
 
     /**
@@ -327,6 +307,49 @@ class DatabaseService extends Base {
     }
 
     /**
+     * Orchestrates the automated startup synchronization of the knowledge base.
+     *
+     * This method is called automatically by the framework after the service is constructed.
+     * It ensures that the knowledge base is ready and up-to-date before the application
+     * proceeds.
+     *
+     * The logic is as follows:
+     * 1. It first waits for the underlying database connection to be ready.
+     * 2. It then checks for the existence of the `ai-knowledge-base.jsonl` file.
+     * 3. If the file does not exist, it triggers a full `syncDatabase()` (create + embed).
+     * 4. If the file exists, it triggers `embedKnowledgeBase()` to process any new or changed content.
+     *
+     * This entire process is awaited via the `ready()` promise on the service, ensuring
+     * that dependent services or startup sequences only proceed once the knowledge base is
+     * fully initialized.
+     * @protected
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        // Wait for ChromaManager (which waits for LifecycleService) to be ready
+        await ChromaManager.ready();
+
+        logger.info('[Startup] Checking knowledge base status...');
+        const knowledgeBasePath = aiConfig.dataPath;
+        const kbExists          = await fs.pathExists(knowledgeBasePath);
+
+        try {
+            if (!kbExists) {
+                logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
+                await this.syncDatabase();
+                logger.info('✅ [Startup] Full synchronization complete.');
+            } else {
+                logger.info('[Startup] Knowledge base file found. Starting embedding process...');
+                await this.embedKnowledgeBase();
+                logger.info('✅ [Startup] Embedding process complete.');
+            }
+        } catch (error) {
+            logger.warn('⚠️  [Startup] Knowledge base synchronization/embedding failed:', error.message);
+        }
+    }
+
+    /**
      * A convenience orchestrator that runs the entire knowledge base synchronization process.
      * It first creates the knowledge base file and then embeds its contents into the vector database.
      * This provides a simple, single-command way to update the knowledge base from scratch.
@@ -336,29 +359,6 @@ class DatabaseService extends Base {
         logger.log('Starting full database synchronization...');
         await this.createKnowledgeBase();
         return await this.embedKnowledgeBase();
-    }
-
-    /**
-     * Permanently deletes the entire knowledge base collection from ChromaDB.
-     * This is a destructive but necessary operation for performing a clean reset of the knowledge base.
-     * It handles cases where the collection may not exist gracefully.
-     * @returns {Promise<object>} A promise that resolves to a success message.
-     */
-    async deleteDatabase() {
-        const collectionName = aiConfig.collectionName;
-        try {
-            await ChromaManager.client.deleteCollection({ name: collectionName });
-            const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
-            logger.log(message);
-            return {message};
-        } catch (error) {
-            if (error.message.includes(`Collection ${collectionName} does not exist.`)) {
-                const message = `Knowledge base collection '${collectionName}' did not exist. No action taken.`;
-                logger.log(message);
-                return {message};
-            }
-            throw error;
-        }
     }
 }
 
