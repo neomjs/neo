@@ -25,6 +25,10 @@ class ApiSource extends Base {
          */
         className: 'Neo.ai.mcp.server.knowledge-base.source.ApiSource',
         /**
+         * @member {String} apiPath='docs/output/all.json'
+         */
+        apiPath: 'docs/output/all.json',
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -39,7 +43,7 @@ class ApiSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const apiPath = path.resolve(process.cwd(), 'docs/output/all.json');
+        const apiPath = path.resolve(process.cwd(), this.apiPath);
 
         if (await fs.pathExists(apiPath)) {
             const apiData = await fs.readJson(apiPath);
