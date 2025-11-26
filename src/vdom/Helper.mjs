@@ -521,13 +521,11 @@ class Helper extends Base {
 
         let me = this;
 
-        if (!NeoConfig.unitTestMode) {
-            // Subscribe to global Neo.config changes for dynamic renderer switching.
-            Neo.currentWorker.on({
-                neoConfigChange: me.onNeoConfigChange,
-                scope          : me
-            })
-        }
+        // Subscribe to global Neo.config changes for dynamic renderer switching.
+        Neo.currentWorker?.on({
+            neoConfigChange: me.onNeoConfigChange,
+            scope          : me
+        });
 
         await me.importUtil()
     }
