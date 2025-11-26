@@ -232,23 +232,19 @@ class Worker extends Base {
      *
      * @param {Object} msg The incoming message object.
      * @param {Object} msg.data The initial global Neo.config data object.
-     * @param {Number} msg.data.windowId The unique ID of the window/tab (relevant for SharedWorkers).
+     * @param {String} msg.data.windowId The unique ID of the window/tab.
      */
-    onRegisterNeoConfig(msg) {
+    onRegisterNeoConfig({data}) {
         Neo.ns('Neo.config', true);
 
-        let me         = this,
-            {windowId} = msg.data,
-            port;
-
-        for (port of me.ports) {
+        for (const port of this.ports) {
             if (!port.windowId) {
-                port.windowId = windowId;
+                port.windowId = data.windowId;
                 break
             }
         }
 
-        Neo.merge(Neo.config, msg.data)
+        Neo.merge(Neo.config, data)
     }
 
     /**
