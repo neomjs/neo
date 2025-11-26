@@ -1,13 +1,14 @@
 ---
 id: 7904
 title: Refactor Knowledge Base embedding logic into Vector Service
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-25T16:19:58Z'
-updatedAt: '2025-11-25T16:19:58Z'
+updatedAt: '2025-11-25T17:29:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7904'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-25T17:29:44Z'
 ---
 # Refactor Knowledge Base embedding logic into Vector Service
 
@@ -41,4 +43,7 @@ This completes the separation of concerns for the Knowledge Base.
 
 - 2025-11-25 @tobiu added the `ai` label
 - 2025-11-25 @tobiu added the `refactoring` label
+- 2025-11-25 @tobiu assigned to @tobiu
+- 2025-11-25 @tobiu referenced in commit `227b7ae` - "Refactor Knowledge Base embedding logic into Vector Service #7904"
+- 2025-11-25 @tobiu closed this issue
 
