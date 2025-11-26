@@ -493,11 +493,11 @@ import Component from './src/component/Base.mjs'; // Required import
 // import DOMPurify from 'dompurify'; // Example for external sanitization library
 
 class SecureComponent extends Component {
-// SECURE: Use text property for user-provided string content
-setContent(userInput) {
-this.textNode.text = userInput; // Automatically HTML-escaped by the framework
-this.update();
-}
+    // SECURE: Use text property for user-provided string content
+    setContent(userInput) {
+        this.textNode.text = userInput; // Automatically HTML-escaped by the framework
+        this.update();
+    }
 
     // SECURE: Use 'tag' property for creating elements with custom names
     createElement(tagName) {
@@ -537,12 +537,11 @@ this.update();
 
 ```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
-import Neo from './src/Neo.mjs'; // Required import for Neo.applyDeltas
 
 class PerformantComponent extends Component {
-// Assume getItemNode and getItemId methods exist to access VDom nodes/IDs
+    // Assume getItemNode and getItemId methods exist to access VDom nodes/IDs
 
-    // BAD: Multiple individual updates
+    // BAD: Multiple individual updates (max 2 instead of 1)
     updateItemsBad(items) {
         items.forEach(item => {
             let node = this.getItemNode(item.id); // Get VDom node
@@ -571,12 +570,12 @@ class PerformantComponent extends Component {
 
         items.forEach(item => {
             deltas.push({
-                id: this.getItemId(item.id), // Get VDom node ID
+                id  : this.getItemId(item.id), // Get VDom node ID
                 text: item.name
             });
         });
 
-        Neo.applyDeltas(this.appName, deltas); // Directly send pre-calculated deltas to Main Thread
+        Neo.applyDeltas(this.windowId, deltas); // Directly send pre-calculated deltas to Main Thread
     }
 }
 ```
@@ -587,14 +586,14 @@ class PerformantComponent extends Component {
 import Component from './src/component/Base.mjs'; // Required import
 
 class EfficientEventComponent extends Component {
-construct(config) {
-super.construct(config);
+    construct(config) {
+        super.construct(config);
 
         // Single delegated listener handles multiple item types
         this.addDomListeners({
-            click: this.onItemInteraction,
+            click   : this.onItemInteraction,
             delegate: '.interactive-item',
-            scope: this
+            scope   : this
         });
     }
 
@@ -604,7 +603,7 @@ super.construct(config);
         if (!element) { return; } // Safety check
 
         let itemType = element.dataset.itemType;
-        let itemId = element.dataset.itemId;
+        let itemId   = element.dataset.itemId;
 
         // Route based on item type
         switch (itemType) {
