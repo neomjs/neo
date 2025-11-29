@@ -54,9 +54,9 @@ async function run() {
         // 5. Execute Task: List recent issues
         console.log('\n📋 Fetching recent issues via MCP...');
         
-        // Notice: We call the tool by string name, passing a plain object.
+        // Notice: We call the tool via the dynamic proxy method.
         // No import of 'GH_IssueService' required!
-        const result = await ghClient.callTool('list_issues', {
+        const result = await ghClient.tools.listIssues({
             limit: 5,
             state: 'open'
         });

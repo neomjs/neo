@@ -123,6 +123,17 @@ class Client extends Base {
         });
 
         await this.client.connect(this.transport);
+
+        // Fetch tools and create dynamic proxies
+        const tools = await this.listTools(); // Using listTools from this class
+        this.tools = {};
+        tools.forEach(tool => {
+            const camelCaseName = this.snakeToCamel(tool.name); // Use the new function
+            console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log
+            this.tools[camelCaseName] = async (args) => {
+                return this.callTool(tool.name, args);
+            };
+        });
     }
 
     /**
@@ -157,6 +168,16 @@ class Client extends Base {
         if (this.transport) {
             await this.transport.close();
         }
+    }
+
+    /**
+     * Converts snake_case strings into camelCase.
+     * @param {String} s The snake_case string.
+     * @returns {String} The camelCase string.
+     * @protected
+     */
+    snakeToCamel(s) {
+        return s.replace(/(_\w)/g, m => m[1].toUpperCase());
     }
 
     /**
