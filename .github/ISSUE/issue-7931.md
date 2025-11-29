@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T17:32:36Z'
-updatedAt: '2025-11-29T17:32:36Z'
+updatedAt: '2025-11-29T17:34:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7931'
 author: tobiu
 commentsCount: 0
@@ -18,8 +19,6 @@ subIssuesTotal: 0
 blockedBy: []
 blocking: []
 ---
-# Epic: MCP Client Implementation for Agents
-
 # Epic: MCP Client Implementation for Agents
 
 ## Context
@@ -47,4 +46,5 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 
 - 2025-11-29 @tobiu added the `epic` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu assigned to @tobiu
 
