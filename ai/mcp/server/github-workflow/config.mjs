@@ -85,6 +85,11 @@ const defaultConfig = {
          */
         issueFilenamePrefix: 'issue-',
         /**
+         * A prefix for milestone-based archive directories (e.g., 'v' for 'v1.2.3').
+         * @type {string}
+         */
+        milestoneArchivePrefix: 'v',
+        /**
          * A prefix for release note filenames (e.g., 'v').
          * @type {string}
          */

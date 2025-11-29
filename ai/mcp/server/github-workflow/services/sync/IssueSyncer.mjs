@@ -183,7 +183,7 @@ class IssueSyncer extends Base {
         if (issue.state === 'CLOSED') {
             // If an issue has a milestone, it is explicitly archived under that version.
             if (issue.milestone?.title) {
-                return path.join(issueSyncConfig.archiveDir, issue.milestone.title, filename);
+                return path.join(issueSyncConfig.archiveDir, `${issueSyncConfig.milestoneArchivePrefix}${issue.milestone.title}`, filename);
             }
 
             // For issues without a milestone, find the earliest release that was published after it was closed.
