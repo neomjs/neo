@@ -33,10 +33,7 @@ This principle radically reduces complexity and enables a cohesive ecosystem of 
 ### 3. Democratizing Expertise through AI Partnership
 
 We are building the first platform architected for true AI collaboration. Our goal is to use AI as the great equalizer,
-breaking down the barriers to contributing to and using a sophisticated framework. This is achieved through **Context
-Engineering**: building an AI-native ecosystem where the agent has the deep context needed to explain complex source code,
-guide new developers, and make meaningful contributions on its own. **Our architecture is inherently AI-native because it
-is built on a JSON Blueprint.** Instead of JSX, we use a clean, serializable structure for defining component trees and
+breaking down the barriers to contributing to and using a sophisticated framework. This is achieved through **Context Engineering**: building an AI-native ecosystem where the agent possesses **persistent memory** of past interactions and **deep semantic knowledge** of the codebase. This allows the AI to explain complex source code, guide new developers, and make meaningful contributions on its own. **Our architecture is inherently AI-native because it is built on a JSON Blueprint.** Instead of JSX, we use a clean, serializable structure for defining component trees and
 the VDOM itself. This makes the entire application legible and manipulable in the native language of Large Language Models
 (LLMs), allowing an AI to orchestrate complex, multi-window interfaces and turning it from a simple code-completer into a
 true architectural partner. **The end game is a development team where the AI is a proactive senior partner, mentoring
