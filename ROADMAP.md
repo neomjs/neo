@@ -21,9 +21,9 @@ The next phase is to evolve from a single agent to a coordinated organization.
 
 Instead of building complex real-time message buses immediately, we will leverage **GitHub Issues** as a robust, asynchronous "Job Board" for the swarm.
 
-*   **Ticket-Driven Protocol:** Define a strict schema for `agent-task` labels and issue templates. This turns GitHub into the communication bus between agents.
-*   **Cross-Repo Management:** Enhance the `github-workflow` MCP server to support creating and scanning issues across the entire organization (e.g., Middleware Agent assigning a task to the Framework Agent).
-*   **Value:** Immediate ability for an agent in one repo to "queue" work for an agent in another, without requiring simultaneous execution.
+*   [x] **Ticket-Driven Protocol:** Define a strict schema for `agent-task` labels and issue templates. This turns GitHub into the communication bus between agents.
+*   [ ] **Cross-Repo Management:** Enhance the `github-workflow` MCP server to support creating and scanning issues across the entire organization (e.g., Middleware Agent assigning a task to the Framework Agent).
+*   [x] **Value:** Immediate ability for an agent in one repo to "queue" work for an agent in another, without requiring simultaneous execution.
 
 ### Phase 2: The Headless Workforce (v12.0)
 
@@ -31,13 +31,13 @@ Instead of building complex real-time message buses immediately, we will leverag
 
 We will empower developers (and the "CEO Agent") to spawn specialized agents programmatically as lightweight Node.js processes.
 
-*   **Neo.ai.Agent:** A class-based Node.js implementation of an agent that uses our `ai/services.mjs` SDK.
-*   **Role-Based Scripts:** Create specialized, standalone scripts:
+*   [x] **Role-Based Scripts (MVP):** Created specialized, standalone scripts using the "Fake Agent" pattern (Direct Service Import):
     *   `ai/agents/pm.mjs`: Scans Epics, breaks them down into User Stories (Issues).
     *   `ai/agents/dev.mjs`: Scans open Issues, writes code, runs tests, and submits PRs.
-*   **The "Feature Factory" Experiment:** A proof-of-concept where a single command (`npm run agent:feature`) triggers a chain of these headless agents to implement a feature from start to finish.
+*   [x] **The "Feature Factory" Experiment:** A proof-of-concept where a single command triggers a chain of agents.
+*   [ ] **Neo.ai.Agent Class:** (Deferred) Standardize the scripts into a formal SDK class structure.
 
-### Phase 3: The Command Center (v12.x)
+### Phase 3: The Command Center (v12.x) - **[NEXT PRIORITY]**
 
 **Goal:** The "Killer App" — A multi-window Neo.mjs application to visualize and control the swarm.
 
