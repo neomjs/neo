@@ -167,8 +167,9 @@ async function collectRoutesFromTree() {
         const contentPath = await resolveContentFileFromId(node.id);
         if (!contentPath) continue;
         routes.push({
-            id      : node.id,
+            category: 'tree',
             filePath: contentPath,
+            id      : node.id,
             name    : node.name
         });
     }
@@ -182,8 +183,9 @@ async function collectRoutesFromTree() {
  */
 async function collectTopLevelRoutes() {
     return TOP_LEVEL_ROUTES.map(route => ({
-        id      : route,
-        filePath: path.join(PORTAL_DIR, 'view/ViewportController.mjs')
+        category: 'top-level',
+        filePath: path.join(PORTAL_DIR, 'view/ViewportController.mjs'),
+        id      : route
     }));
 }
 
@@ -225,8 +227,9 @@ async function collectExampleRoutes() {
         const titleMatch = content.match(/<title>(.*?)<\/title>/i);
 
         return {
-            id      : file,
+            category: 'file',
             filePath: filePath,
+            id      : `/${file}`,
             name    : titleMatch ? titleMatch[1] : getNameFromExamplePath(file)
         };
     }));
@@ -250,12 +253,13 @@ async function collectAllRoutes() {
  * Normalizes a route id into a hash-based route path suitable for a Single-Page Application.
  * @param {String} id
  * @param {String} [basePath] - Only used for content routes (e.g., '/learn')
- * @returns {String} e.g., /#/home or /#/learn/benefits/Introduction
+ * @param {Boolean} [useHash=true] - Whether to prepend /# to the route
+ * @returns {String} e.g., /#/home or /home
  */
-function buildRouteFromId(id, basePath=null) {
+function buildRouteFromId(id, basePath=null, useHash=true) {
     // Top-level routes don't use basePath
     if (id.startsWith('/')) {
-        return `/#${id}`;
+        return useHash ? `/#${id}` : id;
     }
 
     // Content routes use basePath
@@ -263,7 +267,9 @@ function buildRouteFromId(id, basePath=null) {
     const trimmedId   = id.replace(/^\//, '');
     const prefix      = trimmedBase.length > 0 ? trimmedBase : '';
     const route       = `${prefix}/${trimmedId}`.replace(/\/+/g, '/');
-    return `/#${route.startsWith('/') ? route : `/${route}`}`;
+    const fullRoute   = route.startsWith('/') ? route : `/${route}`;
+
+    return useHash ? `/#${fullRoute}` : fullRoute;
 }
 
 /**
@@ -279,14 +285,56 @@ export async function getContentRoutes(options={}) {
 
     const routes = allRoutes
         .filter(({id}) => includeTopLevel || !id.startsWith('/'))
-        .map(({id}) => {
-            // Top-level routes don't use basePath
-            if (id.startsWith('/')) {
+        .map(({category, id}) => {
+            if (category === 'file') {
+                return id; // Already has leading slash
+            }
+            if (category === 'top-level') {
                 return buildRouteFromId(id);
             }
+            // category === 'tree'
             return buildRouteFromId(id, basePath);
         })
         .sort((a, b) => a.localeCompare(b));
+
+    return routes;
+}
+
+/**
+ * Generates a list of route objects containing both real and client-side routes.
+ * @param {Object} [options]
+ * @param {String} [options.basePath='/learn'] - Only applies to content routes
+ * @param {Boolean} [options.includeTopLevel=true] - Include top-level routes
+ * @returns {Promise<Array<{route: String, clientSideRoute: String}>>}
+ */
+export async function getContentRouteObjects(options={}) {
+    const {basePath = DEFAULT_BASE_PATH, includeTopLevel = true} = options;
+    const allRoutes = await collectAllRoutes();
+
+    const routes = allRoutes
+        .filter(({id}) => includeTopLevel || !id.startsWith('/'))
+        .map(({category, id}) => {
+            if (category === 'file') {
+                return {
+                    route          : id,
+                    clientSideRoute: ''
+                };
+            }
+
+            if (category === 'top-level') {
+                return {
+                    route          : buildRouteFromId(id, null, false),
+                    clientSideRoute: buildRouteFromId(id, null, true)
+                };
+            }
+
+            // category === 'tree'
+            return {
+                route          : buildRouteFromId(id, basePath, false),
+                clientSideRoute: buildRouteFromId(id, basePath, true)
+            };
+        })
+        .sort((a, b) => a.route.localeCompare(b.route));
 
     return routes;
 }
@@ -356,20 +404,21 @@ export async function getSitemapXml(options={}) {
         lastModMap = getGitLastModifiedBatch(filePaths);
     }
 
-    const xmlEntries = filteredRoutes.map(({id, filePath}) => {
+    const xmlEntries = filteredRoutes.map(({category, id, filePath}) => {
         let url;
-        if (id.endsWith('.html')) {
+        if (category === 'file') {
             url = new URL(id, normalizedBaseUrl).toString();
-        } else {
-            const route = id.startsWith('/')
-                ? buildRouteFromId(id)
-                : buildRouteFromId(id, basePath);
+        } else if (category === 'top-level') {
+            const route = buildRouteFromId(id, null, false);
+            url = new URL(route, normalizedBaseUrl).toString();
+        } else { // tree
+            const route = buildRouteFromId(id, basePath, false);
             url = new URL(route, normalizedBaseUrl).toString();
         }
 
         let lastmod = null;
         if (filePath) {
-            const key = id.endsWith('.html') ? path.dirname(filePath) : filePath;
+            const key = category === 'file' ? path.dirname(filePath) : filePath;
             lastmod = lastModMap.get(key);
         }
 
@@ -441,14 +490,14 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 
 `;
 
-    const topLevelRoutes = allRoutes.filter(route => route.id.startsWith('/'));
-    const exampleRoutes  = allRoutes.filter(route => route.id.endsWith('.html'));
-    const contentRoutes  = allRoutes.filter(route => !route.id.startsWith('/') && !route.id.endsWith('.html'));
+    const topLevelRoutes = allRoutes.filter(route => route.category === 'top-level');
+    const exampleRoutes  = allRoutes.filter(route => route.category === 'file');
+    const contentRoutes  = allRoutes.filter(route => route.category === 'tree');
 
     content += `## main\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
         const name  = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-        const url   = new URL(buildRouteFromId(route.id), baseUrl).toString();
+        const url   = new URL(buildRouteFromId(route.id, null, false), baseUrl).toString();
         return `- [${name}](${url})`;
     });
     content += topLevelUrls.join('\n') + '\n\n';
@@ -468,7 +517,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
     for (const folder in topLevelFolders) {
         content += `## ${folder}\n\n`;
         const urls = topLevelFolders[folder].map(node => {
-            const route = buildRouteFromId(node.id, basePath);
+            const route = buildRouteFromId(node.id, basePath, false);
             const url   = new URL(route, baseUrl).toString();
             return `- [${node.name}](${url})`;
         });
@@ -493,7 +542,7 @@ async function runCli() {
     program
         .name('generate-seo-files')
         .description('Generates sitemap.xml and llms.txt for SEO purposes.')
-        .option('-f, --format <type>', 'Output format: array, urls, xml, llms')
+        .option('-f, --format <type>', 'Output format: array, objects, urls, xml, llms')
         .option('--base-url <url>', 'Absolute base URL (e.g., https://neomjs.com)')
         .option('--base-path <path>', 'Base path for content routes')
         .option('-o, --output <path>', 'Output file path')
@@ -519,6 +568,11 @@ async function runCli() {
             outputContent = JSON.stringify(routes, null, 2);
             break;
         }
+        case 'objects': {
+            const routes  = await getContentRouteObjects({basePath, includeTopLevel});
+            outputContent = JSON.stringify(routes, null, 2);
+            break;
+        }
         case 'urls': {
             const urls    = await getContentUrls({baseUrl, basePath, includeTopLevel});
             outputContent = JSON.stringify(urls, null, 2);
@@ -534,7 +588,7 @@ async function runCli() {
             break;
         }
         default:
-            throw new Error(`Unsupported format "${format}". Supported formats: array, urls, xml, llms.`);
+            throw new Error(`Unsupported format "${format}". Supported formats: array, objects, urls, xml, llms.`);
     }
 
     if (output) {
@@ -559,6 +613,7 @@ if (cliEntryPath && cliEntryPath === modulePath) {
 
 export default {
     getContentRoutes,
+    getContentRouteObjects,
     getContentUrls,
     getSitemapXml,
     getLlmsTxt
