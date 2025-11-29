@@ -242,7 +242,16 @@ async function run() {
             await runGit(`git commit -m "feat: ${title}"`);
             
             console.log('⬆️  Pushing branch...');
-            await runGit(`git push -u origin ${branchName}`);
+            // Construct authenticated URL for push
+            // Format: https://x-access-token:<TOKEN>@github.com/owner/repo.git
+            let remoteUrl = await runGit('git remote get-url origin');
+            
+            // Strip existing auth if present (e.g. https://user:pass@...) and ensure .git suffix
+            remoteUrl = remoteUrl.replace(/^https?:\/\/([^@]*@)?/, 'https://');
+            
+            const authenticatedUrl = remoteUrl.replace('https://', `https://x-access-token:${process.env.GH_TOKEN}@`);
+            
+            await runGit(`git push -u "${authenticatedUrl}" ${branchName}`);
 
             console.log('🔀 Creating Pull Request...');
             const prBody = `Closes #${issueId}\n\n**AI Generated PR**\n${changes.map(c => `- ${c.filePath}: ${c.summary}`).join('\n')}`;
