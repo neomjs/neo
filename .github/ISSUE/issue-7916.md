@@ -1,0 +1,58 @@
+---
+id: 7916
+title: 'Feat: Create ''PM Agent'' MVP (Epic -> Ticket Breakdown)'
+state: OPEN
+labels:
+  - enhancement
+  - ai
+assignees: []
+createdAt: '2025-11-29T15:09:44Z'
+updatedAt: '2025-11-29T15:09:44Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7916'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+---
+# Feat: Create 'PM Agent' MVP (Epic -> Ticket Breakdown)
+
+# Feat: Create 'PM Agent' MVP (Epic -> Ticket Breakdown)
+
+## Context
+This is the first step in the "Feature Factory" experiment (Epic #7914). We need a "Project Manager" agent that can take a high-level strategic goal (Epic) and break it down into actionable technical tasks (Tickets) for Developer Agents.
+
+## Goal
+Create a standalone Node.js script `ai/agents/pm.mjs` that acts as a "Headless PM Agent."
+
+## Requirements
+
+### 1. Input
+*   The script must accept an **Epic Issue Number** as a CLI argument:
+    `node ai/agents/pm.mjs --epic 123`
+
+### 2. Logic (The "Brain")
+*   **Read:** Fetch the Epic title and body using the GitHub MCP tools.
+*   **Context:** Query the `KnowledgeBase` to understand the technical context of the request (e.g., "Add Dark Mode" -> Query "Theming", "CSS variables").
+*   **Plan:** Use an LLM (via `ai/services.mjs` SDK) to break the Epic into 3-5 discrete, implementable steps.
+*   **Format:** Ensure each step follows the **Protocol** defined in `ai/agents/PROTOCOL.md` (YAML structure, acceptance criteria).
+
+### 3. Output (Execution)
+*   **Create Issues:** The script must autonomously create new GitHub Issues for each step.
+*   **Labeling:** Apply the correct labels: `agent-task:pending`, `agent-role:dev`, and the `ai-generated` tag.
+*   **Linking:** Post a comment on the original Epic listing the created sub-tickets.
+
+## Tech Stack
+*   Use `ai/services.mjs` for the AI logic (Code Execution pattern).
+*   Use `commander` for CLI parsing.
+*   Use the `github-workflow` tools (via SDK import) for issue management.
+
+
+## Activity Log
+
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+
