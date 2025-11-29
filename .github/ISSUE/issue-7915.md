@@ -1,13 +1,14 @@
 ---
 id: 7915
 title: 'Task: Define Agent Task Protocol (Labels, Templates, Rules)'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T15:09:38Z'
-updatedAt: '2025-11-29T15:09:38Z'
+updatedAt: '2025-11-29T15:32:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7915'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T15:32:12Z'
 ---
 # Task: Define Agent Task Protocol (Labels, Templates, Rules)
 
@@ -64,4 +66,7 @@ Define the exact YAML structure that agents must use in the Issue Body.
 
 - 2025-11-29 @tobiu added the `documentation` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `420d11c` - "Task: Define Agent Task Protocol (Labels, Templates, Rules) #7915"
+- 2025-11-29 @tobiu closed this issue
 
