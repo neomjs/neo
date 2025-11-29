@@ -14,71 +14,74 @@
 import Neo             from '../../src/Neo.mjs';
 import * as core       from '../../src/core/_export.mjs';
 import InstanceManager from '../../src/manager/Instance.mjs';
-import Client          from '../mcp/client/Client.mjs';
-import ClientConfig    from '../mcp/client/config.mjs'; // Import config singleton
-
+import Agent           from '../Agent.mjs'; // Import the new Agent base class
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Load env from project root
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 async function run() {
-    console.log('🤖 MCP Demo Agent Starting...');
+    console.log('🤖 MCP Demo Agent Starting (via Neo.ai.Agent)...');
 
-    // The ClientConfig singleton is immediately ready after module loading.
-    // No explicit 'await ClientConfig.ready();' is needed unless it has an initAsync method.
-
-    // 1. Define Server Name
-    const serverToConnect = 'github-workflow'; // Use the logical name from config.mjs
-    
-    // 2. Create Client
-    const ghClient = Neo.create(Client, {
-        clientName: 'Neo.ai.Agent.Demo',
-        serverName: serverToConnect, // Pass the server name
-        env: process.env
+    // Create an Agent instance and configure its servers
+    const agent = Neo.create(Agent, {
+        servers: ['github-workflow', 'knowledge-base', 'memory-core'] // Example: connect to all 3
     });
 
     try {
-        // 3. Connect
-        console.log('🔌 Connecting to GitHub Workflow Server...');
-        await ghClient.connect();
-        console.log('✅ Connected.');
+        // Connect the agent, which in turn connects all its clients
+        console.log('🔌 Agent connecting to servers...');
+        await agent.connect();
+        console.log('✅ Agent connected to servers.');
 
-        // 4. Discover Tools (Optional, but good practice)
-        const tools = await ghClient.listTools();
-        console.log(`🛠️  Server offers ${tools.length} tools.`);
-
-        // 5. Execute Task: List recent issues
-        console.log('\n📋 Fetching recent issues via MCP...');
-        
-        // Notice: We call the tool via the dynamic proxy method.
-        // No import of 'GH_IssueService' required!
-        const result = await ghClient.tools.listIssues({
+        // Example: List tools from GitHub Workflow Server
+        console.log('\n📋 Fetching recent issues via agent.tools.githubWorkflow.listIssues()...');
+        const ghResult = await agent.tools.githubWorkflow.listIssues({
             limit: 5,
             state: 'open'
         });
 
-        if (result.isError) {
-            console.error('❌ Tool Execution Failed:', result.content[0].text);
+        if (ghResult.isError) {
+            console.error('❌ GitHub Tool Execution Failed:', ghResult.content[0].text);
         } else {
-            // Parse the JSON result
-            const data = JSON.parse(result.content[0].text);
-            console.log(`✅ Found ${data.issues.length} open issues:\n`);
-            
+            const data = JSON.parse(ghResult.content[0].text);
+            console.log(`✅ Found ${data.issues.length} open GitHub issues:\n`);
             data.issues.forEach(issue => {
                 console.log(`   #${issue.number} ${issue.title} (@${issue.author.login})`);
+            });
+        }
+
+        // Example: Perform a healthcheck on Knowledge Base
+        console.log('\n🩺 Checking Knowledge Base health via agent.tools.knowledgeBase.healthcheck()...');
+        const kbHealthResult = await agent.tools.knowledgeBase.healthcheck({});
+        if (kbHealthResult.isError) {
+            console.error('❌ Knowledge Base Healthcheck Failed:', kbHealthResult.content[0].text);
+        } else {
+            const healthData = JSON.parse(kbHealthResult.content[0].text);
+            console.log('✅ Knowledge Base Health:', healthData.status);
+        }
+
+        // Example: Get all session summaries from Memory Core
+        console.log('\n🧠 Getting Memory Core session summaries via agent.tools.memoryCore.getAllSummaries()...');
+        const memSummariesResult = await agent.tools.memoryCore.getAllSummaries({ limit: 2 });
+        if (memSummariesResult.isError) {
+            console.error('❌ Memory Core Summaries Failed:', memSummariesResult.content[0].text);
+        } else {
+            const summariesData = JSON.parse(memSummariesResult.content[0].text);
+            console.log(`✅ Found ${summariesData.count} Memory Core session summaries (top 2):\n`);
+            summariesData.summaries.forEach(s => {
+                console.log(`   - [${s.category}] ${s.title}`);
             });
         }
 
     } catch (error) {
         console.error('💥 Agent Error:', error);
     } finally {
-        // 6. Cleanup
-        await ghClient.close();
-        console.log('\n🔌 Connection closed.');
+        console.log('\n🔌 Agent disconnecting from servers...');
+        await agent.disconnect();
+        console.log('✅ Agent disconnected.');
     }
 }
 

@@ -1,7 +1,7 @@
 ---
 id: 7940
 title: 'Feat: Add Neo.snakeToCamel utility function'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-29T23:19:01Z'
-updatedAt: '2025-11-29T23:19:01Z'
+updatedAt: '2025-11-29T23:26:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7940'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7931
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T23:26:56Z'
 ---
 # Feat: Add Neo.snakeToCamel utility function
 
@@ -30,10 +31,26 @@ To provide a dedicated and semantically clear utility for converting snake_case 
 3.  **Update `ai/mcp/client/Client.mjs`:** Refactor `Neo.ai.mcp.client.Client` to remove its internal `snakeToCamel` method and use the new `Neo.snakeToCamel` utility.
 4.  **Update JSDoc:** Ensure all relevant JSDoc comments are updated to reflect the changes and proper usage.
 
+## Comments
+
+### @tobiu - 2025-11-29 23:26
+
+**Input from Gemini 2.5:**
+
+> ✦ I have implemented the `Neo.snakeToCamel` utility function.
+> 
+> ### Deliverables Completed
+> 1.  **Implement `snakeToCamel` in `src/core/Util.mjs`:** A static utility method `snakeToCamel(value)` has been added, converting snake_case strings to camelCase.
+> 2.  **Borrow into `Neo` object:** `Neo.core.Util.snakeToCamel` is now aliased as `Neo.snakeToCamel` in `src/Neo.mjs`, making it globally accessible.
+> 3.  **Update `ai/mcp/client/Client.mjs`:** The internal `snakeToCamel` method has been removed, and the `Client` now uses the new `Neo.snakeToCamel` utility for dynamic tool proxy creation.
+> 4.  **Update JSDoc:** All relevant JSDoc comments have been updated.
+
 ## Activity Log
 
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu referenced in commit `3af75f7` - "Feat: Add Neo.snakeToCamel utility function #7940"
+- 2025-11-29 @tobiu closed this issue
 
