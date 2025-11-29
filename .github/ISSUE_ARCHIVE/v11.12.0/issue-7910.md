@@ -1,14 +1,14 @@
 ---
 id: 7910
 title: 'Enhancement: Update SEO generator to support middleware-compatible routes'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-29T10:11:03Z'
-updatedAt: '2025-11-29T11:06:44Z'
+updatedAt: '2025-11-29T11:44:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7910'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,8 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T11:41:17Z'
+milestone: 11.12.0
 ---
 # Enhancement: Update SEO generator to support middleware-compatible routes
 
@@ -61,4 +63,5 @@ Currently, the sitemap generator produces hash-based URLs (e.g., `https://neomjs
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu referenced in commit `adc10e4` - "Enhancement: Update SEO generator to support middleware-compatible routes #7910"
+- 2025-11-29 @tobiu closed this issue
 
