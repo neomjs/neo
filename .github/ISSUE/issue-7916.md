@@ -1,13 +1,14 @@
 ---
 id: 7916
 title: 'Feat: Create ''PM Agent'' MVP (Epic -> Ticket Breakdown)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T15:09:44Z'
-updatedAt: '2025-11-29T15:09:44Z'
+updatedAt: '2025-11-29T16:20:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7916'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T16:20:59Z'
 ---
 # Feat: Create 'PM Agent' MVP (Epic -> Ticket Breakdown)
 
@@ -55,4 +57,8 @@ Create a standalone Node.js script `ai/agents/pm.mjs` that acts as a "Headless P
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu cross-referenced by #7927
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `bc5859f` - "Feat: Create 'PM Agent' MVP (Epic -> Ticket Breakdown) #7916"
+- 2025-11-29 @tobiu closed this issue
 

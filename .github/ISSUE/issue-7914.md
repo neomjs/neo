@@ -8,14 +8,16 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-29T15:07:56Z'
-updatedAt: '2025-11-29T15:12:46Z'
+updatedAt: '2025-11-29T16:12:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7914'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
+subIssues:
+  - 7926
+  - 7930
 subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssuesTotal: 2
 blockedBy: []
 blocking: []
 ---

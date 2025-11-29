@@ -1,13 +1,14 @@
 ---
 id: 7927
 title: 'Feat: Expose LocalFileService in AI SDK'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T15:43:48Z'
-updatedAt: '2025-11-29T15:43:48Z'
+updatedAt: '2025-11-29T15:48:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7927'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T15:48:18Z'
 ---
 # Feat: Expose LocalFileService in AI SDK
 
@@ -38,4 +40,7 @@ Enables "Local First" patterns for autonomous agents running within the repo.
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `ab281fa` - "Feat: Expose LocalFileService in AI SDK #7927"
+- 2025-11-29 @tobiu closed this issue
 

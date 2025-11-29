@@ -1,0 +1,46 @@
+---
+id: 7930
+title: 'Bug: GitHub HealthService fails in standalone SDK scripts'
+state: OPEN
+labels:
+  - bug
+  - ai
+assignees: []
+createdAt: '2025-11-29T16:23:27Z'
+updatedAt: '2025-11-29T16:23:27Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7930'
+author: tobiu
+commentsCount: 0
+parentIssue: 7914
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+---
+# Bug: GitHub HealthService fails in standalone SDK scripts
+
+# Bug: GitHub HealthService fails in standalone SDK scripts
+
+## Context
+When running standalone agent scripts (e.g., `ai/agents/pm.mjs`) directly via `node`, `GH_HealthService.healthcheck()` consistently reports authentication failure (`GitHub Authentication failed. Check GH_TOKEN.`), even when:
+1.  `gh` CLI is installed and authenticated globally.
+2.  `dotenv` is correctly loaded in the script.
+3.  Other services like `GH_IssueService` (which also use `gh`) work perfectly fine.
+
+This suggests a flaw in how `HealthService` executes its checks or interprets the environment in a standalone context versus the `npm run`-managed MCP server context.
+
+## Reproduction
+1.  Create a script using `GH_HealthService` from `ai/services.mjs`.
+2.  Run it via `node my-script.mjs`.
+3.  Observe failure.
+
+## Goal
+Fix `GH_HealthService` so it correctly detects the `gh` CLI status in standalone Node.js scripts, ensuring reliable "gatekeeping" for agents.
+
+
+## Activity Log
+
+- 2025-11-29 @tobiu added the `bug` label
+- 2025-11-29 @tobiu added the `ai` label
+
