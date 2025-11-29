@@ -1,14 +1,14 @@
 ---
 id: 7937
 title: 'Feat: Implement MCP Client CLI and NPM Script'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-29T22:48:47Z'
-updatedAt: '2025-11-29T22:48:47Z'
+updatedAt: '2025-11-29T22:52:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7937'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T22:52:53Z'
 ---
 # Feat: Implement MCP Client CLI and NPM Script
 
@@ -35,4 +36,6 @@ This task implements a command-line interface (CLI) for the MCP Client and integ
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu referenced in commit `b8d5fea` - "Feat: Implement MCP Client CLI and NPM Script #7937"
+- 2025-11-29 @tobiu closed this issue
 
