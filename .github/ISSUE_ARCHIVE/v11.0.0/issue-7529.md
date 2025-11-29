@@ -1,0 +1,43 @@
+---
+id: 7529
+title: 'Epic: Implement Agent-Managed Database Tools'
+state: CLOSED
+labels:
+  - epic
+  - ai
+assignees:
+  - tobiu
+createdAt: '2025-10-17T12:45:43Z'
+updatedAt: '2025-10-17T13:26:36Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7529'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues:
+  - 7530
+  - 7531
+  - 7532
+subIssuesCompleted: 3
+subIssuesTotal: 3
+blockedBy: []
+blocking: []
+closedAt: '2025-10-17T13:26:36Z'
+---
+# Epic: Implement Agent-Managed Database Tools
+
+Enhance the `knowledge-base` and `memory-core` MCP servers with tools that allow an AI agent to start and stop their respective ChromaDB instances. The servers will still connect to pre-existing databases if available, but will now provide the agent with the capability to manage the database lifecycle itself. This hybrid approach offers maximum flexibility for both developers and agents.
+
+## Top-Level Items
+
+- `ticket-kb-add-db-tools.md`: Add `start/stop_database` tools to the Knowledge Base server.
+- `ticket-mc-add-db-tools.md`: Add `start/stop_database` tools to the Memory Core server.
+- `ticket-kb-make-start-hybrid-aware.md`: Make the `start_database` tool hybrid-aware.
+
+## Activity Log
+
+- 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added the `epic` label
+- 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu referenced in commit `515c8de` - "#7529 ticket md files"
+- 2025-10-17 @tobiu closed this issue
+

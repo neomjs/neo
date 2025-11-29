@@ -183,7 +183,10 @@ class IssueSyncer extends Base {
         if (issue.state === 'CLOSED') {
             // If an issue has a milestone, it is explicitly archived under that version.
             if (issue.milestone?.title) {
-                return path.join(issueSyncConfig.archiveDir, issue.milestone.title, filename);
+                const milestoneDir = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? issue.milestone.title
+                    : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
+                return path.join(issueSyncConfig.archiveDir, milestoneDir, filename);
             }
 
             // For issues without a milestone, find the earliest release that was published after it was closed.
@@ -193,7 +196,10 @@ class IssueSyncer extends Base {
 
             // If a subsequent release exists, archive the issue under that release tag.
             if (release) {
-                return path.join(issueSyncConfig.archiveDir, release.tagName, filename);
+                const releaseDir = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? release.tagName
+                    : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+                return path.join(issueSyncConfig.archiveDir, releaseDir, filename);
             }
 
             // If no subsequent release is found, the issue is recently closed and remains in the main issues directory.

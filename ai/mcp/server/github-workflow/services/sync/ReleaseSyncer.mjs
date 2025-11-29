@@ -188,7 +188,10 @@ class ReleaseSyncer extends Base {
 
         for (const release of Object.values(this.releases)) {
             try {
-                const filePath = path.join(releaseDir, `${issueSyncConfig.releaseFilenamePrefix}${release.tagName}.md`);
+                const filename = release.tagName.startsWith(issueSyncConfig.releaseFilenamePrefix)
+                    ? release.tagName
+                    : issueSyncConfig.releaseFilenamePrefix + release.tagName;
+                const filePath = path.join(releaseDir, `${filename}.md`);
 
                 const frontmatter = {
                     tagName     : release.tagName,
