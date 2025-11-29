@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T15:07:56Z'
-updatedAt: '2025-11-29T15:07:56Z'
+updatedAt: '2025-11-29T15:12:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7914'
 author: tobiu
 commentsCount: 0
@@ -55,4 +56,5 @@ without human intervention.
 - 2025-11-29 @tobiu cross-referenced by #7915
 - 2025-11-29 @tobiu cross-referenced by #7916
 - 2025-11-29 @tobiu cross-referenced by #7917
+- 2025-11-29 @tobiu assigned to @tobiu
 
