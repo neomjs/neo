@@ -7,19 +7,17 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-11-29T15:20:04Z'
-updatedAt: '2025-11-29T15:20:04Z'
+updatedAt: '2025-11-29T22:14:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7925'
 author: tobiu
 commentsCount: 0
-parentIssue: null
+parentIssue: 7919
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
 ---
-# Feat: Create VisualService (Sighted Agent SDK)
-
 # Feat: Create VisualService (Sighted Agent SDK)
 
 ## Context

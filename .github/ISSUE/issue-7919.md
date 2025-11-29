@@ -7,19 +7,20 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-11-29T15:19:10Z'
-updatedAt: '2025-11-29T15:19:10Z'
+updatedAt: '2025-11-29T22:15:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7919'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
+subIssues:
+  - 7923
+  - 7924
+  - 7925
 subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
 ---
-# Epic: Decouple AI Tooling for Public Ecosystem
-
 # Epic: Decouple AI Tooling for Public Ecosystem
 
 This epic covers Phase 4 of the roadmap: evolving our internal AI tools into standalone, reusable packages for the broader ecosystem.

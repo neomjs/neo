@@ -1,6 +1,7 @@
 import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport }     from '@modelcontextprotocol/sdk/client/stdio.js';
 import Base                         from '../../../src/core/Base.mjs';
+import ClientConfig                 from './config.mjs'; // Import the new config singleton
 
 /**
  * @summary A generic MCP Client that can connect to any local MCP server via Stdio.
@@ -19,15 +20,22 @@ class Client extends Base {
          */
         className: 'Neo.ai.mcp.client.Client',
         /**
-         * The command to run (e.g. "node")
-         * @member {String} command='node'
+         * The logical name of the MCP server to connect to (e.g., 'github-workflow').
+         * This name will be used to look up connection details from ClientConfig.
+         * @member {String} serverName_='github-workflow'
+         * @reactive
          */
-        command: 'node',
+        serverName_: 'github-workflow', // New reactive config
+        /**
+         * The command to run (e.g. "node")
+         * @member {String|null} command=null // Will be loaded from config
+         */
+        command: null,
         /**
          * The arguments for the command (e.g. ["./path/to/server.mjs"])
-         * @member {String[]} args=[]
+         * @member {String[]|null} args=null // Will be loaded from config
          */
-        args: [],
+        args: null,
         /**
          * Environment variables to pass to the spawned process
          * @member {Object} env={}
@@ -46,6 +54,17 @@ class Client extends Base {
     }
 
     /**
+     * @protected
+     * @param {String} value
+     * @param {String} oldValue
+     */
+    afterSetServerName(value, oldValue) {
+        if (value) {
+            this.loadServerConfig(value);
+        }
+    }
+
+    /**
      * The MCP SDK Client instance.
      * @member {McpSdkClient|null} client=null
      * @protected
@@ -59,14 +78,40 @@ class Client extends Base {
      */
     transport = null
 
+    async initAsync() {
+        await super.initAsync();
+        // Load initial server config based on the default or provided serverName
+        this.loadServerConfig(this.serverName);
+    }
+
+    /**
+     * Loads the server connection details from the ClientConfig singleton.
+     * @param {String} serverName The name of the server to load.
+     * @protected
+     */
+    loadServerConfig(serverName) {
+        const serverConfig = ClientConfig.mcpServers[serverName];
+        if (!serverConfig) {
+            throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
+        }
+        this.command = serverConfig.command;
+        this.args = serverConfig.args;
+        // Note: env from config.mjs is not explicitly merged here,
+        // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
+    }
+
     /**
      * Connects to the MCP server.
      * @returns {Promise<void>}
      */
     async connect() {
+        if (!this.command || !this.args) {
+            throw new Error('MCP Client: Server command and arguments are not set. Ensure serverName is valid and config.mjs is properly configured.');
+        }
+
         this.transport = new StdioClientTransport({
-            command: this.command,
-            args: this.args,
+            command: this.command, // Use config values
+            args: this.args,       // Use config values
             env: this.env
         });
 
@@ -85,7 +130,7 @@ class Client extends Base {
      * @returns {Promise<Object[]>}
      */
     async listTools() {
-        if (!this.client) throw new Error("Client not connected");
+        if (!this.client) throw new Error("MCP Client: Client not connected");
         const result = await this.client.listTools();
         return result.tools;
     }
@@ -97,7 +142,7 @@ class Client extends Base {
      * @returns {Promise<Object>}
      */
     async callTool(name, args) {
-        if (!this.client) throw new Error("Client not connected");
+        if (!this.client) throw new Error("MCP Client: Client not connected");
         return await this.client.callTool({
             name,
             arguments: args
@@ -118,7 +163,7 @@ class Client extends Base {
      * Cleanup when the instance is destroyed
      */
     destroy() {
-        this.close().catch(err => console.error('Error closing transport during destroy:', err));
+        this.close().catch(err => console.error('MCP Client: Error closing transport during destroy:', err));
         super.destroy();
     }
 }

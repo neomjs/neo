@@ -1,14 +1,15 @@
 ---
 id: 7933
 title: Fix misleading sessionId examples in Memory Core OpenAPI
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
+  - 'agent-task:review'
 assignees:
   - tobiu
 createdAt: '2025-11-29T21:21:53Z'
-updatedAt: '2025-11-29T21:25:50Z'
+updatedAt: '2025-11-29T21:48:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7933'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-29T21:48:40Z'
 ---
 # Fix misleading sessionId examples in Memory Core OpenAPI
 
@@ -47,4 +49,8 @@ requirements:
 - 2025-11-29 @tobiu added the `documentation` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu cross-referenced by PR #7934
+- 2025-11-29 @tobiu added the `agent-task:review` label
+- 2025-11-29 @tobiu cross-referenced by #7917
+- 2025-11-29 @tobiu closed this issue
 

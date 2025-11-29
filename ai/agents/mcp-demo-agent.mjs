@@ -15,6 +15,7 @@ import Neo             from '../../src/Neo.mjs';
 import * as core       from '../../src/core/_export.mjs';
 import InstanceManager from '../../src/manager/Instance.mjs';
 import Client          from '../mcp/client/Client.mjs';
+import ClientConfig    from '../mcp/client/config.mjs'; // Import config singleton
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -27,15 +28,16 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 async function run() {
     console.log('🤖 MCP Demo Agent Starting...');
 
-    // 1. Define Server Config
-    // In a real agent, this might come from a config file or registry
-    const ghServerPath = path.resolve(__dirname, '../mcp/server/github-workflow/mcp-stdio.mjs');
+    // The ClientConfig singleton is immediately ready after module loading.
+    // No explicit 'await ClientConfig.ready();' is needed unless it has an initAsync method.
+
+    // 1. Define Server Name
+    const serverToConnect = 'github-workflow'; // Use the logical name from config.mjs
     
     // 2. Create Client
     const ghClient = Neo.create(Client, {
         clientName: 'Neo.ai.Agent.Demo',
-        command: 'node',
-        args: [ghServerPath],
+        serverName: serverToConnect, // Pass the server name
         env: process.env
     });
 
