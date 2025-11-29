@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-11-26T12:21:47.953Z",
-  "releasesLastFetched": "2025-11-26T12:21:47.969Z",
+  "lastSync": "2025-11-29T11:15:42.912Z",
+  "releasesLastFetched": "2025-11-29T11:15:42.924Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -11506,59 +11506,66 @@
     },
     "7901": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7901.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7901.md",
       "closedAt": "2025-11-25T14:42:12Z",
       "updatedAt": "2025-11-25T14:42:12Z",
       "contentHash": "df95d24ff0394a9df62f9e77df76da28e2e940c48c5e33dce4db074258f2ee63"
     },
     "7902": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7902.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7902.md",
       "closedAt": "2025-11-25T15:33:44Z",
       "updatedAt": "2025-11-25T15:33:44Z",
       "contentHash": "e426d92a1d399f16a99e31e738480d93f3b8a0aeb087b700d54e679d54360819"
     },
     "7903": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7903.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7903.md",
       "closedAt": "2025-11-25T16:16:35Z",
       "updatedAt": "2025-11-25T16:16:35Z",
       "contentHash": "d9b1081d45e5d217dca97175eb83bfea2931b2db0dd2273742eab9ce7b79dc41"
     },
     "7904": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7904.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7904.md",
       "closedAt": "2025-11-25T17:29:44Z",
       "updatedAt": "2025-11-25T17:29:44Z",
       "contentHash": "b1cbc69a5455aa9cc284c8fca4eb777321bd3f7b1fa53737369940be50d4618f"
     },
     "7905": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7905.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7905.md",
       "closedAt": "2025-11-25T16:58:34Z",
       "updatedAt": "2025-11-25T16:58:34Z",
       "contentHash": "19b77ac389380f988cffa09a9fe8275d941b945f1d0108be7910323e85dbccc2"
     },
     "7906": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7906.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7906.md",
       "closedAt": "2025-11-25T17:12:28Z",
       "updatedAt": "2025-11-25T17:12:28Z",
       "contentHash": "3bc74d1d726307ce576f8fccdbacb955c37e7397c3e9455b6557c858f1403a2a"
     },
     "7907": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7907.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7907.md",
       "closedAt": "2025-11-26T12:06:44Z",
       "updatedAt": "2025-11-26T12:06:44Z",
       "contentHash": "d90268f900a41a41cc260e28bc0706c4ebb58df375fda02078e96feb415642d3"
     },
     "7908": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7908.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/11.11.0/issue-7908.md",
       "closedAt": "2025-11-26T12:16:41Z",
       "updatedAt": "2025-11-26T12:16:41Z",
       "contentHash": "e1743278c16039256ce4b5b1bf426954360b3932f0cd9c2b04d41ad8dd73c3e5"
+    },
+    "7910": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7910.md",
+      "closedAt": null,
+      "updatedAt": "2025-11-29T11:06:44Z",
+      "contentHash": "7032459b4722cefc837924239ca8e5fe980aca20e14f651694839954d1cf21f5"
     }
   },
   "releases": {
@@ -12149,6 +12156,10 @@
     "11.10.0": {
       "publishedAt": "2025-11-24T14:55:45Z",
       "contentHash": "a8a57e77420ccf5b3c33c67f8378ebc4ee7e169d1bac62c051bf7900c9cef7ec"
+    },
+    "11.11.0": {
+      "publishedAt": "2025-11-26T12:47:01Z",
+      "contentHash": "a36a4eb6939c0210968c3e7bddb8225c14567b3e2941c7f2c6b70f656c9128b4"
     }
   }
 }
