@@ -109,12 +109,10 @@ async function run() {
         console.log('🚀 PM Agent Starting...');
 
         // 1. Initialize Services
-        /*
         const ghHealth = await GH_HealthService.healthcheck({});
-        if (!ghHealth.authenticated) {
+        if (!ghHealth.githubCli.authenticated) {
             throw new Error('GitHub Authentication failed. Check GH_TOKEN.');
         }
-        */
 
         // Ensure Database is ready for querying
         console.log('🔌 Connecting to Knowledge Base...');
@@ -198,4 +196,3 @@ async function run() {
 }
 
 run();
-
