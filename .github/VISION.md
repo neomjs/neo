@@ -2,9 +2,9 @@
 
 Our vision is to build the platform for the next generation of web applications, **democratizing development** by making
 elite performance and architectural patterns accessible to all. We are building towards a future where the distinction
-between web and native applications disappears, and where AI is a true collaborative partner in the creative process.
+between web and native applications disappears, and where the **interface for Humans and the interface for Agents are one and the same.**
 
-This vision stands on three core pillars:
+This vision stands on four core pillars:
 
 ### 1. Making Elite Performance Accessible
 
@@ -41,6 +41,20 @@ the VDOM itself. This makes the entire application legible and manipulable in th
 (LLMs), allowing an AI to orchestrate complex, multi-window interfaces and turning it from a simple code-completer into a
 true architectural partner. **The end game is a development team where the AI is a proactive senior partner, mentoring
 developers and automating entire verticals of the workflow.**
+
+### 4. The Agent Operating System (The Corporate HQ for AI)
+
+We are pioneering the **Neo Agent OS**, transforming the framework from a tool into the **Corporate Headquarters for the AI Workforce**.
+We envision a hierarchical "Swarm Architecture" where specialized agents operate like a structured organization, all managed through
+a native Neo.mjs interface. This is our "Killer App":
+- **The "Command Center" UI:** A desktop-class, multi-window dashboard where humans visualize and orchestrate the digital workforce.
+  It provides a spatial "God View" of your organization, leveraging shared state and multi-monitor support to track strategy, tactics, and execution simultaneously.
+- **The "Headless" Workforce:** We are moving beyond black-box CLI wrappers. We provide a native **Headless Agent SDK** that spawns
+  lightweight Node.js processes. These agents act as specialized employees—Strategic "CEOs" defining Epics, Tactical "PMs" breaking them down into tickets,
+  and Execution "Drones" submitting PRs—communicating asynchronously via a **Ticket-Driven Protocol**.
+- **The Feedback Loop:** Because the Command Center is built with Neo.mjs, and the Agents write Neo.mjs, the platform
+  is recursive. Agents can improve their own control interface, creating a self-reinforcing cycle of improvement.
+**The end game is a new paradigm where you are not just a coder, but the Architect and CEO of an intelligent, automated software organization, managing it through a powerful, spatial interface built on the very technology you are deploying.**
 
 ---
 
