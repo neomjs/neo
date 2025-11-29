@@ -7,8 +7,9 @@ import path                 from 'path';
 
 const {queryScoreWeights} = aiConfig;
 
-const cwd = process.cwd();
+const cwd       = process.cwd();
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
+
 dotenv.config({
     path : insideNeo ? path.resolve(cwd, '.env') : path.resolve(cwd, '../../.env'),
     quiet: true
@@ -83,7 +84,7 @@ class QueryService extends Base {
         }
 
         const sourceScores = {};
-        const queryWords = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
+        const queryWords   = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
 
         results.metadatas[0].forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
