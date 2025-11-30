@@ -1,6 +1,7 @@
-import BaseViewport from '../../../src/container/Viewport.mjs';
-import Component    from '../../../src/component/Base.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
+import BaseViewport       from '../../../src/container/Viewport.mjs';
+import Component          from '../../../src/component/Base.mjs';
+import TabContainer       from '../../../src/tab/Container.mjs';
+import ViewportController from './ViewportController.mjs';
 
 /**
  * @class AgentOS.view.Viewport
@@ -13,18 +14,32 @@ class Viewport extends BaseViewport {
          * @protected
          */
         className: 'AgentOS.view.Viewport',
-        /*
-         * @member {Object} layout={ntype:'fit'}
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
          */
-        layout: {ntype: 'fit'},
+        controller: ViewportController,
+        /*
+         * @member {Object} layout={ntype:'vbox', align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Object[]} items
          */
         items: [{
+            ntype: 'toolbar',
+            items: [{
+                ntype: 'label',
+                text : 'Agent OS Command Center'
+            }, '->', {
+                ntype: 'button',
+                iconCls: 'fa fa-external-link-alt',
+                text   : 'Open Swarm View',
+                handler: 'onOpenSwarmClick'
+            }]
+        }, {
             module: TabContainer,
-            height: 300,
-            width : 500,
-            style : {flex: 'none', margin: '20px'},
+            flex  : 1,
+            style : {margin: '20px'},
 
             itemDefaults: {
                 module: Component,
@@ -34,16 +49,10 @@ class Viewport extends BaseViewport {
 
             items: [{
                 header: {
-                    iconCls: 'fa fa-home',
-                    text   : 'Tab 1'
+                    iconCls: 'fa fa-chess',
+                    text   : 'Strategy'
                 },
-                text: 'Welcome to your new Neo App.'
-            }, {
-                header: {
-                    iconCls: 'fa fa-play-circle',
-                    text   : 'Tab 2'
-                },
-                text: 'Have fun creating something awesome!'
+                html: '<h1>Strategy Dashboard</h1><p>KPIs and Roadmap go here.</p>'
             }]
         }]
     }

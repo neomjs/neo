@@ -1,13 +1,14 @@
 ---
 id: 7954
 title: 'Task: Scaffold Agent OS Application'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-30T18:39:05Z'
-updatedAt: '2025-11-30T18:39:05Z'
+updatedAt: '2025-11-30T18:40:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7954'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-30T18:40:06Z'
 ---
 # Task: Scaffold Agent OS Application
 
@@ -39,4 +41,7 @@ Files created:
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu added parent issue #7918
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `87ad3e2` - "Task: Scaffold Agent OS Application #7954"
+- 2025-11-30 @tobiu closed this issue
 
