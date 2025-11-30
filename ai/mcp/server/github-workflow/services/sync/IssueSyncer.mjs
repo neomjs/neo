@@ -365,43 +365,73 @@ class IssueSyncer extends Base {
         }
 
         /*
-         * Strategy: Child-Triggered Parent Refresh
+         * Strategy: Timeline-Based Relationship Discovery
          *
-         * GitHub does NOT reliably update the `updatedAt` timestamp of a parent issue when
-         * a relationship change occurs (e.g., adding a sub-issue). This means our
-         * standard delta-sync (based on `since: lastSync`) will miss these updates
-         * because the parent issue is filtered out by the query.
+         * GitHub does NOT reliably update the `updatedAt` timestamp of a related issue when
+         * a relationship change occurs (e.g., adding a sub-issue, blocking relationship).
+         * This means our standard delta-sync (based on `since: lastSync`) will miss these updates
+         * because the related issue is filtered out by the query.
          *
-         * However, the CHILD issue (the sub-issue) IS newly created or updated, so it
-         * WILL be fetched by the delta-sync.
+         * To fix this, we scan the `timelineItems` of every fetched issue for relationship-altering
+         * events that occurred since the last sync. We collect the IDs of these related issues
+         * and force-update them to ensure referential integrity.
          *
-         * We leverage this by inspecting every fetched issue. If it has a `parent`,
-         * we infer that the parent's relationship data might have changed. We collect
-         * these unique parent IDs and perform a targeted, force-update fetch for them
-         * to ensure their local files reflect the new child.
+         * This timeline scan handles most cases where relationships change. For the ultra-rare
+         * scenario where BOTH sides of a relationship are old and filtered out by delta sync,
+         * a periodic full re-sync (e.g., monthly) ensures eventual consistency.
          */
-        // Identify parents that need force-updating (Child-Triggered Refresh)
-        const parentIdsToUpdate = new Set();
+        // Identify related issues that need force-updating
+        const relatedIssuesToUpdate = new Set();
+        const lastSyncDate = metadata.lastSync ? new Date(metadata.lastSync) : new Date(0);
+
         allIssues.forEach(issue => {
+            // 1. Existing Parent Check (Legacy but safe)
             if (issue.parent) {
-                parentIdsToUpdate.add(issue.parent.number);
+                relatedIssuesToUpdate.add(issue.parent.number);
+            }
+
+            // 2. Timeline Scan for Relationship Events
+            if (issue.timelineItems?.nodes) {
+                issue.timelineItems.nodes.forEach(event => {
+                    // Only care about events that happened AFTER the last sync
+                    if (new Date(event.createdAt) <= lastSyncDate) return;
+
+                    switch (event.__typename) {
+                        case 'SubIssueAddedEvent':
+                        case 'SubIssueRemovedEvent':
+                            if (event.subIssue) relatedIssuesToUpdate.add(event.subIssue.number);
+                            break;
+                        case 'ParentIssueAddedEvent':
+                        case 'ParentIssueRemovedEvent':
+                            if (event.parent) relatedIssuesToUpdate.add(event.parent.number);
+                            break;
+                        case 'BlockedByAddedEvent':
+                        case 'BlockedByRemovedEvent':
+                            if (event.blockingIssue) relatedIssuesToUpdate.add(event.blockingIssue.number);
+                            break;
+                        case 'BlockingAddedEvent':
+                        case 'BlockingRemovedEvent':
+                            if (event.blockedIssue) relatedIssuesToUpdate.add(event.blockedIssue.number);
+                            break;
+                    }
+                });
             }
         });
 
-        // Remove parents that were already updated in the main loop
-        allIssues.forEach(issue => parentIdsToUpdate.delete(issue.number));
+        // Remove issues that were already updated in the main loop
+        allIssues.forEach(issue => relatedIssuesToUpdate.delete(issue.number));
 
-        if (parentIdsToUpdate.size > 0) {
-            logger.info(`🔄 Force-updating ${parentIdsToUpdate.size} parent issues due to child activity...`);
+        if (relatedIssuesToUpdate.size > 0) {
+            logger.info(`🔄 Force-updating ${relatedIssuesToUpdate.size} related issues due to relationship activity...`);
 
-            for (const parentNumber of parentIdsToUpdate) {
+            for (const relatedIssueNumber of relatedIssuesToUpdate) {
                 try {
                     const data = await GraphqlService.query(
                         FETCH_SINGLE_ISSUE,
                         {
                             owner           : aiConfig.owner,
                             repo            : aiConfig.repo,
-                            number          : parentNumber,
+                            number          : relatedIssueNumber,
                             maxLabels       : issueSyncConfig.maxLabelsPerIssue,
                             maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
                             maxComments     : issueSyncConfig.maxCommentsPerIssue,
@@ -424,10 +454,10 @@ class IssueSyncer extends Base {
                     await fs.writeFile(targetPath, markdown, 'utf-8');
 
                     stats.pulled.updated++;
-                    stats.pulled.issues.push(parentNumber);
-                    logger.info(`✅ Force-updated parent #${parentNumber}`);
+                    stats.pulled.issues.push(relatedIssueNumber);
+                    logger.info(`✅ Force-updated related issue #${relatedIssueNumber}`);
 
-                    newMetadata.issues[parentNumber] = {
+                    newMetadata.issues[relatedIssueNumber] = {
                         state    : issue.state,
                         path     : targetPath,
                         updatedAt: issue.updatedAt,
@@ -438,7 +468,7 @@ class IssueSyncer extends Base {
                     };
 
                 } catch (e) {
-                    logger.error(`Failed to force-update parent #${parentNumber}: ${e.message}`);
+                    logger.error(`Failed to force-update related issue #${relatedIssueNumber}: ${e.message}`);
                 }
             }
         }
