@@ -138,6 +138,10 @@ export const FETCH_ISSUES_FOR_SYNC = `
           
           timelineItems(
             first: $maxTimelineItems,
+            # We explicitly list event types to:
+            # 1. Filter out noise (like automated bot comments or minor edits).
+            # 2. Capture relationship changes (Sub-issues, Blocking) which do NOT reliably update
+            #    the issue's top-level \`updatedAt\` timestamp on GitHub.
             itemTypes: [
               REFERENCED_EVENT,       # Commits mentioning the ticket
               CROSS_REFERENCED_EVENT, # Other issues/PRs mentioning the ticket
@@ -146,6 +150,17 @@ export const FETCH_ISSUES_FOR_SYNC = `
               ASSIGNED_EVENT,         # Assignee changes
               UNASSIGNED_EVENT,       # Assignee removals
               CLOSED_EVENT,           # Issue closed
+              
+              # Relationship Events
+              # Critical for sync: Adding/removing sub-issues does not always bump the parent's updatedAt.
+              SUB_ISSUE_ADDED_EVENT,
+              SUB_ISSUE_REMOVED_EVENT,
+              PARENT_ISSUE_ADDED_EVENT,
+              PARENT_ISSUE_REMOVED_EVENT,
+              BLOCKED_BY_ADDED_EVENT,
+              BLOCKING_ADDED_EVENT,
+              BLOCKED_BY_REMOVED_EVENT,
+              BLOCKING_REMOVED_EVENT
             ]) {
             nodes {
               __typename
@@ -204,6 +219,46 @@ export const FETCH_ISSUES_FOR_SYNC = `
                 actor {
                   login
                 }
+              }
+              ... on SubIssueAddedEvent {
+                createdAt
+                actor { login }
+                subIssue { number }
+              }
+              ... on SubIssueRemovedEvent {
+                createdAt
+                actor { login }
+                subIssue { number }
+              }
+              ... on ParentIssueAddedEvent {
+                createdAt
+                actor { login }
+                parent { number }
+              }
+              ... on ParentIssueRemovedEvent {
+                createdAt
+                actor { login }
+                parent { number }
+              }
+              ... on BlockedByAddedEvent {
+                createdAt
+                actor { login }
+                blockingIssue { number }
+              }
+              ... on BlockingAddedEvent {
+                createdAt
+                actor { login }
+                blockedIssue { number }
+              }
+              ... on BlockedByRemovedEvent {
+                createdAt
+                actor { login }
+                blockingIssue { number }
+              }
+              ... on BlockingRemovedEvent {
+                createdAt
+                actor { login }
+                blockedIssue { number }
               }
             }
           }
@@ -304,6 +359,7 @@ export const FETCH_SINGLE_ISSUE = `
     $maxAssignees: Int!
     $maxComments: Int!
     $maxSubIssues: Int!
+    $maxTimelineItems: Int!
   ) {
     repository(owner: $owner, name: $repo) {
       issue(number: $number) {
@@ -370,6 +426,132 @@ export const FETCH_SINGLE_ISSUE = `
             state
           }
         }
+        timelineItems(
+            first: $maxTimelineItems,
+            # We explicitly list event types to:
+            # 1. Filter out noise (like automated bot comments or minor edits).
+            # 2. Capture relationship changes (Sub-issues, Blocking) which do NOT reliably update
+            #    the issue's top-level \`updatedAt\` timestamp on GitHub.
+            itemTypes: [
+              REFERENCED_EVENT,       # Commits mentioning the ticket
+              CROSS_REFERENCED_EVENT, # Other issues/PRs mentioning the ticket
+              LABELED_EVENT,          # Label changes
+              UNLABELED_EVENT,        # Label removals
+              ASSIGNED_EVENT,         # Assignee changes
+              UNASSIGNED_EVENT,       # Assignee removals
+              CLOSED_EVENT,           # Issue closed
+              
+              # Relationship Events
+              # Critical for sync: Adding/removing sub-issues does not always bump the parent's updatedAt.
+              SUB_ISSUE_ADDED_EVENT,
+              SUB_ISSUE_REMOVED_EVENT,
+              PARENT_ISSUE_ADDED_EVENT,
+              PARENT_ISSUE_REMOVED_EVENT,
+              BLOCKED_BY_ADDED_EVENT,
+              BLOCKING_ADDED_EVENT,
+              BLOCKED_BY_REMOVED_EVENT,
+              BLOCKING_REMOVED_EVENT
+            ]) {
+            nodes {
+              __typename
+              ... on ReferencedEvent {
+                createdAt
+                actor { login }
+                commit { oid message }
+              }
+              ... on CrossReferencedEvent {
+                createdAt
+                actor { login }
+                source { __typename ... on Issue { number } ... on PullRequest { number } }
+              }
+              ... on LabeledEvent {
+                createdAt
+                actor {
+                  login
+                }
+                label {
+                  name
+                }
+              }
+              ... on UnlabeledEvent {
+                createdAt
+                actor {
+                  login
+                }
+                label {
+                  name
+                }
+              }
+              ... on AssignedEvent {
+                createdAt
+                actor {
+                  login
+                }
+                assignee {
+                  ... on User {
+                    login
+                  }
+                }
+              }
+              ... on UnassignedEvent {
+                createdAt
+                actor {
+                  login
+                }
+                assignee {
+                  ... on User {
+                    login
+                  }
+                }
+              }
+              ... on ClosedEvent {
+                createdAt
+                actor {
+                  login
+                }
+              }
+              ... on SubIssueAddedEvent {
+                createdAt
+                actor { login }
+                subIssue { number }
+              }
+              ... on SubIssueRemovedEvent {
+                createdAt
+                actor { login }
+                subIssue { number }
+              }
+              ... on ParentIssueAddedEvent {
+                createdAt
+                actor { login }
+                parent { number }
+              }
+              ... on ParentIssueRemovedEvent {
+                createdAt
+                actor { login }
+                parent { number }
+              }
+              ... on BlockedByAddedEvent {
+                createdAt
+                actor { login }
+                blockingIssue { number }
+              }
+              ... on BlockingAddedEvent {
+                createdAt
+                actor { login }
+                blockedIssue { number }
+              }
+              ... on BlockedByRemovedEvent {
+                createdAt
+                actor { login }
+                blockingIssue { number }
+              }
+              ... on BlockingRemovedEvent {
+                createdAt
+                actor { login }
+                blockedIssue { number }
+              }
+            }
+          }
       }
     }
   }

@@ -23,8 +23,9 @@ subIssues:
   - 7941
   - 7942
   - 7945
+  - 7946
 subIssuesCompleted: 9
-subIssuesTotal: 9
+subIssuesTotal: 10
 blockedBy: []
 blocking: []
 ---
@@ -57,5 +58,15 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu cross-referenced by #7935
+- 2025-11-29 @tobiu added sub-issue #7935
+- 2025-11-29 @tobiu added sub-issue #7936
+- 2025-11-29 @tobiu added sub-issue #7937
+- 2025-11-29 @tobiu added sub-issue #7938
 - 2025-11-29 @tobiu referenced in commit `fe69334` - "Epic: MCP Client Implementation for Agents #7931"
+- 2025-11-29 @tobiu added sub-issue #7939
+- 2025-11-29 @tobiu added sub-issue #7940
+- 2025-11-29 @tobiu added sub-issue #7941
+- 2025-11-29 @tobiu added sub-issue #7942
+- 2025-11-30 @tobiu added sub-issue #7945
+- 2025-11-30 @tobiu added sub-issue #7946
 

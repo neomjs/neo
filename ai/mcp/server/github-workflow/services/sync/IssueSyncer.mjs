@@ -7,7 +7,7 @@ import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
-import {FETCH_ISSUES_FOR_SYNC} from '../queries/issueQueries.mjs';
+import {FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
@@ -146,6 +146,30 @@ class IssueSyncer extends Base {
             case 'CrossReferencedEvent':
                 const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
                 details = `cross-referenced by ${sourceRef}`;
+                break;
+            case 'SubIssueAddedEvent':
+                details = `added sub-issue #${event.subIssue.number}`;
+                break;
+            case 'SubIssueRemovedEvent':
+                details = `removed sub-issue #${event.subIssue.number}`;
+                break;
+            case 'ParentIssueAddedEvent':
+                details = `added parent issue #${event.parent.number}`;
+                break;
+            case 'ParentIssueRemovedEvent':
+                details = `removed parent issue #${event.parent.number}`;
+                break;
+            case 'BlockedByAddedEvent':
+                details = `marked this issue as being blocked by #${event.blockingIssue.number}`;
+                break;
+            case 'BlockingAddedEvent':
+                details = `marked this issue as blocking #${event.blockedIssue.number}`;
+                break;
+            case 'BlockedByRemovedEvent':
+                details = `removed the block by #${event.blockingIssue.number}`;
+                break;
+            case 'BlockingRemovedEvent':
+                details = `removed the block on #${event.blockedIssue.number}`;
                 break;
             default:
                 details = `performed a "${event.__typename}" event`;
@@ -338,6 +362,85 @@ class IssueSyncer extends Base {
                 title    : issue.title,
                 contentHash // Store hash for push comparison
             };
+        }
+
+        /*
+         * Strategy: Child-Triggered Parent Refresh
+         *
+         * GitHub does NOT reliably update the `updatedAt` timestamp of a parent issue when
+         * a relationship change occurs (e.g., adding a sub-issue). This means our
+         * standard delta-sync (based on `since: lastSync`) will miss these updates
+         * because the parent issue is filtered out by the query.
+         *
+         * However, the CHILD issue (the sub-issue) IS newly created or updated, so it
+         * WILL be fetched by the delta-sync.
+         *
+         * We leverage this by inspecting every fetched issue. If it has a `parent`,
+         * we infer that the parent's relationship data might have changed. We collect
+         * these unique parent IDs and perform a targeted, force-update fetch for them
+         * to ensure their local files reflect the new child.
+         */
+        // Identify parents that need force-updating (Child-Triggered Refresh)
+        const parentIdsToUpdate = new Set();
+        allIssues.forEach(issue => {
+            if (issue.parent) {
+                parentIdsToUpdate.add(issue.parent.number);
+            }
+        });
+
+        // Remove parents that were already updated in the main loop
+        allIssues.forEach(issue => parentIdsToUpdate.delete(issue.number));
+
+        if (parentIdsToUpdate.size > 0) {
+            logger.info(`🔄 Force-updating ${parentIdsToUpdate.size} parent issues due to child activity...`);
+
+            for (const parentNumber of parentIdsToUpdate) {
+                try {
+                    const data = await GraphqlService.query(
+                        FETCH_SINGLE_ISSUE,
+                        {
+                            owner           : aiConfig.owner,
+                            repo            : aiConfig.repo,
+                            number          : parentNumber,
+                            maxLabels       : issueSyncConfig.maxLabelsPerIssue,
+                            maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
+                            maxComments     : issueSyncConfig.maxCommentsPerIssue,
+                            maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
+                            maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
+                        },
+                        true // Enable sub-issues
+                    );
+
+                    const issue = data.repository.issue;
+                    if (!issue) continue;
+
+                    const targetPath = this.#getIssuePath(issue);
+                    if (!targetPath) continue;
+
+                    const markdown    = this.#formatIssueMarkdown(issue, issue.comments.nodes);
+                    const contentHash = this.#calculateContentHash(markdown);
+
+                    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+                    await fs.writeFile(targetPath, markdown, 'utf-8');
+
+                    stats.pulled.updated++;
+                    stats.pulled.issues.push(parentNumber);
+                    logger.info(`✅ Force-updated parent #${parentNumber}`);
+
+                    newMetadata.issues[parentNumber] = {
+                        state    : issue.state,
+                        path     : targetPath,
+                        updatedAt: issue.updatedAt,
+                        closedAt : issue.closedAt || null,
+                        milestone: issue.milestone?.title || null,
+                        title    : issue.title,
+                        contentHash
+                    };
+
+                } catch (e) {
+                    logger.error(`Failed to force-update parent #${parentNumber}: ${e.message}`);
+                }
+            }
         }
 
         return { newMetadata, stats };
