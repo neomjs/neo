@@ -1,8 +1,8 @@
-import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport }     from '@modelcontextprotocol/sdk/client/stdio.js';
-import Base                         from '../../../src/core/Base.mjs';
-import ClientConfig                 from './config.mjs'; // Import the new config singleton
-import {validateToolInput}          from '../toolService.mjs';
+import {Client as McpSdkClient} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport}   from '@modelcontextprotocol/sdk/client/stdio.js';
+import Base                     from '../../../src/core/Base.mjs';
+import ClientConfig             from './config.mjs';
+import ToolService              from '../ToolService.mjs';
 
 /**
  * @summary A generic MCP Client that can connect to any local MCP server via Stdio.
@@ -21,32 +21,10 @@ class Client extends Base {
          */
         className: 'Neo.ai.mcp.client.Client',
         /**
-         * Path to a custom client configuration file.
-         * @member {String|null} configFile=null
-         */
-        configFile: null,
-        /**
-         * The logical name of the MCP server to connect to (e.g., 'github-workflow').
-         * This name will be used to look up connection details from ClientConfig.
-         * @member {String} serverName_='github-workflow'
-         * @reactive
-         */
-        serverName_: 'github-workflow', // New reactive config
-        /**
-         * The command to run (e.g. "node")
-         * @member {String|null} command=null // Will be loaded from config
-         */
-        command: null,
-        /**
          * The arguments for the command (e.g. ["./path/to/server.mjs"])
          * @member {String[]|null} args=null // Will be loaded from config
          */
         args: null,
-        /**
-         * Environment variables to pass to the spawned process
-         * @member {Object} env={}
-         */
-        env: {},
         /**
          * The name of the client to announce to the server
          * @member {String} clientName='Neo.ai.Agent'
@@ -56,8 +34,61 @@ class Client extends Base {
          * The version of the client to announce
          * @member {String} clientVersion='1.0.0'
          */
-        clientVersion: '1.0.0'
+        clientVersion: '1.0.0',
+        /**
+         * The command to run (e.g. "node")
+         * @member {String|null} command=null // Will be loaded from config
+         */
+        command: null,
+        /**
+         * Path to a custom client configuration file.
+         * @member {String|null} configFile=null
+         */
+        configFile: null,
+        /**
+         * Environment variables to pass to the spawned process
+         * @member {Object} env={}
+         */
+        env: {},
+        /**
+         * The logical name of the MCP server to connect to (e.g., 'github-workflow').
+         * This name will be used to look up connection details from ClientConfig.
+         * @member {String} serverName_='github-workflow'
+         * @reactive
+         */
+        serverName_: 'github-workflow'
     }
+
+    /**
+     * The MCP SDK Client instance.
+     * @member {McpSdkClient|null} client=null
+     * @protected
+     */
+    client = null
+    /**
+     * Path to the OpenAPI spec for this server (if available).
+     * @member {String|null} openApiFilePath=null
+     * @protected
+     */
+    openApiFilePath = null
+    /**
+     * Map of tool schemas keyed by tool name (from listTools).
+     * @member {Object} toolSchemas={}
+     * @protected
+     */
+    toolSchemas = {}
+    /**
+     * The ToolService instance for validation and management.
+     * @member {ToolService|null} toolService=null
+     * @protected
+     */
+    toolService = null
+    /**
+     * The Transport instance.
+     * @member {StdioClientTransport|null} transport=null
+     * @protected
+     */
+    transport = null
 
     /**
      * @protected
@@ -71,116 +102,22 @@ class Client extends Base {
     }
 
     /**
-     * The MCP SDK Client instance.
-     * @member {McpSdkClient|null} client=null
-     * @protected
-     */
-    client = null
-
-    /**
-     * The Transport instance.
-     * @member {StdioClientTransport|null} transport=null
-     * @protected
-     */
-    transport = null
-
-    async initAsync() {
-        await super.initAsync();
-
-        // 1. Load custom configuration if provided
-        if (this.configFile) {
-            try {
-                await ClientConfig.load(this.configFile);
-            } catch (error) {
-                console.error('Failed to load configuration:', error);
-                throw error;
-            }
-        }
-
-        // 2. Load initial server config based on the default or provided serverName
-        this.loadServerConfig(this.serverName);
-
-        // 3. Connect the client and create tool proxies
-        if (!this.command || !this.args) {
-            throw new Error('MCP Client: Server command and arguments are not set. Ensure serverName is valid and config.mjs is properly configured.');
-        }
-
-        this.transport = new StdioClientTransport({
-            command: this.command, // Use config values
-            args: this.args,       // Use config values
-            env: this.env
-        });
-
-        this.client = new McpSdkClient({
-            name: this.clientName,
-            version: this.clientVersion
-        }, {
-            capabilities: {}
-        });
-
-        await this.client.connect(this.transport);
-
-        // Fetch tools and create dynamic proxies
-        const tools = await this.listTools();
-        this.tools = {};
-        tools.forEach(tool => {
-            this.toolSchemas[tool.name] = tool.inputSchema;
-            const camelCaseName = Neo.snakeToCamel(tool.name);
-            // console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log (Commented out for production)
-            this.tools[camelCaseName] = async (args) => {
-                return this.callTool(tool.name, args);
-            };
-        });
-    }
-
-    /**
-     * Map of tool schemas keyed by tool name.
-     * @member {Object} toolSchemas={}
-     * @protected
-     */
-    toolSchemas = {}
-
-    /**
-     * Loads the server connection details from the ClientConfig singleton.
-     * @param {String} serverName The name of the server to load.
-     * @protected
-     */
-    loadServerConfig(serverName) {
-        const serverConfig = ClientConfig.mcpServers[serverName];
-        if (!serverConfig) {
-            throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
-        }
-        this.command = serverConfig.command;
-        this.args = serverConfig.args;
-        // Note: env from config.mjs is not explicitly merged here,
-        // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
-    }
-
-    /**
-     * Lists available tools from the server.
-     * @returns {Promise<Object[]>}
-     */
-    async listTools() {
-        if (!this.client) throw new Error("MCP Client: Client not connected");
-        const result = await this.client.listTools();
-        return result.tools;
-    }
-
-    /**
      * Calls a tool on the server.
      * @param {String} name Tool name
      * @param {Object} args Tool arguments
      * @returns {Promise<Object>}
      */
     async callTool(name, args) {
-        if (!this.client) throw new Error("MCP Client: Client not connected");
+        const me = this;
 
-        const schema = this.toolSchemas[name];
-        if (schema) {
-            validateToolInput(name, args, schema);
-        }
+        if (!me.client) throw new Error("MCP Client: Client not connected");
 
-        return await this.client.callTool({
+        const schema = me.toolSchemas[name];
+
+        // Use the instance-specific ToolService for validation
+        me.toolService.validateToolInput(name, args, schema);
+
+        return await me.client.callTool({
             name,
             arguments: args
         });
@@ -202,6 +139,103 @@ class Client extends Base {
     destroy() {
         this.close().catch(err => console.error('MCP Client: Error closing transport during destroy:', err));
         super.destroy();
+    }
+
+    async initAsync() {
+        const me = this;
+
+        await super.initAsync();
+
+        // 1. Load custom configuration if provided
+        if (me.configFile) {
+            try {
+                await ClientConfig.load(me.configFile);
+            } catch (error) {
+                console.error('Failed to load configuration:', error);
+                throw error;
+            }
+        }
+
+        // 2. Load initial server config based on the default or provided serverName
+        me.loadServerConfig(me.serverName);
+
+        // Initialize the ToolService for this client connection
+        me.toolService = Neo.create(ToolService, {
+            openApiFilePath: this.openApiFilePath
+        });
+
+        // 3. Connect the client and create tool proxies
+        if (!me.command || !me.args) {
+            throw new Error('MCP Client: Server command and arguments are not set. Ensure serverName is valid and config.mjs is properly configured.');
+        }
+
+        me.transport = new StdioClientTransport({
+            command: me.command,
+            args   : me.args,
+            env    : me.env
+        });
+
+        me.client = new McpSdkClient({
+            name   : me.clientName,
+            version: me.clientVersion
+        }, {
+            capabilities: {}
+        });
+
+        await me.client.connect(me.transport);
+
+        // Fetch tools and create dynamic proxies
+        const tools = await me.listTools();
+        me.tools = {};
+        tools.forEach(tool => {
+            const camelCaseName = Neo.snakeToCamel(tool.name);
+            // console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log (Commented out for production)
+            me.tools[camelCaseName] = async (args) => {
+                return me.callTool(tool.name, args);
+            };
+        });
+    }
+
+    /**
+     * Lists available tools from the server.
+     * @returns {Promise<Object[]>}
+     */
+    async listTools() {
+        const me = this;
+
+        if (!me.client) throw new Error("MCP Client: Client not connected");
+        const result = await me.client.listTools();
+        // Store schemas in the toolService instance for fallback validation
+        if (result.tools) {
+            // Manually populate the fallback map if needed, but toolService.validateToolInput
+            // takes the schema as an argument, so we just need to pass it during callTool.
+            // However, we need to retrieve the schema map here to pass it later.
+            // Or simpler: ToolService could have a method to register tools?
+            // For now, let's just store the map locally or rely on finding it again.
+            // Actually, `validateToolInput` takes `schema`. We need to store the map.
+            me.toolSchemas = {};
+            result.tools.forEach(t => me.toolSchemas[t.name] = t.inputSchema);
+        }
+        return result.tools;
+    }
+
+    /**
+     * Loads the server connection details from the ClientConfig singleton.
+     * @param {String} serverName The name of the server to load.
+     * @protected
+     */
+    loadServerConfig(serverName) {
+        const me = this;
+
+        const serverConfig = ClientConfig.mcpServers[serverName];
+        if (!serverConfig) {
+            throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
+        }
+        me.command         = serverConfig.command;
+        me.args            = serverConfig.args;
+        me.openApiFilePath = serverConfig.openApiFilePath || null;
+        // Note: env from config.mjs is not explicitly merged here,
+        // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
     }
 }
 

@@ -2,288 +2,294 @@ import fs                                                 from 'fs';
 import yaml                                               from 'js-yaml';
 import {zodToJsonSchema}                                  from 'zod-to-json-schema';
 import {buildZodSchema, buildOutputZodSchema, resolveRef} from './validation/OpenApiValidator.mjs';
-
-let toolMapping        = null; // Internal cache for parsed tool definitions to avoid re-parsing OpenAPI on every call.
-let allToolsForListing = null; // Internal cache for tools formatted for the MCP 'tools/list' response, including JSON schemas.
-
-let serviceMapping, openApiFilePath;
+import Base                                               from '../../src/core/Base.mjs';
 
 /**
- * Initializes the internal tool mapping and the list of tools for client discovery.
- * This function is designed to be called lazily on the first request to avoid
- * unnecessary parsing at startup.
- */
-function initializeToolMapping() {
-    // Prevent re-initialization if already done.
-    if (toolMapping) {
-        return;
-    }
-
-    toolMapping        = {};
-    allToolsForListing = [];
-
-    // Load and parse the OpenAPI specification.
-    const openApiDocument = yaml.load(fs.readFileSync(openApiFilePath, 'utf8'));
-
-    // Iterate through all paths and operations defined in the OpenAPI document.
-    for (const pathItem of Object.values(openApiDocument.paths)) {
-        for (const operation of Object.values(pathItem)) {
-            // Only process operations that have an operationId, as these are considered tools.
-            if (operation.operationId) {
-                const toolName = operation.operationId;
-
-                // Build Zod schema for input arguments and convert to JSON Schema for client discovery.
-                const inputZodSchema = buildZodSchema(openApiDocument, operation);
-                const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
-                    target: 'openApi3',
-                    $refStrategy: 'none' // Inline all definitions
-                });
-
-                // Build Zod schema for output and convert to JSON Schema for client discovery.
-                const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
-                let outputJsonSchema = null;
-                if (outputZodSchema) {
-                    outputJsonSchema = zodToJsonSchema(outputZodSchema);
-                }
-
-                // Extract argument names in order for positional argument mapping to service handlers.
-                const argNames = (operation.parameters || []).map(p => p.name);
-                if (operation.requestBody?.content?.['application/json']?.schema) {
-                     const requestBodySchema = operation.requestBody.content['application/json'].schema;
-                     if (requestBodySchema.$ref) {
-                         const resolvedSchema = resolveRef(openApiDocument, requestBodySchema.$ref);
-                         argNames.push(...Object.keys(resolvedSchema.properties));
-                     } else if (requestBodySchema.properties) {
-                         argNames.push(...Object.keys(requestBodySchema.properties));
-                     }
-                }
-
-
-                // Store the internal tool definition for execution.
-                const tool = {
-                    name        : toolName,
-                    title       : operation.summary || toolName,
-                    description : operation.description || operation.summary,
-                    zodSchema   : inputZodSchema,
-                    argNames,
-                    handler     : serviceMapping[toolName],
-                    passAsObject: operation['x-pass-as-object'] === true
-                };
-                toolMapping[toolName] = tool;
-
-                // Store the client-facing tool definition for 'tools/list' response.
-                const toolForListing = {
-                    name       : tool.name,
-                    title      : tool.title,
-                    description: tool.description,
-                    inputSchema: inputJsonSchema
-                };
-                if (outputJsonSchema !== null) {
-                    toolForListing.outputSchema = outputJsonSchema;
-                }
-                if (operation['x-annotations'] !== null) {
-                    toolForListing.annotations = operation['x-annotations'];
-                }
-                allToolsForListing.push(toolForListing);
-            }
-        }
-    }
-}
-
-/**
- * Provides a paginated list of available tools, formatted for MCP client discovery.
- * @param {object} [options] - Pagination options.
- * @param {number} [options.cursor=0] - The starting index for the list.
- * @param {number} [options.limit] - The maximum number of tools to return. If not provided, all tools are returned.
- * @returns {object} An object containing the list of tools and a nextCursor for pagination.
- */
-function listTools({ cursor = 0, limit } = {}) {
-    initializeToolMapping();
-
-    // If no limit is specified, return all tools without pagination.
-    if (!limit) {
-        return {
-            tools     : allToolsForListing,
-            nextCursor: null
-        };
-    }
-
-    // Apply pagination based on cursor and limit.
-    const start      = cursor;
-    const end        = start + limit;
-    const toolsSlice = allToolsForListing.slice(start, end);
-    const nextCursor = end < allToolsForListing.length ? String(end) : null; // Specs do not accept numbers
-
-    return {
-        tools: toolsSlice,
-        nextCursor
-    };
-}
-
-/**
- * Executes a specific tool with the given arguments.
- * This function performs input validation and maps arguments to the service handler.
- * @param {string} toolName - The name of the tool to call (snake_case).
- * @param {object} args - The arguments provided by the client for the tool call.
- * @returns {Promise<any>} The result of the tool execution.
- * @throws {Error} If the tool is not found, not implemented, or arguments are invalid.
- */
-async function callTool(toolName, args) {
-    initializeToolMapping();
-
-    // Handle server-prefixed tool names (e.g., "neo-knowledge-base__healthcheck")
-    const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
-    const effectiveToolName = lastDoubleUnderscoreIndex !== -1
-        ? toolName.substring(lastDoubleUnderscoreIndex + 2)
-        : toolName;
-
-    const tool = toolMapping[effectiveToolName];
-
-    // Ensure the tool exists and has a registered handler.
-    if (!tool || !tool.handler) {
-        throw new Error(`Tool "${effectiveToolName}" not found or not implemented.`);
-    }
-
-    // Validate incoming arguments against the tool's Zod schema.
-    // This will throw an error if validation fails, which is caught by the MCP server.
-    const validatedArgs = tool.zodSchema.parse(args);
-
-    // Use the passAsObject flag to determine how to call the handler.
-    if (tool.passAsObject) {
-        return tool.handler(validatedArgs);
-    }
-
-    // For other tools, map validated arguments to positional arguments for the handler.
-    const handlerArgs = tool.argNames.map(name => validatedArgs[name]);
-    return tool.handler(...handlerArgs);
-}
-
-/**
- * Validates tool input against the internal Zod schema (if available) or a provided JSON Schema.
+ * Shared service for managing, listing, calling, and validating MCP tools.
+ * Can be instantiated by both MCP Servers (with OpenAPI spec) and MCP Clients.
  *
- * @param {string} toolName - The name of the tool.
- * @param {object} args - The arguments to validate.
- * @param {object} [schema] - Optional JSON schema to validate against (fallback for External Servers).
- * @returns {boolean} True if valid.
- * @throws {Error} If validation fails or tool is not found.
+ * @class Neo.ai.mcp.ToolService
+ * @extends Neo.core.Base
  */
-function validateToolInput(toolName, args, schema) {
-    // 1. Try Server-side validation using internal Zod schemas (best quality)
-    if (toolMapping) {
+class ToolService extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.ToolService'
+         * @protected
+         */
+        className: 'Neo.ai.mcp.ToolService',
+        /**
+         * Path to the OpenAPI specification file.
+         * @member {String|null} openApiFilePath=null
+         */
+        openApiFilePath: null
+    }
+
+    /**
+     * Internal cache for tools formatted for the MCP 'tools/list' response.
+     * @member {Array|null} allToolsForListing=null
+     * @protected
+     */
+    allToolsForListing = null
+    /**
+     * Map of service method handlers.
+     * Only getting set for MCP servers.
+     * @member {Object|null} serviceMapping=null
+     */
+    serviceMapping = null
+    /**
+     * Internal cache for parsed tool definitions.
+     * @member {Object|null} toolMapping=null
+     * @protected
+     */
+    toolMapping = null
+
+    /**
+     * Executes a specific tool with the given arguments.
+     * @param {String} toolName
+     * @param {Object} args
+     * @returns {Promise<any>}
+     */
+    async callTool(toolName, args) {
+        this.initializeToolMapping();
+
         const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
         const effectiveToolName = lastDoubleUnderscoreIndex !== -1
             ? toolName.substring(lastDoubleUnderscoreIndex + 2)
             : toolName;
 
-        const tool = toolMapping[effectiveToolName];
-        if (tool) {
-            tool.zodSchema.parse(args); // Throws if invalid
-            return true;
+        const tool = this.toolMapping[effectiveToolName];
+
+        if (!tool || !tool.handler) {
+            throw new Error(`Tool "${effectiveToolName}" not found or not implemented.`);
         }
-    }
 
-    // 2. Fallback: Client-side validation using provided JSON Schema (for External Servers)
-    if (schema) {
-        return validateJsonSchema(args, schema);
-    }
+        const validatedArgs = tool.zodSchema.parse(args);
 
-    // 3. If neither is available, we can't validate.
-    // For now, we assume valid if no schema is present to avoid blocking valid calls.
-    return true;
-}
-
-/**
- * Validates a value against a JSON Schema subset (Draft 7).
- * Supports: type (string, number, integer, boolean, object, array), required, properties, items, enum.
- * Copied from Client.mjs for shared use.
- * @param {*} value
- * @param {Object} schema
- * @param {String} [path='args']
- * @returns {Boolean} true if valid
- * @throws {Error} if invalid
- */
-function validateJsonSchema(value, schema, path = 'args') {
-    if (!schema) return true;
-
-    // Handle types
-    if (schema.type) {
-        const type = schema.type;
-        const valueType = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
-
-        // JSON Schema 'integer' check
-        if (type === 'integer') {
-            if (typeof value !== 'number' || !Number.isInteger(value)) {
-                throw new Error(`Validation Error at ${path}: Expected integer, got ${valueType} (${value})`);
-            }
-        } else if (type === 'number') {
-            if (typeof value !== 'number') {
-                throw new Error(`Validation Error at ${path}: Expected number, got ${valueType}`);
-            }
-        } else if (type === 'string') {
-            if (typeof value !== 'string') {
-                throw new Error(`Validation Error at ${path}: Expected string, got ${valueType}`);
-            }
-        } else if (type === 'boolean') {
-            if (typeof value !== 'boolean') {
-                throw new Error(`Validation Error at ${path}: Expected boolean, got ${valueType}`);
-            }
-        } else if (type === 'object') {
-            if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-                throw new Error(`Validation Error at ${path}: Expected object, got ${valueType}`);
-            }
-        } else if (type === 'array') {
-            if (!Array.isArray(value)) {
-                throw new Error(`Validation Error at ${path}: Expected array, got ${valueType}`);
-            }
+        if (tool.passAsObject) {
+            return tool.handler(validatedArgs);
         }
+
+        const handlerArgs = tool.argNames.map(name => validatedArgs[name]);
+        return tool.handler(...handlerArgs);
     }
 
-    // Handle Objects
-    if (schema.type === 'object') {
-        // Required fields
-        if (schema.required) {
-            schema.required.forEach(field => {
-                if (value[field] === undefined) {
-                    throw new Error(`Validation Error at ${path}: Missing required property '${field}'`);
+    /**
+     * Initializes the internal tool mapping and the list of tools.
+     * Designed to be called lazily.
+     */
+    initializeToolMapping() {
+        const me = this;
+
+        if (me.toolMapping) {
+            return;
+        }
+
+        // Client-side usage without OpenAPI spec: skip initialization
+        if (!me.openApiFilePath) {
+            me.toolMapping        = {};
+            me.allToolsForListing = [];
+            return;
+        }
+
+        me.toolMapping        = {};
+        me.allToolsForListing = [];
+
+        const openApiDocument = yaml.load(fs.readFileSync(me.openApiFilePath, 'utf8'));
+
+        for (const pathItem of Object.values(openApiDocument.paths)) {
+            for (const operation of Object.values(pathItem)) {
+                if (operation.operationId) {
+                    const toolName = operation.operationId;
+
+                    const inputZodSchema  = buildZodSchema(openApiDocument, operation);
+                    const inputJsonSchema = zodToJsonSchema(inputZodSchema, {
+                        target      : 'openApi3',
+                        $refStrategy: 'none'
+                    });
+
+                    const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
+                    let outputJsonSchema  = null;
+                    if (outputZodSchema) {
+                        outputJsonSchema = zodToJsonSchema(outputZodSchema);
+                    }
+
+                    const argNames = (operation.parameters || []).map(p => p.name);
+                    if (operation.requestBody?.content?.['application/json']?.schema) {
+                        const requestBodySchema = operation.requestBody.content['application/json'].schema;
+                        if (requestBodySchema.$ref) {
+                            const resolvedSchema = resolveRef(openApiDocument, requestBodySchema.$ref);
+                            argNames.push(...Object.keys(resolvedSchema.properties));
+                        } else if (requestBodySchema.properties) {
+                            argNames.push(...Object.keys(requestBodySchema.properties));
+                        }
+                    }
+
+                    const tool = {
+                        name        : toolName,
+                        title       : operation.summary || toolName,
+                        description : operation.description || operation.summary,
+                        zodSchema   : inputZodSchema,
+                        argNames,
+                        handler     : me.serviceMapping ? me.serviceMapping[toolName] : null,
+                        passAsObject: operation['x-pass-as-object'] === true
+                    };
+                    me.toolMapping[toolName] = tool;
+
+                    const toolForListing = {
+                        name       : tool.name,
+                        title      : tool.title,
+                        description: tool.description,
+                        inputSchema: inputJsonSchema
+                    };
+                    if (outputJsonSchema !== null) {
+                        toolForListing.outputSchema = outputJsonSchema;
+                    }
+                    if (operation['x-annotations'] !== null) {
+                        toolForListing.annotations = operation['x-annotations'];
+                    }
+                    me.allToolsForListing.push(toolForListing);
                 }
+            }
+        }
+    }
+
+    /**
+     * Provides a paginated list of available tools.
+     * @param {Object} [options]
+     * @param {Number} [options.cursor=0]
+     * @param {Number} [options.limit]
+     * @returns {Object}
+     */
+    listTools({cursor=0, limit} = {}) {
+        const me = this;
+
+        me.initializeToolMapping();
+
+        if (!limit) {
+            return {
+                tools     : me.allToolsForListing,
+                nextCursor: null
+            };
+        }
+
+        const start      = cursor;
+        const end        = start + limit;
+        const toolsSlice = me.allToolsForListing.slice(start, end);
+        const nextCursor = end < me.allToolsForListing.length ? String(end) : null;
+
+        return {
+            tools: toolsSlice,
+            nextCursor
+        };
+    }
+
+    /**
+     * Validates a value against a JSON Schema subset.
+     * @param {*}      value
+     * @param {Object} schema
+     * @param {String} [path='args']
+     * @returns {Boolean}
+     */
+    validateJsonSchema(value, schema, path='args') {
+        if (!schema) return true;
+
+        if (schema.type) {
+            const type = schema.type;
+            const valueType = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
+
+            if (type === 'integer') {
+                if (typeof value !== 'number' || !Number.isInteger(value)) {
+                    throw new Error(`Validation Error at ${path}: Expected integer, got ${valueType} (${value})`);
+                }
+            } else if (type === 'number') {
+                if (typeof value !== 'number') {
+                    throw new Error(`Validation Error at ${path}: Expected number, got ${valueType}`);
+                }
+            } else if (type === 'string') {
+                if (typeof value !== 'string') {
+                    throw new Error(`Validation Error at ${path}: Expected string, got ${valueType}`);
+                }
+            } else if (type === 'boolean') {
+                if (typeof value !== 'boolean') {
+                    throw new Error(`Validation Error at ${path}: Expected boolean, got ${valueType}`);
+                }
+            } else if (type === 'object') {
+                if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+                    throw new Error(`Validation Error at ${path}: Expected object, got ${valueType}`);
+                }
+            } else if (type === 'array') {
+                if (!Array.isArray(value)) {
+                    throw new Error(`Validation Error at ${path}: Expected array, got ${valueType}`);
+                }
+            }
+        }
+
+        if (schema.type === 'object') {
+            if (schema.required) {
+                schema.required.forEach(field => {
+                    if (value[field] === undefined) {
+                        throw new Error(`Validation Error at ${path}: Missing required property '${field}'`);
+                    }
+                });
+            }
+            if (schema.properties) {
+                Object.keys(value).forEach(key => {
+                    if (schema.properties[key]) {
+                        this.validateJsonSchema(value[key], schema.properties[key], `${path}.${key}`);
+                    }
+                });
+            }
+        }
+
+        if (schema.type === 'array' && schema.items) {
+            value.forEach((item, index) => {
+                this.validateJsonSchema(item, schema.items, `${path}[${index}]`);
             });
         }
 
-        // Properties
-        if (schema.properties) {
-            Object.keys(value).forEach(key => {
-                if (schema.properties[key]) {
-                    validateJsonSchema(value[key], schema.properties[key], `${path}.${key}`);
-                }
-            });
+        if (schema.enum) {
+            if (!schema.enum.includes(value)) {
+                throw new Error(`Validation Error at ${path}: Value '${value}' is not allowed. Allowed values: ${schema.enum.join(', ')}`);
+            }
         }
+
+        return true;
     }
 
-    // Handle Arrays
-    if (schema.type === 'array' && schema.items) {
-        value.forEach((item, index) => {
-            validateJsonSchema(item, schema.items, `${path}[${index}]`);
-        });
-    }
+    /**
+     * Validates tool input against the internal Zod schema (if available) or a provided JSON Schema.
+     * @param {String} toolName
+     * @param {Object} args
+     * @param {Object} [schema]
+     * @returns {boolean}
+     */
+    validateToolInput(toolName, args, schema) {
+        const me = this;
 
-    // Handle Enum
-    if (schema.enum) {
-        if (!schema.enum.includes(value)) {
-            throw new Error(`Validation Error at ${path}: Value '${value}' is not allowed. Allowed values: ${schema.enum.join(', ')}`);
+        me.initializeToolMapping();
+
+        // 1. Try Server-side validation using internal Zod schemas
+        if (me.toolMapping) {
+            const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
+            const effectiveToolName = lastDoubleUnderscoreIndex !== -1
+                ? toolName.substring(lastDoubleUnderscoreIndex + 2)
+                : toolName;
+
+            const tool = me.toolMapping[effectiveToolName];
+            if (tool) {
+                tool.zodSchema.parse(args);
+                return true;
+            }
         }
-    }
 
-    return true;
+        // 2. Fallback: Client-side validation using provided JSON Schema
+        if (schema) {
+            return me.validateJsonSchema(args, schema);
+        }
+
+        return true;
+    }
 }
 
-function initialize(mapping, filePath) {
-    serviceMapping  = mapping;
-    openApiFilePath = filePath;
-}
-
-export {
-    initialize,
-    listTools,
-    callTool,
-    validateToolInput
-};
+export default Neo.setupClass(ToolService);

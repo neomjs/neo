@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({path: path.resolve(__dirname, '../../.env'), quiet: true});
 
 async function run() {
     console.log('🤖 MCP Demo Agent Starting (via Neo.ai.Agent)...');
@@ -37,7 +37,6 @@ async function run() {
         console.log('✅ Agent ready (connected to servers).');
 
         // Example: List tools from GitHub Workflow Server
-        console.log('Agent Instance:', agent); // Log entire agent
         console.log('Agent Clients Direct Access:', agent.clients); // Log property access
         console.log('GitHub Client Exists:', !!agent.clients?.githubWorkflow); // Safe check
 
