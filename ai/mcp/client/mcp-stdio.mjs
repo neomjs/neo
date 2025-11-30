@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Neo.mjs MCP Client CLI
  *
@@ -7,8 +5,9 @@
  * using the Neo.ai.mcp.client.Client.
  *
  * Usage:
- * node ai/mcp/client/mcp-cli.mjs --server <serverName> --list-tools
- * node ai/mcp/client/mcp-cli.mjs --server <serverName> --call-tool <toolName> --args '{"key": "value"}'
+ * npm run ai:mcp-client -- --server <serverName> --list-tools
+ * npm run ai:mcp-client -- --server <serverName> --call-tool <toolName> --args '{"key": "value"}'
+ * npm run ai:mcp-client -- -c ./my-client-config.mjs --server <serverName> --list-tools
  */
 
 import { Command }       from 'commander';
@@ -16,23 +15,17 @@ import Neo               from '../../../src/Neo.mjs';
 import * as core         from '../../../src/core/_export.mjs'; // For Neo.core.Base setup
 import InstanceManager   from '../../../src/manager/Instance.mjs'; // For Neo.core.Base setup
 import Client            from './Client.mjs';
-import ClientConfig      from './config.mjs';
-import path              from 'path';
-import { fileURLToPath } from 'url';
-import dotenv            from 'dotenv';
-
-// Load environment variables from project root
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+import aiConfig          from './config.mjs';
 
 const program = new Command();
 
 program
-    .name('mcp-cli')
+    .name('mcp-client')
     .description('CLI for interacting with MCP servers')
-    .requiredOption('-s, --server <name>', 'Logical name of the MCP server to connect to (e.g., github-workflow)')
-    .option('-l, --list-tools', 'List available tools on the server')
-    .option('-c, --call-tool <toolName>', 'Name of the tool to call')
+    .option('-s, --server <name>', 'Logical name of the MCP server to connect to (e.g., github-workflow)')
+    .option('-l, --list-tools', 'List available tools on the specified server')
+    .option('-c, --config <path>', 'Path to an external client configuration file')
+    .option('-t, --call-tool <toolName>', 'Name of the tool to call')
     .option('-a, --args <json>', 'JSON string of arguments for --call-tool', '{}')
     .option('-d, --debug', 'Enable debug logging');
 
@@ -40,17 +33,29 @@ program.parse(process.argv);
 
 const options = program.opts();
 
-async function run() {
-    console.log(`🤖 MCP Client CLI starting for server: ${options.server}`);
-    console.log('GH_TOKEN present:', !!process.env.GH_TOKEN); // Debug info
+// Apply debug flag immediately
+if (options.debug) {
+    aiConfig.data.debug = true;
+}
 
-    const mcpClient = Neo.create(Client, {
-        clientName: 'Neo.ai.MCP.CLI',
-        serverName: options.server,
-        env: process.env // Pass environment variables
-    });
+async function run() {
+    console.log(`🤖 MCP Client CLI starting.`);
+
+    let mcpClient = null;
 
     try {
+        if (!options.server) {
+            console.error('❌ Error: A target server must be specified using -s, --server <name>.');
+            process.exit(1);
+        }
+
+        mcpClient = Neo.create(Client, {
+            clientName: 'Neo.ai.MCP.CLI',
+            configFile: options.config,
+            serverName: options.server,
+            env: process.env // Pass environment variables
+        });
+
         await mcpClient.connect();
         console.log(`✅ Connected to ${options.server} MCP server.`);
 
@@ -64,7 +69,14 @@ async function run() {
         } else if (options.callTool) {
             console.log(`\nCalling tool: ${options.callTool} with args: ${options.args}`);
             const args = JSON.parse(options.args);
-            const result = await mcpClient.callTool(options.callTool, args);
+            const toolMethod = mcpClient.tools[Neo.snakeToCamel(options.callTool)]; // Use dynamic proxy
+
+            if (!toolMethod) {
+                console.error(`❌ Error: Tool '${options.callTool}' not found on server '${options.server}'.`);
+                process.exit(1);
+            }
+
+            const result = await toolMethod(args);
 
             if (result.isError) {
                 console.error(`\n❌ Tool call failed:`);
@@ -78,10 +90,12 @@ async function run() {
         }
 
     } catch (error) {
-        console.error('\n💥 MCP CLI Error:', error.message);
+        console.error('Fatal error during client initialization:', error);
         process.exit(1);
     } finally {
-        await mcpClient.close();
+        if (mcpClient) {
+            await mcpClient.close();
+        }
         console.log('\n🔌 Connection closed.');
     }
 }

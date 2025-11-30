@@ -20,6 +20,11 @@ class Client extends Base {
          */
         className: 'Neo.ai.mcp.client.Client',
         /**
+         * Path to a custom client configuration file.
+         * @member {String|null} configFile=null
+         */
+        configFile: null,
+        /**
          * The logical name of the MCP server to connect to (e.g., 'github-workflow').
          * This name will be used to look up connection details from ClientConfig.
          * @member {String} serverName_='github-workflow'
@@ -80,7 +85,18 @@ class Client extends Base {
 
     async initAsync() {
         await super.initAsync();
-        // Load initial server config based on the default or provided serverName
+
+        // 1. Load custom configuration if provided
+        if (this.configFile) {
+            try {
+                await ClientConfig.load(this.configFile);
+            } catch (error) {
+                console.error('Failed to load configuration:', error);
+                throw error;
+            }
+        }
+
+        // 2. Load initial server config based on the default or provided serverName
         this.loadServerConfig(this.serverName);
     }
 
