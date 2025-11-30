@@ -1,14 +1,14 @@
 ---
 id: 7953
 title: Refactor Client Configuration Consistency
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
 assignees:
   - tobiu
 createdAt: '2025-11-30T15:57:56Z'
-updatedAt: '2025-11-30T15:58:05Z'
+updatedAt: '2025-11-30T16:02:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7953'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-30T16:02:34Z'
 ---
 # Refactor Client Configuration Consistency
 
@@ -42,4 +43,6 @@ Normalize the configuration properties in `Client.mjs` to be consistent.
 - 2025-11-30 @tobiu added the `refactoring` label
 - 2025-11-30 @tobiu assigned to @tobiu
 - 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu referenced in commit `f6d1455` - "Refactor Client Configuration Consistency #7953"
+- 2025-11-30 @tobiu closed this issue
 

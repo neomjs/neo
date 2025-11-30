@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T15:17:50Z'
-updatedAt: '2025-11-29T15:17:50Z'
+updatedAt: '2025-11-30T18:37:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7918'
 author: tobiu
 commentsCount: 0
@@ -16,8 +17,9 @@ subIssues:
   - 7920
   - 7921
   - 7922
+  - 7954
 subIssuesCompleted: 0
-subIssuesTotal: 3
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -46,4 +48,7 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 - 2025-11-29 @tobiu added sub-issue #7920
 - 2025-11-29 @tobiu added sub-issue #7921
 - 2025-11-29 @tobiu added sub-issue #7922
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu cross-referenced by #7954
+- 2025-11-30 @tobiu added sub-issue #7954
 

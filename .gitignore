@@ -4,6 +4,9 @@
 /apps/**/*.mjs
 /apps/**/neo-config.json
 
+!/apps/agent-os/index.html
+!/apps/agent-os/**/*.mjs
+!/apps/agent-os/neo-config.json
 !/apps/colors/index.html
 !/apps/colors/**/*.mjs
 !/apps/colors/neo-config.json
