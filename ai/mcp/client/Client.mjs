@@ -66,11 +66,22 @@ class Client extends Base {
      */
     client = null
     /**
+     * Connection state of the client.
+     * @member {Boolean} connected=false
+     */
+    connected = false
+    /**
      * Path to the OpenAPI spec for this server (if available).
      * @member {String|null} openApiFilePath=null
      * @protected
      */
     openApiFilePath = null
+    /**
+     * List of environment variable names required by the server.
+     * @member {String[]} requiredEnv=[]
+     * @protected
+     */
+    requiredEnv = []
     /**
      * Map of tool schemas keyed by tool name (from listTools).
      * @member {Object} toolSchemas={}
@@ -110,7 +121,7 @@ class Client extends Base {
     async callTool(name, args) {
         const me = this;
 
-        if (!me.client) throw new Error("MCP Client: Client not connected");
+        if (!me.client || !me.connected) throw new Error("MCP Client: Client not connected");
 
         const schema = me.toolSchemas[name];
 
@@ -130,6 +141,7 @@ class Client extends Base {
     async close() {
         if (this.transport) {
             await this.transport.close();
+            this.connected = false;
         }
     }
 
@@ -159,6 +171,14 @@ class Client extends Base {
         // 2. Load initial server config based on the default or provided serverName
         me.loadServerConfig(me.serverName);
 
+        // Validate required environment variables
+        if (me.requiredEnv.length > 0) {
+            const missingEnv = me.requiredEnv.filter(key => !me.env[key] && !process.env[key]);
+            if (missingEnv.length > 0) {
+                throw new Error(`MCP Client: Missing required environment variables for '${me.serverName}': ${missingEnv.join(', ')}`);
+            }
+        }
+
         // Initialize the ToolService for this client connection
         me.toolService = Neo.create(ToolService, {
             openApiFilePath: this.openApiFilePath
@@ -183,6 +203,7 @@ class Client extends Base {
         });
 
         await me.client.connect(me.transport);
+        me.connected = true;
 
         // Fetch tools and create dynamic proxies
         const tools = await me.listTools();
@@ -203,7 +224,7 @@ class Client extends Base {
     async listTools() {
         const me = this;
 
-        if (!me.client) throw new Error("MCP Client: Client not connected");
+        if (!me.client || !me.connected) throw new Error("MCP Client: Client not connected");
         const result = await me.client.listTools();
         // Store schemas in the toolService instance for fallback validation
         if (result.tools) {
@@ -234,6 +255,7 @@ class Client extends Base {
         me.command         = serverConfig.command;
         me.args            = serverConfig.args;
         me.openApiFilePath = serverConfig.openApiFilePath || null;
+        me.requiredEnv     = serverConfig.requiredEnv     || [];
         // Note: env from config.mjs is not explicitly merged here,
         // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
     }

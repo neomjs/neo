@@ -14,16 +14,19 @@ const defaultConfig = {
      */
     mcpServers: {
         "github-workflow": {
-            command: "npm",
-            args   : ["run", "ai:mcp-server-github-workflow"]
+            command    : "npm",
+            args       : ["run", "ai:mcp-server-github-workflow"],
+            requiredEnv: ["GH_TOKEN"]
         },
         "knowledge-base": {
-            command: "npm",
-            args   : ["run", "ai:mcp-server-knowledge-base"]
+            command    : "npm",
+            args       : ["run", "ai:mcp-server-knowledge-base"],
+            requiredEnv: ["GEMINI_API_KEY"]
         },
         "memory-core": {
-            command: "npm",
-            args   : ["run", "ai:mcp-server-memory-core"]
+            command    : "npm",
+            args       : ["run", "ai:mcp-server-memory-core"],
+            requiredEnv: ["GEMINI_API_KEY"]
         }
     }
 };

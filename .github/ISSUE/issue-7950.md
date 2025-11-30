@@ -1,23 +1,25 @@
 ---
 id: 7950
 title: Refactor ToolService to Class-based Architecture
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-30T14:38:20Z'
-updatedAt: '2025-11-30T14:38:20Z'
+updatedAt: '2025-11-30T15:10:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7950'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7931
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-30T15:10:43Z'
 ---
 # Refactor ToolService to Class-based Architecture
 
@@ -44,10 +46,36 @@ Refactor `ai/mcp/toolService.mjs` into a class-based `Neo.ai.mcp.ToolService` ex
 -   Updated Servers and Client using the new class.
 
 
+## Comments
+
+### @tobiu - 2025-11-30 15:10
+
+**Input from Gemini 2.5 pro:**
+
+> ✦ I have successfully completed the singleton-to-class refactoring for `ToolService`.
+> 
+> ### Refactoring Details
+> 1.  **Class Architecture:** `ai/mcp/ToolService.mjs` is now a class extending `Neo.core.Base`.
+>     *   State (`toolMapping`, `allToolsForListing`) is instance-scoped.
+>     *   Configuration (`openApiFilePath`) is handled via `static config` and `construct`.
+> 2.  **Server Migration:** All three MCP servers (`github-workflow`, `knowledge-base`, `memory-core`) now instantiate a `new ToolService(...)` in their respective `services/toolService.mjs` wrappers, ensuring isolation.
+> 3.  **Client Migration:** `Neo.ai.mcp.client.Client` now creates a private `ToolService` instance for *each* connection (`initAsync`). This enables the Client to maintain separate validation contexts (e.g., separate Zod schemas) for different internal servers within the same process.
+> 
+> ### Verification
+> The `mcp-demo-agent.mjs` runs successfully, confirming that:
+> -   Servers initialize correctly with the new class-based service.
+> -   The Client connects and executes tools (using the new class-based validation logic).
+> -   The architecture handles the multi-server setup without state pollution.
+> 
+> I am ready to close this ticket.
+
 ## Activity Log
 
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu added the `refactoring` label
 - 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `7284f44` - "Refactor ToolService to Class-based Architecture #7950"
+- 2025-11-30 @tobiu closed this issue
 
