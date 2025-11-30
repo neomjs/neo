@@ -27,8 +27,9 @@ subIssues:
   - 7949
   - 7950
   - 7951
-subIssuesCompleted: 12
-subIssuesTotal: 13
+  - 7952
+subIssuesCompleted: 13
+subIssuesTotal: 14
 blockedBy: []
 blocking: []
 ---
@@ -76,4 +77,5 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 - 2025-11-30 @tobiu added sub-issue #7949
 - 2025-11-30 @tobiu added sub-issue #7950
 - 2025-11-30 @tobiu added sub-issue #7951
+- 2025-11-30 @tobiu added sub-issue #7952
 
