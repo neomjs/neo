@@ -1,4 +1,5 @@
 import BaseViewport from '../../../../../src/container/Viewport.mjs';
+import Blackboard   from '../../../view/Blackboard.mjs';
 
 /**
  * @class AgentOS.swarm.view.Viewport
@@ -9,17 +10,14 @@ class Viewport extends BaseViewport {
         className: 'AgentOS.swarm.view.Viewport',
         layout   : {ntype: 'vbox', align: 'stretch'},
         items    : [{
-            ntype: 'container',
-            flex : 2,
-            cls  : ['neo-swarm-grid'],
-            style: {
+            module: Blackboard,
+            flex  : 2,
+            style : {
                 backgroundColor: '#1e1e1e',
-                color          : '#d4d4d4',
                 margin         : '10px',
-                padding        : '20px',
-                borderRadius   : '4px'
-            },
-            html: '<h2>Swarm Visualization</h2><p>Live agent graph will render here.</p>'
+                borderRadius   : '4px',
+                overflow       : 'hidden' // Ensure canvas doesn't spill
+            }
         }, {
             ntype: 'container',
             flex : 1,

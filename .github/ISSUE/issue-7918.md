@@ -19,7 +19,7 @@ subIssues:
   - 7922
   - 7954
   - 7955
-subIssuesCompleted: 1
+subIssuesCompleted: 2
 subIssuesTotal: 5
 blockedBy: []
 blocking: []

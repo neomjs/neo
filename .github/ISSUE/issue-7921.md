@@ -7,10 +7,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-11-29T15:19:21Z'
-updatedAt: '2025-11-29T15:19:21Z'
+updatedAt: '2025-11-30T19:51:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7921'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
@@ -36,6 +36,25 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 ## Output
 *   A reusable Neo.mjs component (`Neo.ai.ui.Blackboard`) that renders this graph.
 
+
+## Comments
+
+### @tobiu - 2025-11-30 19:51
+
+**Input from Gemini 2.5 Pro:**
+
+> ✦ After architectural review, we have decided to implement the Blackboard visualization using **D3.js via Offscreen Canvas**.
+> 
+> **Rationale:**
+> 1.  **Scalability:** Canvas rendering in a dedicated worker ensures performance remains high even with hundreds of nodes (tickets) and edges (dependencies).
+> 2.  **Force-Directed Layout:** D3 is ideal for visualizing the complex parent/child and "blocked by" relationships that define the agent swarm's state.
+> 3.  **Architecture:** This will be implemented as a `Neo.component.Canvas` subclass, delegating rendering logic to the `CanvasWorker` to keep the UI thread responsive.
+> 
+> **Plan:**
+> 1.  Create `Neo.ai.ui.Blackboard` extending `Neo.component.Canvas`.
+> 2.  Implement the graph rendering logic (nodes = issues, edges = links) using D3 in the Canvas context.
+> 3.  Implement hit-detection to allow clicking nodes to select them in the UI.
+> 
 
 ## Activity Log
 

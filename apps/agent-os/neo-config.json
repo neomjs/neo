@@ -3,5 +3,6 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
+    "useCanvasWorker" : true,
     "useSharedWorkers": true
 }
