@@ -3,7 +3,6 @@ import Client from './mcp/client/Client.mjs';
 
 /**
  * A base class for AI Agents that manages multiple MCP Client connections.
- * It aggregates tools from connected servers into a structured `tools` namespace.
  * @class Neo.ai.Agent
  * @extends Neo.core.Base
  */
