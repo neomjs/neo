@@ -44,7 +44,7 @@ class Agent extends Base {
 
             readyPromises.push(client.ready());
 
-            this.clients[Neo.snakeToCamel(serverName)] = client;
+            this.clients[Neo.camel(serverName)] = client;
         }
 
         await Promise.all(readyPromises);
