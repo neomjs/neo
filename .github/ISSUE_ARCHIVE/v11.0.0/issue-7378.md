@@ -582,6 +582,7 @@ https://github.com/neomjs/neo/blob/dev/.github/workflows/prevent-reopen.yml
 ## Activity Log
 
 - 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added parent issue #7364
 - 2025-10-05 @tobiu assigned to @kart-u
 - 2025-10-06 @kart-u referenced in commit `620ab3d` - "Enhance Knowledge Base to Include GitHub Comments #7378"
 - 2025-10-06 @tobiu added the `hacktoberfest` label

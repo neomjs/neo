@@ -44,6 +44,7 @@ To improve clarity, consistency, and discoverability, all service class names sh
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label
 - 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu added parent issue #7536
 - 2025-10-19 @tobiu referenced in commit `7a30903` - "Refactor MCP Service ClassNames to Use Full Server Names #7562"
 - 2025-10-19 @tobiu closed this issue
 

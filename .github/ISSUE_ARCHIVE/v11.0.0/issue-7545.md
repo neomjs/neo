@@ -37,6 +37,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/summaryServic
 ## Activity Log
 
 - 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added parent issue #7536
 - 2025-10-18 @tobiu added the `enhancement` label
 - 2025-10-18 @tobiu added the `ai` label
 - 2025-10-18 @tobiu referenced in commit `92e7e94` - "#7545 renamed the service first"

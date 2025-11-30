@@ -38,4 +38,5 @@ To enable broader adoption (Epic #7919), we need to extract the GitHub Workflow 
 
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7919
 

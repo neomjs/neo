@@ -36,5 +36,6 @@ closedAt: '2025-05-05T17:22:29Z'
 
 - 2025-05-05 @tobiu assigned to @tobiu
 - 2025-05-05 @tobiu added the `enhancement` label
+- 2025-05-05 @tobiu added parent issue #6696
 - 2025-05-05 @tobiu closed this issue
 

@@ -32,6 +32,7 @@ Update `AGENTS.md` to clearly state that the memory server runs on port 8001 and
 ## Activity Log
 
 - 2025-10-05 @tobiu assigned to @tobiu
+- 2025-10-05 @tobiu added parent issue #7316
 - 2025-10-05 @tobiu added the `documentation` label
 - 2025-10-05 @tobiu added the `enhancement` label
 - 2025-10-05 @tobiu added the `ai` label

@@ -70,6 +70,7 @@ class MyFunctionalButton extends FunctionalBase {
 
 ## Activity Log
 
+- 2025-07-09 @tobiu added parent issue #6992
 - 2025-07-09 @tobiu added the `enhancement` label
 - 2025-07-11 @tobiu referenced in commit `343b2ad` - "Create Neo.functional.component.Base #6994 early draft version"
 - 2025-07-11 @tobiu closed this issue

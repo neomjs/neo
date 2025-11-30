@@ -36,6 +36,7 @@ Several services within the `memory-core` server are importing the old `aiConfig
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label
+- 2025-10-17 @tobiu added parent issue #7520
 - 2025-10-17 @tobiu added the `ai` label
 - 2025-10-17 @tobiu referenced in commit `6d72263` - "Use Centralized AI Config in Memory Core Services #7528"
 - 2025-10-17 @tobiu closed this issue

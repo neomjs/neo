@@ -44,4 +44,5 @@ The `Client` should:
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu added parent issue #7931
 - 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu cross-referenced by #7947
 

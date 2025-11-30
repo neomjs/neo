@@ -36,6 +36,7 @@ To standardize our naming convention, the `knowledgeBase.collectionName` should 
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label
+- 2025-10-19 @tobiu added parent issue #7536
 - 2025-10-19 @tobiu added the `ai` label
 - 2025-10-19 @tobiu referenced in commit `59f3602` - "Standardize ChromaDB Collection Naming Convention #7563"
 - 2025-10-19 @tobiu closed this issue

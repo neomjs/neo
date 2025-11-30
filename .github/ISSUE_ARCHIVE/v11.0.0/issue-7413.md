@@ -52,10 +52,12 @@ redundant. closing the ticket.
 ## Activity Log
 
 - 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added parent issue #7399
 - 2025-10-07 @tobiu added the `help wanted` label
 - 2025-10-07 @tobiu added the `good first issue` label
 - 2025-10-07 @tobiu added the `hacktoberfest` label
 - 2025-10-07 @tobiu added the `ai` label
+- 2025-10-07 @tobiu removed parent issue #7399
 - 2025-10-07 @tobiu removed the `enhancement` label
 - 2025-10-07 @tobiu removed the `help wanted` label
 - 2025-10-07 @tobiu removed the `good first issue` label

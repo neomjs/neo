@@ -41,6 +41,7 @@ This task is to update all server-side modules to import from their respective n
 ## Activity Log
 
 - 2025-10-22 @tobiu assigned to @tobiu
+- 2025-10-22 @tobiu added parent issue #7590
 - 2025-10-22 @tobiu added the `enhancement` label
 - 2025-10-22 @tobiu added the `ai` label
 - 2025-10-22 @tobiu added the `refactoring` label

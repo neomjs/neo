@@ -27,6 +27,7 @@ closedAt: '2025-07-16T02:32:29Z'
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label
+- 2025-07-16 @tobiu added parent issue #6992
 - 2025-07-16 @tobiu referenced in commit `f4fdb4d` - "learn/tutorials/TodoList: create a functional.component.Base version #7070"
 - 2025-07-16 @tobiu referenced in commit `771ae79` - "#7070 index fix"
 - 2025-07-16 @tobiu closed this issue

@@ -62,6 +62,7 @@ For functional components to be first-class citizens within the framework, they 
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu added parent issue #6992
 - 2025-07-14 @tobiu referenced in commit `4db9955` - "Task: Enhance functional.component.Base with Core Configs #7050"
 - 2025-07-14 @tobiu closed this issue
 

@@ -56,6 +56,7 @@ The generated files are placed in the `dist/` folder and are not committed to th
 - 2025-11-18 @tobiu added the `dependencies` label
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu cross-referenced by #7791
+- 2025-11-18 @tobiu added parent issue #7791
 - 2025-11-18 @tobiu cross-referenced by #7788
 - 2025-11-18 @tobiu assigned to @tobiu
 - 2025-11-18 @tobiu referenced in commit `e56cb71` - "Create a universal ESM bundle for highlight.js #7790"

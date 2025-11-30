@@ -28,6 +28,7 @@ To improve the developer experience for those familiar with React, a major refac
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu added parent issue #7130
 - 2025-07-31 @tobiu referenced in commit `1dced6c` - "Refactor render to initVnode and createTemplateVdom to render
 #7147"
 - 2025-07-31 @tobiu closed this issue

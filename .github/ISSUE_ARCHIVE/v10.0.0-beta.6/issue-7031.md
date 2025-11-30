@@ -46,6 +46,7 @@ This article will significantly improve developer onboarding for Solid.js develo
 ## Activity Log
 
 - 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added parent issue #7029
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu referenced in commit `46bfed4` - "Feature: Add Neo.mjs vs. Solid.js Comparison Article #7031"
 - 2025-07-12 @tobiu closed this issue

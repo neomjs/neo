@@ -40,4 +40,5 @@ As the final part of the sync service refactoring epic, this ticket introduces t
 - 2025-10-25 @tobiu cross-referenced by #7645
 - 2025-10-25 @tobiu assigned to @tobiu
 - 2025-10-25 @tobiu removed the `epic` label
+- 2025-10-25 @tobiu added parent issue #7645
 

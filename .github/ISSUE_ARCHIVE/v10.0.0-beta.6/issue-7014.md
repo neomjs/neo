@@ -61,6 +61,7 @@ Using protected properties (e.g., `_hooks`) was considered but deemed insufficie
 ## Activity Log
 
 - 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label
 - 2025-07-11 @tobiu referenced in commit `64c7b27` - "Enhance Neo.functional.component.Base for Hook Support #7014"
 - 2025-07-11 @tobiu closed this issue

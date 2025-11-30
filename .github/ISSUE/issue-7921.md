@@ -41,4 +41,5 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7918
 

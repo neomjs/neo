@@ -39,6 +39,7 @@ This ticket aims to introduce a robust session recovery protocol within `AGENTS.
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `bug` label
+- 2025-10-03 @tobiu added parent issue #7316
 - 2025-10-03 @tobiu added the `enhancement` label
 - 2025-10-03 @tobiu referenced in commit `b85b2f8` - "Implement Session Recovery Protocol in AGENTS.md #7338"
 - 2025-10-03 @tobiu closed this issue

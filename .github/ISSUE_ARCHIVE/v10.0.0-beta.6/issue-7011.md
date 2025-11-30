@@ -122,6 +122,7 @@ The `useEvent` hook will allow functional components to declare their intent to 
 
 ## Activity Log
 
+- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label
 - 2025-07-13 @tobiu referenced in commit `9c17d6d` - "DOM Event Handling for Beginner Mode Functional Components #7011 WIP"
 - 2025-07-13 @tobiu referenced in commit `23a3866` - "DOM Event Handling for Beginner Mode Functional Components #7011"

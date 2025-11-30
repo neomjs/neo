@@ -48,6 +48,7 @@ The build-time parser was wrapping raw JavaScript expressions (like `showDetails
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu added parent issue #7130
 - 2025-08-01 @tobiu referenced in commit `505f9ef` - "Fix Build-Time Conditional Template Rendering #7155"
 - 2025-08-01 @tobiu closed this issue
 

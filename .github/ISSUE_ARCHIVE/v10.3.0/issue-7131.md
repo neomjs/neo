@@ -43,6 +43,7 @@ For development mode, we need an addon that can parse these HTML string template
 ## Activity Log
 
 - 2025-07-30 @tobiu assigned to @tobiu
+- 2025-07-30 @tobiu added parent issue #7130
 - 2025-07-30 @tobiu added the `enhancement` label
 - 2025-07-30 @tobiu referenced in commit `d0bd744` - "Main Thread Addon for Live Parsing #7131 base class"
 - 2025-07-30 @tobiu referenced in commit `dd6731c` - "#7131 main.addon.HtmlStringToVdom: WIP"

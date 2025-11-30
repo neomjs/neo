@@ -37,6 +37,7 @@ The agent's session initialization workflow had a logical flaw. It was saving th
 - 2025-10-05 @tobiu added the `bug` label
 - 2025-10-05 @tobiu added the `documentation` label
 - 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu added parent issue #7316
 - 2025-10-05 @tobiu referenced in commit `5ff6c6b` - "Correct Agent Initialization Workflow #7362"
 - 2025-10-05 @tobiu closed this issue
 

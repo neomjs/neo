@@ -34,6 +34,7 @@ During development and testing of the session summarization feature, a utility s
 ## Activity Log
 
 - 2025-10-05 @tobiu assigned to @tobiu
+- 2025-10-05 @tobiu added parent issue #7316
 - 2025-10-05 @tobiu added the `enhancement` label
 - 2025-10-05 @tobiu added the `ai` label
 - 2025-10-05 @tobiu referenced in commit `76c50be` - "Create clearSummaries.mjs script for development #7363"

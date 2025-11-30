@@ -35,6 +35,7 @@ This task is to migrate the unit test for `config/AfterSetConfig.mjs` from the S
 
 ## Activity Log
 
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-09-30 @tobiu referenced in commit `191c27f` - "Convert config/AfterSetConfig.mjs Test from Siesta to Playwright #7273"
 - 2025-09-30 @tobiu closed this issue

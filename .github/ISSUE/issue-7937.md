@@ -36,6 +36,7 @@ This task implements a command-line interface (CLI) for the MCP Client and integ
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu referenced in commit `b8d5fea` - "Feat: Implement MCP Client CLI and NPM Script #7937"
 - 2025-11-29 @tobiu closed this issue
 

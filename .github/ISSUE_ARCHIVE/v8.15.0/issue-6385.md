@@ -27,6 +27,7 @@ requires https://github.com/neomjs/neo/issues/6384 to be resolved
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu
+- 2025-02-05 @tobiu added parent issue #6378
 - 2025-02-05 @tobiu referenced in commit `2e94052` - "grid.View: createRow() => match columnPositions by dataField instead of index #6385"
 - 2025-02-05 @tobiu closed this issue
 

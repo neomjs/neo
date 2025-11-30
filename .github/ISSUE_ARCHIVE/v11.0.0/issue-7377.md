@@ -107,6 +107,7 @@ I have created the script to sync new gitHub issues to local markdown files. Kin
 
 - 2025-10-05 @tobiu added the `enhancement` label
 - 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added parent issue #7364
 - 2025-10-05 @tobiu added the `good first issue` label
 - 2025-10-05 @tobiu added the `hacktoberfest` label
 - 2025-10-05 @tobiu added the `ai` label

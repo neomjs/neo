@@ -29,6 +29,7 @@ closedAt: '2025-07-15T09:29:39Z'
 ## Activity Log
 
 - 2025-07-15 @tobiu assigned to @tobiu
+- 2025-07-15 @tobiu added parent issue #6992
 - 2025-07-15 @tobiu added the `enhancement` label
 - 2025-07-15 @tobiu referenced in commit `219d801` - "examples.ConfigurationViewport: make createConfigurationComponents() optionally async #7055"
 - 2025-07-15 @tobiu closed this issue

@@ -79,6 +79,7 @@ i think this one was resolved via a 2 tickets in 1 PR. logic got converted to th
 
 ## Activity Log
 
+- 2025-10-07 @tobiu added parent issue #7399
 - 2025-10-07 @tobiu added the `enhancement` label
 - 2025-10-07 @tobiu added the `help wanted` label
 - 2025-10-07 @tobiu added the `good first issue` label

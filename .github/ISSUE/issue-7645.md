@@ -33,5 +33,9 @@ The current `SyncService` is monolithic, has a bloated metadata file, and needs 
 
 - 2025-10-25 @tobiu added the `epic` label
 - 2025-10-25 @tobiu added the `ai` label
+- 2025-10-25 @tobiu added sub-issue #7644
+- 2025-10-25 @tobiu added sub-issue #7643
+- 2025-10-25 @tobiu added sub-issue #7642
 - 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu added sub-issue #7646
 

@@ -51,7 +51,10 @@ Pre-processing templates at build time is a best practice in modern web developm
 ## Activity Log
 
 - 2025-08-01 @tobiu assigned to @tobiu
+- 2025-08-01 @tobiu added parent issue #7130
 - 2025-08-01 @tobiu added the `enhancement` label
 - 2025-08-01 @tobiu referenced in commit `144924d` - "Build-Time html Template to VDOM Conversion #7150"
 - 2025-08-01 @tobiu closed this issue
+- 2025-08-01 @tobiu added sub-issue #7151
+- 2025-08-01 @tobiu removed sub-issue #7151
 

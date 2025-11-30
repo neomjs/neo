@@ -45,6 +45,7 @@ This issue is stale because it has been open for 90 days with no activity.
 ## Activity Log
 
 - 2025-08-20 @tobiu assigned to @tobiu
+- 2025-08-20 @tobiu added parent issue #7201
 - 2025-08-20 @tobiu added the `enhancement` label
 - 2025-08-20 @tobiu referenced in commit `f9a9947` - "#7202 draggable.container.DragZone, draggable.container.SortZone"
 - 2025-08-20 @tobiu referenced in commit `81579aa` - "#7202 Colors.view.Viewport: using 3 panels as wrappers (drag handles)"

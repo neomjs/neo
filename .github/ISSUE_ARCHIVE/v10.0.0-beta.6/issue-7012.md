@@ -64,6 +64,7 @@ const MyCounter = defineComponent({
 
 ## Activity Log
 
+- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label
 - 2025-07-11 @tobiu referenced in commit `fc15419` - "Create Neo.functional.useConfig Hook #7012"
 - 2025-07-11 @tobiu closed this issue

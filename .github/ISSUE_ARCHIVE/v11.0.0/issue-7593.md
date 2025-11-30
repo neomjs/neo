@@ -44,6 +44,7 @@ This ticket covers the migration of the `PullRequestService` to use the new `Gra
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label
+- 2025-10-21 @tobiu added parent issue #7590
 - 2025-10-21 @tobiu added the `ai` label
 - 2025-10-21 @tobiu referenced in commit `a64262b` - "Migrate PullRequestService to GraphQL #7593"
 - 2025-10-21 @tobiu closed this issue

@@ -41,4 +41,7 @@ This epic covers Phase 4 of the roadmap: evolving our internal AI tools into sta
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu cross-referenced by #7923
 - 2025-11-29 @tobiu cross-referenced by #7924
+- 2025-11-29 @tobiu added sub-issue #7923
+- 2025-11-29 @tobiu added sub-issue #7924
+- 2025-11-29 @tobiu added sub-issue #7925
 

@@ -76,7 +76,15 @@ resolved.
 - 2025-10-21 @tobiu added the `epic` label
 - 2025-10-21 @tobiu added the `ai` label
 - 2025-10-21 @tobiu added the `refactoring` label
+- 2025-10-21 @tobiu added sub-issue #7591
+- 2025-10-21 @tobiu added sub-issue #7592
+- 2025-10-21 @tobiu added sub-issue #7593
+- 2025-10-21 @tobiu added sub-issue #7594
+- 2025-10-21 @tobiu added sub-issue #7595
 - 2025-10-21 @tobiu referenced in commit `07585d7` - "#7590 tickets as md files"
 - 2025-10-21 @tobiu referenced in commit `df9a3bb` - "#7590 PullRequestService imports formatting"
+- 2025-10-22 @tobiu added sub-issue #7598
+- 2025-10-22 @tobiu added sub-issue #7599
+- 2025-10-22 @tobiu added sub-issue #7600
 - 2025-10-23 @tobiu closed this issue
 

@@ -42,4 +42,5 @@ When an agent sets its status to `agent-task:blocked`, the system must alert the
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7918
 

@@ -51,6 +51,7 @@ resolved.
 
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added the `enhancement` label
+- 2025-08-20 @tobiu added parent issue #7201
 - 2025-08-21 @tobiu referenced in commit `fc51172` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204 starting point"
 - 2025-08-21 @tobiu referenced in commit `1c5b345` - "#7204 dashboard.Container: allowOverdrag"
 - 2025-08-21 @tobiu referenced in commit `aeae9c5` - "#7204 passing the proxyRect (dragEl rect) into the dragBoundaryExit event."

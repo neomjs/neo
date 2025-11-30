@@ -65,6 +65,7 @@ already resolved.
 - 2025-10-14 @tobiu added the `good first issue` label
 - 2025-10-14 @tobiu added the `hacktoberfest` label
 - 2025-10-14 @tobiu added the `testing` label
+- 2025-10-14 @tobiu added parent issue #7475
 - 2025-10-14 @tobiu cross-referenced by #7488
 - 2025-10-14 @ritikrikm referenced in commit `e84602f` - "docs(test-plan): add component-Video test plan (#7489)"
 - 2025-10-14 @ritikrikm cross-referenced by PR #7490

@@ -25,6 +25,7 @@ closedAt: '2025-06-16T12:34:53Z'
 ## Activity Log
 
 - 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu referenced in commit `8806480` - "vdom.Helper: compareAttributes() => add support for textContent #6815"
 - 2025-06-16 @tobiu closed this issue
 

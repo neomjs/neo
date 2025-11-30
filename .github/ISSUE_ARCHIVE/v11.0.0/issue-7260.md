@@ -36,4 +36,5 @@ This combination ensures that all test artifacts are consistently and correctly 
 - 2025-09-26 @tobiu added the `enhancement` label
 - 2025-09-26 @tobiu referenced in commit `ff35fc5` - "Correct Playwright Output Directory #7260"
 - 2025-09-26 @tobiu closed this issue
+- 2025-09-27 @tobiu added parent issue #7262
 

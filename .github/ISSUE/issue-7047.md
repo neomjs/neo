@@ -55,6 +55,7 @@ This issue is stale because it has been open for 90 days with no activity.
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu added parent issue #6992
 - 2025-10-13 @github-actions added the `stale` label
 - 2025-10-24 @tobiu removed the `stale` label
 - 2025-10-24 @tobiu added the `no auto close` label

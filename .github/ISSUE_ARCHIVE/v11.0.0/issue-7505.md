@@ -39,6 +39,7 @@ This ticket covers the implementation of the `healthcheck` service for the AI Kn
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `enhancement` label
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `ai` label
 - 2025-10-16 @tobiu referenced in commit `2e79fbb` - "Implement Healthcheck Service #7505"
 - 2025-10-16 @tobiu closed this issue

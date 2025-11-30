@@ -42,6 +42,7 @@ resolved.
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label
 - 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu added parent issue #7590
 - 2025-10-22 @tobiu cross-referenced by #7590
 - 2025-10-23 @tobiu closed this issue
 

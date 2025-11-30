@@ -1,14 +1,14 @@
 ---
 id: 7948
 title: 'Enhancement: Timeline-Based Relationship Discovery for Issue Sync'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-30T12:28:38Z'
-updatedAt: '2025-11-30T12:29:18Z'
+updatedAt: '2025-11-30T12:41:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7948'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-30T12:41:45Z'
 ---
 # Enhancement: Timeline-Based Relationship Discovery for Issue Sync
 
@@ -71,4 +72,6 @@ This ensures complete referential integrity for all relationship types.
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `64b36f5` - "Enhancement: Timeline-Based Relationship Discovery for Issue Sync #7948"
+- 2025-11-30 @tobiu closed this issue
 

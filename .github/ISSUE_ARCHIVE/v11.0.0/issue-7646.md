@@ -42,6 +42,7 @@ These changes streamline the data flow, reduce redundant processing, and align t
 - 2025-10-25 @tobiu added the `ai` label
 - 2025-10-25 @tobiu added the `refactoring` label
 - 2025-10-25 @tobiu assigned to @tobiu
+- 2025-10-25 @tobiu added parent issue #7645
 - 2025-10-25 @tobiu referenced in commit `18a6e6b` - "Refactor: Streamline Release Metadata Handling in Sync Service #7646"
 - 2025-10-25 @tobiu closed this issue
 

@@ -50,6 +50,7 @@ The current `buildScripts/injectPackageVersion.mjs` script is responsible for up
 - 2025-11-11 @tobiu added the `enhancement` label
 - 2025-11-11 @tobiu added the `ai` label
 - 2025-11-11 @tobiu added the `refactoring` label
+- 2025-11-11 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu referenced in commit `b466aea` - "Refactor Release Preparation Script: Rename injectPackageVersion to prepareRelease and Integrate SEO File Generation #7744"
 - 2025-11-11 @tobiu closed this issue
 

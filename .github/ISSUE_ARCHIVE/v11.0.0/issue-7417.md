@@ -63,6 +63,7 @@ thx, appreciated! you could try gemini cli here.
 
 - 2025-10-08 @tobiu assigned to @tobiu
 - 2025-10-08 @tobiu added the `documentation` label
+- 2025-10-08 @tobiu added parent issue #7296
 - 2025-10-08 @tobiu cross-referenced by PR #7323
 - 2025-10-08 @tobiu unassigned from @tobiu
 - 2025-10-08 @tobiu assigned to @Mariam-Saeed

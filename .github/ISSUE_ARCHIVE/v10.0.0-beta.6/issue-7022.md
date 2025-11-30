@@ -27,6 +27,7 @@ closedAt: '2025-07-13T17:48:12Z'
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu added parent issue #6992
 - 2025-07-12 @tobiu referenced in commit `3ef29a7` - "examples.functional.defineComponent #7022 draft version"
 - 2025-07-12 @tobiu referenced in commit `436afb3` - "#7022 examples.functional.defineComponent.Component => moving the fn cmp definition into its own file"
 - 2025-07-12 @tobiu referenced in commit `ef80af5` - "#7022 functional.component.Base: adjusted the vdom setter to change its backing value, fixed a wrong hookIndex access inside vdomEffect."

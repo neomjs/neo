@@ -44,4 +44,5 @@ As part of the Neo Command Center (Epic #7918), we need to design the "God View"
 
 - 2025-11-29 @tobiu added the `design` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7918
 

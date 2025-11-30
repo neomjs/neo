@@ -47,4 +47,5 @@ This pattern allows for fast, browser-less unit testing of framework components 
 - 2025-09-25 @tobiu added the `enhancement` label
 - 2025-09-25 @tobiu referenced in commit `af081ad` - "Install Playwright and Convert First Siesta Test #7254"
 - 2025-09-25 @tobiu closed this issue
+- 2025-09-27 @tobiu added parent issue #7262
 

@@ -58,6 +58,7 @@ This change will significantly shorten `AGENTS.md` and ensure that the tool's do
 - 2025-10-27 @tobiu added the `enhancement` label
 - 2025-10-27 @tobiu added the `ai` label
 - 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu added parent issue #7668
 - 2025-10-27 @tobiu referenced in commit `634048b` - "Refactor: Shorten AGENTS.md by removing query tool documentation #7670"
 - 2025-10-27 @tobiu closed this issue
 

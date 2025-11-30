@@ -80,4 +80,6 @@ without human intervention.
 - 2025-11-29 @tobiu cross-referenced by #7916
 - 2025-11-29 @tobiu cross-referenced by #7917
 - 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu added sub-issue #7926
+- 2025-11-29 @tobiu added sub-issue #7930
 

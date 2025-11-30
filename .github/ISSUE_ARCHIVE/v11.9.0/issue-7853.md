@@ -37,6 +37,7 @@ Create a new guide `learn/guides/mcp/CodeExecution.md` explaining the "Thick Cli
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `enhancement` label
 - 2025-11-22 @tobiu added the `ai` label
+- 2025-11-22 @tobiu added parent issue #7848
 - 2025-11-22 @tobiu assigned to @tobiu
 - 2025-11-22 @tobiu referenced in commit `015bfda` - "Documentation: Create Guide for "Code Execution with MCP" #7853"
 - 2025-11-22 @tobiu closed this issue

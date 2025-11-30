@@ -37,6 +37,7 @@ This ticket is to make the `callTool` function in the shared `toolService.mjs` r
 ## Activity Log
 
 - 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added parent issue #7501
 - 2025-10-17 @tobiu added the `enhancement` label
 - 2025-10-17 @tobiu added the `ai` label
 - 2025-10-17 @tobiu referenced in commit `af0aeb8` - "Make toolService resilient to server-prefixed tool names #7518"

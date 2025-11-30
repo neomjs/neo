@@ -27,6 +27,7 @@ closedAt: '2025-07-12T12:05:05Z'
 ## Activity Log
 
 - 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu added parent issue #6992
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu referenced in commit `bdbd48f` - "mixin.VdomLifecycle: createVdomReference() #7021"
 - 2025-07-12 @tobiu closed this issue

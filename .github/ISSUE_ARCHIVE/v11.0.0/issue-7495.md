@@ -37,6 +37,7 @@ This ticket covers the work to define the `outputSchema` using `zod`, based on t
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added the `enhancement` label
+- 2025-10-15 @tobiu added parent issue #7477
 - 2025-10-15 @tobiu added the `ai` label
 - 2025-10-15 @tobiu referenced in commit `85094ca` - "Add outputSchema to MCP Tool Definitions #7495"
 - 2025-10-15 @tobiu closed this issue

@@ -33,6 +33,7 @@ This ticket covers the creation of a new CLI command (`npm run ai:query-memory`)
 ## Activity Log
 
 - 2025-10-01 @tobiu assigned to @tobiu
+- 2025-10-01 @tobiu added parent issue #7316
 - 2025-10-01 @tobiu added the `enhancement` label
 - 2025-10-02 @tobiu referenced in commit `2483ef4` - "Create Memory Query Tool #7319"
 - 2025-10-02 @tobiu closed this issue

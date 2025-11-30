@@ -47,6 +47,7 @@ This article will significantly improve developer onboarding for Vue.js develope
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu added parent issue #7029
 - 2025-07-13 @tobiu referenced in commit `8ef8c96` - "Feature: Add Neo.mjs vs. Vue.js Comparison Article #7039"
 - 2025-07-13 @tobiu closed this issue
 

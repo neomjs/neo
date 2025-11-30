@@ -49,6 +49,7 @@ FYI @Aki-07 this one works now.
 ## Activity Log
 
 - 2025-10-12 @tobiu assigned to @tobiu
+- 2025-10-12 @tobiu added parent issue #7435
 - 2025-10-12 @tobiu added the `enhancement` label
 - 2025-10-12 @tobiu added the `ai` label
 - 2025-10-12 @tobiu referenced in commit `9ef29f3` - "PoC: Create Component Test for component.Image #7470"

@@ -49,6 +49,7 @@ This task aims to enhance the MCP Client by implementing Dynamic Tool Proxies. A
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu referenced in commit `d90957a` - "Feat: Implement Dynamic Tool Proxies for MCP Client #7939"
 - 2025-11-29 @tobiu closed this issue
 

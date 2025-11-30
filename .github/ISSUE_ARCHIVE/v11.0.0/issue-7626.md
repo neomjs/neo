@@ -44,6 +44,7 @@ By fetching this information on startup, we simplify the agent's workflow and ma
 ## Activity Log
 
 - 2025-10-23 @tobiu assigned to @tobiu
+- 2025-10-23 @tobiu added parent issue #7604
 - 2025-10-23 @tobiu added the `enhancement` label
 - 2025-10-23 @tobiu added the `ai` label
 - 2025-10-23 @tobiu referenced in commit `9f99f71` - "Cache Viewer Permission on Server Startup #7626"

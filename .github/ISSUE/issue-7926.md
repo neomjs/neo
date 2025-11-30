@@ -38,4 +38,5 @@ For the "Connected Organization" (Phase 1), agents need to manage tickets in rep
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7914
 

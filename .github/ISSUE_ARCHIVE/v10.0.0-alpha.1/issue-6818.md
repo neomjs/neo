@@ -25,6 +25,7 @@ closedAt: '2025-06-16T13:24:42Z'
 
 ## Activity Log
 
+- 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu added the `enhancement` label
 - 2025-06-16 @tobiu assigned to @tobiu
 - 2025-06-16 @tobiu referenced in commit `a578b6e` - "component.Base: vdom => use html as the single source of truth #6818"

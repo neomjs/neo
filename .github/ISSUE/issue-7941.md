@@ -123,6 +123,7 @@ The goal is to determine how the `Neo.ai.mcp.client.Client` should expose tools 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu referenced in commit `82d9904` - "Feat: Implement Multi-Server Tool Namespacing for MCP Client #7941"
 - 2025-11-29 @tobiu closed this issue
 

@@ -29,6 +29,7 @@ closedAt: '2025-08-21T18:46:44Z'
 
 - 2025-08-21 @tobiu assigned to @tobiu
 - 2025-08-21 @tobiu added the `enhancement` label
+- 2025-08-21 @tobiu added parent issue #7201
 - 2025-08-21 @tobiu referenced in commit `8b8dafb` - "main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker #7208"
 - 2025-08-21 @tobiu closed this issue
 

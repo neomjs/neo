@@ -28,6 +28,7 @@ closedAt: '2025-03-25T13:07:07Z'
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu
+- 2025-03-25 @tobiu added parent issue #6584
 - 2025-03-25 @tobiu referenced in commit `20e0d26` - "main.addon.ServiceWorker: registerServiceWorker() #6589"
 - 2025-03-25 @tobiu closed this issue
 

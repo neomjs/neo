@@ -30,6 +30,7 @@ both were not actually in use, it is time to remove this confusion.
 
 - 2025-06-16 @tobiu assigned to @tobiu
 - 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu referenced in commit `8a98805` - "vdom.Helper: createVnode() => use vdom.cn as the single source of truth #6817"
 - 2025-06-16 @tobiu closed this issue
 

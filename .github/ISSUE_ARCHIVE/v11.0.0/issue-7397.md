@@ -40,6 +40,7 @@ This sub-task aims to:
 - 2025-10-07 @tobiu assigned to @tobiu
 - 2025-10-07 @tobiu added the `enhancement` label
 - 2025-10-07 @tobiu added the `ai` label
+- 2025-10-07 @tobiu added parent issue #7316
 - 2025-10-07 @tobiu referenced in commit `cc29481` - "Update AGENTS.md with Correct Health Check Endpoint #7397"
 - 2025-10-07 @tobiu closed this issue
 

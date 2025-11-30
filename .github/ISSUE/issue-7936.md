@@ -49,6 +49,7 @@ This task implements the client-side configuration system for MCP servers, allow
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu referenced in commit `769c819` - "Feat: Implement MCP Client Configuration #7936"
 - 2025-11-29 @tobiu closed this issue
 

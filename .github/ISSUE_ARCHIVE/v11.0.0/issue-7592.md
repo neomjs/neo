@@ -34,6 +34,7 @@ As part of the GraphQL migration, the `LabelService` and `IssueService` will be 
 ## Activity Log
 
 - 2025-10-21 @tobiu assigned to @tobiu
+- 2025-10-21 @tobiu added parent issue #7590
 - 2025-10-21 @tobiu added the `enhancement` label
 - 2025-10-21 @tobiu added the `ai` label
 - 2025-10-21 @tobiu referenced in commit `de02d37` - "Migrate Label & Issue Services to GraphQL #7592"

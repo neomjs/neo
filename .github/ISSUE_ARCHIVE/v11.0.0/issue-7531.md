@@ -37,6 +37,7 @@ To give agents more control over their environment, we will add tools to the Mem
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label
 - 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu added parent issue #7529
 - 2025-10-17 @tobiu referenced in commit `3ada1e7` - "Add Database Management Tools to Memory Core Server #7531"
 - 2025-10-17 @tobiu closed this issue
 

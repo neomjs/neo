@@ -43,6 +43,7 @@ The following endpoints have been implemented:
 ## Activity Log
 
 - 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
 - 2025-10-14 @tobiu referenced in commit `6f9954d` - "Implement Pull Request API Endpoints #7481"

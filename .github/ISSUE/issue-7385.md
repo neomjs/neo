@@ -62,8 +62,13 @@ This initiative is a critical step towards building a more powerful and autonomo
 - 2025-10-06 @tobiu assigned to @tobiu
 - 2025-10-06 @tobiu added the `epic` label
 - 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu added sub-issue #7386
+- 2025-10-06 @tobiu added sub-issue #7387
 - 2025-10-06 @tobiu added the `help wanted` label
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu added sub-issue #7388
+- 2025-10-06 @tobiu added sub-issue #7389
+- 2025-10-06 @tobiu added sub-issue #7390
 - 2025-10-06 @tobiu referenced in commit `d071c95` - "#7385 ticket md files"
 

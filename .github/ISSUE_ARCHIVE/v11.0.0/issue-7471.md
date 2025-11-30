@@ -57,6 +57,7 @@ I will grab the button test next for a real migration and check how it works.
 
 - 2025-10-12 @tobiu assigned to @tobiu
 - 2025-10-12 @tobiu added the `enhancement` label
+- 2025-10-12 @tobiu added parent issue #7435
 - 2025-10-12 @tobiu added the `ai` label
 - 2025-10-12 @tobiu referenced in commit `bd3b69a` - "Refactor: Implement Granular Playwright Test Configurations #7471"
 - 2025-10-12 @tobiu closed this issue

@@ -27,6 +27,7 @@ closedAt: '2025-04-01T10:49:12Z'
 
 - 2025-04-01 @tobiu added the `enhancement` label
 - 2025-04-01 @tobiu assigned to @tobiu
+- 2025-04-01 @tobiu added parent issue #6600
 - 2025-04-01 @tobiu referenced in commit `6fa3bf4` - "Email.store.Emails: create a first json data file #6608"
 - 2025-04-01 @tobiu closed this issue
 

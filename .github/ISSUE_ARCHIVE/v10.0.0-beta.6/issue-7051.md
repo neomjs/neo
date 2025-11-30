@@ -57,6 +57,7 @@ Separating component structure (defined in JavaScript) from its presentation (de
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu added parent issue #7048
 - 2025-07-14 @tobiu referenced in commit `1679983` - "Task: Refactor MainView Styles to SCSS #7051"
 - 2025-07-14 @tobiu closed this issue
 

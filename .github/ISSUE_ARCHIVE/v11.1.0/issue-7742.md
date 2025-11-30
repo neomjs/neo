@@ -41,6 +41,7 @@ This ticket proposes to enhance the `buildScripts/generate-seo-files.mjs` script
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `enhancement` label
 - 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu referenced in commit `6d4e0d1` - "Enhance Sitemap Generation: Add lastmod based on Git History #7742"
 - 2025-11-11 @tobiu closed this issue
 

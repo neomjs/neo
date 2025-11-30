@@ -269,22 +269,41 @@ Alternatively, you are also welcome to just ask here for more tickets (ideally w
 - 2025-09-28 @tobiu added the `good first issue` label
 - 2025-09-28 @tobiu added the `epic` label
 - 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-28 @tobiu added sub-issue #7297
 - 2025-09-28 @tobiu assigned to @tobiu
+- 2025-09-28 @tobiu added sub-issue #7298
+- 2025-09-28 @tobiu added sub-issue #7299
 - 2025-09-28 @tobiu referenced in commit `bf5b347` - "#7296 subs md files"
+- 2025-09-28 @tobiu added sub-issue #7301
+- 2025-09-28 @tobiu added sub-issue #7302
+- 2025-09-28 @tobiu removed sub-issue #7302
 - 2025-09-28 @tobiu referenced in commit `9062317` - "#7296 sub md file"
+- 2025-09-28 @tobiu added sub-issue #7305
+- 2025-09-28 @tobiu added sub-issue #7306
 - 2025-09-28 @tobiu referenced in commit `240d918` - "#7296 ticket md files"
 - 2025-09-28 @tobiu unassigned from @tobiu
+- 2025-09-28 @tobiu added sub-issue #7307
 - 2025-09-28 @tobiu referenced in commit `1cca92a` - "#7296 new sub md file"
 - 2025-10-01 @tobiu referenced in commit `6a7ddda` - "#7296 internal tickets update"
+- 2025-10-02 @tobiu added sub-issue #7328
 - 2025-10-02 @tobiu referenced in commit `a321602` - "#7296 new sub md file"
 - 2025-10-02 @tobiu referenced in commit `ebd2804` - "#7296 new sub md file => gh id"
 - 2025-10-03 @tobiu cross-referenced by #7289
 - 2025-10-03 @tobiu cross-referenced by #7287
 - 2025-10-03 @tobiu cross-referenced by #7283
+- 2025-10-04 @tobiu added sub-issue #7342
+- 2025-10-04 @tobiu added sub-issue #7343
+- 2025-10-04 @tobiu added sub-issue #7344
+- 2025-10-04 @tobiu added sub-issue #7345
+- 2025-10-04 @tobiu added sub-issue #7346
 - 2025-10-04 @tobiu referenced in commit `0e84aea` - "#7296 new sub-ticket md files"
 - 2025-10-05 @tobiu cross-referenced by #7364
 - 2025-10-06 @tobiu cross-referenced by #7391
 - 2025-10-07 @tobiu cross-referenced by #7399
+- 2025-10-08 @tobiu added sub-issue #7417
 - 2025-10-08 @tobiu cross-referenced by #7418
+- 2025-10-11 @tobiu added sub-issue #7465
+- 2025-10-12 @tobiu added sub-issue #7467
+- 2025-10-13 @tobiu added sub-issue #7474
 - 2025-11-02 @tobiu closed this issue
 

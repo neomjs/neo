@@ -38,6 +38,7 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/documentSe
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label
 - 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu added parent issue #7536
 - 2025-10-19 @tobiu referenced in commit `c67da5b` - "Convert documentService to DocumentService Neo.mjs Class #7552"
 - 2025-10-19 @tobiu closed this issue
 

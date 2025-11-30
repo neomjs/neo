@@ -78,6 +78,7 @@ We’re closing this ticket now. Thanks again for your willingness to contribute
 
 - 2025-09-28 @tobiu added the `enhancement` label
 - 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added parent issue #7296
 - 2025-09-28 @tobiu added the `good first issue` label
 - 2025-09-28 @tobiu added the `hacktoberfest` label
 - 2025-10-01 @tobiu assigned to @Saksham-chourasia

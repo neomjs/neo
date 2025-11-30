@@ -45,6 +45,7 @@ This article will be crucial for attracting Ext.js developers to Neo.mjs, enhanc
 ## Activity Log
 
 - 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu added parent issue #7029
 - 2025-07-12 @tobiu referenced in commit `5631be8` - "Feature: Add Neo.mjs vs. Ext.js Comparison Article #7035"
 - 2025-07-13 @tobiu referenced in commit `f76e347` - "Feature: Add Neo.mjs vs. Ext.js Comparison Article #7035"
 - 2025-07-13 @tobiu closed this issue

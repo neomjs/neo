@@ -38,6 +38,7 @@ As part of the sync service refactoring epic, this ticket focuses on creating a 
 - 2025-10-25 @tobiu cross-referenced by #7645
 - 2025-10-25 @tobiu assigned to @tobiu
 - 2025-10-25 @tobiu removed the `epic` label
+- 2025-10-25 @tobiu added parent issue #7645
 - 2025-10-25 @tobiu referenced in commit `681cbdb` - "Refactor: Implement MetadataManager for Sync Service #7643"
 - 2025-10-25 @tobiu closed this issue
 

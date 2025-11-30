@@ -26,6 +26,7 @@ closedAt: '2025-03-31T15:22:17Z'
 ## Activity Log
 
 - 2025-03-31 @tobiu added the `enhancement` label
+- 2025-03-31 @tobiu added parent issue #6600
 - 2025-03-31 @tobiu referenced in commit `bf8d3bc` - "Email.view.MainContainer => Email.view.Viewport #6602"
 - 2025-03-31 @tobiu closed this issue
 - 2025-03-31 @tobiu assigned to @tobiu

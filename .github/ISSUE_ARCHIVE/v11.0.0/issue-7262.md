@@ -123,10 +123,47 @@ resolved.
 - 2025-09-27 @tobiu assigned to @tobiu
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-09-27 @tobiu added the `epic` label
+- 2025-09-27 @tobiu added sub-issue #7256
+- 2025-09-27 @tobiu added sub-issue #7261
+- 2025-09-27 @tobiu added sub-issue #7260
+- 2025-09-27 @tobiu added sub-issue #7258
+- 2025-09-27 @tobiu added sub-issue #7255
+- 2025-09-27 @tobiu added sub-issue #7254
+- 2025-09-27 @tobiu added sub-issue #7263
 - 2025-09-27 @tobiu referenced in commit `0c4d5d2` - "#7262 Internal tickets"
+- 2025-09-27 @tobiu added sub-issue #7266
 - 2025-09-27 @tobiu referenced in commit `b21e045` - "#7262 Internal tickets"
+- 2025-09-27 @tobiu added sub-issue #7267
+- 2025-09-27 @tobiu added sub-issue #7268
+- 2025-09-27 @tobiu added sub-issue #7269
+- 2025-09-27 @tobiu added sub-issue #7270
+- 2025-09-27 @tobiu added sub-issue #7271
+- 2025-09-27 @tobiu added sub-issue #7272
+- 2025-09-27 @tobiu added sub-issue #7273
+- 2025-09-27 @tobiu added sub-issue #7274
+- 2025-09-27 @tobiu added sub-issue #7275
+- 2025-09-27 @tobiu added sub-issue #7276
+- 2025-09-27 @tobiu added sub-issue #7277
+- 2025-09-27 @tobiu added sub-issue #7278
+- 2025-09-27 @tobiu added sub-issue #7279
+- 2025-09-27 @tobiu added sub-issue #7280
+- 2025-09-27 @tobiu added sub-issue #7281
+- 2025-09-27 @tobiu added sub-issue #7282
+- 2025-09-27 @tobiu added sub-issue #7283
+- 2025-09-27 @tobiu added sub-issue #7284
+- 2025-09-27 @tobiu added sub-issue #7285
+- 2025-09-27 @tobiu added sub-issue #7286
+- 2025-09-27 @tobiu added sub-issue #7287
+- 2025-09-27 @tobiu added sub-issue #7288
+- 2025-09-27 @tobiu added sub-issue #7289
+- 2025-09-27 @tobiu added sub-issue #7290
+- 2025-09-27 @tobiu added sub-issue #7291
+- 2025-09-27 @tobiu added sub-issue #7292
+- 2025-09-27 @tobiu added sub-issue #7293
+- 2025-09-27 @tobiu added sub-issue #7294
 - 2025-09-27 @tobiu referenced in commit `bfd1bf2` - "#7262 epic update => migration guide"
 - 2025-09-30 @tobiu referenced in commit `f9c97b4` - "#7262 changed Button test filename to upper case, ClassConfigsAndFields.spec.mjs: reassigned classes when calling setupClass() for consistency"
 - 2025-10-02 @tobiu referenced in commit `d9c4d4b` - "#7262 updated internal tickets"
+- 2025-11-04 @tobiu removed sub-issue #7266
 - 2025-11-04 @tobiu closed this issue
 

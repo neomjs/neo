@@ -66,10 +66,12 @@ already resolved
 ## Activity Log
 
 - 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added parent issue #7399
 - 2025-10-07 @tobiu added the `help wanted` label
 - 2025-10-07 @tobiu added the `good first issue` label
 - 2025-10-07 @tobiu added the `hacktoberfest` label
 - 2025-10-07 @tobiu added the `ai` label
 - 2025-10-08 @tobiu assigned to @Mahita07
+- 2025-10-24 @tobiu removed parent issue #7399
 - 2025-11-02 @tobiu closed this issue
 

@@ -24,6 +24,7 @@ closedAt: '2025-06-16T10:19:57Z'
 
 ## Activity Log
 
+- 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu added the `enhancement` label
 - 2025-06-16 @tobiu referenced in commit `82c3efb` - "vdom.util.DomApiVnodeCreator #6810"
 - 2025-06-16 @tobiu referenced in commit `8ac52f5` - "#6810 vdom.util.DomApiVnodeCreator: smartly imported into vdom.Helper"

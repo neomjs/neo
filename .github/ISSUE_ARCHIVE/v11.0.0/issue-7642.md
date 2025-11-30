@@ -39,6 +39,7 @@ As the first step in the larger sync service refactoring (Epic: Refactor and Ext
 - 2025-10-25 @tobiu cross-referenced by #7645
 - 2025-10-25 @tobiu assigned to @tobiu
 - 2025-10-25 @tobiu removed the `epic` label
+- 2025-10-25 @tobiu added parent issue #7645
 - 2025-10-25 @tobiu referenced in commit `6debaaf` - "Refactor: Extract Release & Issue Syncers from SyncService #7642"
 - 2025-10-25 @tobiu referenced in commit `f390a54` - "#7642 cleanup"
 - 2025-10-25 @tobiu closed this issue

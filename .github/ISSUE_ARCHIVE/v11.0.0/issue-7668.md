@@ -36,6 +36,8 @@ This epic covers the work to enhance the OpenAPI specification for the Knowledge
 - 2025-10-27 @tobiu added the `ai` label
 - 2025-10-27 @tobiu cross-referenced by #7669
 - 2025-10-27 @tobiu cross-referenced by #7670
+- 2025-10-27 @tobiu added sub-issue #7669
 - 2025-10-27 @tobiu assigned to @tobiu
+- 2025-10-27 @tobiu added sub-issue #7670
 - 2025-10-27 @tobiu closed this issue
 

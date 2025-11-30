@@ -60,6 +60,7 @@ Please assign this to me. Thank you!
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `enhancement` label
 - 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu referenced in commit `0d13b56` - "#7448 base class"
 - 2025-11-11 @tobiu referenced in commit `6cd886c` - "#7448 class name"
 - 2025-11-11 @tobiu referenced in commit `9134cf4` - "#7448 getCanonical, getTag, setCanonical, setTag, Portal.view.ViewportController WIP"

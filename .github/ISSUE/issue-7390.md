@@ -64,6 +64,7 @@ Let me know in case you are still up for the task! If so, I will assign the tick
 ## Activity Log
 
 - 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added parent issue #7385
 - 2025-10-06 @tobiu added the `help wanted` label
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label

@@ -39,4 +39,5 @@ We want to evolve the "Sighted Agent" concept into a first-class citizen of our 
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7919
 

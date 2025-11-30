@@ -56,6 +56,7 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/317
 - 2025-10-06 @tobiu added the `help wanted` label
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu added parent issue #7385
 - 2025-10-06 @tobiu added the `ai` label
 - 2025-10-06 @tobiu assigned to @tobiu
 - 2025-10-06 @tobiu removed the `help wanted` label

@@ -45,4 +45,5 @@ To break this loop, the component needed to apply the VDOM update *after* the ef
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu referenced in commit `3090f97` - "Refactor Neo.core.Effect to Use a Reactive isRunning State #7024"
 - 2025-07-12 @tobiu closed this issue
+- 2025-07-12 @tobiu added parent issue #6992
 

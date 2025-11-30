@@ -50,6 +50,7 @@ This enhancement will allow the agent to fully understand how to call each tool,
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu referenced in commit `d2af666` - "Enhance Tools List with OpenAPI Schema #7487"
 - 2025-10-14 @tobiu referenced in commit `d5fe8f3` - "#7487 buildOutputSchema()"
 - 2025-10-14 @tobiu closed this issue

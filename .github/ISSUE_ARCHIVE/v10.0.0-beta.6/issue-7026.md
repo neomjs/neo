@@ -47,4 +47,5 @@ This feature provides fine-grained control over reactivity, preventing unintende
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu referenced in commit `eaf22d8` - "Feature: Fine-grained Reactivity Control with EffectManager.pause() #7026"
 - 2025-07-12 @tobiu closed this issue
+- 2025-07-12 @tobiu added parent issue #6992
 

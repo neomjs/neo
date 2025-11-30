@@ -43,6 +43,7 @@ A complete draft of the blog post as a markdown file.
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu added parent issue #7093
 - 2025-07-22 @tobiu referenced in commit `dcd6c1d` - "#7097 early draft"
 - 2025-07-22 @tobiu referenced in commit `ecfcee1` - "#7097 WIP"
 - 2025-07-22 @tobiu referenced in commit `f7b6329` - "Create Deep-Dive Blog Post for Functional Components #7097"

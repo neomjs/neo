@@ -37,6 +37,7 @@ As part of the agent protocol simplification epic (#7604), we need a new guide t
 - 2025-10-26 @tobiu added the `enhancement` label
 - 2025-10-26 @tobiu added the `ai` label
 - 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu added parent issue #7665
 - 2025-10-26 @tobiu referenced in commit `b7da67b` - "Docs: Create Codebase Overview Guide #7664 draft version"
 - 2025-10-26 @tobiu referenced in commit `9ae4dcb` - "#7664 final version"
 - 2025-10-26 @tobiu closed this issue

@@ -59,6 +59,7 @@ This issue is stale because it has been open for 90 days with no activity.
 
 - 2025-08-21 @tobiu assigned to @tobiu
 - 2025-08-21 @tobiu added the `enhancement` label
+- 2025-08-21 @tobiu added parent issue #7201
 - 2025-08-21 @tobiu referenced in commit `61692a5` - "#7207 dragHandleSelector config"
 - 2025-08-21 @tobiu referenced in commit `6f2a206` - "#7207 wip"
 - 2025-08-21 @tobiu referenced in commit `2e26e1f` - "#7207"

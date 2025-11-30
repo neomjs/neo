@@ -27,6 +27,7 @@ closedAt: '2025-03-25T12:49:40Z'
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu
+- 2025-03-25 @tobiu added parent issue #6584
 - 2025-03-25 @tobiu referenced in commit `119ee3c` - "worker.ServiceBase: create a separate cache for each version #6585"
 - 2025-03-25 @tobiu closed this issue
 

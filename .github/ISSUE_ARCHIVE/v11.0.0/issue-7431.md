@@ -33,6 +33,7 @@ The key refinements include:
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label
+- 2025-10-09 @tobiu added parent issue #7264
 - 2025-10-09 @tobiu referenced in commit `01f47fc` - "Refine Project VISION.md with Core Architectural Concepts #7431"
 - 2025-10-09 @tobiu closed this issue
 

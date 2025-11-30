@@ -967,6 +967,7 @@ For now, we can re-assign the ticket.
 
 ## Activity Log
 
+- 2025-10-13 @tobiu added parent issue #7475
 - 2025-10-13 @tobiu added the `enhancement` label
 - 2025-10-13 @tobiu added the `help wanted` label
 - 2025-10-13 @tobiu added the `good first issue` label

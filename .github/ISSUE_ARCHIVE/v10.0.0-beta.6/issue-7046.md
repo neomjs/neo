@@ -58,6 +58,7 @@ The implementation relies on enhancements to `Neo.functional.component.Base`.
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu added parent issue #6992
 - 2025-07-14 @tobiu referenced in commit `3aefe2c` - "Reactive Updates for Nested Components in Functional VDOM #7046"
 - 2025-07-14 @tobiu closed this issue
 

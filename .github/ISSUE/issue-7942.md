@@ -61,6 +61,7 @@ To align the MCP Client CLI with the server-side runner architecture, this task 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-30 @tobiu referenced in commit `5b4e52b` - "Feat: Enable External Configuration and Generic Runner for MCP Client CLI #7942"
 - 2025-11-30 @tobiu closed this issue
 

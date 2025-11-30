@@ -29,6 +29,7 @@ closedAt: '2025-11-04T18:49:07Z'
 - 2025-11-04 @tobiu assigned to @tobiu
 - 2025-11-04 @tobiu added the `enhancement` label
 - 2025-11-04 @tobiu added the `ai` label
+- 2025-11-04 @tobiu added parent issue #7435
 - 2025-11-04 @tobiu referenced in commit `6ff1ba2` - "Convert Component Test list/Chip.mjs to Playwright #7703"
 - 2025-11-04 @tobiu closed this issue
 

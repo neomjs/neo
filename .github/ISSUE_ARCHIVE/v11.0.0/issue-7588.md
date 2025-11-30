@@ -300,6 +300,7 @@ if (result.timing.durationMs > 300000) {
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label
 - 2025-10-21 @tobiu added the `ai` label
+- 2025-10-21 @tobiu added parent issue #7564
 - 2025-10-21 @tobiu referenced in commit `1c1f4e8` - "Enhance Sync Result Payload with Comprehensive Statistics #7588"
 - 2025-10-21 @tobiu closed this issue
 

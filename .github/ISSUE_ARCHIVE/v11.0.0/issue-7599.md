@@ -41,6 +41,7 @@ To improve code organization, maintainability, and consistency across the GitHub
 - 2025-10-22 @tobiu added the `enhancement` label
 - 2025-10-22 @tobiu added the `ai` label
 - 2025-10-22 @tobiu added the `refactoring` label
+- 2025-10-22 @tobiu added parent issue #7590
 - 2025-10-22 @tobiu referenced in commit `dc941cf` - "Externalize GraphQL Queries for Label and PullRequest Services #7599"
 - 2025-10-22 @tobiu closed this issue
 

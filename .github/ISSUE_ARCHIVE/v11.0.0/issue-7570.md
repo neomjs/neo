@@ -49,5 +49,6 @@ This ticket covers the enhancement of the existing `logger.mjs` to provide a saf
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label
 - 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-20 @tobiu closed this issue
 

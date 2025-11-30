@@ -39,6 +39,7 @@ This ticket covers the implementation of the missing authentication check.
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `bug` label
+- 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-20 @tobiu added the `ai` label
 - 2025-10-20 @tobiu referenced in commit `b2de72b` - "Implement Missing #checkGhAuth Method in HealthService #7585"
 - 2025-10-20 @tobiu closed this issue

@@ -80,6 +80,7 @@ works fine now. see: https://github.com/neomjs/neo/blob/dev/apps/email/view/Main
 
 ## Activity Log
 
+- 2025-07-09 @tobiu added parent issue #6992
 - 2025-07-09 @tobiu added the `enhancement` label
 - 2025-07-14 @tobiu referenced in commit `93aa58e` - "#6995 examples.functional.hostComponent"
 - 2025-07-14 @tobiu referenced in commit `5fcc965` - "#6995 examples.functional.hostComponent.Component: removed an unused import, added the missing neo-config.json"

@@ -42,5 +42,6 @@ resolved
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `enhancement` label
+- 2025-07-30 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu closed this issue
 

@@ -39,6 +39,7 @@ This task implements the core client-side logic for connecting to MCP servers, f
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu referenced in commit `455a4e1` - "Feat: Implement MCP Client SDK and Demo Agent #7935"
 - 2025-11-29 @tobiu closed this issue
 

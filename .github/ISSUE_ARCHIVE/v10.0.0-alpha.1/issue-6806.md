@@ -28,6 +28,7 @@ closedAt: '2025-06-15T19:37:33Z'
 ## Activity Log
 
 - 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu added parent issue #6785
 - 2025-06-15 @tobiu added the `enhancement` label
 - 2025-06-15 @tobiu referenced in commit `4b725d8` - "vdom.Helper: insert() & move() => add a physical index & hasLeadingTextChildren delta flag #6806"
 - 2025-06-15 @tobiu closed this issue

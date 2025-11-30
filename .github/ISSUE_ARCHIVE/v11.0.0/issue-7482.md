@@ -40,6 +40,7 @@ This ticket covers two improvements to the `pullRequestService`:
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu added the `ai` label
 - 2025-10-14 @tobiu referenced in commit `b5ef261` - "Enhance PR Listing and Checkout Logic #7482"
 - 2025-10-14 @tobiu closed this issue

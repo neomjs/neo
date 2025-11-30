@@ -72,10 +72,25 @@ This combination of a server-side deployment fix and a client-side management ad
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `epic` label
 - 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu added sub-issue #7447
+- 2025-10-10 @tobiu added sub-issue #7448
+- 2025-10-10 @tobiu added sub-issue #7449
+- 2025-10-10 @tobiu added sub-issue #7451
+- 2025-10-10 @tobiu added sub-issue #7452
+- 2025-10-10 @tobiu added sub-issue #7453
 - 2025-10-10 @tobiu referenced in commit `3e7b454` - "#7446 tickets as md files"
+- 2025-10-11 @tobiu added sub-issue #7460
 - 2025-11-10 @tobiu referenced in commit `ab89104` - "#7446 early stage draft versions of the generated files"
 - 2025-11-11 @tobiu referenced in commit `5e018bf` - "#7446 buildScripts/generate-seo-files.mjs => #-based routes"
 - 2025-11-11 @tobiu referenced in commit `f64d61c` - "#7446 updated llm.txt"
+- 2025-11-11 @tobiu added sub-issue #7742
+- 2025-11-11 @tobiu added sub-issue #7743
+- 2025-11-11 @tobiu added sub-issue #7744
+- 2025-11-11 @tobiu added sub-issue #7745
 - 2025-11-11 @tobiu referenced in commit `502790a` - "#7446 generate-seo-files.mjs: switched sitemap url to https"
+- 2025-11-11 @tobiu added sub-issue #7746
+- 2025-11-11 @tobiu added sub-issue #7747
+- 2025-11-11 @tobiu added sub-issue #7748
+- 2025-11-11 @tobiu removed sub-issue #7447
 - 2025-11-11 @tobiu closed this issue
 

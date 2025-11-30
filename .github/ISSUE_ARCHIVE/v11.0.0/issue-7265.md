@@ -42,6 +42,8 @@ superseded by #7430
 ## Activity Log
 
 - 2025-09-27 @tobiu assigned to @tobiu
+- 2025-09-27 @tobiu added parent issue #7264
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-10-09 @tobiu removed parent issue #7264
 - 2025-10-09 @tobiu closed this issue
 

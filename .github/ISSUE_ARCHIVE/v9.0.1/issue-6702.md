@@ -26,6 +26,7 @@ closedAt: '2025-05-05T17:43:18Z'
 ## Activity Log
 
 - 2025-05-05 @tobiu assigned to @tobiu
+- 2025-05-05 @tobiu added parent issue #6696
 - 2025-05-05 @tobiu added the `enhancement` label
 - 2025-05-05 @tobiu closed this issue
 - 2025-05-05 @tobiu referenced in commit `10ef6d6` - "layout.Cube: getPlaneId() #6702"

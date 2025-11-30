@@ -39,6 +39,7 @@ This ticket covers the work to perform an in-depth review and rewrite the servic
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `bug` label
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `enhancement` label
 - 2025-10-16 @tobiu added the `ai` label
 - 2025-10-16 @tobiu referenced in commit `8f2b808` - "Review and Correct Database Service Implementation #7512"

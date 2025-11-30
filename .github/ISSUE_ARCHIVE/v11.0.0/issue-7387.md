@@ -68,6 +68,7 @@ DOM access works, and this is indeed huge, since Gemini can now examine the outp
 
 - 2025-10-06 @tobiu added the `documentation` label
 - 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added parent issue #7385
 - 2025-10-06 @tobiu added the `help wanted` label
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label

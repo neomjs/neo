@@ -55,6 +55,7 @@ To ensure feature parity and a consistent developer experience, `html` templates
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu referenced in commit `a04d286` - "Integrate Template Processing into dist/development Build #7160"
 - 2025-08-02 @tobiu closed this issue
 

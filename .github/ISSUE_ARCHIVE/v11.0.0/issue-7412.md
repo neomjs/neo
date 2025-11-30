@@ -72,6 +72,7 @@ Input from Gemini:
 
 ## Activity Log
 
+- 2025-10-07 @tobiu added parent issue #7399
 - 2025-10-07 @tobiu added the `enhancement` label
 - 2025-10-07 @tobiu added the `help wanted` label
 - 2025-10-07 @tobiu added the `good first issue` label

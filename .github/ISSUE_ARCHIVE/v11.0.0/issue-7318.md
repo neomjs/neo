@@ -37,6 +37,7 @@ This ticket involves creating a Node.js-based internal API or script that the AI
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label
+- 2025-10-01 @tobiu added parent issue #7316
 - 2025-10-02 @tobiu referenced in commit `66523d6` - "Create Memory Capture API #7318"
 - 2025-10-02 @tobiu closed this issue
 

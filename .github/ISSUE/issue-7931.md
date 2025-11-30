@@ -69,4 +69,5 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 - 2025-11-29 @tobiu added sub-issue #7942
 - 2025-11-30 @tobiu added sub-issue #7945
 - 2025-11-30 @tobiu added sub-issue #7946
+- 2025-11-30 @tobiu cross-referenced by #7947
 

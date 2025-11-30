@@ -363,16 +363,32 @@ into the new epic, we can now drop big amounts of subs.
 - 2025-10-10 @tobiu added the `ai` label
 - 2025-10-10 @tobiu removed the `good first issue` label
 - 2025-10-10 @tobiu cross-referenced by #7436
+- 2025-10-10 @tobiu added sub-issue #7436
+- 2025-10-10 @tobiu added sub-issue #7437
 - 2025-10-10 @tobiu cross-referenced by #7437
 - 2025-10-10 @tobiu cross-referenced by #7438
+- 2025-10-10 @tobiu added sub-issue #7438
+- 2025-10-10 @tobiu added sub-issue #7439
 - 2025-10-10 @tobiu cross-referenced by #7439
+- 2025-10-10 @tobiu added sub-issue #7440
 - 2025-10-10 @tobiu cross-referenced by #7440
+- 2025-10-10 @tobiu added sub-issue #7441
 - 2025-10-10 @tobiu cross-referenced by #7441
+- 2025-10-10 @tobiu added sub-issue #7442
 - 2025-10-10 @tobiu cross-referenced by #7442
+- 2025-10-10 @tobiu added sub-issue #7443
 - 2025-10-10 @tobiu cross-referenced by #7443
+- 2025-10-10 @tobiu added sub-issue #7444
 - 2025-10-10 @tobiu cross-referenced by #7444
 - 2025-10-10 @tobiu referenced in commit `48d43fc` - "#7435 ticket md files"
+- 2025-10-10 @tobiu added sub-issue #7445
 - 2025-10-10 @tobiu referenced in commit `25acc3f` - "#7435 internal ticket md updates"
+- 2025-10-12 @tobiu added sub-issue #7469
+- 2025-10-12 @tobiu added sub-issue #7470
+- 2025-10-12 @tobiu added sub-issue #7471
 - 2025-10-12 @tobiu referenced in commit `84ee05c` - "#7435 component.Image: specs location update"
 - 2025-10-14 @tobiu cross-referenced by #7476
+- 2025-10-27 @tobiu added sub-issue #7677
+- 2025-11-04 @tobiu added sub-issue #7703
+- 2025-11-10 @tobiu added sub-issue #7737
 

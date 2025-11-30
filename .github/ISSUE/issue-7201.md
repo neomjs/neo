@@ -64,8 +64,17 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added the `enhancement` label
 - 2025-08-20 @tobiu added the `epic` label
+- 2025-08-20 @tobiu added sub-issue #7202
+- 2025-08-20 @tobiu added sub-issue #7203
+- 2025-08-20 @tobiu added sub-issue #7204
+- 2025-08-20 @tobiu added sub-issue #7205
 - 2025-08-20 @tobiu referenced in commit `01020b6` - "Dashboard Drag & Drop #7201: epic md file"
+- 2025-08-20 @tobiu added sub-issue #7206
+- 2025-08-21 @tobiu added sub-issue #7207
+- 2025-08-21 @tobiu added sub-issue #7208
 - 2025-08-21 @tobiu referenced in commit `57a5d97` - "#7201 switched drag-handles back to cursor pointer (important for e.g. tab header buttons)"
+- 2025-08-21 @tobiu added sub-issue #7209
+- 2025-08-21 @tobiu added sub-issue #7210
 - 2025-11-19 @github-actions added the `stale` label
 - 2025-11-19 @tobiu removed the `stale` label
 - 2025-11-19 @tobiu added the `no auto close` label

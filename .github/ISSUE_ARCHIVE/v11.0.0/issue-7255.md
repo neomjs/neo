@@ -36,4 +36,5 @@ To improve project organization, the Playwright configuration and test output ar
 - 2025-09-25 @tobiu added the `enhancement` label
 - 2025-09-25 @tobiu referenced in commit `22ceb70` - "Refactor Playwright Test Configuration #7255"
 - 2025-09-25 @tobiu closed this issue
+- 2025-09-27 @tobiu added parent issue #7262
 

@@ -33,6 +33,7 @@ The `ai/mcp/server/github-workflow/mcp-stdio.mjs` file can be improved for bette
 ## Activity Log
 
 - 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added parent issue #7477
 - 2025-10-15 @tobiu added the `enhancement` label
 - 2025-10-15 @tobiu added the `ai` label
 - 2025-10-15 @tobiu referenced in commit `3db26e1` - "Refine mcp-stdio.mjs for MCP Compliance and Clarity #7497"

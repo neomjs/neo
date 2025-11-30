@@ -51,6 +51,7 @@ To provide a dedicated and semantically clear utility for converting snake_case 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu referenced in commit `3af75f7` - "Feat: Add Neo.snakeToCamel utility function #7940"
 - 2025-11-29 @tobiu closed this issue
 

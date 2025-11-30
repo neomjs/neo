@@ -35,6 +35,7 @@ With the new `stdio`-based MCP server fully functional, the final step is to rem
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label
 - 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu added parent issue #7520
 - 2025-10-17 @tobiu referenced in commit `8b8cc35` - "Remove Legacy Express Server from Memory Core #7524"
 - 2025-10-17 @tobiu closed this issue
 

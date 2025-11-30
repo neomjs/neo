@@ -73,6 +73,7 @@ We're closing this ticket as it is no longer relevant. Thanks again for your wil
 ## Activity Log
 
 - 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added parent issue #7364
 - 2025-10-06 @tobiu added the `help wanted` label
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label

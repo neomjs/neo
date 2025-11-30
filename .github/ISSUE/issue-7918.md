@@ -43,4 +43,7 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 - 2025-11-29 @tobiu added the `epic` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu cross-referenced by #7920
+- 2025-11-29 @tobiu added sub-issue #7920
+- 2025-11-29 @tobiu added sub-issue #7921
+- 2025-11-29 @tobiu added sub-issue #7922
 

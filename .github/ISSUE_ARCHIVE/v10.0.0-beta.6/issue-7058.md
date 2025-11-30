@@ -27,6 +27,7 @@ closedAt: '2025-07-15T13:54:57Z'
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu added parent issue #7048
 - 2025-07-15 @tobiu referenced in commit `cbc290b` - "Email.view.ComposeView: use a scss file and polish the internal code #7058"
 - 2025-07-15 @tobiu closed this issue
 
