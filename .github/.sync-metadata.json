@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-11-30T12:45:37.100Z",
-  "releasesLastFetched": "2025-11-30T12:45:37.847Z",
+  "lastSync": "2025-11-30T13:51:57.333Z",
+  "releasesLastFetched": "2025-11-30T13:51:57.955Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -11562,7 +11562,7 @@
     },
     "7910": {
       "state": "CLOSED",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/v11.12.0/issue-7910.md",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE_ARCHIVE/v11.13.0/issue-7910.md",
       "closedAt": "2025-11-29T11:41:17Z",
       "updatedAt": "2025-11-29T11:44:14Z",
       "contentHash": "c90092f0bc2dfe2f4e966295574a0dfea1b0de6ec5323f522c0817131e3eb8cb"
@@ -11691,7 +11691,7 @@
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7931.md",
       "closedAt": null,
       "updatedAt": "2025-11-29T17:34:45Z",
-      "contentHash": "b6d59c5d12583df5d3c839cffcdc820066245d53b56af9aa4c92366a93023d49"
+      "contentHash": "f79b529dc1c6a0b595b50e60aef984246c1f46ad9ca10676a14b962c64478035"
     },
     "7932": {
       "state": "CLOSED",
@@ -11771,11 +11771,11 @@
       "contentHash": "746bfc3c7f66aa00285ca927967dad6d0a6f6c939f14fbff482d195d714704e8"
     },
     "7946": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7946.md",
-      "closedAt": null,
-      "updatedAt": "2025-11-30T11:03:02Z",
-      "contentHash": "6906d7f00b7d3310092986f50d47f09ebc3ea306510733f1293e1bd86c83f276"
+      "closedAt": "2025-11-30T13:40:43Z",
+      "updatedAt": "2025-11-30T13:40:43Z",
+      "contentHash": "5ec09edd388170d66eb555a3982bdec051ea3308b4cdc64425b9db404edb2bbd"
     },
     "7947": {
       "state": "CLOSED",
@@ -11790,6 +11790,13 @@
       "closedAt": "2025-11-30T12:41:45Z",
       "updatedAt": "2025-11-30T12:41:45Z",
       "contentHash": "30ce5869c2ffb1bcd3a60a637a87c7acf34703cad1fe64de1bfc16d81a90c3b8"
+    },
+    "7949": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7949.md",
+      "closedAt": null,
+      "updatedAt": "2025-11-30T13:51:10Z",
+      "contentHash": "7991e0b30ec1f1fef8d3531230a731d86170726b8db53f3dd0e709b0ac79c8f7"
     }
   },
   "releases": {
