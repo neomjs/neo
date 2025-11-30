@@ -2,6 +2,7 @@ import { Client as McpSdkClient } from '@modelcontextprotocol/sdk/client/index.j
 import { StdioClientTransport }     from '@modelcontextprotocol/sdk/client/stdio.js';
 import Base                         from '../../../src/core/Base.mjs';
 import ClientConfig                 from './config.mjs'; // Import the new config singleton
+import {validateToolInput}          from '../toolService.mjs';
 
 /**
  * @summary A generic MCP Client that can connect to any local MCP server via Stdio.
@@ -176,99 +177,13 @@ class Client extends Base {
 
         const schema = this.toolSchemas[name];
         if (schema) {
-            this.validateSchema(args, schema, name);
+            validateToolInput(name, args, schema);
         }
 
         return await this.client.callTool({
             name,
             arguments: args
         });
-    }
-
-    /**
-     * Validates a value against a JSON Schema subset (Draft 7).
-     * Supports: type (string, number, integer, boolean, object, array), required, properties, items, enum.
-     * @param {*} value
-     * @param {Object} schema
-     * @param {String} [path='root']
-     * @returns {Boolean} true if valid
-     * @throws {Error} if invalid
-     */
-    validateSchema(value, schema, path = 'args') {
-        if (!schema) return true;
-
-        // Handle types
-        if (schema.type) {
-            const type = schema.type;
-            const valueType = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
-
-            // JSON Schema 'integer' check
-            if (type === 'integer') {
-                if (typeof value !== 'number' || !Number.isInteger(value)) {
-                    throw new Error(`Validation Error at ${path}: Expected integer, got ${valueType} (${value})`);
-                }
-            } else if (type === 'number') {
-                if (typeof value !== 'number') {
-                    throw new Error(`Validation Error at ${path}: Expected number, got ${valueType}`);
-                }
-            } else if (type === 'string') {
-                if (typeof value !== 'string') {
-                    throw new Error(`Validation Error at ${path}: Expected string, got ${valueType}`);
-                }
-            } else if (type === 'boolean') {
-                if (typeof value !== 'boolean') {
-                    throw new Error(`Validation Error at ${path}: Expected boolean, got ${valueType}`);
-                }
-            } else if (type === 'object') {
-                if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-                    throw new Error(`Validation Error at ${path}: Expected object, got ${valueType}`);
-                }
-            } else if (type === 'array') {
-                if (!Array.isArray(value)) {
-                    throw new Error(`Validation Error at ${path}: Expected array, got ${valueType}`);
-                }
-            }
-        }
-
-        // Handle Objects
-        if (schema.type === 'object') {
-            // Required fields
-            if (schema.required) {
-                schema.required.forEach(field => {
-                    if (value[field] === undefined) {
-                        throw new Error(`Validation Error at ${path}: Missing required property '${field}'`);
-                    }
-                });
-            }
-
-            // Properties
-            if (schema.properties) {
-                // We only validate defined properties. Additional properties are not checked by default here
-                // unless strict validation is required, but standard usage often implies partial checks.
-                // However, for tool args, we usually want to validate what's passed.
-                Object.keys(value).forEach(key => {
-                    if (schema.properties[key]) {
-                        this.validateSchema(value[key], schema.properties[key], `${path}.${key}`);
-                    }
-                });
-            }
-        }
-
-        // Handle Arrays
-        if (schema.type === 'array' && schema.items) {
-            value.forEach((item, index) => {
-                this.validateSchema(item, schema.items, `${path}[${index}]`);
-            });
-        }
-
-        // Handle Enum
-        if (schema.enum) {
-            if (!schema.enum.includes(value)) {
-                throw new Error(`Validation Error at ${path}: Value '${value}' is not allowed. Allowed values: ${schema.enum.join(', ')}`);
-            }
-        }
-
-        return true;
     }
 
     /**

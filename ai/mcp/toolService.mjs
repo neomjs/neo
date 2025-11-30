@@ -1,7 +1,7 @@
 import fs                                                 from 'fs';
 import yaml                                               from 'js-yaml';
 import {zodToJsonSchema}                                  from 'zod-to-json-schema';
-import {buildZodSchema, buildOutputZodSchema, resolveRef} from '../validation/OpenApiValidator.mjs';
+import {buildZodSchema, buildOutputZodSchema, resolveRef} from './validation/OpenApiValidator.mjs';
 
 let toolMapping        = null; // Internal cache for parsed tool definitions to avoid re-parsing OpenAPI on every call.
 let allToolsForListing = null; // Internal cache for tools formatted for the MCP 'tools/list' response, including JSON schemas.
@@ -158,6 +158,124 @@ async function callTool(toolName, args) {
     return tool.handler(...handlerArgs);
 }
 
+/**
+ * Validates tool input against the internal Zod schema (if available) or a provided JSON Schema.
+ *
+ * @param {string} toolName - The name of the tool.
+ * @param {object} args - The arguments to validate.
+ * @param {object} [schema] - Optional JSON schema to validate against (fallback for External Servers).
+ * @returns {boolean} True if valid.
+ * @throws {Error} If validation fails or tool is not found.
+ */
+function validateToolInput(toolName, args, schema) {
+    // 1. Try Server-side validation using internal Zod schemas (best quality)
+    if (toolMapping) {
+        const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
+        const effectiveToolName = lastDoubleUnderscoreIndex !== -1
+            ? toolName.substring(lastDoubleUnderscoreIndex + 2)
+            : toolName;
+
+        const tool = toolMapping[effectiveToolName];
+        if (tool) {
+            tool.zodSchema.parse(args); // Throws if invalid
+            return true;
+        }
+    }
+
+    // 2. Fallback: Client-side validation using provided JSON Schema (for External Servers)
+    if (schema) {
+        return validateJsonSchema(args, schema);
+    }
+
+    // 3. If neither is available, we can't validate.
+    // For now, we assume valid if no schema is present to avoid blocking valid calls.
+    return true;
+}
+
+/**
+ * Validates a value against a JSON Schema subset (Draft 7).
+ * Supports: type (string, number, integer, boolean, object, array), required, properties, items, enum.
+ * Copied from Client.mjs for shared use.
+ * @param {*} value
+ * @param {Object} schema
+ * @param {String} [path='args']
+ * @returns {Boolean} true if valid
+ * @throws {Error} if invalid
+ */
+function validateJsonSchema(value, schema, path = 'args') {
+    if (!schema) return true;
+
+    // Handle types
+    if (schema.type) {
+        const type = schema.type;
+        const valueType = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
+
+        // JSON Schema 'integer' check
+        if (type === 'integer') {
+            if (typeof value !== 'number' || !Number.isInteger(value)) {
+                throw new Error(`Validation Error at ${path}: Expected integer, got ${valueType} (${value})`);
+            }
+        } else if (type === 'number') {
+            if (typeof value !== 'number') {
+                throw new Error(`Validation Error at ${path}: Expected number, got ${valueType}`);
+            }
+        } else if (type === 'string') {
+            if (typeof value !== 'string') {
+                throw new Error(`Validation Error at ${path}: Expected string, got ${valueType}`);
+            }
+        } else if (type === 'boolean') {
+            if (typeof value !== 'boolean') {
+                throw new Error(`Validation Error at ${path}: Expected boolean, got ${valueType}`);
+            }
+        } else if (type === 'object') {
+            if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+                throw new Error(`Validation Error at ${path}: Expected object, got ${valueType}`);
+            }
+        } else if (type === 'array') {
+            if (!Array.isArray(value)) {
+                throw new Error(`Validation Error at ${path}: Expected array, got ${valueType}`);
+            }
+        }
+    }
+
+    // Handle Objects
+    if (schema.type === 'object') {
+        // Required fields
+        if (schema.required) {
+            schema.required.forEach(field => {
+                if (value[field] === undefined) {
+                    throw new Error(`Validation Error at ${path}: Missing required property '${field}'`);
+                }
+            });
+        }
+
+        // Properties
+        if (schema.properties) {
+            Object.keys(value).forEach(key => {
+                if (schema.properties[key]) {
+                    validateJsonSchema(value[key], schema.properties[key], `${path}.${key}`);
+                }
+            });
+        }
+    }
+
+    // Handle Arrays
+    if (schema.type === 'array' && schema.items) {
+        value.forEach((item, index) => {
+            validateJsonSchema(item, schema.items, `${path}[${index}]`);
+        });
+    }
+
+    // Handle Enum
+    if (schema.enum) {
+        if (!schema.enum.includes(value)) {
+            throw new Error(`Validation Error at ${path}: Value '${value}' is not allowed. Allowed values: ${schema.enum.join(', ')}`);
+        }
+    }
+
+    return true;
+}
+
 function initialize(mapping, filePath) {
     serviceMapping  = mapping;
     openApiFilePath = filePath;
@@ -166,5 +284,6 @@ function initialize(mapping, filePath) {
 export {
     initialize,
     listTools,
-    callTool
+    callTool,
+    validateToolInput
 };

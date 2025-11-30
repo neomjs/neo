@@ -69,7 +69,6 @@ async function run() {
 
         // Example: Get all session summaries from Memory Core
         console.log('\n🧠 Getting Memory Core session summaries via agent.clients.memoryCore.tools.getAllSummaries()...');
-        /*
         const memSummariesResult = await agent.clients.memoryCore.tools.getAllSummaries({ limit: 2 });
         if (memSummariesResult.isError) {
             console.error('❌ Memory Core Summaries Failed:', memSummariesResult.content[0].text);
@@ -79,19 +78,6 @@ async function run() {
             summariesData.summaries.forEach(s => {
                 console.log(`   - [${s.category}] ${s.title}`);
             });
-        }
-        */
-
-        // Example: Invalid Tool Call Test
-        console.log('\n🧪 Testing Invalid Tool Call (listIssues with string limit)...');
-        const invalidResult = await agent.clients.githubWorkflow.tools.listIssues({
-            limit: "not-a-number"
-        });
-
-        if (invalidResult.isError) {
-            console.log('✅ Expected Error received:', invalidResult.content[0].text);
-        } else {
-            console.error('❌ Unexpected Success:', invalidResult.content[0].text);
         }
 
     } catch (error) {

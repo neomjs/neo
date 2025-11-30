@@ -1,6 +1,6 @@
 import path                              from 'path';
 import {fileURLToPath}                   from 'url';
-import {initialize, listTools, callTool} from '../../toolService.mjs';
+import {initialize, listTools, callTool} from '../../../toolService.mjs';
 import DatabaseService                   from './DatabaseService.mjs';
 import DatabaseLifecycleService          from './DatabaseLifecycleService.mjs';
 import HealthService                     from './HealthService.mjs';
