@@ -98,29 +98,8 @@ class Client extends Base {
 
         // 2. Load initial server config based on the default or provided serverName
         this.loadServerConfig(this.serverName);
-    }
 
-    /**
-     * Loads the server connection details from the ClientConfig singleton.
-     * @param {String} serverName The name of the server to load.
-     * @protected
-     */
-    loadServerConfig(serverName) {
-        const serverConfig = ClientConfig.mcpServers[serverName];
-        if (!serverConfig) {
-            throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
-        }
-        this.command = serverConfig.command;
-        this.args = serverConfig.args;
-        // Note: env from config.mjs is not explicitly merged here,
-        // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
-    }
-
-    /**
-     * Connects to the MCP server.
-     * @returns {Promise<void>}
-     */
-    async connect() {
+        // 3. Connect the client and create tool proxies
         if (!this.command || !this.args) {
             throw new Error('MCP Client: Server command and arguments are not set. Ensure serverName is valid and config.mjs is properly configured.');
         }
@@ -141,15 +120,31 @@ class Client extends Base {
         await this.client.connect(this.transport);
 
         // Fetch tools and create dynamic proxies
-        const tools = await this.listTools(); // Using listTools from this class
+        const tools = await this.listTools();
         this.tools = {};
         tools.forEach(tool => {
-            const camelCaseName = Neo.snakeToCamel(tool.name); // Use the global Neo.snakeToCamel
-            console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log
+            const camelCaseName = Neo.snakeToCamel(tool.name);
+            // console.log(`[MCP Client] Creating tool proxy: ${tool.name} -> ${camelCaseName}`); // Debug log (Commented out for production)
             this.tools[camelCaseName] = async (args) => {
                 return this.callTool(tool.name, args);
             };
         });
+    }
+
+    /**
+     * Loads the server connection details from the ClientConfig singleton.
+     * @param {String} serverName The name of the server to load.
+     * @protected
+     */
+    loadServerConfig(serverName) {
+        const serverConfig = ClientConfig.mcpServers[serverName];
+        if (!serverConfig) {
+            throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
+        }
+        this.command = serverConfig.command;
+        this.args = serverConfig.args;
+        // Note: env from config.mjs is not explicitly merged here,
+        // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
     }
 
     /**

@@ -55,9 +55,7 @@ async function run() {
             serverName: options.server,
             env: process.env // Pass environment variables
         });
-
-        await mcpClient.connect();
-        console.log(`✅ Connected to ${options.server} MCP server.`);
+        await mcpClient.ready();
 
         if (options.listTools) {
             console.log('\n🛠️  Listing tools...');

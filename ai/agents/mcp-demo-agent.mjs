@@ -31,14 +31,18 @@ async function run() {
     });
 
     try {
-        // Connect the agent, which in turn connects all its clients
-        console.log('🔌 Agent connecting to servers...');
-        await agent.connect();
-        console.log('✅ Agent connected to servers.');
+        // Ensure the agent is ready (connected to all its clients)
+        console.log('🔌 Agent preparing (connecting to servers)...');
+        await agent.ready();
+        console.log('✅ Agent ready (connected to servers).');
 
         // Example: List tools from GitHub Workflow Server
-        console.log('\n📋 Fetching recent issues via agent.tools.githubWorkflow.listIssues()...');
-        const ghResult = await agent.tools.githubWorkflow.listIssues({
+        console.log('Agent Instance:', agent); // Log entire agent
+        console.log('Agent Clients Direct Access:', agent.clients); // Log property access
+        console.log('GitHub Client Exists:', !!agent.clients?.githubWorkflow); // Safe check
+
+        console.log('\n📋 Fetching recent issues via agent.clients.githubWorkflow.tools.listIssues()...');
+        const ghResult = await agent.clients.githubWorkflow.tools.listIssues({
             limit: 5,
             state: 'open'
         });
@@ -54,8 +58,8 @@ async function run() {
         }
 
         // Example: Perform a healthcheck on Knowledge Base
-        console.log('\n🩺 Checking Knowledge Base health via agent.tools.knowledgeBase.healthcheck()...');
-        const kbHealthResult = await agent.tools.knowledgeBase.healthcheck({});
+        console.log('\n🩺 Checking Knowledge Base health via agent.clients.knowledgeBase.tools.healthcheck()...');
+        const kbHealthResult = await agent.clients.knowledgeBase.tools.healthcheck({});
         if (kbHealthResult.isError) {
             console.error('❌ Knowledge Base Healthcheck Failed:', kbHealthResult.content[0].text);
         } else {
@@ -64,8 +68,8 @@ async function run() {
         }
 
         // Example: Get all session summaries from Memory Core
-        console.log('\n🧠 Getting Memory Core session summaries via agent.tools.memoryCore.getAllSummaries()...');
-        const memSummariesResult = await agent.tools.memoryCore.getAllSummaries({ limit: 2 });
+        console.log('\n🧠 Getting Memory Core session summaries via agent.clients.memoryCore.tools.getAllSummaries()...');
+        const memSummariesResult = await agent.clients.memoryCore.tools.getAllSummaries({ limit: 2 });
         if (memSummariesResult.isError) {
             console.error('❌ Memory Core Summaries Failed:', memSummariesResult.content[0].text);
         } else {

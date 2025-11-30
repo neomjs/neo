@@ -19,38 +19,37 @@ class Agent extends Base {
          * A list of server names (keys in ClientConfig) to connect to.
          * @member {String[]} servers=[]
          */
-        servers: []
+        servers: [],
+        /**
+         * Map of connected Client instances, keyed by server name.
+         * @member {Object} clients={}
+         */
+        clients: {}
     }
 
     /**
-     * Map of connected Client instances, keyed by server name.
-     * @member {Object} clients={}
+     * Async initialization sequence.
+     * Creates and connects all configured clients.
+     * @returns {Promise<void>}
      */
-    clients = {}
+    async initAsync() {
+        await super.initAsync();
 
-    /**
-     * Aggregated namespace of tools.
-     * Structure: `this.tools.<serverName>.<toolName>()`
-     * @member {Object} tools={}
-     */
-    tools = {}
+        // Ensure clients object is ready
+        if (!this.clients) this.clients = {};
 
-    /**
-     * Connects to all configured servers and aggregates their tools.
-     */
-    async connect() {
         for (const serverName of this.servers) {
             const client = Neo.create(Client, {
                 serverName,
                 env: process.env // Pass generic env for now
             });
+            await client.ready();
 
-            await client.connect();
-            this.clients[serverName] = client;
-
-            // Namespace tools
-            this.tools[this.snakeToCamel(serverName)] = client.tools;
+            const key = this.snakeToCamel(serverName);
+            console.log(`[Agent] Registering client '${serverName}' as '${key}'`);
+            this.clients[key] = client;
         }
+        console.log('[Agent] Final clients map:', Object.keys(this.clients));
     }
 
     /**
@@ -61,7 +60,6 @@ class Agent extends Base {
             await client.close();
         }
         this.clients = {};
-        this.tools = {};
     }
 
     /**
