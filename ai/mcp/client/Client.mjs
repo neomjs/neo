@@ -51,6 +51,16 @@ class Client extends Base {
          */
         env: {},
         /**
+         * Path to the OpenAPI spec for this server (if available).
+         * @member {String|null} openApiFilePath=null
+         */
+        openApiFilePath: null,
+        /**
+         * List of environment variable names required by the server.
+         * @member {String[]} requiredEnv=[]
+         */
+        requiredEnv: [],
+        /**
          * The logical name of the MCP server to connect to (e.g., 'github-workflow').
          * This name will be used to look up connection details from ClientConfig.
          * @member {String} serverName_='github-workflow'
@@ -70,18 +80,6 @@ class Client extends Base {
      * @member {Boolean} connected=false
      */
     connected = false
-    /**
-     * Path to the OpenAPI spec for this server (if available).
-     * @member {String|null} openApiFilePath=null
-     * @protected
-     */
-    openApiFilePath = null
-    /**
-     * List of environment variable names required by the server.
-     * @member {String[]} requiredEnv=[]
-     * @protected
-     */
-    requiredEnv = []
     /**
      * Map of tool schemas keyed by tool name (from listTools).
      * @member {Object} toolSchemas={}

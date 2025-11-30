@@ -1,14 +1,14 @@
 ---
 id: 7952
 title: Fix ToolService.mjs Git Case Sensitivity Issue
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-30T15:44:24Z'
-updatedAt: '2025-11-30T15:44:36Z'
+updatedAt: '2025-11-30T15:50:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7952'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-11-30T15:50:55Z'
 ---
 # Fix ToolService.mjs Git Case Sensitivity Issue
 
@@ -43,4 +44,8 @@ Fix the git file tracking for `ToolService.mjs` by performing a brute-force rena
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu assigned to @tobiu
 - 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu referenced in commit `121fbfb` - "#7952 tmp name"
+- 2025-11-30 @tobiu referenced in commit `bd09c38` - "#7952 tmp name"
+- 2025-11-30 @tobiu referenced in commit `9e52c4b` - "#7952 real name"
+- 2025-11-30 @tobiu closed this issue
 
