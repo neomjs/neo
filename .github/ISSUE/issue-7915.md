@@ -69,4 +69,5 @@ Define the exact YAML structure that agents must use in the Issue Body.
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu referenced in commit `420d11c` - "Task: Define Agent Task Protocol (Labels, Templates, Rules) #7915"
 - 2025-11-29 @tobiu closed this issue
+- 2025-11-29 @tobiu cross-referenced by #7914
 

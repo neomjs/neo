@@ -12,9 +12,12 @@ githubUrl: 'https://github.com/neomjs/neo/issues/7918'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
+subIssues:
+  - 7920
+  - 7921
+  - 7922
 subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
 ---

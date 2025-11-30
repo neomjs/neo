@@ -11,7 +11,7 @@ updatedAt: '2025-11-29T15:19:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7920'
 author: tobiu
 commentsCount: 0
-parentIssue: null
+parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0

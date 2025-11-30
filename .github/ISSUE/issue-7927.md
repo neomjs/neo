@@ -43,4 +43,5 @@ Enables "Local First" patterns for autonomous agents running within the repo.
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu referenced in commit `ab281fa` - "Feat: Expose LocalFileService in AI SDK #7927"
 - 2025-11-29 @tobiu closed this issue
+- 2025-11-29 @tobiu cross-referenced by #7914
 

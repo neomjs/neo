@@ -13,9 +13,18 @@ githubUrl: 'https://github.com/neomjs/neo/issues/7931'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - 7935
+  - 7936
+  - 7937
+  - 7938
+  - 7939
+  - 7940
+  - 7941
+  - 7942
+  - 7945
+subIssuesCompleted: 9
+subIssuesTotal: 9
 blockedBy: []
 blocking: []
 ---
@@ -47,4 +56,6 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 - 2025-11-29 @tobiu added the `epic` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu cross-referenced by #7935
+- 2025-11-29 @tobiu referenced in commit `fe69334` - "Epic: MCP Client Implementation for Agents #7931"
 
