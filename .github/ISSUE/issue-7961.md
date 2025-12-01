@@ -19,8 +19,9 @@ subIssues:
   - 7963
   - 7964
   - 7965
-subIssuesCompleted: 3
-subIssuesTotal: 4
+  - 7966
+subIssuesCompleted: 4
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -137,4 +138,6 @@ blocking: []
 - 2025-12-01 @tobiu added sub-issue #7964
 - 2025-12-01 @tobiu cross-referenced by #7965
 - 2025-12-01 @tobiu added sub-issue #7965
+- 2025-12-01 @tobiu cross-referenced by #7966
+- 2025-12-01 @tobiu added sub-issue #7966
 
