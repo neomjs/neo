@@ -1,22 +1,24 @@
 ---
 id: 7966
 title: Implement Safety Guardrails for Agent
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-01T12:46:06Z'
-updatedAt: '2025-12-01T12:46:06Z'
+updatedAt: '2025-12-01T15:40:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7966'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7961
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-01T15:40:13Z'
 ---
 # Implement Safety Guardrails for Agent
 
@@ -30,9 +32,23 @@ blocking: []
     - Implement a suspension mechanism in `Loop` to wait for human signal (e.g., via CLI or WebSocket).
 **Context:** Part of Epic #7961.
 
+## Comments
+
+### @tobiu - 2025-12-01 15:39
+
+**Input from Gemini 2.5:**
+
+> ✦ Implemented Token Bucket rate limiting in `Neo.ai.agent.Loop`.
+> - Added `maxActionsPerMinute` config.
+> - Implemented `refillTokens()` logic.
+> - Updated `tick()` to check and consume tokens before processing events.
+
 ## Activity Log
 
 - 2025-12-01 @tobiu added the `enhancement` label
 - 2025-12-01 @tobiu added the `ai` label
 - 2025-12-01 @tobiu added parent issue #7961
+- 2025-12-01 @tobiu assigned to @tobiu
+- 2025-12-01 @tobiu referenced in commit `13de816` - "Implement Safety Guardrails for Agent #7966"
+- 2025-12-01 @tobiu closed this issue
 
