@@ -1,4 +1,7 @@
-import Base from '../../src/core/Base.mjs';
+import Assembler       from '../context/Assembler.mjs';
+import Base            from '../../src/core/Base.mjs';
+import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
+import Provider        from '../provider/Base.mjs';
 
 /**
  * The cognitive event loop for the Agent.
@@ -18,9 +21,10 @@ class Loop extends Base {
         className: 'Neo.ai.agent.Loop',
         /**
          * The Context Assembler instance.
-         * @member {Neo.ai.context.Assembler} assembler=null
+         * @member {Neo.ai.context.Assembler|Object} assembler_=null
+         * @reactive
          */
-        assembler: null,
+        assembler_: null,
         /**
          * Execution interval in ms.
          * @member {Number} interval=100
@@ -43,9 +47,10 @@ class Loop extends Base {
         maxRetries: 3,
         /**
          * The AI Provider instance.
-         * @member {Neo.ai.provider.Base} provider=null
+         * @member {Neo.ai.provider.Base|Object} provider_=null
+         * @reactive
          */
-        provider: null,
+        provider_: null,
         /**
          * The Event Scheduler instance.
          * @member {Neo.ai.agent.Scheduler} scheduler=null
@@ -93,6 +98,30 @@ class Loop extends Base {
      * @protected
      */
     lastRefill = Date.now()
+
+    /**
+     * Triggered before the assembler config gets changed.
+     * @param {Object|Neo.ai.context.Assembler} value
+     * @param {Neo.ai.context.Assembler} oldValue
+     * @returns {Neo.ai.context.Assembler}
+     * @protected
+     */
+    beforeSetAssembler(value, oldValue) {
+        oldValue?.destroy();
+        return ClassSystemUtil.beforeSetInstance(value, Assembler)
+    }
+
+    /**
+     * Triggered before the provider config gets changed.
+     * @param {Object|Neo.ai.provider.Base} value
+     * @param {Neo.ai.provider.Base} oldValue
+     * @returns {Neo.ai.provider.Base}
+     * @protected
+     */
+    beforeSetProvider(value, oldValue) {
+        oldValue?.destroy();
+        return ClassSystemUtil.beforeSetInstance(value, Provider)
+    }
 
     /**
      * Triggered before the state config gets changed
