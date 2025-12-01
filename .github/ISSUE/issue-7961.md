@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-01T10:21:58Z'
-updatedAt: '2025-12-01T10:21:58Z'
+updatedAt: '2025-12-01T10:43:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7961'
 author: tobiu
 commentsCount: 0
@@ -28,9 +29,11 @@ blocking: []
     *   `Neo.ai.model.Base`: Abstract base class for LLM providers.
     *   `Neo.ai.model.Gemini`: Concrete implementation for Google Gemini API.
     *   Interface methods: `infer()`, `stream()`.
-2.  **Context Window Management:**
-    *   Mechanism to maintain conversation history.
-    *   Strategies for token limit management (FIFO, summarization).
+2.  **Context & Memory Integration:**
+    *   **Short-Term Memory:** Logic to hydrate the context window using `memory-core` (via `get_session_memories`).
+    *   **Long-Term Memory (RAG):** Integration of `query_raw_memories` to retrieve relevant past problem-solving patterns.
+    *   **Shared Awareness:** Capability to query other agents' sessions to coordinate work.
+    *   **Token Management:** A `ContextAssembler` that combines System Prompt + Memory Core History + RAG Results + Current Event into a valid LLM payload.
 3.  **Event Queue & Loop:**
     *   `PriorityQueue` for handling incoming signals (System vs User vs Telemetry).
     *   The "Stimulus-Response Loop": `Perceive` -> `Reason` (LLM) -> `Act` (Tools/RPC) -> `Reflect`.
@@ -48,10 +51,10 @@ blocking: []
 
 **Reference:** `.github/AGENT_ARCHITECTURE.md`
 
-
 ## Activity Log
 
 - 2025-12-01 @tobiu added the `epic` label
 - 2025-12-01 @tobiu added the `ai` label
 - 2025-12-01 @tobiu added the `architecture` label
+- 2025-12-01 @tobiu assigned to @tobiu
 
