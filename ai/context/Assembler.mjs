@@ -22,11 +22,26 @@ class ContextAssembler extends Base {
          */
         className: 'Neo.ai.context.Assembler',
         /**
+         * Number of messages to keep before compressing.
+         * @member {Number} compressionThreshold=20
+         */
+        compressionThreshold: 20,
+        /**
+         * Number of initial messages to keep as context when compressing.
+         * @member {Number} contextCount=5
+         */
+        contextCount: 5,
+        /**
          * Maximum tokens allowed in the context window.
          * Used for pruning history.
          * @member {Number} maxTokens=1000000
          */
-        maxTokens: 1000000
+        maxTokens: 1000000,
+        /**
+         * Number of most recent messages to keep when compressing.
+         * @member {Number} recentCount=10
+         */
+        recentCount: 10
     }
 
     /**
@@ -145,20 +160,49 @@ class ContextAssembler extends Base {
     }
 
     /**
-     * Formats raw memory entries into message history.
+     * Formats raw memory entries into message objects.
+     * @param {Array} memories
+     * @returns {Array}
+     */
+    formatMessages(memories) {
+        const messages = [];
+        memories.forEach(m => {
+            messages.push({ role: 'user', content: m.prompt });
+            messages.push({ role: 'model', content: `Thought: ${m.thought}\n\n${m.response}` });
+        });
+        return messages;
+    }
+
+    /**
+     * Formats raw memory entries into message history with compression.
      * @param {Array} memories
      * @returns {Array}
      */
     formatHistory(memories) {
         if (!memories || !Array.isArray(memories)) return [];
 
-        const messages = [];
-        memories.forEach(m => {
-            messages.push({ role: 'user', content: m.prompt });
-            messages.push({ role: 'model', content: `Thought: ${m.thought}\n\n${m.response}` });
-        });
+        if (memories.length > this.compressionThreshold) {
+            // Keep first 5 (context) + last 10 (recent) + summarize middle
+            const {contextCount, recentCount} = this;
 
-        return messages;
+            // Ensure we don't overlap if threshold is weirdly low
+            if (memories.length > (contextCount + recentCount)) {
+                const context     = memories.slice(0, contextCount);
+                const recent      = memories.slice(-recentCount);
+                const middleCount = memories.length - contextCount - recentCount;
+
+                return [
+                    ...this.formatMessages(context),
+                    {
+                        role   : 'system',
+                        content: `[System Note: ${middleCount} intermediate messages were summarized to save context. Check Memory Core for details.]`
+                    },
+                    ...this.formatMessages(recent)
+                ];
+            }
+        }
+
+        return this.formatMessages(memories);
     }
 
     /**

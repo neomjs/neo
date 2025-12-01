@@ -8,6 +8,8 @@ import Base from '../../src/core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Loop extends Base {
+    static states = ['idle', 'thinking', 'acting', 'reflecting']
+
     static config = {
         /**
          * @member {String} className='Neo.ai.agent.Loop'
@@ -30,6 +32,11 @@ class Loop extends Base {
          */
         maxActionsPerMinute: 10,
         /**
+         * Maximum number of retries for event processing.
+         * @member {Number} maxRetries=3
+         */
+        maxRetries: 3,
+        /**
          * The AI Provider instance.
          * @member {Neo.ai.provider.Base} provider=null
          */
@@ -41,10 +48,27 @@ class Loop extends Base {
         scheduler: null,
         /**
          * State of the loop.
-         * @member {String} state='idle'
+         * @member {String} state_='idle'
+         * @reactive
          */
-        state: 'idle' // idle, thinking, acting
+        state_: 'idle', // idle, thinking, acting, reflecting
+        /**
+         * Valid state transitions.
+         * @member {Object} transitions
+         */
+        transitions: {
+            idle      : ['thinking'],
+            thinking  : ['acting', 'reflecting', 'idle'],
+            acting    : ['reflecting', 'idle'],
+            reflecting: ['idle']
+        }
     }
+
+    /**
+     * Dead letter queue for unrecoverable events.
+     * @member {Object[]} failedEvents=[]
+     */
+    failedEvents = []
 
     /**
      * @member {Boolean} isRunning=false
@@ -64,6 +88,43 @@ class Loop extends Base {
      * @protected
      */
     lastRefill = Date.now()
+
+    /**
+     * Triggered before the state config gets changed
+     * @param {String} value    The new value of the state config.
+     * @param {String} oldValue The old value of the state config.
+     * @returns {String}
+     * @protected
+     */
+    beforeSetState(value, oldValue) {
+        // 1. Validate value is in static states
+        const validValue = this.beforeSetEnumValue(value, oldValue, 'state');
+
+        if (validValue === oldValue) {
+            return oldValue
+        }
+
+        // Allow initialization
+        if (oldValue === undefined) {
+            return validValue
+        }
+
+        // 2. Validate transition
+        const validTransitions = this.transitions[oldValue] || [];
+
+        if (!validTransitions.includes(value)) {
+            // Allow forced reset to idle
+            if (value === 'idle') {
+                console.warn(`[Loop] Forced transition to idle from ${oldValue}`);
+                return value
+            }
+
+            throw new Error(`Invalid state transition: ${oldValue} -> ${value}`)
+        }
+
+        console.log(`[Loop] State: ${oldValue} -> ${value}`);
+        return value
+    }
 
     /**
      * Refills the token bucket based on elapsed time.
@@ -116,6 +177,9 @@ class Loop extends Base {
 
             if (event) {
                 this.tokens -= 1;
+                // We don't await here to allow the loop to keep ticking if we wanted parallelism,
+                // but since we share 'state', we must process one at a time.
+                // The 'state' check above prevents re-entry.
                 await this.processEvent(event);
             }
         }
@@ -125,20 +189,55 @@ class Loop extends Base {
     }
 
     /**
+     * Simple keyword extraction for RAG queries.
+     * @param {String} text
+     * @returns {String}
+     */
+    extractKeywords(text) {
+        if (!text || typeof text !== 'string') return '';
+        // Minimal stop word list
+        const stopWords = new Set(['how', 'what', 'the', 'is', 'do', 'i', 'to', 'in', 'at', 'on', 'for', 'and']);
+        return text.toLowerCase()
+            .split(/\s+/)
+            .filter(word => word.length > 3 && !stopWords.has(word))
+            .join(' ');
+    }
+
+    /**
      * Processes a single event through the cognitive pipeline.
      * @param {Object} event
+     * @param {Number} [retryCount=0]
      */
-    async processEvent(event) {
+    async processEvent(event, retryCount = 0) {
+        let retrying = false;
+
         console.log(`[Loop] Processing event: [${event.priority}] ${event.type}`);
         this.state = 'thinking';
 
         try {
             // 1. Assemble Context
-            // TODO: Differentiate between user prompt events and system events for 'userQuery'
+            let systemPrompt = 'You are an autonomous agent.';
+            let userQuery    = event.data;
+            let ragQuery     = '';
+
+            // Differentiate logic based on event type
+            if (event.type === 'user:input') {
+                systemPrompt = 'You are a helpful assistant.';
+                ragQuery     = this.extractKeywords(userQuery);
+            } else if (event.type.startsWith('system:error')) {
+                systemPrompt = 'You are an expert debugger. Analyze the error and propose a fix.';
+                const err    = event.data || {};
+                userQuery    = `[ERROR] ${err.message || JSON.stringify(err)}\nStack: ${err.stack || 'N/A'}`;
+                ragQuery     = `error handling ${err.componentType || ''} ${this.extractKeywords(err.message || '')}`;
+            } else if (event.type === 'neo:component:mount') {
+                systemPrompt = 'You are observing the application state.';
+                userQuery    = `Component mounted: ${event.data.id}`;
+            }
+
             const context = await this.assembler.assemble({
-                systemPrompt: 'You are an autonomous agent.', // Should be configurable
-                userQuery: event.data || 'No content',
-                // ragQuery: Extract keywords?
+                systemPrompt,
+                userQuery: userQuery || 'No content',
+                ragQuery
             });
 
             // 2. Reason (LLM Inference)
@@ -151,15 +250,65 @@ class Loop extends Base {
             console.log(`[Loop] Model Response: ${result.content}`);
 
             // 3. Act (Tool Execution - Stub)
+            let actionResult = null;
             if (result.raw?.toolCalls) { // Hypothetical check
                 this.state = 'acting';
                 // Execute tools...
+                // actionResult = await this.executeTools(result.raw.toolCalls);
             }
 
+            // 4. Reflect
+            this.state = 'reflecting';
+            await this.reflect(event, result, actionResult);
+
         } catch (error) {
-            console.error('[Loop] Error during event processing:', error);
+            console.error(`[Loop] Error processing event (attempt ${retryCount + 1}):`, error);
+
+            if (retryCount < this.maxRetries) {
+                // Exponential backoff: 1s, 2s, 4s...
+                await this.timeout(1000 * Math.pow(2, retryCount));
+                
+                // Reset state to idle before retrying (since processEvent expects to start from idle/start of logic)
+                // Actually processEvent sets 'thinking' immediately.
+                // But we need to be careful about state.
+                // If we recursively call, we are still in the "tick".
+                // Let's just force state to idle internally if needed or just let the recursive call handle it.
+                // But wait, processEvent calls setState('thinking').
+                // If current state is thinking/acting, we need to reset?
+                // The recursive call will try to transition thinking -> thinking which is invalid.
+                // So we must reset state.
+                this.state = 'idle';
+                retrying = true;
+                return this.processEvent(event, retryCount + 1);
+            } else {
+                // Dead letter queue
+                this.failedEvents.push({ event, error: error.message, timestamp: Date.now() });
+                console.error(`[Loop] Event failed after ${this.maxRetries} retries:`, event.type);
+            }
         } finally {
-            this.state = 'idle';
+            if (!retrying) {
+                this.state = 'idle';
+            }
+        }
+    }
+
+    /**
+     * Reflects on the outcome of the cycle.
+     * @param {Object} event
+     * @param {Object} decision (LLM Result)
+     * @param {Object} actionResult
+     */
+    async reflect(event, decision, actionResult) {
+        // Did the action succeed?
+        const success = !actionResult || !actionResult.error;
+
+        if (success) {
+            console.log(`[Loop] ✓ Cycle succeeded for ${event.type}`);
+            // Store pattern to memory-core for future reference
+            // await Memory_Service.storePattern({ event, decision, result: actionResult });
+        } else {
+            console.log(`[Loop] ✗ Action failed for ${event.type}`);
+            // Could re-queue with different approach or escalate to human
         }
     }
 }
