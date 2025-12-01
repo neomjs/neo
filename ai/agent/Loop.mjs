@@ -20,6 +20,16 @@ class Loop extends Base {
          */
         assembler: null,
         /**
+         * Execution interval in ms.
+         * @member {Number} interval=100
+         */
+        interval: 100,
+        /**
+         * Maximum number of actions allowed per minute.
+         * @member {Number} maxActionsPerMinute=10
+         */
+        maxActionsPerMinute: 10,
+        /**
          * The AI Provider instance.
          * @member {Neo.ai.provider.Base} provider=null
          */
@@ -33,12 +43,7 @@ class Loop extends Base {
          * State of the loop.
          * @member {String} state='idle'
          */
-        state: 'idle', // idle, thinking, acting
-        /**
-         * Execution interval in ms.
-         * @member {Number} interval=100
-         */
-        interval: 100
+        state: 'idle' // idle, thinking, acting
     }
 
     /**
@@ -47,11 +52,45 @@ class Loop extends Base {
     isRunning = false
 
     /**
+     * Token bucket for rate limiting.
+     * @member {Number} tokens
+     * @protected
+     */
+    tokens = 0
+
+    /**
+     * Timestamp of the last token refill.
+     * @member {Number} lastRefill
+     * @protected
+     */
+    lastRefill = Date.now()
+
+    /**
+     * Refills the token bucket based on elapsed time.
+     */
+    refillTokens() {
+        const now        = Date.now();
+        const elapsed    = now - this.lastRefill;
+        const refillRate = this.maxActionsPerMinute / 60000; // tokens per ms
+
+        this.tokens = Math.min(
+            this.maxActionsPerMinute,
+            this.tokens + (elapsed * refillRate)
+        );
+
+        this.lastRefill = now;
+    }
+
+    /**
      * Starts the agent loop.
      */
     start() {
-        if (this.isRunning) return;
-        this.isRunning = true;
+        if (this.isRunning)return;
+
+        this.isRunning  = true;
+        this.tokens     = this.maxActionsPerMinute; // Start full
+        this.lastRefill = Date.now();
+
         this.tick();
         console.log('[Loop] Agent Runtime Started.');
     }
@@ -70,10 +109,13 @@ class Loop extends Base {
     async tick() {
         if (!this.isRunning) return;
 
-        if (this.state === 'idle') {
+        this.refillTokens();
+
+        if (this.state === 'idle' && this.tokens >= 1) {
             const event = this.scheduler.next();
-            
+
             if (event) {
+                this.tokens -= 1;
                 await this.processEvent(event);
             }
         }
