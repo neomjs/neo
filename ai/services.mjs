@@ -23,6 +23,7 @@ import Memory_DatabaseService      from './mcp/server/memory-core/services/Datab
 import Memory_SessionService       from './mcp/server/memory-core/services/SessionService.mjs';
 import Memory_LifecycleService     from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
 import Memory_HealthService        from './mcp/server/memory-core/services/HealthService.mjs';
+import Memory_SummaryService       from './mcp/server/memory-core/services/SummaryService.mjs';
 import Memory_ChromaManager        from './mcp/server/memory-core/services/ChromaManager.mjs';
 import Memory_Config               from './mcp/server/memory-core/config.mjs';
 
@@ -142,6 +143,7 @@ makeSafe(Memory_DatabaseService,  memSpec);
 makeSafe(Memory_SessionService,   memSpec);
 makeSafe(Memory_LifecycleService, memSpec);
 makeSafe(Memory_HealthService,    memSpec);
+makeSafe(Memory_SummaryService,   memSpec);
 
 // GitHub
 makeSafe(GH_HealthService,      ghSpec);
@@ -188,6 +190,7 @@ export {
     Memory_DatabaseService,
     Memory_LifecycleService,
     Memory_HealthService,
+    Memory_SummaryService,
 
     // GitHub Workflow
     GH_Config,

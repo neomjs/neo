@@ -42,6 +42,15 @@ class QueryService extends Base {
     }
 
     /**
+     * Ensures the service is ready by waiting for ChromaManager.
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await ChromaManager.ready();
+    }
+
+    /**
      * Performs a semantic search on the knowledge base using a natural language query.
      * Returns a scored and ranked list of the most relevant source files.
      * @param {String} query        The natural language search query.
