@@ -6,14 +6,49 @@ Enable real-time, bidirectional communication between AI agents (Node.js) and Ne
 ## System Architecture
 
 ### Topology
+
 ```
-[Agent Cluster (Node.js)] <---> [WebSocket Server] <---> [Browser Windows (Neo.mjs)]
-       |                                                       ^
-       |                                                       |
-       +---(MCP Tool Calls)---> [MCP Servers] -----------------+
+      [ Autonomous Agent (Node.js) ]
+      +------------------------------------------+
+      |  [ Event Priority Queue ]                |
+      |    ^      ^       ^                      |
+      |    |      |       |                      |
+      | (Logs) (Events) (User)                   |
+      |    |      |       |                      |
+      |  [ Cognitive Loop ] <---> [ LLM Model ]  |
+      |    |      |                              |
+      |    v      v                              |
+      |  [ Context Window ]                      |
+      |    |                                     |
+      |    v                                     |
+      |  [ Action Dispatcher ]                   |
+      +----+--------------+----------------------+
+           |              |
+      (WebSocket)     (MCP Tools)
+           |              |
+           v              v
+    [ Browser App ]   [ GitHub / FS ]
 ```
 
 ## Architectural Pillars
+
+### Pillar 0: The Cognitive Runtime (New Foundation)
+Transforming the Agent from a passive script to an autonomous daemon.
+
+**The Stimulus-Response Loop:**
+1.  **Perceive:** Events (Errors, User Prompts, DOM Changes) enter a **Priority Queue**.
+    *   *Critical:* System Crashes, Security Alerts.
+    *   *High:* User Input.
+    *   *Normal:* State Changes.
+    *   *Low:* Telemetry noise.
+2.  **Reason:** The Agent wraps the event in a "Synthetic Prompt" and queries the **LLM Model**.
+3.  **Act:** The LLM decides to call a Tool (MCP) or send a Remote Command (RPC).
+4.  **Reflect:** The Agent observes the result of its action and updates its Context Window.
+
+**Components:**
+-   **`Neo.ai.model.Base`:** Abstract layer for LLM providers (Gemini, OpenAI).
+-   **`ContextWindow`:** Manages token limits, history compression, and long-term memory retrieval.
+-   **`Guardrails`:** Rate limiting and human-approval gates for destructive actions.
 
 ### Pillar 1: Bidirectional WebSocket RMA
 The core communication backbone.
@@ -103,11 +138,18 @@ Dynamic workspace expansion.
 -   **Single Point of Failure:** WebSocket server crash stops all comms. Mitigation: Auto-restart & browser retry.
 -   **State Desync:** Stale agent view. Mitigation: Browser sends full snapshot on reconnect.
 -   **Serialization Errors:** `JSON.stringify` failures in params. Mitigation: Reject early, log warning.
+-   **Runaway Agent:** Agent enters a loop of destructive actions. Mitigation: Rate limiting (actions/min) & Human-in-the-loop for critical ops.
 
 ## Implementation Roadmap
 
-### Phase 0: Spike
-1.  **Proof of Concept:** Build a minimal bidirectional RPC example to validate Agent -> Browser calls.
+### Phase 0A: Cognitive Runtime (Priority 1)
+1.  **Model Layer:** Implement `Neo.ai.model.Base` and `Neo.ai.model.Gemini`.
+2.  **Loop:** Implement `Agent.chat()` loop with Context Window.
+3.  **Events:** Implement `PriorityQueue` for incoming signals.
+
+### Phase 0B: The Neural Link Spike (Priority 2 - Parallel)
+1.  **Proof of Concept:** Build minimal bidirectional RPC (Agent -> Browser).
+2.  **Integration:** Wire WebSocket `onMessage` directly into the Agent's Event Queue.
 
 ### Phase 1: Infrastructure
 1.  Design `agent-api.json` schema.
