@@ -61,7 +61,7 @@ class ViewportController extends Controller {
         } else {
             let {config, windowConfigs} = Neo,
                 {environment}           = config,
-                firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+                firstWindowId           = Object.keys(windowConfigs)[0],
                 {basePath}              = windowConfigs[firstWindowId],
                 url;
 
@@ -356,7 +356,7 @@ class ViewportController extends Controller {
             {windowId}              = me,
             {config, windowConfigs} = Neo,
             {environment}           = config,
-            firstWindowId           = parseInt(Object.keys(windowConfigs)[0]),
+            firstWindowId           = Object.keys(windowConfigs)[0],
             {basePath}              = windowConfigs[firstWindowId],
             url;
 
