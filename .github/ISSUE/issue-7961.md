@@ -17,8 +17,9 @@ parentIssue: null
 subIssues:
   - 7962
   - 7963
-subIssuesCompleted: 0
-subIssuesTotal: 2
+  - 7964
+subIssuesCompleted: 2
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
 ---
@@ -131,4 +132,6 @@ blocking: []
 - 2025-12-01 @tobiu cross-referenced by #7963
 - 2025-12-01 @tobiu added sub-issue #7962
 - 2025-12-01 @tobiu added sub-issue #7963
+- 2025-12-01 @tobiu cross-referenced by #7964
+- 2025-12-01 @tobiu added sub-issue #7964
 

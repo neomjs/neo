@@ -1,5 +1,5 @@
-import Base from './Base.mjs';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import {GoogleGenerativeAI} from '@google/generative-ai';
+import Base                 from './Base.mjs';
 
 /**
  * Concrete AI provider for Google's Gemini API.
@@ -37,7 +37,7 @@ class GeminiProvider extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        this.client = new GoogleGenerativeAI(process.env[this.requiredEnv[0]]);
     }
 
     /**
@@ -58,13 +58,13 @@ class GeminiProvider extends Base {
         });
 
         try {
-            const result = await model.generateContent(input);
+            const result   = await model.generateContent(input);
             const response = await result.response;
-            const text = response.text();
+            const text     = response.text();
 
             return {
                 content: text,
-                raw: response
+                raw    : response
             };
         } catch (error) {
             console.error('[Neo.ai.provider.Gemini] Generation failed:', error);
@@ -85,7 +85,7 @@ class GeminiProvider extends Base {
         }
 
         const model = this.client.getGenerativeModel({
-            model: this.modelName,
+            model           : this.modelName,
             generationConfig: options
         });
 
