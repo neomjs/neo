@@ -2,7 +2,7 @@ import TreeList from '../../../../src/tree/List.mjs';
 
 /**
  * @class Portal.view.learn.ContentTreeList
- * @extends Neo.container.Base
+ * @extends Neo.tree.List
  */
 class ContentTreeList extends TreeList {
     static config = {
