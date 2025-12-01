@@ -26,7 +26,7 @@ class ViewportController extends Controller {
             {windowId}                 = me,
             {config, windowConfigs}    = Neo,
             {environment}              = config,
-            firstWindowId              = parseInt(Object.keys(windowConfigs)[0]),
+            firstWindowId              = Object.keys(windowConfigs)[0],
             {basePath}                 = windowConfigs[firstWindowId],
             widget                     = me.getReference('controls-panel'),
             winData                    = await Neo.Main.getWindowData({windowId}),
