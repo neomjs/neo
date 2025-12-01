@@ -25,7 +25,7 @@ async function run() {
         servers: [] 
     });
     
-    await agent.initAsync();
+    await agent.ready();
 
     // 2. Feed Event
     console.log('📥 Scheduling: "Who is the CEO of Google?"');
