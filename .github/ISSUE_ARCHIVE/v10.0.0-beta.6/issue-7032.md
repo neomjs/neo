@@ -52,6 +52,7 @@ reopening for adding zero dependencies
 ## Activity Log
 
 - 2025-07-12 @tobiu assigned to @tobiu
+- 2025-07-12 @tobiu added parent issue #7029
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu referenced in commit `b26cbbf` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
 - 2025-07-12 @tobiu referenced in commit `c60a369` - "#7032 mentioning core.Base"

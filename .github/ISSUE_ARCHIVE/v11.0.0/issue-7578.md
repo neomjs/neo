@@ -35,6 +35,7 @@ The `#fetchAndCacheReleases` method needs to be hardened to handle the edge case
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label
 - 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-21 @tobiu referenced in commit `630920a` - "Harden Release Caching and Add Fallback #7578"
 - 2025-10-21 @tobiu closed this issue
 

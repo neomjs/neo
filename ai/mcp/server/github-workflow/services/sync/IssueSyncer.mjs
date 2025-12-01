@@ -7,7 +7,7 @@ import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
-import {FETCH_ISSUES_FOR_SYNC} from '../queries/issueQueries.mjs';
+import {FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
@@ -146,6 +146,30 @@ class IssueSyncer extends Base {
             case 'CrossReferencedEvent':
                 const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
                 details = `cross-referenced by ${sourceRef}`;
+                break;
+            case 'SubIssueAddedEvent':
+                details = `added sub-issue #${event.subIssue.number}`;
+                break;
+            case 'SubIssueRemovedEvent':
+                details = `removed sub-issue #${event.subIssue.number}`;
+                break;
+            case 'ParentIssueAddedEvent':
+                details = `added parent issue #${event.parent.number}`;
+                break;
+            case 'ParentIssueRemovedEvent':
+                details = `removed parent issue #${event.parent.number}`;
+                break;
+            case 'BlockedByAddedEvent':
+                details = `marked this issue as being blocked by #${event.blockingIssue.number}`;
+                break;
+            case 'BlockingAddedEvent':
+                details = `marked this issue as blocking #${event.blockedIssue.number}`;
+                break;
+            case 'BlockedByRemovedEvent':
+                details = `removed the block by #${event.blockingIssue.number}`;
+                break;
+            case 'BlockingRemovedEvent':
+                details = `removed the block on #${event.blockedIssue.number}`;
                 break;
             default:
                 details = `performed a "${event.__typename}" event`;
@@ -338,6 +362,115 @@ class IssueSyncer extends Base {
                 title    : issue.title,
                 contentHash // Store hash for push comparison
             };
+        }
+
+        /*
+         * Strategy: Timeline-Based Relationship Discovery
+         *
+         * GitHub does NOT reliably update the `updatedAt` timestamp of a related issue when
+         * a relationship change occurs (e.g., adding a sub-issue, blocking relationship).
+         * This means our standard delta-sync (based on `since: lastSync`) will miss these updates
+         * because the related issue is filtered out by the query.
+         *
+         * To fix this, we scan the `timelineItems` of every fetched issue for relationship-altering
+         * events that occurred since the last sync. We collect the IDs of these related issues
+         * and force-update them to ensure referential integrity.
+         *
+         * This timeline scan handles most cases where relationships change. For the ultra-rare
+         * scenario where BOTH sides of a relationship are old and filtered out by delta sync,
+         * a periodic full re-sync (e.g., monthly) ensures eventual consistency.
+         */
+        // Identify related issues that need force-updating
+        const relatedIssuesToUpdate = new Set();
+        const lastSyncDate = metadata.lastSync ? new Date(metadata.lastSync) : new Date(0);
+
+        allIssues.forEach(issue => {
+            // 1. Existing Parent Check (Legacy but safe)
+            if (issue.parent) {
+                relatedIssuesToUpdate.add(issue.parent.number);
+            }
+
+            // 2. Timeline Scan for Relationship Events
+            if (issue.timelineItems?.nodes) {
+                issue.timelineItems.nodes.forEach(event => {
+                    // Only care about events that happened AFTER the last sync
+                    if (new Date(event.createdAt) <= lastSyncDate) return;
+
+                    switch (event.__typename) {
+                        case 'SubIssueAddedEvent':
+                        case 'SubIssueRemovedEvent':
+                            if (event.subIssue) relatedIssuesToUpdate.add(event.subIssue.number);
+                            break;
+                        case 'ParentIssueAddedEvent':
+                        case 'ParentIssueRemovedEvent':
+                            if (event.parent) relatedIssuesToUpdate.add(event.parent.number);
+                            break;
+                        case 'BlockedByAddedEvent':
+                        case 'BlockedByRemovedEvent':
+                            if (event.blockingIssue) relatedIssuesToUpdate.add(event.blockingIssue.number);
+                            break;
+                        case 'BlockingAddedEvent':
+                        case 'BlockingRemovedEvent':
+                            if (event.blockedIssue) relatedIssuesToUpdate.add(event.blockedIssue.number);
+                            break;
+                    }
+                });
+            }
+        });
+
+        // Remove issues that were already updated in the main loop
+        allIssues.forEach(issue => relatedIssuesToUpdate.delete(issue.number));
+
+        if (relatedIssuesToUpdate.size > 0) {
+            logger.info(`🔄 Force-updating ${relatedIssuesToUpdate.size} related issues due to relationship activity...`);
+
+            for (const relatedIssueNumber of relatedIssuesToUpdate) {
+                try {
+                    const data = await GraphqlService.query(
+                        FETCH_SINGLE_ISSUE,
+                        {
+                            owner           : aiConfig.owner,
+                            repo            : aiConfig.repo,
+                            number          : relatedIssueNumber,
+                            maxLabels       : issueSyncConfig.maxLabelsPerIssue,
+                            maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
+                            maxComments     : issueSyncConfig.maxCommentsPerIssue,
+                            maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
+                            maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
+                        },
+                        true // Enable sub-issues
+                    );
+
+                    const issue = data.repository.issue;
+                    if (!issue) continue;
+
+                    const targetPath = this.#getIssuePath(issue);
+                    if (!targetPath) continue;
+
+                    const markdown    = this.#formatIssueMarkdown(issue, issue.comments.nodes);
+                    const contentHash = this.#calculateContentHash(markdown);
+
+                    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+                    await fs.writeFile(targetPath, markdown, 'utf-8');
+
+                    stats.pulled.updated++;
+                    stats.pulled.issues.push(relatedIssueNumber);
+                    logger.info(`✅ Force-updated related issue #${relatedIssueNumber}`);
+
+                    newMetadata.issues[relatedIssueNumber] = {
+                        state    : issue.state,
+                        path     : targetPath,
+                        updatedAt: issue.updatedAt,
+                        closedAt : issue.closedAt || null,
+                        milestone: issue.milestone?.title || null,
+                        title    : issue.title,
+                        contentHash
+                    };
+
+                } catch (e) {
+                    logger.error(`Failed to force-update related issue #${relatedIssueNumber}: ${e.message}`);
+                }
+            }
         }
 
         return { newMetadata, stats };

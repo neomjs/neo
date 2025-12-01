@@ -42,6 +42,7 @@ A complete draft of the blog post as a markdown file.
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu added parent issue #7093
 - 2025-07-22 @tobiu referenced in commit `5c90313` - "Create Deep-Dive Blog Post for State Providers #7094"
 - 2025-07-23 @tobiu referenced in commit `2b21e37` - "Create Deep-Dive Blog Post for State Providers #7094"
 - 2025-07-23 @tobiu referenced in commit `fda213c` - "#7094 adding the API code snippet back in"

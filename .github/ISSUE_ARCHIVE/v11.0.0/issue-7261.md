@@ -38,4 +38,5 @@ This involves translating the existing test at `test/siesta/tests/core/Effect.mj
 - 2025-09-26 @tobiu added the `enhancement` label
 - 2025-09-26 @tobiu referenced in commit `8f20626` - "Convert core/Effect.mjs Siesta Test to Playwright #7261"
 - 2025-09-26 @tobiu closed this issue
+- 2025-09-27 @tobiu added parent issue #7262
 

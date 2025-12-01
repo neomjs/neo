@@ -51,6 +51,8 @@ resolved via: https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.
 
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added parent issue #7446
 - 2025-10-10 @tobiu added the `ai` label
+- 2025-11-11 @tobiu removed parent issue #7446
 - 2025-11-12 @tobiu closed this issue
 

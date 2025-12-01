@@ -87,6 +87,7 @@ let us enhance the `setupClass()` docs a bit more, to point out the gatekeeper r
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu referenced in commit `ef78b5f` - "Refactor defineComponent and Enhance Config System Documentation #7019"
 - 2025-07-11 @tobiu closed this issue
 - 2025-07-11 @tobiu referenced in commit `1f1d025` - "Enhance Config System Documentation #7019"

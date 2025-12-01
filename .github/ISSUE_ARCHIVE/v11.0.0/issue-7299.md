@@ -50,6 +50,7 @@ Assigned. Please look at my comment inside your other ticket, since it relates t
 
 - 2025-09-28 @tobiu added the `documentation` label
 - 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added parent issue #7296
 - 2025-09-28 @tobiu added the `good first issue` label
 - 2025-09-28 @tobiu added the `hacktoberfest` label
 - 2025-09-29 @tobiu assigned to @nikeshadhikari9

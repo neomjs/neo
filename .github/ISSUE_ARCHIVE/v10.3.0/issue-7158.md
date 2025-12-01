@@ -57,6 +57,7 @@ Currently, the logic for finding and transforming `html` templates is tightly co
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu referenced in commit `ce24aaa` - "Create a Reusable, AST-Based Build-Time Processor #7158"
 - 2025-08-02 @tobiu closed this issue
 

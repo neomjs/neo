@@ -74,6 +74,7 @@ To work on this ticket, please start your session with the following prompt:
 - 2025-10-11 @tobiu assigned to @tobiu
 - 2025-10-11 @tobiu added the `enhancement` label
 - 2025-10-11 @tobiu added the `ai` label
+- 2025-10-11 @tobiu added parent issue #7296
 - 2025-10-11 @tobiu cross-referenced by PR #7461
 - 2025-11-02 @tobiu closed this issue
 

@@ -32,6 +32,7 @@ This ticket covers the initial setup of a new, dedicated ChromaDB instance to se
 ## Activity Log
 
 - 2025-10-01 @tobiu assigned to @tobiu
+- 2025-10-01 @tobiu added parent issue #7316
 - 2025-10-01 @tobiu added the `enhancement` label
 - 2025-10-02 @tobiu referenced in commit `b70fcfe` - "Set up Memory ChromaDB #7317"
 - 2025-10-02 @tobiu closed this issue

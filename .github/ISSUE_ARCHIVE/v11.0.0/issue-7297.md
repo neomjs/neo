@@ -83,6 +83,7 @@ To be fair: I have not used most scripts in a while, since I can now just tell G
 
 ## Activity Log
 
+- 2025-09-28 @tobiu added parent issue #7296
 - 2025-09-28 @tobiu added the `documentation` label
 - 2025-09-28 @tobiu added the `help wanted` label
 - 2025-09-28 @tobiu added the `good first issue` label

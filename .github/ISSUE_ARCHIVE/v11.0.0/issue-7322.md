@@ -37,6 +37,7 @@ The agent's memory database is a persistent, cumulative asset that cannot be reg
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label
+- 2025-10-01 @tobiu added parent issue #7316
 - 2025-10-02 @tobiu referenced in commit `f867c90` - "Implement Memory Backup and Restore #7322"
 - 2025-10-02 @tobiu closed this issue
 

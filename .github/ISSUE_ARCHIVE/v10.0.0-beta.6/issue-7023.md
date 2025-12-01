@@ -54,4 +54,5 @@ The chosen solution was to make `Effect.isRunning` a reactive `Neo.core.Config` 
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu referenced in commit `f9935e0` - "Enhance Neo.core.Config for Robust Subscriptions with Scope #7023"
 - 2025-07-12 @tobiu closed this issue
+- 2025-07-12 @tobiu added parent issue #6992
 

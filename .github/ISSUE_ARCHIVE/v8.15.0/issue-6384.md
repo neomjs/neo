@@ -28,6 +28,7 @@ closedAt: '2025-02-05T23:36:01Z'
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu
 - 2025-02-05 @tobiu cross-referenced by #6385
+- 2025-02-05 @tobiu added parent issue #6378
 - 2025-02-05 @tobiu referenced in commit `592d870` - "grid.View: columnPositions_ => use a collection instead of an array #6384"
 - 2025-02-05 @tobiu referenced in commit `8296011` - "#6384 cleanup"
 - 2025-02-05 @tobiu closed this issue

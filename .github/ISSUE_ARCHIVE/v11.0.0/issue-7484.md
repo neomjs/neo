@@ -43,6 +43,7 @@ This ticket covers implementing a new endpoint to retrieve this complete convers
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu added the `ai` label
 - 2025-10-14 @tobiu referenced in commit `260d029` - "Get PR Conversation History #7484"
 - 2025-10-14 @tobiu closed this issue

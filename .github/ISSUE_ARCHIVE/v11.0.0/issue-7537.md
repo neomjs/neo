@@ -38,6 +38,7 @@ This ticket covers the first phase of the "Integrate Neo.mjs Core into MCP Serve
 ## Activity Log
 
 - 2025-10-18 @tobiu assigned to @tobiu
+- 2025-10-18 @tobiu added parent issue #7536
 - 2025-10-18 @tobiu added the `enhancement` label
 - 2025-10-18 @tobiu added the `ai` label
 - 2025-10-18 @tobiu referenced in commit `2709e54` - "PoC: Refactor ChromaManager to a Neo.mjs Class #7537"

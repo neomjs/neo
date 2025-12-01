@@ -38,6 +38,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/sessionServic
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label
+- 2025-10-18 @tobiu added parent issue #7536
 - 2025-10-18 @tobiu added the `ai` label
 - 2025-10-18 @tobiu referenced in commit `254c611` - "Convert sessionService to SessionService Neo.mjs Class #7544"
 - 2025-10-18 @tobiu closed this issue

@@ -86,6 +86,7 @@ closing the ticket as resolved.
 - 2025-10-08 @tobiu assigned to @tobiu
 - 2025-10-08 @tobiu added the `enhancement` label
 - 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added parent issue #7364
 - 2025-10-08 @tobiu added the `hacktoberfest` label
 - 2025-10-09 @tobiu assigned to @Mahita07
 - 2025-10-09 @tobiu unassigned from @tobiu

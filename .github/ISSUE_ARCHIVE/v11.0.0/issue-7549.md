@@ -39,6 +39,7 @@ Add any other context or screenshots about the feature request here.
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label
 - 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu added parent issue #7536
 - 2025-10-19 @tobiu referenced in commit `4e26c56` - "Create ChromaManager and Adjust KB Server Entry Point #7549"
 - 2025-10-19 @tobiu closed this issue
 

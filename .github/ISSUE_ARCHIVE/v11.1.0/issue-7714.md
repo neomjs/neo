@@ -43,6 +43,7 @@ Acceptance criteria
 
 ## Activity Log
 
+- 2025-11-07 @tobiu added parent issue #7687
 - 2025-11-07 @tobiu assigned to @MannXo
 - 2025-11-08 @MannXo cross-referenced by PR #7728
 - 2025-11-10 @tobiu closed this issue

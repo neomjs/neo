@@ -35,6 +35,7 @@ With the memory capture and query tools in place, this ticket involves updating 
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label
+- 2025-10-01 @tobiu added parent issue #7316
 - 2025-10-02 @tobiu referenced in commit `1620956` - "#7320 early draft version inside a tmp file"
 - 2025-10-03 @tobiu referenced in commit `dd5fbbe` - "Update Agent Workflow for Memory #7320"
 - 2025-10-03 @tobiu closed this issue

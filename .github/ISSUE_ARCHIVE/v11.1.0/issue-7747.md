@@ -66,4 +66,5 @@ This ticket proposes to enhance the build process to automatically discover and 
 - 2025-11-11 @tobiu added the `ai` label
 - 2025-11-11 @tobiu referenced in commit `fd930e5` - "Integrate SEO File Copying into buildAll.mjs for Application Builds #7747"
 - 2025-11-11 @tobiu closed this issue
+- 2025-11-11 @tobiu added parent issue #7446
 

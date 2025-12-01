@@ -54,6 +54,7 @@ The `openapi.yaml` file for each MCP server should become the single source of t
 - 2025-10-26 @tobiu added the `developer-experience` label
 - 2025-10-26 @tobiu added the `ai` label
 - 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu added parent issue #7604
 - 2025-10-26 @tobiu referenced in commit `d06cb34` - "Docs: Create Self-Explanatory Tools via OpenAPI Descriptions #7659"
 - 2025-10-26 @tobiu closed this issue
 - 2025-10-26 @tobiu cross-referenced by #7663

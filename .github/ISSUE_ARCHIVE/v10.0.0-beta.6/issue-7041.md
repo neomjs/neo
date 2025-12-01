@@ -26,6 +26,7 @@ closedAt: '2025-07-13T10:59:00Z'
 ## Activity Log
 
 - 2025-07-13 @tobiu assigned to @tobiu
+- 2025-07-13 @tobiu added parent issue #7029
 - 2025-07-13 @tobiu added the `enhancement` label
 - 2025-07-13 @tobiu referenced in commit `0782669` - "Overview => comparison table => add multi-window support #7041"
 - 2025-07-13 @tobiu closed this issue

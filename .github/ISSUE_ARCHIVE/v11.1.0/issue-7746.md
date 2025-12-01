@@ -40,5 +40,6 @@ This task was completed as part of the broader SEO enhancement epic, aiming to i
 - 2025-11-11 @tobiu added the `enhancement` label
 - 2025-11-11 @tobiu added the `ai` label
 - 2025-11-11 @tobiu referenced in commit `2badb6a` - "Enhance Release Preparation: Auto-update datePublished in index.html #7746"
+- 2025-11-11 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu closed this issue
 

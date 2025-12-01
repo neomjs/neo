@@ -48,6 +48,7 @@ I am reserving this ticket for @SarthakBorude for 7 days.
 ## Activity Log
 
 - 2025-10-13 @tobiu assigned to @tobiu
+- 2025-10-13 @tobiu added parent issue #7296
 - 2025-10-13 @tobiu added the `enhancement` label
 - 2025-10-13 @tobiu added the `help wanted` label
 - 2025-10-13 @tobiu added the `good first issue` label

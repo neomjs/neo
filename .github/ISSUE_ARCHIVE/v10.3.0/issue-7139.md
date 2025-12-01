@@ -33,6 +33,7 @@ Implement the logic within the `parse5` processor to differentiate between stand
 ## Activity Log
 
 - 2025-07-31 @tobiu assigned to @tobiu
+- 2025-07-31 @tobiu added parent issue #7130
 - 2025-07-31 @tobiu added the `enhancement` label
 - 2025-07-31 @tobiu referenced in commit `dd870b1` - "Parser: Component vs. HTML Tag Recognition #7139"
 - 2025-07-31 @tobiu closed this issue

@@ -39,6 +39,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/textEmbedding
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label
 - 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu added parent issue #7536
 - 2025-10-18 @tobiu referenced in commit `c6e3ef0` - "#7546 renaming the file first to avoid git confusion"
 - 2025-10-18 @tobiu referenced in commit `36a7ac8` - "Convert textEmbeddingService to TextEmbeddingService Neo.mjs Class #7546"
 - 2025-10-18 @tobiu closed this issue

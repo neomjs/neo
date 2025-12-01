@@ -28,6 +28,7 @@ closedAt: '2025-06-15T22:21:41Z'
 ## Activity Log
 
 - 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu added parent issue #6785
 - 2025-06-15 @tobiu referenced in commit `6f15db1` - "vdom.util.StringFromVnode #6809"
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu closed this issue

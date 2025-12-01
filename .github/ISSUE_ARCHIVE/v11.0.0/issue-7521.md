@@ -33,6 +33,7 @@ This ticket covers the initial scaffolding of the new `memory-core` MCP server. 
 ## Activity Log
 
 - 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added parent issue #7520
 - 2025-10-17 @tobiu added the `enhancement` label
 - 2025-10-17 @tobiu added the `ai` label
 - 2025-10-17 @tobiu referenced in commit `ab61867` - "Scaffold Memory Core MCP Server #7521"

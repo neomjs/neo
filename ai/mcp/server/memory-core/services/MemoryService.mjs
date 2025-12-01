@@ -104,7 +104,7 @@ class MemoryService extends Base {
                 return {
                     id,
                     sessionId: metadata.sessionId,
-                    timestamp: metadata.timestamp,
+                    timestamp: new Date(metadata.timestamp).toISOString(),
                     prompt   : metadata.prompt,
                     thought  : metadata.thought,
                     response : metadata.response,
@@ -168,7 +168,7 @@ class MemoryService extends Base {
                 return {
                     id,
                     sessionId: metadata.sessionId,
-                    timestamp: metadata.timestamp,
+                    timestamp: new Date(metadata.timestamp).toISOString(),
                     prompt   : metadata.prompt,
                     thought  : metadata.thought,
                     response : metadata.response,

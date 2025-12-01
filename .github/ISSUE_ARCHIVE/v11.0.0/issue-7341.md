@@ -30,6 +30,7 @@ The `AGENTS.md` file incorrectly implied that the session ID should be saved to 
 
 - 2025-10-04 @tobiu assigned to @tobiu
 - 2025-10-04 @tobiu added the `enhancement` label
+- 2025-10-04 @tobiu added parent issue #7316
 - 2025-10-04 @tobiu referenced in commit `26f0aa2` - "Correct agent memory initialization protocol #7341"
 - 2025-10-04 @tobiu closed this issue
 

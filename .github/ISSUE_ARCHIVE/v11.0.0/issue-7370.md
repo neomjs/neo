@@ -51,6 +51,7 @@ assigned. ai native workflow strongly recommended for this one.
 - 2025-10-05 @tobiu added the `good first issue` label
 - 2025-10-05 @tobiu added the `hacktoberfest` label
 - 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu added parent issue #7364
 - 2025-10-05 @tobiu cross-referenced by #7371
 - 2025-10-05 @tobiu assigned to @SarthakJain29
 - 2025-10-06 @SarthakJain29 cross-referenced by PR #7392

@@ -54,6 +54,7 @@ we can literally open 100+ additional tickets for component based testing alone.
 
 ## Activity Log
 
+- 2025-10-10 @tobiu added parent issue #7435
 - 2025-10-10 @tobiu added the `enhancement` label
 - 2025-10-10 @tobiu added the `help wanted` label
 - 2025-10-10 @tobiu added the `hacktoberfest` label

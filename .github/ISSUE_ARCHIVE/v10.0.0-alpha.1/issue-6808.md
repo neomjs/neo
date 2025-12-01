@@ -27,6 +27,7 @@ closedAt: '2025-06-15T21:13:06Z'
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu added parent issue #6785
 - 2025-06-15 @tobiu referenced in commit `0da62b3` - "main.mixin.DeltaUpdates: du_moveNode() => add more comments #6808"
 - 2025-06-15 @tobiu closed this issue
 

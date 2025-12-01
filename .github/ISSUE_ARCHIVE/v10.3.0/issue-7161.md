@@ -50,6 +50,7 @@ This is the final step to ensure `html` templates are a fully supported, product
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu referenced in commit `6410cdd` - "Integrate Template Processing into dist/production Build #7161"
 - 2025-08-02 @tobiu closed this issue
 

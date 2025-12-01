@@ -39,6 +39,7 @@ The current session summarization workflow is clunky, requiring one script to fi
 
 - 2025-10-04 @tobiu assigned to @tobiu
 - 2025-10-04 @tobiu added the `enhancement` label
+- 2025-10-04 @tobiu added parent issue #7316
 - 2025-10-04 @tobiu added the `ai` label
 - 2025-10-04 @tobiu added the `refactoring` label
 - 2025-10-04 @tobiu referenced in commit `fb5198a` - "#7358 ticket as md file"

@@ -163,7 +163,7 @@ paths:
           description: The session ID to retrieve memories for
           schema:
             type: string
-            example: "session_1696800000000"
+            example: "550e8400-e29b-41d4-a716-446655440000"
         - name: limit
           in: query
           required: false
@@ -675,7 +675,7 @@ components:
           example: "mem_2025-10-08T12:00:00.000Z"
         sessionId:
           type: string
-          example: "session_1696800000000"
+          example: "550e8400-e29b-41d4-a716-446655440000"
         timestamp:
           type: string
           format: date-time
@@ -689,7 +689,7 @@ components:
       properties:
         sessionId:
           type: string
-          example: "session_1696800000000"
+          example: "550e8400-e29b-41d4-a716-446655440000"
         count:
           type: integer
           description: Number of memories returned
@@ -711,7 +711,7 @@ components:
           example: "mem_2025-10-08T12:00:00.000Z"
         sessionId:
           type: string
-          example: "session_1696800000000"
+          example: "550e8400-e29b-41d4-a716-446655440000"
         timestamp:
           type: string
           format: date-time
@@ -800,7 +800,7 @@ components:
           example: "summary_session_1696800000000"
         sessionId:
           type: string
-          example: "session_1696800000000"
+          example: "550e8400-e29b-41d4-a716-446655440000"
         timestamp:
           type: string
           format: date-time
@@ -903,7 +903,7 @@ components:
         sessionId:
           type: string
           description: Optional specific session to summarize. If omitted, all unsummarized sessions will be processed.
-          example: "session_1696800000000"
+          example: "550e8400-e29b-41d4-a716-446655440000"
         includeAll:
           type: boolean
           default: false
@@ -927,7 +927,7 @@ components:
             properties:
               sessionId:
                 type: string
-                example: "session_1696800000000"
+                example: "550e8400-e29b-41d4-a716-446655440000"
               memoryCount:
                 type: integer
                 example: 15

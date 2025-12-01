@@ -26,6 +26,7 @@ closedAt: '2025-03-31T15:17:42Z'
 ## Activity Log
 
 - 2025-03-31 @tobiu added the `enhancement` label
+- 2025-03-31 @tobiu added parent issue #6600
 - 2025-03-31 @tobiu referenced in commit `7570fab` - "apps/email: basic setup using npm run create-app #6601"
 - 2025-03-31 @tobiu closed this issue
 - 2025-03-31 @tobiu assigned to @tobiu

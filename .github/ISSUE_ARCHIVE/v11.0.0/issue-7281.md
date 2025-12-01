@@ -33,6 +33,7 @@ This task is to migrate the unit test for `form/field/AfterSetValueSequence.mjs`
 ## Activity Log
 
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-10-01 @tobiu referenced in commit `b01068c` - "Convert form/field/AfterSetValueSequence.mjs Test from Siesta to Playwright #7281"
 - 2025-10-01 @tobiu closed this issue
 - 2025-10-07 @tobiu assigned to @tobiu

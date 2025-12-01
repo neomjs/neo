@@ -27,6 +27,7 @@ closedAt: '2025-06-15T12:09:31Z'
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added the `enhancement` label
+- 2025-06-15 @tobiu added parent issue #6785
 - 2025-06-15 @tobiu referenced in commit `e307c3b` - "main.mixin.DeltaUpdates: createDomTree() #6797"
 - 2025-06-15 @tobiu closed this issue
 

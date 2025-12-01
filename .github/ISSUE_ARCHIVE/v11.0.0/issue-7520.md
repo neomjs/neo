@@ -68,6 +68,14 @@ resolved.
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `epic` label
 - 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu added sub-issue #7521
+- 2025-10-17 @tobiu added sub-issue #7522
+- 2025-10-17 @tobiu added sub-issue #7523
+- 2025-10-17 @tobiu added sub-issue #7524
 - 2025-10-17 @tobiu referenced in commit `76835af` - "#7520 tickets as md files"
+- 2025-10-17 @tobiu added sub-issue #7525
+- 2025-10-17 @tobiu added sub-issue #7526
+- 2025-10-17 @tobiu added sub-issue #7527
+- 2025-10-17 @tobiu added sub-issue #7528
 - 2025-10-17 @tobiu closed this issue
 

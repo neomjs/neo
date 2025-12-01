@@ -105,12 +105,29 @@ closing the epic, new items for the github-workflow mcp server will get added as
 - 2025-10-05 @tobiu added the `epic` label
 - 2025-10-05 @tobiu added the `hacktoberfest` label
 - 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu added sub-issue #7365
+- 2025-10-05 @tobiu added sub-issue #7366
+- 2025-10-05 @tobiu added sub-issue #7367
+- 2025-10-05 @tobiu added sub-issue #7368
+- 2025-10-05 @tobiu added sub-issue #7369
+- 2025-10-05 @tobiu added sub-issue #7370
+- 2025-10-05 @tobiu added sub-issue #7371
+- 2025-10-05 @tobiu added sub-issue #7372
+- 2025-10-05 @tobiu added sub-issue #7373
 - 2025-10-05 @tobiu referenced in commit `c99360a` - "#7364 initial tickets as md files"
+- 2025-10-05 @tobiu added sub-issue #7376
+- 2025-10-05 @tobiu added sub-issue #7377
+- 2025-10-05 @tobiu added sub-issue #7378
 - 2025-10-05 @tobiu referenced in commit `9d09963` - "#7364 phase 4 subs as md files"
 - 2025-10-05 @tobiu referenced in commit `0531f7b` - "#7364 internal ticket md file updates"
+- 2025-10-05 @tobiu added sub-issue #7381
 - 2025-10-05 @tobiu referenced in commit `348d2ad` - "#7364 added a new sub-ticket"
+- 2025-10-06 @tobiu added sub-issue #7391
 - 2025-10-06 @tobiu referenced in commit `91af8fb` - "#7364 ticket md files"
+- 2025-10-06 @tobiu added sub-issue #7393
 - 2025-10-06 @tobiu cross-referenced by #7393
+- 2025-10-07 @tobiu added sub-issue #7414
+- 2025-10-08 @tobiu added sub-issue #7418
 - 2025-10-14 @tobiu cross-referenced by #7477
 - 2025-10-24 @tobiu closed this issue
 

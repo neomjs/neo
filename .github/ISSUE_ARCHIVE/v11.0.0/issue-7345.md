@@ -98,6 +98,7 @@ sure. feel free to join the slack and/or discord for questions!
 
 - 2025-10-04 @tobiu added the `help wanted` label
 - 2025-10-04 @tobiu added the `good first issue` label
+- 2025-10-04 @tobiu added parent issue #7296
 - 2025-10-04 @tobiu added the `hacktoberfest` label
 - 2025-10-04 @tobiu added the `ai` label
 - 2025-10-04 @tobiu assigned to @SarthakJain29

@@ -38,6 +38,7 @@ This change ensures that the MCP server configuration accurately reflects the in
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label
 - 2025-10-09 @tobiu added the `enhancement` label
+- 2025-10-09 @tobiu added parent issue #7399
 - 2025-10-09 @tobiu added the `ai` label
 - 2025-10-09 @tobiu referenced in commit `663e2ae` - "MCP Config: Align Knowledge Server Port and Health Check #7425"
 - 2025-10-09 @tobiu closed this issue

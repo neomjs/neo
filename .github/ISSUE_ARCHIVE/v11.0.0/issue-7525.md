@@ -36,6 +36,7 @@ This ticket is to improve the `healthcheck` tool for the `memory-core` server to
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label
 - 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu added parent issue #7520
 - 2025-10-17 @tobiu referenced in commit `4d2db48` - "Enhance Memory Core Health Check #7525"
 - 2025-10-17 @tobiu closed this issue
 

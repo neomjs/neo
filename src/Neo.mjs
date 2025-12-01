@@ -59,8 +59,9 @@ const
  * @borrows Neo.core.Util.isDefined         as isDefined
  * @borrows Neo.core.Compare.isEqual        as isEqual
  * @borrows Neo.core.Util.isNumber          as isNumber
- * @borrows Neo.core.Util.isObject          as isObject
+ * @borrows Neo.core.Util.isRecord          as isRecord
  * @borrows Neo.core.Util.isString          as isString
+ * @borrows Neo.core.Util.snakeToCamel      as snakeToCamel
  * @borrows Neo.core.Util.toArray           as toArray
  * @tutorial 01_Concept
  */

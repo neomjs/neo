@@ -27,6 +27,7 @@ closedAt: '2025-07-11T10:58:03Z'
 ## Activity Log
 
 - 2025-07-11 @tobiu assigned to @tobiu
+- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label
 - 2025-07-11 @tobiu referenced in commit `168a21b` - "functional.component.Base: enhance the module export #7016"
 - 2025-07-11 @tobiu closed this issue

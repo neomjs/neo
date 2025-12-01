@@ -46,6 +46,9 @@ After proving the AST-based approach in a dedicated script (`buildSingleFile.mjs
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu added parent issue #7150
+- 2025-08-01 @tobiu removed parent issue #7150
+- 2025-08-01 @tobiu added parent issue #7130
 - 2025-08-01 @tobiu referenced in commit `a267273` - "Finalize and Integrate AST-based Build Process #7151"
 - 2025-08-01 @tobiu closed this issue
 

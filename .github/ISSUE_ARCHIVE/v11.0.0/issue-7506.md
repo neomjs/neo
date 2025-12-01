@@ -36,6 +36,7 @@ This ticket covers the implementation of the `delete_database` service for the A
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `enhancement` label
 - 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu referenced in commit `8713465` - "Implement Delete Database Service #7506"
 - 2025-10-16 @tobiu closed this issue
 

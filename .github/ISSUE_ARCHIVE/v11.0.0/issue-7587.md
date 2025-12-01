@@ -57,6 +57,7 @@ startup to handle unhealthy states gracefully.
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label
 - 2025-10-20 @tobiu added the `ai` label
+- 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-20 @tobiu referenced in commit `29682a3` - "Implement Graceful Health Handling with Recovery #7587"
 - 2025-10-20 @tobiu referenced in commit `4bba916` - "#7587 ticket md file update"
 - 2025-10-20 @tobiu closed this issue

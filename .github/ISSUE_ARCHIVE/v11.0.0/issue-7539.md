@@ -37,6 +37,7 @@ This approach aligns with the goal of integrating Neo.mjs core into the MCP serv
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label
 - 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu added parent issue #7536
 - 2025-10-18 @tobiu referenced in commit `6027547` - "Improve isDbRunning() in DatabaseLifecycleService #7539"
 - 2025-10-18 @tobiu closed this issue
 

@@ -26,6 +26,7 @@ closedAt: '2025-06-15T20:00:46Z'
 ## Activity Log
 
 - 2025-06-15 @tobiu assigned to @tobiu
+- 2025-06-15 @tobiu added parent issue #6785
 - 2025-06-15 @tobiu added the `enhancement` label
 - 2025-06-15 @tobiu referenced in commit `ba9d530` - "main.mixin.DeltaUpdates: du_insertNode() => use the new hasLeadingTextChildren #6807"
 - 2025-06-15 @tobiu closed this issue

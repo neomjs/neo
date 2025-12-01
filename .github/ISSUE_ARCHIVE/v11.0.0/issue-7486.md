@@ -39,6 +39,7 @@ This ticket covers the refactoring of the server to become a true MCP-compliant,
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu referenced in commit `70f3539` - "#7486 tools list endpoint"
 - 2025-10-14 @tobiu referenced in commit `1ae245a` - "#7486 tools call endpoint"
 - 2025-10-14 @tobiu closed this issue

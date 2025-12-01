@@ -32,6 +32,7 @@ This task is to migrate the unit test for `config/Basic.mjs` from the Siesta tes
 
 ## Activity Log
 
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-09-30 @tobiu referenced in commit `0294c93` - "Convert config/Basic.mjs Test from Siesta to Playwright #7274"
 - 2025-09-30 @tobiu assigned to @tobiu

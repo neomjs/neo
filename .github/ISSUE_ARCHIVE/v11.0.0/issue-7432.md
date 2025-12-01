@@ -47,6 +47,7 @@ The README was updated to be more evergreen, more precise, and better integrated
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label
+- 2025-10-09 @tobiu added parent issue #7264
 - 2025-10-09 @tobiu referenced in commit `670d0b3` - "Refine and Align Core Project Documentation (VISION.md & README.md) #7432"
 - 2025-10-09 @tobiu closed this issue
 

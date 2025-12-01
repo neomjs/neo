@@ -39,7 +39,9 @@ detaching the ticket from the epic.
 ## Activity Log
 
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-27 @tobiu assigned to @tobiu
 - 2025-11-04 @tobiu added the `no auto close` label
 - 2025-11-04 @tobiu added the `ai` label
+- 2025-11-04 @tobiu removed parent issue #7262
 

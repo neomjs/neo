@@ -28,6 +28,7 @@ closedAt: '2025-07-16T02:35:44Z'
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label
+- 2025-07-16 @tobiu added parent issue #6992
 - 2025-07-16 @tobiu referenced in commit `0054442` - "layout.Flexbox: applyChildAttributes() => opt out for functional cmps #7071"
 - 2025-07-16 @tobiu closed this issue
 

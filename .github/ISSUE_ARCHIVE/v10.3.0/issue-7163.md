@@ -68,6 +68,7 @@ trade-offs and showcasing the power of the build-time AST transformation.
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu referenced in commit `dcb46a5` - "Create "Under the Hood: HTML Templates" Guide #7163"
 - 2025-08-02 @tobiu closed this issue
 - 2025-08-02 @tobiu referenced in commit `0b65a2d` - "Create "Under the Hood: HTML Templates" Guide #7163"

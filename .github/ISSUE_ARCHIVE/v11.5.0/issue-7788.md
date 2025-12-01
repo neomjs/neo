@@ -41,5 +41,6 @@ This epic will be achieved by completing the following sub-tasks:
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu cross-referenced by #7789
 - 2025-11-18 @tobiu assigned to @tobiu
+- 2025-11-18 @tobiu added sub-issue #7791
 - 2025-11-18 @tobiu closed this issue
 

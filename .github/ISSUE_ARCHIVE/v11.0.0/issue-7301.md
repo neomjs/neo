@@ -96,6 +96,7 @@ There is a Slack & a Discord Channel posted inside the parent ticket, in case yo
 - 2025-09-28 @tobiu added the `help wanted` label
 - 2025-09-28 @tobiu added the `good first issue` label
 - 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-28 @tobiu added parent issue #7296
 - 2025-09-29 @nikeshadhikari9 cross-referenced by #7299
 - 2025-09-29 @tobiu assigned to @nikeshadhikari9
 - 2025-09-29 @tobiu referenced in commit `4b6a979` - "AI_QUICK_START.md: fixed the gemini cli installation path. thx for the heads-up! #7301"

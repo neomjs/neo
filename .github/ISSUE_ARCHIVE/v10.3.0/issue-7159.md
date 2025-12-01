@@ -47,6 +47,7 @@ The current process parses every single `.mjs` file with `acorn`, which is compu
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
+- 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu cross-referenced by #7160
 - 2025-08-02 @tobiu referenced in commit `4945297` - "Optimize Build Process with a Pre-emptive Regex Check #7159"
 - 2025-08-02 @tobiu closed this issue

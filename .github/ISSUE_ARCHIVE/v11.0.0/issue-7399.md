@@ -123,13 +123,28 @@ resolved => inside the new servers
 - 2025-10-07 @tobiu added the `epic` label
 - 2025-10-07 @tobiu added the `ai` label
 - 2025-10-07 @tobiu referenced in commit `59a9701` - "#7399 internal ticket files WIP"
+- 2025-10-07 @tobiu added sub-issue #7400
 - 2025-10-07 @tobiu cross-referenced by #7400
+- 2025-10-07 @tobiu added sub-issue #7401
 - 2025-10-07 @tobiu added the `help wanted` label
 - 2025-10-07 @tobiu added the `good first issue` label
 - 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added sub-issue #7402
+- 2025-10-07 @tobiu added sub-issue #7403
+- 2025-10-07 @tobiu added sub-issue #7404
+- 2025-10-07 @tobiu added sub-issue #7405
+- 2025-10-07 @tobiu added sub-issue #7406
+- 2025-10-07 @tobiu added sub-issue #7407
+- 2025-10-07 @tobiu added sub-issue #7408
+- 2025-10-07 @tobiu added sub-issue #7409
+- 2025-10-07 @tobiu added sub-issue #7410
+- 2025-10-07 @tobiu added sub-issue #7411
+- 2025-10-07 @tobiu added sub-issue #7412
 - 2025-10-07 @tobiu referenced in commit `398d1b0` - "#7399 internal ticket md files"
 - 2025-10-07 @tobiu cross-referenced by #7408
+- 2025-10-07 @tobiu added sub-issue #7413
 - 2025-10-07 @tobiu referenced in commit `d5c5e05` - "#7399 MCP Server: Implement Knowledge Create/Update Endpoint sub"
+- 2025-10-07 @tobiu removed sub-issue #7413
 - 2025-10-07 @tobiu referenced in commit `396ddf0` - "#7399 ticket polishing"
 - 2025-10-07 @tobiu cross-referenced by #7403
 - 2025-10-08 @tobiu cross-referenced by #7401
@@ -140,7 +155,11 @@ resolved => inside the new servers
 - 2025-10-08 @tobiu cross-referenced by PR #7419
 - 2025-10-08 @tobiu cross-referenced by #7407
 - 2025-10-08 @tobiu cross-referenced by #7406
+- 2025-10-09 @tobiu added sub-issue #7425
 - 2025-10-10 @tobiu cross-referenced by #7409
+- 2025-10-11 @tobiu added sub-issue #7464
+- 2025-10-12 @tobiu added sub-issue #7468
 - 2025-10-12 @tobiu referenced in commit `68c7980` - "#7399 sub-tasks cleanup"
+- 2025-10-24 @tobiu removed sub-issue #7405
 - 2025-10-24 @tobiu closed this issue
 

@@ -37,6 +37,7 @@ This bug prevents the `query_documents` tool from functioning correctly, as its 
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `bug` label
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `ai` label
 - 2025-10-16 @tobiu referenced in commit `819f7e0` - "Bug: query_documents input parameter mismatch #7516"
 - 2025-10-16 @tobiu closed this issue

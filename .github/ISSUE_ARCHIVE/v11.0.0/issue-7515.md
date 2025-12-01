@@ -35,6 +35,7 @@ This indicates that the object returned by the `healthService.healthcheck` funct
 ## Activity Log
 
 - 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `bug` label
 - 2025-10-16 @tobiu added the `ai` label
 - 2025-10-16 @tobiu referenced in commit `94ef9cb` - "Healthcheck tool returns unstructured content #7515"

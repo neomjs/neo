@@ -34,6 +34,7 @@ The current implementation of `describe()` calls in `buildZodSchemaFromResponse`
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added the `enhancement` label
 - 2025-10-15 @tobiu added the `ai` label
+- 2025-10-15 @tobiu added parent issue #7477
 - 2025-10-15 @tobiu referenced in commit `f12a9de` - "Simplify Description Handling in Zod Schema Generation #7500"
 - 2025-10-15 @tobiu closed this issue
 

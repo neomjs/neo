@@ -43,6 +43,7 @@ This ensures that the server only reports as "healthy" if it is fully capable of
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu referenced in commit `f02b361` - "Refine Health Check for GitHub Workflow Server #7480"
 - 2025-10-14 @tobiu closed this issue
 

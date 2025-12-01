@@ -80,6 +80,7 @@ gets transformed into:
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added the `enhancement` label
+- 2025-08-01 @tobiu added parent issue #7130
 - 2025-08-01 @tobiu referenced in commit `acb0410` - "Finalize Build-Time AST Transformation #7156 WIP"
 - 2025-08-02 @tobiu referenced in commit `c9c75f2` - "Finalize Build-Time AST Transformation #7156 WIP"
 - 2025-08-02 @tobiu referenced in commit `32975a7` - "Finalize Build-Time AST Transformation #7156"

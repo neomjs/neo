@@ -49,6 +49,7 @@ resolved with the new tooling
 ## Activity Log
 
 - 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-20 @tobiu added the `enhancement` label
 - 2025-10-20 @tobiu added the `ai` label
 - 2025-10-24 @tobiu closed this issue

@@ -25,6 +25,7 @@ closedAt: '2025-06-16T12:17:38Z'
 ## Activity Log
 
 - 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu referenced in commit `fb8ec52` - "vdom.Helper: createVnode() => add support for vdom.text => vnode.textContent #6813"
 - 2025-06-16 @tobiu closed this issue
 

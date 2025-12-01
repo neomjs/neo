@@ -83,7 +83,12 @@ This issue was closed because it has been inactive for 14 days since being marke
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu added sub-issue #7049
+- 2025-07-14 @tobiu added sub-issue #7051
+- 2025-07-14 @tobiu added sub-issue #7052
 - 2025-07-14 @tobiu referenced in commit `146818c` - "#7048 Updated Epic plan"
+- 2025-07-15 @tobiu added sub-issue #7056
+- 2025-07-15 @tobiu added sub-issue #7058
 - 2025-10-13 @github-actions added the `stale` label
 - 2025-10-27 @github-actions closed this issue
 

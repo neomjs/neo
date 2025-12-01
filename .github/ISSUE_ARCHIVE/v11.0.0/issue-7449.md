@@ -54,6 +54,7 @@ No worries, please do review it in your free time and since 3 issues were couple
 ## Activity Log
 
 - 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added parent issue #7446
 - 2025-10-10 @tobiu added the `enhancement` label
 - 2025-10-10 @tobiu added the `ai` label
 - 2025-10-10 @tobiu unassigned from @tobiu

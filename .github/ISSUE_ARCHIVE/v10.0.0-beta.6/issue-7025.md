@@ -48,4 +48,5 @@ This bug could lead to application freezes and "Maximum call stack size exceeded
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu referenced in commit `98ff9b1` - "Fix: EffectBatchManager.endBatch() Infinite Loop Prevention #7025"
 - 2025-07-12 @tobiu closed this issue
+- 2025-07-12 @tobiu added parent issue #6992
 

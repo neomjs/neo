@@ -88,8 +88,12 @@ A complete draft of the blog post as a markdown file, following this new structu
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `enhancement` label
 - 2025-07-22 @tobiu added the `epic` label
+- 2025-07-22 @tobiu added sub-issue #7094
 - 2025-07-22 @tobiu removed the `enhancement` label
 - 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu added sub-issue #7095
+- 2025-07-22 @tobiu added sub-issue #7096
+- 2025-07-22 @tobiu added sub-issue #7097
 - 2025-07-22 @tobiu referenced in commit `59f3006` - "Create v10 Top-Level Blog Post #7093 initial ticket versions"
 - 2025-07-22 @tobiu referenced in commit `886b8c7` - "#7093 super early draft"
 - 2025-07-22 @tobiu referenced in commit `b111e4a` - "#7093 more "why" focussed draft"

@@ -27,6 +27,7 @@ closedAt: '2025-05-05T16:55:12Z'
 ## Activity Log
 
 - 2025-05-05 @tobiu added the `enhancement` label
+- 2025-05-05 @tobiu added parent issue #6696
 - 2025-05-05 @tobiu referenced in commit `9cee1e1` - "layout.Base: applyRenderAttributes() => add a silent param #6701"
 - 2025-05-05 @tobiu assigned to @tobiu
 - 2025-05-05 @tobiu closed this issue

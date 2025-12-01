@@ -35,6 +35,7 @@ During the setup of the agent's memory database, a new configuration object (`me
 
 - 2025-10-02 @tobiu assigned to @tobiu
 - 2025-10-02 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu added parent issue #7316
 - 2025-10-02 @tobiu referenced in commit `f51badd` - "Refactor and Centralize AI Configuration #7324"
 - 2025-10-02 @tobiu closed this issue
 

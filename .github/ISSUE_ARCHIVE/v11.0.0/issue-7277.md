@@ -36,6 +36,7 @@ This task is to migrate the unit test for `config/Hierarchy.mjs` from the Siesta
 ## Activity Log
 
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-30 @tobiu referenced in commit `ebc49d2` - "Convert config/Hierarchy.mjs Test from Siesta to Playwright #7277"
 - 2025-09-30 @tobiu closed this issue
 - 2025-10-03 @tobiu added the `help wanted` label

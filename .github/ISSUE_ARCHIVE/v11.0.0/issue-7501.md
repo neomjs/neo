@@ -101,6 +101,24 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `epic` label
 - 2025-10-16 @tobiu added the `ai` label
+- 2025-10-16 @tobiu added sub-issue #7502
+- 2025-10-16 @tobiu added sub-issue #7503
 - 2025-10-16 @tobiu referenced in commit `60ba111` - "#7501 epic as md file"
+- 2025-10-16 @tobiu added sub-issue #7504
+- 2025-10-16 @tobiu added sub-issue #7505
+- 2025-10-16 @tobiu added sub-issue #7506
+- 2025-10-16 @tobiu added sub-issue #7507
+- 2025-10-16 @tobiu added sub-issue #7508
+- 2025-10-16 @tobiu added sub-issue #7509
+- 2025-10-16 @tobiu added sub-issue #7510
+- 2025-10-16 @tobiu added sub-issue #7511
+- 2025-10-16 @tobiu added sub-issue #7512
+- 2025-10-16 @tobiu added sub-issue #7513
+- 2025-10-16 @tobiu added sub-issue #7514
+- 2025-10-16 @tobiu added sub-issue #7515
+- 2025-10-16 @tobiu added sub-issue #7516
+- 2025-10-17 @tobiu added sub-issue #7517
+- 2025-10-17 @tobiu added sub-issue #7518
+- 2025-10-17 @tobiu added sub-issue #7519
 - 2025-10-17 @tobiu closed this issue
 

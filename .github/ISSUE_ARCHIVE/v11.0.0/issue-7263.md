@@ -34,6 +34,7 @@ This task is to identify all remaining Siesta unit tests that need to be migrate
 ## Activity Log
 
 - 2025-09-27 @tobiu assigned to @tobiu
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-09-27 @tobiu referenced in commit `89cdd42` - "Plan Remaining Siesta to Playwright Test Migrations #7263"
 - 2025-09-27 @tobiu closed this issue

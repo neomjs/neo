@@ -97,6 +97,7 @@ Hi @tobiu, apologies for not asking to be assigned to this issue beforehand. Iâ€
 ## Activity Log
 
 - 2025-10-12 @tobiu added the `bug` label
+- 2025-10-12 @tobiu added parent issue #7296
 - 2025-10-12 @tobiu added the `help wanted` label
 - 2025-10-12 @tobiu added the `good first issue` label
 - 2025-10-12 @tobiu added the `hacktoberfest` label

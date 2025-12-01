@@ -56,4 +56,5 @@ reopening, since some tests were not migrated properly.
 - 2025-09-26 @tobiu closed this issue
 - 2025-09-26 @tobiu referenced in commit `e527632` - "Refactor Playwright Setup and Convert VdomHelper Test #7258"
 - 2025-09-26 @tobiu closed this issue
+- 2025-09-27 @tobiu added parent issue #7262
 

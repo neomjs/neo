@@ -38,6 +38,7 @@ This ticket corrects that architectural error. We will reinstate the use of `ope
 ## Activity Log
 
 - 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added parent issue #7477
 - 2025-10-15 @tobiu added the `enhancement` label
 - 2025-10-15 @tobiu added the `ai` label
 - 2025-10-15 @tobiu referenced in commit `5521758` - "#7493 making callTools => limit optional"

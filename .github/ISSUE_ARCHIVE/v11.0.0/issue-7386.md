@@ -46,6 +46,7 @@ To enable the AI agent to interact with a browser, the Chrome DevTools Model Con
 - 2025-10-06 @tobiu assigned to @tobiu
 - 2025-10-06 @tobiu added the `enhancement` label
 - 2025-10-06 @tobiu added the `ai` label
+- 2025-10-06 @tobiu added parent issue #7385
 - 2025-10-06 @tobiu referenced in commit `784002e` - "Configure MCP Server for Project #7386"
 - 2025-10-06 @tobiu closed this issue
 

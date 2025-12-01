@@ -49,6 +49,7 @@ This ticket proposes to refactor `buildScripts/generate-seo-files.mjs` to use th
 - 2025-11-11 @tobiu added the `enhancement` label
 - 2025-11-11 @tobiu added the `ai` label
 - 2025-11-11 @tobiu added the `refactoring` label
+- 2025-11-11 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu referenced in commit `450ea66` - "Refactor generate-seo-files.mjs: Implement CLI Option Parsing with Commander #7745"
 - 2025-11-11 @tobiu closed this issue
 

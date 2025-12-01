@@ -79,6 +79,7 @@ Tobi
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu
+- 2025-03-25 @tobiu added parent issue #6584
 - 2025-03-25 @tobiu referenced in commit `cd334f0` - "worker.Manager: add controllerchange SW listener as early as possible #6587"
 - 2025-03-25 @tobiu closed this issue
 

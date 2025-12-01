@@ -91,6 +91,7 @@ We're closing this ticket as it is no longer relevant. Thanks again for your wil
 - 2025-10-05 @tobiu added the `good first issue` label
 - 2025-10-05 @tobiu added the `hacktoberfest` label
 - 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu added parent issue #7364
 - 2025-10-05 @tobiu assigned to @kayush0712
 - 2025-10-22 @tobiu cross-referenced by PR #7541
 - 2025-10-24 @tobiu closed this issue

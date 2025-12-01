@@ -113,6 +113,7 @@ i highly discourage on this one, and dare to say: working on a new epic to e.g. 
 - 2025-10-24 @tobiu added the `documentation` label
 - 2025-10-24 @tobiu added the `enhancement` label
 - 2025-10-24 @tobiu added the `ai` label
+- 2025-10-24 @tobiu added parent issue #7604
 - 2025-10-24 @tobiu cross-referenced by #7376
 - 2025-10-24 @tobiu cross-referenced by #7634
 - 2025-10-24 @tobiu assigned to @tobiu

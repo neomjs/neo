@@ -37,6 +37,7 @@ As an alternative to the main thread addon, we will evaluate using `parse5` dire
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added the `enhancement` label
+- 2025-07-31 @tobiu added parent issue #7130
 - 2025-07-31 @tobiu referenced in commit `be9e38e` - "Alternative Dev Mode: In-Worker Parsing with parse5
 #7136"
 - 2025-07-31 @tobiu closed this issue

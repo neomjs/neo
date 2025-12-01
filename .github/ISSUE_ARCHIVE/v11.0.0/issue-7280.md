@@ -33,6 +33,7 @@ This task is to migrate the unit test for `core/EffectBatching.mjs` from the Sie
 ## Activity Log
 
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu referenced in commit `63b93cc` - "Convert core/EffectBatching.mjs Test from Siesta to Playwright #7280"
 - 2025-10-01 @tobiu closed this issue

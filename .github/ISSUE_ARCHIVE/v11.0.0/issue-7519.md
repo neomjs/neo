@@ -37,6 +37,7 @@ This ticket is to refactor the `toolService` to determine the argument passing s
 ## Activity Log
 
 - 2025-10-17 @tobiu assigned to @tobiu
+- 2025-10-17 @tobiu added parent issue #7501
 - 2025-10-17 @tobiu added the `enhancement` label
 - 2025-10-17 @tobiu added the `ai` label
 - 2025-10-17 @tobiu referenced in commit `5e92dcf` - "Dynamically determine argument passing strategy from OpenAPI spec #7519"

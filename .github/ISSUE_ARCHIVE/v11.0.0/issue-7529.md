@@ -38,6 +38,9 @@ Enhance the `knowledge-base` and `memory-core` MCP servers with tools that allow
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `epic` label
 - 2025-10-17 @tobiu added the `ai` label
+- 2025-10-17 @tobiu added sub-issue #7530
+- 2025-10-17 @tobiu added sub-issue #7531
 - 2025-10-17 @tobiu referenced in commit `515c8de` - "#7529 ticket md files"
+- 2025-10-17 @tobiu added sub-issue #7532
 - 2025-10-17 @tobiu closed this issue
 

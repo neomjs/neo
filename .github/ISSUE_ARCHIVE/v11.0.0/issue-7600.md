@@ -40,6 +40,7 @@ An outdated API specification is misleading for both human developers and AI age
 - 2025-10-22 @tobiu added the `documentation` label
 - 2025-10-22 @tobiu added the `enhancement` label
 - 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22 @tobiu added parent issue #7590
 - 2025-10-22 @tobiu referenced in commit `ae5fb36` - "Update OpenAPI Specification to Reflect GraphQL Data Models #7600"
 - 2025-10-22 @tobiu closed this issue
 

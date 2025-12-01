@@ -27,6 +27,7 @@ closedAt: '2025-03-31T15:35:47Z'
 
 - 2025-03-31 @tobiu added the `enhancement` label
 - 2025-03-31 @tobiu assigned to @tobiu
+- 2025-03-31 @tobiu added parent issue #6600
 - 2025-03-31 @tobiu referenced in commit `8580d4e` - "Email.model.Email #6604"
 - 2025-03-31 @tobiu closed this issue
 

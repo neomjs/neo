@@ -72,5 +72,17 @@ The initial versions are in place now, with huge Gemini support. Please open new
 - 2025-07-12 @tobiu added the `documentation` label
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu added the `epic` label
+- 2025-07-12 @tobiu added sub-issue #7030
+- 2025-07-12 @tobiu added sub-issue #7031
+- 2025-07-12 @tobiu added sub-issue #7032
+- 2025-07-12 @tobiu added sub-issue #7033
+- 2025-07-12 @tobiu added sub-issue #7034
+- 2025-07-12 @tobiu added sub-issue #7035
+- 2025-07-13 @tobiu added sub-issue #7036
+- 2025-07-13 @tobiu added sub-issue #7037
+- 2025-07-13 @tobiu added sub-issue #7038
+- 2025-07-13 @tobiu added sub-issue #7039
+- 2025-07-13 @tobiu added sub-issue #7040
+- 2025-07-13 @tobiu added sub-issue #7041
 - 2025-07-13 @tobiu closed this issue
 

@@ -43,6 +43,7 @@ Add a new subsection to `AGENTS.md` under **"1. Your Role and Primary Directive"
 - 2025-10-26 @tobiu added the `enhancement` label
 - 2025-10-26 @tobiu added the `ai` label
 - 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-26 @tobiu added parent issue #7604
 - 2025-10-26 @tobiu referenced in commit `4fe4c28` - "Docs: Add Communication Style Directive to AGENTS.md #7662"
 - 2025-10-26 @tobiu closed this issue
 

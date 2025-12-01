@@ -107,6 +107,7 @@ We're closing this ticket now. Thanks again for your willingness to contribute, 
 
 - 2025-10-04 @tobiu added the `help wanted` label
 - 2025-10-04 @tobiu added the `good first issue` label
+- 2025-10-04 @tobiu added parent issue #7296
 - 2025-10-04 @tobiu added the `hacktoberfest` label
 - 2025-10-04 @tobiu added the `ai` label
 - 2025-10-04 @tobiu assigned to @kiransatdive

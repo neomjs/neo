@@ -47,6 +47,7 @@ This article will be crucial for attracting Angular developers to Neo.mjs, enhan
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu added parent issue #7029
 - 2025-07-12 @tobiu referenced in commit `a1b35b9` - "Feature: Add Neo.mjs vs. Angular Comparison Article #7033"
 - 2025-07-12 @tobiu closed this issue
 

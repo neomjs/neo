@@ -54,5 +54,7 @@ closing the epic, since all subs are resolved.
 - 2025-11-01 @tobiu assigned to @MannXo
 - 2025-11-07 @MannXo cross-referenced by #7713
 - 2025-11-07 @MannXo cross-referenced by #7714
+- 2025-11-07 @tobiu added sub-issue #7714
+- 2025-11-07 @tobiu added sub-issue #7713
 - 2025-11-10 @tobiu closed this issue
 

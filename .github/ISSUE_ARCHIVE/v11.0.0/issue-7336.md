@@ -38,6 +38,7 @@ This creates a virtuous cycle where the end of one session's work becomes the st
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `documentation` label
 - 2025-10-03 @tobiu added the `enhancement` label
+- 2025-10-03 @tobiu added parent issue #7316
 - 2025-10-03 @tobiu referenced in commit `7f62511` - "Implement Automated Session Summarization Workflow #7336"
 - 2025-10-03 @tobiu closed this issue
 

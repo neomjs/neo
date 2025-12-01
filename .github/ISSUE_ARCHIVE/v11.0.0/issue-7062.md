@@ -52,6 +52,7 @@ https://github.com/neomjs/neo/blob/dev/src/component/Abstract.mjs#L284
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label
+- 2025-07-15 @tobiu added parent issue #6992
 - 2025-10-14 @github-actions added the `stale` label
 - 2025-10-14 @tobiu removed the `stale` label
 - 2025-10-14 @tobiu added the `help wanted` label

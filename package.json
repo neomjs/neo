@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "11.13.0",
+    "version"    : "11.14.0",
     "description": "Neo.mjs: The first Agent Operating System for the web. A standalone, type-safe AI SDK combined with a multi-threaded, zero-build platform for building autonomous agents and desktop-class web apps.",
     "type"       : "module",
     "repository": {
@@ -13,6 +13,7 @@
     "scripts": {
         "add-config"                   : "node ./buildScripts/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/addReactiveTags.mjs",
+        "ai:mcp-client"                : "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-stdio.mjs",
         "ai:mcp-server-knowledge-base" : "node ./ai/mcp/server/knowledge-base/mcp-stdio.mjs",
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-stdio.mjs",

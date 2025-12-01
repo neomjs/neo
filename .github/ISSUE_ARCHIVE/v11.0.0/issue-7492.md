@@ -39,6 +39,7 @@ This ticket covers the refactoring of the GitHub Workflow MCP server to define t
 ## Activity Log
 
 - 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added parent issue #7477
 - 2025-10-15 @tobiu added the `enhancement` label
 - 2025-10-15 @tobiu added the `ai` label
 - 2025-10-15 @tobiu referenced in commit `6b0ac23` - "Refactor to Direct MCP Tool Definitions #7492"

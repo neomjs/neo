@@ -41,6 +41,7 @@ This design must define a comprehensive, resource-oriented API for managing the 
 ## Activity Log
 
 - 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `enhancement` label
 - 2025-10-16 @tobiu added the `ai` label
 - 2025-10-16 @tobiu referenced in commit `3579ae3` - "Design Knowledge Base MCP Server API #7502"

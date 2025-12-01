@@ -37,6 +37,7 @@ This separates the strategic "why" and "when" from the core operational protocol
 ## Activity Log
 
 - 2025-10-03 @tobiu assigned to @tobiu
+- 2025-10-03 @tobiu added parent issue #7316
 - 2025-10-03 @tobiu added the `documentation` label
 - 2025-10-03 @tobiu added the `enhancement` label
 - 2025-10-03 @tobiu referenced in commit `c2a52a2` - "Create AI Strategic Workflows Guide #7333"

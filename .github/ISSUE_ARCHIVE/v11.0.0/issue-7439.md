@@ -54,6 +54,7 @@ however, there are vast amounts of items that still either need unit or componen
 - 2025-10-10 @tobiu added the `help wanted` label
 - 2025-10-10 @tobiu added the `hacktoberfest` label
 - 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu added parent issue #7435
 - 2025-10-12 @tobiu assigned to @tobiu
 - 2025-10-12 @tobiu removed the `help wanted` label
 - 2025-10-12 @tobiu removed the `hacktoberfest` label

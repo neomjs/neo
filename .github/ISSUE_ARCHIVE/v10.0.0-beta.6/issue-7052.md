@@ -48,6 +48,7 @@ closedAt: '2025-07-14T16:08:54Z'
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
+- 2025-07-14 @tobiu added parent issue #7048
 - 2025-07-14 @tobiu referenced in commit `7e70ab9` - "Phase 2: Email List View #7052"
 - 2025-07-14 @tobiu closed this issue
 

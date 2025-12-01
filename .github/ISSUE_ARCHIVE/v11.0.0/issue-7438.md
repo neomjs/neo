@@ -73,6 +73,7 @@ https://github.com/neomjs/neo/blob/dev/learn/benefits/RPCLayer.md
 
 ## Activity Log
 
+- 2025-10-10 @tobiu added parent issue #7435
 - 2025-10-10 @tobiu added the `enhancement` label
 - 2025-10-10 @tobiu added the `help wanted` label
 - 2025-10-10 @tobiu added the `hacktoberfest` label

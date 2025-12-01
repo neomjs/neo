@@ -50,6 +50,7 @@ This enhancement significantly improves the developer experience by streamlining
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label
+- 2025-07-12 @tobiu added parent issue #6992
 - 2025-07-12 @tobiu referenced in commit `d8ea927` - "Feature: Centralized Functional Component Exports via _export.mjs #7028"
 - 2025-07-12 @tobiu closed this issue
 

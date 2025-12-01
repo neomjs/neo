@@ -104,6 +104,7 @@ closing the ticket (resolved).
 - 2025-10-04 @tobiu added the `good first issue` label
 - 2025-10-04 @tobiu added the `hacktoberfest` label
 - 2025-10-04 @tobiu added the `ai` label
+- 2025-10-04 @tobiu added parent issue #7296
 - 2025-10-04 @tobiu assigned to @PrakhyaDas
 - 2025-10-11 @PrakhyaDas cross-referenced by PR #7461
 - 2025-10-24 @tobiu closed this issue

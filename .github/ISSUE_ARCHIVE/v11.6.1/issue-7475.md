@@ -184,10 +184,13 @@ closing the ticket, since resolved.
 - 2025-10-13 @tobiu added the `epic` label
 - 2025-10-13 @tobiu added the `hacktoberfest` label
 - 2025-10-13 @tobiu added the `ai` label
+- 2025-10-13 @tobiu added sub-issue #7476
 - 2025-10-13 @tobiu cross-referenced by #7476
 - 2025-10-13 @tobiu cross-referenced by #7435
+- 2025-10-14 @tobiu added sub-issue #7488
 - 2025-10-14 @tobiu cross-referenced by #7488
 - 2025-10-14 @tobiu cross-referenced by #7489
+- 2025-10-14 @tobiu added sub-issue #7489
 - 2025-10-14 @tobiu referenced in commit `4a00ed1` - "#7475 ticket md files"
 - 2025-10-14 @ritikrikm cross-referenced by PR #7490
 - 2025-10-24 @tobiu cross-referenced by PR #7548

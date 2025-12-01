@@ -40,6 +40,7 @@ To make the tools more self-documenting and provide clearer guidance to future a
 ## Activity Log
 
 - 2025-10-16 @tobiu assigned to @tobiu
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `documentation` label
 - 2025-10-16 @tobiu added the `enhancement` label
 - 2025-10-16 @tobiu added the `ai` label

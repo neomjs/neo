@@ -66,6 +66,7 @@ const MyGreeting = defineComponent({
 
 ## Activity Log
 
+- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label
 - 2025-07-11 @tobiu referenced in commit `27d6ef8` - "Create Neo.functional.defineComponent Factory
 #7013"

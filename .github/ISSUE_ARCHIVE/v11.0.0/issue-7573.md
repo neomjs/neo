@@ -40,6 +40,7 @@ To significantly improve the performance and reduce the scope of the issue synch
 ## Activity Log
 
 - 2025-10-20 @tobiu assigned to @tobiu
+- 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-20 @tobiu added the `enhancement` label
 - 2025-10-20 @tobiu added the `ai` label
 - 2025-10-20 @tobiu referenced in commit `501c84b` - "Filter GitHub Issues by Date in SyncService #7573"

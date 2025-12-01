@@ -85,6 +85,7 @@ Acceptable... Thank you
 ## Activity Log
 
 - 2025-11-10 @tobiu added the `enhancement` label
+- 2025-11-10 @tobiu added parent issue #7435
 - 2025-11-10 @tobiu added the `ai` label
 - 2025-11-10 @tobiu added the `testing` label
 - 2025-11-10 @tobiu cross-referenced by PR #7734

@@ -38,6 +38,7 @@ This ticket covers the work to apply this standard to all tools in the Knowledge
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `documentation` label
+- 2025-10-16 @tobiu added parent issue #7501
 - 2025-10-16 @tobiu added the `enhancement` label
 - 2025-10-16 @tobiu added the `ai` label
 - 2025-10-16 @tobiu referenced in commit `4c9b2bd` - "Enhance All Tools with In-Spec Manuals #7514"

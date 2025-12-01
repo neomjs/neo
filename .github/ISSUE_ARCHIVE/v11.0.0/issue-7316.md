@@ -86,16 +86,42 @@ closing as resolved.
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label
+- 2025-10-01 @tobiu added sub-issue #7317
+- 2025-10-01 @tobiu added sub-issue #7318
+- 2025-10-01 @tobiu added sub-issue #7319
+- 2025-10-01 @tobiu added sub-issue #7320
+- 2025-10-01 @tobiu added sub-issue #7321
 - 2025-10-01 @tobiu added the `epic` label
+- 2025-10-01 @tobiu added sub-issue #7322
 - 2025-10-01 @tobiu referenced in commit `d7db7b0` - "#7316 ticket md files"
+- 2025-10-02 @tobiu added sub-issue #7324
 - 2025-10-02 @tobiu referenced in commit `e53cf18` - "#7316 new sub md file"
+- 2025-10-02 @tobiu added sub-issue #7325
 - 2025-10-02 @tobiu referenced in commit `8cc0055` - "#7316 new sub md file"
 - 2025-10-02 @tobiu referenced in commit `afe7ee9` - "#7316 mapping custom program versions to process.env.npm_package_version"
+- 2025-10-02 @tobiu added sub-issue #7326
+- 2025-10-03 @tobiu added sub-issue #7332
+- 2025-10-03 @tobiu added sub-issue #7333
+- 2025-10-03 @tobiu added sub-issue #7334
+- 2025-10-03 @tobiu added sub-issue #7335
+- 2025-10-03 @tobiu added sub-issue #7336
+- 2025-10-03 @tobiu added sub-issue #7337
+- 2025-10-03 @tobiu added sub-issue #7338
+- 2025-10-04 @tobiu added sub-issue #7341
 - 2025-10-04 @tobiu cross-referenced by #7342
 - 2025-10-04 @tobiu cross-referenced by #7343
 - 2025-10-04 @tobiu cross-referenced by #7344
 - 2025-10-04 @tobiu cross-referenced by #7345
 - 2025-10-04 @tobiu cross-referenced by #7346
+- 2025-10-04 @tobiu added sub-issue #7356
+- 2025-10-04 @tobiu added sub-issue #7357
+- 2025-10-04 @tobiu added sub-issue #7358
+- 2025-10-05 @tobiu added sub-issue #7361
+- 2025-10-05 @tobiu added sub-issue #7362
+- 2025-10-05 @tobiu added sub-issue #7363
+- 2025-10-06 @tobiu added sub-issue #7394
+- 2025-10-07 @tobiu added sub-issue #7397
 - 2025-10-07 @tobiu referenced in commit `7bfbcb2` - "#7316 ticket md update"
+- 2025-10-07 @tobiu added sub-issue #7398
 - 2025-10-24 @tobiu closed this issue
 

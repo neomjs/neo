@@ -66,6 +66,7 @@ https://github.com/neomjs/neo/issues/7294#issuecomment-3362286193
 ## Activity Log
 
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-29 @tobiu added the `help wanted` label
 - 2025-09-29 @tobiu added the `good first issue` label
 - 2025-09-29 @tobiu added the `hacktoberfest` label

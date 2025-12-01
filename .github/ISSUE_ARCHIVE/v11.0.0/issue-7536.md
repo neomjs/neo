@@ -108,12 +108,37 @@ resolved.
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `epic` label
 - 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu added sub-issue #7537
 - 2025-10-18 @tobiu referenced in commit `6028d86` - "#7536 ticket as md files"
 - 2025-10-18 @tobiu referenced in commit `c9da77e` - "#7536 epic md file update"
+- 2025-10-18 @tobiu added sub-issue #7538
+- 2025-10-18 @tobiu added sub-issue #7539
+- 2025-10-18 @tobiu added sub-issue #7540
+- 2025-10-18 @tobiu added sub-issue #7542
+- 2025-10-18 @tobiu added sub-issue #7543
+- 2025-10-18 @tobiu added sub-issue #7544
 - 2025-10-18 @tobiu referenced in commit `32f858d` - "#7536 healthService.mjs => HealthService.mjs"
+- 2025-10-18 @tobiu added sub-issue #7545
+- 2025-10-18 @tobiu added sub-issue #7546
 - 2025-10-18 @tobiu referenced in commit `3c28197` - "#7536 replacing onConstructed() with construct() in services where needed"
+- 2025-10-18 @tobiu added sub-issue #7547
+- 2025-10-19 @tobiu added sub-issue #7549
+- 2025-10-19 @tobiu added sub-issue #7550
+- 2025-10-19 @tobiu added sub-issue #7551
+- 2025-10-19 @tobiu added sub-issue #7552
+- 2025-10-19 @tobiu added sub-issue #7553
+- 2025-10-19 @tobiu added sub-issue #7554
+- 2025-10-19 @tobiu added sub-issue #7555
 - 2025-10-19 @tobiu referenced in commit `33ee24b` - "#7536 knowledge base => toolService.mjs formatting"
+- 2025-10-19 @tobiu added sub-issue #7556
+- 2025-10-19 @tobiu added sub-issue #7557
+- 2025-10-19 @tobiu added sub-issue #7558
+- 2025-10-19 @tobiu added sub-issue #7559
 - 2025-10-19 @tobiu referenced in commit `2df1067` - "#7536 github-workflow/mcp-stdio.mjs: neo imports"
 - 2025-10-19 @tobiu referenced in commit `c2311f9` - "#7536 github-workflow/services/toolService.mjs: formatting"
+- 2025-10-19 @tobiu added sub-issue #7560
+- 2025-10-19 @tobiu added sub-issue #7561
+- 2025-10-19 @tobiu added sub-issue #7562
+- 2025-10-19 @tobiu added sub-issue #7563
 - 2025-10-19 @tobiu closed this issue
 

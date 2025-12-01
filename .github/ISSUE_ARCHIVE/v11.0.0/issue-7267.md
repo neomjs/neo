@@ -33,6 +33,7 @@ This task is to migrate the unit test for `ClassConfigsAndFields.mjs` from the S
 ## Activity Log
 
 - 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-27 @tobiu referenced in commit `b0c8db3` - "Convert ClassConfigsAndFields.mjs Test from Siesta to Playwright #7267"
 - 2025-09-27 @tobiu referenced in commit `0e24f62` - "#7267 intent driven comments, ticket updates"
 - 2025-09-27 @tobiu closed this issue

@@ -40,6 +40,7 @@ This ticket proposes to enhance the `generate-seo-files.mjs` script to include t
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `enhancement` label
 - 2025-11-11 @tobiu added the `ai` label
+- 2025-11-11 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu referenced in commit `984722c` - "Enhance Sitemap Generation: Include Top-Level Application Routes #7743"
 - 2025-11-11 @tobiu closed this issue
 

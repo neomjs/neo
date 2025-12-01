@@ -41,6 +41,7 @@ A complete draft of the blog post as a markdown file.
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu added parent issue #7093
 - 2025-07-22 @tobiu referenced in commit `b9fcaba` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
 - 2025-07-22 @tobiu referenced in commit `4316e07` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
 - 2025-07-22 @tobiu referenced in commit `cbc5ef6` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"

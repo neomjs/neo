@@ -38,6 +38,7 @@ To provide clear and decoupled notifications about the ChromaDB process manageme
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label
 - 2025-10-18 @tobiu added the `ai` label
+- 2025-10-18 @tobiu added parent issue #7536
 - 2025-10-18 @tobiu referenced in commit `3a73808` - "Enhance DatabaseLifecycleService with Eventing #7547"
 - 2025-10-18 @tobiu closed this issue
 

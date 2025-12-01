@@ -37,4 +37,6 @@ This will enable an agent (or other tools) to get specific information about cla
 - 2025-10-26 @tobiu added the `enhancement` label
 - 2025-10-26 @tobiu added the `epic` label
 - 2025-10-26 @tobiu added the `ai` label
+- 2025-10-26 @tobiu added sub-issue #7664
+- 2025-10-26 @tobiu added sub-issue #7666
 

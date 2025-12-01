@@ -35,6 +35,7 @@ This sub-task is to update the command to a more robust, cross-platform syntax t
 ## Activity Log
 
 - 2025-10-07 @tobiu added the `bug` label
+- 2025-10-07 @tobiu added parent issue #7316
 - 2025-10-07 @tobiu added the `enhancement` label
 - 2025-10-07 @tobiu added the `ai` label
 - 2025-10-07 @tobiu referenced in commit `b2a872e` - "Ensure Cross-Platform UUID Generation for Agent Memory #7398"

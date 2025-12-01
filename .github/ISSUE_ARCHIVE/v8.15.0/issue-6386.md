@@ -29,6 +29,7 @@ closedAt: '2025-02-05T23:36:43Z'
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu
+- 2025-02-05 @tobiu added parent issue #6378
 - 2025-02-05 @tobiu referenced in commit `b2d462b` - "grid.View: createRow() => hide cells for a column, in case it is currently being dragged #6386"
 - 2025-02-05 @tobiu closed this issue
 

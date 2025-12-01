@@ -59,10 +59,18 @@ This epic covers automating these startup procedures within the MCP servers them
 - 2025-10-22 @tobiu added the `enhancement` label
 - 2025-10-22 @tobiu added the `epic` label
 - 2025-10-22 @tobiu added the `ai` label
+- 2025-10-23 @tobiu added sub-issue #7626
 - 2025-10-23 @tobiu cross-referenced by #7626
+- 2025-10-24 @tobiu added sub-issue #7630
+- 2025-10-24 @tobiu added sub-issue #7631
 - 2025-10-24 @tobiu cross-referenced by #7634
 - 2025-10-26 @tobiu cross-referenced by #7658
+- 2025-10-26 @tobiu added sub-issue #7658
 - 2025-10-26 @tobiu cross-referenced by #7659
+- 2025-10-26 @tobiu added sub-issue #7659
+- 2025-10-26 @tobiu added sub-issue #7660
+- 2025-10-26 @tobiu added sub-issue #7661
+- 2025-10-26 @tobiu added sub-issue #7662
 - 2025-10-26 @tobiu cross-referenced by #7664
 - 2025-10-26 @tobiu closed this issue
 - 2025-10-26 @tobiu assigned to @tobiu

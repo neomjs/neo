@@ -52,6 +52,7 @@ dropped
 
 ## Activity Log
 
+- 2025-07-09 @tobiu added parent issue #6992
 - 2025-07-09 @tobiu added the `enhancement` label
 - 2025-10-08 @github-actions added the `stale` label
 - 2025-10-08 @tobiu removed the `stale` label

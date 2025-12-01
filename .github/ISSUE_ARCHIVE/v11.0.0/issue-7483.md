@@ -45,6 +45,7 @@ The endpoint will allow the agent to submit a comment for a specific pull reques
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu referenced in commit `1c16d76` - "Implement PR Commenting Endpoint #7483"
 - 2025-10-14 @tobiu closed this issue
 

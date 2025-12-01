@@ -1,13 +1,13 @@
-import path                              from 'path';
-import {fileURLToPath}                   from 'url';
-import {initialize, listTools, callTool} from '../../toolService.mjs';
-import HealthService                     from './HealthService.mjs';
-import IssueService                      from './IssueService.mjs';
-import LabelService                      from './LabelService.mjs';
-import LocalFileService                  from './LocalFileService.mjs';
-import PullRequestService                from './PullRequestService.mjs';
-import RepositoryService                 from './RepositoryService.mjs';
-import SyncService                       from './SyncService.mjs';
+import path               from 'path';
+import {fileURLToPath}    from 'url';
+import HealthService      from './HealthService.mjs';
+import IssueService       from './IssueService.mjs';
+import LabelService       from './LabelService.mjs';
+import LocalFileService   from './LocalFileService.mjs';
+import PullRequestService from './PullRequestService.mjs';
+import RepositoryService  from './RepositoryService.mjs';
+import ToolService        from '../../../ToolService.mjs';
+import SyncService        from './SyncService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -34,6 +34,12 @@ const serviceMapping = {
     update_issue_relationship: IssueService      .updateIssueRelationship.bind(IssueService)
 };
 
-initialize(serviceMapping, openApiFilePath);
+const toolService = Neo.create(ToolService, {
+    openApiFilePath,
+    serviceMapping
+});
+
+const callTool  = toolService.callTool .bind(toolService);
+const listTools = toolService.listTools.bind(toolService);
 
 export {callTool, listTools};

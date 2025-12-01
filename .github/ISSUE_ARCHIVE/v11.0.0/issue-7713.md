@@ -56,6 +56,7 @@ On my end, I will create the `.npmignore` next, and then polish the AI guides mo
 
 ## Activity Log
 
+- 2025-11-07 @tobiu added parent issue #7687
 - 2025-11-07 @tobiu assigned to @MannXo
 - 2025-11-07 @MannXo cross-referenced by PR #7717
 - 2025-11-08 @tobiu closed this issue

@@ -44,6 +44,7 @@ The fix involved strategically pausing and resuming `EffectManager`'s dependency
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `enhancement` label
+- 2025-07-13 @tobiu added parent issue #6992
 - 2025-07-13 @tobiu removed the `enhancement` label
 - 2025-07-13 @tobiu added the `bug` label
 - 2025-07-13 @tobiu referenced in commit `95dbb0b` - "Regression: Neo.core.Effect.run() executes twice #7042"

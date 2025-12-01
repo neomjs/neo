@@ -26,6 +26,7 @@ closedAt: '2025-03-31T15:59:49Z'
 ## Activity Log
 
 - 2025-03-31 @tobiu added the `enhancement` label
+- 2025-03-31 @tobiu added parent issue #6600
 - 2025-03-31 @tobiu referenced in commit `a765ec9` - "Email.store.Emails #6605"
 - 2025-03-31 @tobiu assigned to @tobiu
 - 2025-03-31 @tobiu closed this issue

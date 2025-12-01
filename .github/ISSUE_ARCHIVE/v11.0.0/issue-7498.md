@@ -35,6 +35,7 @@ The Gemini CLI client was unable to correctly parse the `tools/list` response fr
 ## Activity Log
 
 - 2025-10-15 @tobiu assigned to @tobiu
+- 2025-10-15 @tobiu added parent issue #7477
 - 2025-10-15 @tobiu added the `bug` label
 - 2025-10-15 @tobiu added the `ai` label
 - 2025-10-15 @tobiu referenced in commit `933919f` - "Fix Gemini CLI Client Compatibility for MCP tools/list Response #7498"

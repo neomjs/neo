@@ -36,6 +36,7 @@ The `HealthService` for the `github-workflow` server currently has the minimum r
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label
 - 2025-10-19 @tobiu added the `ai` label
+- 2025-10-19 @tobiu added parent issue #7536
 - 2025-10-19 @tobiu referenced in commit `cad5815` - "Centralize GitHub Workflow Configuration #7560"
 - 2025-10-19 @tobiu closed this issue
 

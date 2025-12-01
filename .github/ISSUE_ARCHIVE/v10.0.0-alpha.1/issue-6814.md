@@ -27,6 +27,7 @@ closedAt: '2025-06-16T12:29:58Z'
 ## Activity Log
 
 - 2025-06-16 @tobiu added the `enhancement` label
+- 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu assigned to @tobiu
 - 2025-06-16 @tobiu referenced in commit `0b27318` - "component.Base: vdom => remove support for vdom.nodeName #6814"
 - 2025-06-16 @tobiu closed this issue

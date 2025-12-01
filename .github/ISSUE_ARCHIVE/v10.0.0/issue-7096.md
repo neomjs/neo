@@ -41,6 +41,7 @@ A complete draft of the blog post as a markdown file.
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `Blog Post` label
+- 2025-07-22 @tobiu added parent issue #7093
 - 2025-07-22 @tobiu referenced in commit `a05fe85` - "Create Deep-Dive Blog Post for Performance & Security #7096"
 - 2025-07-22 @tobiu referenced in commit `11c1e50` - "Create Deep-Dive Blog Post for Performance & Security #7096"
 - 2025-07-22 @tobiu closed this issue

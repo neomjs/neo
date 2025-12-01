@@ -36,6 +36,7 @@ This ticket covers the implementation of endpoints for repository-wide label man
 ## Activity Log
 
 - 2025-10-14 @tobiu assigned to @tobiu
+- 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
 - 2025-10-14 @tobiu referenced in commit `c7288b9` - "Manage Repository Labels #7485"

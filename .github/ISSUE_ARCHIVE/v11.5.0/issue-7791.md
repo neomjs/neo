@@ -45,6 +45,9 @@ This will remove the dependency on the main thread addon for highlighting and si
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu added the `refactoring` label
+- 2025-11-18 @tobiu added sub-issue #7789
+- 2025-11-18 @tobiu added sub-issue #7790
+- 2025-11-18 @tobiu added parent issue #7788
 - 2025-11-18 @tobiu cross-referenced by #7788
 - 2025-11-18 @tobiu assigned to @tobiu
 - 2025-11-18 @tobiu cross-referenced by #7790

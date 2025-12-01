@@ -1,12 +1,12 @@
-import path                              from 'path';
-import {fileURLToPath}                   from 'url';
-import {initialize, listTools, callTool} from '../../toolService.mjs';
-import DatabaseService                   from './DatabaseService.mjs';
-import DatabaseLifecycleService          from './DatabaseLifecycleService.mjs';
-import HealthService                     from './HealthService.mjs';
-import MemoryService                     from './MemoryService.mjs';
-import SessionService                    from './SessionService.mjs';
-import SummaryService                    from './SummaryService.mjs';
+import path                     from 'path';
+import {fileURLToPath}          from 'url';
+import ToolService              from '../../../ToolService.mjs';
+import DatabaseService          from './DatabaseService.mjs';
+import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import HealthService            from './HealthService.mjs';
+import MemoryService            from './MemoryService.mjs';
+import SessionService           from './SessionService.mjs';
+import SummaryService           from './SummaryService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -27,6 +27,12 @@ const serviceMapping = {
     summarize_sessions  : SessionService          .summarizeSessions  .bind(SessionService)
 };
 
-initialize(serviceMapping, openApiFilePath);
+const toolService = Neo.create(ToolService, {
+    openApiFilePath,
+    serviceMapping
+});
+
+const callTool  = toolService.callTool .bind(toolService);
+const listTools = toolService.listTools.bind(toolService);
 
 export {callTool, listTools};
