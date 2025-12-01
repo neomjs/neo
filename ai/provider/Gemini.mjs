@@ -52,13 +52,35 @@ class GeminiProvider extends Base {
             throw new Error('Gemini API client not initialized. Missing API key?');
         }
 
+        let contents          = [],
+            systemInstruction = undefined;
+
+        if (typeof input === 'string') {
+            contents.push({
+                role : 'user',
+                parts: [{text: input}]
+            });
+        } else if (Array.isArray(input)) {
+            input.forEach(msg => {
+                if (msg.role === 'system') {
+                    systemInstruction = msg.content;
+                } else {
+                    contents.push({
+                        role : msg.role === 'assistant' ? 'model' : 'user',
+                        parts: [{text: msg.content}]
+                    });
+                }
+            });
+        }
+
         const model = this.client.getGenerativeModel({
             model: this.modelName,
-            generationConfig: options
+            generationConfig: options,
+            systemInstruction: systemInstruction
         });
 
         try {
-            const result   = await model.generateContent(input);
+            const result   = await model.generateContent({contents});
             const response = await result.response;
             const text     = response.text();
 
