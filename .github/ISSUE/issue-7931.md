@@ -1,14 +1,14 @@
 ---
 id: 7931
 title: 'Epic: MCP Client Implementation for Agents'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-29T17:32:36Z'
-updatedAt: '2025-11-29T17:34:45Z'
+updatedAt: '2025-12-01T17:14:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7931'
 author: tobiu
 commentsCount: 0
@@ -33,6 +33,7 @@ subIssuesCompleted: 15
 subIssuesTotal: 15
 blockedBy: []
 blocking: []
+closedAt: '2025-12-01T17:14:13Z'
 ---
 # Epic: MCP Client Implementation for Agents
 
@@ -80,4 +81,5 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 - 2025-11-30 @tobiu added sub-issue #7951
 - 2025-11-30 @tobiu added sub-issue #7952
 - 2025-11-30 @tobiu added sub-issue #7953
+- 2025-12-01 @tobiu closed this issue
 
