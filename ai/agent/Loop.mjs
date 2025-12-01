@@ -32,6 +32,11 @@ class Loop extends Base {
          */
         maxActionsPerMinute: 10,
         /**
+         * Maximum number of failed events to keep in the dead letter queue.
+         * @member {Number} maxFailedEvents=100
+         */
+        maxFailedEvents: 100,
+        /**
          * Maximum number of retries for event processing.
          * @member {Number} maxRetries=3
          */
@@ -267,7 +272,7 @@ class Loop extends Base {
             if (retryCount < this.maxRetries) {
                 // Exponential backoff: 1s, 2s, 4s...
                 await this.timeout(1000 * Math.pow(2, retryCount));
-                
+
                 // Reset state to idle before retrying (since processEvent expects to start from idle/start of logic)
                 // Actually processEvent sets 'thinking' immediately.
                 // But we need to be careful about state.
@@ -282,6 +287,9 @@ class Loop extends Base {
                 return this.processEvent(event, retryCount + 1);
             } else {
                 // Dead letter queue
+                if (this.failedEvents.length >= this.maxFailedEvents) {
+                    this.failedEvents.shift();
+                }
                 this.failedEvents.push({ event, error: error.message, timestamp: Date.now() });
                 console.error(`[Loop] Event failed after ${this.maxRetries} retries:`, event.type);
             }
@@ -299,16 +307,20 @@ class Loop extends Base {
      * @param {Object} actionResult
      */
     async reflect(event, decision, actionResult) {
-        // Did the action succeed?
-        const success = !actionResult || !actionResult.error;
+        try {
+            // Did the action succeed?
+            const success = !actionResult || !actionResult.error;
 
-        if (success) {
-            console.log(`[Loop] ✓ Cycle succeeded for ${event.type}`);
-            // Store pattern to memory-core for future reference
-            // await Memory_Service.storePattern({ event, decision, result: actionResult });
-        } else {
-            console.log(`[Loop] ✗ Action failed for ${event.type}`);
-            // Could re-queue with different approach or escalate to human
+            if (success) {
+                console.log(`[Loop] ✓ Cycle succeeded for ${event.type}`);
+                // Store pattern to memory-core for future reference
+                // await Memory_Service.storePattern({ event, decision, result: actionResult });
+            } else {
+                console.log(`[Loop] ✗ Action failed for ${event.type}`);
+                // Could re-queue with different approach or escalate to human
+            }
+        } catch (error) {
+            console.warn('[Loop] Reflection failed (non-fatal):', error.message);
         }
     }
 }
