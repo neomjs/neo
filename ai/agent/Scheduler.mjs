@@ -42,6 +42,9 @@ class Scheduler extends Base {
      */
     add(event) {
         const priority = event.priority || this.determinePriority(event.type);
+        
+        // Ensure priority is set on the stored event for downstream visibility
+        event.priority = priority;
 
         if (!this.queues[priority]) {
             console.warn(`[Scheduler] Unknown priority '${priority}' for event '${event.type}'. Defaulting to 'normal'.`);
