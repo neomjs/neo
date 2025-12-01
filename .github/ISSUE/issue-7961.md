@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-01T10:21:58Z'
-updatedAt: '2025-12-01T10:43:55Z'
+updatedAt: '2025-12-01T10:54:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7961'
 author: tobiu
 commentsCount: 0
@@ -26,9 +26,9 @@ blocking: []
 
 **Scope:**
 1.  **Model Abstraction Layer:**
-    *   `Neo.ai.model.Base`: Abstract base class for LLM providers.
-    *   `Neo.ai.model.Gemini`: Concrete implementation for Google Gemini API.
-    *   Interface methods: `infer()`, `stream()`.
+    *   `Neo.ai.provider.Base`: Abstract base class for AI providers.
+    *   `Neo.ai.provider.Gemini`: Concrete implementation for Google Gemini API.
+    *   Interface methods: `generate()`, `stream()`.
 2.  **Context & Memory Integration:**
     *   **Short-Term Memory:** Logic to hydrate the context window using `memory-core` (via `get_session_memories`).
     *   **Long-Term Memory (RAG):** Integration of `query_raw_memories` to retrieve relevant past problem-solving patterns.
