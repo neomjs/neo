@@ -1,13 +1,14 @@
-import autoprefixer from 'autoprefixer';
-import chalk        from 'chalk';
-import cssnano      from 'cssnano';
-import { Command }  from 'commander/esm.mjs';
-import envinfo      from 'envinfo';
-import fs           from 'fs-extra';
-import inquirer     from 'inquirer';
-import path         from 'path';
-import postcss      from 'postcss';
-import * as sass    from 'sass';
+import autoprefixer    from 'autoprefixer';
+import chalk           from 'chalk';
+import cssnano         from 'cssnano';
+import {Command}       from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import path            from 'path';
+import postcss         from 'postcss';
+import * as sass       from 'sass';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const
     __dirname    = path.resolve(),
@@ -33,11 +34,11 @@ scssFolders.forEach(folder => {
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',            'print environment debug info')
-    .option('-e, --env <value>',     '"all", "dev", "esm", "prod"')
+    .option('-i, --info',           'print environment debug info')
+    .option('-e, --env <value>',    '"all", "dev", "esm", "prod"',       sanitizeInput)
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --themes <value>',  ["all", ...themeFolders].join(", "))
+    .option('-t, --themes <value>', ["all", ...themeFolders].join(", "), sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
