@@ -8,6 +8,7 @@ import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const
     __dirname   = fileURLToPath(new URL('../', import.meta.url)),
@@ -33,11 +34,11 @@ const
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info', 'print environment debug info')
-    .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"')
-    .option('-s, --source <value>', `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`)
-    .option('-b, --baseClass <value>')
-    .option('-c, --className <value>')
+    .option('-i, --info',              'print environment debug info')
+    .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"',                                                    sanitizeInput)
+    .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`, sanitizeInput)
+    .option('-b, --baseClass <value>', 'The base class to extend',                                                                  sanitizeInput)
+    .option('-c, --className <value>', 'The class name',                                                                            sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
