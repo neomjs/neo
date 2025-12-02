@@ -1,10 +1,8 @@
-import fs              from 'fs/promises';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import Base            from '../../../../src/core/Base.mjs';
+import fs   from 'fs/promises';
+import path from 'path';
+import Base from '../../../../src/core/Base.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const cwd = process.cwd();
 
 /**
  * Default configuration object.
@@ -28,13 +26,13 @@ const defaultConfig = {
      * @returns {Object} The dummy embedding function satisfying IEmbeddingFunction
      */
     dummyEmbeddingFunction: {
-        generate: () => null,
-        name: 'dummy_embedding_function',
-        getConfig: () => ({}),
+        generate   : () => null,
+        name       : 'dummy_embedding_function',
+        getConfig  : () => ({}),
         constructor: {
             buildFromConfig: () => ({
-                generate: () => null,
-                name: 'dummy_embedding_function',
+                generate : () => null,
+                name     : 'dummy_embedding_function',
                 getConfig: () => ({})
             })
         }
@@ -78,12 +76,12 @@ const defaultConfig = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(__dirname, '../../../../chroma-neo-memory-core'),
+        path: path.resolve(cwd, 'chroma-neo-memory-core'),
         /**
          * The path to store memory backups.
          * @type {string}
          */
-        backupPath: path.resolve(__dirname, '../../../../../dist/memory-backups')
+        backupPath: path.resolve(cwd, 'dist/memory-backups')
     },
     /**
      * Configuration for the AI agent's session summary database.
@@ -108,7 +106,7 @@ const defaultConfig = {
          * The path to store session summary backups.
          * @type {string}
          */
-        backupPath: path.resolve(__dirname, '../../../../../dist/session-backups')
+        backupPath: path.resolve(cwd, 'dist/session-backups')
     }
 };
 
