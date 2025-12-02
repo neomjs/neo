@@ -18,19 +18,25 @@ const __dirname   = path.resolve(),
       neoPath     = path.resolve(packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/'),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
-      questions   = [];
+      questions   = [],
+      sanitizeInput = value => {
+          if (typeof value === 'string') {
+              return value.replace(/^["']|["']$/g, '').trim();
+          }
+          return value;
+      };
 
 program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',               'print environment debug info')
-    .option('-e, --env <value>',        '"all", "dev", "esm", "prod"')
-    .option('-l, --npminstall <value>', '"yes", "no"')
+    .option('-e, --env <value>',        '"all", "dev", "esm", "prod"', sanitizeInput)
+    .option('-l, --npminstall <value>', '"yes", "no"', sanitizeInput)
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-p, --parsedocs <value>',  '"yes", "no"')
-    .option('-t, --themes <value>',     '"yes", "no"')
-    .option('-w, --threads <value>',    '"yes", "no"')
+    .option('-p, --parsedocs <value>',  '"yes", "no"', sanitizeInput)
+    .option('-t, --themes <value>',     '"yes", "no"', sanitizeInput)
+    .option('-w, --threads <value>',    '"yes", "no"', sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
