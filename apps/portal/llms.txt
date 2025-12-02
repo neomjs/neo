@@ -154,6 +154,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Email](https://neomjs.com/apps/email/index.html)
 - [Neo.mjs Finance Dashboard](https://neomjs.com/apps/finance/index.html)
 - [Form](https://neomjs.com/apps/form/index.html)
+- [MyApp](https://neomjs.com/apps/myapp/index.html)
 - [Neo.mjs](https://neomjs.com/apps/portal/index.html)
 - [Conduit](https://neomjs.com/apps/realworld/index.html)
 - [RealWorld2](https://neomjs.com/apps/realworld2/index.html)
