@@ -1,10 +1,11 @@
-import { Command } from 'commander/esm.mjs';
-import fs          from 'fs-extra';
+import {Command}       from 'commander/esm.mjs';
+import fs              from 'fs-extra';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const program = new Command('copyFolder')
     .version('1.0.0')
-    .option('-s, --source <value>', 'path to the source folder')
-    .option('-t, --target <value>', 'path to the target folder')
+    .option('-s, --source <value>', 'path to the source folder', sanitizeInput)
+    .option('-t, --target <value>', 'path to the target folder', sanitizeInput)
     .allowUnknownOption()
     .parse(process.argv);
 
