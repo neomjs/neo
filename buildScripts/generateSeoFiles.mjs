@@ -4,6 +4,7 @@ import {Command}       from 'commander/esm.mjs';
 import {execSync}      from 'child_process';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const ROOT_DIR          = process.cwd();
 const LEARN_DIR         = path.resolve(ROOT_DIR, 'learn');
@@ -542,12 +543,12 @@ async function runCli() {
     program
         .name('generate-seo-files')
         .description('Generates sitemap.xml and llms.txt for SEO purposes.')
-        .option('-f, --format <type>', 'Output format: array, objects, urls, xml, llms')
-        .option('--base-url <url>', 'Absolute base URL (e.g., https://neomjs.com)')
-        .option('--base-path <path>', 'Base path for content routes')
-        .option('-o, --output <path>', 'Output file path')
-        .option('--no-lastmod', 'Exclude <lastmod> tags from sitemap.xml')
-        .option('--no-top-level', 'Exclude top-level routes');
+        .option('-f, --format <type>', 'Output format: array, objects, urls, xml, llms', sanitizeInput)
+        .option('--base-url <url>',    'Absolute base URL (e.g., https://neomjs.com)',   sanitizeInput)
+        .option('--base-path <path>',  'Base path for content routes',                   sanitizeInput)
+        .option('-o, --output <path>', 'Output file path',                               sanitizeInput)
+        .option('--no-lastmod',        'Exclude <lastmod> tags from sitemap.xml')
+        .option('--no-top-level',      'Exclude top-level routes');
 
     program.parse(process.argv);
 

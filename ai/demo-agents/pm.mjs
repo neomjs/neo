@@ -11,11 +11,12 @@
  * node ai/agents/pm.mjs --epic <issue_number>
  */
 
-import { Command } from 'commander';
-import yaml from 'js-yaml';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import {Command}       from 'commander';
+import yaml            from 'js-yaml';
+import dotenv          from 'dotenv';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import {sanitizeInput} from '../../buildScripts/util/Sanitizer.mjs';
 import {
     GH_IssueService,
     GH_HealthService,
@@ -32,7 +33,7 @@ const program = new Command();
 program
     .name('pm-agent')
     .description('Autonomous PM Agent for breaking down Epics into Tickets')
-    .requiredOption('-e, --epic <number>', 'Epic Issue Number to process')
+    .requiredOption('-e, --epic <number>', 'Epic Issue Number to process', sanitizeInput)
     .option('-d, --dry-run', 'Simulate execution without creating issues')
     .parse(process.argv);
 

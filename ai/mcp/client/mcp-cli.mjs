@@ -16,17 +16,18 @@ import * as core         from '../../../src/core/_export.mjs'; // For Neo.core.B
 import InstanceManager   from '../../../src/manager/Instance.mjs'; // For Neo.core.Base setup
 import Client            from './Client.mjs';
 import aiConfig          from './config.mjs';
+import {sanitizeInput}   from '../../../buildScripts/util/Sanitizer.mjs';
 
 const program = new Command();
 
 program
     .name('mcp-client')
     .description('CLI for interacting with MCP servers')
-    .option('-s, --server <name>', 'Logical name of the MCP server to connect to (e.g., github-workflow)')
+    .option('-s, --server <name>', 'Logical name of the MCP server to connect to (e.g., github-workflow)', sanitizeInput)
     .option('-l, --list-tools', 'List available tools on the specified server')
-    .option('-c, --config <path>', 'Path to an external client configuration file')
-    .option('-t, --call-tool <toolName>', 'Name of the tool to call')
-    .option('-a, --args <json>', 'JSON string of arguments for --call-tool', '{}')
+    .option('-c, --config <path>', 'Path to an external client configuration file', sanitizeInput)
+    .option('-t, --call-tool <toolName>', 'Name of the tool to call', sanitizeInput)
+    .option('-a, --args <json>', 'JSON string of arguments for --call-tool', '{}', sanitizeInput)
     .option('-d, --debug', 'Enable debug logging');
 
 program.parse(process.argv);

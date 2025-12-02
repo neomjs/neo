@@ -1,10 +1,11 @@
-import chalk         from 'chalk';
-import { spawnSync } from 'child_process';
-import { Command }   from 'commander/esm.mjs';
-import envinfo       from 'envinfo';
-import fs            from 'fs-extra';
-import inquirer      from 'inquirer';
-import path          from 'path';
+import chalk           from 'chalk';
+import {spawnSync}     from 'child_process';
+import {Command}       from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import path            from 'path';
+import {sanitizeInput} from '../util/Sanitizer.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -23,10 +24,10 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',            'print environment debug info')
-    .option('-e, --env <value>',     '"all", "dev", "prod"')
+    .option('-e, --env <value>',     '"all", "dev", "prod"',                                              sanitizeInput)
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --threads <value>', '"all", "app", "canvas", "data", "main", "service", "task", "vdom"')
+    .option('-t, --threads <value>', '"all", "app", "canvas", "data", "main", "service", "task", "vdom"', sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');

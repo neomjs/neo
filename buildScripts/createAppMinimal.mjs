@@ -1,11 +1,12 @@
-import chalk       from 'chalk';
-import {spawnSync} from 'child_process';
-import {Command}   from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
+import chalk           from 'chalk';
+import {spawnSync}     from 'child_process';
+import {Command}       from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import os              from 'os';
+import path            from 'path';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const
     __dirname    = path.resolve(),
@@ -14,13 +15,13 @@ const
     requireJson  = path => JSON.parse(fs.readFileSync((path))),
     packageJson  = requireJson(path.join(__dirname, 'package.json')),
     insideNeo    = packageJson.name.includes('neo.mjs'),
-    neoPath       = insideNeo ? './' : './node_modules/neo.mjs/',
-    addonChoices  = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-    program       = new Command(),
-    programName   = `${packageJson.name} create-app`,
-    questions     = [],
-    scssFolders   = fs.readdirSync(path.join(neoPath, '/resources/scss')),
-    themeFolders  = [];
+    neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
+    addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+    program      = new Command(),
+    programName  = `${packageJson.name} create-app`,
+    questions    = [],
+    scssFolders  = fs.readdirSync(path.join(neoPath, '/resources/scss')),
+    themeFolders = [];
 
 scssFolders.forEach(folder => {
     if (folder.includes('theme')) {
@@ -31,12 +32,12 @@ scssFolders.forEach(folder => {
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info', 'print environment debug info')
-    .option('-a, --appName <value>')
-    .option('-m, --mainThreadAddons <value>', `Comma separated list of:\n${addonChoices.join(', ')}\nDefaults to DragDrop, Stylesheet`)
-    .option('-s, --useServiceWorker <value>', '"yes", "no"')
-    .option('-t, --themes <value>', ['all', ...themeFolders, 'none'].join(", "))
-    .option('-u, --useSharedWorkers <value>', '"yes", "no"')
+    .option('-i, --info',                     'print environment debug info')
+    .option('-a, --appName <value>',          'The name of your application', sanitizeInput)
+    .option('-m, --mainThreadAddons <value>', `Comma separated list of:\n${addonChoices.join(', ')}\nDefaults to DragDrop, Navigator, Stylesheet`, sanitizeInput)
+    .option('-s, --useServiceWorker <value>', '"yes", "no"', sanitizeInput)
+    .option('-t, --themes <value>',           ['all', ...themeFolders, 'none'].join(", "), sanitizeInput)
+    .option('-u, --useSharedWorkers <value>', '"yes", "no"', sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');

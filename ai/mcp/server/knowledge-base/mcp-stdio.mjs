@@ -5,13 +5,14 @@ import InstanceManager from '../../../../src/manager/Instance.mjs';
 import aiConfig        from './config.mjs';
 import logger          from './logger.mjs';
 import Server          from './Server.mjs';
+import {sanitizeInput} from '../../../../buildScripts/util/Sanitizer.mjs';
 
 const program = new Command();
 
 program
     .name('neo-knowledge-base-mcp')
     .description('Neo.mjs Knowledge Base MCP Server')
-    .option('-c, --config <path>', 'Path to the configuration file')
+    .option('-c, --config <path>', 'Path to the configuration file', sanitizeInput)
     .option('-d, --debug', 'Enable debug logging')
     .parse(process.argv);
 

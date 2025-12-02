@@ -1,11 +1,13 @@
-import chalk       from 'chalk';
-import {spawnSync} from 'child_process';
-import {Command}   from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
+import chalk           from 'chalk';
+import {spawnSync}     from 'child_process';
+import {Command}       from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import os              from 'os';
+import path            from 'path';
+import {sanitizeInput} from './util/Sanitizer.mjs';
+
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -24,13 +26,13 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',               'print environment debug info')
-    .option('-e, --env <value>',        '"all", "dev", "esm", "prod"')
-    .option('-l, --npminstall <value>', '"yes", "no"')
+    .option('-e, --env <value>',        '"all", "dev", "esm", "prod"', sanitizeInput)
+    .option('-l, --npminstall <value>', '"yes", "no"', sanitizeInput)
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-p, --parsedocs <value>',  '"yes", "no"')
-    .option('-t, --themes <value>',     '"yes", "no"')
-    .option('-w, --threads <value>',    '"yes", "no"')
+    .option('-p, --parsedocs <value>',  '"yes", "no"', sanitizeInput)
+    .option('-t, --themes <value>',     '"yes", "no"', sanitizeInput)
+    .option('-w, --threads <value>',    '"yes", "no"', sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
