@@ -1,11 +1,13 @@
-import chalk       from 'chalk';
-import {spawnSync} from 'child_process';
-import {Command}   from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
+import chalk           from 'chalk';
+import {spawnSync}     from 'child_process';
+import {Command}       from 'commander/esm.mjs';
+import envinfo         from 'envinfo';
+import fs              from 'fs-extra';
+import inquirer        from 'inquirer';
+import os              from 'os';
+import path            from 'path';
+import {sanitizeInput} from './util/Sanitizer.mjs';
+
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -18,13 +20,7 @@ const __dirname   = path.resolve(),
       neoPath     = path.resolve(packageJson.name.includes('neo.mjs') ? './' : './node_modules/neo.mjs/'),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
-      questions   = [],
-      sanitizeInput = value => {
-          if (typeof value === 'string') {
-              return value.replace(/^["']|["']$/g, '').trim();
-          }
-          return value;
-      };
+      questions   = [];
 
 program
     .name(programName)
