@@ -1,6 +1,7 @@
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
+import logger               from '../logger.mjs';
 
 /**
  * @summary Service for creating embedding vectors for text.
@@ -42,10 +43,8 @@ class TextEmbeddingService extends Base {
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
-            const error = new Error('The GEMINI_API_KEY environment variable must be set to use semantic search endpoints.');
-            error.status = 503;
-            error.code   = 'missing_gemini_api_key';
-            throw error;
+            logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features will be unavailable.');
+            return;
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
@@ -58,6 +57,10 @@ class TextEmbeddingService extends Base {
      * @returns {Promise<number[]>}
      */
     async embedText(text) {
+        if (!process.env.GEMINI_API_KEY) {
+             throw  new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+        }
+
         const result = await this.embeddingModel.embedContent(text);
         return result.embedding.values;
     }
