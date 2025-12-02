@@ -7,6 +7,7 @@ import fs          from 'fs-extra';
 import inquirer    from 'inquirer';
 import os          from 'os';
 import path        from 'path';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const
     __dirname   = path.resolve(),
@@ -179,11 +180,11 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info', 'print environment debug info')
-    .option('-c, --className <value>')
-    .option('-d, --defaultValue <value>')
-    .option('-h, --hooks <value>')
-    .option('-n, --configName <value>')
-    .option('-t, --type <value>')
+    .option('-c, --className <value>',    'The name of the class',            sanitizeInput)
+    .option('-d, --defaultValue <value>', 'The default value for the config', sanitizeInput)
+    .option('-h, --hooks <value>',        'List of hooks to generate',        sanitizeInput)
+    .option('-n, --configName <value>',   'The name of the config',           sanitizeInput)
+    .option('-t, --type <value>',         'The type of the config',           sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
