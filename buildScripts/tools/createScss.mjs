@@ -5,6 +5,7 @@ import fs              from 'fs-extra';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import {sanitizeInput} from '../util/Sanitizer.mjs';
 
 const
     __dirname   = fileURLToPath(new URL('../../', import.meta.url)),
@@ -15,8 +16,8 @@ const
 
 program
     .version(packageJson.version)
-    .option('-b, --baseClass <value>')
-    .option('-c, --className <value>')
+    .option('-b, --baseClass <value>', 'The base class to extend', sanitizeInput)
+    .option('-c, --className <value>', 'The class name',           sanitizeInput)
     .allowUnknownOption()
     .parse(process.argv);
 
