@@ -11,15 +11,16 @@
  * node ai/agents/dev.mjs --issue <number>
  */
 
-import { Command }           from 'commander';
-import fs                    from 'fs-extra';
-import path                  from 'path';
-import { fileURLToPath }     from 'url';
-import yaml                  from 'js-yaml';
-import dotenv                from 'dotenv';
-import { exec }              from 'child_process';
-import { promisify }         from 'util';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import {Command}                        from 'commander';
+import fs                               from 'fs-extra';
+import path                             from 'path';
+import {fileURLToPath}                  from 'url';
+import yaml                             from 'js-yaml';
+import dotenv                           from 'dotenv';
+import {exec}                           from 'child_process';
+import {promisify}                      from 'util';
+import {GoogleGenerativeAI, SchemaType} from '@google/generative-ai';
+import {sanitizeInput}                  from '../../buildScripts/util/Sanitizer.mjs';
 
 import {
     GH_LocalFileService,
@@ -56,7 +57,7 @@ const program = new Command();
 program
     .name('dev-agent')
     .description('Autonomous Developer Agent -> Ticket to PR')
-    .requiredOption('-i, --issue <number>', 'Issue Number to process')
+    .requiredOption('-i, --issue <number>', 'Issue Number to process', sanitizeInput)
     .option('-d, --dry-run', 'Simulate execution without pushing/PR')
     .parse(process.argv);
 
@@ -76,14 +77,14 @@ async function runGit(command) {
 function parseIssueContent(rawContent) {
     const parts = rawContent.split('---');
     if (parts.length < 3) return { title: 'Unknown', body: rawContent };
-    
+
     const frontmatter = parts[1];
     const body = parts.slice(2).join('---').trim();
-    
+
     let title = 'Unknown';
     const titleMatch = frontmatter.match(/^title:\s*(.*)$/m);
     if (titleMatch) title = titleMatch[1].trim().replace(/^['"](.*)['"]$/, '$1');
-    
+
     return { title, body };
 }
 
@@ -107,7 +108,7 @@ async function parseYamlBody(body) {
 
 async function generateCode(rawIssueContent, task, contextFiles, kbContext) {
     console.log('🧠 Dev Agent is thinking...');
-    
+
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
         model: MODEL_NAME,
@@ -169,7 +170,7 @@ async function run() {
         // 2. Fetch Issue (Local)
         const issueId = String(options.issue);
         console.log(`📥 Fetching Issue #${issueId}...`);
-        
+
         const issueFile = await GH_LocalFileService.getIssueById(issueId);
         if (issueFile.error) throw new Error(`Issue #${issueId} not found locally.`);
 
@@ -240,17 +241,17 @@ async function run() {
             console.log('📦 Committing changes...');
             await runGit('git add .');
             await runGit(`git commit -m "feat: ${title}"`);
-            
+
             console.log('⬆️  Pushing branch...');
             // Construct authenticated URL for push
             // Format: https://x-access-token:<TOKEN>@github.com/owner/repo.git
             let remoteUrl = await runGit('git remote get-url origin');
-            
+
             // Strip existing auth if present (e.g. https://user:pass@...) and ensure .git suffix
             remoteUrl = remoteUrl.replace(/^https?:\/\/([^@]*@)?/, 'https://');
-            
+
             const authenticatedUrl = remoteUrl.replace('https://', `https://x-access-token:${process.env.GH_TOKEN}@`);
-            
+
             await runGit(`git push -u "${authenticatedUrl}" ${branchName}`);
 
             console.log('🔀 Creating Pull Request...');
