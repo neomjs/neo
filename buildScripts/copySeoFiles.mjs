@@ -1,7 +1,8 @@
-import chalk     from 'chalk';
-import fs        from 'fs-extra';
-import path      from 'path';
-import {Command} from 'commander/esm.mjs';
+import chalk           from 'chalk';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {Command}       from 'commander/esm.mjs';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const
     __dirname   = path.resolve(),
@@ -9,11 +10,10 @@ const
     requireJson = path => JSON.parse(fs.readFileSync((path))),
     packageJson = requireJson(path.join(__dirname, 'package.json')),
     program     = new Command(),
-    programName = `${packageJson.name} copySeoFiles`;
-
-const APP_DIR   = path.resolve(cwd, 'apps');
-const DIST_DIR  = path.resolve(cwd, 'dist');
-const SEO_FILES = ['robots.txt', 'llms.txt', 'sitemap.xml'];
+    programName = `${packageJson.name} copySeoFiles`,
+    APP_DIR     = path.resolve(cwd, 'apps'),
+    DIST_DIR    = path.resolve(cwd, 'dist'),
+    SEO_FILES   = ['robots.txt', 'llms.txt', 'sitemap.xml'];
 
 /**
  * Recursively finds application root directories by looking for index.html.
@@ -78,7 +78,7 @@ function copySeoFilesForApp(appRootPath, appRelativePath, env) {
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-e, --env <value>', '"all", "dev", "esm", "prod"')
+    .option('-e, --env <value>', '"all", "dev", "esm", "prod"', sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
