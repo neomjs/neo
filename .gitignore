@@ -65,6 +65,7 @@
 
 /dist
 /docs/output
+/tmp
 
 # dependencies
 /node_modules
