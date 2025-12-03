@@ -9,6 +9,9 @@
 !/apps/agent-os/neo-config.json
 !/apps/agent-os/childapps/swarm/index.html
 !/apps/agent-os/childapps/swarm/neo-config.json
+!/apps/ai/neural-link/index.html
+!/apps/ai/neural-link/**/*.mjs
+!/apps/ai/neural-link/neo-config.json
 !/apps/colors/index.html
 !/apps/colors/**/*.mjs
 !/apps/colors/neo-config.json
@@ -26,9 +29,6 @@
 !/apps/form/index.html
 !/apps/form/**/*.mjs
 !/apps/form/neo-config.json
-!/apps/krausest/index.html
-!/apps/krausest/**/*.mjs
-!/apps/krausest/neo-config.json
 !/apps/portal/neo-config.json
 !/apps/portal/index.html
 !/apps/portal/**/*.mjs
@@ -59,7 +59,6 @@
 !/apps/shareddialog/neo-config.json
 !/apps/shareddialog/childapps/shareddialog2/index.html
 !/apps/shareddialog/childapps/shareddialog2/neo-config.json
-!/apps/ServiceWorker.mjs
 
 /buildScripts/webpack/json/myApps.json
 
