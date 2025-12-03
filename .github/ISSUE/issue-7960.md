@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-30T21:58:20Z'
-updatedAt: '2025-11-30T22:01:28Z'
+updatedAt: '2025-12-03T21:38:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7960'
 author: tobiu
 commentsCount: 0
@@ -18,13 +19,15 @@ subIssues:
   - 8002
   - 8003
   - 8004
-subIssuesCompleted: 1
-subIssuesTotal: 4
+  - 8007
+  - 8010
+  - 8008
+  - 8013
+subIssuesCompleted: 6
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
-# Spike: Bidirectional RMA Proof of Concept
-
 # Spike: Bidirectional RMA Proof of Concept
 
 **Goal:** Validate core technical assumptions with a minimal working prototype.
@@ -72,4 +75,13 @@ blocking: []
 - 2025-12-03 @tobiu added sub-issue #8002
 - 2025-12-03 @tobiu added sub-issue #8003
 - 2025-12-03 @tobiu added sub-issue #8004
+- 2025-12-03 @tobiu cross-referenced by #8005
+- 2025-12-03 @tobiu cross-referenced by #8006
+- 2025-12-03 @tobiu cross-referenced by #8007
+- 2025-12-03 @tobiu cross-referenced by #8008
+- 2025-12-03 @tobiu added sub-issue #8007
+- 2025-12-03 @tobiu added sub-issue #8010
+- 2025-12-03 @tobiu added sub-issue #8008
+- 2025-12-03 @tobiu assigned to @tobiu
+- 2025-12-03 @tobiu added sub-issue #8013
 
