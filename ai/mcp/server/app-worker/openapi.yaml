@@ -1,0 +1,59 @@
+openapi: 3.0.0
+info:
+  title: Neo.mjs App Worker Server
+  description: Enables AI agents to interact with the running App Worker via WebSocket.
+  version: 1.0.0
+
+servers:
+  - url: stdio:///
+
+paths:
+  /bridge/ready:
+    post:
+      operationId: bridgeReady
+      summary: Checks if the WebSocket bridge is listening and if an App Worker is connected.
+      responses:
+        '200':
+          description: Bridge status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listening:
+                    type: boolean
+                  connectedClients:
+                    type: integer
+
+  /bridge/evaluate:
+    post:
+      operationId: bridgeEvaluate
+      summary: Evaluates code or calls a remote method on the App Worker.
+      x-pass-as-object: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  description: The remote method to call (e.g., 'Neo.worker.App.createNeoInstance')
+                params:
+                  type: array
+                  description: Arguments for the method
+                  items: {}
+              required:
+                - method
+      responses:
+        '200':
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: {}
+                  error:
+                    type: string

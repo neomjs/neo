@@ -8,32 +8,35 @@ import Neo             from '../src/Neo.mjs';
 import * as core       from '../src/core/_export.mjs';
 import InstanceManager from '../src/manager/Instance.mjs';
 
+// --- App Worker Services ---
+import AppWorker_BridgeService from './mcp/server/app-worker/services/BridgeService.mjs';
+
 // --- Knowledge Base Services ---
-import KB_DatabaseService          from './mcp/server/knowledge-base/services/DatabaseService.mjs';
-import KB_LifecycleService         from './mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
-import KB_DocumentService          from './mcp/server/knowledge-base/services/DocumentService.mjs';
-import KB_HealthService            from './mcp/server/knowledge-base/services/HealthService.mjs';
-import KB_QueryService             from './mcp/server/knowledge-base/services/QueryService.mjs';
-import KB_ChromaManager            from './mcp/server/knowledge-base/services/ChromaManager.mjs';
-import KB_Config                   from './mcp/server/knowledge-base/config.mjs';
+import KB_DatabaseService      from './mcp/server/knowledge-base/services/DatabaseService.mjs';
+import KB_LifecycleService     from './mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
+import KB_DocumentService      from './mcp/server/knowledge-base/services/DocumentService.mjs';
+import KB_HealthService        from './mcp/server/knowledge-base/services/HealthService.mjs';
+import KB_QueryService         from './mcp/server/knowledge-base/services/QueryService.mjs';
+import KB_ChromaManager        from './mcp/server/knowledge-base/services/ChromaManager.mjs';
+import KB_Config               from './mcp/server/knowledge-base/config.mjs';
 
 // --- Memory Core Services ---
-import Memory_Service              from './mcp/server/memory-core/services/MemoryService.mjs';
-import Memory_DatabaseService      from './mcp/server/memory-core/services/DatabaseService.mjs';
-import Memory_SessionService       from './mcp/server/memory-core/services/SessionService.mjs';
-import Memory_LifecycleService     from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
-import Memory_HealthService        from './mcp/server/memory-core/services/HealthService.mjs';
-import Memory_SummaryService       from './mcp/server/memory-core/services/SummaryService.mjs';
-import Memory_ChromaManager        from './mcp/server/memory-core/services/ChromaManager.mjs';
-import Memory_Config               from './mcp/server/memory-core/config.mjs';
+import Memory_Service          from './mcp/server/memory-core/services/MemoryService.mjs';
+import Memory_DatabaseService  from './mcp/server/memory-core/services/DatabaseService.mjs';
+import Memory_SessionService   from './mcp/server/memory-core/services/SessionService.mjs';
+import Memory_LifecycleService from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
+import Memory_HealthService    from './mcp/server/memory-core/services/HealthService.mjs';
+import Memory_SummaryService   from './mcp/server/memory-core/services/SummaryService.mjs';
+import Memory_ChromaManager    from './mcp/server/memory-core/services/ChromaManager.mjs';
+import Memory_Config           from './mcp/server/memory-core/config.mjs';
 
 // --- GitHub Workflow Services ---
-import GH_Config                   from './mcp/server/github-workflow/config.mjs';
-import GH_HealthService            from './mcp/server/github-workflow/services/HealthService.mjs';
-import GH_IssueService             from './mcp/server/github-workflow/services/IssueService.mjs';
-import GH_LocalFileService         from './mcp/server/github-workflow/services/LocalFileService.mjs';
-import GH_PullRequestService       from './mcp/server/github-workflow/services/PullRequestService.mjs';
-import GH_RepositoryService        from './mcp/server/github-workflow/services/RepositoryService.mjs';
+import GH_Config               from './mcp/server/github-workflow/config.mjs';
+import GH_HealthService        from './mcp/server/github-workflow/services/HealthService.mjs';
+import GH_IssueService         from './mcp/server/github-workflow/services/IssueService.mjs';
+import GH_LocalFileService     from './mcp/server/github-workflow/services/LocalFileService.mjs';
+import GH_PullRequestService   from './mcp/server/github-workflow/services/PullRequestService.mjs';
+import GH_RepositoryService    from './mcp/server/github-workflow/services/RepositoryService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -65,7 +68,7 @@ function makeSafe(service, spec) {
     // Iterate over all properties of the service (including inherited ones if it's a class instance)
     // For simple objects/singletons:
     const proto = Object.getPrototypeOf(service);
-    const keys = new Set([...Object.getOwnPropertyNames(service), ...Object.getOwnPropertyNames(proto)]);
+    const keys  = new Set([...Object.getOwnPropertyNames(service), ...Object.getOwnPropertyNames(proto)]);
 
     for (const key of keys) {
         if (key === 'constructor') continue;
@@ -130,6 +133,10 @@ const ghSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/githu
 
 // --- Apply Safety Wrappers ---
 
+// App Worker
+// todo
+// makeSafe(AppWorker_BridgeService, kbSpec);
+
 // Knowledge Base
 makeSafe(KB_DatabaseService,  kbSpec);
 makeSafe(KB_LifecycleService, kbSpec);
@@ -173,6 +180,9 @@ makeSafe(GH_RepositoryService,  ghSpec);
  */
 
 export {
+    // App Worker
+    AppWorker_BridgeService,
+
     // Knowledge Base
     KB_Config,
     KB_ChromaManager,
