@@ -1,0 +1,6 @@
+{
+    "appPath"    : "apps/ai/neural-link/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "useAiClient": true
+}
