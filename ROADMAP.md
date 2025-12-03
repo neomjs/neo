@@ -48,15 +48,18 @@ We will build the **Neo Command Center** (`apps/agent-os`), a desktop-class UI t
 *   **Human-in-the-Loop:** A "Plan Verification" mode where Strategic Agents propose a plan in the UI, and the human Chairman approves it before execution proceeds.
 *   **Competitive Edge:** This leverages Neo.mjs's unique multi-window and shared-worker capabilities to provide an interface that single-tab competitors cannot match.
 
-### Phase 4: The Neural Link (Bidirectional Agent Integration) - **[RESEARCH]**
+### Phase 4: The Self-Evolving App Platform (Runtime Orchestration) - **[ACTIVE RESEARCH]**
 
-**Goal:** Move beyond "Pull-based" tool use to a real-time, event-driven "Push/Pull" architecture.
+**Goal:** Enable "Self-Healing" and "Self-Evolving" applications where AI Agents act as runtime operators.
 
-See [.github/AGENT_ARCHITECTURE.md](.github/AGENT_ARCHITECTURE.md) for the detailed technical specification.
+We will evolve the **Neural Link** into a bidirectional bridge that allows Agents to not just write code, but **drive** the application at runtime:
 
-*   **Bidirectional WebSocket RMA:** Enable Node.js Agents to invoke methods on Browser Apps (RPC) and vice-versa.
-*   **Telemetry Bridge:** Push Worker console logs and framework events to Agents in real-time, bypassing the need for Chrome DevTools polling.
-*   **Security Model:** A capability-based permission system for Agent-initiated browser actions.
+*   **Runtime Blueprints:** Agents can inject entire component trees (via JSON Blueprints) into running applications without a reload.
+*   **Automated Diagnostics (Dev):** Agents capture multi-thread error context to auto-generate bug reports or PRs.
+*   **State Recovery (User):** Agents detect crashes or silent failures (e.g., "dead clicks") and intervene to reset component state or guide the user.
+*   **Live Customization:** Non-technical users can verbally instruct Agents to modify the UI layout or behavior on the fly (e.g., "Move the chart to the right").
+*   **Persistence Layer:** Agent-driven changes are stored (e.g., in `localStorage` or a remote user profile), allowing runtime customizations to survive page reloads and become permanent user preferences.
+*   **Technical Spec:** See [.github/AGENT_ARCHITECTURE.md](.github/AGENT_ARCHITECTURE.md) for the detailed technical specification.
 
 ### Phase 5: Decoupling the Ecosystem (Future)
 
