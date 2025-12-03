@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-12-03T21:48:24.173Z",
-  "releasesLastFetched": "2025-12-03T21:48:24.192Z",
+  "lastSync": "2025-12-03T22:54:59.731Z",
+  "releasesLastFetched": "2025-12-03T22:54:59.742Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -11873,7 +11873,7 @@
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-7960.md",
       "closedAt": null,
       "updatedAt": "2025-12-03T21:38:10Z",
-      "contentHash": "203c7930b76dc4cae592677c17bcb083397a79c496bdee8ec6173567bcdba9c4"
+      "contentHash": "9c4a521e005249fe5180446c25eed539f06bfd143afc9e3b7d81f450a8625b42"
     },
     "7961": {
       "state": "CLOSED",
@@ -12148,20 +12148,6 @@
       "updatedAt": "2025-12-03T02:14:18Z",
       "contentHash": "94b838a0900d9fec6905e52dfa293aab27a43336ad2ccea689f20e7e9cb66985"
     },
-    "8002": {
-      "state": "OPEN",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8002.md",
-      "closedAt": null,
-      "updatedAt": "2025-12-03T01:50:52Z",
-      "contentHash": "3809dd04384a47da82bbde8e28f5d524ece7172de276f68d4201f95d00681d5b"
-    },
-    "8003": {
-      "state": "OPEN",
-      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8003.md",
-      "closedAt": null,
-      "updatedAt": "2025-12-03T01:50:54Z",
-      "contentHash": "5ef30437c533d49133b5659b567493fedf7766ca9cb1086b7e3e22da82af626e"
-    },
     "8005": {
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8005.md",
@@ -12170,11 +12156,11 @@
       "contentHash": "1d10d2f8868b3d33a377ecfae3257b3d5ea37e2444291766fc7f5c42d59e22f2"
     },
     "8006": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8006.md",
-      "closedAt": null,
-      "updatedAt": "2025-12-03T10:16:47Z",
-      "contentHash": "a5ecf63ec2d89c8c1e3f828dbff3afd4fbe6cb7e25c471fb60ed6e312d3ab5ff"
+      "closedAt": "2025-12-03T21:53:25Z",
+      "updatedAt": "2025-12-03T22:53:08Z",
+      "contentHash": "2b817ed7d453f196bae2eca9ead2195aad193a45bb957f3a96d0b12cbdcf75a7"
     },
     "8007": {
       "state": "CLOSED",
@@ -12224,6 +12210,27 @@
       "closedAt": "2025-12-03T21:40:35Z",
       "updatedAt": "2025-12-03T21:40:35Z",
       "contentHash": "9f3d6bd6bd68b0d1bcd2f143a59ec5c0ae05b8d6716710e9b0bbe5deb753ac54"
+    },
+    "8014": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8014.md",
+      "closedAt": "2025-12-03T22:12:38Z",
+      "updatedAt": "2025-12-03T22:12:38Z",
+      "contentHash": "3ef19350db43fa51f3ddd0fdea7c4359c9fe8c8669ac2de0af6aaa0a5bf51191"
+    },
+    "8015": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8015.md",
+      "closedAt": "2025-12-03T22:15:22Z",
+      "updatedAt": "2025-12-03T22:15:22Z",
+      "contentHash": "ddbc43ce72ee8f527db3a03edc870ba534f21854b31b67d478591d457aeb52a7"
+    },
+    "8016": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8016.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-03T22:22:43Z",
+      "contentHash": "37b6043dc5dacce1efb055281df19df300e6a9288546c13303e4c2341464b704"
     }
   },
   "releases": {

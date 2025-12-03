@@ -23,8 +23,10 @@ subIssues:
   - 8010
   - 8008
   - 8013
-subIssuesCompleted: 6
-subIssuesTotal: 8
+  - 8006
+  - 8014
+subIssuesCompleted: 10
+subIssuesTotal: 10
 blockedBy: []
 blocking: []
 ---
@@ -75,7 +77,6 @@ blocking: []
 - 2025-12-03 @tobiu added sub-issue #8002
 - 2025-12-03 @tobiu added sub-issue #8003
 - 2025-12-03 @tobiu added sub-issue #8004
-- 2025-12-03 @tobiu cross-referenced by #8005
 - 2025-12-03 @tobiu cross-referenced by #8006
 - 2025-12-03 @tobiu cross-referenced by #8007
 - 2025-12-03 @tobiu cross-referenced by #8008
@@ -84,4 +85,6 @@ blocking: []
 - 2025-12-03 @tobiu added sub-issue #8008
 - 2025-12-03 @tobiu assigned to @tobiu
 - 2025-12-03 @tobiu added sub-issue #8013
+- 2025-12-03 @tobiu added sub-issue #8006
+- 2025-12-03 @tobiu added sub-issue #8014
 

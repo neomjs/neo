@@ -1,23 +1,25 @@
 ---
 id: 8006
 title: Implement Neo.ai.NeuralLink (App Worker)
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-03T09:56:01Z'
-updatedAt: '2025-12-03T10:16:47Z'
+updatedAt: '2025-12-03T22:53:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8006'
 author: tobiu
 commentsCount: 1
-parentIssue: null
+parentIssue: 7960
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-03T21:53:25Z'
 ---
 # Implement Neo.ai.NeuralLink (App Worker)
 
@@ -51,4 +53,8 @@ blocking: []
 - 2025-12-03 @tobiu added the `enhancement` label
 - 2025-12-03 @tobiu added the `ai` label
 - 2025-12-03 @tobiu added the `architecture` label
+- 2025-12-03 @tobiu assigned to @tobiu
+- 2025-12-03 @tobiu added parent issue #7960
+- 2025-12-03 @tobiu referenced in commit `e7d66e9` - "Implement Neo.ai.Client (App Worker) #8006"
+- 2025-12-03 @tobiu closed this issue
 
