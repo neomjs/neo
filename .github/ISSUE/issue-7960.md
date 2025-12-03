@@ -13,9 +13,13 @@ githubUrl: 'https://github.com/neomjs/neo/issues/7960'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - 8001
+  - 8002
+  - 8003
+  - 8004
+subIssuesCompleted: 1
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -63,4 +67,9 @@ blocking: []
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu added the `architecture` label
+- 2025-12-01 @tobiu cross-referenced by #7961
+- 2025-12-03 @tobiu added sub-issue #8001
+- 2025-12-03 @tobiu added sub-issue #8002
+- 2025-12-03 @tobiu added sub-issue #8003
+- 2025-12-03 @tobiu added sub-issue #8004
 

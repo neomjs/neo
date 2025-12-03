@@ -3,13 +3,14 @@ id: 7999
 title: >-
   Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is
   missing
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-02T19:49:25Z'
-updatedAt: '2025-12-02T19:49:25Z'
+updatedAt: '2025-12-02T19:56:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7999'
 author: tobiu
 commentsCount: 0
@@ -19,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-02T19:56:46Z'
 ---
 # Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is missing
 
@@ -35,4 +37,7 @@ Remove the static import of `SessionService` in `HealthService.mjs` and access `
 
 - 2025-12-02 @tobiu added the `bug` label
 - 2025-12-02 @tobiu added the `ai` label
+- 2025-12-02 @tobiu assigned to @tobiu
+- 2025-12-02 @tobiu referenced in commit `9839409` - "Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is missing #7999"
+- 2025-12-02 @tobiu closed this issue
 
