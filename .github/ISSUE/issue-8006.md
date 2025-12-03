@@ -24,12 +24,12 @@ blocking: []
 **Goal:** Create the client-side singleton for the Neural Link.
 
 **Requirements:**
-1.  Create `src/ai/NeuralLink.mjs`.
-2.  Implement connection logic using `Neo.data.connection.WebSocket`.
-3.  Handle reconnection (Heartbeat/Backoff).
-4.  Implement **JSON-RPC 2.0** Handler to parse incoming messages from the Agent.
-5.  Implement Action Dispatcher to invoke methods on `Neo.worker.App`.
-6.  Implement Event Bridge to forward logs and events to the Agent as JSON-RPC notifications.
+1.  Create `src/ai/Client.mjs` (renamed from `NeuralLink.mjs`).
+2.  **Composition Pattern:** Use `Neo.data.connection.WebSocket` via composition (not inheritance) to manage the connection.
+3.  **Configuration:** Use `ClassSystemUtil.beforeSetInstance` to allow flexible `socketConfig` injection.
+4.  **Event Handling:** Listen to observable events (`open`, `close`, `error`, `message`) from the socket instance.
+5.  Implement **JSON-RPC 2.0** Handler to parse incoming messages.
+6.  Implement Action Dispatcher to invoke methods on `Neo.worker.App`.
 
 **Parent Issue:** #7960
 
