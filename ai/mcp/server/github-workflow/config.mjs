@@ -1,6 +1,12 @@
-import fs   from 'fs/promises';
+import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import Base from '../../../../src/core/Base.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const packageRoot = path.resolve(__dirname, '../../../../');
+const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
 
 /**
  * Default configuration object.
@@ -48,17 +54,17 @@ const defaultConfig = {
          * The path to the directory for active issues.
          * @type {string}
          */
-        issuesDir: path.resolve(process.cwd(), '.github', 'ISSUE'),
+        issuesDir: path.resolve(projectRoot, '.github', 'ISSUE'),
         /**
          * The path to the directory for archived issues.
          * @type {string}
          */
-        archiveDir: path.resolve(process.cwd(), '.github', 'ISSUE_ARCHIVE'),
+        archiveDir: path.resolve(projectRoot, '.github', 'ISSUE_ARCHIVE'),
         /**
          * The path to the synchronization metadata file.
          * @type {string}
          */
-        metadataFile: path.resolve(process.cwd(), '.github', '.sync-metadata.json'),
+        metadataFile: path.resolve(projectRoot, '.github', '.sync-metadata.json'),
         /**
          * Labels that, when present on an issue, will cause it to be ignored and deleted locally.
          * @type {string[]}
@@ -73,7 +79,7 @@ const defaultConfig = {
          * The path to the directory for release notes.
          * @type {string}
          */
-        releaseNotesDir: path.resolve(process.cwd(), '.github', 'RELEASE_NOTES'),
+        releaseNotesDir: path.resolve(projectRoot, '.github', 'RELEASE_NOTES'),
         /**
          * The default version directory to use for archiving issues when no release is found.
          * @type {string}
@@ -233,15 +239,15 @@ class Config extends Base {
 
         try {
             const absolutePath = path.resolve(filePath);
-            const ext          = path.extname(absolutePath);
-            let   customConfig;
+            const ext = path.extname(absolutePath);
+            let customConfig;
 
             if (ext === '.mjs' || ext === '.js') {
                 const module = await import(absolutePath);
                 customConfig = module.default;
             } else {
                 const content = await fs.readFile(absolutePath, 'utf-8');
-                customConfig  = JSON.parse(content);
+                customConfig = JSON.parse(content);
             }
 
             // Deep merge custom config into the data object
