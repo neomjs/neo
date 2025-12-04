@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-29T15:17:50Z'
-updatedAt: '2025-11-30T18:37:28Z'
+updatedAt: '2025-12-04T23:32:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7918'
 author: tobiu
 commentsCount: 0
@@ -24,13 +24,13 @@ subIssues:
   - 8019
   - 8021
   - 8022
-subIssuesCompleted: 7
-subIssuesTotal: 10
+  - 8024
+  - 8025
+subIssuesCompleted: 8
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
-# Epic: Neo Command Center (Agent OS UI)
-
 # Epic: Neo Command Center (Agent OS UI)
 
 This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that visualizes and controls the agent swarm. This will be a multi-window Neo.mjs application serving as the "God View" for the digital organization.
@@ -63,4 +63,6 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 - 2025-12-04 @tobiu added sub-issue #8019
 - 2025-12-04 @tobiu added sub-issue #8021
 - 2025-12-04 @tobiu added sub-issue #8022
+- 2025-12-04 @tobiu added sub-issue #8024
+- 2025-12-04 @tobiu added sub-issue #8025
 

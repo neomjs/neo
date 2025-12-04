@@ -7,13 +7,14 @@ labels:
   - ai
   - refactoring
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-04T03:36:24Z'
-updatedAt: '2025-12-04T03:36:24Z'
+updatedAt: '2025-12-04T22:41:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8022'
 author: tobiu
 commentsCount: 0
-parentIssue: null
+parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
@@ -30,4 +31,6 @@ The `Viewport.mjs` file is becoming overloaded. Refactor the `items` (Toolbar, D
 - 2025-12-04 @tobiu added the `ai` label
 - 2025-12-04 @tobiu added the `refactoring` label
 - 2025-12-04 @tobiu added the `architecture` label
+- 2025-12-04 @tobiu added parent issue #7918
+- 2025-12-04 @tobiu assigned to @tobiu
 
