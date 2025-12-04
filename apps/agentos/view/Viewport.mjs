@@ -2,6 +2,7 @@ import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import Blackboard         from './Blackboard.mjs';
+import InterventionPanel  from './InterventionPanel.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -112,27 +113,9 @@ class Viewport extends BaseViewport {
                     }
                 }]
             }, {
-                module   : Panel,
-                cls      : ['agent-panel-intervention'],
+                module   : InterventionPanel,
                 flex     : 1,
-                reference: 'intervention-panel',
-                headers  : [{
-                    dock: 'top',
-                    cls : ['neo-draggable'],
-                    text: 'Intervention'
-                }],
-                items    : [{
-                    ntype    : 'component',
-                    reference: 'intervention',
-                    cls      : ['agent-terminal'],
-                    style    : {margin: '10px'},
-                    html     : `
-                        <div class="agent-log-entry"><span class="agent-log-timestamp">[10:42:01]</span> System initialized.</div>
-                        <div class="agent-log-entry"><span class="agent-log-timestamp">[10:42:05]</span> Neural Link established.</div>
-                        <div class="agent-log-entry"><span class="agent-log-timestamp">[10:45:12]</span> <span style="color:red">WARNING:</span> Agent-007 deviation detected.</div>
-                        <div class="agent-log-entry"><span class="agent-log-timestamp">[10:45:15]</span> Auto-correction failed. Manual intervention required.</div>
-                    `
-                }]
+                reference: 'intervention-panel'
             }]
         }]
     }
