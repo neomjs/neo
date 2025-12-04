@@ -143,7 +143,7 @@ class ViewportController extends Controller {
                 bodyContainer = itemPanel.getReference('bodyContainer');
 
             bodyContainer.add(widget);
-            itemPanel.show(true);
+            itemPanel.show();
 
             me.getReference(`detach-${widgetName}-button`).disabled = false
         }

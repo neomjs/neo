@@ -50,10 +50,10 @@ class Viewport extends BaseViewport {
             },
 
             items: [{
-                module: Panel,
-                flex  : 1,
+                module   : Panel,
+                flex     : 1,
                 reference: 'grid-panel',
-                headers: [{
+                headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
                     text: 'Grid'
@@ -65,7 +65,7 @@ class Viewport extends BaseViewport {
                 module   : Panel,
                 flex     : 1.3,
                 reference: 'pie-chart-panel',
-                headers: [{
+                headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
                     text: 'Pie Chart'
@@ -77,7 +77,7 @@ class Viewport extends BaseViewport {
                 module   : Panel,
                 flex     : 1.3,
                 reference: 'bar-chart-panel',
-                headers: [{
+                headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
                     text: 'Bar Chart'

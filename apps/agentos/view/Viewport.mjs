@@ -64,9 +64,9 @@ class Viewport extends BaseViewport {
 
             items: [{
                 module   : Panel,
+                cls      : ['agent-panel-strategy'],
                 flex     : 1,
                 reference: 'strategy-panel',
-                cls      : ['agent-panel-strategy'],
                 headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
@@ -74,8 +74,8 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     ntype    : 'component',
-                    reference: 'strategy-content',
                     cls      : ['agent-kpi-container'],
+                    reference: 'strategy',
                     style    : {padding: '20px', backgroundColor: 'var(--agent-bg-dark)'},
                     html     : `
                         <div class="agent-kpi-card">
@@ -94,9 +94,9 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 module   : Panel,
+                cls      : ['agent-panel-swarm'],
                 flex     : 1,
                 reference: 'swarm-panel',
-                cls      : ['agent-panel-swarm'],
                 headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
@@ -104,7 +104,7 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     module   : Blackboard,
-                    reference: 'swarm-content',
+                    reference: 'swarm',
                     style    : {
                         backgroundColor: '#000',
                         height         : '100%',
@@ -113,9 +113,9 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 module   : Panel,
+                cls      : ['agent-panel-intervention'],
                 flex     : 1,
                 reference: 'intervention-panel',
-                cls      : ['agent-panel-intervention'],
                 headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
@@ -123,7 +123,7 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     ntype    : 'component',
-                    reference: 'intervention-content',
+                    reference: 'intervention',
                     cls      : ['agent-terminal'],
                     style    : {margin: '10px'},
                     html     : `

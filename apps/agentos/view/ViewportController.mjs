@@ -57,11 +57,11 @@ class ViewportController extends Controller {
                 {windowId} = data,
                 url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName = new URL(url).searchParams.get('name'),
-                widget     = me.getReference(`${widgetName}-content`),
-                panel      = me.getReference(`${widgetName}-panel`);
+                widget     = me.getReference(widgetName),
+                parent     = widget.up('panel');
 
             if (!me.#isWindowDragging) {
-                panel.hide()
+                parent.hide()
             }
 
             me.connectedApps.push(widgetName);
@@ -81,19 +81,21 @@ class ViewportController extends Controller {
 
         if (me.#isWindowDragging) {
             me.#isWindowDragging = false;
-            return
+                return
         }
 
         let {appName, windowId} = data;
 
         if (appName === 'AgentOSWidget' || appName === 'AgentSwarm') {
-            let url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-                widgetName = new URL(url).searchParams.get('name'),
-                widget     = me.getReference(`${widgetName}-content`),
-                panel      = me.getReference(`${widgetName}-panel`);
+            let url           = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                dashboard     = me.getReference('dashboard'),
+                widgetName    = new URL(url).searchParams.get('name'),
+                widget        = me.getReference(widgetName),
+                itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
+                bodyContainer = itemPanel.getReference('bodyContainer');
 
-            panel.add(widget);
-            panel.show();
+            bodyContainer.add(widget);
+            itemPanel.show();
         } else if (appName === 'AgentOS') {
             Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
@@ -103,16 +105,18 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     async onDragBoundaryEntry(data) {
-        let me         = this,
-            {windowId} = me,
-            {sortZone} = data,
-            widgetName = data.draggedItem.reference.replace('-panel', ''),
-            widget     = me.getReference(`${widgetName}-content`),
-            panel      = me.getReference(`${widgetName}-panel`);
+        let me            = this,
+            {windowId}    = me,
+            {sortZone}    = data,
+            widgetName    = data.draggedItem.reference.replace('-panel', ''),
+            widget        = me.getReference(widgetName),
+            dashboard     = me.getReference('dashboard'),
+            itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
+            bodyContainer = itemPanel.getReference('bodyContainer');
 
         await Neo.Main.windowClose({names: widgetName, windowId});
 
-        panel.add(widget);
+        bodyContainer.add(widget);
 
         me.#isWindowDragging = false;
 
@@ -147,8 +151,7 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     async onOpenSwarmClick(data) {
-        let me                      = this,
-            name                    = 'swarm',
+        let name                    = 'swarm',
             {config, windowConfigs} = Neo,
             {environment}           = config,
             firstWindowId           = Object.keys(windowConfigs)[0],
