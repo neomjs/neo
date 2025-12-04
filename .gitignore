@@ -9,6 +9,8 @@
 !/apps/agent-os/neo-config.json
 !/apps/agent-os/childapps/swarm/index.html
 !/apps/agent-os/childapps/swarm/neo-config.json
+!/apps/agent-os/childapps/widget/index.html
+!/apps/agent-os/childapps/widget/neo-config.json
 !/apps/ai/neural-link/index.html
 !/apps/ai/neural-link/**/*.mjs
 !/apps/ai/neural-link/neo-config.json
@@ -73,7 +75,7 @@
 /resources/theme-map.json
 
 # Antigravity
-/.agent
+.agent
 
 # IDEs and editors
 /.idea

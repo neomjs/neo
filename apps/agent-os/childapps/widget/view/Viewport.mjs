@@ -1,13 +1,16 @@
 import BaseViewport from '../../../../../src/container/Viewport.mjs';
-import Blackboard from '../../../view/Blackboard.mjs';
 
 /**
- * @class AgentOS.swarm.view.Viewport
+ * @class AgentOSWidget.view.Viewport
  * @extends Neo.container.Viewport
  */
 class Viewport extends BaseViewport {
     static config = {
-        className: 'AgentOS.swarm.view.Viewport'
+        /**
+         * @member {String} className='AgentOSWidget.view.Viewport'
+         * @protected
+         */
+        className: 'AgentOSWidget.view.Viewport'
     }
 }
 

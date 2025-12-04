@@ -10,6 +10,26 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @member {String[]} connectedApps=[]
+     */
+    connectedApps = []
+
+    /**
+     * @member {Boolean} #isWindowDragging=false
+     * @private
+     */
+    #isWindowDragging = false
+
+    /**
+     * @member {Object} widgetIndexMap
+     */
+    widgetIndexMap = {
+        'strategy'    : 0,
+        'swarm'       : 1,
+        'intervention': 2
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -26,30 +46,28 @@ class ViewportController extends Controller {
 
     /**
      * @param {Object} data
-     */
-    async onOpenSwarmClick(data) {
-        // Path relative to the current index.html (apps/agent-os/index.html)
-        const url = 'childapps/swarm/index.html';
-
-        await Neo.Main.windowOpen({
-            url,
-            windowName    : 'AgentSwarm',
-            windowFeatures: 'height=600,width=800,left=50,top=50'
-        })
-    }
-
-    /**
-     * @param {Object} data
      * @param {String} data.appName
      * @param {Number} data.windowId
      */
     async onWindowConnect(data) {
-        let {appName, windowId} = data;
+        if (data.appName === 'AgentOSWidget' || data.appName === 'AgentSwarm') {
+            let me         = this,
+                app        = Neo.apps[data.windowId],
+                mainView   = app.mainView,
+                {windowId} = data,
+                url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName = new URL(url).searchParams.get('name'),
+                widget     = me.getReference(`${widgetName}-content`),
+                panel      = me.getReference(`${widgetName}-panel`);
 
-        if (appName === 'AgentSwarm') {
-            console.log('Swarm window opened');
-        } else if (appName === 'AgentOS') {
-            console.log('Main window opened');
+            if (!me.#isWindowDragging) {
+                panel.hide()
+            }
+
+            me.connectedApps.push(widgetName);
+
+            // Add the widget to the popup window
+            mainView.add(widget)
         }
     }
 
@@ -59,15 +77,134 @@ class ViewportController extends Controller {
      * @param {Number} data.windowId
      */
     async onWindowDisconnect(data) {
+        let me = this;
+
+        if (me.#isWindowDragging) {
+            me.#isWindowDragging = false;
+            return
+        }
+
         let {appName, windowId} = data;
 
-        if (appName === 'AgentSwarm') {
-            console.log('Swarm window closed');
+        if (appName === 'AgentOSWidget' || appName === 'AgentSwarm') {
+            let url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName = new URL(url).searchParams.get('name'),
+                widget     = me.getReference(`${widgetName}-content`),
+                panel      = me.getReference(`${widgetName}-panel`);
+
+            panel.add(widget);
+            panel.show();
+        } else if (appName === 'AgentOS') {
+            Neo.Main.windowClose({names: me.connectedApps, windowId})
         }
-        // Close popup windows when closing or reloading the main window
-        else if (appName === 'AgentOS') {
-            Neo.Main.windowCloseAll({windowId})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDragBoundaryEntry(data) {
+        let me         = this,
+            {windowId} = me,
+            {sortZone} = data,
+            widgetName = data.draggedItem.reference.replace('-panel', ''),
+            widget     = me.getReference(`${widgetName}-content`),
+            panel      = me.getReference(`${widgetName}-panel`);
+
+        await Neo.Main.windowClose({names: widgetName, windowId});
+
+        panel.add(widget);
+
+        me.#isWindowDragging = false;
+
+        sortZone.isWindowDragging = false;
+        sortZone.dragProxy.hidden = false;
+
+        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDragBoundaryExit(data) {
+        let {draggedItem, proxyRect, sortZone} = data,
+            widgetName                         = draggedItem.reference.replace('-panel', ''),
+            popupData;
+
+        this.#isWindowDragging = true;
+
+        // Prohibit the size reduction inside #openWidgetInPopup().
+        proxyRect.height += 50;
+
+        popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
+
+        sortZone.startWindowDrag({
+            dragData: data,
+            ...popupData
+        });
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onOpenSwarmClick(data) {
+        let me                      = this,
+            name                    = 'swarm',
+            {config, windowConfigs} = Neo,
+            {environment}           = config,
+            firstWindowId           = Object.keys(windowConfigs)[0],
+            {basePath}              = windowConfigs[firstWindowId],
+            url;
+
+        if (environment !== 'development') {
+            basePath = `${basePath + environment}/`
         }
+
+        url = `${basePath}apps/agent-os/childapps/swarm/index.html?name=${name}`;
+
+        await Neo.Main.windowOpen({
+            url,
+            windowName    : name,
+            windowFeatures: 'height=600,width=800,left=50,top=50'
+        });
+    }
+
+    /**
+     * @param {String} name
+     * @param {Object} rect
+     * @private
+     */
+    async #openWidgetInPopup(name, rect) {
+        let me                      = this,
+            {windowId}              = me,
+            {config, windowConfigs} = Neo,
+            {environment}           = config,
+            firstWindowId           = Object.keys(windowConfigs)[0],
+            {basePath}              = windowConfigs[firstWindowId],
+            url;
+
+        if (environment !== 'development') {
+            basePath = `${basePath + environment}/`
+        }
+
+        if (name === 'swarm') {
+            url = `${basePath}apps/agent-os/childapps/swarm/index.html?name=${name}`;
+        } else {
+            url = `${basePath}apps/agent-os/childapps/widget/index.html?name=${name}`;
+        }
+
+        let winData               = await Neo.Main.getWindowData({windowId}),
+            {height, width, x, y} = rect,
+            popupHeight           = height - 50,
+            popupLeft             = x + winData.screenLeft,
+            popupTop              = y + (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+        await Neo.Main.windowOpen({
+            url,
+            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
+            windowName    : name
+        });
+
+        return {popupHeight, popupLeft, popupTop, popupWidth: width, windowName: name}
     }
 }
 
