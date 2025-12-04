@@ -1,0 +1,21 @@
+:root .neo-theme-cyberpunk {
+    --agent-bg-dark                 : var(--cyber-bg);
+    --agent-bg-panel                : var(--cyber-bg-alt);
+    --agent-border                  : var(--cyber-border);
+    --agent-text-primary            : var(--cyber-text);
+    --agent-text-secondary          : #8b949e;
+
+    --agent-accent-strategy         : var(--cyber-gold);
+    --agent-accent-swarm            : var(--cyber-cyan);
+    --agent-accent-intervention     : var(--cyber-red);
+
+    --agent-font-mono               : var(--neo-font-family);
+    --agent-font-ui                 : var(--neo-font-family);
+
+    // Override Neo variables
+    --neo-background-color          : var(--agent-bg-dark);
+    --neo-color                     : var(--agent-text-primary);
+    --panel-header-background-color : var(--agent-bg-panel);
+    --panel-body-background-color   : var(--agent-bg-dark);
+    --toolbar-background-color      : var(--agent-bg-panel);
+}
