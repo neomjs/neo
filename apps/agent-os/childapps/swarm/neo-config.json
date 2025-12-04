@@ -1,8 +1,0 @@
-{
-    "appPath"         : "apps/agent-os/childapps/swarm/app.mjs",
-    "basePath"        : "../../../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "useCanvasWorker" : true,
-    "useSharedWorkers": true
-}

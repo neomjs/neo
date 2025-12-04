@@ -1,8 +1,0 @@
-{
-    "appPath"         : "apps/agent-os/app.mjs",
-    "basePath"        : "../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "useCanvasWorker" : true,
-    "useSharedWorkers": true
-}

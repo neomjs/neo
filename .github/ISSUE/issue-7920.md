@@ -7,7 +7,7 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-11-29T15:19:18Z'
-updatedAt: '2025-11-29T15:19:18Z'
+updatedAt: '2025-12-04T00:08:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7920'
 author: tobiu
 commentsCount: 0
@@ -18,8 +18,6 @@ subIssuesTotal: 0
 blockedBy: []
 blocking: []
 ---
-# Design: Agent Dashboard Layout (Multi-Window Architecture)
-
 # Design: Agent Dashboard Layout (Multi-Window Architecture)
 
 ## Context

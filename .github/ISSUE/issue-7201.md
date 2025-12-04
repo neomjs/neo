@@ -24,7 +24,7 @@ subIssues:
   - 7208
   - 7209
   - 7210
-subIssuesCompleted: 4
+subIssuesCompleted: 5
 subIssuesTotal: 9
 blockedBy: []
 blocking: []

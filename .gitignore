@@ -4,13 +4,13 @@
 /apps/**/*.mjs
 /apps/**/neo-config.json
 
-!/apps/agent-os/index.html
-!/apps/agent-os/**/*.mjs
-!/apps/agent-os/neo-config.json
-!/apps/agent-os/childapps/swarm/index.html
-!/apps/agent-os/childapps/swarm/neo-config.json
-!/apps/agent-os/childapps/widget/index.html
-!/apps/agent-os/childapps/widget/neo-config.json
+!/apps/agentos/index.html
+!/apps/agentos/**/*.mjs
+!/apps/agentos/neo-config.json
+!/apps/agentos/childapps/swarm/index.html
+!/apps/agentos/childapps/swarm/neo-config.json
+!/apps/agentos/childapps/widget/index.html
+!/apps/agentos/childapps/widget/neo-config.json
 !/apps/ai/neural-link/index.html
 !/apps/ai/neural-link/**/*.mjs
 !/apps/ai/neural-link/neo-config.json

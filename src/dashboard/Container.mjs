@@ -22,6 +22,11 @@ class Container extends BaseContainer {
          */
         baseCls: ['neo-dashboard', 'neo-container'],
         /**
+         * Add extra CSS selectors to the drag proxy root.
+         * @member {String[]} dragProxyExtraCls=[]
+         */
+        dragProxyExtraCls: [],
+        /**
          * @member {Boolean} sortable_=true
          * @reactive
          */
@@ -44,6 +49,7 @@ class Container extends BaseContainer {
                     allowOverdrag      : true,
                     appName            : me.appName,
                     boundaryContainerId: me.id,
+                    dragProxyExtraCls  : me.dragProxyExtraCls,
                     enableProxyToPopup : true,
                     owner              : me,
                     windowId           : me.windowId,

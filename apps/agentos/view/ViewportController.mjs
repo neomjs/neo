@@ -159,7 +159,7 @@ class ViewportController extends Controller {
             basePath = `${basePath + environment}/`
         }
 
-        url = `${basePath}apps/agent-os/childapps/swarm/index.html?name=${name}`;
+        url = `${basePath}apps/agentos/childapps/swarm/index.html?name=${name}`;
 
         await Neo.Main.windowOpen({
             url,
@@ -187,9 +187,9 @@ class ViewportController extends Controller {
         }
 
         if (name === 'swarm') {
-            url = `${basePath}apps/agent-os/childapps/swarm/index.html?name=${name}`;
+            url = `${basePath}apps/agentos/childapps/swarm/index.html?name=${name}`;
         } else {
-            url = `${basePath}apps/agent-os/childapps/widget/index.html?name=${name}`;
+            url = `${basePath}apps/agentos/childapps/widget/index.html?name=${name}`;
         }
 
         let winData               = await Neo.Main.getWindowData({windowId}),

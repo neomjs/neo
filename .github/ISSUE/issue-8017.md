@@ -1,14 +1,15 @@
 ---
 id: 8017
 title: Fix IssueSyncer path resolution for Antigravity environment
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - contributor-experience
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-03T23:00:33Z'
-updatedAt: '2025-12-03T23:00:33Z'
+updatedAt: '2025-12-03T23:15:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8017'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-03T23:15:21Z'
 ---
 # Fix IssueSyncer path resolution for Antigravity environment
 
@@ -37,4 +39,7 @@ The `sync_all` tool was failing in the Antigravity environment due to `process.c
 - 2025-12-03 @tobiu added the `bug` label
 - 2025-12-03 @tobiu added the `contributor-experience` label
 - 2025-12-03 @tobiu added the `ai` label
+- 2025-12-03 @tobiu assigned to @tobiu
+- 2025-12-03 @tobiu referenced in commit `810857f` - "Fix IssueSyncer path resolution for Antigravity environment #8017"
+- 2025-12-03 @tobiu closed this issue
 

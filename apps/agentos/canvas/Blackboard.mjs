@@ -9,7 +9,7 @@ class Blackboard extends Base {
     /**
      * @member {String|null} canvasId=null
      */
-    canvasId = null
+    canvasId   = null
     /**
      * @member {Object} canvasSize=null
      */
@@ -17,15 +17,15 @@ class Blackboard extends Base {
     /**
      * @member {Object} context=null
      */
-    context = null
+    context    = null
     /**
      * @member {Array} nodes=[]
      */
-    nodes = []
+    nodes      = []
     /**
      * @member {Array} links=[]
      */
-    links = []
+    links      = []
 
     static config = {
         /**
@@ -68,12 +68,12 @@ class Blackboard extends Base {
 
     /**
      * Initialize the graph with a canvas ID
-     * @param {String} canvasId 
+     * @param {String} canvasId
      */
     initGraph(canvasId) {
         console.log('Blackboard: initGraph', canvasId);
         this.canvasId = canvasId;
-        
+
         // Wait for the canvas to be available in the worker map
         const checkCanvas = () => {
             const canvas = Neo.currentWorker.map[canvasId];
@@ -97,30 +97,32 @@ class Blackboard extends Base {
         console.log('Blackboard: updateSize', size);
         this.canvasSize = size;
         if (this.context) {
-            this.context.canvas.width = size.width;
+            this.context.canvas.width  = size.width;
             this.context.canvas.height = size.height;
         }
     }
 
     render() {
-        if (!this.context) return;
-        
-        const ctx = this.context;
-        const width = this.canvasSize?.width || 800;
+        if (!this.context) {
+            return;
+        }
+
+        const ctx    = this.context;
+        const width  = this.canvasSize?.width || 800;
         const height = this.canvasSize?.height || 600;
 
         // Clear
-        ctx.fillStyle = '#1e1e1e'; 
+        ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
 
         // Draw Title
         ctx.fillStyle = '#ffffff';
-        ctx.font = '20px Arial';
+        ctx.font      = '20px Arial';
         ctx.fillText('Agent Swarm Blackboard (Canvas 2D)', 20, 30);
-        
+
         // Draw Links
         ctx.strokeStyle = '#666';
-        ctx.lineWidth = 2;
+        ctx.lineWidth   = 2;
         this.links.forEach(link => {
             const source = this.nodes.find(n => n.id === link.source);
             const target = this.nodes.find(n => n.id === link.target);
@@ -140,12 +142,12 @@ class Blackboard extends Base {
             ctx.fillStyle = node.color || '#ccc';
             ctx.fill();
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth   = 2;
             ctx.stroke();
 
             // Label
             ctx.fillStyle = '#eee';
-            ctx.font = '12px Arial';
+            ctx.font      = '12px Arial';
             ctx.fillText(node.label || node.id, node.x + 20, node.y + 5);
         });
 
