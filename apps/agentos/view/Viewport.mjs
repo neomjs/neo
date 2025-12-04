@@ -33,7 +33,6 @@ class Viewport extends BaseViewport {
          */
         items: [{
             ntype: 'toolbar',
-            id   : 'agent-top-toolbar',
             cls  : ['agent-top-toolbar'],
             flex : 'none',
             items: [{
@@ -45,7 +44,6 @@ class Viewport extends BaseViewport {
                 text : 'Agent OS Command Center'
             }, '->', {
                 ntype  : 'button',
-                id     : 'detach-swarm-button',
                 cls    : ['agent-button'],
                 iconCls: 'fa fa-window-restore',
                 text   : 'Detach Swarm View',
@@ -53,7 +51,6 @@ class Viewport extends BaseViewport {
             }]
         }, {
             module           : Dashboard,
-            id               : 'agent-dashboard',
             dragProxyExtraCls: ['agent-os-viewport', 'neo-viewport'],
             flex             : 1,
             reference        : 'dashboard',
@@ -67,7 +64,6 @@ class Viewport extends BaseViewport {
 
             items: [{
                 module   : Panel,
-                id       : 'strategy-panel',
                 flex     : 1,
                 reference: 'strategy-panel',
                 cls      : ['agent-panel-strategy'],
@@ -78,7 +74,6 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     ntype    : 'component',
-                    id       : 'strategy-content',
                     reference: 'strategy-content',
                     cls      : ['agent-kpi-container'],
                     style    : {padding: '20px', backgroundColor: 'var(--agent-bg-dark)'},
@@ -99,7 +94,6 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 module   : Panel,
-                id       : 'swarm-panel',
                 flex     : 1,
                 reference: 'swarm-panel',
                 cls      : ['agent-panel-swarm'],
@@ -110,7 +104,6 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     module   : Blackboard,
-                    id       : 'swarm-content',
                     reference: 'swarm-content',
                     style    : {
                         backgroundColor: '#000',
@@ -120,7 +113,6 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 module   : Panel,
-                id       : 'intervention-panel',
                 flex     : 1,
                 reference: 'intervention-panel',
                 cls      : ['agent-panel-intervention'],
@@ -131,7 +123,6 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     ntype    : 'component',
-                    id       : 'intervention-content',
                     reference: 'intervention-content',
                     cls      : ['agent-terminal'],
                     style    : {margin: '10px'},
