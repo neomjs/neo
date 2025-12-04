@@ -1,0 +1,24 @@
+:root .neo-theme-light {
+    --agent-bg-dark                 : #ffffff;
+    --agent-bg-panel                : #f6f8fa;
+    --agent-border                  : #d0d7de;
+    --agent-text-primary            : #24292f;
+    --agent-text-secondary          : #57606a;
+
+    --agent-accent-strategy         : #d3a600;
+    /* Darker Gold for contrast */
+    --agent-accent-swarm            : #0095b3;
+    /* Darker Cyan for contrast */
+    --agent-accent-intervention     : #cf222e;
+    /* Red */
+
+    --agent-font-mono               : 'Courier New', monospace;
+    --agent-font-ui                 : system-ui, -apple-system, sans-serif;
+
+    // Override Neo variables
+    --neo-background-color          : var(--agent-bg-dark);
+    --neo-color                     : var(--agent-text-primary);
+    --panel-header-background-color : var(--agent-bg-panel);
+    --panel-body-background-color   : var(--agent-bg-dark);
+    --toolbar-background-color      : var(--agent-bg-panel);
+}
