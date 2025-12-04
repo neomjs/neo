@@ -7,7 +7,16 @@ import Blackboard from '../../../view/Blackboard.mjs';
  */
 class Viewport extends BaseViewport {
     static config = {
-        className: 'AgentOS.swarm.view.Viewport'
+        /**
+         * @member {String} className='AgentOS.swarm.view.Viewport'
+         * @protected
+         */
+        className: 'AgentOS.swarm.view.Viewport',
+        /**
+         * @member {String[]} cls=['agent-os-viewport']
+         * @reactive
+         */
+        cls: ['agent-os-viewport']
     }
 }
 
