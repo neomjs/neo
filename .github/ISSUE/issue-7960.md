@@ -1,7 +1,7 @@
 ---
 id: 7960
 title: 'Spike: Bidirectional RMA Proof of Concept'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-11-30T21:58:20Z'
-updatedAt: '2025-12-03T21:38:10Z'
+updatedAt: '2025-12-04T03:45:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7960'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - 8001
@@ -29,6 +29,7 @@ subIssuesCompleted: 10
 subIssuesTotal: 10
 blockedBy: []
 blocking: []
+closedAt: '2025-12-04T03:45:44Z'
 ---
 # Spike: Bidirectional RMA Proof of Concept
 
@@ -67,6 +68,12 @@ blocking: []
 
 **Reference:** .github/AGENT_ARCHITECTURE.md
 
+## Comments
+
+### @tobiu - 2025-12-04 03:45
+
+resolved
+
 ## Activity Log
 
 - 2025-11-30 @tobiu added the `enhancement` label
@@ -87,4 +94,5 @@ blocking: []
 - 2025-12-03 @tobiu added sub-issue #8013
 - 2025-12-03 @tobiu added sub-issue #8006
 - 2025-12-03 @tobiu added sub-issue #8014
+- 2025-12-04 @tobiu closed this issue
 

@@ -1,22 +1,24 @@
 ---
 id: 7920
 title: 'Design: Agent Dashboard Layout (Multi-Window Architecture)'
-state: OPEN
+state: CLOSED
 labels:
   - design
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-11-29T15:19:18Z'
-updatedAt: '2025-12-04T00:08:28Z'
+updatedAt: '2025-12-04T03:44:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7920'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-04T03:44:16Z'
 ---
 # Design: Agent Dashboard Layout (Multi-Window Architecture)
 
@@ -38,9 +40,18 @@ As part of the Neo Command Center (Epic #7918), we need to design the "God View"
 *   A JSON Blueprint (Neo.mjs app definition) or detailed mockups describing this multi-window architecture.
 
 
+## Comments
+
+### @tobiu - 2025-12-04 03:44
+
+<img width="840" height="1214" alt="Image" src="https://github.com/user-attachments/assets/02baced1-55ca-4426-bf87-dab233119601" />
+
 ## Activity Log
 
 - 2025-11-29 @tobiu added the `design` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added parent issue #7918
+- 2025-12-04 @tobiu assigned to @tobiu
+- 2025-12-04 @tobiu referenced in commit `87046bc` - "Design: Agent Dashboard Layout (Multi-Window Architecture) #7920"
+- 2025-12-04 @tobiu closed this issue
 
