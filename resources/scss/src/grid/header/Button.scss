@@ -2,8 +2,8 @@
     align-items     : center;
     background-color: var(--grid-header-button-background-color);
     background-image: var(--grid-header-button-background-image);
+    border          : 1px solid transparent;
     border-radius   : 0;
-    border-width    : 0;
     color           : var(--grid-header-button-color);
     cursor          : pointer;
     display         : flex;
@@ -17,7 +17,15 @@
     white-space     : nowrap;
 
     &:not(:last-child) {
-        border-right: 1px solid var(--grid-container-border-color);
+        border-right-color: var(--grid-header-button-border-right-color);
+    }
+
+    &:hover {
+        border-color: var(--grid-header-button-border-hover-color);
+
+        &:not(:last-child) {
+            border-right-color: var(--grid-header-button-border-right-hover-color);
+        }
     }
 
     &.neo-locked {
