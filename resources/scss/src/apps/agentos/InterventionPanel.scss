@@ -1,0 +1,23 @@
+.agent-panel-intervention.neo-panel {
+    .agent-priority-warning {
+        color: var(--agent-priority-warning-color);
+    }
+
+    .agent-priority-error {
+        color: var(--agent-priority-error-color);
+    }
+
+    .agent-priority-normal {
+        color: inherit;
+    }
+
+    .neo-grid-row.neo-selected {
+        .agent-priority-warning {
+            color: var(--agent-priority-warning-color-selected, var(--agent-priority-warning-color));
+        }
+
+        .agent-priority-error {
+            color: var(--agent-priority-error-color-selected, var(--agent-priority-error-color));
+        }
+    }
+}

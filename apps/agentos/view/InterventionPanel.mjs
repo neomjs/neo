@@ -62,8 +62,10 @@ class InterventionPanel extends Panel {
                 text     : 'Priority',
                 width    : 80,
                 renderer : ({value}) => {
-                    const color = value === 'error' ? 'red' : value === 'warning' ? 'orange' : 'inherit';
-                    return `<span style="color:${color}">${value}</span>`;
+                    return {
+                        cls : ['agent-priority', `agent-priority-${value}`],
+                        html: value
+                    };
                 }
             }]
         }]
