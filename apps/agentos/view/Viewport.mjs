@@ -56,7 +56,7 @@ class Viewport extends BaseViewport {
             flex             : 1,
             reference        : 'dashboard',
             cls              : ['agent-dashboard'],
-            style            : {margin: '20px'},
+            style            : {margin: '20px 10px'},
 
             listeners: {
                 dragBoundaryEntry: 'onDragBoundaryEntry',

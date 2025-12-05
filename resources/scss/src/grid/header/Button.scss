@@ -9,7 +9,7 @@
     display         : flex;
     flex-direction  : row;
     flex-shrink     : 0;
-    font-size       : 13px;
+    font-size       : var(--grid-header-button-font-size);
     font-weight     : 600;
     height          : 29px; // Webkit => Safari can not handle 100%
     justify-content : flex-end;
