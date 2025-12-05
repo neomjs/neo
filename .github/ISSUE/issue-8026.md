@@ -1,23 +1,25 @@
 ---
 id: 8026
 title: Scaffold Neo Cyberpunk Theme Structure
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - design
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-04T23:40:14Z'
-updatedAt: '2025-12-04T23:40:14Z'
+updatedAt: '2025-12-04T23:49:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8026'
 author: tobiu
 commentsCount: 0
-parentIssue: null
+parentIssue: 8025
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-04T23:49:27Z'
 ---
 # Scaffold Neo Cyberpunk Theme Structure
 
@@ -42,4 +44,8 @@ Create the initial directory structure and global variable definitions for the n
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `design` label
 - 2025-12-04 @tobiu added the `ai` label
+- 2025-12-04 @tobiu added parent issue #8025
+- 2025-12-04 @tobiu assigned to @tobiu
+- 2025-12-04 @tobiu referenced in commit `f126685` - "Scaffold Neo Cyberpunk Theme Structure #8026"
+- 2025-12-04 @tobiu closed this issue
 

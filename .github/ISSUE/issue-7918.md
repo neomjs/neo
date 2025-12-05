@@ -26,8 +26,9 @@ subIssues:
   - 8022
   - 8024
   - 8025
+  - 8031
 subIssuesCompleted: 8
-subIssuesTotal: 12
+subIssuesTotal: 13
 blockedBy: []
 blocking: []
 ---
@@ -65,4 +66,5 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 - 2025-12-04 @tobiu added sub-issue #8022
 - 2025-12-04 @tobiu added sub-issue #8024
 - 2025-12-04 @tobiu added sub-issue #8025
+- 2025-12-05 @tobiu added sub-issue #8031
 

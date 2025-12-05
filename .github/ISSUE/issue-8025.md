@@ -6,16 +6,22 @@ labels:
   - epic
   - design
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-04T23:37:19Z'
-updatedAt: '2025-12-04T23:37:19Z'
+updatedAt: '2025-12-04T23:50:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8025'
 author: tobiu
 commentsCount: 0
 parentIssue: 7918
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - 8026
+  - 8027
+  - 8028
+  - 8029
+  - 8030
+subIssuesCompleted: 5
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -44,4 +50,12 @@ Create a new custom theme `neo-theme-cyberpunk` (folder: `resources/scss/theme-c
 - 2025-12-04 @tobiu added the `design` label
 - 2025-12-04 @tobiu added the `ai` label
 - 2025-12-04 @tobiu added parent issue #7918
+- 2025-12-04 @tobiu added sub-issue #8026
+- 2025-12-04 @tobiu added sub-issue #8027
+- 2025-12-04 @tobiu added sub-issue #8028
+- 2025-12-04 @tobiu added sub-issue #8029
+- 2025-12-04 @tobiu added sub-issue #8030
+- 2025-12-04 @tobiu assigned to @tobiu
+- 2025-12-05 @tobiu referenced in commit `2a2b6d4` - "#8025 agentos app: use the cyberpunk theme"
+- 2025-12-05 @tobiu referenced in commit `a627f02` - "#8025 AgentOS.view.InterventionPanel: remove the grid margin"
 
