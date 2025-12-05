@@ -4,6 +4,8 @@
     --grid-header-button-border-hover-color      : var(--cyber-cyan);
     --grid-header-button-border-right-color      : var(--cyber-border);
     --grid-header-button-border-right-hover-color: var(--cyber-cyan);
+    --grid-header-button-box-shadow-hover        : 0 0 10px var(--cyber-cyan);
     --grid-header-button-color                   : var(--cyber-cyan);
     --grid-header-button-glyph-color             : var(--cyber-cyan);
+    --grid-header-button-transition              : all 0.3s ease-out;
 }

@@ -14,6 +14,7 @@
     height          : 29px; // Webkit => Safari can not handle 100%
     justify-content : flex-end;
     margin          : 0;
+    transition      : var(--grid-header-button-transition);
     white-space     : nowrap;
 
     &:not(:last-child) {
@@ -22,6 +23,7 @@
 
     &:hover {
         border-color: var(--grid-header-button-border-hover-color);
+        box-shadow  : var(--grid-header-button-box-shadow-hover);
 
         &:not(:last-child) {
             border-right-color: var(--grid-header-button-border-right-hover-color);
