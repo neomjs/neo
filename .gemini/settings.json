@@ -18,6 +18,10 @@
         "neo.mjs-memory-core": {
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-memory-core"]
+        },
+        "neo.mjs-neural-link": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-neural-link"]
         }
     }
 }

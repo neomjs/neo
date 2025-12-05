@@ -1,0 +1,181 @@
+openapi: 3.0.0
+info:
+  title: Neo.mjs Neural Link MCP Server
+  version: 1.0.0
+paths:
+  /component/property/get:
+    post:
+      summary: Get Component Property
+      operationId: get_component_property
+      x-pass-as-object: true
+      description: Retrieves a property from a component by its ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComponentPropertyRequest'
+      responses:
+        '200':
+          description: The value of the property
+          content:
+            application/json:
+              schema:
+                description: The property value
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/tree:
+    post:
+      summary: Get Component Tree
+      operationId: get_component_tree
+      x-pass-as-object: true
+      description: Retrieves the full component tree of the application.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComponentTreeRequest'
+      responses:
+        '200':
+          description: The component tree structure
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The component tree
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /page/reload:
+    post:
+      summary: Reload Page
+      operationId: reload_page
+      x-pass-as-object: true
+      description: Reloads the application page.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReloadPageRequest'
+      responses:
+        '200':
+          description: Page reloaded successfully
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/property/set:
+    post:
+      summary: Set Component Property
+      operationId: set_component_property
+      x-pass-as-object: true
+      description: Sets a property on a component by its ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetComponentPropertyRequest'
+      responses:
+        '200':
+          description: Property set successfully
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    GetComponentPropertyRequest:
+      type: object
+      required:
+        - id
+        - property
+      properties:
+        id:
+          type: string
+          description: The component ID
+        property:
+          type: string
+          description: The property name to retrieve
+        windowId:
+          type: string
+          description: The target window ID
+
+    GetComponentTreeRequest:
+      type: object
+      properties:
+        windowId:
+          type: string
+          description: The target window ID
+
+    ReloadPageRequest:
+      type: object
+      properties:
+        windowId:
+          type: string
+          description: The target window ID
+
+    SetComponentPropertyRequest:
+      type: object
+      required:
+        - id
+        - property
+        - value
+      properties:
+        id:
+          type: string
+          description: The component ID
+        property:
+          type: string
+          description: The property name to set
+        value:
+          description: The value to set
+        windowId:
+          type: string
+          description: The target window ID
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
