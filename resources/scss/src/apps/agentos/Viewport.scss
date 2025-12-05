@@ -122,41 +122,4 @@
             color : var(--agent-accent-swarm);
         }
     }
-
-    /* Intervention Panel */
-    .agent-panel-intervention {
-        background-color : var(--agent-bg-panel);
-        border           : 1px solid var(--agent-border);
-
-        .neo-panel-header {
-            background-color : var(--agent-bg-panel);
-            border-bottom    : 2px solid var(--agent-accent-intervention);
-        }
-
-        .neo-panel-header-text {
-            color : var(--agent-accent-intervention);
-        }
-    }
-
-    .agent-terminal {
-        background    : #000;
-        color         : var(--agent-accent-intervention);
-        font-family   : var(--agent-font-mono);
-        padding       : 15px;
-        border-radius : 4px;
-        border        : 1px solid var(--agent-border);
-        height        : 100%;
-        overflow-y    : auto;
-    }
-
-    .agent-log-entry {
-        margin-bottom  : 5px;
-        border-bottom  : 1px solid #333;
-        padding-bottom : 2px;
-    }
-
-    .agent-log-timestamp {
-        color        : #666;
-        margin-right : 10px;
-    }
 }

@@ -1,4 +1,16 @@
 .agent-panel-intervention.neo-panel {
+    background-color: var(--agent-bg-panel);
+    border          : 1px solid var(--agent-border);
+
+    .neo-panel-header {
+        background-color: var(--agent-bg-panel);
+        border-bottom   : 2px solid var(--agent-accent-intervention);
+    }
+
+    .neo-panel-header-text {
+        color: var(--agent-accent-intervention);
+    }
+
     .agent-priority-warning {
         color: var(--agent-priority-warning-color);
     }
