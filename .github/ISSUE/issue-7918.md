@@ -32,7 +32,7 @@ subIssues:
   - 8034
   - 8035
   - 8036
-subIssuesCompleted: 13
+subIssuesCompleted: 14
 subIssuesTotal: 18
 blockedBy: []
 blocking: []
