@@ -171,14 +171,14 @@ class Socket extends Base {
      * @param {Boolean}    wasClean Indicates whether or not the connection was cleanly closed.
      */
     onClose(event, reason, wasClean) {
-        console.log('onClose', event, reason, wasClean)
+        this.fire('close', {event, reason, wasClean})
     }
 
     /**
      *
      */
-    onError() {
-        console.log('onError', arguments)
+    onError(error) {
+        this.fire('error', {error})
     }
 
     /**
@@ -187,6 +187,8 @@ class Socket extends Base {
     onMessage(event) {
         let me   = this,
             data = JSON.parse(event.data);
+
+        me.fire('message', {data});
 
         if (data.mId) {
             me.messageCallbacks[data.mId].resolve(data.data);

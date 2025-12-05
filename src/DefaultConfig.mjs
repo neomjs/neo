@@ -203,6 +203,15 @@ const DefaultConfig = {
      */
     allowVdomUpdatesInTests: false,
     /**
+     * Set this to true to establish a WebSocket connection to the Neural Link MCP Server.
+     * This enables bidirectional communication between the App Worker and external AI Agents.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useAiClient
+     * @type Boolean
+     */
+    useAiClient: false,
+    /**
      * Experimental flag if an offscreen canvas worker should get created.
      * @default false
      * @memberOf! module:Neo
@@ -299,12 +308,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '11.15.0'
+     * @default '11.16.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '11.15.0'
+    version: '11.16.0'
 };
 
 Object.assign(DefaultConfig, {

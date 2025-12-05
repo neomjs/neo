@@ -1,0 +1,12 @@
+:root .neo-theme-cyberpunk { // .neo-grid-header-button
+    --grid-header-button-background-color        : var(--cyber-bg-alt);
+    --grid-header-button-background-image        : none;
+    --grid-header-button-border-hover-color      : var(--cyber-cyan);
+    --grid-header-button-border-right-color      : var(--cyber-border);
+    --grid-header-button-border-right-hover-color: var(--cyber-cyan);
+    --grid-header-button-box-shadow-hover        : 0 0 10px var(--cyber-cyan);
+    --grid-header-button-color                   : var(--cyber-cyan);
+    --grid-header-button-font-size               : 11px;
+    --grid-header-button-glyph-color             : var(--cyber-cyan);
+    --grid-header-button-transition              : all 0.3s ease-out;
+}

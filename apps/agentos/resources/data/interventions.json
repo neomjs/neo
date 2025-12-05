@@ -1,0 +1,26 @@
+[
+    {
+        "id": "1",
+        "timestamp": "2025-12-04T10:42:01",
+        "message": "System initialized.",
+        "priority": "normal"
+    },
+    {
+        "id": "2",
+        "timestamp": "2025-12-04T10:42:05",
+        "message": "Neural Link established.",
+        "priority": "normal"
+    },
+    {
+        "id": "3",
+        "timestamp": "2025-12-04T10:45:12",
+        "message": "WARNING: Agent-007 deviation detected.",
+        "priority": "warning"
+    },
+    {
+        "id": "4",
+        "timestamp": "2025-12-04T10:45:15",
+        "message": "Auto-correction failed. Manual intervention required.",
+        "priority": "error"
+    }
+]

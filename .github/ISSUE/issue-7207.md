@@ -1,23 +1,24 @@
 ---
 id: 7207
 title: Enhance container.SortZone for Complex Layouts
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
 assignees:
   - tobiu
 createdAt: '2025-08-21T09:12:52Z'
-updatedAt: '2025-11-20T02:50:06Z'
+updatedAt: '2025-12-04T02:59:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7207'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-04T02:59:31Z'
 ---
 # Enhance container.SortZone for Complex Layouts
 
@@ -55,6 +56,14 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 
 This issue is stale because it has been open for 90 days with no activity.
 
+### @github-actions - 2025-12-04 02:57
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+### @github-actions - 2025-12-04 02:59
+
+❌ Tickets cannot be reopened. Created new ticket: #8020
+
 ## Activity Log
 
 - 2025-08-21 @tobiu assigned to @tobiu
@@ -64,4 +73,7 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-21 @tobiu referenced in commit `6f2a206` - "#7207 wip"
 - 2025-08-21 @tobiu referenced in commit `2e26e1f` - "#7207"
 - 2025-11-20 @github-actions added the `stale` label
+- 2025-12-04 @github-actions closed this issue
+- 2025-12-04 @github-actions closed this issue
+- 2025-12-04 @github-actions cross-referenced by #8020
 

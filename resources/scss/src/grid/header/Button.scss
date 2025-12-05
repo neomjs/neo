@@ -2,22 +2,32 @@
     align-items     : center;
     background-color: var(--grid-header-button-background-color);
     background-image: var(--grid-header-button-background-image);
+    border          : 1px solid transparent;
     border-radius   : 0;
-    border-width    : 0;
     color           : var(--grid-header-button-color);
     cursor          : pointer;
     display         : flex;
     flex-direction  : row;
     flex-shrink     : 0;
-    font-size       : 13px;
+    font-size       : var(--grid-header-button-font-size);
     font-weight     : 600;
     height          : 29px; // Webkit => Safari can not handle 100%
     justify-content : flex-end;
     margin          : 0;
+    transition      : var(--grid-header-button-transition);
     white-space     : nowrap;
 
     &:not(:last-child) {
-        border-right: 1px solid var(--grid-container-border-color);
+        border-right-color: var(--grid-header-button-border-right-color);
+    }
+
+    &:hover {
+        border-color: var(--grid-header-button-border-hover-color);
+        box-shadow  : var(--grid-header-button-box-shadow-hover);
+
+        &:not(:last-child) {
+            border-right-color: var(--grid-header-button-border-right-hover-color);
+        }
     }
 
     &.neo-locked {

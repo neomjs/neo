@@ -45,7 +45,6 @@ class Server extends Base {
 
     /**
      * Async initialization sequence.
-     * Replaces the main() function of the previous procedural implementation.
      * @returns {Promise<void>}
      */
     async initAsync() {

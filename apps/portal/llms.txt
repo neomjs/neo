@@ -148,13 +148,13 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 
 ## Demo Apps and Examples
 
-- [Neo.mjs Agent OS](https://neomjs.com/apps/agent-os/index.html)
+- [Neo.mjs Agent OS](https://neomjs.com/apps/agentos/index.html)
+- [Neo.mjs Neural Link Testbed](https://neomjs.com/apps/ai/neural-link/index.html)
 - [Colors Dashboard](https://neomjs.com/apps/colors/index.html)
 - [COVID-19 IN NUMBERS](https://neomjs.com/apps/covid/index.html)
 - [Email](https://neomjs.com/apps/email/index.html)
 - [Neo.mjs Finance Dashboard](https://neomjs.com/apps/finance/index.html)
 - [Form](https://neomjs.com/apps/form/index.html)
-- [MyApp](https://neomjs.com/apps/myapp/index.html)
 - [Neo.mjs](https://neomjs.com/apps/portal/index.html)
 - [Conduit](https://neomjs.com/apps/realworld/index.html)
 - [RealWorld2](https://neomjs.com/apps/realworld2/index.html)

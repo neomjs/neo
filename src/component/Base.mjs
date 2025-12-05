@@ -1568,7 +1568,7 @@ class Component extends Abstract {
             if (me.silentVdomUpdate) {
                 me.needsVdomUpdate = true
             } else if (me.parentId !== 'document.body') {
-                me.parent.updateDepth = 2;
+                me.parent.updateDepth = -1;
                 me.parent.update()
             } else {
                 !me.mounted && me.initVnode(true)

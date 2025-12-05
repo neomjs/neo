@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "11.15.0",
+    "version"    : "11.16.0",
     "description": "Neo.mjs: The first Agent Operating System for the web. A standalone, type-safe AI SDK combined with a multi-threaded, zero-build platform for building autonomous agents and desktop-class web apps.",
     "type"       : "module",
     "repository": {
@@ -17,6 +17,7 @@
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-stdio.mjs",
         "ai:mcp-server-knowledge-base" : "node ./ai/mcp/server/knowledge-base/mcp-stdio.mjs",
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-stdio.mjs",
+        "ai:mcp-server-neural-link"    : "node ./ai/mcp/server/neural-link/mcp-stdio.mjs",
         "ai:server"                    : "chroma run --path ./chroma-neo-knowledge-base",
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
@@ -167,6 +168,7 @@
         "webpack-dev-server"           : "^5.2.2",
         "webpack-hook-plugin"          : "^1.0.7",
         "webpack-node-externals"       : "^3.0.0",
+        "ws"                           : "^8.18.3",
         "yargs"                        : "^18.0.0",
         "zod"                          : "^3.25.76",
         "zod-to-json-schema"           : "^3.25.0"

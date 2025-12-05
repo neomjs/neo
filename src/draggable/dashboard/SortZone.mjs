@@ -1,3 +1,4 @@
+import NeoArray from '../../util/Array.mjs';
 import SortZone from '../container/SortZone.mjs';
 
 /**
@@ -20,7 +21,12 @@ class DashboardSortZone extends SortZone {
          * The CSS selector for the drag handle.
          * @member {String} dragHandleSelector='.neo-draggable'
          */
-        dragHandleSelector: '.neo-draggable'
+        dragHandleSelector: '.neo-draggable',
+        /**
+         * Add extra CSS selectors to the drag proxy root.
+         * @member {String[]} dragProxyExtraCls=[]
+         */
+        dragProxyExtraCls: []
     }
 
     /**
@@ -29,7 +35,8 @@ class DashboardSortZone extends SortZone {
     getDragProxyConfig() {
         const config = super.getDragProxyConfig();
 
-        config.cls = config.cls.filter(cls => !cls.includes('viewport'));
+        config.cls = config.cls.filter(cls => !cls.includes('neo-viewport'));
+        NeoArray.add(config.cls, this.dragProxyExtraCls);
 
         return config
     }
@@ -45,7 +52,7 @@ class DashboardSortZone extends SortZone {
      */
     moveTo(fromIndex, toIndex) {
         const ownerFromIndex = this.owner.items.indexOf(this.sortableItems[fromIndex]);
-        const ownerToIndex   = this.owner.items.indexOf(this.sortableItems[toIndex]);
+        const ownerToIndex = this.owner.items.indexOf(this.sortableItems[toIndex]);
 
         this.owner.moveTo(ownerFromIndex, ownerToIndex);
     }

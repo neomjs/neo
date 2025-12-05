@@ -1,0 +1,8 @@
+{
+    "appPath"         : "apps/agentos/childapps/swarm/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "themes"          : ["neo-theme-dark", "neo-theme-light", "neo-theme-neo-light"],
+    "useSharedWorkers": true
+}

@@ -2,7 +2,6 @@ import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import SessionService           from './SessionService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
@@ -208,7 +207,7 @@ class HealthService extends Base {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
             session  : {
-                currentId: SessionService.currentSessionId
+                currentId: Neo.ns('Neo.ai.mcp.server.memory-core.services.SessionService', false)?.currentSessionId
             },
             database : {
                 process: DatabaseLifecycleService.getDatabaseStatus(),

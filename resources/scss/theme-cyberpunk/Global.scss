@@ -1,0 +1,25 @@
+:root .neo-theme-cyberpunk {
+    --neo-background-color: #0d1117;
+    --neo-color           : #c9d1d9;
+    --neo-disabled-opacity: 0.5;
+    --neo-font-family     : 'Courier New', monospace;
+    --neo-font-smoothing  : antialiased;
+
+    // Cyberpunk Specifics
+    --cyber-cyan          : #00d2ff;
+    --cyber-gold          : #f1c40f;
+    --cyber-red           : #ff4757;
+    --cyber-bg            : #0d1117;
+    --cyber-bg-alt        : #161b22;
+    --cyber-text          : #c9d1d9;
+    --cyber-border        : #30363d;
+    --cyber-glow          : 0 0 10px var(--cyber-cyan);
+
+    p {
+        color      : inherit;
+        font-family: inherit;
+        font-size  : inherit;
+        font-weight: inherit;
+        line-height: inherit;
+    }
+}

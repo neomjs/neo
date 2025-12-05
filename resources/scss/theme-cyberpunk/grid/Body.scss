@@ -1,0 +1,15 @@
+:root .neo-theme-cyberpunk { // .neo-grid-body
+    --grid-cell-background-color-hover                    : rgba(0, 210, 255, 0.1);
+    --grid-cell-ismodified-color                          : var(--cyber-gold);
+    --grid-cell-ismodified-size                           : 10px;
+    --grid-cellmodel-selected-cell-background-color       : var(--cyber-cyan);
+    --grid-cellmodel-selected-cell-color                  : #000;
+    --grid-cellmodel-selected-column-cell-background-color: rgba(0, 210, 255, 0.2);
+    --grid-cellmodel-selected-column-cell-color           : #fff;
+    --grid-cellrowmodel-selected-cell-background-color    : var(--cyber-cyan);
+    --grid-cellrowmodel-selected-cell-color               : #000;
+    --grid-cellrowmodel-selected-row-cell-background-color: rgba(0, 210, 255, 0.2);
+    --grid-cellrowmodel-selected-row-cell-color           : #fff;
+    --grid-rowmodel-selected-cell-background-color        : var(--cyber-cyan);
+    --grid-rowmodel-selected-cell-color                   : #000;
+}

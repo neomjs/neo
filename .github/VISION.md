@@ -2,7 +2,7 @@
 
 Our vision is to build the platform for the next generation of web applications, **democratizing development** by making
 elite performance and architectural patterns accessible to all. We are building towards a future where the distinction
-between web and native applications disappears, and where the **interface for Humans and the interface for Agents are one and the same.**
+between web and native applications disappears, and where the **interface for Humans and the interface for Agents are one and the same.** This convergence empowers not just developers, but **every user** to reshape their software tools to fit their needs, simply by asking.
 
 This vision stands on four core pillars:
 
@@ -35,8 +35,7 @@ This principle radically reduces complexity and enables a cohesive ecosystem of 
 We are building the first platform architected for true AI collaboration. Our goal is to use AI as the great equalizer,
 breaking down the barriers to contributing to and using a sophisticated framework. This is achieved through **Context Engineering**: building an AI-native ecosystem where the agent possesses **persistent memory** of past interactions and **deep semantic knowledge** of the codebase. This allows the AI to explain complex source code, guide new developers, and make meaningful contributions on its own. **Our architecture is inherently AI-native because it is built on a JSON Blueprint.** Instead of JSX, we use a clean, serializable structure for defining component trees and
 the VDOM itself. This makes the entire application legible and manipulable in the native language of Large Language Models
-(LLMs), allowing an AI to orchestrate complex, multi-window interfaces and turning it from a simple code-completer into a
-true architectural partner. **The end game is a development team where the AI is a proactive senior partner, mentoring
+(LLMs). This allows an AI to not just write code, but to **orchestrate the application at runtime**—injecting entire component trees or modifying state on the fly without a reload. **The end game is a development team where the AI is a proactive senior partner, mentoring
 developers and automating entire verticals of the workflow.**
 
 ### 4. The Agent Operating System (The Corporate HQ for AI)
@@ -49,6 +48,7 @@ a native Neo.mjs interface. This is our "Killer App":
 - **The "Headless" Workforce:** We are moving beyond black-box CLI wrappers. We provide a native **Headless Agent SDK** that spawns
   lightweight Node.js processes. These agents act as specialized employees—Strategic "CEOs" defining Epics, Tactical "PMs" breaking them down into tickets,
   and Execution "Drones" submitting PRs—communicating asynchronously via a **Ticket-Driven Protocol**.
+- **The "Neural Link" (Runtime Orchestration):** We are bridging the gap between the Agent (Node.js) and the App (Browser). Agents can connect to running applications to inspect state, **diagnose errors**, recover crashed components, or evolve the UI in real-time based on user voice commands ("Self-Evolving Apps").
 - **The Feedback Loop:** Because the Command Center is built with Neo.mjs, and the Agents write Neo.mjs, the platform
   is recursive. Agents can improve their own control interface, creating a self-reinforcing cycle of improvement.
 **The end game is a new paradigm where you are not just a coder, but the Architect and CEO of an intelligent, automated software organization, managing it through a powerful, spatial interface built on the very technology you are deploying.**
