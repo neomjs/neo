@@ -40,7 +40,6 @@ class InterventionPanel extends Panel {
         items: [{
             module : GridContainer,
             store  : Interventions,
-            style  : {margin: '10px'},
             columns: [{
                 dataField: 'timestamp',
                 text     : 'Time',
