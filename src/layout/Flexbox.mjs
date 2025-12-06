@@ -151,8 +151,8 @@ class Flexbox extends Base {
         let style = item.wrapperStyle,
             flex  = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
 
-        if (flex === 1) {
-            flex = '1 1 auto'
+        if (Neo.isNumber(flex)) {
+            flex = `${flex} 1 0%`
         }
 
         style.flex = flex;
