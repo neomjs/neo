@@ -66,11 +66,12 @@ class Viewport extends BaseViewport {
 
             items: [{
                 module   : StrategyPanel,
+                flex     : 2,
                 reference: 'strategy-panel'
             }, {
                 module   : Panel,
                 cls      : ['agent-panel-swarm'],
-                flex     : 1,
+                flex     : 5,
                 reference: 'swarm-panel',
                 headers  : [{
                     dock: 'top',
@@ -88,7 +89,7 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 module   : InterventionPanel,
-                flex     : 1,
+                flex     : 3,
                 reference: 'intervention-panel'
             }]
         }]
