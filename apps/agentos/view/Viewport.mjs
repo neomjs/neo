@@ -3,6 +3,7 @@ import Dashboard          from '../../../src/dashboard/Container.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import Blackboard         from './Blackboard.mjs';
 import InterventionPanel  from './InterventionPanel.mjs';
+import StrategyPanel      from './StrategyPanel.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -64,35 +65,8 @@ class Viewport extends BaseViewport {
             },
 
             items: [{
-                module   : Panel,
-                cls      : ['agent-panel-strategy'],
-                flex     : 1,
-                reference: 'strategy-panel',
-                headers  : [{
-                    dock: 'top',
-                    cls : ['neo-draggable'],
-                    text: 'Strategy Dashboard'
-                }],
-                items    : [{
-                    ntype    : 'component',
-                    cls      : ['agent-kpi-container'],
-                    reference: 'strategy',
-                    style    : {padding: '20px', backgroundColor: 'var(--agent-bg-dark)'},
-                    html     : `
-                        <div class="agent-kpi-card">
-                            <div class="agent-kpi-value">85%</div>
-                            <div class="agent-kpi-label">Velocity</div>
-                        </div>
-                        <div class="agent-kpi-card">
-                            <div class="agent-kpi-value">12</div>
-                            <div class="agent-kpi-label">Active Epics</div>
-                        </div>
-                        <div class="agent-kpi-card">
-                            <div class="agent-kpi-value">98.5%</div>
-                            <div class="agent-kpi-label">Uptime</div>
-                        </div>
-                    `
-                }]
+                module   : StrategyPanel,
+                reference: 'strategy-panel'
             }, {
                 module   : Panel,
                 cls      : ['agent-panel-swarm'],
