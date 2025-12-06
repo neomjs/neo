@@ -1,4 +1,8 @@
 .agent-panel-strategy.neo-panel {
+    &.neo-dragproxy {
+        border: none;
+    }
+
     .agent-kpi-dashboard {
         background-color: transparent;
         padding         : 20px;

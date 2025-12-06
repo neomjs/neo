@@ -44,7 +44,7 @@ class StrategyPanel extends Panel {
         items: [{
             module           : Dashboard,
             cls              : ['agent-kpi-dashboard'],
-            dragProxyExtraCls: ['agent-os-viewport', 'neo-viewport'], // Ensure styles carry over to popup proxy
+            dragProxyExtraCls: ['agent-panel-strategy', 'neo-panel'], // Ensure styles carry over to popup proxy
             reference        : 'strategy',
             layout           : {ntype: 'hbox', align: 'stretch'},
 
