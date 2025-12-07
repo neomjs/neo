@@ -119,7 +119,7 @@ class DomEvent extends Base {
                                 // we do not want delegation for custom main.addon.ResizeObserver events
                                 delegationTargetId = data.id === component.id ? data.id : false
                             } else {
-                                delegationTargetId = me.verifyDelegationPath(listener, data.path)
+                                delegationTargetId = me.verifyDelegationPath(listener, data.path, path)
                             }
 
                             if (delegationTargetId !== false) {
@@ -453,9 +453,10 @@ class DomEvent extends Base {
     /**
      * @param {Object} listener
      * @param {Array} path
+     * @param {Array} [componentPath]
      * @returns {Boolean|String} true in case the delegation string matches the event path
      */
-    verifyDelegationPath(listener, path) {
+    verifyDelegationPath(listener, path, componentPath) {
         let {delegate} = listener,
             j          = 0,
             pathLen    = path.length,
@@ -499,9 +500,26 @@ class DomEvent extends Base {
         }
 
         // ensure the delegation path is a child of the owner components root node
-        for (; j < pathLen; j++) {
-            if (path[j].id === listener.vnodeId) {
+        for (let k = j; k < pathLen; k++) {
+            if (path[k].id === listener.vnodeId) {
                 return targetId
+            }
+        }
+
+        // If DOM traversal failed, check the logical component path (Virtual Bubbling)
+        if (componentPath) {
+            for (let k = j; k < pathLen; k++) {
+                let id = path[k].id;
+
+                if (componentPath.includes(id)) {
+                    let ancestorIndex = componentPath.indexOf(id),
+                        listenerIndex = componentPath.indexOf(listener.vnodeId);
+
+                    // Ensure the component found in the DOM path is "below" or same as the listener in logical tree
+                    if (listenerIndex > -1 && ancestorIndex > -1 && ancestorIndex <= listenerIndex) {
+                        return targetId
+                    }
+                }
             }
         }
 
