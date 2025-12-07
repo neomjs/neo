@@ -49,6 +49,7 @@ class Container extends BaseContainer {
                     allowOverdrag      : true,
                     appName            : me.appName,
                     boundaryContainerId: me.id,
+                    dragProxyConfig    : me.dragProxyConfig,
                     dragProxyExtraCls  : me.dragProxyExtraCls,
                     enableProxyToPopup : true,
                     owner              : me,
