@@ -50,11 +50,6 @@ class SortZone extends DragZone {
          */
         indexMap: null,
         /**
-         * @member {String|null} itemMargin=null
-         * @protected
-         */
-        itemMargin: null,
-        /**
          * @member {Array|null} itemRects=null
          * @protected
          */
@@ -423,7 +418,7 @@ class SortZone extends DragZone {
                 item.wrapperStyle = Object.assign(itemStyle, {
                     height  : `${rect.height}px`,
                     left    : `${rect.left}px`,
-                    margin  : me.itemMargin,
+                    margin  : '0px',
                     position: 'absolute',
                     top     : `${rect.top}px`,
                     width   : `${rect.width}px`
@@ -489,13 +484,17 @@ class SortZone extends DragZone {
             rect2Copy = rect2.clone();
 
         if (me.sortDirection === 'horizontal') {
+            const gap = rect2Copy.x - (rect1Copy.x + rect1Copy.width);
+
             rect1.width = rect2Copy.width;
-            rect2.x     = rect1Copy.x + rect2Copy.width;
+            rect2.x     = rect1Copy.x + rect2Copy.width + gap;
             rect2.width = rect1Copy.width
         } else {
+            const gap = rect2Copy.y - (rect1Copy.y + rect1Copy.height);
+
             rect1.height = rect2Copy.height;
             rect2.height = rect1Copy.height;
-            rect2.y      = rect1Copy.y + rect2Copy.height;
+            rect2.y      = rect1Copy.y + rect2Copy.height + gap;
         }
 
         tmp         = map[index1];
