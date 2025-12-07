@@ -360,11 +360,21 @@ class Component extends Manager {
         let me            = this,
             componentPath = [],
             i             = 0,
-            len           = path?.length || 0;
+            len           = path?.length || 0,
+            component, id;
 
         for (; i < len; i++) {
-            if (me.has(path[i]) || me.wrapperNodes.get(path[i])) {
-                componentPath.push(path[i])
+            id = path[i];
+
+            if (me.has(id) || me.wrapperNodes.get(id)) {
+                component = me.get(id);
+
+                while (component) {
+                    componentPath.push(component.id);
+                    component = component.parent
+                }
+
+                break
             }
         }
 
