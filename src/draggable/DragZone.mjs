@@ -1,4 +1,5 @@
 import Base               from '../core/Base.mjs';
+import Component          from '../component/Base.mjs';
 import DragProxyComponent from './DragProxyComponent.mjs';
 import DragProxyContainer from './DragProxyContainer.mjs';
 import NeoArray           from '../util/Array.mjs';
@@ -216,7 +217,7 @@ class DragZone extends Base {
             isContainer = proxyConfig.module === DragProxyContainer,
             vdom        = proxyConfig.vdom,
             clone       = !isContainer && VDomUtil.clone(vdom ? vdom : me.dragElement),
-            config;
+            config, proxy;
 
         config = {
             module          : DragProxyComponent,
@@ -229,26 +230,13 @@ class DragZone extends Base {
         };
 
         if (isContainer) {
-            let index = me.owner.items.indexOf(component);
+            // We use manual deltas to move the component, so the proxy VDOM starts empty
+            config.items           = [];
+            config.parentComponent = me.owner;
+            config.width           = `${data.width}px`;
 
-            me.dragPlaceholder = Neo.create({
-                module: Base, // Use Base component for placeholder
-                flex  : component.flex,
-                style : {
-                    height    : `${data.height}px`,
-                    visibility: 'hidden',
-                    width     : `${data.width}px`
-                }
-            });
-
-            // Ensure we copy relevant layout configs that might affect size
-            if (component.minHeight) me.dragPlaceholder.minHeight = component.minHeight;
-            if (component.minWidth)  me.dragPlaceholder.minWidth  = component.minWidth;
-
-            me.owner.insert(index, me.dragPlaceholder);
-
-            config.items = [component];
-            config.width = `${data.width}px`;
+            config.cls = config.cls || [];
+            config.cls.push('neo-draggable');
         } else {
             config.vdom = me.useProxyWrapper ? {cn: [clone]} : clone;
 
@@ -278,8 +266,53 @@ class DragZone extends Base {
         });
 
         if (createComponent) {
-            return me.dragProxy = Neo.create(config)
-        }H
+            if (isContainer) {
+                config.autoInitVnode = true;
+                config.autoMount     = true
+            }
+
+            me.dragProxy = proxy = Neo.create(config);
+
+            if (isContainer) {
+                await proxy.mountedPromise;
+
+                me.dragPlaceholder = Neo.create({
+                    module: Component,
+                    flex  : component.flex,
+                    style : {height: `${data.height}px`, visibility: 'hidden', width: `${data.width}px`}
+                });
+
+                // Copy layout configs
+                if (component.minHeight) me.dragPlaceholder.minHeight = component.minHeight;
+                if (component.minWidth)  me.dragPlaceholder.minWidth  = component.minWidth;
+
+                me.dragStartIndex = me.owner.items.indexOf(component);
+
+                // Fetch the vnode from the vdom worker, without mounting it.
+                const {vnode} = await Neo.vdom.Helper.create({vdom: me.dragPlaceholder.vdom});
+
+                // Manual DOM manipulation to preserve Component state (e.g., Canvas or Charts)
+                await Neo.applyDeltas(me.windowId, [{
+                    action  : 'insertNode',
+                    index   : me.dragStartIndex,
+                    parentId: me.owner.getVdomItemsRoot().id,
+                    vnode
+                }, {
+                    action  : 'moveNode',
+                    id      : component.id,
+                    index   : 0,
+                    parentId: proxy.id
+                }]);
+
+                me.dragPlaceholder.set({
+                    vnode,
+                    mounted         : true,
+                    vnodeInitialized: true
+                })
+            }
+
+            return proxy
+        }
 
         return config
     }
@@ -292,7 +325,7 @@ class DragZone extends Base {
             id = me.dragProxy.id;
 
         me.timeout(me.moveInMainThread ? 0 : 30).then(() => {
-            Neo.applyDeltas(me.windowId, [{action: 'removeNode', id: id}])
+            Neo.applyDeltas(me.windowId, [{action: 'removeNode', id}])
         });
 
         me.dragProxy.destroy()
@@ -311,17 +344,8 @@ class DragZone extends Base {
 
         if (me.dragProxy) {
             if (me.dragPlaceholder) {
-                let component = me.dragProxy.items[0],
-                    index     = owner.items.indexOf(me.dragPlaceholder);
-
-                owner.remove(me.dragPlaceholder, true);
-
-                if (index !== -1) {
-                    owner.insert(index, component);
-                } else {
-                    owner.add(component);
-                }
-                me.dragPlaceholder = null;
+                me.dragPlaceholder.destroy();
+                me.dragPlaceholder = null
             }
 
             me.destroyDragProxy();
@@ -330,6 +354,7 @@ class DragZone extends Base {
 
         Object.assign(me, {
             dragElementRect  : null,
+            dragStartIndex   : null,
             offsetX          : 0,
             offsetY          : 0,
             scrollContainerId: null

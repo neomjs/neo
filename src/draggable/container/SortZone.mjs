@@ -158,6 +158,25 @@ class SortZone extends DragZone {
         await me.timeout(10);
 
         if (owner.sortable) {
+            if (me.dragPlaceholder) {
+                const
+                    component = me.dragComponent,
+                    index     = me.sortableItems.indexOf(me.dragPlaceholder);
+
+                if (component && index > -1) {
+                    // Manual DOM restoration
+                    await Neo.applyDeltas(me.windowId, [{
+                        action  : 'moveNode',
+                        id      : component.id,
+                        index   : index, // Visually correct index (where placeholder is)
+                        parentId: owner.getVdomItemsRoot().id
+                    }, {
+                        action: 'removeNode',
+                        id    : me.dragPlaceholder.id
+                    }])
+                }
+            }
+
             ownerStyle.height   = me.ownerStyle.height    || null;
             ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
             ownerStyle.width    = me.ownerStyle.width     || null;
@@ -184,10 +203,18 @@ class SortZone extends DragZone {
             });
 
             if (me.startIndex !== me.currentIndex) {
-                me.moveTo(
-                    me.owner.items.indexOf(me.sortableItems[me.startIndex]),
-                    me.owner.items.indexOf(me.sortableItems[me.currentIndex])
-                );
+                let fromIndex, toIndex;
+
+                if (me.dragPlaceholder) {
+                    const component = me.dragComponent;
+                    fromIndex = me.owner.items.indexOf(component);
+                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+                } else {
+                    fromIndex = me.owner.items.indexOf(me.sortableItems[me.startIndex]);
+                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+                }
+
+                me.moveTo(fromIndex, toIndex);
             }
 
             Object.assign(me, {
@@ -380,6 +407,8 @@ class SortZone extends DragZone {
                 startIndex             : index
             });
 
+            me.dragComponent = draggedItem;
+
             await me.dragStart(data);
 
             if (me.dragPlaceholder) {
@@ -525,9 +554,25 @@ class SortZone extends DragZone {
      * @param {Object} rect
      */
     updateItem(index, rect) {
-        let me             = this,
-            item           = me.owner.items[me.indexMap[index]],
-            {wrapperStyle} = item;
+        let me          = this,
+            mappedIndex = me.indexMap[index],
+            item;
+
+        if (mappedIndex === -1) {
+             if (me.dragPlaceholder) {
+                 item = me.dragPlaceholder;
+             } else {
+                 return
+             }
+        } else {
+             item = me.owner.items[mappedIndex];
+
+             if (me.dragPlaceholder && item === me.dragComponent) {
+                 item = me.dragPlaceholder
+             }
+        }
+
+        let {wrapperStyle} = item;
 
         wrapperStyle.left = `${rect.left}px`;
         wrapperStyle.top  = `${rect.top}px`;
