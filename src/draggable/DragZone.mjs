@@ -245,7 +245,6 @@ class DragZone extends Base {
             if (component.minHeight) me.dragPlaceholder.minHeight = component.minHeight;
             if (component.minWidth)  me.dragPlaceholder.minWidth  = component.minWidth;
 
-            me.owner.remove(component, false);
             me.owner.insert(index, me.dragPlaceholder);
 
             config.items = [component];
@@ -315,7 +314,6 @@ class DragZone extends Base {
                 let component = me.dragProxy.items[0],
                     index     = owner.items.indexOf(me.dragPlaceholder);
 
-                me.dragProxy.remove(component, false);
                 owner.remove(me.dragPlaceholder, true);
 
                 if (index !== -1) {
