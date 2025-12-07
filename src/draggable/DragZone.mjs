@@ -1,5 +1,6 @@
 import Base               from '../core/Base.mjs';
 import DragProxyComponent from './DragProxyComponent.mjs';
+import DragProxyContainer from './DragProxyContainer.mjs';
 import NeoArray           from '../util/Array.mjs';
 import Observable         from '../core/Observable.mjs';
 import VDomUtil           from '../util/VDom.mjs';
@@ -208,11 +209,14 @@ class DragZone extends Base {
      * @returns {Object|Neo.draggable.DragProxyComponent}
      */
     async createDragProxy(data, createComponent=true) {
-        let me        = this,
-            component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
-            rect      = me.dragElementRect,
-            vdom      = me.dragProxyConfig?.vdom,
-            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement),
+        let me          = this,
+            component   = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
+            rect        = me.dragElementRect,
+            proxyConfig = me.dragProxyConfig || {},
+            isContainer = proxyConfig.module === DragProxyContainer,
+            vdom        = proxyConfig.vdom,
+            clone       = !isContainer && VDomUtil.clone(vdom ? vdom : me.dragElement),
+            config;
 
         config = {
             module          : DragProxyComponent,
@@ -221,19 +225,44 @@ class DragZone extends Base {
             parentId        : me.proxyParentId,
             windowId        : me.windowId,
 
-            ...me.dragProxyConfig,
-
-            vdom: me.useProxyWrapper ? {cn: [clone]} : clone // we want to override dragProxyConfig.vdom if needed
+            ...proxyConfig
         };
+
+        if (isContainer) {
+            let index = me.owner.items.indexOf(component);
+
+            me.dragPlaceholder = Neo.create({
+                module: Base, // Use Base component for placeholder
+                flex  : component.flex,
+                style : {
+                    height    : `${data.height}px`,
+                    visibility: 'hidden',
+                    width     : `${data.width}px`
+                }
+            });
+
+            // Ensure we copy relevant layout configs that might affect size
+            if (component.minHeight) me.dragPlaceholder.minHeight = component.minHeight;
+            if (component.minWidth)  me.dragPlaceholder.minWidth  = component.minWidth;
+
+            me.owner.remove(component, false);
+            me.owner.insert(index, me.dragPlaceholder);
+
+            config.items = [component];
+            config.width = `${data.width}px`;
+        } else {
+            config.vdom = me.useProxyWrapper ? {cn: [clone]} : clone;
+
+            if (clone.cls && !me.useProxyWrapper) {
+                config.cls = config.cls || [];
+                config.cls.push(...clone.cls)
+            }
+        }
 
         config.cls = config.cls || [];
 
         if (component) {
             config.cls.push(component.getTheme())
-        }
-
-        if (clone.cls && !me.useProxyWrapper) {
-            config.cls.push(...clone.cls)
         }
 
         if (me.addDragProxyCls && config.cls) {
@@ -251,7 +280,7 @@ class DragZone extends Base {
 
         if (createComponent) {
             return me.dragProxy = Neo.create(config)
-        }
+        }H
 
         return config
     }
@@ -282,6 +311,21 @@ class DragZone extends Base {
         owner.cls = cls;
 
         if (me.dragProxy) {
+            if (me.dragPlaceholder) {
+                let component = me.dragProxy.items[0],
+                    index     = owner.items.indexOf(me.dragPlaceholder);
+
+                me.dragProxy.remove(component, false);
+                owner.remove(me.dragPlaceholder, true);
+
+                if (index !== -1) {
+                    owner.insert(index, component);
+                } else {
+                    owner.add(component);
+                }
+                me.dragPlaceholder = null;
+            }
+
             me.destroyDragProxy();
             me.dragProxy = null
         }

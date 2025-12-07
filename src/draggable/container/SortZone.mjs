@@ -382,6 +382,14 @@ class SortZone extends DragZone {
 
             await me.dragStart(data);
 
+            if (me.dragPlaceholder) {
+                const placeholderIndex = sortableItems.indexOf(draggedItem);
+                if (placeholderIndex > -1) {
+                    sortableItems[placeholderIndex] = me.dragPlaceholder;
+                }
+                me.dragElement = me.dragPlaceholder.vdom;
+            }
+
             sortableItems.forEach((item, i) => {
                 indexMap[i] = owner.items.indexOf(item);
 
@@ -427,9 +435,16 @@ class SortZone extends DragZone {
 
             await me.timeout(5);
 
-            itemStyle = draggedItem.wrapperStyle || {};
-            itemStyle.visibility = 'hidden';
-            draggedItem.wrapperStyle = itemStyle;
+            // If we have a placeholder, the original item is already hidden/moved.
+            // But we might want to ensure the placeholder (which is now in sortableItems) matches expectations?
+            // The logic below originally hid the draggedItem.
+            // If we use placeholder, draggedItem is in proxy (visible). Placeholder is hidden.
+            // me.dragPlaceholder logic in DragZone already set it to visibility: hidden.
+            if (!me.dragPlaceholder) {
+                itemStyle = draggedItem.wrapperStyle || {};
+                itemStyle.visibility = 'hidden';
+                draggedItem.wrapperStyle = itemStyle;
+            }
         }
     }
 
