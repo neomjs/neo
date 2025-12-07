@@ -39,6 +39,11 @@ const globalDomEvents = [
 ];
 
 /**
+ * The DomEvent Manager is responsible for distributing DOM events to the matching components.
+ * It supports event delegation and "Logical Component Bubbling", allowing events to bubble up
+ * the logical component hierarchy (e.g. `component.parent`) even if the DOM hierarchy is
+ * disconnected (e.g. Portals, DragProxies, Multi-Window setups).
+ *
  * @class Neo.manager.DomEvent
  * @extends Neo.core.Base
  * @singleton
@@ -83,6 +88,11 @@ class DomEvent extends Base {
     }
 
     /**
+     * Iterates the event path to find matching listeners on components.
+     * It utilizes `ComponentManager.getParentPath()` to construct a logical component path,
+     * ensuring events bubble to logical ancestors (like a Dashboard owning a DragProxy)
+     * even if they are not physical ancestors in the DOM.
+     *
      * @param {Object} event
      * @protected
      */
@@ -451,10 +461,17 @@ class DomEvent extends Base {
     }
 
     /**
+     * Verifies if the event target (or a delegate matching node) is a descendant of the listener's component.
+     * This check supports two modes:
+     * 1. **DOM Ancestry (Standard):** Checks if the target is physically inside the listener's DOM node.
+     * 2. **Logical Ancestry (Fallback):** If the DOM check fails, it checks the `componentPath` to see if the
+     *    target belongs to a component that is logically a descendant of the listener component.
+     *    This is crucial for handling events from detached components (Portals/Proxies).
+     *
      * @param {Object} listener
-     * @param {Array} path
-     * @param {Array} [componentPath]
-     * @returns {Boolean|String} true in case the delegation string matches the event path
+     * @param {Array} path            The raw DOM path from the event
+     * @param {Array} [componentPath] The logical component ID path
+     * @returns {Boolean|String} true/targetId in case the delegation string matches the event path
      */
     verifyDelegationPath(listener, path, componentPath) {
         let {delegate} = listener,
