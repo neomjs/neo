@@ -122,11 +122,12 @@ class Container extends Component {
     /**
      * Inserts an item or array of items at the last index
      * @param {Object|Array} item
+     * @param {Boolean} [silent=false]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    add(item) {
+    add(item, silent=false) {
         let me = this;
-        return me.insert(me.items ? me.items.length : 0, item)
+        return me.insert(me.items ? me.items.length : 0, item, silent)
     }
 
     /**
