@@ -57,12 +57,14 @@ class Viewport extends BaseViewport {
                 module: Toolbar,
                 flex  : 'none',
                 items :['->', {
-                    module : Button,
-                    handler: 'onNewFileButtonClick',
-                    iconCls: 'fa fa-plus',
-                    text   : 'New File'
+                    module   : Button,
+                    handler  : 'onNewFileButtonClick',
+                    iconCls  : 'fa fa-plus',
+                    reference: 'new-file-button',
+                    text     : 'New File'
                 }, {
                     module : Button,
+                    handler: 'onSaveButtonClick',
                     iconCls: 'fa fa-cloud-upload',
                     style  : {marginLeft: '.5em'},
                     text   : 'Save'
@@ -72,9 +74,10 @@ class Viewport extends BaseViewport {
                 flex  : 1,
                 layout: {ntype: 'vbox', align: 'center', pack: 'center'},
                 items: [{
-                    module: LivePreview,
+                    module   : LivePreview,
                     listeners: {editorChange: 'onEditorChange'},
-                    style : {height: '85%', width: '85%'},
+                    reference: 'code-live-preview',
+                    style    : {height: '85%', width: '85%'},
                     value: [
                         "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
                         "",

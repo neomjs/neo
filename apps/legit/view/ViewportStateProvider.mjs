@@ -15,7 +15,12 @@ class ViewportStateProvider extends Provider {
         /**
          * @member {Object} data
          */
-        data: {},
+        data: {
+            /**
+             * @member {String|null} data.currentFile=null
+             */
+            currentFile: null
+        },
         /**
          * @member {Object} stores
          */

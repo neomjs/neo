@@ -54,19 +54,53 @@ class ViewportController extends Component {
             // publicKey: process.env.NEXT_PUBLIC_LEGIT_PUBLIC_KEY,
         });
 
+        await legitFs.writeFile(`${me.path}/Helix.mjs`, [
+            "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
+            "",
+            "class MainView extends Viewport {",
+            "    static config = {",
+            "        className           : 'Portal.view.MultiWindowHelix',",
+            "        showGitHubStarButton: false,",
+            "        theme               : 'neo-theme-dark'",
+            "    }",
+            "}",
+            "",
+            "MainView = Neo.setupClass(MainView);"
+        ].join('\n'));
+
+        await legitFs.writeFile(`${me.path}/Gallery.mjs`, [
+            "import Viewport from '../../examples/component/multiWindowCoronaGallery/Viewport.mjs';",
+            "",
+            "class MainView extends Viewport {",
+            "    static config = {",
+            "        className           : 'Portal.view.MultiWindowHelix',",
+            "        showGitHubStarButton: false,",
+            "        theme               : 'neo-theme-dark'",
+            "    }",
+            "}",
+            "",
+            "MainView = Neo.setupClass(MainView);"
+        ].join('\n'));
+
         setInterval(me.poll.bind(me), me.pollingInterval);
     }
 
     /**
      * @param {Object} data
      */
-    onAddFileDialogSave(data) {
+    async onAddFileDialogSave(data) {
         const
             me        = this,
             dialog    = me.addDialog,
-            textField = dialog.getReference('filename');
+            textField = dialog.getReference('filename'),
+            filePath  = `/.legit/branches/anonymous/${textField.value}`;
 
-        console.log('onAddFileDialogSave', textField.value)
+        dialog.hide();
+
+        console.log('onAddFileDialogSave', textField.value);
+        await legitFs.writeFile(filePath, '');
+
+        me.setState({currentFile: filePath});
     }
 
     /**
@@ -96,12 +130,15 @@ class ViewportController extends Component {
             button      = data.component,
             {appName, theme, windowId} = button;
 
+        button.disabled = true;
+
         if (!addDialog) {
             import('./AddFileDialog.mjs').then(module => {
                 me.addDialog = Neo.create({
                     module         : module.default,
                     animateTargetId: button.id,
                     appName,
+                    listeners      : {hide: data => {button.disabled = false}},
                     parentComponent: me.component,
                     theme,
                     windowId
@@ -110,6 +147,14 @@ class ViewportController extends Component {
         } else {
             addDialog.show()
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSaveButtonClick(data) {
+        const livePreview = this.getReference('code-live-preview');
+        console.log('onSaveButtonClick', this.getState('currentFile'), livePreview.value);
     }
 
     /**
@@ -170,15 +215,16 @@ class ViewportController extends Component {
             console.log('TREE DELTA:', treeDelta);
             for (const deletedEntry of treeDelta.deleted) {
                 console.log('Deleted FROM TREE: ' + deletedEntry);
-                // TODO delete from tree store
+                fileStore.remove(deletedEntry)
             }
 
             for (const addedEntry of treeDelta.added) {
-
-                // const newItem = await legitFs.readFile(path + '/' + addedEntry, 'utf8');
-
                 console.log('Added From Tree:' + addedEntry);
-                // TODO add new item to tree store
+                fileStore.add({
+                    id      : addedEntry,
+                    name    : addedEntry,
+                    parentId: null
+                })
             }
 
             for (const modifiedEntry of treeDelta.modified) {

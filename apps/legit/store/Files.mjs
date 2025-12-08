@@ -15,9 +15,7 @@ class Files extends Store {
         /**
          * @member {Neo.data.Model} model=FileModel
          */
-        model: FileModel,
-        url: Neo.config.basePath + 'apps/legit/resources/data/tree.json',
-        autoLoad: true
+        model: FileModel
     }
 }
 

@@ -41,7 +41,8 @@ class AddFileDialog extends Dialog {
             items : [{
                 module   : TextField,
                 labelText: 'File Path',
-                reference: 'filename'
+                reference: 'filename',
+                value    : 'myFile'
             }]
         }, {
             module: Toolbar,
