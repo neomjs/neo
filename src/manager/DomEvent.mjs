@@ -4,6 +4,7 @@ import FocusManager     from './Focus.mjs';
 import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import VDomUtil         from '../util/VDom.mjs';
+import VNodeUtil        from '../util/VNode.mjs';
 
 const eventConfigKeys = [
     'bubble',
@@ -516,24 +517,32 @@ class DomEvent extends Base {
             }
         }
 
-        // ensure the delegation path is a child of the owner components root node
+        // Phase 1: Physical Boundary Check (The Fast Path)
+        // Ensure the delegation path is a child of the owner component's root node in the physical DOM.
+        // This covers standard inline components and is O(N).
         for (let k = j; k < pathLen; k++) {
             if (path[k].id === listener.vnodeId) {
                 return targetId
             }
         }
 
-        // If DOM traversal failed, check the logical component path (Virtual Bubbling)
+        // Phase 2: Logical VNode Verification (The Fallback)
+        // If the physical check fails, we might be dealing with a "logically bubbled" event
+        // (e.g. from a detached DragProxy). We must verify that the target node actually exists
+        // within the listener's logical VNode tree.
         if (componentPath) {
-            for (let k = j; k < pathLen; k++) {
-                let id = path[k].id;
+            let listenerComponent = Neo.getComponent(listener.ownerId),
+                listenerVNode;
 
-                if (componentPath.includes(id)) {
-                    let ancestorIndex = componentPath.indexOf(id),
-                        listenerIndex = componentPath.indexOf(listener.vnodeId);
+            if (listenerComponent) {
+                // Find the listener's specific VNode within its component's VNode tree.
+                // Note: VNodeUtil.getById() resolves component references, allowing us to
+                // "tunnel" into child components if the listener is deep in the structure.
+                listenerVNode = VNodeUtil.getById(listenerComponent.vnode, listener.vnodeId);
 
-                    // Ensure the component found in the DOM path is "below" or same as the listener in logical tree
-                    if (listenerIndex > -1 && ancestorIndex > -1 && ancestorIndex <= listenerIndex) {
+                if (listenerVNode) {
+                    // Verify if the delegation target exists logically within the listener's scope.
+                    if (VNodeUtil.getById(listenerVNode, targetId)) {
                         return targetId
                     }
                 }
