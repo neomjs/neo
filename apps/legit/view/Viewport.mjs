@@ -20,6 +20,10 @@ class Viewport extends BaseViewport {
          */
         className: 'Legit.view.Viewport',
         /**
+         * @member {String[]} cls=['legit-viewport']
+         */
+        cls: ['legit-viewport'],
+        /**
          * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController,
@@ -37,6 +41,7 @@ class Viewport extends BaseViewport {
         items: [{
             module                    : TreeList,
             bind                      : {store: 'stores.fileStore'},
+            cls                       : ['legit-files-tree'],
             listeners                 : {leafItemClick: 'onFileItemClick'},
             showCollapseExpandAllIcons: false,
             width                     : 300,
