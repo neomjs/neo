@@ -31,6 +31,9 @@
 !/apps/form/index.html
 !/apps/form/**/*.mjs
 !/apps/form/neo-config.json
+!/apps/legit/index.html
+!/apps/legit/**/*.mjs
+!/apps/legit/neo-config.json
 !/apps/portal/neo-config.json
 !/apps/portal/index.html
 !/apps/portal/**/*.mjs
