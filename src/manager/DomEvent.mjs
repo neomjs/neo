@@ -89,6 +89,35 @@ class DomEvent extends Base {
     }
 
     /**
+     * Checks if a vnode tree contains a reference to a specific componentId.
+     * Does NOT resolve component references.
+     * @param {Object} vnode
+     * @param {String} componentId
+     * @returns {Boolean}
+     */
+    findComponentReference(vnode, componentId) {
+        if (!vnode) {
+            return false
+        }
+
+        if (vnode.componentId === componentId) {
+            return true
+        }
+
+        let children = vnode.cn || vnode.childNodes;
+
+        if (children) {
+            for (let i = 0; i < children.length; i++) {
+                if (this.findComponentReference(children[i], componentId)) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Iterates the event path to find matching listeners on components.
      * It utilizes `ComponentManager.getParentPath()` to construct a logical component path,
      * ensuring events bubble to logical ancestors (like a Dashboard owning a DragProxy)
@@ -526,44 +555,23 @@ class DomEvent extends Base {
             }
         }
 
-        // Phase 2: Logical VNode Verification (The Fallback)
-        // If the physical check fails, we might be dealing with a "logically bubbled" event
-        // (e.g. from a detached DragProxy). We must verify that the target node actually exists
-        // within the listener's logical VNode tree.
-        if (componentPath) {
-            let listenerComponent = Neo.getComponent(listener.ownerId),
-                listenerVNode;
+        // Phase 2: Physical Anchor Verification (The Logical Fallback)
+        // If the physical check fails (listener not in path), we check the logical `componentPath`.
+        // The `componentPath` starts with the "Anchor Component" - the first component found in the physical path.
+        // We must verify that our `targetId` is physically inside this Anchor Component.
+        // If it is, and the Anchor is logically below the Listener (guaranteed if we are here), then the delegation is valid.
+        //
+        // This handles:
+        // - Portals: Anchor is the Portal Child. Target is inside Portal Child. Anchor -> Parent (Listener). Valid.
+        // - Menus: Anchor is SubMenu. Target is inside SubMenu. Anchor -> Menu (Listener). Valid.
+        // - Multi-Window: Anchor is ViewB. Target is inside ViewB. Anchor -> ViewA (Listener). Valid.
+        if (componentPath?.length > 0) {
+            let anchorId = componentPath[0];
 
-            if (listenerComponent) {
-                // Find the listener's specific VNode within its component's VNode tree.
-                // Note: VNodeUtil.getById() resolves component references, allowing us to
-                // "tunnel" into child components if the listener is deep in the structure.
-                listenerVNode = VNodeUtil.getById(listenerComponent.vnode, listener.vnodeId);
-
-                if (listenerVNode) {
-                    // Verify if the delegation target exists logically within the listener's scope.
-                    if (VNodeUtil.getById(listenerVNode, targetId)) {
-                        return targetId
-                    }
-                }
-            }
-
-            // Phase 3: Logical Component Path Verification (The Last Resort)
-            // If the VNode check fails, it might be because the target is a logical child
-            // that is NOT in the VDOM (e.g., a floating menu with `parentComponent` set).
-            // In this case, we trust the `componentPath` constructed by ComponentManager,
-            // which has already verified the logical `parent` / `parentComponent` chain.
+            // Verify target is physically inside the Anchor
             for (let k = j; k < pathLen; k++) {
-                let id = path[k].id;
-
-                if (componentPath.includes(id)) {
-                    let ancestorIndex = componentPath.indexOf(id),
-                        listenerIndex = componentPath.indexOf(listener.vnodeId);
-
-                    // Ensure the component found in the DOM path is "below" or same as the listener in logical tree
-                    if (listenerIndex > -1 && ancestorIndex > -1 && ancestorIndex <= listenerIndex) {
-                        return targetId
-                    }
+                if (path[k].id === anchorId) {
+                    return targetId
                 }
             }
         }
