@@ -14,6 +14,7 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 import Component      from '../../../../../src/component/Base.mjs';
 import Container      from '../../../../../src/container/Base.mjs';
 import DomEvent       from '../../../../../src/manager/DomEvent.mjs';
@@ -154,7 +155,7 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
 
         // ComponentPath should NOT contain the random element to simulate a real failure.
         // If 'random-el' is in componentPath, Phase 3 will mistakenly accept it.
-        const componentPath = ['parent-real']; 
+        const componentPath = ['parent-real'];
 
         const targetId = DomEvent.verifyDelegationPath(listener, randomPath, componentPath);
 

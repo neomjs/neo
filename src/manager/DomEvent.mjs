@@ -89,35 +89,6 @@ class DomEvent extends Base {
     }
 
     /**
-     * Checks if a vnode tree contains a reference to a specific componentId.
-     * Does NOT resolve component references.
-     * @param {Object} vnode
-     * @param {String} componentId
-     * @returns {Boolean}
-     */
-    findComponentReference(vnode, componentId) {
-        if (!vnode) {
-            return false
-        }
-
-        if (vnode.componentId === componentId) {
-            return true
-        }
-
-        let children = vnode.cn || vnode.childNodes;
-
-        if (children) {
-            for (let i = 0; i < children.length; i++) {
-                if (this.findComponentReference(children[i], componentId)) {
-                    return true
-                }
-            }
-        }
-
-        return false
-    }
-
-    /**
      * Iterates the event path to find matching listeners on components.
      * It utilizes `ComponentManager.getParentPath()` to construct a logical component path,
      * ensuring events bubble to logical ancestors (like a Dashboard owning a DragProxy)
