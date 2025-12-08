@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-12-06T21:29:13.282Z",
-  "releasesLastFetched": "2025-12-06T21:29:13.297Z",
+  "lastSync": "2025-12-08T05:42:19.742Z",
+  "releasesLastFetched": "2025-12-08T05:42:19.763Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -12392,6 +12392,90 @@
       "closedAt": "2025-12-06T20:52:38Z",
       "updatedAt": "2025-12-06T20:52:47Z",
       "contentHash": "ef88b710655cb7c6baebbce6ce07cd725f8bba9e47ef5a16e88643f52ebfab7e"
+    },
+    "8041": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8041.md",
+      "closedAt": "2025-12-06T21:42:41Z",
+      "updatedAt": "2025-12-06T21:42:41Z",
+      "contentHash": "23e33fcb186c55a92967420419b677639ae666081232b2de7b5107b35a5ab915"
+    },
+    "8042": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8042.md",
+      "closedAt": "2025-12-06T21:53:15Z",
+      "updatedAt": "2025-12-06T21:53:15Z",
+      "contentHash": "cb53e881d44e89e60e55e265d9c07c7b47816e4913e17904001b285a4477189a"
+    },
+    "8043": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8043.md",
+      "closedAt": "2025-12-07T11:12:04Z",
+      "updatedAt": "2025-12-07T11:12:04Z",
+      "contentHash": "3f88ff6f069f8a70061648e4300d536180a541069d47e274f12f33f8ecdb8f0f"
+    },
+    "8044": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8044.md",
+      "closedAt": "2025-12-07T12:23:35Z",
+      "updatedAt": "2025-12-07T12:23:35Z",
+      "contentHash": "a96b43d1e9259c6118678f132c1930057d6aee8f381e2cc4de3a5c78c06607bf"
+    },
+    "8045": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8045.md",
+      "closedAt": "2025-12-07T12:24:42Z",
+      "updatedAt": "2025-12-07T12:24:42Z",
+      "contentHash": "7a7ecb0f794c69aedf3aea8f6a9e26e0953211314560d89efe1ca9add1f34fa9"
+    },
+    "8046": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8046.md",
+      "closedAt": "2025-12-07T12:52:40Z",
+      "updatedAt": "2025-12-07T12:52:40Z",
+      "contentHash": "2a8084d44b0c6a8fa4de7dde96a99f1788f1fa8c38906c965d3591a1ce6edd7d"
+    },
+    "8047": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8047.md",
+      "closedAt": "2025-12-07T12:54:59Z",
+      "updatedAt": "2025-12-07T12:54:59Z",
+      "contentHash": "05ea2a51c05eff63f9bb66b60d8cefe28ee0f8848f0697eccd52be0f63963526"
+    },
+    "8048": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8048.md",
+      "closedAt": "2025-12-07T13:16:47Z",
+      "updatedAt": "2025-12-07T13:16:47Z",
+      "contentHash": "63d0b0d780aadaf2e85be6af25b1e626be69ab19a33ab7bbb48290a8d92e491a"
+    },
+    "8050": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8050.md",
+      "closedAt": "2025-12-07T18:01:04Z",
+      "updatedAt": "2025-12-07T18:01:04Z",
+      "contentHash": "4ba9501f853a01eb27bebc06c4f7d2adc032b7cae40e01b2caa29d5f217c6553"
+    },
+    "8051": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8051.md",
+      "closedAt": "2025-12-07T18:18:00Z",
+      "updatedAt": "2025-12-07T18:18:01Z",
+      "contentHash": "80148f553b833c2931f28bf7474ba438b253169950a5a1291dd0ebf3c6a80dae"
+    },
+    "8053": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8053.md",
+      "closedAt": "2025-12-07T19:09:29Z",
+      "updatedAt": "2025-12-07T19:09:29Z",
+      "contentHash": "5d7c90bbefdeadc9f42e5d15c1921eae765019e528f6b2bef21a01d84a73f1a3"
+    },
+    "8054": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8054.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-07T19:11:35Z",
+      "contentHash": "c6680c7a1e2f89d301e0530a3fc5045fc079bfa0979af5d1e480e70fb224ed8f"
     }
   },
   "releases": {
