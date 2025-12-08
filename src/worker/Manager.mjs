@@ -337,14 +337,18 @@ class Manager extends Base {
 
             if (!promise) {
                 if (data.data) {
-                    data.data.autoMount  && me.fire('automount',  data);
-                    data.data.updateVdom && me.fire('updateVdom', data);
+                    if (data.data.autoMount || data.data.updateVdom) {
+                        data.data.autoMount  && me.fire('automount',  data);
+                        data.data.updateVdom && me.fire('updateVdom', data);
 
-                    // We want to delay the message until the rendering queue has processed it
-                    // See: https://github.com/neomjs/neo/issues/2864
-                    me.promiseForwardMessage(data).then(msgData => {
-                        me.sendMessage(msgData.destination, msgData)
-                    })
+                        // We want to delay the message until the rendering queue has processed it
+                        // See: https://github.com/neomjs/neo/issues/2864
+                        me.promiseForwardMessage(data).then(msgData => {
+                            me.sendMessage(msgData.destination, msgData)
+                        })
+                    } else {
+                        me.sendMessage(dest, data)
+                    }
                 }
             } else {
                 if (dest === 'main') {
