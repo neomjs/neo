@@ -43,7 +43,13 @@ class AddFileDialog extends Dialog {
                 labelText: 'File Path'
             }]
         }, {
-
+            module: Toolbar,
+            flex  : 'none',
+            items : ['->', {
+                module : Button,
+                iconCls: 'fa fa-cloud-upload',
+                text   : 'Save'
+            }]
         }]
     }
 }
