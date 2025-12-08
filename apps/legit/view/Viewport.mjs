@@ -1,9 +1,11 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
+import Button             from '../../../src/button/Base.mjs';
 import Container          from '../../../src/container/Base.mjs';
 import LivePreview        from '../../../src/code/LivePreview.mjs';
 import TreeList           from '../../../src/tree/List.mjs';
 import FileStore          from '../store/Files.mjs';
 import Splitter           from '../../../src/component/Splitter.mjs';
+import Toolbar            from '../../../src/toolbar/Base.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -21,10 +23,6 @@ class Viewport extends BaseViewport {
          * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController,
-        /**
-         * @member {String} legitApiKey=null
-         */
-        legitApiKey: null,
         /*
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          */
@@ -44,23 +42,43 @@ class Viewport extends BaseViewport {
         }, {
             module: Container,
             flex  : 1,
-            layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+            layout: {ntype: 'vbox', align: 'stretch'},
             items: [{
-                module: LivePreview,
-                style : {minHeight: '85%', minWidth: '85%'},
-                value: [
-                    "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
-                    "",
-                    "class MainView extends Viewport {",
-                    "    static config = {",
-                    "        className           : 'Portal.view.MultiWindowHelix',",
-                    "        showGitHubStarButton: false,",
-                    "        theme               : 'neo-theme-dark'",
-                    "    }",
-                    "}",
-                    "",
-                    "MainView = Neo.setupClass(MainView);"
-                ].join('\n'),
+                module: Toolbar,
+                flex  : 'none',
+                items :['->', {
+                    module : Button,
+                    handler: 'onNewFileButtonClick',
+                    iconCls: 'fa fa-plus',
+                    text   : 'New File'
+                }, {
+                    module : Button,
+                    iconCls: 'fa fa-cloud-upload',
+                    style  : {marginLeft: '.5em'},
+                    text   : 'Save'
+                }]
+            }, {
+                module: Container,
+                flex  : 1,
+                layout: {ntype: 'vbox', align: 'center', pack: 'center'},
+                items: [{
+                    module: LivePreview,
+                    listeners: {editorChange: 'onEditorChange'},
+                    style : {height: '85%', width: '85%'},
+                    value: [
+                        "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
+                        "",
+                        "class MainView extends Viewport {",
+                        "    static config = {",
+                        "        className           : 'Portal.view.MultiWindowHelix',",
+                        "        showGitHubStarButton: false,",
+                        "        theme               : 'neo-theme-dark'",
+                        "    }",
+                        "}",
+                        "",
+                        "MainView = Neo.setupClass(MainView);"
+                    ].join('\n')
+                }]
             }]
         }]
     }

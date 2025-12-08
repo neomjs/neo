@@ -387,7 +387,7 @@ class LivePreview extends Container {
         return mainName
     }
 
-    
+
 
     /**
      * @returns {Neo.component.Base|null}
@@ -471,6 +471,8 @@ class LivePreview extends Container {
         let me = this;
 
         me.editorValue = data.value;
+
+        me.fire('editorChange', {value: data.value});
 
         // We are not using getPreviewContainer(), since we only want to update the LivePreview in case it is visible.
         if (me.previewContainer) {
