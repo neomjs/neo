@@ -547,6 +547,25 @@ class DomEvent extends Base {
                     }
                 }
             }
+
+            // Phase 3: Logical Component Path Verification (The Last Resort)
+            // If the VNode check fails, it might be because the target is a logical child
+            // that is NOT in the VDOM (e.g., a floating menu with `parentComponent` set).
+            // In this case, we trust the `componentPath` constructed by ComponentManager,
+            // which has already verified the logical `parent` / `parentComponent` chain.
+            for (let k = j; k < pathLen; k++) {
+                let id = path[k].id;
+
+                if (componentPath.includes(id)) {
+                    let ancestorIndex = componentPath.indexOf(id),
+                        listenerIndex = componentPath.indexOf(listener.vnodeId);
+
+                    // Ensure the component found in the DOM path is "below" or same as the listener in logical tree
+                    if (listenerIndex > -1 && ancestorIndex > -1 && ancestorIndex <= listenerIndex) {
+                        return targetId
+                    }
+                }
+            }
         }
 
         return false
