@@ -40,13 +40,15 @@ class AddFileDialog extends Dialog {
             layout: {ntype: 'vbox', align: 'stretch'},
             items : [{
                 module   : TextField,
-                labelText: 'File Path'
+                labelText: 'File Path',
+                reference: 'filename'
             }]
         }, {
             module: Toolbar,
             flex  : 'none',
             items : ['->', {
                 module : Button,
+                handler: 'onAddFileDialogSave',
                 iconCls: 'fa fa-cloud-upload',
                 text   : 'Save'
             }]

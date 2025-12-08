@@ -48,7 +48,9 @@ class ViewportController extends Component {
             // publicKey: process.env.NEXT_PUBLIC_LEGIT_PUBLIC_KEY,
         });
 
-        setInterval(this.poll, 1000);
+        setInterval(() => {
+            this.poll()
+        }, 1000);
     }
 
     /**
@@ -77,12 +79,55 @@ class ViewportController extends Component {
                     module         : module.default,
                     animateTargetId: button.id,
                     appName,
+                    parentComponent: me.component,
                     theme,
                     windowId
                 })
             })
         } else {
             addDialog.show()
+        }
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onAddFileDialogSave(data) {
+        let me        = this,
+            dialog    = me.addDialog,
+            textField = dialog.getReference('filename');
+
+        console.log('onAddFileDialogSave', textField.value);
+    }
+
+    /**
+     *
+     * @param treePath
+     * @returns {Promise<{hash: string, subEntries: {}}>}
+     */
+    async loadTree(treePath) {
+        const subEntries = {};
+
+        const pathEntries = await legitFs.readdir(treePath)
+        for (const entryName of pathEntries) {
+            const stat = await legitFs.stat(treePath + entryName);
+
+            if (stat.isDirectory()) {
+                subEntries[entryName] = await this.loadTree(treePath + entryName + '/');
+            } else {
+                const contenHash = await crypto.subtle.digest("SHA-1", await legitFs.readFile(treePath + entryName));
+                subEntries[entryName] = {
+                    // for now its the content instead of the hash
+                    hash: contenHash,
+                    name: entryName,
+                };
+            }
+        }
+
+        return {
+            hash: '',
+            subEntries
         }
     }
 
@@ -100,13 +145,13 @@ class ViewportController extends Component {
         try {
             me.running = true;
 
-            let newState = await legitFs.readFile(path + '/.legit/head', 'utf-8');
+            let newState = await legitFs.readFile(me.path + '/.legit/head', 'utf-8');
 
             if (me.currentTreeState === newState) {
                 return;
             }
 
-            const treeDelta = await me.loadTreeDelta(currentTreeState, newState);
+            const treeDelta = await me.loadTreeDelta(me.currentTreeState, newState);
             console.log('TREE DELTA:', treeDelta);
             for (const deletedEntry of treeDelta.deleted) {
                 console.log('Deleted FROM TREE: ' + deletedEntry);
@@ -142,19 +187,19 @@ class ViewportController extends Component {
     async loadTreeDelta(currentState, newState) {
         const me = this;
 
-        const prefixCurrentState = currentState.slice(0, 2);
-        const suffixCurrentState = currentState.slice(2);
-
         const prefixNewState = newState.slice(0, 2);
         const suffixNewState = newState.slice(2);
 
-        me.currentstateTree = {}
+        let currentstateTree = {}
 
-        if (currentState !== '') {
-            me.currentstateTree = await loadTree('/.legit/commits/' + prefixCurrentState + '/' + suffixCurrentState + '/');
+        if (currentState) {
+            const prefixCurrentState = currentState.slice(0, 2);
+            const suffixCurrentState = currentState.slice(2);
+
+            currentstateTree = await me.loadTree('/.legit/commits/' + prefixCurrentState + '/' + suffixCurrentState + '/');
             console.log('currentstateTree', currentstateTree);
         }
-        const newStateTree = await loadTree('/.legit/commits/' + prefixNewState + '/' + suffixNewState + '/');
+        const newStateTree = await me.loadTree('/.legit/commits/' + prefixNewState + '/' + suffixNewState + '/');
 
         const deleted  = [];
         const added    = [];
