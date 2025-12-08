@@ -1,0 +1,6 @@
+{
+    "appPath": "apps/legit/app.mjs",
+    "basePath": "../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs"
+}
