@@ -151,7 +151,11 @@ class ViewportController extends Component {
                 return;
             }
 
+            const fileStore = me.getStore('fileStore');
             const treeDelta = await me.loadTreeDelta(me.currentTreeState, newState);
+
+            console.log(fileStore);
+
             console.log('TREE DELTA:', treeDelta);
             for (const deletedEntry of treeDelta.deleted) {
                 console.log('Deleted FROM TREE: ' + deletedEntry);

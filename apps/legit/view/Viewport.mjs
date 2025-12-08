@@ -1,12 +1,12 @@
-import BaseViewport       from '../../../src/container/Viewport.mjs';
-import Button             from '../../../src/button/Base.mjs';
-import Container          from '../../../src/container/Base.mjs';
-import LivePreview        from '../../../src/code/LivePreview.mjs';
-import TreeList           from '../../../src/tree/List.mjs';
-import FileStore          from '../store/Files.mjs';
-import Splitter           from '../../../src/component/Splitter.mjs';
-import Toolbar            from '../../../src/toolbar/Base.mjs';
-import ViewportController from './ViewportController.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import Button                from '../../../src/button/Base.mjs';
+import Container             from '../../../src/container/Base.mjs';
+import LivePreview           from '../../../src/code/LivePreview.mjs';
+import TreeList              from '../../../src/tree/List.mjs';
+import Splitter              from '../../../src/component/Splitter.mjs';
+import Toolbar               from '../../../src/toolbar/Base.mjs';
+import ViewportController    from './ViewportController.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class Legit.view.Viewport
@@ -23,6 +23,10 @@ class Viewport extends BaseViewport {
          * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController,
+        /**
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         */
+        stateProvider: ViewportStateProvider,
         /*
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          */
@@ -32,9 +36,9 @@ class Viewport extends BaseViewport {
          */
         items: [{
             module                    : TreeList,
-            store                     : FileStore,
+            bind                      : {store: 'stores.fileStore'},
             showCollapseExpandAllIcons: false,
-            width                     : 300
+            width                     : 300,
         }, {
             module      : Splitter,
             resizeTarget: 'previous',
