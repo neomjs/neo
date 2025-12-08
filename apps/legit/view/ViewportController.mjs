@@ -20,7 +20,11 @@ class ViewportController extends Component {
         /**
          * @member {String} path='/.legit/branches/anonymous'
          */
-        path: '/.legit/branches/anonymous'
+        path: '/.legit/branches/anonymous',
+        /**
+         * @member {Number} pollingInterval=1000
+         */
+        pollingInterval: 1000
     }
 
     /**
@@ -41,6 +45,8 @@ class ViewportController extends Component {
     async initAsync() {
         await super.initAsync();
 
+        const me = this;
+
         globalThis.legitFs = await openLegitFs({
             storageFs: fs,
             gitRoot: '/',
@@ -48,9 +54,26 @@ class ViewportController extends Component {
             // publicKey: process.env.NEXT_PUBLIC_LEGIT_PUBLIC_KEY,
         });
 
-        setInterval(() => {
-            this.poll()
-        }, 1000);
+        setInterval(me.poll.bind(me), me.pollingInterval);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onAddFileDialogSave(data) {
+        const
+            me        = this,
+            dialog    = me.addDialog,
+            textField = dialog.getReference('filename');
+
+        console.log('onAddFileDialogSave', textField.value)
+    }
+
+    /**
+     * @param {Record} record
+     */
+    onFileItemClick(record) {
+        console.log('onFileItemClick', record)
     }
 
     /**
@@ -87,18 +110,6 @@ class ViewportController extends Component {
         } else {
             addDialog.show()
         }
-    }
-
-    /**
-     *
-     * @param data
-     */
-    onAddFileDialogSave(data) {
-        let me        = this,
-            dialog    = me.addDialog,
-            textField = dialog.getReference('filename');
-
-        console.log('onAddFileDialogSave', textField.value);
     }
 
     /**

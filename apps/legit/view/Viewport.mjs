@@ -37,6 +37,7 @@ class Viewport extends BaseViewport {
         items: [{
             module                    : TreeList,
             bind                      : {store: 'stores.fileStore'},
+            listeners                 : {leafItemClick: 'onFileItemClick'},
             showCollapseExpandAllIcons: false,
             width                     : 300,
         }, {
