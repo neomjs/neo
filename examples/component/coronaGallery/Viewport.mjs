@@ -216,7 +216,7 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 ntype: 'label',
-                text : [
+                html : [
                     '<b>Navigation Concept</b>',
                     '<p>You can use the Arrow Keys to walk through the items.</p>'
                 ].join(''),
@@ -232,7 +232,7 @@ class Viewport extends BaseViewport {
             }, {
                 ntype: 'label',
                 cls  : ['neo-link-color'],
-                text : [
+                html : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/disease-sh/API">disease-sh/API</a>.</p>',
