@@ -54,7 +54,12 @@ class ViewportController extends Component {
             // publicKey: process.env.NEXT_PUBLIC_LEGIT_PUBLIC_KEY,
         });
 
-        let mdFile = await fetch('../../learn/benefits/OffTheMainThread.md');
+        let mdFile = await fetch('../../learn/benefits/FormsEngine.md');
+        mdFile = await mdFile.text();
+
+        await legitFs.writeFile(`${me.path}/FormsEngine.md`, mdFile);
+
+        mdFile = await fetch('../../learn/benefits/OffTheMainThread.md');
         mdFile = await mdFile.text();
 
         await legitFs.writeFile(`${me.path}/OffTheMainThread.md`, mdFile);

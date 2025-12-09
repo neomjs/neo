@@ -293,13 +293,6 @@ class Markdown extends Component {
 
         if (Object.keys(neoComponents).length > 0) {
             Object.keys(neoComponents).forEach(key => {
-                console.log('create cmp', {
-                    ...baseConfigs,
-                    className: 'Neo.component.Base',
-                    parentId : key,
-                    ...neoComponents[key]
-                });
-
                 instance = Neo.create({
                     ...baseConfigs,
                     className: 'Neo.component.Base',

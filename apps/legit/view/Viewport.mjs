@@ -80,234 +80,293 @@ class Viewport extends BaseViewport {
                     listeners: {editorChange: 'onEditorChange'},
                     reference: 'code-live-preview',
                     style    : {height: '85%', width: '85%'},
-                    value: `# Off the Main Thread
+                    value: '# Forms Engine\n' +
+                        '\n' +
+                        '## Simplifying Complex Data Input\n' +
+                        '\n' +
+                        'Building robust and user-friendly forms is often a significant challenge in web development. Traditional approaches can\n' +
+                        'lead to complex state management, difficult validation, and performance bottlenecks, especially with large or dynamic\n' +
+                        'forms. The Neo.mjs Forms Engine is designed from the ground up to simplify these complexities, offering a powerful,\n' +
+                        'declarative, and highly efficient solution for all your data input needs.\n' +
+                        '\n' +
+                        '### Forms Include a State-Provider: Effortless Data Management\n' +
+                        '\n' +
+                        'One of the most compelling features of the Neo.mjs Forms Engine is its integrated state management. You don\'t need to\n' +
+                        'manually define a separate state tree or connect external state management libraries. Instead, the form itself acts as\n' +
+                        'a state provider, automatically managing the data for its fields.\n' +
+                        '\n' +
+                        'This is achieved by simply using namespaces within the `name` attribute of each field. The form engine intelligently\n' +
+                        'structures your data based on these names, providing a clean, hierarchical data object.\n' +
+                        '\n' +
+                        '**Benefit**: This significantly reduces boilerplate code and simplifies data flow. Developers can focus on defining the\n' +
+                        'form structure and validation rules, rather than wrestling with data synchronization. For businesses, this means faster\n' +
+                        'development cycles and fewer bugs related to data handling.\n' +
+                        '\n' +
+                        '```javascript live-preview\n' +
+                        'import Button        from \'../button/Base.mjs\';\n' +
+                        'import FormContainer from \'../form/Container.mjs\';\n' +
+                        'import TextField     from \'../form/field/Text.mjs\';\n' +
+                        '\n' +
+                        'class MainView extends FormContainer {\n' +
+                        '    static config = {\n' +
+                        '        className: \'Benefits.forms1.MainView\',\n' +
+                        '        layout   : {ntype:\'vbox\', align:\'start\'},\n' +
+                        '        \n' +
+                        '        items: [{\n' +
+                        '            module   : TextField,\n' +
+                        '            labelText: \'Firstname\',\n' +
+                        '            name     : \'user.firstname\',\n' +
+                        '            value    : \'John\'\n' +
+                        '        }, {\n' +
+                        '            module   : TextField,\n' +
+                        '            labelText: \'Lastname\',\n' +
+                        '            name     : \'user.lastname\',\n' +
+                        '            value    : \'Doe\'\n' +
+                        '        }, {\n' +
+                        '            module : Button,\n' +
+                        '            handler: \'up.getFormValues\',\n' +
+                        '            style  : {marginTop: \'1em\'},\n' +
+                        '            text   : \'Get Form Values\'\n' +
+                        '        }]\n' +
+                        '    }\n' +
+                        '\n' +
+                        '    async getFormValues(data) {\n' +
+                        '        const formValues = await this.getValues();\n' +
+                        '        // Logs {user: {firstname: \'John\', lastname: \'Doe\'}}\n' +
+                        '        Neo.Main.log({value: formValues})\n' +
+                        '    }\n' +
+                        '}\n' +
+                        'MainView = Neo.setupClass(MainView);\n' +
+                        '```\n' +
+                        '\n' +
+                        '### Forms Can Be Validated Without Being Mounted: Flexible UI Design\n' +
+                        '\n' +
+                        'Neo.mjs forms exist as a pure abstraction layer within JavaScript, decoupled from their DOM representation. This unique\n' +
+                        'capability allows forms to be validated and their values retrieved even if they are not currently mounted in the DOM.\n' +
+                        '\n' +
+                        '**Benefit**: This is incredibly powerful for complex user interfaces, such as multi-step wizards, tabbed forms, or\n' +
+                        'forms with conditionally rendered sections. You can maintain the state and validate parts of a form that are not\n' +
+                        'currently visible, ensuring data integrity without the performance overhead of rendering unnecessary DOM elements.\n' +
+                        'For users, this translates to a smoother, more responsive experience, as the UI remains lightweight.\n' +
+                        '\n' +
+                        '```javascript live-preview\n' +
+                        'import Button        from \'../button/Base.mjs\';\n' +
+                        'import Container     from \'../container/Base.mjs\';\n' +
+                        'import FormContainer from \'../form/Container.mjs\';\n' +
+                        'import TextField     from \'../form/field/Text.mjs\';\n' +
+                        '\n' +
+                        'const myForm = Neo.create({\n' +
+                        '    module: FormContainer,\n' +
+                        '    items : [{\n' +
+                        '        module   : TextField,\n' +
+                        '        labelText: \'Firstname\',\n' +
+                        '        name     : \'user.firstname\',\n' +
+                        '        value    : \'John\'\n' +
+                        '    }, {\n' +
+                        '        module   : TextField,\n' +
+                        '        labelText: \'Lastname\',\n' +
+                        '        name     : \'user.lastname\',\n' +
+                        '        value    : \'Doe\'\n' +
+                        '    }]\n' +
+                        '});\n' +
+                        '\n' +
+                        'class MainView extends Container {\n' +
+                        '    static config = {\n' +
+                        '        className: \'Benefits.forms2.MainView\',\n' +
+                        '        layout   : {ntype:\'vbox\', align:\'start\'},\n' +
+                        '        \n' +
+                        '        items: [{\n' +
+                        '            module : Button,\n' +
+                        '            handler: \'up.getFormValues\',\n' +
+                        '            text   : \'Get Form Values\'\n' +
+                        '        }]\n' +
+                        '    }\n' +
+                        '\n' +
+                        '    async getFormValues(data) {\n' +
+                        '        const formValues = await myForm.getValues();\n' +
+                        '        // Logs {user: {firstname: \'John\', lastname: \'Doe\'}}\n' +
+                        '        Neo.Main.log({value: formValues})\n' +
+                        '    }\n' +
+                        '}\n' +
+                        'MainView = Neo.setupClass(MainView);\n' +
+                        '```\n' +
+                        '\n' +
+                        '### Nested Forms: Unprecedented Structural Flexibility\n' +
+                        '\n' +
+                        'Unlike the limitations of HTML, where nesting `<form>` tags is not permitted, Neo.mjs allows for true nested forms.\n' +
+                        'This is achieved by mapping form containers to generic DOM nodes (e.g., `{module: FormContainer, tag: \'div\'}`).\n' +
+                        '\n' +
+                        '**Benefit**: This capability provides unparalleled structural flexibility, enabling you to build highly modular and\n' +
+                        'complex forms. You can validate or retrieve values from individual nested forms, or from the top-level form (which\n' +
+                        'includes all nested items), as needed. This promotes better organization of large forms, improves maintainability,\n' +
+                        'and allows for fine-grained control over validation and data submission. For complex business processes, this means\n' +
+                        'forms can accurately reflect intricate data relationships.\n' +
+                        '\n' +
+                        'Inside the example preview, clear the user lastname via hitting the x-button.\n' +
+                        'Afterwards, click on the 3 buttons at the bottom and inspect the output inside the main window console carefully.\n' +
+                        '\n' +
+                        'The main form will log:\n' +
+                        '```javascript readonly\n' +
+                        '{\n' +
+                        '    account: \'My Account\',\n' +
+                        '    product: {brand: \'Tesla\', name: \'Car\'},\n' +
+                        '    user   : {firstname: \'John\', lastname: null}\n' +
+                        '}\n' +
+                        '\'isValid: false\'\n' +
+                        '```\n' +
+                        '\n' +
+                        'The user form will log:\n' +
+                        '```javascript readonly\n' +
+                        '{user: {firstname: \'John\', lastname: null}}\n' +
+                        '\'isValid: false\'\n' +
+                        '```\n' +
+                        '\n' +
+                        'The product form will log:\n' +
+                        '```javascript readonly\n' +
+                        '{product: {brand: \'Tesla\', name: \'Car\'}}\n' +
+                        '\'isValid: true\'\n' +
+                        '```\n' +
+                        '\n' +
+                        '```javascript live-preview\n' +
+                        'import Button        from \'../button/Base.mjs\';\n' +
+                        'import Container     from \'../container/Base.mjs\';\n' +
+                        'import FormContainer from \'../form/Container.mjs\';\n' +
+                        'import TabContainer  from \'../tab/Container.mjs\';\n' +
+                        'import TextField     from \'../form/field/Text.mjs\';\n' +
+                        '\n' +
+                        'class MainView extends FormContainer {\n' +
+                        '    static config = {\n' +
+                        '        className: \'Benefits.forms3.MainView\',\n' +
+                        '        layout   : {ntype:\'vbox\', align:\'stretch\'},\n' +
+                        '        \n' +
+                        '        items: [{\n' +
+                        '            module       : TextField,\n' +
+                        '            flex         : \'none\',\n' +
+                        '            labelPosition: \'inline\',\n' +
+                        '            labelText    : \'Account\',\n' +
+                        '            name         : \'account\',\n' +
+                        '            value        : \'My Account\'\n' +
+                        '        }, {\n' +
+                        '            module: TabContainer,\n' +
+                        '            items : [{\n' +
+                        '                module      : FormContainer,\n' +
+                        '                header      : {text: \'User\'},\n' +
+                        '                itemDefaults: {module: TextField, labelPosition: \'inline\'},\n' +
+                        '                layout      : {ntype:\'vbox\', align:\'start\'},\n' +
+                        '                reference   : \'user-form\',\n' +
+                        '                tag         : \'div\',\n' +
+                        '\n' +
+                        '                items: [{\n' +
+                        '                    labelText: \'Firstname\',\n' +
+                        '                    name     : \'user.firstname\',\n' +
+                        '                    value    : \'John\'\n' +
+                        '                }, {\n' +
+                        '                    labelText: \'Lastname\',\n' +
+                        '                    name     : \'user.lastname\',\n' +
+                        '                    required : true,\n' +
+                        '                    value    : \'Doe\'\n' +
+                        '                }]\n' +
+                        '            }, {\n' +
+                        '                module      : FormContainer,\n' +
+                        '                header      : {text: \'Product\'},\n' +
+                        '                itemDefaults: {module: TextField, labelPosition: \'inline\'},\n' +
+                        '                layout      : {ntype:\'vbox\', align:\'start\'},\n' +
+                        '                reference   : \'product-form\',\n' +
+                        '                tag         : \'div\',\n' +
+                        '\n' +
+                        '                items: [{\n' +
+                        '                    labelText: \'Name\',\n' +
+                        '                    name     : \'product.name\',\n' +
+                        '                    value    : \'Car\'\n' +
+                        '                }, {\n' +
+                        '                    labelText: \'Brand\',\n' +
+                        '                    name     : \'product.brand\',\n' +
+                        '                    required : true,\n' +
+                        '                    value    : \'Tesla\'\n' +
+                        '                }]\n' +
+                        '            }]\n' +
+                        '        }, {\n' +
+                        '            module      : Container,\n' +
+                        '            flex        : \'none\',\n' +
+                        '            itemDefaults: {module: Button},\n' +
+                        '            layout      : {ntype: \'hbox\'},\n' +
+                        '\n' +
+                        '            items: [{\n' +
+                        '                handler: \'up.getMainFormValues\',\n' +
+                        '                text   : \'Get Main Values\'\n' +
+                        '            }, {\n' +
+                        '                handler: \'up.getUserFormValues\',\n' +
+                        '                text   : \'Get User Values\'\n' +
+                        '            }, {\n' +
+                        '                handler: \'up.getProductFormValues\',\n' +
+                        '                text   : \'Get Product Values\'\n' +
+                        '            }]\n' +
+                        '        }]\n' +
+                        '    }\n' +
+                        '\n' +
+                        '    async getFormValues(form) {\n' +
+                        '        const formValues = await form.getValues();\n' +
+                        '        Neo.Main.log({value: formValues});\n' +
+                        '\n' +
+                        '        const isValid = await form.validate();\n' +
+                        '        Neo.Main.log({value: `isValid: ${isValid}`})\n' +
+                        '    }\n' +
+                        '\n' +
+                        '    async getMainFormValues(data) {\n' +
+                        '        await this.getFormValues(this)\n' +
+                        '    }\n' +
+                        '\n' +
+                        '    async getProductFormValues(data) {\n' +
+                        '        await this.getFormValues(this.getReference(\'product-form\'))\n' +
+                        '    }\n' +
+                        '\n' +
+                        '    async getUserFormValues(data) {\n' +
+                        '        await this.getFormValues(this.getReference(\'user-form\'))\n' +
+                        '    }\n' +
+                        '}\n' +
+                        'MainView = Neo.setupClass(MainView);\n' +
+                        '```\n' +
+                        '\n' +
+                        'Bonus: Inspect the DOM Inside the `TabContainer`.\n' +
+                        'You will notice that only the active Tab is mounted inside the DOM.\n' +
+                        '\n' +
+                        '1. We can still get field values of unmounted forms\n' +
+                        '2. We can still validate unmounted forms\n' +
+                        '\n' +
+                        '### Nested Lazy-Loaded Forms: Optimizing Performance for Complex UIs\n' +
+                        '\n' +
+                        'If you look closely at the `Button` handlers in the last example, you\'ll notice that `getValues()` and `validate()`\n' +
+                        'are both `async` methods. The reason for this is that `form.getFields()` itself is also asynchronous: it will\n' +
+                        'lazy-load (but not necessarily mount) missing fields when needed.\n' +
+                        '\n' +
+                        '**Benefit**: This asynchronous, lazy-loading mechanism is crucial for optimizing the performance of complex forms.\n' +
+                        'Instead of loading all form fields and their associated logic upfront, Neo.mjs only loads what\'s necessary, when it\'s\n' +
+                        'needed. This results in significantly faster initial load times, reduced memory footprint, and a more responsive\n' +
+                        'application, especially for forms with many fields or conditional sections.\n' +
+                        '\n' +
+                        'The lazy-loading use case is not easy to display inside the `LivePreview`, since it does rely on defining child modules\n' +
+                        'inside their own class files and dynamically importing them. However, the pattern is straightforward:\n' +
+                        '\n' +
+                        '```javascript readonly\n' +
+                        '{\n' +
+                        '    module: TabContainer,\n' +
+                        '    items : [\n' +
+                        '        {module: () => import(\'./MyChildForm1.mjs\')},\n' +
+                        '        {module: () => import(\'./MyChildForm2.mjs\')}\n' +
+                        '    ]\n' +
+                        '}\n' +
+                        '```\n' +
+                        '\n' +
+                        'This allows for highly modular and performant form structures, where even entire sections of a form can be loaded\n' +
+                        'on-demand, further enhancing the user experience and application efficiency.\n' +
+                        '\n' +
+                        '## Conclusion: A Comprehensive Solution for Form Development\n' +
+                        '\n' +
+                        'The Neo.mjs Forms Engine provides a comprehensive and intuitive solution for building forms of any complexity.\n' +
+                        'By offering integrated state management, the ability to validate unmounted forms, true nested forms, and intelligent\n' +
+                        'lazy-loading, Neo.mjs empowers developers to create highly performant, maintainable, and user-friendly data input\n' +
+                        'experiences. This translates directly into increased developer productivity and a superior end-user experience.\n'
 
-## How many Cores are on a Computer or Smartphone?
-In case you are using a Mac, you can click on the top-left Apple Icon,
-then on "About this Mac" and it will show you something like:
-
-> Processor 3,2 GHz 8-Core Intel Xeon W
- 
-With the Apple silicon series even more: "Apple M2 Ultra" provides 24 CPU cores.
-
-An iPhone has 6 CPU cores.
-
-TL-BR: Every computer or smartphone has several cores available.
-
-This means that you can run multiple threads concurrently.
-
-> Would you build a car using just one engine cylinder?
-
-If your answer is "Of course not! It would be way slower!",
-then you should read this article carefully.
-
-## How many Cores does a Browser use?
-
-On its own, a Browser will just use ***one*** core per tab / window.
-
-Meaning: your Angular or React apps look like this:
-
-<p style="overflow-x: auto;">
-    <img style="height: 279px; width: 481px;" alt="Current State of Apps" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps-today.png">
-</p>
-
-The more JavaScript tasks are running inside your app, the slower it will get.
-The worst scenario is a complete UI freeze where your one core is at 100%
-and all other cores are completely idle.
-
-This is ***not*** scalable at all.
-
-_[Side note] In case you are creating simple, small and rather static websites or apps, this setup can be sufficient._
-
-## Web Workers API
-
-> Web Workers makes it possible to run a script operation in a background thread separate from the main execution thread
-> of a web application. The advantage of this is that laborious processing can be performed in a separate thread,
-> allowing the main (usually the UI) thread to run without being blocked/slowed down.
-
-Source: <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API">MDN: Web Workers API</a>
-
-> The W3C and WHATWG envision web workers as long-running scripts that are not interrupted by scripts that respond to
-> clicks or other user interactions. Keeping such workers from being interrupted by user activities should allow
-> Web pages to remain responsive at the same time as they are running long tasks in the background.
-> 
-> The simplest use of workers is for performing a computationally expensive task without interrupting the user interface.
-
-Source: <a target="_blank" href="https://en.wikipedia.org/wiki/Web_worker">Wikipedia: Web worker</a>
-
-So, while JavaScript itself is single-threaded as a language, using workers enables us to use multiple cores
-concurrently and end this scalability nightmare.
-
-Let the following quote really sink in:
-> The simplest use of workers is for performing a computationally expensive task without interrupting the user interface.
-
-It leads to the question: "What is the most expensive task?"
-
-The answer is simple: "An UI Framework or Library itself as well as the apps we build with it."
-
-This is leading to the idea: Let us move everything we can out of the main thread,
-so that this one can purely focus on what it is intended to do: manipulating the DOM.
-
-In case your apps are no longer running in main, there is nothing left which can slow down or block your UI or create memory leaks.
-
-This thought is leading to the following concept:
-
-## The "An Application Worker being the Main Actor" Paradigm
-<a target="_blank" href="https://github.com/surma">Surma</a>
-wrote a very nice article on how the Actor Model can and should get applied to the web
-<a target="_blank" href="https://surma.dev/things/actormodel/">here</a> in 2017.
-At this point, we already had the Neo.mjs setup running, but sadly not open-sourced it yet.
-
-> It struck me that the Actor Model could work on the web. The more I thought about it, the more it seems like a natural fit.
-
-In case you are not familiar with what an "actor" means, definitely read it first.
-
-To resolve this performance bottleneck, we want to get main threads as idle as possible, so that they can fully focus on
-rendering / dynamically manipulating the DOM:
-
-<p style="overflow-x: auto;">
-    <img style="height: 481px; width: 442px;" alt="App Worker Concept" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/app-worker.png">
-</p>
-
-The worst case that could happen now is that your app worker will slow down and this core runs at 100%. However,
-this will not affect your UI (rendering thread → main).
-Probably the best solution for single page apps (SPAs) as well as multi-window apps (MWAs) looks like this:
-
-\`\`\`json neo-component
-{
-    "cls" : "neo-worker-setup",
-    "tag" : "element-loader",
-    "vdom": {"src": "./resources/images/workers-focus.svg"}
-}
-\`\`\`
-
-To prevent the app worker from handling too much logic, we can optionally spawn more workers.
-Each thread has its fixed scope. Let us take a quick look into each of them.
-
-### Main Thread
-
-The \`index.html\` file of your Neo.mjs App will by default have an empty body tag and only import the
-\`MicroLoader.mjs\` file. The loader will fetch your \`neo-config.json\` and afterwards dynamically import the
-main thread part of the framework. This part is as lightweight as possible: around 40KB in dist/production.
-
-* Main will start the workers
-* Main will apply delta-updates to the DOM
-* Main will forward serialised DOM events to the App Worker
-* Main can import Main Thread Addons (e.g. libraries which rely on direct DOM access)
-
-The important part: Main is ***not*** aware of Neo.mjs Apps or Components.
-It is purely focussing on mounting and updating DOM nodes to ensure that literally nothing can slow down
-your UI or even freeze it.
-
-This concept is called OMT (Off the Main Thread), and you can find quite a bunch of infos on the web.
-
-Example-Overview: <a target="_blank" href="https://css-tricks.com/off-the-main-thread/">CSS-Tricks: Off the Main Thread</a>
-
-### Application Worker
-
-The most important actor is the App-Worker. After construction, it will lazy-load (dynamically import)
-your main App.
-
-* Your App will import your used Components
-* Meaning: your Component instances live within the App-Worker
-* View Models & View Controllers also live here
-* Most parts of the Neo.mjs Framework live here
-* You can directly communicate with other Actors via remote method access (RPC)
-
-As a developer, you will probably spend 95% of your time working within this actor.
-
-There is a catch: Workers have by design no access to the DOM.
-Meaning: \`window\` and \`window.document\` are undefined.
-
-This enforces us to use an abstraction layer to describe the DOM (often called virtual DOM or vdom).
-Compared to other implementations like React, the Neo.mjs vdom is super lightweight. It is using a JSON-like
-syntax => just nested objects & arrays, since we need to be able to serialise it.
-
-In German, we would call the concept "Kindersicherung" (parental controls), which has the benefit that we
-can ensure that junior developers can not mess up the real DOM with invalid operations.
-
-Some libraries like <a target="_blank" href="https://www.solidjs.com/">SOLIDJS</a> are claiming that using
-virtual DOM is a bad thing. They are referring to the React implementation of it, which is very different
-to the Neo.mjs approach. While the SOLIDJS concept to directly modify DOM nodes instead is charming in
-its own way, it does limit you for staying single-threaded. Their Components must live within the main thread.
-
-### Virtual DOM Worker
-
-Like the main thread, the vdom-worker is not aware of your Apps or Components.
-
-Every Component has a vdom tree (new state) and a vnode tree (current state).
-
-Once we applied all our desired changes to the vdom tree, we can start an update-cycle.
-This is a triangle communication:
-1. The App-Worker will send the vdom & vnode trees to the VDom-Worker
-2. The VDom-Worker will transform the vdom tree into a vnode tree
-3. The VDom-Worker will compare the new & old vnode trees to calculate the required delta-updates (diffing)
-4. The VDom-Worker will send the deltas & the new vnode to the Main Thread
-5. Main will apply the deltas (piped through \`requestAnimationFrame()\`) and pass the vnode to the App-Worker
-6. At this point (async), the next update-cycle can start
-
-If you think about it: This solves the problem of requiring an "immutable state tree" out of the box.
-We can modify vdom trees multiple times before starting an update-cycle. Once we do, the vdom gets serialised
-=> immutable and sent to the VDom-Worker. We can immediately add new changes to the vdom, which will not interfere with
-the current update-cycle, but get used inside the next cycle.
-
-### Data Worker
-
-The main responsibility of the Data-Worker is to communicate with the Backend / Cloud.
-Mostly, but not limited to:
-1. Ajax Calls
-2. SocketConnection messages
-
-In case you are in need to apply expensive data-transformations before sending / after receiving data,
-these transformations should happen here. Think about the data reader / writer concept.
-
-### Canvas Worker
-
-> Can a Worker really not access the DOM?
-
-There is one exception, which is called
-<a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas">OffscreenCanvas</a>.
-
-Meaning: We can transfer the ownership of a Canvas DOM node to a worker.
-
-This enables us to work with charting or maps libraries outside the App-Worker & outside the main thread.
-
-Here is an example Blog-Post to show you how powerful this concept can be:</br>
-<a target="_blank" href="https://itnext.io/rendering-3d-offscreen-getting-max-performance-using-canvas-workers-88c207cbcdc2?source=friends_link&sk=7ee0851ff6043c4a79248ff5a20a23fc">Rendering 3d offscreen: Getting max performance using canvas workers</a>
-
-In the future, we might create an own OffscreenCanvas charting library for Neo.mjs.
-
-### Task Worker
-
-In case you have specific expensive tasks, which don't really fit well into the other actors,
-you can  optionally move them into the Task-Worker.
-
-E.g. calculating Fibonacci numbers would be a good fitting example.
-
-### Service Worker
-
-By design, <a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API">Service-Workers</a>
-are responsible for caching assets (Images, CSS, JS-bundles)
-
-> Service workers essentially act as proxy servers that sit between web applications, the browser,
-> and the network (when available). They are intended, among other things, to enable the creation of
-> effective offline experiences, intercept network requests, and take appropriate action based on whether
-> the network is available, and update assets residing on the server. They will also allow access to push
-> notifications and background sync APIs.
-
-While Neo.mjs is not purely focussing on making the very first page load as fast as possible,
-it can make all following page loads happen almost instantly.
-
-We can cache the JS bundles which generate the desired markup (HTML) directly on the client.
-There is no need to stream HTML again to the client (server side rendering => SSR),
-since we already have everything in place to recreate the fully hydrated version in the blink of an eye.
-
-Via remote method access, the App-Worker can directly communicate with the Service-Worker at run-time.
-This enables us to preload / pre-cache assets on the fly.
-
-More infos on this topic:</br>
-<a target="_blank" href="https://itnext.io/predictive-offline-support-for-assets-you-have-not-used-yet-aeeccccd3754?source=friends_link&sk=e946e0f25f508e6a8cec4136400291a3">Predictive offline support for assets you have not used yet</a>
-`
                 }]
             }]
         }]
