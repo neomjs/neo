@@ -3,8 +3,17 @@ import Component from '../../../../src/component/Base.mjs';
 const regexInlineCode = /`([^`]+)`/g;
 
 /**
+ * @summary Displays interactive learning content (Markdown) within the Portal application.
+ *
+ * This component acts as the viewer for the guides, tutorials, and blog posts found in the Neo.mjs documentation.
+ * It is responsible for:
+ * - **Fetching Content**: Retrieving Markdown files based on the selected record/route.
+ * - **Rendering**: Delegating the parsing and rendering of the Markdown (including interactive examples) to `Neo.code.renderer.Markdown`.
+ * - **Navigation**: Integrating with the `IntersectionObserver` to track the active section and update the table of contents.
+ * - **State Management**: Managing the lifecycle of embedded interactive components (`LivePreview`, custom components).
  * @class Portal.view.learn.ContentComponent
  * @extends Neo.component.Base
+ * @see Neo.code.renderer.Markdown
  */
 class ContentComponent extends Component {
     static config = {
@@ -131,7 +140,7 @@ class ContentComponent extends Component {
     }
 
     /**
-     * 
+     *
      */
     destroyChildInstances() {
         let me = this;

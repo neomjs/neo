@@ -6,6 +6,15 @@ const
     importRegex    = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['"]([^'"]+)['"]/;
 
 /**
+ * @summary Renderer implementation for executing Neo.mjs source code.
+ *
+ * This renderer is responsible for taking raw Neo.mjs component code (as a string), resolving its dependencies,
+ * and executing it within a container. It handles:
+ * - **Dynamic Imports**: Parsing `import` statements and resolving them at runtime using `Promise.all` and `import()`.
+ * - **Environment Handling**: Adjusting import paths based on the running environment (`development`, `dist/development`, `dist/production`) to ensure correct file resolution.
+ * - **Code Execution**: Wrapping the code in a `new Function` context to execute it safely and inject the result into the target container.
+ * - **Namespace Management**: Cleaning up previous class definitions to allow for iterative development and re-execution.
+ *
  * @class Neo.code.renderer.Neo
  * @extends Neo.code.renderer.Base
  */
@@ -59,6 +68,17 @@ class NeoRenderer extends Base {
     }
 
     /**
+     * Executes the provided Neo.mjs source code within the given container.
+     *
+     * This method performs a complex transformation to emulate a native module environment within the browser:
+     * 1.  **Import Rewriting**: It parses the source for `import` statements and maps them to dynamic `import()` calls.
+     *     Crucially, it adjusts relative paths based on the `environment` (dev vs. dist) to ensure the browser can resolve the files.
+     * 2.  **Promise Resolution**: It wraps all imports in a `Promise.all` to ensure dependencies are ready before code execution.
+     * 3.  **Sandbox Execution**: It constructs a function body string and executes it using `new Function`. This allows the code
+     *     to run in the global scope but with injected variables (`container`, `module`).
+     * 4.  **Namespace Cleaning**: It actively deletes the target class from the `Neo` namespace before execution. This is critical
+     *     for **Hot Module Replacement (HMR)** workflows, ensuring that re-running the code actually updates the class definition
+     *     instead of using a cached version.
      * @param {Object} data
      * @param {String} data.code
      * @param {Neo.component.Base} data.container

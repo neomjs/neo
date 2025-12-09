@@ -11,6 +11,17 @@ const
     regexReadonly     = /```(bash|javascript|html|css|json|scss|xml|markdown|yaml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
 
 /**
+ * @summary Renderer implementation for processing Markdown content with embedded Neo.mjs components.
+ *
+ * This renderer extends standard Markdown processing (using `marked.js`) to support rich, interactive documentation.
+ * It features a multi-pass processing pipeline that:
+ * 1.  **Extracts Custom Blocks**: Identifies and extracts special code blocks for `neo-component` (JSON configs) and `live-preview` (interactive examples).
+ * 2.  **Syntax Highlighting**: Asynchronously highlights `readonly` code blocks using `HighlightJS`.
+ * 3.  **HTML Generation**: Converts the Markdown to HTML.
+ * 4.  **Component Injection**: Rehydrates the extracted custom blocks by creating and injecting actual Neo.mjs component instances into the generated HTML.
+ *
+ * This class is essential for the "Learning" section of the Portal app, allowing documentation to be both readable and interactive.
+ *
  * @class Neo.code.renderer.Markdown
  * @extends Neo.code.renderer.Base
  */
@@ -74,7 +85,7 @@ class MarkdownRenderer extends Base {
             replacementPromises.push(
                 HighlightJs.highlightAuto(code, windowId)
                     .then(highlightedHtml => ({
-                        after: `<pre data-${language} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`, 
+                        after: `<pre data-${language} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
                         token
                     }))
             );
@@ -91,6 +102,18 @@ class MarkdownRenderer extends Base {
     }
 
     /**
+     * Orchestrates the Markdown rendering pipeline.
+     *
+     * This method implements a **multi-pass compilation strategy** to overcome the limitations of standard Markdown parsers
+     * when dealing with dynamic content and asynchronous operations:
+     *
+     * 1.  **Extraction Pass**: It first scans the raw markdown to extract `neo-component` and `live-preview` blocks. These are
+     *     replaced with placeholder DIVs. This prevents the Markdown parser from mangling the JSON/code configurations.
+     * 2.  **Highlighting Pass**: It asynchronously processes `readonly` code blocks using HighlightJS. Since `marked.js` is synchronous,
+     *     we must handle this pre-processing step to support syntax highlighting.
+     * 3.  **Parsing Pass**: The transformed content (with placeholders and highlighted code) is converted to HTML using `marked.parse`.
+     * 4.  **Injection Pass**: Finally, it iterates over the extracted component maps (`neoComponents`, `neoDivs`) and instantiates
+     *     the actual Neo.mjs components, rendering them into the placeholder DIVs within the generated HTML.
      * @param {Object} data
      * @param {String} data.code
      * @param {Neo.component.Base} data.container

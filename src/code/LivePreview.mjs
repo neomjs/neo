@@ -3,8 +3,24 @@ import MonacoEditor from '../component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../tab/Container.mjs';
 
 /**
+ * @summary A split-view component for real-time code editing and execution.
+ *
+ * This class provides a robust environment for editing source code and viewing the results in real-time.
+ * It integrates the **Monaco Editor** for a rich editing experience and uses a **pluggable renderer architecture**
+ * to support multiple languages and execution modes.
+ *
+ * Key features:
+ * - **Multi-Language Support**: Dynamically loads renderers for 'neomjs' (JS execution) and 'markdown' (rendering).
+ * - **Dynamic Imports**: Utilizes `import()` to lazy-load renderers, optimizing initial load performance.
+ * - **Sandboxed Execution**: Executes Neo.mjs code within a controlled context using `new Function`.
+ * - **Responsive Layout**: collapsible, pop-out support, and configurable views (source vs. preview).
+ *
+ * This component is central to the Neo.mjs learning experience and documentation portal.
+ *
  * @class Neo.code.LivePreview
  * @extends Neo.container.Base
+ * @see Neo.code.renderer.Base
+ * @see Neo.component.wrapper.MonacoEditor
  */
 class LivePreview extends Container {
     /**
@@ -282,7 +298,15 @@ class LivePreview extends Container {
     }
 
     /**
+     * Executes the current source code using the active renderer.
      *
+     * This method acts as the **execution trigger**. It orchestrates the process by:
+     * 1.  **Validation**: Ensuring a renderer is loaded and source code exists.
+     * 2.  **Cleanup**: Calling `destroyChildInstances()` to clear any artifacts (components, divs) from the previous run, ensuring a clean slate.
+     * 3.  **Delegation**: Passing the source code and context to `renderer.render()`.
+     * 4.  **State Update**: Storing the references to newly created components so they can be managed (and destroyed) later.
+     *
+     * @returns {Promise<void>}
      */
     async doRunSource() {
         if (this.disableRunSource || !this.renderer) {
@@ -341,7 +365,15 @@ class LivePreview extends Container {
     }
 
     /**
-     * @param {String} language
+     * Loads and caches the renderer for a specific language.
+     *
+     * This method implements a **lazy-loading strategy**. It only imports and instantiates the renderer
+     * when it is first requested. This keeps the initial bundle size small and improves startup performance,
+     * especially since not all users will need every language renderer.
+     *
+     * Once loaded, the renderer instance is cached in `this.renderers` for instant access on subsequent switches.
+     *
+     * @param {String} language The language identifier (e.g., 'neomjs', 'markdown').
      * @returns {Promise<void>}
      */
     async loadRenderer(language) {
