@@ -1,15 +1,16 @@
 ---
 id: 8067
 title: Create Neo.component.Markdown for Encapsulated Markdown Rendering
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-09T12:29:43Z'
-updatedAt: '2025-12-09T12:29:43Z'
+updatedAt: '2025-12-09T13:55:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8067'
 author: tobiu
 commentsCount: 0
@@ -19,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-09T13:55:29Z'
 ---
 # Create Neo.component.Markdown for Encapsulated Markdown Rendering
 
@@ -51,4 +53,7 @@ Decouple styling from the view and logic from the renderer, creating a self-cont
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `refactoring` label
 - 2025-12-09 @tobiu added the `architecture` label
+- 2025-12-09 @tobiu assigned to @tobiu
+- 2025-12-09 @tobiu referenced in commit `6026b5c` - "Create Neo.component.Markdown for Encapsulated Markdown Rendering #8067"
+- 2025-12-09 @tobiu closed this issue
 
