@@ -281,8 +281,20 @@ class LivePreview extends Container {
         Neo.Main.windowOpen({
             url           : `${me.windowUrl}?id=${me.id}`,
             windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+            windowId      : me.windowId,
             windowName    : me.id
         })
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        if (this.connectedWindowId) {
+            Neo.Main.windowClose({names: [this.id], windowId: this.windowId})
+        }
+
+        super.destroy(...args)
     }
 
     /**
@@ -374,63 +386,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onAppConnect(data) {
-        let me           = this,
-            searchString = await Neo.Main.getByPath({path: 'location.search', windowId: data.windowId}),
-            params       = new URLSearchParams(searchString),
-            id           = params.get('id');
-
-        if (id === me.id) {
-            me.connectedWindowId = data.windowId;
-
-            let app             = Neo.apps[data.windowId],
-                mainView        = app.mainView,
-                sourceContainer = me.getReference('preview'),
-                {tabContainer}  = me,
-                sourceView      = sourceContainer.removeAt(0, false);
-
-            me.previewContainer = mainView;
-            mainView.add(sourceView);
-
-            tabContainer.activeIndex = 0; // switch to the source view
-
-            tabContainer.getTabAtIndex(1).disabled = true
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onAppDisconnect(data) {
-        let me = this;
-
-        if (data.windowId === me.connectedWindowId) {
-            let app             = Neo.apps[data.windowId],
-                mainView        = app.mainView,
-                sourceContainer = me.getReference('preview'),
-                {tabContainer}  = me,
-                sourceView      = mainView.removeAt(0, false);
-
-            me.previewContainer = null;
-            sourceContainer.add(sourceView);
-
-            me.disableRunSource = true; // will get reset after the next activeIndex change (async)
-            tabContainer.activeIndex = 1;        // switch to the source view
-
-            me.getReference('popout-window-button').disabled = false;
-            tabContainer.getTabAtIndex(1).disabled = false;
-
-            me.connectedWindowId = null
-        }
-    }
-
-    /**
      *
      */
     onConstructed() {
@@ -459,8 +414,8 @@ class LivePreview extends Container {
             });
 
             Neo.currentWorker.on({
-                connect   : me.onAppConnect,
-                disconnect: me.onAppDisconnect,
+                connect   : me.onWindowConnect,
+                disconnect: me.onWindowDisconnect,
                 scope     : me
             })
         }
@@ -491,6 +446,63 @@ class LivePreview extends Container {
         // We are not using getPreviewContainer(), since we only want to update the LivePreview in case it is visible.
         if (me.previewContainer) {
             me.doRunSource()
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onWindowConnect(data) {
+        let me           = this,
+            searchString = await Neo.Main.getByPath({path: 'location.search', windowId: data.windowId}),
+            params       = new URLSearchParams(searchString),
+            id           = params.get('id');
+
+        if (id === me.id) {
+            me.connectedWindowId = data.windowId;
+
+            let app             = Neo.apps[data.windowId],
+                mainView        = app.mainView,
+                sourceContainer = me.getReference('preview'),
+                {tabContainer}  = me,
+                sourceView      = sourceContainer.removeAt(0, false);
+
+            me.previewContainer = mainView;
+            mainView.add(sourceView);
+
+            tabContainer.activeIndex = 0; // switch to the source view
+
+            tabContainer.getTabAtIndex(1).disabled = true
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onWindowDisconnect(data) {
+        let me = this;
+
+        if (data.windowId === me.connectedWindowId) {
+            let app             = Neo.apps[data.windowId],
+                mainView        = app.mainView,
+                sourceContainer = me.getReference('preview'),
+                {tabContainer}  = me,
+                sourceView      = mainView.removeAt(0, false);
+
+            me.previewContainer = null;
+            sourceContainer.add(sourceView);
+
+            me.disableRunSource = true; // will get reset after the next activeIndex change (async)
+            tabContainer.activeIndex = 1;        // switch to the source view
+
+            me.getReference('popout-window-button').disabled = false;
+            tabContainer.getTabAtIndex(1).disabled = false;
+
+            me.connectedWindowId = null
         }
     }
 
