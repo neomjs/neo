@@ -8,12 +8,12 @@ import TabContainer from '../tab/Container.mjs';
  */
 class LivePreview extends Container {
     /**
-     * Valid values for iconPosition
-     * @member {String[]} activeViews=['preview','source']
+     * Valid values for language
+     * @member {String[]} languages=['markdown','neomjs']
      * @protected
      * @static
      */
-    static activeViews = ['preview', 'source']
+    static languages = ['markdown', 'neomjs']
 
     static config = {
         /**
@@ -102,6 +102,10 @@ class LivePreview extends Container {
      * @member {Neo.component.Base} previewContainer=null
      */
     previewContainer = null
+    /**
+     * @member {Object} renderers={}
+     */
+    renderers = {}
 
     /**
      * @returns {Neo.component.Base|null}
@@ -126,23 +130,10 @@ class LivePreview extends Container {
      * @param {String} oldValue
      * @protected
      */
-    async afterSetLanguage(value, oldValue) {
-        let me = this,
-            module;
-
-        switch (value) {
-            case 'markdown':
-                module = await import('./renderer/Markdown.mjs');
-                break;
-            case 'neomjs':
-                module = await import('./renderer/Neo.mjs');
-                break;
-            default:
-                console.error('Invalid language for LivePreview:', value);
-                return;
+    afterSetLanguage(value, oldValue) {
+        if (oldValue) {
+            this.loadRenderer(value)
         }
-
-        me.renderer = Neo.create(module.default);
     }
 
     /**
@@ -152,8 +143,8 @@ class LivePreview extends Container {
      * @protected
      */
     afterSetRenderer(value, oldValue) {
-        if (this.isConstructed) {
-             this.doRunSource();
+        if (this.isConstructed && this.value) {
+             this.doRunSource()
         }
     }
 
@@ -178,6 +169,17 @@ class LivePreview extends Container {
      */
     beforeSetActiveView(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'activeView')
+    }
+
+    /**
+     * Triggered before the language config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetLanguage(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'language')
     }
 
     /**
@@ -328,6 +330,41 @@ class LivePreview extends Container {
         }
 
         return me.getReference('preview')
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await this.loadRenderer(this.language)
+    }
+
+    /**
+     * @param {String} language
+     * @returns {Promise<void>}
+     */
+    async loadRenderer(language) {
+        let me = this,
+            module;
+
+        if (!me.renderers[language]) {
+            switch (language) {
+                case 'markdown':
+                    module = await import('./renderer/Markdown.mjs');
+                    break;
+                case 'neomjs':
+                    module = await import('./renderer/Neo.mjs');
+                    break;
+                default:
+                    console.error('Invalid language for LivePreview:', language);
+                    return
+            }
+
+            me.renderers[language] = Neo.create(module.default)
+        }
+
+        me.renderer = me.renderers[language]
     }
 
     /**
