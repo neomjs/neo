@@ -105,13 +105,18 @@ class LivePreview extends Container {
          * @reactive
          */
         value_: null,
+        /**
+         * The url for the child app to use for the popout window
+         * @member {String} windowUrl='./childapps/preview/index.html'
+         * @reactive
+         */
+        windowUrl: './childapps/preview/index.html'
     }
 
     /**
-     * Link the preview output to different targets
-     * @member {Neo.component.Base} previewContainer=null
+     * @member {Number|null} connectedWindowId=null
      */
-    previewContainer = null
+    connectedWindowId = null
     /**
      * @member {Class|null} markdownComponentClass=null
      */
@@ -120,6 +125,11 @@ class LivePreview extends Container {
      * @member {Neo.code.executor.Neo|null} neoExecutor=null
      */
     neoExecutor = null
+    /**
+     * Link the preview output to different targets
+     * @member {Neo.component.Base} previewContainer=null
+     */
+    previewContainer = null
 
     /**
      * @returns {Neo.component.Base|null}
@@ -269,7 +279,7 @@ class LivePreview extends Container {
         top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
         Neo.Main.windowOpen({
-            url           : `./childapps/preview/index.html?id=${me.id}`,
+            url           : `${me.windowUrl}?id=${me.id}`,
             windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
             windowName    : me.id
         })
@@ -341,14 +351,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * @returns {Promise<void>}
-     */
-    async initAsync() {
-        await super.initAsync()
-    }
-
-
-    /**
      * @param {Object} data
      * @param {Neo.component.Base} data.item
      * @param {Number} data.oldValue
@@ -372,6 +374,63 @@ class LivePreview extends Container {
     }
 
     /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppConnect(data) {
+        let me           = this,
+            searchString = await Neo.Main.getByPath({path: 'location.search', windowId: data.windowId}),
+            params       = new URLSearchParams(searchString),
+            id           = params.get('id');
+
+        if (id === me.id) {
+            me.connectedWindowId = data.windowId;
+
+            let app             = Neo.apps[data.windowId],
+                mainView        = app.mainView,
+                sourceContainer = me.getReference('preview'),
+                {tabContainer}  = me,
+                sourceView      = sourceContainer.removeAt(0, false);
+
+            me.previewContainer = mainView;
+            mainView.add(sourceView);
+
+            tabContainer.activeIndex = 0; // switch to the source view
+
+            tabContainer.getTabAtIndex(1).disabled = true
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onAppDisconnect(data) {
+        let me = this;
+
+        if (data.windowId === me.connectedWindowId) {
+            let app             = Neo.apps[data.windowId],
+                mainView        = app.mainView,
+                sourceContainer = me.getReference('preview'),
+                {tabContainer}  = me,
+                sourceView      = mainView.removeAt(0, false);
+
+            me.previewContainer = null;
+            sourceContainer.add(sourceView);
+
+            me.disableRunSource = true; // will get reset after the next activeIndex change (async)
+            tabContainer.activeIndex = 1;        // switch to the source view
+
+            me.getReference('popout-window-button').disabled = false;
+            tabContainer.getTabAtIndex(1).disabled = false;
+
+            me.connectedWindowId = null
+        }
+    }
+
+    /**
      *
      */
     onConstructed() {
@@ -389,13 +448,22 @@ class LivePreview extends Container {
             })
         }
 
-        items.push({
-            handler  : me.popoutPreview.bind(me),
-            hidden   : tabContainer.activeIndex !== 1,
-            iconCls  : 'far fa-window-maximize',
-            reference: 'popout-window-button',
-            ui       : 'ghost'
-        });
+        // Only add the popout window button in case we are using shared workers
+        if (Neo.config.useSharedWorkers) {
+            items.push({
+                handler  : me.popoutPreview.bind(me),
+                hidden   : tabContainer.activeIndex !== 1,
+                iconCls  : 'far fa-window-maximize',
+                reference: 'popout-window-button',
+                ui       : 'ghost'
+            });
+
+            Neo.currentWorker.on({
+                connect   : me.onAppConnect,
+                disconnect: me.onAppDisconnect,
+                scope     : me
+            })
+        }
 
         items.unshift('->');
 
@@ -433,10 +501,7 @@ class LivePreview extends Container {
         let me = this;
 
         data.component.disabled = true;
-        await me.createPopupWindow();
-
-        // this component requires a view controller to manage connected apps
-        me.getController('viewport-controller')?.connectedApps.push(me.id)
+        await me.createPopupWindow()
     }
 }
 
