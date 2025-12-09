@@ -291,9 +291,8 @@ class Markdown extends Component {
         html = marked.parse(content);
 
         // Insert lab divs (these are markdown comments, so process on the final HTML)
-        me.html = me.insertLabDivs(html);
-
-        await new Promise(resolve => setTimeout(resolve, Neo.config.environment === 'development' ? 100 : 150));
+        await me.set({html: me.insertLabDivs(html)});
+        await me.timeout(10);
 
         if (Object.keys(neoComponents).length > 0) {
             Object.keys(neoComponents).forEach(key => {
