@@ -1,7 +1,7 @@
 ---
 id: 8068
 title: Refactor Markdown Component to Handle Headline Parsing
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-09T14:15:55Z'
-updatedAt: '2025-12-09T14:16:08Z'
+updatedAt: '2025-12-09T14:16:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8068'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-09T14:16:54Z'
 ---
 # Refactor Markdown Component to Handle Headline Parsing
 
@@ -38,4 +39,6 @@ To improve separation of concerns and reuse, the headline parsing logic should b
 - 2025-12-09 @tobiu added the `refactoring` label
 - 2025-12-09 @tobiu added the `architecture` label
 - 2025-12-09 @tobiu assigned to @tobiu
+- 2025-12-09 @tobiu referenced in commit `50eafaa` - "Refactor Markdown Component to Handle Headline Parsing #8068"
+- 2025-12-09 @tobiu closed this issue
 

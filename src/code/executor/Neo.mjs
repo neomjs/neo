@@ -1,4 +1,4 @@
-import Base from './Base.mjs';
+import Base from '../../core/Base.mjs';
 
 const
     classNameRegex = /className\s*:\s*['"]([^'"]+)['"]/g,
@@ -6,25 +6,25 @@ const
     importRegex    = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['"]([^'"]+)['"]/;
 
 /**
- * @summary Renderer implementation for executing Neo.mjs source code.
+ * @summary Executor implementation for Neo.mjs source code.
  *
- * This renderer is responsible for taking raw Neo.mjs component code (as a string), resolving its dependencies,
+ * This executor is responsible for taking raw Neo.mjs component code (as a string), resolving its dependencies,
  * and executing it within a container. It handles:
  * - **Dynamic Imports**: Parsing `import` statements and resolving them at runtime using `Promise.all` and `import()`.
  * - **Environment Handling**: Adjusting import paths based on the running environment (`development`, `dist/development`, `dist/production`) to ensure correct file resolution.
  * - **Code Execution**: Wrapping the code in a `new Function` context to execute it safely and inject the result into the target container.
  * - **Namespace Management**: Cleaning up previous class definitions to allow for iterative development and re-execution.
  *
- * @class Neo.code.renderer.Neo
- * @extends Neo.code.renderer.Base
+ * @class Neo.code.executor.Neo
+ * @extends Neo.core.Base
  */
-class NeoRenderer extends Base {
+class NeoExecutor extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.code.renderer.Neo'
+         * @member {String} className='Neo.code.executor.Neo'
          * @protected
          */
-        className: 'Neo.code.renderer.Neo'
+        className: 'Neo.code.executor.Neo'
     }
 
     /**
@@ -84,7 +84,7 @@ class NeoRenderer extends Base {
      * @param {Neo.component.Base} data.container
      * @returns {Promise<Object>}
      */
-    async render({code, container}) {
+    async execute({code, container}) {
         let me                = this,
             {environment}     = Neo.config,
             source            = code,
@@ -171,7 +171,7 @@ class NeoRenderer extends Base {
             '    console.warn("LivePreview Error:", error);',
             '    container.add({ntype:\'component\', html:error.message});',
             '})'
-        ].join('\n')
+        ].join('\n');
 
         container.removeAll();
 
@@ -200,4 +200,4 @@ class NeoRenderer extends Base {
     }
 }
 
-export default Neo.setupClass(NeoRenderer);
+export default Neo.setupClass(NeoExecutor);

@@ -6,12 +6,11 @@ import TabContainer from '../tab/Container.mjs';
  * @summary A split-view component for real-time code editing and execution.
  *
  * This class provides a robust environment for editing source code and viewing the results in real-time.
- * It integrates the **Monaco Editor** for a rich editing experience and uses a **pluggable renderer architecture**
- * to support multiple languages and execution modes.
+ * It integrates the **Monaco Editor** for a rich editing experience and supports multiple languages and execution modes.
  *
  * Key features:
- * - **Multi-Language Support**: Dynamically loads renderers for 'neomjs' (JS execution) and 'markdown' (rendering).
- * - **Dynamic Imports**: Utilizes `import()` to lazy-load renderers, optimizing initial load performance.
+ * - **Multi-Language Support**: Supports 'neomjs' (JS execution) and 'markdown' (rendering).
+ * - **Dynamic Imports**: Utilizes `import()` to lazy-load the Markdown component or Code Executor, optimizing initial load performance.
  * - **Sandboxed Execution**: Executes Neo.mjs code within a controlled context using `new Function`.
  * - **Responsive Layout**: collapsible, pop-out support, and configurable views (source vs. preview).
  *
@@ -19,7 +18,8 @@ import TabContainer from '../tab/Container.mjs';
  *
  * @class Neo.code.LivePreview
  * @extends Neo.container.Base
- * @see Neo.code.renderer.Base
+ * @see Neo.code.executor.Neo
+ * @see Neo.component.Markdown
  * @see Neo.component.wrapper.MonacoEditor
  */
 class LivePreview extends Container {
@@ -100,11 +100,6 @@ class LivePreview extends Container {
             }]
         }],
         /**
-         * @member {Neo.code.renderer.Base|null} renderer_=null
-         * @reactive
-         */
-        renderer_: null,
-        /**
          * The code to display inside the Monaco editor
          * @member {String|null} value_=null
          * @reactive
@@ -118,9 +113,13 @@ class LivePreview extends Container {
      */
     previewContainer = null
     /**
-     * @member {Object} renderers={}
+     * @member {Class|null} markdownComponentClass=null
      */
-    renderers = {}
+    markdownComponentClass = null
+    /**
+     * @member {Neo.code.executor.Neo|null} neoExecutor=null
+     */
+    neoExecutor = null
 
     /**
      * @returns {Neo.component.Base|null}
@@ -147,21 +146,10 @@ class LivePreview extends Container {
      */
     afterSetLanguage(value, oldValue) {
         if (oldValue) {
-            this.loadRenderer(value)
+            this.doRunSource()
         }
     }
 
-    /**
-     * Triggered after the renderer config got changed
-     * @param {Neo.code.renderer.Base} value
-     * @param {Neo.code.renderer.Base} oldValue
-     * @protected
-     */
-    afterSetRenderer(value, oldValue) {
-        if (this.isConstructed && this.value) {
-             this.doRunSource()
-        }
-    }
 
     /**
      * Triggered after the value config got changed
@@ -284,18 +272,18 @@ class LivePreview extends Container {
     }
 
     /**
-     * Executes the current source code using the active renderer.
+     * Executes the current source code.
      *
      * This method acts as the **execution trigger**. It orchestrates the process by:
-     * 1.  **Validation**: Ensuring a renderer is loaded and source code exists.
+     * 1.  **Validation**: Ensuring source code exists.
      * 2.  **Execution**:
      *     - For **Markdown**: Clears the container and adds a new `Neo.component.Markdown` instance.
-     *     - For **Neo.mjs**: Delegates execution to the `NeoRenderer` instance.
+     *     - For **Neo.mjs**: Delegates execution to the `Neo.code.executor.Neo` instance.
      *
      * @returns {Promise<void>}
      */
     async doRunSource() {
-        if (this.disableRunSource || !this.renderer) {
+        if (this.disableRunSource) {
             return
         }
 
@@ -306,14 +294,24 @@ class LivePreview extends Container {
         if (!source) return;
 
         if (me.language === 'markdown') {
+            if (!me.markdownComponentClass) {
+                const module = await import('../component/Markdown.mjs');
+                me.markdownComponentClass = module.default;
+            }
+
             container.removeAll();
             container.add({
-                module: me.renderer,
+                module: me.markdownComponentClass,
                 style : {height: '100%', overflow: 'auto'},
                 value : source
             })
         } else {
-            await me.renderer.render({
+            if (!me.neoExecutor) {
+                const module = await import('./executor/Neo.mjs');
+                me.neoExecutor = Neo.create(module.default);
+            }
+
+            await me.neoExecutor.execute({
                 code: source,
                 container: container,
                 context: {
@@ -342,42 +340,9 @@ class LivePreview extends Container {
      * @returns {Promise<void>}
      */
     async initAsync() {
-        await super.initAsync();
-        await this.loadRenderer(this.language)
+        await super.initAsync()
     }
 
-    /**
-     * Loads and caches the renderer (or component) for a specific language.
-     *
-     * This method implements a **lazy-loading strategy**.
-     * - For 'neomjs', it loads the `NeoRenderer` instance.
-     * - For 'markdown', it loads the `Neo.component.Markdown` class constructor.
-     *
-     * @param {String} language The language identifier (e.g., 'neomjs', 'markdown').
-     * @returns {Promise<void>}
-     */
-    async loadRenderer(language) {
-        let me = this,
-            module;
-
-        if (!me.renderers[language]) {
-            switch (language) {
-                case 'markdown':
-                    module = await import('../component/Markdown.mjs');
-                    me.renderers[language] = module.default; // Cache the Class Constructor
-                    break;
-                case 'neomjs':
-                    module = await import('./renderer/Neo.mjs');
-                    me.renderers[language] = Neo.create(module.default); // Cache the Renderer Instance
-                    break;
-                default:
-                    console.error('Invalid language for LivePreview:', language);
-                    return
-            }
-        }
-
-        me.renderer = me.renderers[language]
-    }
 
     /**
      * @param {Object} data
