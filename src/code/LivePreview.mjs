@@ -2,11 +2,6 @@ import Container    from '../container/Base.mjs';
 import MonacoEditor from '../component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../tab/Container.mjs';
 
-const
-    classNameRegex = /className\s*:\s*['\"]([^'\"]+)['\"]/g,
-    exportRegex    = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
-    importRegex    = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['\"]([^'\"]+)['\"]/;
-
 /**
  * @class Neo.code.LivePreview
  * @extends Neo.container.Base
@@ -50,6 +45,11 @@ class LivePreview extends Container {
          */
         enableFullscreen: true,
         /**
+         * @member {String} language_='neomjs'
+         * @reactive
+         */
+        language_: 'neomjs',
+        /**
          * @member {Object|String} layout='fit'
          * @reactive
          */
@@ -77,6 +77,11 @@ class LivePreview extends Container {
             }]
         }],
         /**
+         * @member {Neo.code.renderer.Base|null} renderer_=null
+         * @reactive
+         */
+        renderer_: null,
+        /**
          * The code to display inside the Monaco editor
          * @member {String|null} value_=null
          * @reactive
@@ -84,6 +89,14 @@ class LivePreview extends Container {
         value_: null,
     }
 
+    /**
+     * @member {Neo.component.Base[]} customComponents=[]
+     */
+    customComponents = []
+    /**
+     * @member {Neo.code.LivePreview[]} livePreviews=[]
+     */
+    livePreviews = []
     /**
      * Link the preview output to different targets
      * @member {Neo.component.Base} previewContainer=null
@@ -105,6 +118,43 @@ class LivePreview extends Container {
      */
     afterSetActiveView(value, oldValue) {
         this.tabContainer.activeIndex = value === 'source' ? 0 : 1
+    }
+
+    /**
+     * Triggered after the language config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    async afterSetLanguage(value, oldValue) {
+        let me = this,
+            module;
+
+        switch (value) {
+            case 'markdown':
+                module = await import('./renderer/Markdown.mjs');
+                break;
+            case 'neomjs':
+                module = await import('./renderer/Neo.mjs');
+                break;
+            default:
+                console.error('Invalid language for LivePreview:', value);
+                return;
+        }
+
+        me.renderer = Neo.create(module.default);
+    }
+
+    /**
+     * Triggered after the renderer config got changed
+     * @param {Neo.code.renderer.Base} value
+     * @param {Neo.code.renderer.Base} oldValue
+     * @protected
+     */
+    afterSetRenderer(value, oldValue) {
+        if (this.isConstructed) {
+             this.doRunSource();
+        }
     }
 
     /**
@@ -219,175 +269,53 @@ class LivePreview extends Container {
     /**
      *
      */
-    doRunSource() {
-        if (this.disableRunSource) {
+    destroyChildInstances() {
+        let me = this;
+
+        me.customComponents.forEach(component => component.destroy());
+        me.customComponents = [];
+
+        me.livePreviews.forEach(livePreview => livePreview.destroy());
+        me.livePreviews = [];
+    }
+
+    /**
+     *
+     */
+    async doRunSource() {
+        if (this.disableRunSource || !this.renderer) {
             return
         }
 
-        let me                = this,
-            {environment}     = Neo.config,
-            container         = me.getPreviewContainer(),
-            source            = me.editorValue || me.value,
-            className         = me.findMainClassName(source),
-            cleanLines        = [],
-            moduleNameAndPath = [],
-            params            = [],
-            vars              = [],
-            codeString, module, promises;
+        let me        = this,
+            container = me.getPreviewContainer(),
+            source    = me.editorValue || me.value; // Use current editor value or initial value
 
-        source.split('\n').forEach(line => {
-            let importMatch = line.match(importRegex);
+        if (!source) return;
 
-            if (importMatch) {
-                let defaultImport = importMatch[1],
-                    namedImports  = importMatch[2]?.split(',').map(name => name.trim()),
-                    path          = importMatch[3],
-                    index;
+        // Clean up previous instances (for Markdown renderer)
+        me.destroyChildInstances();
 
-                // We want the non-minified version for code which can not get bundled.
-                if (environment === 'dist/development') {
-                    index = path.lastIndexOf('../');
-
-                    if (index === 0) {
-                        path = '../../../../src/' + path.slice(index + 3)
-                    } else {
-                        path = path.slice(0, index) + '../../../' + path.slice(index + 3)
-                    }
-                }
-
-                // We want the minified version of the code which can not get bundled.
-                else if (environment === 'dist/production') {
-                    index = path.lastIndexOf('../');
-
-                    if (index === 0) {
-                        path = '../../../esm/src/' + path.slice(index + 3)
-                    } else {
-                        path = path.slice(0, index) + '../../esm/' + path.slice(index + 3)
-                    }
-                }
-
-                moduleNameAndPath.push({defaultImport, namedImports, path})
-            } else if (line.match(exportRegex)) {
-                // Skip export statements
-            } else {
-                cleanLines.push(`    ${line}`)
+        // Delegate to renderer
+        let result = await me.renderer.render({
+            code: source,
+            container: container,
+            context: {
+                appName        : me.appName,
+                windowId       : me.windowId,
+                parentComponent: me
             }
         });
 
-        // Figure out the parts of the source we'll be running.
-        // * The promises/import() corresponding to the user's import statements
-        // * The vars holding the name of the imported module based on the module name for each import
-        // * The rest of the user-provided source
-        // It'll end up looking like this:
-        // Promise.all([
-        //     import('../../../node_modules/neo.mjs/src/container/Base.mjs'),
-        //     import('../../../node_modules/neo.mjs/src/button/Base.mjs')
-        //   ]).then(([BaseModule, ButtonModule]) => {
-        //       const Base = BaseModule.default;
-        //       const Button = ButtonModule.default;
-        //       // Class declaration goes here...
-        //   });
-        // Making the promise part of the eval seems weird, but it made it easier to
-        // set up the import vars.
-        promises = moduleNameAndPath.map((item, i) => {
-            let moduleAlias = `Module${i}`;
-            params.push(moduleAlias);
-            if (item.defaultImport) {
-                vars.push(`    const ${item.defaultImport} = ${moduleAlias}.default;`);
+        if (result) {
+            if (result.customComponents) {
+                me.customComponents = result.customComponents;
             }
-            if (item.namedImports) {
-                vars.push(`    const {${item.namedImports.join(', ')}} = ${moduleAlias};`);
-            }
-            return `import('${item.path}')`
-        });
-
-        codeString = [
-            'Promise.all([',
-            `    ${promises.join(',\n')}`,
-            `]).then(([${params.join(', ')}]) => {`,
-            `${vars.join('\n')}`,
-            `    ${cleanLines.join('\n')}`,
-            '',
-            `    module = Neo.ns('${className}');`,
-            '',
-            `    if (module && (`,
-            `        Neo.component.Base.isPrototypeOf(module) ||`,
-            `        Neo.functional.component.Base.isPrototypeOf(module)`,
-            `    )) {`,
-            `        container.add({module})`,
-            '    }',
-            '})',
-            '.catch(error => {',
-            '    console.warn("LivePreview Error:", error);',
-            '    container.add({ntype:\'component\', html:error.message});',
-            '})'
-        ].join('\n')
-
-        container.removeAll();
-
-        // We must ensure that classes inside the editor won't get cached, since this disables run-time changes
-        // See: https://github.com/neomjs/neo/issues/5863
-        me.findClassNames(codeString).forEach(item => {
-            let nsArray   = item.split('.'),
-                className = nsArray.pop(),
-                ns        = Neo.ns(nsArray);
-
-            if (ns) {
-                delete ns[className]
-            }
-        });
-
-        try {
-            new Function('container', 'module', codeString)(container, module);
-        } catch (error) {
-            container.add({
-                ntype: 'component',
-                html : error.message
-            })
-        }
-    }
-
-    /**
-     * @param {String} sourceCode
-     * @returns {String[]}
-     */
-    findClassNames(sourceCode) {
-        let classNames = [],
-            match;
-
-        while ((match = classNameRegex.exec(sourceCode)) !== null) {
-            classNames.push(match[1])
-        }
-
-        return classNames
-    }
-
-    /**
-     * @param {String} sourceCode
-     * @returns {String|null}
-     */
-    findMainClassName(sourceCode) {
-        let classNames = this.findClassNames(sourceCode),
-            mainName   = null,
-            prioNames  = ['MainContainer', 'MainComponent', 'MainView', 'Main'];
-
-        if (classNames.length > 0) {
-            for (const name of prioNames) {
-                mainName = classNames.find(className => className.endsWith(name));
-                if (mainName) {
-                    break
-                }
-            }
-
-            if (!mainName) {
-                mainName = classNames[classNames.length - 1]
+            if (result.livePreviews) {
+                me.livePreviews = result.livePreviews;
             }
         }
-
-        return mainName
     }
-
-
 
     /**
      * @returns {Neo.component.Base|null}
