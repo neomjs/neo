@@ -46,14 +46,6 @@ class ContentComponent extends Component {
     }
 
     /**
-     * @member {Neo.component.Base[]} customComponents=[]
-     */
-    customComponents = []
-    /**
-     * @member {Neo.code.LivePreview[]} livePreviews=[]
-     */
-    livePreviews = []
-    /**
      * @member {Neo.code.renderer.Markdown|null} renderer=null
      */
     renderer = null
@@ -93,14 +85,10 @@ class ContentComponent extends Component {
                     windowId: me.windowId
                 })
             })
-        } else if (oldValue !== undefined) {
-            me.customComponents.forEach(component => {
-                component.mounted = false
-            });
+        }
 
-            me.livePreviews.forEach(livePreview => {
-                livePreview.mounted = false
-            })
+        if (me.isConstructed) {
+            me.renderer?.updateComponentState(value)
         }
     }
 
@@ -143,19 +131,7 @@ class ContentComponent extends Component {
      *
      */
     destroyChildInstances() {
-        let me = this;
-
-        me.customComponents.forEach(component => {
-            component.destroy()
-        });
-
-        me.customComponents = [];
-
-        me.livePreviews.forEach(livePreview => {
-            livePreview.destroy()
-        });
-
-        me.livePreviews = []
+        this.renderer?.destroyComponents()
     }
 
     /**
@@ -167,7 +143,7 @@ class ContentComponent extends Component {
             {appName, windowId} = me,
             path                = me.getStateProvider().getData('contentPath'),
             pagesFolder         = path.includes('/learn/') ? '' : 'pages/',
-            content, data, result;
+            content, data;
 
         path += `${pagesFolder + record.id.replaceAll('.', '/')}.md`;
 
@@ -183,7 +159,7 @@ class ContentComponent extends Component {
                 me.renderer = Neo.create(module.default);
             }
 
-            result = await me.renderer.render({
+            await me.renderer.render({
                 code: content,
                 container: me,
                 context: {
@@ -194,9 +170,6 @@ class ContentComponent extends Component {
             });
 
             me.toggleCls('lab', record.name?.startsWith('Lab:'));
-
-            me.customComponents = result.customComponents;
-            me.livePreviews     = result.livePreviews;
 
             Neo.main.addon.IntersectionObserver.observe({
                 disconnect: true,

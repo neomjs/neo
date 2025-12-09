@@ -24,6 +24,13 @@ import TabContainer from '../tab/Container.mjs';
  */
 class LivePreview extends Container {
     /**
+     * Valid values for activeView
+     * @member {String[]} activeViews=['preview','source']
+     * @protected
+     * @static
+     */
+    static activeViews = ['preview', 'source']
+    /**
      * Valid values for language
      * @member {String[]} languages=['markdown','neomjs']
      * @protected
@@ -106,14 +113,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * @member {Neo.component.Base[]} customComponents=[]
-     */
-    customComponents = []
-    /**
-     * @member {Neo.code.LivePreview[]} livePreviews=[]
-     */
-    livePreviews = []
-    /**
      * Link the preview output to different targets
      * @member {Neo.component.Base} previewContainer=null
      */
@@ -150,6 +149,17 @@ class LivePreview extends Container {
         if (oldValue) {
             this.loadRenderer(value)
         }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        this.renderer?.updateComponentState(value)
     }
 
     /**
@@ -288,13 +298,7 @@ class LivePreview extends Container {
      *
      */
     destroyChildInstances() {
-        let me = this;
-
-        me.customComponents.forEach(component => component.destroy());
-        me.customComponents = [];
-
-        me.livePreviews.forEach(livePreview => livePreview.destroy());
-        me.livePreviews = [];
+        this.renderer?.destroyComponents()
     }
 
     /**
@@ -323,7 +327,7 @@ class LivePreview extends Container {
         me.destroyChildInstances();
 
         // Delegate to renderer
-        let result = await me.renderer.render({
+        await me.renderer.render({
             code: source,
             container: container,
             context: {
@@ -332,15 +336,6 @@ class LivePreview extends Container {
                 parentComponent: me
             }
         });
-
-        if (result) {
-            if (result.customComponents) {
-                me.customComponents = result.customComponents;
-            }
-            if (result.livePreviews) {
-                me.livePreviews = result.livePreviews;
-            }
-        }
     }
 
     /**

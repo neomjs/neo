@@ -23,6 +23,12 @@ class RendererBase extends Base {
     }
 
     /**
+     * Optional method for renderers that manage their own child components.
+     * Should destroy all internally tracked components.
+     */
+    destroyComponents() {}
+
+    /**
      * @param {Object} data
      * @param {String} data.code
      * @param {Neo.component.Base} data.container
@@ -32,6 +38,13 @@ class RendererBase extends Base {
     async render(data) {
         return {}
     }
+
+    /**
+     * Optional method for renderers that manage their own child components.
+     * Should update the 'mounted' state of tracked components.
+     * @param {Boolean} mounted
+     */
+    updateComponentState(mounted) {}
 }
 
 export default Neo.setupClass(RendererBase);
