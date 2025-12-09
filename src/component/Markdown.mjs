@@ -45,7 +45,12 @@ class Markdown extends Component {
          * @member {String|null} value_=null
          * @reactive
          */
-        value_: null
+        value_: null,
+        /**
+         * Optional windowUrl to pass to nested code.LivePreviews.
+         * @member {String|null} windowUrl=null
+         */
+        windowUrl: null
     }
 
     /**
@@ -86,20 +91,24 @@ class Markdown extends Component {
             // Clean up previous instances
             me.destroyComponents();
 
-            await me.render({
-                code     : value,
-                container: me,
-                context: {
-                    appName        : me.appName,
-                    windowId       : me.windowId,
-                    parentComponent: me
-                }
-            });
+            await me.render({code: value})
         }
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    async afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+        this.activeComponents.forEach(component => component.windowId = value)
+    }
+
+    /**
      * Destroy all created child instances
+     * @param {...*} args
      */
     destroy(...args) {
         this.destroyComponents();
@@ -113,7 +122,7 @@ class Markdown extends Component {
         let me = this;
 
         me.activeComponents.forEach(component => component.destroy());
-        me.activeComponents = [];
+        me.activeComponents = []
     }
 
     /**
@@ -247,22 +256,19 @@ class Markdown extends Component {
      *     the actual Neo.mjs components, rendering them into the placeholder DIVs within the generated HTML.
      * @param {Object} data
      * @param {String} data.code
-     * @param {Neo.component.Base} data.container
-     * @param {Object} [data.context]
      * @returns {Promise<Object>}
      */
-    async render({code, container, context={}}) {
-        let me               = this,
-            content          = code,
-            neoComponents    = {},
-            neoDivs          = {},
-            parentComponent  = context.parentComponent || container,
-            baseConfigs      = {
-                appName      : context.appName,
-                autoInitVnode: true,
-                autoMount    : true,
-                parentComponent,
-                windowId     : context.windowId || parentComponent.windowId
+    async render({code}) {
+        let me            = this,
+            content       = code,
+            neoComponents = {},
+            neoDivs       = {},
+            baseConfigs   = {
+                appName        : me.appName,
+                autoInitVnode  : true,
+                autoMount      : true,
+                parentComponent: me.parentComponent,
+                windowId       : me.windowId
             },
             html, instance;
 
@@ -285,9 +291,7 @@ class Markdown extends Component {
         html = marked.parse(content);
 
         // Insert lab divs (these are markdown comments, so process on the final HTML)
-        html = me.insertLabDivs(html);
-
-        container.html = html;
+        me.html = me.insertLabDivs(html);
 
         await new Promise(resolve => setTimeout(resolve, Neo.config.environment === 'development' ? 100 : 150));
 
@@ -299,9 +303,7 @@ class Markdown extends Component {
                     parentId : key,
                     ...neoComponents[key]
                 });
-                me.activeComponents.push(instance);
-
-                console.log(me.activeComponents);
+                me.activeComponents.push(instance)
             });
         }
 
@@ -310,12 +312,18 @@ class Markdown extends Component {
             const LivePreviewClass  = LivePreviewModule.default;
 
             Object.keys(neoDivs).forEach(key => {
-                instance = Neo.create({
+                const config = {
                     ...baseConfigs,
                     module  : LivePreviewClass,
                     parentId: key,
                     value   : neoDivs[key].code
-                });
+                }
+
+                if (me.windowUrl) {
+                    config.windowUrl = me.windowUrl
+                }
+
+                instance = Neo.create(config);
                 me.activeComponents.push(instance);
             });
         }
@@ -329,7 +337,7 @@ class Markdown extends Component {
      */
     updateComponentState(mounted) {
         this.activeComponents.forEach(component => {
-            if (mounted) {console.log('remount cmp', component.id);
+            if (mounted) {
                 component.initVnode(true)
             } else {
                 component.mounted = false

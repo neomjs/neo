@@ -107,10 +107,10 @@ class LivePreview extends Container {
         value_: null,
         /**
          * The url for the child app to use for the popout window
-         * @member {String} windowUrl='./childapps/preview/index.html'
+         * @member {String} windowUrl_='./childapps/preview/index.html'
          * @reactive
          */
-        windowUrl: './childapps/preview/index.html'
+        windowUrl_: './childapps/preview/index.html'
     }
 
     /**
@@ -197,6 +197,24 @@ class LivePreview extends Container {
      */
     beforeSetLanguage(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'language')
+    }
+
+    /**
+     * Triggered before the language config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetWindowUrl(value, oldValue) {
+        if (value.startsWith('./')) {
+            let appPath = Neo.config.appPath.split('/');
+            appPath.pop()
+
+            return new URL(Neo.config.basePath + appPath.join('/') + value.substring(1), location.href).href
+        }
+
+        return value
     }
 
     /**
@@ -327,9 +345,10 @@ class LivePreview extends Container {
 
             container.removeAll();
             container.add({
-                module: me.markdownComponentClass,
-                style : {height: '100%', overflow: 'auto'},
-                value : source
+                module   : me.markdownComponentClass,
+                style    : {height: '100%', overflow: 'auto'},
+                value    : source,
+                windowUrl: me.windowUrl
             })
         } else {
             if (!me.neoExecutor) {
@@ -337,15 +356,7 @@ class LivePreview extends Container {
                 me.neoExecutor = Neo.create(module.default);
             }
 
-            await me.neoExecutor.execute({
-                code: source,
-                container: container,
-                context: {
-                    appName        : me.appName,
-                    windowId       : me.windowId,
-                    parentComponent: me
-                }
-            })
+            await me.neoExecutor.execute({code: source, container})
         }
     }
 

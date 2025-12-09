@@ -81,7 +81,7 @@ class NeoExecutor extends Base {
      *     instead of using a cached version.
      * @param {Object} data
      * @param {String} data.code
-     * @param {Neo.component.Base} data.container
+     * @param {Neo.container.Base} data.container
      * @returns {Promise<Object>}
      */
     async execute({code, container}) {

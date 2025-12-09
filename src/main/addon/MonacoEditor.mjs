@@ -97,7 +97,7 @@ class MonacoEditor extends Base {
      * @returns {Object}
      */
     getValue(data) {
-        return this.map[data.id].getModel().getValue()
+        return this.map[data.id]?.getModel().getValue()
     }
 
     /**
@@ -106,7 +106,7 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     layoutEditor(data) {
-        this.map[data.id].layout()
+        this.map[data.id]?.layout()
     }
 
     /**

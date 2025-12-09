@@ -351,6 +351,10 @@ class Container extends Component {
                     parent.remove?.(item, false);
                     delete item.vdom.removeDom;
 
+                    if (parent.windowId !== me.windowId) {
+                        item.mounted = false
+                    }
+
                     // Convenience logic, especially for moving components into different browser windows:
                     // A component might rely on references & handler methods inside the previous controller realm
                     // todo: We need ?. until functional.component.Base supports controllers
