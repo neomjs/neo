@@ -1,7 +1,7 @@
 ---
 id: 8063
 title: Refactor LivePreview to use Pluggable Renderers
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-09T00:25:24Z'
-updatedAt: '2025-12-09T00:53:36Z'
+updatedAt: '2025-12-09T01:26:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8063'
 author: tobiu
 commentsCount: 1
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-09T01:26:42Z'
 ---
 # Refactor LivePreview to use Pluggable Renderers
 
@@ -75,4 +76,5 @@ Enable `Neo.code.LivePreview` to support multiple languages (Neo.mjs code execut
 - 2025-12-09 @tobiu added the `architecture` label
 - 2025-12-09 @tobiu assigned to @tobiu
 - 2025-12-09 @tobiu referenced in commit `c3b9bc0` - "Refactor LivePreview to use Pluggable Renderers #8063"
+- 2025-12-09 @tobiu closed this issue
 
