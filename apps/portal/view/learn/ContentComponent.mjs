@@ -92,8 +92,6 @@ class ContentComponent extends Markdown {
         if (value) {
             let me = this;
 
-            // oldValue && me.destroyChildInstances(); // handled by setValue
-
             await me.doFetchContent(value);
 
             if (oldValue) {
@@ -111,13 +109,13 @@ class ContentComponent extends Markdown {
 
     /**
      * @param {Object} record
-     * @returns {Promise<void>} 
+     * @returns {Promise<void>}
      */
     async doFetchContent(record) {
-        let me                  = this,
-            {appName, windowId} = me,
-            path                = me.getStateProvider().getData('contentPath'),
-            pagesFolder         = path.includes('/learn/') ? '' : 'pages/',
+        let me          = this,
+            {windowId}  = me,
+            path        = me.getStateProvider().getData('contentPath'),
+            pagesFolder = path.includes('/learn/') ? '' : 'pages/',
             content, data;
 
         path += `${pagesFolder + record.id.replaceAll('.', '/')}.md`;

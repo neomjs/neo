@@ -1,4 +1,22 @@
-.legit-viewport {
+.legit-viewport.neo-viewport {
+    // Custom Styling for a markdown component SVG child web component
+    .neo-worker-setup {
+         align-items      : center;
+         background-color : #17141c;
+         display          : flex;
+         height           : 100%;
+         justify-content  : center;
+         padding          : 20px;
+         width            : 100%;
+         --fill-opacity   : 0.05;
+         --stroke-opacity : 0.05;
+
+        &:hover {
+            --fill-opacity  : 1;
+            --stroke-opacity: 1;
+        }
+    }
+
     .legit-files-tree {
         background-color: white;
         padding         : 8px 2px 8px 8px;
