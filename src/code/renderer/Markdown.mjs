@@ -176,6 +176,13 @@ class MarkdownRenderer extends Base {
 
             if (Object.keys(neoComponents).length > 0) {
                 Object.keys(neoComponents).forEach(key => {
+                    console.log('create cmp', {
+                        ...baseConfigs,
+                        className: 'Neo.component.Base',
+                        parentId : key,
+                        ...neoComponents[key]
+                    });
+
                     instance = Neo.create({
                         ...baseConfigs,
                         className: 'Neo.component.Base',
@@ -183,6 +190,8 @@ class MarkdownRenderer extends Base {
                         ...neoComponents[key]
                     });
                     me.activeComponents.push(instance);
+
+                    console.log(me.activeComponents);
                 });
             }
 
@@ -210,7 +219,7 @@ class MarkdownRenderer extends Base {
          */
         updateComponentState(mounted) {
             this.activeComponents.forEach(component => {
-                if (mounted) {
+                if (mounted) {console.log('remount cmp', component.id);
                     component.initVnode(true)
                 } else {
                     component.mounted = false

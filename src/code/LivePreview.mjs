@@ -152,17 +152,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-        this.renderer?.updateComponentState(value)
-    }
-
-    /**
      * Triggered after the renderer config got changed
      * @param {Neo.code.renderer.Base} value
      * @param {Neo.code.renderer.Base} oldValue
@@ -295,20 +284,13 @@ class LivePreview extends Container {
     }
 
     /**
-     *
-     */
-    destroyChildInstances() {
-        this.renderer?.destroyComponents()
-    }
-
-    /**
      * Executes the current source code using the active renderer.
      *
      * This method acts as the **execution trigger**. It orchestrates the process by:
      * 1.  **Validation**: Ensuring a renderer is loaded and source code exists.
-     * 2.  **Cleanup**: Calling `destroyChildInstances()` to clear any artifacts (components, divs) from the previous run, ensuring a clean slate.
-     * 3.  **Delegation**: Passing the source code and context to `renderer.render()`.
-     * 4.  **State Update**: Storing the references to newly created components so they can be managed (and destroyed) later.
+     * 2.  **Execution**:
+     *     - For **Markdown**: Clears the container and adds a new `Neo.component.Markdown` instance.
+     *     - For **Neo.mjs**: Delegates execution to the `NeoRenderer` instance.
      *
      * @returns {Promise<void>}
      */
@@ -323,19 +305,24 @@ class LivePreview extends Container {
 
         if (!source) return;
 
-        // Clean up previous instances (for Markdown renderer)
-        me.destroyChildInstances();
-
-        // Delegate to renderer
-        await me.renderer.render({
-            code: source,
-            container: container,
-            context: {
-                appName        : me.appName,
-                windowId       : me.windowId,
-                parentComponent: me
-            }
-        });
+        if (me.language === 'markdown') {
+            container.removeAll();
+            container.add({
+                module: me.renderer,
+                style : {height: '100%', overflow: 'auto'},
+                value : source
+            })
+        } else {
+            await me.renderer.render({
+                code: source,
+                container: container,
+                context: {
+                    appName        : me.appName,
+                    windowId       : me.windowId,
+                    parentComponent: me
+                }
+            })
+        }
     }
 
     /**
@@ -360,13 +347,11 @@ class LivePreview extends Container {
     }
 
     /**
-     * Loads and caches the renderer for a specific language.
+     * Loads and caches the renderer (or component) for a specific language.
      *
-     * This method implements a **lazy-loading strategy**. It only imports and instantiates the renderer
-     * when it is first requested. This keeps the initial bundle size small and improves startup performance,
-     * especially since not all users will need every language renderer.
-     *
-     * Once loaded, the renderer instance is cached in `this.renderers` for instant access on subsequent switches.
+     * This method implements a **lazy-loading strategy**.
+     * - For 'neomjs', it loads the `NeoRenderer` instance.
+     * - For 'markdown', it loads the `Neo.component.Markdown` class constructor.
      *
      * @param {String} language The language identifier (e.g., 'neomjs', 'markdown').
      * @returns {Promise<void>}
@@ -378,17 +363,17 @@ class LivePreview extends Container {
         if (!me.renderers[language]) {
             switch (language) {
                 case 'markdown':
-                    module = await import('./renderer/Markdown.mjs');
+                    module = await import('../component/Markdown.mjs');
+                    me.renderers[language] = module.default; // Cache the Class Constructor
                     break;
                 case 'neomjs':
                     module = await import('./renderer/Neo.mjs');
+                    me.renderers[language] = Neo.create(module.default); // Cache the Renderer Instance
                     break;
                 default:
                     console.error('Invalid language for LivePreview:', language);
                     return
             }
-
-            me.renderers[language] = Neo.create(module.default)
         }
 
         me.renderer = me.renderers[language]

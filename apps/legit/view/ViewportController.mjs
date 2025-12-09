@@ -54,6 +54,11 @@ class ViewportController extends Component {
             // publicKey: process.env.NEXT_PUBLIC_LEGIT_PUBLIC_KEY,
         });
 
+        let mdFile = await fetch('../../learn/benefits/OffTheMainThread.md');
+        mdFile = await mdFile.text();
+
+        await legitFs.writeFile(`${me.path}/OffTheMainThread.md`, mdFile);
+
         await legitFs.writeFile(`${me.path}/Helix.mjs`, [
             "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
             "",
@@ -233,7 +238,7 @@ class ViewportController extends Component {
 
             for (const addedEntry of treeDelta.added) {
                 console.log('Added From Tree:' + addedEntry);
-                fileStore.add({
+                fileStore.insert(0, {
                     id      : addedEntry,
                     name    : addedEntry,
                     parentId: null

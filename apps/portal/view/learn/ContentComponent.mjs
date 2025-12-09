@@ -1,4 +1,4 @@
-import Component from '../../../../src/component/Base.mjs';
+import Markdown from '../../../../src/component/Markdown.mjs';
 
 const regexInlineCode = /`([^`]+)`/g;
 
@@ -11,11 +11,11 @@ const regexInlineCode = /`([^`]+)`/g;
  * - **Rendering**: Delegating the parsing and rendering of the Markdown (including interactive examples) to `Neo.code.renderer.Markdown`.
  * - **Navigation**: Integrating with the `IntersectionObserver` to track the active section and update the table of contents.
  * - **State Management**: Managing the lifecycle of embedded interactive components (`LivePreview`, custom components).
+ *
  * @class Portal.view.learn.ContentComponent
- * @extends Neo.component.Base
- * @see Neo.code.renderer.Markdown
+ * @extends Neo.component.Markdown
  */
-class ContentComponent extends Component {
+class ContentComponent extends Markdown {
     static config = {
         /**
          * @member {String} className='Portal.view.learn.ContentComponent'
@@ -23,10 +23,10 @@ class ContentComponent extends Component {
          */
         className: 'Portal.view.learn.ContentComponent',
         /**
-         * @member {String[]} baseCls=['learn-content']
+         * @member {String[]} baseCls=['learn-content','neo-markdown-component']
          * @protected
          */
-        baseCls: ['learn-content'],
+        baseCls: ['learn-content', 'neo-markdown-component'],
         /**
          * @member {Object} bind
          */
@@ -44,11 +44,6 @@ class ContentComponent extends Component {
          */
         tag: 'article'
     }
-
-    /**
-     * @member {Neo.code.renderer.Markdown|null} renderer=null
-     */
-    renderer = null
 
     /**
      * @param {Object} config
@@ -86,10 +81,6 @@ class ContentComponent extends Component {
                 })
             })
         }
-
-        if (me.isConstructed) {
-            me.renderer?.updateComponentState(value)
-        }
     }
 
     /**
@@ -101,7 +92,7 @@ class ContentComponent extends Component {
         if (value) {
             let me = this;
 
-            oldValue && me.destroyChildInstances();
+            // oldValue && me.destroyChildInstances(); // handled by setValue
 
             await me.doFetchContent(value);
 
@@ -119,24 +110,8 @@ class ContentComponent extends Component {
     }
 
     /**
-     * Destroy all created child instances
-     * @param args
-     */
-    destroy(...args) {
-        this.destroyChildInstances();
-        super.destroy(...args)
-    }
-
-    /**
-     *
-     */
-    destroyChildInstances() {
-        this.renderer?.destroyComponents()
-    }
-
-    /**
      * @param {Object} record
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} 
      */
     async doFetchContent(record) {
         let me                  = this,
@@ -154,20 +129,7 @@ class ContentComponent extends Component {
             // Update content sections (modifies markdown content with h1/h2/h3 tags and IDs)
             content = me.updateContentSectionsStore(content);
 
-            if (!me.renderer) {
-                const module = await import('../../../../src/code/renderer/Markdown.mjs');
-                me.renderer = Neo.create(module.default);
-            }
-
-            await me.renderer.render({
-                code: content,
-                container: me,
-                context: {
-                    appName,
-                    windowId,
-                    parentComponent: me
-                }
-            });
+            me.value = content;
 
             me.toggleCls('lab', record.name?.startsWith('Lab:'));
 
@@ -179,7 +141,6 @@ class ContentComponent extends Component {
             });
         }
     }
-
     /**
      * @param {Object} data
      */
