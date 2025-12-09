@@ -45,6 +45,13 @@ class Markdown extends Component {
     renderer = null
 
     /**
+     * @member {RegExp} regexInlineCode=/`([^`]+)`/g
+     * @protected
+     * @static
+     */
+    static regexInlineCode = /`([^`]+)`/g
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -64,6 +71,8 @@ class Markdown extends Component {
     async afterSetValue(value, oldValue) {
         if (value) {
             let me = this;
+
+            value = me.modifyMarkdown(value);
 
             if (!me.renderer) {
                 const module = await import('../code/renderer/Markdown.mjs');
@@ -91,6 +100,55 @@ class Markdown extends Component {
     destroy(...args) {
         this.renderer?.destroyComponents();
         super.destroy(...args)
+    }
+
+    /**
+     * Modifies the markdown content before rendering.
+     * Default implementation parses headlines to add specific classes.
+     * @param {String} content
+     * @returns {String}
+     */
+    modifyMarkdown(content) {
+        let me            = this,
+            rows          = content.split('\n'),
+            i             = 0,
+            len           = rows.length,
+            headlineIndex = 1,
+            row, tag;
+
+        for (; i < len; i++) {
+            row = rows[i];
+            tag = null;
+
+            if (row.startsWith('#') && row.charAt(1) !== '#') {
+                row = row.substring(1).trim();
+                tag = 'h1'
+            } else if (row.startsWith('##') && row.charAt(2) !== '#') {
+                row = row.substring(2).trim();
+                tag = 'h2'
+            } else if (row.startsWith('###') && row.charAt(3) !== '#') {
+                row = row.substring(3).trim();
+                tag = 'h3'
+            }
+
+            if (tag) {
+                rows[i] = me.onHeadline(tag, row, headlineIndex);
+                headlineIndex++
+            }
+        }
+
+        return rows.join('\n')
+    }
+
+    /**
+     * @param {String} tag
+     * @param {String} text
+     * @param {Number} index
+     * @returns {String}
+     */
+    onHeadline(tag, text, index) {
+        text = text.replace(this.constructor.regexInlineCode, '<code>$1</code>');
+        return `<${tag} class="neo-${tag}">${text}</${tag}>`
     }
 }
 

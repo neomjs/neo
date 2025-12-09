@@ -1,7 +1,5 @@
 import Markdown from '../../../../src/component/Markdown.mjs';
 
-const regexInlineCode = /`([^`]+)`/g;
-
 /**
  * @summary Displays interactive learning content (Markdown) within the Portal application.
  *
@@ -124,9 +122,6 @@ class ContentComponent extends Markdown {
             data    = await fetch(path);
             content = await data.text();
 
-            // Update content sections (modifies markdown content with h1/h2/h3 tags and IDs)
-            content = me.updateContentSectionsStore(content);
-
             me.value = content;
 
             me.toggleCls('lab', record.name?.startsWith('Lab:'));
@@ -139,6 +134,12 @@ class ContentComponent extends Markdown {
             });
         }
     }
+    /**
+     * @member {Object[]} headlineData=null
+     * @private
+     */
+    headlineData = null
+
     /**
      * @param {Object} data
      */
@@ -160,49 +161,29 @@ class ContentComponent extends Markdown {
      * @param {String} content
      * @returns {String}
      */
-    updateContentSectionsStore(content) {
-        let me           = this,
-            contentArray = content.split('\n'),
-            i            = 1,
-            storeData    = [],
-            headline, sideNavTitle, tag;
+    modifyMarkdown(content) {
+        this.headlineData = [];
+        const result = super.modifyMarkdown(content);
+        this.getStateProvider().getStore('contentSections').data = this.headlineData;
+        this.headlineData = null;
+        return result
+    }
 
-        contentArray.forEach((line, index) => {
-            tag = null;
+    /**
+     * @param {String} tag
+     * @param {String} text
+     * @param {Number} index
+     * @returns {String}
+     */
+    onHeadline(tag, text, index) {
+        // Markdown titles can contain inline code, which we don't want to display inside PageSectionsList.
+        const sideNavTitle = text.replaceAll('`', '');
 
-            if (line.startsWith('#') && line.charAt(1) !== '#') {
-                line = line.substring(1).trim();
-                tag  = 'h1'
-            }
+        this.headlineData.push({id: index, name: sideNavTitle, sourceId: this.id, tag});
 
-            else if (line.startsWith('##') && line.charAt(2) !== '#') {
-                line = line.substring(2).trim();
-                tag  = 'h2'
-            }
+        const headline = text.replace(ContentComponent.regexInlineCode, '<code>$1</code>');
 
-            else if (line.startsWith('###') && line.charAt(3) !== '#') {
-                line = line.substring(3).trim();
-                tag  = 'h3'
-            }
-
-            if (tag) {
-                // Convert backticks to <code> tags for the article headline tags
-                headline = line.replace(regexInlineCode, '<code>$1</code>');
-
-                // Markdown titles can contain inline code, which we don't want to display inside PageSectionsList.
-                sideNavTitle = line.replaceAll('`', '');
-
-                storeData.push({id: i, name: sideNavTitle, sourceId: me.id, tag});
-
-                contentArray[index] = `<${tag} class="neo-${tag}" data-record-id="${i}">${headline}</${tag}>`;
-
-                i++
-            }
-        });
-
-        me.getStateProvider().getStore('contentSections').data = storeData;
-
-        return contentArray.join('\n')
+        return `<${tag} class="neo-${tag}" data-record-id="${index}">${headline}</${tag}>`
     }
 }
 
