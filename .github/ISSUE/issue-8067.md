@@ -1,0 +1,54 @@
+---
+id: 8067
+title: Create Neo.component.Markdown for Encapsulated Markdown Rendering
+state: OPEN
+labels:
+  - enhancement
+  - ai
+  - refactoring
+  - architecture
+assignees: []
+createdAt: '2025-12-09T12:29:43Z'
+updatedAt: '2025-12-09T12:29:43Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/8067'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+---
+# Create Neo.component.Markdown for Encapsulated Markdown Rendering
+
+Implement a dedicated `Neo.component.Markdown` component to encapsulate Markdown rendering logic and styling, promoting reuse and consistency across `LivePreview` and `ContentComponent`.
+
+**Scope:**
+1.  **Create `src/component/Markdown.mjs`**:
+    *   **Config**: `ntype: 'markdown'`, reactive `value_` (markdown string).
+    *   **Logic**: Uses `MarkdownRenderer` internally. When `value` changes, delegates rendering to the renderer.
+    *   **Lifecycle**: Delegates `destroy()` to `renderer.destroyComponents()`.
+    *   **Styling**: Move styles from `ContentComponent.scss` to a new `src/component/Markdown.scss` (or similar shared location) and apply them here.
+
+2.  **Refactor `LivePreview.mjs`**:
+    *   When `language` is `'markdown'`, instantiate `Neo.component.Markdown` inside the preview container instead of using the renderer directly on the container.
+    *   Bind the editor value to the markdown component's `value`.
+
+3.  **Refactor `ContentComponent.mjs`**:
+    *   Extend `Neo.component.Markdown` instead of `Neo.component.Base`.
+    *   Inherit the rendering and styling logic.
+    *   Retain specific Portal logic (fetching, routing, intersection observer).
+
+**Goal:**
+Decouple styling from the view and logic from the renderer, creating a self-contained Markdown component that can be used anywhere (e.g., LivePreview, Dashboards).
+
+**Note:** This ticket focuses on the component creation and integration. Consolidating logic from `MarkdownRenderer` into the component itself is out of scope for this task and will be considered later.
+
+## Activity Log
+
+- 2025-12-09 @tobiu added the `enhancement` label
+- 2025-12-09 @tobiu added the `ai` label
+- 2025-12-09 @tobiu added the `refactoring` label
+- 2025-12-09 @tobiu added the `architecture` label
+

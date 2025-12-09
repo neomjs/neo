@@ -1,23 +1,25 @@
 ---
 id: 8066
 title: Standardize Renderer Component Lifecycle Management
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-09T01:48:45Z'
-updatedAt: '2025-12-09T01:48:45Z'
+updatedAt: '2025-12-09T02:54:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8066'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-09T02:54:44Z'
 ---
 # Standardize Renderer Component Lifecycle Management
 
@@ -53,9 +55,33 @@ Shift the responsibility of managing these "floating" components to the renderer
 **Goal:**
 Decouple component lifecycle management from the container view, ensuring `LivePreview` and `ContentComponent` can both correctly handle re-mounting scenarios for Markdown content.
 
+## Comments
+
+### @tobiu - 2025-12-09 02:44
+
+**Input from Gemini:**
+
+> ✦ I have verified the rationale and implementation of the `mounted` state handling in `ContentComponent` and `MarkdownRenderer`.
+> 
+> **Analysis:**
+> The regression was caused by the initial `mounted` setter call during construction (where `value` is `false` and `oldValue` is `undefined`), which prematurely triggered `updateComponentState`. Additionally, simply setting `component.mounted = true` was insufficient for re-mounting components that were removed from the DOM but kept in memory.
+> 
+> **Fixes Implemented:**
+> 1.  **`ContentComponent.afterSetMounted`**: Added `if (me.isConstructed)` check. This prevents the renderer update from running during the initial config application, ensuring it only responds to actual lifecycle changes (like tab activation/deactivation).
+> 2.  **`MarkdownRenderer.updateComponentState`**: 
+>     *   For `mounted === true`: Changed `component.mounted = true` to `component.initVnode(true)`. This forces a re-initialization of the VNode tree and a fresh mount, ensuring the component correctly re-attaches to the DOM with its current state.
+>        * For mounted === false: Kept component.mounted = false. Crucially, this does NOT trigger a DOM unmount itself
+(the parent container handles the DOM removal). This step simply updates the internal state flag of the child component to reflect that it is no longer in the document, ensuring its state is consistent for the next mount cycle.
+> 
+> **Conclusion:**
+> The changes correctly address the lifecycle synchronization issue. The use of `initVnode(true)` is the correct approach for re-mounting components that have been detached but preserved in memory, especially in the context of the Portal app's card layout where DOM nodes are removed but JS instances persist.
+
 ## Activity Log
 
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `refactoring` label
 - 2025-12-09 @tobiu added the `architecture` label
+- 2025-12-09 @tobiu assigned to @tobiu
+- 2025-12-09 @tobiu referenced in commit `8623d74` - "Standardize Renderer Component Lifecycle Management #8066"
+- 2025-12-09 @tobiu closed this issue
 
