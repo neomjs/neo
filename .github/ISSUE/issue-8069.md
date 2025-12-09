@@ -1,14 +1,15 @@
 ---
 id: 8069
 title: Refactor Renderer Architecture and Consolidate Markdown Logic
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-09T14:27:58Z'
-updatedAt: '2025-12-09T14:27:58Z'
+updatedAt: '2025-12-09T14:55:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8069'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-09T14:55:05Z'
 ---
 # Refactor Renderer Architecture and Consolidate Markdown Logic
 
@@ -40,4 +42,7 @@ This ticket aims to simplify the architecture by:
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `refactoring` label
 - 2025-12-09 @tobiu added the `architecture` label
+- 2025-12-09 @tobiu assigned to @tobiu
+- 2025-12-09 @tobiu referenced in commit `f3f3abe` - "Refactor Renderer Architecture and Consolidate Markdown Logic #8069"
+- 2025-12-09 @tobiu closed this issue
 

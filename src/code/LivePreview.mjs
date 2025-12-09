@@ -145,8 +145,12 @@ class LivePreview extends Container {
      * @protected
      */
     afterSetLanguage(value, oldValue) {
+        let me = this;
+
+        me.getItem('editor').language = value === 'neomjs' ? 'javascript' : value;
+
         if (oldValue) {
-            this.doRunSource()
+            me.doRunSource()
         }
     }
 

@@ -28,6 +28,13 @@ class MonacoEditor extends Base {
      * @static
      */
     static editorThemes = ['hc-black', 'hc-light', 'vs', 'vs-dark']
+    /**
+     * Valid values for language
+     * @member {String[]} languages=['javascript','markdown']
+     * @protected
+     * @static
+     */
+    static languages = ['javascript', 'markdown']
 
     static config = {
         /**
@@ -315,6 +322,17 @@ class MonacoEditor extends Base {
      */
     beforeSetEditorTheme(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'editorTheme')
+    }
+
+    /**
+     * Triggered before the language config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetLanguage(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'language')
     }
 
     /**
