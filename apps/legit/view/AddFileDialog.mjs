@@ -24,6 +24,10 @@ class AddFileDialog extends Dialog {
          */
         modal: true,
         /**
+         * @member {Boolean} resizable=false
+         */
+        resizable: false,
+        /**
          * @member {String} title='Edit User'
          * @reactive
          */
@@ -39,10 +43,11 @@ class AddFileDialog extends Dialog {
             module: FormContainer,
             layout: {ntype: 'vbox', align: 'stretch'},
             items : [{
-                module   : TextField,
-                labelText: 'File Path',
-                reference: 'filename',
-                value    : 'myFile'
+                module    : TextField,
+                labelText : 'File Path',
+                labelWidth: 80,
+                reference : 'filename',
+                value     : 'myFile'
             }]
         }, {
             module: Toolbar,
@@ -50,6 +55,7 @@ class AddFileDialog extends Dialog {
             items : ['->', {
                 module : Button,
                 handler: 'onAddFileDialogSave',
+                height : 30,
                 iconCls: 'fa fa-cloud-upload',
                 text   : 'Save'
             }]

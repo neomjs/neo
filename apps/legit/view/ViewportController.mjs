@@ -82,7 +82,7 @@ class ViewportController extends Component {
             "MainView = Neo.setupClass(MainView);"
         ].join('\n'));
 
-        setInterval(me.poll.bind(me), me.pollingInterval);
+        setInterval(me.poll.bind(me), me.pollingInterval)
     }
 
     /**
@@ -158,6 +158,21 @@ class ViewportController extends Component {
     }
 
     /**
+     * @param {Object}   data
+     * @param {Record[]} data.records
+     * @param {String[]} data.selection // selected dom node ids
+     * @param {String}   data.source    // id of the event-firing instance
+     */
+    onTreeListSelect({records}) {
+        const record = records?.[0];
+
+        if (record?.isLeaf) {
+            console.log('onFileSelect', record);
+            this.setState({currentFile: record.id});
+        }
+    }
+
+    /**
      *
      * @param treePath
      * @returns {Promise<{hash: string, subEntries: {}}>}
@@ -210,8 +225,6 @@ class ViewportController extends Component {
             const fileStore = me.getStore('fileStore');
             const treeDelta = await me.loadTreeDelta(me.currentTreeState, newState);
 
-            console.log(fileStore);
-
             console.log('TREE DELTA:', treeDelta);
             for (const deletedEntry of treeDelta.deleted) {
                 console.log('Deleted FROM TREE: ' + deletedEntry);
@@ -236,6 +249,12 @@ class ViewportController extends Component {
             me.currentTreeState = newState;
         } finally {
             me.running = false;
+
+            let selectionModel = me.getReference('files-tree').selectionModel;
+
+            if (!selectionModel.hasSelection()) {
+                selectionModel.selectAt(0)
+            }
         }
     }
 

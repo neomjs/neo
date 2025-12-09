@@ -18,7 +18,7 @@
 
                     &.neo-list-folder {
                         .neo-list-item-content:after {
-                            content: "\e5cc" !important;
+                            content: "\f078" !important;
                         }
 
                         .neo-list-item-content:before {
@@ -27,7 +27,7 @@
 
                         &.neo-folder-open {
                             .neo-list-item-content:after {
-                                content: "\e5cf" !important;
+                                content: "\f054" !important;
                             }
 
                             .neo-list-item-content:before {

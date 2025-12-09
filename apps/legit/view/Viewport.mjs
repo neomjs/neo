@@ -42,7 +42,8 @@ class Viewport extends BaseViewport {
             module                    : TreeList,
             bind                      : {store: 'stores.fileStore'},
             cls                       : ['legit-files-tree'],
-            listeners                 : {leafItemClick: 'onFileItemClick'},
+            listeners                 : {leafItemClick: 'onFileItemClick', select: 'onTreeListSelect'},
+            reference                 : 'files-tree',
             showCollapseExpandAllIcons: false,
             width                     : 300,
         }, {
