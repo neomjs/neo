@@ -463,14 +463,14 @@ class LivePreview extends Container {
         if (id === me.id) {
             me.connectedWindowId = data.windowId;
 
-            let app             = Neo.apps[data.windowId],
-                mainView        = app.mainView,
-                sourceContainer = me.getReference('preview'),
-                {tabContainer}  = me,
-                sourceView      = sourceContainer.removeAt(0, false);
+            let app              = Neo.apps[data.windowId],
+                mainView         = app.mainView,
+                previewContainer = me.getReference('preview'),
+                {tabContainer}   = me,
+                previewView      = previewContainer.removeAt(0, false);
 
             me.previewContainer = mainView;
-            mainView.add(sourceView);
+            mainView.add(previewView);
 
             tabContainer.activeIndex = 0; // switch to the source view
 
@@ -487,14 +487,14 @@ class LivePreview extends Container {
         let me = this;
 
         if (data.windowId === me.connectedWindowId) {
-            let app             = Neo.apps[data.windowId],
-                mainView        = app.mainView,
-                sourceContainer = me.getReference('preview'),
-                {tabContainer}  = me,
-                sourceView      = mainView.removeAt(0, false);
+            let app              = Neo.apps[data.windowId],
+                mainView         = app.mainView,
+                previewContainer = me.getReference('preview'),
+                {tabContainer}   = me,
+                previewView      = mainView.removeAt(0, false);
 
             me.previewContainer = null;
-            sourceContainer.add(sourceView);
+            previewContainer.add(previewView);
 
             me.disableRunSource = true; // will get reset after the next activeIndex change (async)
             tabContainer.activeIndex = 1;        // switch to the source view
