@@ -34,9 +34,11 @@
 !/apps/legit/index.html
 !/apps/legit/**/*.mjs
 !/apps/legit/neo-config.json
-!/apps/portal/neo-config.json
+!/apps/legit/childapps/preview/index.html
+!/apps/legit/childapps/preview/neo-config.json
 !/apps/portal/index.html
 !/apps/portal/**/*.mjs
+!/apps/portal/neo-config.json
 !/apps/portal/childapps/preview/index.html
 !/apps/portal/childapps/preview/neo-config.json
 !/apps/realworld/index.html

@@ -1,14 +1,15 @@
 ---
 id: 8072
 title: 'Enhance LivePreview: Add destroy logic and rename connection handlers'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-09T16:44:28Z'
-updatedAt: '2025-12-09T16:44:28Z'
+updatedAt: '2025-12-09T17:03:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8072'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-09T17:03:04Z'
 ---
 # Enhance LivePreview: Add destroy logic and rename connection handlers
 
@@ -39,4 +41,7 @@ This ticket covers two improvements for `Neo.code.LivePreview`:
 - 2025-12-09 @tobiu added the `enhancement` label
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `refactoring` label
+- 2025-12-09 @tobiu assigned to @tobiu
+- 2025-12-09 @tobiu referenced in commit `3fe41a5` - "Enhance LivePreview: Add destroy logic and rename connection handlers #8072"
+- 2025-12-09 @tobiu closed this issue
 
