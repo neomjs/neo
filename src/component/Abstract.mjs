@@ -4,6 +4,7 @@ import ComponentManager from '../manager/Component.mjs';
 import DomEvents        from '../mixin/DomEvents.mjs';
 import Observable       from '../core/Observable.mjs';
 import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
+import VDomUpdate       from '../manager/VDomUpdate.mjs';
 
 const
     closestController   = Symbol.for('closestController'),
@@ -207,7 +208,15 @@ class Abstract extends Base {
             if (value) { // mount
                 me.initDomEvents?.();
                 me.mountedPromiseResolve?.(this);
-                delete me.mountedPromiseResolve
+                delete me.mountedPromiseResolve;
+
+                // When a component becomes mounted, it might have pending VDOM update promises
+                // (e.g. from a set() call that was deferred because the component wasn't mounted yet).
+                // If the mount happened because a Parent component updated (implicitly covering this component),
+                // this component's own pending update cycle might be skipped or not yet triggered.
+                // We explicitly execute the callbacks here to ensure those pending promises are resolved immediately
+                // upon mount, preventing deadlocks where code awaits a VDOM update that effectively already happened.
+                VDomUpdate.executeCallbacks(me.id)
             } else { // unmount
                 delete me._mountedPromise
             }
