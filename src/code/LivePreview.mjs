@@ -358,7 +358,9 @@ class LivePreview extends Container {
             if (me.markdownComponent && !me.markdownComponent.isDestroyed) {
                 me.markdownComponent.value = source
             } else {
-                container.removeAll();
+                // destroy, silent => merge changes into one update cycle
+                container.removeAll(true, true);
+
                 me.markdownComponent = container.add({
                     module   : me.markdownComponentClass,
                     style    : {height: '100%', overflow: 'auto'},
@@ -476,11 +478,6 @@ class LivePreview extends Container {
         me.fire('editorChange', {value});
 
         me.doRunSource()
-
-        // We are not using getPreviewContainer(), since we only want to update the LivePreview in case it is visible.
-        /*if (me.previewContainer) {
-            me.doRunSource()
-        }*/
     }
 
     /**

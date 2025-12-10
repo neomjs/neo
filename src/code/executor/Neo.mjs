@@ -173,7 +173,8 @@ class NeoExecutor extends Base {
             '})'
         ].join('\n');
 
-        container.removeAll();
+        // destroy, silent => merge changes into one update cycle
+        container.removeAll(true, true);
 
         // We must ensure that classes inside the editor won't get cached, since this disables run-time changes
         // See: https://github.com/neomjs/neo/issues/5863
