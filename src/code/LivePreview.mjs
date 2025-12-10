@@ -2,6 +2,8 @@ import Container    from '../container/Base.mjs';
 import MonacoEditor from '../component/wrapper/MonacoEditor.mjs'
 import TabContainer from '../tab/Container.mjs';
 
+const configSymbol = Symbol.for('configSymbol');
+
 /**
  * @summary A split-view component for real-time code editing and execution.
  *
@@ -167,7 +169,9 @@ class LivePreview extends Container {
 
         me.getItem('editor').language = value === 'neomjs' ? 'javascript' : value;
 
-        if (oldValue) {
+        // If there is a new pending value for the value config, it will run trigger doRunSource().
+        // This can happen when calling: this.set({language, value})
+        if (oldValue && !Object.hasOwn(me[configSymbol], 'value')) {
             me.doRunSource()
         }
     }
