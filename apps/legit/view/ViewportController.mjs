@@ -126,7 +126,7 @@ class ViewportController extends Component {
      * @returns {Promise<void>}
      */
     async onEditorChange(data) {
-        console.log('onEditorChange', data);
+        // console.log('onEditorChange', data);
     }
 
     /**
@@ -162,9 +162,15 @@ class ViewportController extends Component {
     /**
      * @param {Object} data
      */
-    onSaveButtonClick(data) {
-        const livePreview = this.getReference('code-live-preview');
-        console.log('onSaveButtonClick', this.getState('currentFile'), livePreview.value);
+    async onSaveButtonClick(data) {
+        const
+            me          = this,
+            livePreview = me.getReference('code-live-preview'),
+            currentFile = me.getState('currentFile');
+
+        console.log('onSaveButtonClick', me.getState('currentFile'), livePreview.value);
+
+        await legitFs.writeFile(`${me.path}/${currentFile}`, livePreview.value);
     }
 
     /**
@@ -173,12 +179,18 @@ class ViewportController extends Component {
      * @param {String[]} data.selection // selected dom node ids
      * @param {String}   data.source    // id of the event-firing instance
      */
-    onTreeListSelect({records}) {
-        const record = records?.[0];
+    async onTreeListSelect({records}) {
+        const
+            livePreview = this.getReference('code-live-preview'),
+            record      = records?.[0],
+            language    = record.id.includes('.md') ? 'markdown' : 'neomjs';
 
         if (record?.isLeaf) {
-            console.log('onFileSelect', record);
             this.setState({currentFile: record.id});
+
+            const value = await legitFs.readFile(`${this.path}/${record.id}`, 'utf-8');
+
+            await livePreview.set({language, value});
         }
     }
 
