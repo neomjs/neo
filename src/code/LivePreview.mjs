@@ -298,9 +298,10 @@ class LivePreview extends Container {
      *
      */
     async createPopupWindow() {
-        let me      = this,
-            winData = await Neo.Main.getWindowData(),
-            rect    = await me.getDomRect(me.getReference('preview').id);
+        let me         = this,
+            {windowId} = me,
+            winData    = await Neo.Main.getWindowData({windowId}),
+            rect       = await me.getDomRect(me.getReference('preview').id);
 
         let {height, left, top, width} = rect;
 
@@ -311,7 +312,7 @@ class LivePreview extends Container {
         Neo.Main.windowOpen({
             url           : `${me.windowUrl}?id=${me.id}`,
             windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-            windowId      : me.windowId,
+            windowId,
             windowName    : me.id
         })
     }
