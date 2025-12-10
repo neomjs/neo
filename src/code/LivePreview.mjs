@@ -406,6 +406,8 @@ class LivePreview extends Container {
             items          = [],
             {tabContainer} = me;
 
+        me.editor
+
         if (me.enableFullscreen) {
             items.push({
                 handler: me.collapseExpand.bind(me),
@@ -446,13 +448,16 @@ class LivePreview extends Container {
 
     /**
      * @param {Object} data
+     * @param {String} data.value
      */
-    onEditorChange(data) {
+    onEditorChange({value}) {
         let me = this;
 
-        me.editorValue = data.value;
+        me._value = value;
 
-        me.fire('editorChange', {value: data.value});
+        me.editorValue = value;
+
+        me.fire('editorChange', {value});
 
         // We are not using getPreviewContainer(), since we only want to update the LivePreview in case it is visible.
         if (me.previewContainer) {
