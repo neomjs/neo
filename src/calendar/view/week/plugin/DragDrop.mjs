@@ -210,6 +210,10 @@ class DragDrop extends Base {
                 title     : 'New Event'
             })[0];
 
+            // Lazy records: The add() return value is a plain object.
+            // We need to fetch the record instance to ensure setSilent() is available.
+            record = owner.eventStore.get(record[owner.eventStore.keyProperty]);
+
             // we need to cache a reference to make the record accessible for onColumnDragEnd()
             me[newRecordSymbol] = record;
 
