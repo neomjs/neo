@@ -1,7 +1,7 @@
 ---
 id: 8058
 title: '[DomEvent] Implement Physical Anchor Verification for Delegation'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-08T08:38:20Z'
-updatedAt: '2025-12-08T08:38:39Z'
+updatedAt: '2025-12-10T14:07:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8058'
 author: tobiu
 commentsCount: 0
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-10T14:07:48Z'
 ---
 # [DomEvent] Implement Physical Anchor Verification for Delegation
 
@@ -62,4 +63,5 @@ We implemented a 2-phase strategy that bridges the physical and logical worlds w
 - 2025-12-08 @tobiu added the `architecture` label
 - 2025-12-08 @tobiu assigned to @tobiu
 - 2025-12-08 @tobiu referenced in commit `a6e475a` - "[DomEvent] Implement Physical Anchor Verification for Delegation #8058"
+- 2025-12-10 @tobiu closed this issue
 
