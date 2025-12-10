@@ -494,6 +494,15 @@ class Store extends Base {
     }
 
     /**
+     * Adds a new item to the store and immediately returns its record instance.
+     * @param {Object} data The data object to add
+     * @returns {Neo.data.Model} The created record
+     */
+    initRecord(data) {
+        return this.get(data[this.getKeyProperty()])
+    }
+
+    /**
      * @param {Object} opts={}
      * @param {Object} opts.data
      * @param {Object} opts.headers
