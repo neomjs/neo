@@ -141,12 +141,19 @@ class Store extends Base {
     /**
      * Overrides collection.Base: add() to convert items into records if needed
      * @param {Array|Object} item The item(s) to add
-     * @returns {Number} the collection count
+     * @param {Boolean} [init=false] True to return the created records
+     * @returns {Number|Neo.data.Model[]} the collection count or the created records
      */
-    add(item) {
+    add(item, init=false) {
         let me        = this,
             items     = Array.isArray(item) ? item : [item],
             threshold = me.initialChunkSize;
+
+        if (init) {
+            super.add(items);
+
+            return items.map(i => me.get(i[me.getKeyProperty()]))
+        }
 
         if (threshold > 0 && items.length > threshold) {
             const total = me.count + items.length,
@@ -500,6 +507,24 @@ class Store extends Base {
      */
     initRecord(data) {
         return this.get(data[this.getKeyProperty()])
+    }
+
+    /**
+     * Overrides collection.Base: insert() to convert items into records if needed
+     * @param {Number} index
+     * @param {Array|Object} item The item(s) to add
+     * @param {Boolean} [init=false] True to return the created records
+     * @returns {Object[]} The inserted items or created records
+     */
+    insert(index, item, init=false) {
+        let me    = this,
+            items = super.insert(index, item);
+
+        if (init) {
+            return items.map(i => me.get(i[me.getKeyProperty()]))
+        }
+
+        return items
     }
 
     /**

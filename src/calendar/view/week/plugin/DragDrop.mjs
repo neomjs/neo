@@ -189,7 +189,7 @@ class DragDrop extends Base {
                 position        = Math.min(columnRect.height, data.clientY - columnRect.top),
                 currentInterval = Math.floor(position / intervalHeight),
                 startDate       = new Date(VDomUtil.find(owner.vdom, data.path[0].id).vdom.flag + 'T12:00:00.000Z'),
-                dragElement, endDate, eventDragZone, eventId, record, recordData;
+                dragElement, endDate, eventDragZone, eventId, record;
 
             me.isDragging = true;
 
@@ -203,14 +203,12 @@ class DragDrop extends Base {
             // 24:00 fix
             endDate.getHours() === 0 && endDate.getMinutes() === 0 && endDate.setMinutes(endDate.getMinutes() - 1);
 
-            recordData = owner.eventStore.add({
+            record = owner.eventStore.add({
                 calendarId: owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
                 endDate,
                 startDate,
                 title     : 'New Event'
-            })[0];
-
-            record = owner.eventStore.initRecord(recordData);
+            }, true)[0];
 
             // we need to cache a reference to make the record accessible for onColumnDragEnd()
             me[newRecordSymbol] = record;
