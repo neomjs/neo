@@ -118,6 +118,10 @@ class LivePreview extends Container {
      */
     connectedWindowId = null
     /**
+     * @member {Neo.component.Markdown|null} markdownComponent=null
+     */
+    markdownComponent = null
+    /**
      * @member {Class|null} markdownComponentClass=null
      */
     markdownComponentClass = null
@@ -156,6 +160,10 @@ class LivePreview extends Container {
      */
     afterSetLanguage(value, oldValue) {
         let me = this;
+
+        if (value !== 'markdown') {
+            me.markdownComponent = null
+        }
 
         me.getItem('editor').language = value === 'neomjs' ? 'javascript' : value;
 
@@ -343,13 +351,17 @@ class LivePreview extends Container {
                 me.markdownComponentClass = module.default;
             }
 
-            container.removeAll();
-            container.add({
-                module   : me.markdownComponentClass,
-                style    : {height: '100%', overflow: 'auto'},
-                value    : source,
-                windowUrl: me.windowUrl
-            })
+            if (me.markdownComponent && !me.markdownComponent.isDestroyed) {
+                me.markdownComponent.value = source
+            } else {
+                container.removeAll();
+                me.markdownComponent = container.add({
+                    module   : me.markdownComponentClass,
+                    style    : {height: '100%', overflow: 'auto'},
+                    value    : source,
+                    windowUrl: me.windowUrl
+                })
+            }
         } else {
             if (!me.neoExecutor) {
                 const module = await import('./executor/Neo.mjs');
@@ -459,10 +471,12 @@ class LivePreview extends Container {
 
         me.fire('editorChange', {value});
 
+        me.doRunSource()
+
         // We are not using getPreviewContainer(), since we only want to update the LivePreview in case it is visible.
-        if (me.previewContainer) {
+        /*if (me.previewContainer) {
             me.doRunSource()
-        }
+        }*/
     }
 
     /**
