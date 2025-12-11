@@ -3,14 +3,15 @@ id: 8087
 title: >-
   [Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific
   implementations
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-11T03:58:40Z'
-updatedAt: '2025-12-11T03:58:40Z'
+updatedAt: '2025-12-11T04:05:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8087'
 author: tobiu
 commentsCount: 0
@@ -20,6 +21,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-11T04:05:36Z'
 ---
 # [Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific implementations
 
@@ -50,4 +52,7 @@ This epic refactoring unifies the draggable sorting logic by promoting it from `
 - 2025-12-11 @tobiu added the `epic` label
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `refactoring` label
+- 2025-12-11 @tobiu assigned to @tobiu
+- 2025-12-11 @tobiu referenced in commit `60fd9b0` - "[Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific implementations #8087"
+- 2025-12-11 @tobiu closed this issue
 
