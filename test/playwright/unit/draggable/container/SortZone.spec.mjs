@@ -31,6 +31,16 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         // Mock Neo.applyDeltas
         Neo.applyDeltas = () => Promise.resolve();
 
+        // Mock the critical methods that usually depend on DOM interactions
+        // We only want to test the logic of index calculations and moveTo calls
+        Container.prototype.getDomRect = (ids) => {
+            // Return a dummy rect for each requested ID (owner + items)
+            return Promise.resolve(ids.map(() => ({
+                x: 0, y: 0, width: 100, height: 100, top: 0, left: 0, right: 100, bottom: 100,
+                clone: () => ({x: 0, y: 0, width: 100, height: 100})
+            })));
+        };
+
         // Create a Mock Container
         container = Neo.create(Container, {
             items: [
@@ -40,28 +50,19 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
                 {id: 'btnC', ntype: 'component'},                         // Non-sortable
                 {id: 'btnD', ntype: 'component', cls: ['neo-draggable']}  // Sortable
             ],
-            sortable: true
+            sortable: true,
+            sortZoneConfig: {
+                module: SortZone, // Pass module directly
+                // We use a selector to identify sortable items, mimicking the real usage
+                dragHandleSelector: '.neo-draggable',
+                timeout: () => Promise.resolve()
+            }
         });
 
-        // Create the SortZone attached to the container
-        sortZone = Neo.create(SortZone, {
-            owner: container,
-            // We use a selector to identify sortable items, mimicking the real usage
-            dragHandleSelector: '.neo-draggable'
-        });
-
-        // Mock the critical methods that usually depend on DOM interactions
-        // We only want to test the logic of index calculations and moveTo calls
-        container.getDomRect = (ids) => {
-            // Return a dummy rect for each requested ID (owner + items)
-            return Promise.resolve(ids.map(() => ({
-                x: 0, y: 0, width: 100, height: 100, top: 0, left: 0, right: 100, bottom: 100,
-                clone: () => ({x: 0, y: 0, width: 100, height: 100})
-            })));
-        };
-        sortZone.timeout = () => Promise.resolve();
-        sortZone.dragStart = () => Promise.resolve();
-        sortZone.dragEnd = () => Promise.resolve();
+        // Get the automatically created sortZone
+        // Since it's async, we might need to wait or access it differently if it's not ready immediately.
+        // But for unit tests running in Node/Playwright, promises resolve on next tick usually.
+        // We will wait for a tick.
     });
 
     test.afterEach(() => {
@@ -70,9 +71,14 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
     });
 
     test('Initializes correctly with mixed content', async () => {
+        // Wait for sortZone to be created (async import/create)
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+        expect(sortZone).toBeDefined();
+
         // Simulate drag start to populate internal state
         const data = {
-            path: [{id: 'btnA', cls: ['neo-draggable']}]
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
         };
 
         await sortZone.onDragStart(data);
@@ -85,9 +91,12 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
     });
 
     test('Correctly moves item from end to start (skipping non-sortables)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
         // Drag BtnD (index 4 in owner, index 2 in sortable)
         const data = {
-            path: [{id: 'btnD', cls: ['neo-draggable']}]
+            path: [{id: 'btnD', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
         };
 
         await sortZone.onDragStart(data);
@@ -115,9 +124,12 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
     });
 
     test('Correctly moves item from start to end (skipping non-sortables)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
         // Drag BtnA (index 0 in owner, index 0 in sortable)
         const data = {
-            path: [{id: 'btnA', cls: ['neo-draggable']}]
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
         };
 
         await sortZone.onDragStart(data);
@@ -141,13 +153,16 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
     });
 
      test('Correctly handles placeholder in index calculation', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
         // Drag BtnB (index 1 in owner, index 1 in sortable)
         const data = {
-            path: [{id: 'btnB', cls: ['neo-draggable']}]
+            path: [{id: 'btnB', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
         };
 
         // Inject a fake placeholder to simulate the dragProxy creation side-effect
-        sortZone.dragPlaceholder = {id: 'placeholder', vdom: {}};
+        sortZone.dragPlaceholder = {id: 'placeholder', vdom: {}, destroy: () => {}};
 
         await sortZone.onDragStart(data);
 

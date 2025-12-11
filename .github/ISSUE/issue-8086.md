@@ -1,13 +1,14 @@
 ---
 id: 8086
 title: '[Tests] Add unit tests for Draggable SortZone'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - testing
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-11T02:29:48Z'
-updatedAt: '2025-12-11T02:29:48Z'
+updatedAt: '2025-12-11T02:31:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8086'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-11T02:31:33Z'
 ---
 # [Tests] Add unit tests for Draggable SortZone
 
@@ -35,4 +37,7 @@ This ensures the fix for #8054 is regression-tested and that mixed-content conta
 
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `testing` label
+- 2025-12-11 @tobiu assigned to @tobiu
+- 2025-12-11 @tobiu referenced in commit `c77c6ff` - "[Tests] Add unit tests for Draggable SortZone #8086"
+- 2025-12-11 @tobiu closed this issue
 

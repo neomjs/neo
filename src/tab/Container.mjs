@@ -82,7 +82,7 @@ class Container extends BaseContainer {
          * @reactive
          */
         plain_: true,
-        /*
+        /**
          * Remove the DOM of inactive cards (TabContainer Body).
          * This will keep the instances & vdom trees
          * @member {Boolean} removeInactiveCards=true
@@ -91,10 +91,10 @@ class Container extends BaseContainer {
         /**
          * true enables sorting tabs via drag&drop.
          * The config gets passed to the header toolbar
-         * @member {Boolean} sortable_=false
+         * @member {Boolean} sortable=false
          * @reactive
          */
-        sortable_: false,
+        sortable: false,
         /**
          * @member {String|null} tabBarId=null
          */

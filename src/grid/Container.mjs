@@ -116,10 +116,10 @@ class GridContainer extends BaseContainer {
          */
         showHeaderFilters_: false,
         /**
-         * @member {Boolean} sortable_=true
+         * @member {Boolean} sortable=true
          * @reactive
          */
-        sortable_: true,
+        sortable: true,
         /**
          * @member {Neo.data.Store} store_=null
          * @reactive

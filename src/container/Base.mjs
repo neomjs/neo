@@ -102,9 +102,6 @@ class Container extends Component {
             value         : []
         },
         /**
-         * It is crucial to define a layout before the container does get vdomInitialized.
-         * Meaning: onConstructed() is the latest life-cycle point.
-         * You can use layout: 'base', in case you do not need a layout at all.
          * @member {Object|String|null} layout_={ntype: 'vbox', align: 'stretch'}
          * @reactive
          */
@@ -112,6 +109,23 @@ class Container extends Component {
             ntype: 'vbox',
             align: 'stretch'
         },
+        /**
+         * @member {Boolean} sortable_=false
+         * @reactive
+         */
+        sortable_: false,
+        /**
+         * @member {Neo.draggable.container.SortZone|null} sortZone=null
+         */
+        sortZone: null,
+        /**
+         * @member {String} sortZoneCls='Neo.draggable.container.SortZone'
+         */
+        sortZoneCls: 'Neo.draggable.container.SortZone',
+        /**
+         * @member {Object} sortZoneConfig=null
+         */
+        sortZoneConfig: null,
         /**
          * @member {Object} _vdom={cn: []}
          */
@@ -151,6 +165,10 @@ class Container extends Component {
 
         if (value && me.layout) {
             me.layout.appName = value
+        }
+
+        if (me.sortZone) {
+            me.sortZone.appName = value
         }
     }
 
@@ -234,6 +252,38 @@ class Container extends Component {
     }
 
     /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    async afterSetSortable(value, oldValue) {
+        let me = this,
+            module;
+
+        if (value && !me.sortZone) {
+            if (me.sortZoneConfig?.module) {
+                module = me.sortZoneConfig.module;
+
+                if (!me.isConstructed) {
+                    await Promise.resolve()
+                }
+            } else {
+                module = await me.loadSortZoneModule();
+                module = module.default
+            }
+
+            me.createSortZone(Neo.merge({
+                module,
+                appName            : me.appName,
+                boundaryContainerId: me.id,
+                owner              : me,
+                windowId           : me.windowId
+            }, me.sortZoneConfig))
+        }
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -269,6 +319,10 @@ class Container extends Component {
 
         if (value && layout && !Neo.isString(layout)) {
             layout.windowId = value
+        }
+
+        if (me.sortZone) {
+            me.sortZone.windowId = value
         }
     }
 
@@ -474,6 +528,13 @@ class Container extends Component {
     }
 
     /**
+     * @param {Object} config
+     */
+    createSortZone(config) {
+        this.sortZone = Neo.create(config)
+    }
+
+    /**
      * Destroys all components inside this.items before the super() call.
      * @param {Boolean} [updateParentVdom=false] true to remove the component from the parent vdom => real dom
      * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
@@ -626,6 +687,13 @@ class Container extends Component {
         }
 
         return remoteData.items
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../draggable/container/SortZone.mjs')
     }
 
     /**
