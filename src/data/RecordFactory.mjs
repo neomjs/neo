@@ -3,6 +3,7 @@ import Model from './Model.mjs';
 
 const
     dataSymbol         = Symbol.for('data'),
+    initialIndexSymbol = Symbol.for('initialIndex'),
     isModifiedSymbol   = Symbol.for('isModified'),
     originalDataSymbol = Symbol.for('originalData');
 
@@ -130,7 +131,8 @@ class RecordFactory extends Base {
                     // We do not want to minify the ctor class name in dist/production
                     static name = 'Record';
 
-                    [dataSymbol] = {}
+                    [dataSymbol]         = {};
+                    [initialIndexSymbol] = null
 
                     get isModified() {
                         let me = this;
@@ -147,6 +149,11 @@ class RecordFactory extends Base {
                      */
                     constructor(config) {
                         let me = this;
+
+                        if (Object.hasOwn(config, initialIndexSymbol)) {
+                            me[initialIndexSymbol] = config[initialIndexSymbol];
+                            delete config[initialIndexSymbol]
+                        }
 
                         config = instance.assignDefaultValues(config, model);
 

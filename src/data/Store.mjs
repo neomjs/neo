@@ -4,6 +4,8 @@ import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import RecordFactory   from './RecordFactory.mjs';
 
+const initialIndexSymbol = Symbol.for('initialIndex');
+
 /**
  * @class Neo.data.Store
  * @extends Neo.collection.Base
@@ -87,11 +89,6 @@ class Store extends Collection {
          * @reactive
          */
         data_: null,
-        /**
-         * @member {Array|null} initialData_=null
-         * @reactive
-         */
-        initialData_: null,
         /**
          * The initial chunk size for adding large datasets. Set to 0 to disable chunking.
          * @member {Number} initialChunkSize=0
@@ -268,8 +265,6 @@ class Store extends Collection {
             if (value) {
                 if (oldValue) {
                     me.clear()
-                } else {
-                    me.initialData = [...value]
                 }
 
                 me.isLoading = false;
@@ -292,15 +287,6 @@ class Store extends Collection {
         me._currentPage = 1; // silent update
 
         oldValue && me.remoteFilter && me.load()
-    }
-
-    /**
-     * @param value
-     * @param oldValue
-     * @protected
-     */
-    afterSetInitialData(value, oldValue) {
-        // console.log('afterSetInitialData', value, oldValue);
     }
 
     /**
@@ -377,19 +363,7 @@ class Store extends Collection {
         return value
     }
 
-    /**
-     * @param value
-     * @param oldValue
-     * @protected
-     * @returns {*}
-     */
-    beforeSetInitialData(value, oldValue) {
-        if (!value && oldValue) {
-            return oldValue
-        }
 
-        return value
-    }
 
     /**
      * @param {Neo.data.Model|Object} value
@@ -677,13 +651,13 @@ class Store extends Collection {
     }
 
     /**
-     * todo: add will fire mutate and sort right after another
+     *
      */
     onCollectionSort() {
         let me = this;
 
         if (me.isConstructed) {
-            //me.fire('load', me.items)
+            me.fire('load', {items: me.items})
         }
     }
 
@@ -758,16 +732,10 @@ class Store extends Collection {
                 }]
             } else {
                 if (!me.remoteSort) {
-                    me.startUpdate();
-                    me.clear()
-                }
-
-                me.sorters = [];
-
-                if (!me.remoteSort) {
-                    me.add([...me.initialData], false);
-                    me.endUpdate();
-                    me.fire('sort')
+                    me.sorters = [{
+                        direction: 'ASC',
+                        property : initialIndexSymbol
+                    }]
                 }
             }
         }

@@ -567,8 +567,7 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.store.sort(opts);
-        me.removeSortingCss(opts.property);
-        opts.direction && me.body.onStoreLoad({items: me.store.items});
+        me.removeSortingCss(opts.property)
     }
 
     /**
