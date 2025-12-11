@@ -318,6 +318,11 @@ class DomEvent extends Base {
             fnType                       = typeof opts,
             fn, listener, listenerConfig, listenerId;
 
+        // Ensure we register the listener under the component ID, even if it is a wrapper node
+        if (config.ownerId) {
+            id = config.ownerId
+        }
+
         if (fnType === 'function' || fnType === 'string') {
             fn = opts
         } else {
@@ -348,8 +353,6 @@ class DomEvent extends Base {
         if (alreadyRegistered === true) {
             return false
         }
-
-        // console.log('manager.DomEvent register', eventName, config);
 
         listenerId = Neo.getId('dom-event');
 
@@ -497,7 +500,7 @@ class DomEvent extends Base {
                 isId     = item.startsWith('#');
 
                 if (isId || item.startsWith('.')) {
-                    item = item.substr(1)
+                    item = item.substring(1)
                 }
 
                 for (; j < pathLen; j++) {
