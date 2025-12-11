@@ -59,31 +59,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the dragResortable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetDragResortable(value, oldValue) {
-        let me = this;
-
-        if (value && !me.sortZone) {
-            import('../../draggable/table/header/toolbar/SortZone.mjs').then(module => {
-                let {appName, id, windowId} = me;
-
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    appName,
-                    boundaryContainerId: id,
-                    owner              : me,
-                    windowId,
-                    ...me.sortZoneConfig
-                })
-            })
-        }
-    }
-
-    /**
      * Triggered after the showHeaderFilters config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -224,6 +199,13 @@ class Toolbar extends BaseToolbar {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../../draggable/table/header/toolbar/SortZone.mjs')
     }
 }
 

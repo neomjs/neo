@@ -62,32 +62,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the dragResortable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetDragResortable(value, oldValue) {
-        let me = this;
-
-        if (value && !me.sortZone) {
-            import('../../draggable/grid/header/toolbar/SortZone.mjs').then(module => {
-                let {appName, id, scrollLeft, windowId} = me;
-
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    appName,
-                    boundaryContainerId: [id, me.parent.id],
-                    owner              : me,
-                    scrollLeft,
-                    windowId,
-                    ...me.sortZoneConfig
-                })
-            })
-        }
-    }
-
-    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -192,6 +166,20 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @param {Object} config
+     */
+    createSortZone(config) {
+        let me = this;
+
+        Neo.merge(config, {
+            boundaryContainerId: [me.id, me.parent.id],
+            scrollLeft         : me.scrollLeft
+        });
+
+        super.createSortZone(config)
+    }
+
+    /**
      * @param {String} dataField
      * @returns {Neo.button.Base|null}
      */
@@ -203,6 +191,13 @@ class Toolbar extends BaseToolbar {
         }
 
         return null
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../../draggable/grid/header/toolbar/SortZone.mjs')
     }
 
     /**
