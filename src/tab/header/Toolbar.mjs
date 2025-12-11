@@ -28,28 +28,10 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the sortable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
+     * @returns {Promise<any>}
      */
-    afterSetSortable(value, oldValue) {
-        let me = this;
-
-        if (value && !me.sortZone) {
-            import('../../draggable/tab/header/toolbar/SortZone.mjs').then(module => {
-                let {appName, id, windowId} = me;
-
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    appName,
-                    boundaryContainerId: id,
-                    owner              : me,
-                    windowId,
-                    ...me.sortZoneConfig
-                })
-            })
-        }
+    loadSortZoneModule() {
+        return import('../../draggable/tab/header/toolbar/SortZone.mjs')
     }
 
     /**
