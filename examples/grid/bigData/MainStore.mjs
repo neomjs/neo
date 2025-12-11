@@ -80,7 +80,9 @@ class MainStore extends Store {
                 me.clear()
             }
 
-            me.add(data);
+            // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
+            // This enables the Store to use the lazy-load chunking mechanism for massive performance gains.
+            me.add(data, false);
 
             console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)
         }
@@ -99,14 +101,15 @@ class MainStore extends Store {
 
         console.log('Start generating data and adding to collection');
 
-        if (me.items?.length > 0) {
-            me.clear()
-        }
-
-        me.add(data);
-
-        console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)
-    }
+                if (me.items?.length > 0) {
+                        me.clear()
+                    }
+        
+                    // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
+                    // This enables the Store to use the lazy-load chunking mechanism for massive performance gains.
+                    me.add(data, false);
+        
+                console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)    }
 
     /**
      * @param {Number} amountRows

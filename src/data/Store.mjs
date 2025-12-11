@@ -1,5 +1,5 @@
-import Base            from '../collection/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Collection      from '../collection/Base.mjs';
 import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import RecordFactory   from './RecordFactory.mjs';
@@ -8,8 +8,35 @@ import RecordFactory   from './RecordFactory.mjs';
  * @class Neo.data.Store
  * @extends Neo.collection.Base
  * @mixes Neo.core.Observable
+ *
+ * @summary A powerful, observable collection that manages a set of data records.
+ *
+ * Neo.data.Store is the central data management class in the framework. It handles the lifecycle of
+ * data records, including loading, filtering, sorting, and synchronization with backend APIs.
+ *
+ * ### Record Instantiation Strategies: Eager vs. Lazy ("Turbo Mode")
+ *
+ * The Store supports two distinct strategies for handling record creation, controlled by the `init` parameter
+ * in methods like `add()` and `insert()`.
+ *
+ * **1. Eager Instantiation (Default)**
+ *    - **Behavior**: Raw data objects are immediately converted into `Neo.data.Model` instances.
+ *    - **Use Case**: Standard operations, adding single items, interactive edits.
+ *    - **Pros**: Returns usable Record instances immediately. High Developer Experience (DX).
+ *    - **Cons**: Can be slow for massive datasets (10k+ records).
+ *
+ * **2. Lazy Instantiation ("Turbo Mode")**
+ *    - **Behavior**: Raw data objects are stored directly. `Neo.data.Model` instances are created
+ *      "just-in-time" only when they are accessed via `get()`, `getAt()`, or iteration.
+ *    - **Use Case**: Bulk loading large datasets (e.g., grids, charts with thousands of points).
+ *    - **Pros**: Massive performance gains for initial data load. Enables internal "chunking" to prevent UI freezes.
+ *    - **Cons**: `add()` returns a count instead of records. Records are not available until accessed.
+ *    - **How to enable**: Pass `false` as the second argument to `add()` or `insert()`.
+ *      ```javascript
+ *      store.add(hugeArrayOfData, false); // Enable Turbo Mode
+ *      ```
  */
-class Store extends Base {
+class Store extends Collection {
     /**
      * True automatically applies the core.Observable mixin
      * @member {Boolean} observable=true
@@ -135,16 +162,45 @@ class Store extends Base {
             mutate: me.onCollectionMutate,
             sort  : me.onCollectionSort,
             scope : me
-        });
+        })
     }
 
     /**
-     * Overrides collection.Base: add() to convert items into records if needed
+     * Overrides collection.Base: add() to convert items into records if needed.
+     *
+     * **1. Eager Mode (`init=true` - Default):**
+     * Immediately converts raw data into `Neo.data.Model` instances.
+     * Returns an `Array` of the created records.
+     *
+     * **2. Lazy Mode (`init=false`):**
+     * Adds raw data directly for maximum performance. Instantiates records only on access.
+     *
+     * - **Chunking Active**: If `initialChunkSize > 0` and `items.length > threshold`:
+     *   Adds items in chunks to prevent blocking the App Worker (Main Actor).
+     *   Returns the new collection `count` (Number).
+     *
+     * - **No Chunking**: If `initialChunkSize === 0` or `items.length <= threshold`:
+     *   Adds raw items directly.
+     *   Returns an `Array` of the added raw data objects.
+     *
+     * @example
+     * // 1. Default: Get records immediately
+     * const [newRecord] = store.add({name: 'New Item'});
+     *
+     * @example
+     * // 2. Turbo Mode (No Chunking): Get raw objects
+     * const [rawObject] = store.add({name: 'Item'}, false);
+     *
+     * @example
+     * // 3. Turbo Mode (Chunking): Get new count
+     * store.initialChunkSize = 1000;
+     * const newCount = store.add(hugeDataArray, false);
+     *
      * @param {Array|Object} item The item(s) to add
-     * @param {Boolean} [init=false] True to return the created records
-     * @returns {Number|Neo.data.Model[]} the collection count or the created records
+     * @param {Boolean} [init=true] True to return the created records, false for "Turbo Mode"
+     * @returns {Number|Object[]|Neo.data.Model[]} The collection count, raw items, or created records
      */
-    add(item, init=false) {
+    add(item, init=true) {
         let me        = this,
             items     = Array.isArray(item) ? item : [item],
             threshold = me.initialChunkSize;
@@ -179,7 +235,7 @@ class Store extends Base {
 
             delete me.chunkingTotal;
 
-            return me.count;
+            return me.count
         }
 
         const returnValue = super.add(items);
@@ -187,7 +243,7 @@ class Store extends Base {
         // If we use add() initially instead of setting `data`, we need to set the loaded flag here.
         me.isLoaded = true;
 
-        return returnValue; // Pass raw item directly
+        return returnValue // Pass raw item directly
     }
 
     /**
@@ -218,7 +274,7 @@ class Store extends Base {
 
                 me.isLoading = false;
 
-                me.add(value)
+                me.add(value, false)
             }
         }
     }
@@ -510,13 +566,22 @@ class Store extends Base {
     }
 
     /**
-     * Overrides collection.Base: insert() to convert items into records if needed
-     * @param {Number} index
+     * Overrides collection.Base: insert() to convert items into records if needed.
+     *
+     * **Eager Mode (`init=true` - Default):**
+     * Immediately converts raw data into `Neo.data.Model` instances.
+     * Returns an `Array` of the created records.
+     *
+     * **Lazy Mode (`init=false`):**
+     * Inserts raw data directly. Instantiates records only on access.
+     * Returns an `Array` of the inserted raw data objects.
+     *
+     * @param {Number} index The index to insert at
      * @param {Array|Object} item The item(s) to add
-     * @param {Boolean} [init=false] True to return the created records
-     * @returns {Object[]} The inserted items or created records
+     * @param {Boolean} [init=true] True to return the created records
+     * @returns {Object[]|Neo.data.Model[]} The inserted raw items or created records
      */
-    insert(index, item, init=false) {
+    insert(index, item, init=true) {
         let me    = this,
             items = super.insert(index, item);
 
@@ -700,7 +765,7 @@ class Store extends Base {
                 me.sorters = [];
 
                 if (!me.remoteSort) {
-                    me.add([...me.initialData]);
+                    me.add([...me.initialData], false);
                     me.endUpdate();
                     me.fire('sort')
                 }
