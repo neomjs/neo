@@ -79,10 +79,10 @@ class Container extends BaseContainer {
          */
         showHeaderFilters_: false,
         /**
-         * @member {Boolean} sortable=true
+         * @member {Boolean} sortable_=true
          * @reactive
          */
-        sortable: true,
+        sortable_: true,
         /**
          * @member {Neo.data.Store} store_=null
          * @reactive

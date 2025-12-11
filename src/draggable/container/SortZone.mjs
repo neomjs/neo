@@ -157,7 +157,7 @@ class SortZone extends DragZone {
 
         await me.timeout(10);
 
-        if (owner.sortable) {
+        if (owner.dragResortable) {
             if (me.dragPlaceholder) {
                 const
                     component = me.dragComponent,
@@ -354,7 +354,7 @@ class SortZone extends DragZone {
             ownerStyle           = owner.style || {},
             draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
-        if (owner.sortable) {
+        if (owner.dragResortable) {
             if (dragHandleSelector) {
                 const handleClassName = dragHandleSelector.substring(1);
                 const handleNode      = data.path.find(node => node.cls.includes(handleClassName));

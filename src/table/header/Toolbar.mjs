@@ -21,10 +21,10 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-table-header-toolbar'],
         /**
-         * @member {Boolean} draggable_=true
+         * @member {Boolean} dragResortable=true
          * @reactive
          */
-        draggable_: true,
+        dragResortable: true,
         /**
          * @member {String} layout='base'
          * @reactive
@@ -45,10 +45,10 @@ class Toolbar extends BaseToolbar {
         /**
          * Convenience shortcut to pass sortable to all toolbar items.
          * If set to true, header clicks will sort the matching column (ASC, DESC, null)
-         * @member {Boolean} sortable=true
+         * @member {Boolean} sortable_=true
          * @reactive
          */
-        sortable: true,
+        sortable_: true,
         /**
          * @member {Object} _vdom={tag:'thead',cn:[{tag:'tr',cn:[]}]}
          */
@@ -59,12 +59,12 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the draggable config got changed
+     * Triggered after the dragResortable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetDraggable(value, oldValue) {
+    afterSetDragResortable(value, oldValue) {
         let me = this;
 
         if (value && !me.sortZone) {

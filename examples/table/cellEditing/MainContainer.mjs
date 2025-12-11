@@ -87,11 +87,11 @@ class MainContainer extends ConfigurationViewport {
             valueLabel: 'Cell & Column & Row'
         }, {
             module    : CheckBox,
-            checked   : me.exampleComponent.sortable,
+            checked   : me.exampleComponent.dragResortable,
             hideLabel : true,
-            listeners : {change: me.onConfigChange.bind(me, 'sortable')},
+            listeners : {change: me.onConfigChange.bind(me, 'dragResortable')},
             style     : {marginTop: '10px'},
-            valueLabel: 'sortable'
+            valueLabel: 'dragResortable'
         }, {
             module    : CheckBox,
             checked   : false, // we can not access the lazy-loaded plugin yet

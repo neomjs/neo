@@ -80,9 +80,9 @@ class MainContainer extends ConfigurationViewport {
             valueLabel: 'Cell & Column & Row'
         }, {
             module   : Checkbox,
-            checked  : me.exampleComponent.sortable,
-            labelText: 'sortable',
-            listeners: {change: me.onConfigChange.bind(me, 'sortable')},
+            checked  : me.exampleComponent.dragResortable,
+            labelText: 'dragResortable',
+            listeners: {change: me.onConfigChange.bind(me, 'dragResortable')},
             style    : {marginTop: '10px'}
         }, {
             module   : Checkbox,

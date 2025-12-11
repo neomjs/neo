@@ -50,7 +50,7 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
                 {id: 'btnC', ntype: 'component'},                         // Non-sortable
                 {id: 'btnD', ntype: 'component', cls: ['neo-draggable']}  // Sortable
             ],
-            sortable: true,
+            dragResortable: true,
             sortZoneConfig: {
                 module: SortZone, // Pass module directly
                 // We use a selector to identify sortable items, mimicking the real usage

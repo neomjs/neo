@@ -29,6 +29,11 @@ class TabContainer extends Container {
          */
         controller: TabContainerController,
         /**
+         * @member {Boolean} sortable=true
+         * @reactive
+         */
+        dragResortable: true,
+        /**
          * @member {Object} headerToolbar
          */
         headerToolbar: {
@@ -79,11 +84,6 @@ class TabContainer extends Container {
                 text   : 'dist/prod'
             }
         }],
-        /**
-         * @member {Boolean} sortable=true
-         * @reactive
-         */
-        sortable: true,
         /**
          * @member {String} tabBarPosition='left'
          * @reactive

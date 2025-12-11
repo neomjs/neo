@@ -27,10 +27,10 @@ class Container extends BaseContainer {
          */
         dragProxyExtraCls: [],
         /**
-         * @member {Boolean} sortable=true
+         * @member {Boolean} dragResortable=true
          * @reactive
          */
-        sortable: true
+        dragResortable: true
     }
 
     /**

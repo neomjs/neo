@@ -32,6 +32,11 @@ class Container extends Component {
          */
         baseCls: ['neo-container'],
         /**
+         * @member {Boolean} dragResortable_=false
+         * @reactive
+         */
+        dragResortable_: false,
+        /**
          * Default configuration for child items within this container.
          * This config uses a descriptor to enable deep merging with instance based itemDefaults.
          * @member {Object} itemDefaults_={[isDescriptor]: true, merge: 'deep', value: null}
@@ -109,11 +114,6 @@ class Container extends Component {
             ntype: 'vbox',
             align: 'stretch'
         },
-        /**
-         * @member {Boolean} sortable_=false
-         * @reactive
-         */
-        sortable_: false,
         /**
          * @member {Neo.draggable.container.SortZone|null} sortZone=null
          */
@@ -252,12 +252,12 @@ class Container extends Component {
     }
 
     /**
-     * Triggered after the sortable config got changed
+     * Triggered after the dragResortable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    async afterSetSortable(value, oldValue) {
+    async afterSetDragResortable(value, oldValue) {
         let me = this,
             module;
 
