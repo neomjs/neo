@@ -18,10 +18,10 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *
  * ### Record Instantiation Strategies: Eager vs. Lazy ("Turbo Mode")
  *
- * The Store supports two distinct strategies for handling record creation, controlled by the `init` parameter
- * in methods like `add()` and `insert()`.
+ * The Store supports two distinct strategies for handling record creation, controlled by the `autoInitRecords` config
+ * (which defaults to `true`) and the `init` parameter in methods like `add()` and `insert()`.
  *
- * **1. Eager Instantiation (Default)**
+ * **1. Eager Instantiation (Default: `autoInitRecords: true`)**
  *    - **Behavior**: Raw data objects are immediately converted into `Neo.data.Model` instances.
  *    - **Use Case**: Standard operations, adding single items, interactive edits.
  *    - **Pros**: Returns usable Record instances immediately. High Developer Experience (DX).
@@ -33,9 +33,18 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *    - **Use Case**: Bulk loading large datasets (e.g., grids, charts with thousands of points).
  *    - **Pros**: Massive performance gains for initial data load. Enables internal "chunking" to prevent UI freezes.
  *    - **Cons**: `add()` returns a count instead of records. Records are not available until accessed.
- *    - **How to enable**: Pass `false` as the second argument to `add()` or `insert()`.
+ *    - **How to enable**:
+ *      - **Global**: Set `autoInitRecords: false` on the Store config.
+ *      - **Per-call**: Pass `false` as the second argument to `add()` or `insert()`.
  *      ```javascript
- *      store.add(hugeArrayOfData, false); // Enable Turbo Mode
+ *      // Global setting
+ *      Neo.create(Store, {
+ *          autoInitRecords: false,
+ *          data: hugeArrayOfData
+ *      });
+ *
+ *      // Per-call override
+ *      store.add(hugeArrayOfData, false);
  *      ```
  */
 class Store extends Collection {
@@ -75,6 +84,12 @@ class Store extends Collection {
          * @reactive
          */
         api_: null,
+        /**
+         * True to automatically create record instances when adding items.
+         * Set to false to enable "Turbo Mode" (Lazy Instantiation) globally for this store.
+         * @member {Boolean} autoInitRecords=true
+         */
+        autoInitRecords: true,
         /**
          * @member {Boolean} autoLoad=false
          */
@@ -194,10 +209,10 @@ class Store extends Collection {
      * const newCount = store.add(hugeDataArray, false);
      *
      * @param {Array|Object} item The item(s) to add
-     * @param {Boolean} [init=true] True to return the created records, false for "Turbo Mode"
+     * @param {Boolean} [init=this.autoInitRecords] True to return the created records, false for "Turbo Mode"
      * @returns {Number|Object[]|Neo.data.Model[]} The collection count, raw items, or created records
      */
-    add(item, init=true) {
+    add(item, init=this.autoInitRecords) {
         let me        = this,
             items     = Array.isArray(item) ? item : [item],
             threshold = me.initialChunkSize;
@@ -269,7 +284,7 @@ class Store extends Collection {
 
                 me.isLoading = false;
 
-                me.add(value, false)
+                me.add(value, me.autoInitRecords)
             }
         }
     }
@@ -557,10 +572,10 @@ class Store extends Collection {
      *
      * @param {Number} index The index to insert at
      * @param {Array|Object} item The item(s) to add
-     * @param {Boolean} [init=true] True to return the created records
+     * @param {Boolean} [init=this.autoInitRecords] True to return the created records
      * @returns {Object[]|Neo.data.Model[]} The inserted raw items or created records
      */
-    insert(index, item, init=true) {
+    insert(index, item, init=this.autoInitRecords) {
         let me    = this,
             items = super.insert(index, item);
 

@@ -81,4 +81,32 @@ test.describe.serial('Neo.data.Store', () => {
         expect(sameRecord).toBe(record);
         expect(RecordFactory.isRecord(sameRecord)).toBe(true);
     });
+
+    test('autoInitRecords config', () => {
+        const lazyStore = Neo.create(Store, {
+            autoInitRecords: false,
+            keyProperty: 'id',
+            model: {
+                module: Model,
+                fields: [{name: 'id'}, {name: 'name'}]
+            }
+        });
+
+        const result = lazyStore.add({id: 'lazy1', name: 'Lazy Item'});
+        expect(RecordFactory.isRecord(result[0])).toBe(false);
+
+        const insertResult = lazyStore.insert(0, {id: 'lazy2', name: 'Lazy Insert'});
+        expect(RecordFactory.isRecord(insertResult[0])).toBe(false);
+
+        // Test data config
+        lazyStore.data = [{id: 'lazy3', name: 'Lazy Data'}];
+        
+        // Check internal map directly to verify it is stored as a raw object (lazy)
+        const rawItem = lazyStore.map.get('lazy3');
+        expect(RecordFactory.isRecord(rawItem)).toBe(false);
+
+        // Accessing via get() should instantiate the record
+        const record = lazyStore.get('lazy3');
+        expect(RecordFactory.isRecord(record)).toBe(true);
+    });
 });
