@@ -139,6 +139,19 @@ class Provider extends Base {
     }
 
     /**
+     * @param {*} value
+     * @returns {*}
+     * @protected
+     */
+    adjustValue(value) {
+        if (value instanceof Date) {
+            return new Date(value.valueOf())
+        }
+
+        return value
+    }
+
+    /**
      * Triggered after the data config got changed.
      * This method initializes the internal #dataConfigs map, converting each
      * plain data property into a reactive Neo.core.Config instance.
@@ -574,6 +587,8 @@ class Provider extends Base {
         Object.entries(obj).forEach(([key, value]) => {
             const fullPath = path ? `${path}.${key}` : key;
 
+            value = me.adjustValue(value);
+
             // Ensure a Config instance exists for the current fullPath
             if (me.#dataConfigs[fullPath]) {
                 me.#dataConfigs[fullPath].set(value)
@@ -612,6 +627,8 @@ class Provider extends Base {
      * @private
      */
     #setConfigValue(provider, path, newValue, oldVal) {
+        newValue = provider.adjustValue(newValue);
+
         let currentConfig = provider.getDataConfig(path),
             hasChange     = true,
             oldValue      = oldVal;

@@ -767,7 +767,7 @@ class YearComponent extends Component {
 
         currentDate.setFullYear(currentDate.getFullYear() + (data.path[0].cls.includes('neo-next-button') ? 1 : -1));
 
-        me.currentDate = currentDate
+        me.getStateProvider().setData({currentDate})
     }
 
     /**
@@ -780,7 +780,7 @@ class YearComponent extends Component {
 
             currentDate.setFullYear(currentDate.getFullYear() + (data.deltaY > 0 ? 1 : -1));
 
-            me.currentDate = currentDate
+            me.getStateProvider().setData({currentDate})
         }
     }
 
