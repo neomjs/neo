@@ -187,3 +187,16 @@ This approach transforms the AI agent from just a consumer of documentation to a
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you should consider re-running your initialization steps (reading `Neo.mjs`, and `core/Base.mjs`) to ensure your understanding is up to date.
 
 Furthermore, after pulling changes, the local knowledge base may be out of sync. You should call the `sync_database` tool to re-embed the latest changes into the database.
+
+## 7. Working with Sub-Agents
+
+**CRITICAL:** Standard sub-agents (like `codebase_investigator`) are general-purpose experts but start with **zero knowledge** of the Neo.mjs framework architecture. They do not know about `Neo.setupClass`, the reactive config system, or `core.Base` mechanics.
+
+When invoking a sub-agent to analyze code or investigate an issue, you **MUST** inject a "Context Preamble" into your instructions.
+
+**Mandatory Sub-Agent Instruction Pattern:**
+
+> "Before analyzing the code, you MUST first read `src/Neo.mjs` and `src/core/Base.mjs` to understand the framework's class system, config system (getters/setters), and lifecycle hooks. Do not assume standard JavaScript property behavior."
+
+**Why this is required:**
+Without this context, sub-agents will hallucinate bugs where none exist (e.g., claiming `this.store` is undefined because they don't see an explicit assignment, missing the fact that it's a reactive config managed by `Neo.core.Base`).
