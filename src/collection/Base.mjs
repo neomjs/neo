@@ -1260,7 +1260,11 @@ class Collection extends Base {
                     me.keyPropertyIndex--
                 }
 
-                if (!Object.hasOwn(item, initialIndexSymbol)) {
+                // Check if the item has the symbol defined (e.g., initialized to null via RecordFactory).
+                // We only want to assign the counter to items that opt-in to this feature to support
+                // restoring the original insertion order (e.g., Store.sort() with no args).
+                // This prevents polluting plain objects in standard Collections.
+                if (Object.hasOwn(item, initialIndexSymbol)) {
                     item[initialIndexSymbol] = me.initialIndexCounter++
                 }
 
