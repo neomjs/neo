@@ -531,11 +531,16 @@ class Store extends Collection {
     }
 
     /**
-     * Adds a new item to the store and immediately returns its record instance.
-     * @param {Object} data The data object to add
-     * @returns {Neo.data.Model} The created record
+     * Converts a data object into a Record instance or returns it if it is already one.
+     * This method is called by add() and insert() when init=true (default).
+     * @param {Object} data The data object or Record instance
+     * @returns {Object} The Record instance
      */
     initRecord(data) {
+        if (RecordFactory.isRecord(data)) {
+            return data
+        }
+
         return this.get(data[this.getKeyProperty()])
     }
 
