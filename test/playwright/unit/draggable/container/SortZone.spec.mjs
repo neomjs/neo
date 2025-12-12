@@ -10,10 +10,10 @@ setup({
 
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../src/Neo.mjs';
-import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import Container       from '../../../../../src/container/Base.mjs';
+import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
 
 /**
  * @summary Tests for Neo.draggable.container.SortZone
@@ -25,7 +25,8 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         // Mock Neo.main.addon.DragDrop
         Neo.ns('Neo.main.addon.DragDrop', true);
         Neo.main.addon.DragDrop = {
-            setConfigs: () => Promise.resolve({boundaryContainerRect: {}})
+            setConfigs         : () => Promise.resolve({boundaryContainerRect: {}}),
+            setDragProxyElement: () => Promise.resolve()
         };
 
         // Mock Neo.applyDeltas
@@ -43,6 +44,7 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
 
         // Create a Mock Container
         container = Neo.create(Container, {
+            appName,
             items: [
                 {id: 'btnA', ntype: 'component', cls: ['neo-draggable']}, // Sortable
                 {id: 'btnB', ntype: 'component', cls: ['neo-draggable']}, // Sortable
