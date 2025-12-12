@@ -220,6 +220,8 @@ class Store extends Collection {
         if (init) {
             super.add(items);
 
+            me.isLoaded = true;
+
             return items.map(i => me.get(i[me.getKeyProperty()]))
         }
 
