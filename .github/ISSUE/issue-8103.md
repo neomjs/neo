@@ -1,23 +1,24 @@
 ---
 id: 8103
 title: '[GitHub Workflow] Add syncOnStartup configuration'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-13T12:46:10Z'
-updatedAt: '2025-12-13T12:52:16Z'
+updatedAt: '2025-12-13T13:06:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8103'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-13T13:06:23Z'
 ---
 # [GitHub Workflow] Add syncOnStartup configuration
 
@@ -50,10 +51,28 @@ The GitHub Workflow server needs to sync issues on startup to ensure a fresh cac
     -   In `initAsync`, add `await SyncService.ready()` **after** the server's own health check. This ensures strict ordering: Server verifies environment -> SyncService completes (synced or skipped) -> Server opens for business.
 
 
+## Comments
+
+### @tobiu - 2025-12-13 13:04
+
+**Input from gemini:**
+
+> ✦ I have successfully implemented the `syncOnStartup` feature and hardened the startup sequence.
+> 
+> **Changes:**
+> 1.  **Config:** Added `syncOnStartup: true` to `ai/mcp/server/github-workflow/config.mjs`.
+> 2.  **HealthService:** Implemented **In-Flight Deduplication** for `healthcheck()`. This prevents the "thundering herd" problem where multiple services (Server & SyncService) trigger parallel `gh` CLI calls during startup.
+> 3.  **SyncService:** Added `initAsync()` logic to trigger `runFullSync()` on startup *only* if the system is healthy. It includes a try-catch block to ensure the service initializes even if the sync fails (e.g. network issues).
+> 4.  **Server:** Updated `initAsync()` to `await SyncService.ready()`. This ensures the server waits for the cache to be populated (or the attempt to finish) before accepting MCP tool requests.
+> 
+> The server is now robust against race conditions and will automatically keep the issue cache fresh.
+> 
+
 ## Activity Log
 
 - 2025-12-13 @tobiu added the `enhancement` label
 - 2025-12-13 @tobiu added the `ai` label
 - 2025-12-13 @tobiu assigned to @tobiu
 - 2025-12-13 @tobiu referenced in commit `41a686e` - "[GitHub Workflow] Add syncOnStartup configuration #8103"
+- 2025-12-13 @tobiu closed this issue
 
