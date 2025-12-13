@@ -59,16 +59,19 @@ class Viewport extends BaseViewport {
                 flex  : 'none',
                 items :['->', {
                     module   : Button,
+                    disabled : true,
                     handler  : 'onNewFileButtonClick',
                     iconCls  : 'fa fa-plus',
                     reference: 'new-file-button',
                     text     : 'New File'
                 }, {
-                    module : Button,
-                    handler: 'onSaveButtonClick',
-                    iconCls: 'fa fa-cloud-upload',
-                    style  : {marginLeft: '.5em'},
-                    text   : 'Save'
+                    module   : Button,
+                    disabled : true,
+                    handler  : 'onSaveButtonClick',
+                    iconCls  : 'fa fa-cloud-upload',
+                    reference: 'save-button',
+                    style    : {marginLeft: '.5em'},
+                    text     : 'Save'
                 }]
             }, {
                 module: Container,

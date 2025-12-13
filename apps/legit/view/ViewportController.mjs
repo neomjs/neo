@@ -41,6 +41,9 @@ class ViewportController extends Component {
 
         await LegitService.ready();
 
+        me.getReference('new-file-button').disabled = false;
+        me.getReference('save-button')    .disabled = false;
+
         setInterval(me.poll.bind(me), me.pollingInterval)
     }
 
@@ -57,7 +60,10 @@ class ViewportController extends Component {
         dialog.hide();
 
         console.log('onAddFileDialogSave', textField.value);
-        await LegitService.writeFile(filePath, '');
+        await LegitService.writeFile({
+            data: '',
+            path: filePath
+        });
 
         me.setState({currentFile: filePath});
     }
@@ -117,7 +123,10 @@ class ViewportController extends Component {
 
         console.log('onSaveButtonClick', me.getState('currentFile'), livePreview.value);
 
-        await LegitService.writeFile(`${LegitService.path}/${currentFile}`, livePreview.value);
+        await LegitService.writeFile({
+            data: livePreview.value,
+            path: `${LegitService.path}/${currentFile}`
+        });
     }
 
     /**
