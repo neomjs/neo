@@ -69,6 +69,25 @@ class ViewportController extends Component {
     }
 
     /**
+     * @param {Object} data
+     */
+    onCommitColumnRenderer(data) {
+        if (data.dataField === 'author') {
+            return data.value.name;
+        }
+
+        if (data.dataField === 'timestamp') {
+            return new Intl.DateTimeFormat('default', {
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric'
+            }).format(new Date(data.value * 1000));
+        }
+
+        return data.value;
+    }
+
+    /**
      * @param {Record} record
      */
     onFileItemClick(record) {
@@ -169,8 +188,11 @@ class ViewportController extends Component {
                 return;
             }
 
-            const fileStore = me.getStore('fileStore');
-            const treeDelta = await LegitService.loadTreeDelta(me.currentTreeState, newState);
+            const commitStore = me.getStore('commitStore');
+            const fileStore   = me.getStore('fileStore');
+            const treeDelta   = await LegitService.loadTreeDelta(me.currentTreeState, newState);
+
+            commitStore.data = await LegitService.loadHistory();
 
             console.log('TREE DELTA:', treeDelta);
             for (const deletedEntry of treeDelta.deleted) {

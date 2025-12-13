@@ -1,5 +1,6 @@
-import FileStore from '../store/Files.mjs';
-import Provider  from '../../../src/state/Provider.mjs';
+import CommitStore from '../store/Commits.mjs';
+import FileStore   from '../store/Files.mjs';
+import Provider    from '../../../src/state/Provider.mjs';
 
 /**
  * @class Legit.view.ViewportStateProvider
@@ -25,7 +26,8 @@ class ViewportStateProvider extends Provider {
          * @member {Object} stores
          */
         stores: {
-            fileStore: FileStore
+            commitStore: CommitStore,
+            fileStore  : FileStore
         }
     }
 }

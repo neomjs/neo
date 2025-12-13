@@ -77,6 +77,23 @@ class Legit extends Base {
     }
 
     /**
+     * Retrieves the commit history for a given branch.
+     * @param {String} [branch='anonymous'] The branch name to load history for.
+     * @returns {Promise<Object[]>} An array of commit objects.
+     */
+    async loadHistory(branch='anonymous') {
+        await this.ready();
+
+        try {
+            const historyJson = await this.legitFs.readFile(`/.legit/branches/${branch}/.legit/history`, 'utf-8');
+            return JSON.parse(historyJson);
+        } catch (e) {
+            console.warn(`Failed to load history for branch ${branch}`, e);
+            return [];
+        }
+    }
+
+    /**
      * Recursively loads the file tree structure from a given path.
      * @param {String} treePath The path to start loading the tree from.
      * @returns {Promise<{hash: string, subEntries: {}}>} The tree structure with hashes.

@@ -1,7 +1,9 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
 import Button                from '../../../src/button/Base.mjs';
+import CommitGrid            from './CommitGrid.mjs';
 import Container             from '../../../src/container/Base.mjs';
 import LivePreview           from '../../../src/code/LivePreview.mjs';
+import Panel                 from '../../../src/container/Panel.mjs';
 import TreeList              from '../../../src/tree/List.mjs';
 import Splitter              from '../../../src/component/Splitter.mjs';
 import Toolbar               from '../../../src/toolbar/Base.mjs';
@@ -57,6 +59,7 @@ class Viewport extends BaseViewport {
             items: [{
                 module: Toolbar,
                 flex  : 'none',
+                style : {marginRight: '15px'},
                 items :['->', {
                     module   : Button,
                     disabled : true,
@@ -74,15 +77,28 @@ class Viewport extends BaseViewport {
                     text     : 'Save'
                 }]
             }, {
-                module: Container,
+                module   : LivePreview,
+                flex     : 3,
+                language : 'markdown',
+                listeners: {editorChange: 'onEditorChange'},
+                reference: 'code-live-preview',
+                style : {margin: '20px'}
+            }, {
+                module      : Splitter,
+                direction   : 'horizontal',
+                resizeTarget: 'previous',
+                size        : 3
+            }, {
+                module: Panel,
                 flex  : 1,
-                layout: {ntype: 'vbox', align: 'center', pack: 'center'},
-                items: [{
-                    module   : LivePreview,
-                    language : 'markdown',
-                    listeners: {editorChange: 'onEditorChange'},
-                    reference: 'code-live-preview',
-                    style    : {height: '85%', width: '85%'}
+                style : {margin: '20px'},
+                headers: [{
+                    dock: 'top',
+                    text: 'Legit History'
+                }],
+                items : [{
+                    module      : CommitGrid,
+                    wrapperStyle: {minHeight: '200px'}
                 }]
             }]
         }]
