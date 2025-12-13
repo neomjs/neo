@@ -1,6 +1,7 @@
 import aiConfig        from '../config.mjs';
 import Base            from '../../../../../src/core/Base.mjs';
 import logger          from '../logger.mjs';
+import HealthService   from './HealthService.mjs';
 import IssueSyncer     from './sync/IssueSyncer.mjs';
 import MetadataManager from './sync/MetadataManager.mjs';
 import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
@@ -32,6 +33,33 @@ class SyncService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        if (aiConfig.syncOnStartup) {
+            try {
+                // Ensure the system is healthy before attempting a sync.
+                // This call is cached/deduplicated by HealthService, so it's cheap if the server
+                // has already checked it.
+                const health = await HealthService.healthcheck();
+
+                if (health.status === 'healthy') {
+                    logger.info('[SyncService] Starting automatic startup sync...');
+                    await this.runFullSync();
+                } else {
+                    logger.warn('[SyncService] Skipping startup sync: GitHub CLI is unhealthy.');
+                }
+            } catch (error) {
+                // We strictly catch errors here to ensure that a sync failure (network, API, etc.)
+                // does not crash the entire service or prevent the server from starting.
+                logger.error('[SyncService] Startup sync failed:', error.message);
+            }
+        }
     }
 
     /**

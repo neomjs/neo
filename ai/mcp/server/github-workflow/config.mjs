@@ -47,6 +47,11 @@ const defaultConfig = {
      */
     repo: 'neo',
     /**
+     * Whether to automatically trigger a full sync when the server starts.
+     * @type {boolean}
+     */
+    syncOnStartup: true,
+    /**
      * Configuration for the issue synchronization service.
      */
     issueSync: {
