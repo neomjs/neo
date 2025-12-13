@@ -1,6 +1,5 @@
-import Component     from '../../../src/controller/Component.mjs';
-import {openLegitFs} from 'https://esm.sh/@legit-sdk/core';
-import fs            from 'https://esm.sh/memfs';
+import Component    from '../../../src/controller/Component.mjs';
+import LegitService from '../service/Legit.mjs';
 
 /**
  * @class Legit.view.ViewportController
@@ -14,32 +13,25 @@ class ViewportController extends Component {
          */
         className: 'Legit.view.ViewportController',
         /**
-         * @member {String} legitApiKey=null
-         */
-        legitApiKey: null,
-        /**
-         * @member {String} path='/.legit/branches/anonymous'
-         */
-        path: '/.legit/branches/anonymous',
-        /**
          * @member {Number} pollingInterval=1000
          */
         pollingInterval: 1000
     }
 
     /**
-     *
      * @member {Neo.dialog.Base|null}
      */
     addDialog = null
     /**
-     *
+     * @member {String} currentTreeState=null
+     */
+    currentTreeState = null
+    /**
      * @member {Boolean} running=false
      */
     running = false
 
     /**
-     *
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -47,50 +39,7 @@ class ViewportController extends Component {
 
         const me = this;
 
-        globalThis.legitFs = await openLegitFs({
-            storageFs: fs,
-            gitRoot: '/',
-            serverUrl: 'http://localhost:9999/',
-            // publicKey: process.env.NEXT_PUBLIC_LEGIT_PUBLIC_KEY,
-        });
-
-        let mdFile = await fetch('../../learn/benefits/FormsEngine.md');
-        mdFile = await mdFile.text();
-
-        await legitFs.writeFile(`${me.path}/FormsEngine.md`, mdFile);
-
-        mdFile = await fetch('../../learn/benefits/OffTheMainThread.md');
-        mdFile = await mdFile.text();
-
-        await legitFs.writeFile(`${me.path}/OffTheMainThread.md`, mdFile);
-
-        await legitFs.writeFile(`${me.path}/Helix.mjs`, [
-            "import Viewport from '../../examples/component/multiWindowHelix/Viewport.mjs';",
-            "",
-            "class MainView extends Viewport {",
-            "    static config = {",
-            "        className           : 'Portal.view.MultiWindowHelix',",
-            "        showGitHubStarButton: false,",
-            "        theme               : 'neo-theme-dark'",
-            "    }",
-            "}",
-            "",
-            "MainView = Neo.setupClass(MainView);"
-        ].join('\n'));
-
-        await legitFs.writeFile(`${me.path}/Gallery.mjs`, [
-            "import Viewport from '../../examples/component/multiWindowCoronaGallery/Viewport.mjs';",
-            "",
-            "class MainView extends Viewport {",
-            "    static config = {",
-            "        className           : 'Portal.view.MultiWindowHelix',",
-            "        showGitHubStarButton: false,",
-            "        theme               : 'neo-theme-dark'",
-            "    }",
-            "}",
-            "",
-            "MainView = Neo.setupClass(MainView);"
-        ].join('\n'));
+        await LegitService.ready();
 
         setInterval(me.poll.bind(me), me.pollingInterval)
     }
@@ -103,12 +52,12 @@ class ViewportController extends Component {
             me        = this,
             dialog    = me.addDialog,
             textField = dialog.getReference('filename'),
-            filePath  = `/.legit/branches/anonymous/${textField.value}`;
+            filePath  = `${LegitService.path}/${textField.value}`;
 
         dialog.hide();
 
         console.log('onAddFileDialogSave', textField.value);
-        await legitFs.writeFile(filePath, '');
+        await LegitService.writeFile(filePath, '');
 
         me.setState({currentFile: filePath});
     }
@@ -121,7 +70,6 @@ class ViewportController extends Component {
     }
 
     /**
-     *
      * @param data
      * @returns {Promise<void>}
      */
@@ -130,7 +78,6 @@ class ViewportController extends Component {
     }
 
     /**
-     *
      * @param data
      * @returns {Promise<void>}
      */
@@ -170,7 +117,7 @@ class ViewportController extends Component {
 
         console.log('onSaveButtonClick', me.getState('currentFile'), livePreview.value);
 
-        await legitFs.writeFile(`${me.path}/${currentFile}`, livePreview.value);
+        await LegitService.writeFile(`${LegitService.path}/${currentFile}`, livePreview.value);
     }
 
     /**
@@ -188,44 +135,13 @@ class ViewportController extends Component {
         if (record?.isLeaf) {
             this.setState({currentFile: record.id});
 
-            const value = await legitFs.readFile(`${this.path}/${record.id}`, 'utf-8');
+            const value = await LegitService.readFile(`${LegitService.path}/${record.id}`, 'utf-8');
 
             await livePreview.set({language, value});
         }
     }
 
     /**
-     *
-     * @param treePath
-     * @returns {Promise<{hash: string, subEntries: {}}>}
-     */
-    async loadTree(treePath) {
-        const subEntries = {};
-
-        const pathEntries = await legitFs.readdir(treePath)
-        for (const entryName of pathEntries) {
-            const stat = await legitFs.stat(treePath + entryName);
-
-            if (stat.isDirectory()) {
-                subEntries[entryName] = await this.loadTree(treePath + entryName + '/');
-            } else {
-                const contenHash = await crypto.subtle.digest("SHA-1", await legitFs.readFile(treePath + entryName));
-                subEntries[entryName] = {
-                    // for now its the content instead of the hash
-                    hash: contenHash,
-                    name: entryName,
-                };
-            }
-        }
-
-        return {
-            hash: '',
-            subEntries
-        }
-    }
-
-    /**
-     *
      * @returns {Promise<void>}
      */
     async poll() {
@@ -238,14 +154,14 @@ class ViewportController extends Component {
         try {
             me.running = true;
 
-            let newState = await legitFs.readFile(me.path + '/.legit/head', 'utf-8');
+            let newState = await LegitService.readFile(LegitService.path + '/.legit/head', 'utf-8');
 
             if (me.currentTreeState === newState) {
                 return;
             }
 
             const fileStore = me.getStore('fileStore');
-            const treeDelta = await me.loadTreeDelta(me.currentTreeState, newState);
+            const treeDelta = await LegitService.loadTreeDelta(me.currentTreeState, newState);
 
             console.log('TREE DELTA:', treeDelta);
             for (const deletedEntry of treeDelta.deleted) {
@@ -277,88 +193,6 @@ class ViewportController extends Component {
             if (!selectionModel.hasSelection()) {
                 selectionModel.selectAt(0)
             }
-        }
-    }
-
-    /**
-     *
-     * @param currentState
-     * @param newState
-     * @returns {Promise<{deleted: *[], added: *[], modified: *[]}>}
-     */
-    async loadTreeDelta(currentState, newState) {
-        const me = this;
-
-        const prefixNewState = newState.slice(0, 2);
-        const suffixNewState = newState.slice(2);
-
-        let currentstateTree = {}
-
-        if (currentState) {
-            const prefixCurrentState = currentState.slice(0, 2);
-            const suffixCurrentState = currentState.slice(2);
-
-            currentstateTree = await me.loadTree('/.legit/commits/' + prefixCurrentState + '/' + suffixCurrentState + '/');
-            console.log('currentstateTree', currentstateTree);
-        }
-        const newStateTree = await me.loadTree('/.legit/commits/' + prefixNewState + '/' + suffixNewState + '/');
-
-        const deleted  = [];
-        const added    = [];
-        const modified = [];
-
-        function flattenTree(tree, path = '') {
-            const result = {};
-
-            if (tree.subEntries) {
-                for (const [key, value] of Object.entries(tree.subEntries)) {
-                    const currentPath = path ? `${path}/${key}` : key;
-
-                    if (value.subEntries) {
-                        Object.assign(result, flattenTree(value, currentPath));
-                    } else {
-                        result[currentPath] = value.hash;
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        const currentStateFlat = currentState !== '' ? flattenTree(currentstateTree) : {};
-        const newStateFlat     = flattenTree(newStateTree);
-
-        // Find deleted (in current but not in new)
-        for (const path in currentStateFlat) {
-            if (!(path in newStateFlat)) {
-                deleted.push(path);
-            }
-        }
-
-        // Find added (in new but not in current)
-        for (const path in newStateFlat) {
-            if (!(path in currentStateFlat)) {
-                added.push(path);
-            }
-        }
-
-        // Find modified (in both but hash differs)
-        for (const path in newStateFlat) {
-            if (path in currentStateFlat) {
-                const currentHash = new Uint8Array(currentStateFlat[path]);
-                const newHash     = new Uint8Array(newStateFlat[path]);
-
-                if (currentHash.length !== newHash.length ||
-                    !currentHash.every((byte, i) => byte === newHash[i])) {
-                    modified.push(path);
-                }
-            }
-        }
-
-        return {
-            deleted,
-            added,
-            modified
         }
     }
 }
