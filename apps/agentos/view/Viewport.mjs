@@ -41,7 +41,7 @@ class Viewport extends BaseViewport {
             items: [{
                 ntype: 'component',
                 cls  : ['agent-logo'],
-                html : '<img src="../../resources/images/logo/neo_logo_white.svg" alt="Neo.mjs Logo">'
+                html : '<img src="../../resources/images/logo/neo_logo_cyberpunk.svg" alt="Neo.mjs Logo">'
             }, {
                 ntype: 'label',
                 text : 'Agent OS Command Center'
