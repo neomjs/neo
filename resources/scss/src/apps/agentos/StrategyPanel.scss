@@ -1,4 +1,8 @@
 .agent-panel-strategy.neo-panel {
+    & > .neo-toolbar.neo-dock-top .neo-panel-header-text {
+        color: var(--agent-accent-strategy);
+    }
+
     &.neo-dragproxy {
         border: none;
     }
