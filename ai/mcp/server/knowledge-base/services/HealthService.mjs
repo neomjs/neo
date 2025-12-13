@@ -57,6 +57,14 @@ class HealthService extends Base {
     #lastCheckTime = null;
 
     /**
+     * Promise of the currently executing health check.
+     * Used for request deduplication to prevent "thundering herd" of health checks.
+     * @member {Promise<Object>|null} #healthCheckPromise
+     * @private
+     */
+    #healthCheckPromise = null;
+
+    /**
      * Duration (in milliseconds) for which cached HEALTHY results remain valid.
      * Set to 5 minutes to balance freshness with performance.
      * Unhealthy results are never cached to allow immediate recovery detection.
@@ -272,9 +280,22 @@ class HealthService extends Base {
             }
         }
 
+        // Check for in-flight request (deduplication)
+        if (this.#healthCheckPromise) {
+            logger.debug('[HealthService] Joining in-flight health check...');
+            return this.#healthCheckPromise;
+        }
+
         // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
         logger.debug('[HealthService] Performing fresh health check');
-        const health = await this.#performHealthCheck();
+
+        // Create the promise and store it
+        this.#healthCheckPromise = this.#performHealthCheck().finally(() => {
+            // Always clear the promise when done, success or fail
+            this.#healthCheckPromise = null;
+        });
+
+        const health = await this.#healthCheckPromise;
 
         // Detect and log meaningful state transitions
         // This helps users understand when their fixes (like starting ChromaDB) succeed
