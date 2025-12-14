@@ -51,7 +51,7 @@ class Viewport extends BaseViewport {
         }, {
             module      : Splitter,
             resizeTarget: 'previous',
-            size        : 3
+            size        : 5
         }, {
             module: Container,
             flex  : 1,
@@ -87,9 +87,10 @@ class Viewport extends BaseViewport {
                 module      : Splitter,
                 direction   : 'horizontal',
                 resizeTarget: 'previous',
-                size        : 3
+                size        : 5
             }, {
                 module: Panel,
+                cls   : ['legit-commit-grid-panel'],
                 flex  : 1,
                 style : {margin: '20px'},
                 headers: [{

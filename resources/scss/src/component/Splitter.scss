@@ -12,7 +12,7 @@
     &.neo-horizontal {
         border-left : none;
         border-right: none;
-        cursor      : ns-resize;
+        cursor      : ns-resize !important;
         margin      : var(--splitter-margin-horizontal);
     }
 

@@ -12,6 +12,11 @@ class CommitGrid extends Grid {
          */
         className: 'Legit.view.CommitGrid',
         /**
+         * @member {String[]} baseCls=['legit-commit-grid','neo-grid-container']
+         * @protected
+         */
+        baseCls: ['legit-commit-grid', 'neo-grid-container'],
+        /**
          * @member {Object} bind={store:'stores.commitStore'}
          */
         bind: {store: 'stores.commitStore'},
