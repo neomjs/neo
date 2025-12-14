@@ -7,6 +7,8 @@
 !/apps/agentos/index.html
 !/apps/agentos/**/*.mjs
 !/apps/agentos/neo-config.json
+!/apps/agentos/childapps/strategy/index.html
+!/apps/agentos/childapps/strategy/neo-config.json
 !/apps/agentos/childapps/swarm/index.html
 !/apps/agentos/childapps/swarm/neo-config.json
 !/apps/agentos/childapps/widget/index.html

@@ -259,7 +259,7 @@ class SortZone extends DragZone {
                         me.isWindowDragging = true; // Set flag to prevent re-entry
 
                         me.fire('dragBoundaryExit', {
-                            draggedItem: Neo.getComponent(me.dragElement.id),
+                            draggedItem: me.dragComponent,
                             proxyRect,
                             sortZone   : me
                         });
@@ -268,7 +268,7 @@ class SortZone extends DragZone {
                 } else if (me.isWindowDragging) {
                     if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
                         me.fire('dragBoundaryEntry', {
-                            draggedItem: Neo.getComponent(me.dragElement.id),
+                            draggedItem: me.dragComponent,
                             proxyRect,
                             sortZone   : me
                         });

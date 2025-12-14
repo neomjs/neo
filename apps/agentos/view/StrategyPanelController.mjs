@@ -50,17 +50,13 @@ class StrategyPanelController extends Controller {
      * @param {Number} data.windowId
      */
     async onWindowConnect(data) {
-        if (data.appName === 'AgentOSWidget') {
+        if (data.appName === 'AgentOSStrategy') {
             let me         = this,
                 app        = Neo.apps[data.windowId],
                 mainView   = app.mainView,
                 {windowId} = data,
                 url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName = new URL(url).searchParams.get('name');
-
-            if (me.widgetIndexMap[widgetName] === undefined) {
-                return
-            }
 
             let widget = me.getReference(widgetName);
 
@@ -86,13 +82,9 @@ class StrategyPanelController extends Controller {
 
         let {appName, windowId} = data;
 
-        if (appName === 'AgentOSWidget') {
+        if (appName === 'AgentOSStrategy') {
             let url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName = new URL(url).searchParams.get('name');
-
-            if (me.widgetIndexMap[widgetName] === undefined) {
-                return
-            }
 
             let dashboard = me.getReference('strategy'),
                 widget    = me.getReference(widgetName);
@@ -114,12 +106,12 @@ class StrategyPanelController extends Controller {
      * @param {Object} data
      */
     async onDragBoundaryEntry(data) {
-        let me            = this,
-            {windowId}    = me,
-            {sortZone}    = data,
-            widgetName    = data.draggedItem.reference,
-            widget        = me.getReference(widgetName),
-            dashboard     = me.getReference('strategy');
+        let me         = this,
+            {windowId} = me,
+            {sortZone} = data,
+            widgetName = data.draggedItem.reference,
+            widget     = me.getReference(widgetName),
+            dashboard  = me.getReference('strategy');
 
         // Close the popup
         await Neo.Main.windowClose({names: widgetName, windowId});
@@ -170,7 +162,7 @@ class StrategyPanelController extends Controller {
             basePath = `${basePath + environment}/`
         }
 
-        url = `${basePath}apps/agentos/childapps/widget/index.html?name=${name}`;
+        url = `${basePath}apps/agentos/childapps/strategy/index.html?name=${name}`;
 
         let winData               = await Neo.Main.getWindowData({windowId}),
             {height, width, x, y} = rect,
