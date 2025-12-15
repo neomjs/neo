@@ -337,7 +337,7 @@ class App extends Base {
                 classPath, classRoot, fileName, lClassRoot, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
-                me.themeFilesCache.push([windowId, proto])
+                me.themeFilesCache.push([windowId, proto, className])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
@@ -348,8 +348,12 @@ class App extends Base {
                     className[0] === 'view' && className.shift();
 
                     mapClassName = `apps.${Neo.apps[classRoot]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
-                    className    = `apps.${lClassRoot}.${className.join('.')}`;
+                    className    = `apps.${lClassRoot}.${className.join('.')}`
                 }
+
+                proto?.additionalThemeFiles?.forEach(ns => {
+                    me.insertThemeFiles(windowId, null, ns)
+                });
 
                 if (parent && parent !== Neo.core.Base.prototype) {
                     if (!Neo.ns(`${windowId}.${parent.className}`, false, cssMap)) {

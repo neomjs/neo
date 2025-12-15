@@ -31,6 +31,12 @@ class Abstract extends Base {
          */
         ntype: 'abstract-component',
         /**
+         * Additional namespaces to load theme files for.
+         * @member {String[]|null} additionalThemeFiles=null
+         * @example ['AgentOSStrategy.view.Viewport']
+         */
+        additionalThemeFiles: null,
+        /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
          * @reactive
