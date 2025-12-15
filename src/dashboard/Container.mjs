@@ -1,4 +1,5 @@
-import BaseContainer from '../container/Base.mjs';
+import BaseContainer      from '../container/Base.mjs';
+import DragProxyContainer from '../draggable/DragProxyContainer.mjs';
 
 /**
  * @class Neo.dashboard.Container
@@ -41,7 +42,7 @@ class Container extends BaseContainer {
 
         Neo.merge(config, {
             allowOverdrag     : true,
-            dragProxyConfig   : me.dragProxyConfig,
+            dragProxyConfig   : {module: DragProxyContainer, ...me.dragProxyConfig},
             dragProxyExtraCls : me.dragProxyExtraCls,
             enableProxyToPopup: true,
             listeners         : {

@@ -1,6 +1,5 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
-import DragProxyContainer from '../../../src/draggable/DragProxyContainer.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import Blackboard         from './Blackboard.mjs';
 import InterventionPanel  from './InterventionPanel.mjs';
@@ -54,7 +53,6 @@ class Viewport extends BaseViewport {
             }]
         }, {
             module           : Dashboard,
-            dragProxyConfig  : {module: DragProxyContainer},
             dragProxyExtraCls: ['agent-os-viewport', 'neo-viewport'],
             flex             : 1,
             reference        : 'dashboard',
