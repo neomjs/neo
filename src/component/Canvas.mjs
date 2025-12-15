@@ -40,7 +40,7 @@ class Canvas extends Component {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetMounted(value, oldValue) {
+    async afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
         let me          = this,
@@ -48,22 +48,37 @@ class Canvas extends Component {
             {offscreen} = me,
             worker      = Neo.currentWorker;
 
+        await me.timeout(30); // next rAF tick
+
         if (value && offscreen) {
-            worker.promiseMessage('main', {
-                action : 'getOffscreenCanvas',
-                appName: me.appName,
-                nodeId : id
-            }).then(data => {
-                worker.promiseMessage('canvas', {
-                    action: 'registerCanvas',
-                    node  : data.offscreen,
-                    nodeId: id
-                }, [data.offscreen]).then(() => {
-                    me.offscreenRegistered = true
-                })
-            })
+            const data = await worker.promiseMessage('main', {
+                action  : 'getOffscreenCanvas',
+                nodeId  : id,
+                windowId: me.windowId
+            });
+
+            await worker.promiseMessage('canvas', {
+                action: 'registerCanvas',
+                node  : data.offscreen,
+                nodeId: id
+            }, [data.offscreen])
+
+            me.offscreenRegistered = true
         } else if (offscreen) {
             me.offscreenRegistered = false
+        }
+    }
+
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        if (oldValue) {
+            this.offscreenRegistered = false
         }
     }
 

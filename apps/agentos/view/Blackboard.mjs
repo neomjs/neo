@@ -21,13 +21,6 @@ class Blackboard extends Canvas {
     }
 
     /**
-     * Override to return the inner canvas ID
-     */
-    getCanvasId() {
-        return this.vdom.cn[0].id;
-    }
-
-    /**
      * Triggered after the id config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -38,40 +31,48 @@ class Blackboard extends Canvas {
         super.afterSetId(value, oldValue);
     }
 
-        /**
-         * Triggered after the offscreenRegistered config got changed
-         * @param {Boolean} value
-         * @param {Boolean} oldValue
-         * @protected
-         */
-        async afterSetOffscreenRegistered(value, oldValue) {
-            if (value) {
-                let me = this;
-    
-                // Direct Remote Method Access call
-                // The namespace AgentOS.canvas.Blackboard is auto-generated in this worker
-                // by the RemoteMethodAccess mixin when the Canvas worker registers it.
-                await AgentOS.canvas.Blackboard.initGraph(me.getCanvasId());
-    
-                await me.updateSize();
-            }
+    /**
+     * Triggered after the offscreenRegistered config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    async afterSetOffscreenRegistered(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            // Direct Remote Method Access call
+            // The namespace AgentOS.canvas.Blackboard is auto-generated in this worker
+            // by the RemoteMethodAccess mixin when the Canvas worker registers it.
+            await AgentOS.canvas.Blackboard.initGraph(me.getCanvasId());
+
+            await me.updateSize();
         }
-    
-        async updateSize() {
-            let me   = this,
-                rect = await me.getDomRect();
-    
-            if (rect) {
-                await AgentOS.canvas.Blackboard.updateSize({width: rect.width, height: rect.height});
-            }
+    }
+
+    /**
+     * Override to return the inner canvas ID
+     */
+    getCanvasId() {
+        return this.vdom.cn[0].id;
+    }
+
+    /**
+     * Pass new graph data to the worker
+     * @param {Object} data {nodes, links}
+     */
+    async setData(data) {
+        await AgentOS.canvas.Blackboard.updateGraphData(data);
+    }
+
+    async updateSize() {
+        let me   = this,
+            rect = await me.getDomRect();
+
+        if (rect) {
+            await AgentOS.canvas.Blackboard.updateSize({width: rect.width, height: rect.height});
         }
-    
-        /**
-         * Pass new graph data to the worker
-         * @param {Object} data {nodes, links}
-         */
-        async setData(data) {
-            await AgentOS.canvas.Blackboard.updateGraphData(data);
-        }}
+    }
+}
 
 export default Neo.setupClass(Blackboard);
