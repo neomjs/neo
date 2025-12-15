@@ -116,9 +116,11 @@ class ViewportController extends Controller {
 
         me.#isReintegrating = true;
 
-        sortZone.dragProxy.add(widget, true);
+        sortZone.dragProxy.add(widget, true); // Silent
 
         await Neo.Main.windowClose({names: widgetName, windowId});
+
+        widget.mounted = true;
 
         me.#isReintegrating  = false;
         me.#isWindowDragging = false;

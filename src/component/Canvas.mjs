@@ -48,22 +48,37 @@ class Canvas extends Component {
             {offscreen} = me,
             worker      = Neo.currentWorker;
 
-        await me.timeout(30); // next rAF tick
-
         if (value && offscreen) {
+            await me.timeout(30); // next rAF tick
+
             const data = await worker.promiseMessage('main', {
                 action  : 'getOffscreenCanvas',
                 nodeId  : id,
                 windowId: me.windowId
             });
 
-            await worker.promiseMessage('canvas', {
-                action: 'registerCanvas',
-                node  : data.offscreen,
-                nodeId: id
-            }, [data.offscreen])
+            if (data.transferred) {
+                if (Neo.config.useSharedWorkers) {
+                    let retrieveData = await worker.promiseMessage('canvas', {
+                        action  : 'retrieveCanvas',
+                        nodeId  : id,
+                        windowId: me.windowId
+                    });
 
-            me.offscreenRegistered = true
+                    if (retrieveData.hasCanvas) {
+                        me.offscreenRegistered  = true
+                    }
+                }
+            } else {
+                await worker.promiseMessage('canvas', {
+                    action  : 'registerCanvas',
+                    node    : data.offscreen,
+                    nodeId  : id,
+                    windowId: me.windowId
+                }, [data.offscreen]);
+
+                me.offscreenRegistered = true
+            }
         } else if (offscreen) {
             me.offscreenRegistered = false
         }

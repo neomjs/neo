@@ -16,6 +16,11 @@ class Canvas extends Base {
          */
         className: 'Neo.worker.Canvas',
         /**
+         * key: value => canvasId: {windowId: OffscreenCanvas}
+         * @member {Object} canvasWindowMap={}
+         */
+        canvasWindowMap: {},
+        /**
          * key: value => canvasId: OffscreenCanvas
          * @member {Object} map={}
          */
@@ -52,12 +57,41 @@ class Canvas extends Base {
      * @param {Object} data
      */
     onRegisterCanvas(data) {
-        this.map[data.nodeId] = data.node;
+        let me = this;
+
+        if (data.windowId) {
+            me.canvasWindowMap[data.nodeId] ??= {};
+            me.canvasWindowMap[data.nodeId][data.windowId] = data.node
+        }
+
+        me.map[data.nodeId] = data.node;
 
         Neo.currentWorker.sendMessage(data.origin, {
             action : 'reply',
             replyId: data.id,
             success: true
+        })
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.nodeId
+     * @param {String} data.origin
+     * @param {Number} data.windowId
+     */
+    onRetrieveCanvas(data) {
+        let me     = this,
+            canvas = me.canvasWindowMap[data.nodeId]?.[data.windowId];
+
+        if (canvas) {
+            me.map[data.nodeId] = canvas
+        }
+
+        Neo.currentWorker.sendMessage(data.origin, {
+            action : 'reply',
+            data   : {hasCanvas: !!canvas},
+            replyId: data.id,
+            success: !!canvas
         })
     }
 

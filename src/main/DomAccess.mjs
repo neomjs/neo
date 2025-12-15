@@ -691,16 +691,34 @@ class DomAccess extends Base {
     onGetOffscreenCanvas(data) {
         let me        = this,
             node      = me.getElement(data.nodeId),
-            offscreen = node.transferControlToOffscreen();
+            offscreen, transfer;
 
-        data.offscreen = offscreen;
+        if (!node) {
+            Neo.worker.Manager.sendMessage(data.origin, {
+                action : 'reply',
+                data,
+                replyId: data.id,
+                success: false
+            });
+
+            return
+        }
+
+        try {
+            offscreen = node.transferControlToOffscreen();
+            transfer  = [offscreen];
+
+            data.offscreen = offscreen
+        } catch (e) {
+            data.transferred = true
+        }
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
             data,
             replyId: data.id,
             success: true
-        }, [offscreen])
+        }, transfer)
     }
 
     /**
