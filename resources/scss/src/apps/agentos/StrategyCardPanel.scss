@@ -1,0 +1,47 @@
+.agent-kpi-card-panel.neo-panel {
+    // Ensure the wrapper background color is the source of truth
+    background-color: var(--agent-bg-panel);
+    border          : 1px solid var(--agent-border);
+    border-radius   : 6px;
+    overflow        : hidden;
+
+    // Force child containers to be transparent
+    .neo-panel-header,
+    & > .neo-container {
+        background-color: transparent;
+    }
+
+    &:not(:first-child) {
+        margin-left: 20px;
+    }
+
+    .neo-panel-header {
+        border-bottom: 1px solid var(--agent-border);
+
+        .neo-panel-header-text {
+            color          : var(--agent-accent-strategy);
+            font-family    : var(--agent-font-mono);
+            font-size      : 0.8rem;
+            justify-content: center;
+            letter-spacing : 1px;
+            text-transform : uppercase;
+        }
+    }
+
+    .agent-kpi-card {
+        align-items    : center;
+        display        : flex;
+        flex-direction : column;
+        height         : 100%;
+        justify-content: center;
+        padding        : 20px;
+        width          : 100%;
+
+        .agent-kpi-value {
+            color      : var(--agent-accent-strategy);
+            font-size  : 2.5rem;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+        }
+    }
+}

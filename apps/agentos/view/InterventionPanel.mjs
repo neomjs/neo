@@ -38,10 +38,10 @@ class InterventionPanel extends Panel {
          * @member {Object[]} items
          */
         items: [{
-            module : GridContainer,
+            module   : GridContainer,
             reference: 'intervention',
-            store  : Interventions,
-            columns: [{
+            store    : Interventions,
+            columns  : [{
                 dataField: 'timestamp',
                 text     : 'Time',
                 width    : 100,
@@ -65,7 +65,7 @@ class InterventionPanel extends Panel {
                 renderer : ({value}) => {
                     return {
                         cls : ['agent-priority', `agent-priority-${value}`],
-                        html: value
+                        text: value
                     };
                 }
             }]

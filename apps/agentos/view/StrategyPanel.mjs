@@ -1,5 +1,6 @@
 import Dashboard               from '../../../src/dashboard/Container.mjs';
 import Panel                   from '../../../src/container/Panel.mjs';
+import StrategyCardPanel       from './StrategyCardPanel.mjs';
 import StrategyPanelController from './StrategyPanelController.mjs';
 
 /**
@@ -53,57 +54,26 @@ class StrategyPanel extends Panel {
                 dragBoundaryExit : 'onDragBoundaryExit'
             },
 
+            itemDefaults: {
+                module: StrategyCardPanel,
+                flex  : 1
+            },
+
             items: [{
-                module   : Panel,
-                cls      : ['agent-kpi-card-panel', 'velocity'],
-                flex     : 1,
+                cls      : ['velocity'],
                 reference: 'kpi-velocity',
-                headers  : [{
-                    cls : ['neo-panel-header', 'neo-draggable'],
-                    dock: 'top',
-                    text: 'Velocity'
-                }],
-                items    : [{
-                    ntype: 'component',
-                    cls  : ['agent-kpi-card'],
-                    html : `
-                        <div class="agent-kpi-value">85%</div>
-                    `
-                }]
+                title    : 'Velocity',
+                value    : '85%'
             }, {
-                module   : Panel,
-                cls      : ['agent-kpi-card-panel', 'active-epics'],
-                flex     : 1,
+                cls      : ['active-epics'],
                 reference: 'kpi-active-epics',
-                headers  : [{
-                    cls : ['neo-panel-header', 'neo-draggable'],
-                    dock: 'top',
-                    text: 'Active Epics'
-                }],
-                items    : [{
-                    ntype: 'component',
-                    cls  : ['agent-kpi-card'],
-                    html : `
-                        <div class="agent-kpi-value">12</div>
-                    `
-                }]
+                title    : 'Active Epics',
+                value    : '12'
             }, {
-                module   : Panel,
-                cls      : ['agent-kpi-card-panel', 'uptime'],
-                flex     : 1,
+                cls      : ['uptime'],
                 reference: 'kpi-uptime',
-                headers  : [{
-                    cls : ['neo-panel-header', 'neo-draggable'],
-                    dock: 'top',
-                    text: 'Uptime'
-                }],
-                items    : [{
-                    ntype: 'component',
-                    cls  : ['agent-kpi-card'],
-                    html : `
-                        <div class="agent-kpi-value">98.5%</div>
-                    `
-                }]
+                title    : 'Uptime',
+                value    : '98.5%'
             }]
         }]
     }
