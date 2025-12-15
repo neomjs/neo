@@ -137,11 +137,12 @@ class Container extends Component {
      * Inserts an item or array of items at the last index
      * @param {Object|Array} item
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    add(item, silent=false) {
+    add(item, silent=false, removeFromPreviousParent=true) {
         let me = this;
-        return me.insert(me.items ? me.items.length : 0, item, silent)
+        return me.insert(me.items ? me.items.length : 0, item, silent, removeFromPreviousParent)
     }
 
     /**
@@ -369,9 +370,10 @@ class Container extends Component {
     /**
      * @param {*} item
      * @param {Number} index
+     * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Object} Object for lazy loaded items
      */
-    createItem(item, index) {
+    createItem(item, index, removeFromPreviousParent=true) {
         let me       = this,
             config   = {appName: me.appName, parentId: me.id, parentIndex: index, windowId: me.windowId},
             defaults = {...me.itemDefaults},
@@ -402,11 +404,15 @@ class Container extends Component {
                 parent = item.parent;
 
                 if (parent && parent !== me) {
-                    parent.remove?.(item, false);
-                    delete item.vdom.removeDom;
+                    if (removeFromPreviousParent) {
+                        parent.remove?.(item, false);
+                        delete item.vdom.removeDom
+                    }
 
                     if (parent.windowId !== me.windowId) {
-                        item.mounted = false
+                        // In case we are duplicating vdom into a different browser window, we need a silent
+                        // _mounted update to ensure that afterSetMounted() still gets triggered.
+                        item[removeFromPreviousParent ? 'mounted' : '_mounted'] = false
                     }
 
                     // Convenience logic, especially for moving components into different browser windows:
@@ -616,9 +622,10 @@ class Container extends Component {
      * @param {Number} index
      * @param {Array|Object} item
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item, silent=false) {
+    insert(index, item, silent=false, removeFromPreviousParent=true) {
         let me      = this,
             {items} = me,
             i, len, returnArray;
@@ -630,12 +637,12 @@ class Container extends Component {
 
             for (; i < len; i++) {
                 // insert the array backwards
-                returnArray.unshift(me.insert(index, item[len - 1 - i], true))
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true, removeFromPreviousParent))
             }
 
             item = returnArray
         } else {
-            item = me.createItem(item, index);
+            item = me.createItem(item, index, removeFromPreviousParent);
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
