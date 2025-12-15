@@ -163,7 +163,7 @@ class SortZone extends DragZone {
                     component = me.dragComponent,
                     index     = me.sortableItems.indexOf(me.dragPlaceholder);
 
-                if (component && index > -1) {
+                if (component && index > -1 && !me.isWindowDragging) {
                     // Manual DOM restoration
                     await Neo.applyDeltas(me.windowId, [{
                         action  : 'moveNode',
