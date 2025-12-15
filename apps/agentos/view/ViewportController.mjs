@@ -13,13 +13,16 @@ class ViewportController extends Controller {
      * @member {String[]} connectedApps=[]
      */
     connectedApps = []
-
+    /**
+     * @member {Boolean} #isReintegrating=false
+     * @private
+     */
+    #isReintegrating = false
     /**
      * @member {Boolean} #isWindowDragging=false
      * @private
      */
     #isWindowDragging = false
-
     /**
      * @member {Object} widgetIndexMap
      */
@@ -58,7 +61,7 @@ class ViewportController extends Controller {
                 url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
                 widgetName = new URL(url).searchParams.get('name'),
                 widget     = me.getReference(widgetName),
-                parent     = widget.up('panel');
+                parent     = widget?.up('panel');
 
             if (!me.#isWindowDragging) {
                 parent.hide()
@@ -67,7 +70,7 @@ class ViewportController extends Controller {
             me.connectedApps.push(widgetName);
 
             // Add the widget to the popup window
-            mainView.add(widget)
+            mainView.add(widget, false, !me.#isWindowDragging)
         }
     }
 
@@ -79,7 +82,7 @@ class ViewportController extends Controller {
     async onWindowDisconnect(data) {
         let me = this;
 
-        if (me.#isWindowDragging) {
+        if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
                 return
         }
@@ -109,19 +112,19 @@ class ViewportController extends Controller {
             {windowId}    = me,
             {sortZone}    = data,
             widgetName    = data.draggedItem.reference.replace('-panel', ''),
-            widget        = me.getReference(widgetName),
-            dashboard     = me.getReference('dashboard'),
-            itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
-            bodyContainer = itemPanel.getReference('bodyContainer');
+            widget        = me.getReference(widgetName);
+
+        me.#isReintegrating = true;
+
+        sortZone.dragProxy.add(widget, true);
 
         await Neo.Main.windowClose({names: widgetName, windowId});
 
-        bodyContainer.add(widget);
-
+        me.#isReintegrating  = false;
         me.#isWindowDragging = false;
 
         sortZone.isWindowDragging = false;
-        sortZone.dragProxy.hidden = false;
+        sortZone.dragProxy.style = {opacity: 1};
 
         Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
     }

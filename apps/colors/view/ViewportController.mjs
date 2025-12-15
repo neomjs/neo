@@ -30,6 +30,11 @@ class ViewportController extends Controller {
      */
     intervalId = null
     /**
+     * @member {Boolean} #isReintegrating=false
+     * @private
+     */
+    #isReintegrating = false
+    /**
      * @summary A private flag to track if a drag operation is in the process of moving a widget to a new window.
      * @member {Boolean} #isWindowDragging=false
      * @private
@@ -111,7 +116,7 @@ class ViewportController extends Controller {
 
             me.getReference(`detach-${widgetName}-button`).disabled = true;
 
-            mainView.add(widget)
+            mainView.add(widget, false, !me.#isWindowDragging)
         }
     }
 
@@ -126,7 +131,7 @@ class ViewportController extends Controller {
     async onAppDisconnect(data) {
         let me = this;
 
-        if (me.#isWindowDragging) {
+        if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
             return
         }
@@ -246,19 +251,19 @@ class ViewportController extends Controller {
             {windowId}    = me,
             {sortZone}    = data,
             widgetName    = data.draggedItem.reference.replace('-panel', ''),
-            widget        = me.getReference(widgetName),
-            dashboard     = me.getReference('dashboard'),
-            itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
-            bodyContainer = itemPanel.getReference('bodyContainer');
+            widget        = me.getReference(widgetName);
+
+        me.#isReintegrating = true;
+
+        sortZone.dragProxy.add(widget, true);
 
         await Neo.Main.windowClose({names: widgetName, windowId});
 
-        bodyContainer.add(widget);
-
+        me.#isReintegrating  = false;
         me.#isWindowDragging = false;
 
         sortZone.isWindowDragging = false;
-        sortZone.dragProxy.hidden = false;
+        sortZone.dragProxy.style = {opacity: 1};
 
         Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
     }
