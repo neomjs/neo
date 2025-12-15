@@ -291,12 +291,13 @@ class DragDrop extends Base {
 
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
-                offsetX  : me.offsetX,
-                offsetY  : me.offsetY,
-                proxyRect: new DOMRect(x - window.screenX, y - window.screenY, me.popupWidth, me.popupHeight),
-                screenX  : originalEvent.screenX,
-                screenY  : originalEvent.screenY,
-                type     : 'drag:move'
+                dragZoneId: me.dragZoneId,
+                offsetX   : me.offsetX,
+                offsetY   : me.offsetY,
+                proxyRect : new DOMRect(x - window.screenX, y - window.screenY, me.popupWidth, me.popupHeight),
+                screenX   : originalEvent.screenX,
+                screenY   : originalEvent.screenY,
+                type      : 'drag:move'
             });
 
             return
@@ -351,12 +352,13 @@ class DragDrop extends Base {
 
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
-                offsetX: me.offsetX,
-                offsetY: me.offsetY,
+                dragZoneId: me.dragZoneId,
+                offsetX   : me.offsetX,
+                offsetY   : me.offsetY,
                 proxyRect,
-                screenX: originalEvent.screenX,
-                screenY: originalEvent.screenY,
-                type   : 'drag:move'
+                screenX   : originalEvent.screenX,
+                screenY   : originalEvent.screenY,
+                type      : 'drag:move'
             })
         }
     }

@@ -19,6 +19,11 @@ class StrategyPanelController extends Controller {
      * @private
      */
     #isWindowDragging = false
+    /**
+     * @member {Boolean} #isReintegrating=false
+     * @private
+     */
+    #isReintegrating = false
 
     /**
      * @member {Object} widgetIndexMap
@@ -60,10 +65,12 @@ class StrategyPanelController extends Controller {
 
             let widget = me.getReference(widgetName);
 
+            widget.wrapperStyle = {};
+
             me.connectedWidgets.push(widgetName);
 
             // Add the widget to the popup window
-            mainView.add(widget)
+            mainView.add(widget, false, !me.#isWindowDragging)
         }
     }
 
@@ -75,7 +82,7 @@ class StrategyPanelController extends Controller {
     async onWindowDisconnect(data) {
         let me = this;
 
-        if (me.#isWindowDragging) {
+        if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
             return
         }
@@ -110,18 +117,20 @@ class StrategyPanelController extends Controller {
             {windowId} = me,
             {sortZone} = data,
             widgetName = data.draggedItem.reference,
-            widget     = me.getReference(widgetName),
-            dashboard  = me.getReference('strategy');
+            widget     = me.getReference(widgetName);
+
+        me.#isReintegrating = true;
+
+        sortZone.dragProxy.add(widget, true);
 
         // Close the popup
         await Neo.Main.windowClose({names: widgetName, windowId});
 
-        dashboard.add(widget);
-
+        me.#isReintegrating = false;
         me.#isWindowDragging = false;
 
         sortZone.isWindowDragging = false;
-        sortZone.dragProxy.hidden = false;
+        sortZone.dragProxy.style = {opacity: 1};
 
         Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
     }

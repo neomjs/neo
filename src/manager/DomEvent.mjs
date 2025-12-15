@@ -186,16 +186,21 @@ class DomEvent extends Base {
 
         if (eventName === 'contextmenu' && data.ctrlKey) {
             Neo.util?.Logger?.onContextMenu(data)
-        } else if (eventName.startsWith('drop')) {
+        } else if (eventName.startsWith('drag:') || eventName.startsWith('drop')) {
             let dragZone = data.dragZoneId && Neo.get(data.dragZoneId);
 
             if (dragZone) {
-                dragZone.fire(eventName, data);
-                dragZone[{
-                    'drop'      : 'onDrop',
-                    'drop:enter': 'onDropEnter',
-                    'drop:leave': 'onDropLeave',
-                }[eventName]].call(dragZone, data)
+                // drag:move & drag:end
+                if (eventName.startsWith('drag:')) {
+                    dragZone[eventName === 'drag:move' ? 'onDragMove' : 'onDragEnd'](data)
+                } else {
+                    dragZone.fire(eventName, data);
+                    dragZone[{
+                        'drop'      : 'onDrop',
+                        'drop:enter': 'onDropEnter',
+                        'drop:leave': 'onDropLeave',
+                    }[eventName]].call(dragZone, data)
+                }
             }
         }
     }

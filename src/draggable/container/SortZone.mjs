@@ -184,6 +184,10 @@ class SortZone extends DragZone {
             owner.style = ownerStyle;
 
             me.sortableItems.forEach((item, index) => {
+                if (me.isWindowDragging && item === me.dragComponent) {
+                    return
+                }
+
                 itemStyle = item.wrapperStyle || {};
 
                 Object.assign(itemStyle, {
@@ -202,7 +206,7 @@ class SortZone extends DragZone {
                 item.wrapperStyle = itemStyle
             });
 
-            if (me.startIndex !== me.currentIndex) {
+            if (!me.isWindowDragging && me.startIndex !== me.currentIndex) {
                 let fromIndex, toIndex;
 
                 if (me.dragPlaceholder) {
@@ -271,9 +275,9 @@ class SortZone extends DragZone {
                             draggedItem: me.dragComponent,
                             proxyRect,
                             sortZone   : me
-                        });
+                        })
                     }
-                    return;
+                    return
                 }
             }
         }
@@ -495,8 +499,9 @@ class SortZone extends DragZone {
         let me            = this,
             {popupHeight, popupWidth, windowName} = data;
 
-        // Hide the drag proxy since the window is now the visual indicator
-        me.dragProxy.hidden = true;
+        // Keep the proxy active to capture mouse events, but make it invisible
+        me.dragProxy.style = {opacity: 0};
+        me.isWindowDragging = true;
 
         Neo.main.addon.DragDrop.startWindowDrag({
             popupHeight,
@@ -559,17 +564,17 @@ class SortZone extends DragZone {
             item;
 
         if (mappedIndex === -1) {
-             if (me.dragPlaceholder) {
-                 item = me.dragPlaceholder;
-             } else {
-                 return
-             }
+            if (me.dragPlaceholder) {
+                item = me.dragPlaceholder;
+            } else {
+                return
+            }
         } else {
-             item = me.owner.items[mappedIndex];
+            item = me.owner.items[mappedIndex];
 
-             if (me.dragPlaceholder && item === me.dragComponent) {
-                 item = me.dragPlaceholder
-             }
+            if (me.dragPlaceholder && item === me.dragComponent) {
+                item = me.dragPlaceholder
+            }
         }
 
         let {wrapperStyle} = item;
