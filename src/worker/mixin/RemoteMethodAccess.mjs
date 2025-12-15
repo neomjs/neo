@@ -140,7 +140,14 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     resolve(msg, data) {
-        let me = this,
+        let me       = this,
+            transfer = null,
+            opts;
+
+        if (Neo.isObject(data) && Array.isArray(data.transfer)) {
+            transfer = data.transfer;
+            data     = data.result || data
+        }
 
         opts = {
             action : 'reply',
@@ -149,7 +156,7 @@ class RemoteMethodAccess extends Base {
         };
 
         me.isSharedWorker && me.assignPort(msg, opts);
-        me.sendMessage(msg.origin, opts)
+        me.sendMessage(msg.origin, opts, transfer)
     }
 }
 

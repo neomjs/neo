@@ -26,6 +26,17 @@ class Canvas extends Base {
          */
         map: {},
         /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'registerCanvas',
+                'retrieveCanvas'
+            ]
+        },
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -56,7 +67,7 @@ class Canvas extends Base {
     /**
      * @param {Object} data
      */
-    onRegisterCanvas(data) {
+    registerCanvas(data) {
         let me = this;
 
         if (data.windowId) {
@@ -66,11 +77,7 @@ class Canvas extends Base {
 
         me.map[data.nodeId] = data.node;
 
-        Neo.currentWorker.sendMessage(data.origin, {
-            action : 'reply',
-            replyId: data.id,
-            success: true
-        })
+        return true
     }
 
     /**
@@ -79,7 +86,7 @@ class Canvas extends Base {
      * @param {String} data.origin
      * @param {Number} data.windowId
      */
-    onRetrieveCanvas(data) {
+    retrieveCanvas(data) {
         let me     = this,
             canvas = me.canvasWindowMap[data.nodeId]?.[data.windowId];
 
@@ -87,12 +94,7 @@ class Canvas extends Base {
             me.map[data.nodeId] = canvas
         }
 
-        Neo.currentWorker.sendMessage(data.origin, {
-            action : 'reply',
-            data   : {hasCanvas: !!canvas},
-            replyId: data.id,
-            success: !!canvas
-        })
+        return {hasCanvas: !!canvas}
     }
 
     /**

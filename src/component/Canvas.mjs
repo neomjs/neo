@@ -45,39 +45,35 @@ class Canvas extends Component {
 
         let me          = this,
             id          = me.getCanvasId(),
-            {offscreen} = me,
-            worker      = Neo.currentWorker;
+            {offscreen} = me;
 
         if (value && offscreen) {
             await me.timeout(30); // next rAF tick
 
-            const data = await worker.promiseMessage('main', {
-                action  : 'getOffscreenCanvas',
+            const data = await Neo.main.DomAccess.getOffscreenCanvas({
                 nodeId  : id,
                 windowId: me.windowId
             });
 
-            if (data.transferred) {
-                if (Neo.config.useSharedWorkers) {
-                    let retrieveData = await worker.promiseMessage('canvas', {
-                        action  : 'retrieveCanvas',
-                        nodeId  : id,
-                        windowId: me.windowId
-                    });
-
-                    if (retrieveData.hasCanvas) {
-                        me.offscreenRegistered  = true
-                    }
-                }
-            } else {
-                await worker.promiseMessage('canvas', {
-                    action  : 'registerCanvas',
+            if (data.offscreen) {
+                await Neo.worker.Canvas.registerCanvas({
                     node    : data.offscreen,
                     nodeId  : id,
                     windowId: me.windowId
                 }, [data.offscreen]);
 
                 me.offscreenRegistered = true
+            } else if (data.transferred) {
+                if (Neo.config.useSharedWorkers) {
+                    let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
+                        nodeId  : id,
+                        windowId: me.windowId
+                    });
+
+                    if (retrieveData.hasCanvas) {
+                        me.offscreenRegistered = true
+                    }
+                }
             }
         } else if (offscreen) {
             me.offscreenRegistered = false
