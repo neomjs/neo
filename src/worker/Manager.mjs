@@ -14,8 +14,20 @@ navigator.serviceWorker?.addEventListener('controllerchange', function() {
 }, {once: true});
 
 /**
- * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
- * Also, responsible for sending messages from the main thread to the different workers.
+ * @summary Orchestrates the multi-threaded worker environment and handles message routing.
+ *
+ * This class is the central nervous system of the Neo.mjs runtime in the main thread. It is responsible for:
+ * 1.  **Worker Creation:** Instantiating the App, Data, VDom, and other workers based on configuration.
+ * 2.  **Message Routing:** Acting as the hub for inter-worker communication. While standard messages are routed
+ *     via the main thread, this manager also facilitates the initial handshake to establish direct
+ *     **MessageChannel** connections between workers (e.g., App <-> Canvas) for high-performance,
+ *     bi-directional communication. The VDOM update process is a notable exception, using a triangular
+ *     flow (App -> VDom -> Main -> App) by design.
+ * 3.  **DOM Update Coordination:** intercepting VDOM update requests and synchronizing them with the
+ *     browser's animation frame to ensure smooth rendering. This involves a complex promise-based
+ *     mechanism to delay worker replies until the DOM changes are actually painted.
+ * 4.  **Configuration Management:** synchronizing `Neo.config` changes across all threads.
+ *
  * @class Neo.worker.Manager
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -190,7 +202,11 @@ class Manager extends Base {
     }
 
     /**
-     * Calls createWorker for each worker inside the this.workers config.
+     * @summary Instantiates the configured worker threads.
+     *
+     * This method reads the `Neo.config` to determine which workers to create (App, Data, VDom, etc.)
+     * and whether to use `Worker` or `SharedWorker`. It injects the initial configuration and environment
+     * data (like window ID) into each worker upon creation.
      */
     createWorkers() {
         let me                   = this,
@@ -287,11 +303,21 @@ class Manager extends Base {
     }
 
     /**
-     * @param {Object} data
-     * @param {Object[]} deltas
-     * @param {String} replyDest
-     * @param {Boolean} [forward=false]
-     * @returns {Boolean} true if the update was queued
+     * @summary Handles the queuing and processing of DOM update operations.
+     *
+     * This helper method centralizes the logic for both standard VDOM updates and direct `App.applyDeltas` calls.
+     * Its primary purpose is to enforce the **"delayed reply"** pattern:
+     * - If the update contains visual changes (deltas), it registers a promise and queues the update for the next animation frame.
+     *   The reply to the worker is sent only *after* the main thread has processed the queue, ensuring the DOM is updated.
+     * - If the update is a no-op (zero deltas), it sends an immediate reply to avoid unnecessary latency.
+     *
+     * This method also handles the firing of the `updateVdom` event, which triggers the actual processing in `Main.mjs`.
+     *
+     * @param {Object} data The message payload from the worker.
+     * @param {Object[]} deltas The array of DOM deltas to process.
+     * @param {String} replyDest The destination for the reply message (e.g., 'app').
+     * @param {Boolean} [forward=false] If true, forwards the original message as the reply (VDOM worker path).
+     *                                  If false, constructs a new success reply (App worker path).
      */
     handleDomUpdate(data, deltas, replyDest, forward=false) {
         let me = this;
@@ -301,12 +327,11 @@ class Manager extends Base {
                 me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
             });
 
-            return true
+            me.fire('updateVdom', forward ? data : {data, replyId: data.id});
+            return
         }
 
-        me.sendMessage(replyDest, forward ? data : {action: 'reply', replyId: data.id, success: true});
-
-        return false
+        me.sendMessage(replyDest, forward ? data : {action: 'reply', replyId: data.id, success: true})
     }
 
     /**
@@ -342,7 +367,17 @@ class Manager extends Base {
     }
 
     /**
-     * Handler method for worker message events
+     * Handler method for worker message events.
+     *
+     * @summary Intercepts and routes messages from workers.
+     *
+     * This method contains critical routing logic:
+     * 1.  **DOM Update Interception:** It catches `updateVdom` actions (from App) and `reply` messages (from VDom)
+     *     that contain DOM updates. It normalizes `autoMount` operations into `insertNode` deltas and delegates
+     *     them to `handleDomUpdate`.
+     * 2.  **Promise Resolution:** It resolves pending promises for `reply` messages (e.g., remote method calls).
+     * 3.  **Message Forwarding:** It routes messages between workers (e.g., App -> Data).
+     *
      * @param {Object} event
      */
     onWorkerMessage(event) {
@@ -357,11 +392,7 @@ class Manager extends Base {
 
         if (action === 'updateVdom') {
             data.replyId = data.id;
-
-            if (me.handleDomUpdate(data, data.deltas, data.origin, false)) {
-                me.fire('updateVdom', {data, replyId: data.id})
-            }
-
+            me.handleDomUpdate(data, data.deltas, data.origin, false);
             return
         }
 
@@ -369,25 +400,25 @@ class Manager extends Base {
             promise = me.promises[replyId];
 
             if (!promise) {
-                if (data.data) {
-                    if (data.data.autoMount || data.data.updateVdom) {
-                        let deltas = data.data.deltas;
+                let payload = data.data;
 
-                        if (data.data.autoMount) {
+                if (payload) {
+                    if (payload.autoMount || payload.updateVdom) {
+                        let deltas = payload.deltas;
+
+                        if (payload.autoMount) {
                             deltas = [{
                                 action   : 'insertNode',
-                                index    : data.data.parentIndex,
-                                outerHTML: data.data.outerHTML,
-                                parentId : data.data.parentId,
-                                vnode    : data.data.vnode
+                                index    : payload.parentIndex,
+                                outerHTML: payload.outerHTML,
+                                parentId : payload.parentId,
+                                vnode    : payload.vnode
                             }];
 
-                            data.data.deltas = deltas
+                            payload.deltas = deltas
                         }
 
-                        if (me.handleDomUpdate(data, deltas, dest, true)) {
-                            me.fire('updateVdom', data)
-                        }
+                        me.handleDomUpdate(data, deltas, dest, true)
                     } else {
                         me.sendMessage(dest, data)
                     }
