@@ -248,7 +248,6 @@ class VdomLifecycle extends Base {
                     await Neo.applyDeltas(me.windowId, data.deltas)
                 }
 
-                me.isVdomUpdating = false;
                 me.resolveVdomUpdate(data)
             }
         } catch (err) {
@@ -371,6 +370,9 @@ class VdomLifecycle extends Base {
         if (me.vdom) {
             me.isVdomUpdating = true;
 
+            // Ensure child components do not trigger updates while the vnode generation is in progress
+            VDomUpdate.registerInFlightUpdate(me.id, -1);
+
             delete me.vdom.removeDom;
 
             me._needsVdomUpdate = false;
@@ -386,7 +388,6 @@ class VdomLifecycle extends Base {
             }));
 
             me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
-            me.isVdomUpdating = false;
 
             autoMount && !useVdomWorker && me.mount();
 
@@ -525,6 +526,8 @@ class VdomLifecycle extends Base {
      */
     resolveVdomUpdate(data) {
         let me = this;
+
+        me.isVdomUpdating = false;
 
         // Execute callbacks for merged updates
         VDomUpdate.executeCallbacks(me.id, data);
