@@ -371,7 +371,7 @@ class Manager extends Base {
             if (!promise) {
                 if (data.data) {
                     if (data.data.autoMount || data.data.updateVdom) {
-                        if (me.handleDomUpdate(data, data.data.deltas, dest, true)) {
+                        if (me.handleDomUpdate(data, data.data.autoMount ? [1] : data.data.deltas, dest, true)) {
                             data.data.autoMount  && me.fire('automount',  data);
                             data.data.updateVdom && me.fire('updateVdom', data)
                         }
