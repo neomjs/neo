@@ -287,6 +287,29 @@ class Manager extends Base {
     }
 
     /**
+     * @param {Object} data
+     * @param {Object[]} deltas
+     * @param {String} replyDest
+     * @param {Boolean} [forward=false]
+     * @returns {Boolean} true if the update was queued
+     */
+    handleDomUpdate(data, deltas, replyDest, forward=false) {
+        let me = this;
+
+        if (deltas?.length > 0) {
+            me.promiseForwardMessage(data).then(msgData => {
+                me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
+            });
+
+            return true
+        }
+
+        me.sendMessage(replyDest, forward ? data : {action: 'reply', replyId: data.id, success: true});
+
+        return false
+    }
+
+    /**
      *
      */
     loadApplication() {
@@ -335,14 +358,8 @@ class Manager extends Base {
         if (action === 'updateVdom') {
             data.replyId = data.id;
 
-            if (data.deltas?.length > 0) {
-                me.promiseForwardMessage(data).then(msgData => {
-                    me.sendMessage(msgData.origin, {action: 'reply', replyId: msgData.id, success: true})
-                });
-
+            if (me.handleDomUpdate(data, data.deltas, data.origin, false)) {
                 me.fire('updateVdom', {data, replyId: data.id})
-            } else {
-                me.sendMessage(data.origin, {action: 'reply', replyId: data.id, success: true})
             }
 
             return
@@ -354,15 +371,7 @@ class Manager extends Base {
             if (!promise) {
                 if (data.data) {
                     if (data.data.autoMount || data.data.updateVdom) {
-                        if (data.data.updateVdom && (!data.data.deltas || data.data.deltas.length === 0)) {
-                            me.sendMessage(dest, data)
-                        } else {
-                            // We want to delay the message until the rendering queue has processed it
-                            // See: https://github.com/neomjs/neo/issues/2864
-                            me.promiseForwardMessage(data).then(msgData => {
-                                me.sendMessage(msgData.destination, msgData)
-                            });
-
+                        if (me.handleDomUpdate(data, data.data.deltas, dest, true)) {
                             data.data.autoMount  && me.fire('automount',  data);
                             data.data.updateVdom && me.fire('updateVdom', data)
                         }
