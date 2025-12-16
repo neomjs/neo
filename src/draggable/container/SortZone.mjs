@@ -413,16 +413,6 @@ class SortZone extends DragZone {
 
             me.dragComponent = draggedItem;
 
-            await me.dragStart(data);
-
-            if (me.dragPlaceholder) {
-                const placeholderIndex = sortableItems.indexOf(draggedItem);
-                if (placeholderIndex > -1) {
-                    sortableItems[placeholderIndex] = me.dragPlaceholder;
-                }
-                me.dragElement = me.dragPlaceholder.vdom;
-            }
-
             sortableItems.forEach((item, i) => {
                 indexMap[i] = owner.items.indexOf(item);
 
@@ -449,6 +439,16 @@ class SortZone extends DragZone {
             });
 
             me.itemRects = itemRects;
+
+            await me.dragStart(data);
+
+            if (me.dragPlaceholder) {
+                const placeholderIndex = sortableItems.indexOf(draggedItem);
+                if (placeholderIndex > -1) {
+                    sortableItems[placeholderIndex] = me.dragPlaceholder;
+                }
+                me.dragElement = me.dragPlaceholder.vdom;
+            }
 
             sortableItems.forEach((item, i) => {
                 itemStyle = item.wrapperStyle || {};
