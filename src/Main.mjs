@@ -546,16 +546,16 @@ class Main extends core.Base {
     }
 
     /**
-     * Open a new popup window and return if successful
-     * @param {Object} data
-     * @param {String} data.url
-     * @param {String} data.windowFeatures
-     * @param {String} data.windowName
+     * Open a new popup window and return true if successful
+     * @param {Object}  data
+     * @param {String}  data.url
+     * @param {Boolean} [data.useTotalHeight=true] Using this flag will set outerHeight to innerHeight, ignoring header tools
+     * @param {String}  data.windowFeatures
+     * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen(data) {
-        let {windowName} = data,
-            existingWin  = this.openWindows[windowName],
+    windowOpen({url, useTotalHeight=true, windowFeatures, windowName}) {
+        let existingWin  = this.openWindows[windowName],
             targetName;
 
         if (existingWin && !existingWin.win.closed) {
@@ -564,10 +564,14 @@ class Main extends core.Base {
             targetName = crypto.randomUUID()
         }
 
-        let openedWindow = window.open(data.url, targetName, data.windowFeatures),
+        let openedWindow = window.open(url, targetName, windowFeatures),
             success      = !!openedWindow;
 
         if (success) {
+            if (useTotalHeight) {
+                openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
+            }
+
             this.openWindows[windowName] = {targetName, win: openedWindow}
         }
 
