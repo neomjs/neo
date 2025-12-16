@@ -371,9 +371,22 @@ class Manager extends Base {
             if (!promise) {
                 if (data.data) {
                     if (data.data.autoMount || data.data.updateVdom) {
-                        if (me.handleDomUpdate(data, data.data.autoMount ? [1] : data.data.deltas, dest, true)) {
-                            data.data.autoMount  && me.fire('automount',  data);
-                            data.data.updateVdom && me.fire('updateVdom', data)
+                        let deltas = data.data.deltas;
+
+                        if (data.data.autoMount) {
+                            deltas = [{
+                                action   : 'insertNode',
+                                index    : data.data.parentIndex,
+                                outerHTML: data.data.outerHTML,
+                                parentId : data.data.parentId,
+                                vnode    : data.data.vnode
+                            }];
+
+                            data.data.deltas = deltas
+                        }
+
+                        if (me.handleDomUpdate(data, deltas, dest, true)) {
+                            me.fire('updateVdom', data)
                         }
                     } else {
                         me.sendMessage(dest, data)
