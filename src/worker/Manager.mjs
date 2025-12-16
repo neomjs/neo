@@ -335,11 +335,16 @@ class Manager extends Base {
         if (action === 'updateVdom') {
             data.replyId = data.id;
 
-            me.promiseForwardMessage(data).then(msgData => {
-                me.sendMessage(msgData.origin, {action: 'reply', replyId: msgData.id, success: true})
-            });
+            if (data.deltas?.length > 0) {
+                me.promiseForwardMessage(data).then(msgData => {
+                    me.sendMessage(msgData.origin, {action: 'reply', replyId: msgData.id, success: true})
+                });
 
-            me.fire('updateVdom', {data, replyId: data.id});
+                me.fire('updateVdom', {data, replyId: data.id})
+            } else {
+                me.sendMessage(data.origin, {action: 'reply', replyId: data.id, success: true})
+            }
+
             return
         }
 
@@ -349,14 +354,18 @@ class Manager extends Base {
             if (!promise) {
                 if (data.data) {
                     if (data.data.autoMount || data.data.updateVdom) {
-                        // We want to delay the message until the rendering queue has processed it
-                        // See: https://github.com/neomjs/neo/issues/2864
-                        me.promiseForwardMessage(data).then(msgData => {
-                            me.sendMessage(msgData.destination, msgData)
-                        });
+                        if (data.data.updateVdom && (!data.data.deltas || data.data.deltas.length === 0)) {
+                            me.sendMessage(dest, data)
+                        } else {
+                            // We want to delay the message until the rendering queue has processed it
+                            // See: https://github.com/neomjs/neo/issues/2864
+                            me.promiseForwardMessage(data).then(msgData => {
+                                me.sendMessage(msgData.destination, msgData)
+                            });
 
-                        data.data.autoMount  && me.fire('automount',  data);
-                        data.data.updateVdom && me.fire('updateVdom', data)
+                            data.data.autoMount  && me.fire('automount',  data);
+                            data.data.updateVdom && me.fire('updateVdom', data)
+                        }
                     } else {
                         me.sendMessage(dest, data)
                     }
