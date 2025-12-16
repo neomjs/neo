@@ -494,12 +494,6 @@ class DeltaUpdates extends Base {
         for (; i < len; i++) {
             me[deltas[i].action || 'updateNode'](deltas[i])
         }
-
-        Neo.worker.Manager.sendMessage(data.origin || 'app', {
-            action : 'reply',
-            replyId: data.id,
-            success: true
-        })
     }
 }
 

@@ -332,20 +332,31 @@ class Manager extends Base {
 
         me.fire('message:'+action, data);
 
+        if (action === 'updateVdom') {
+            data.replyId = data.id;
+
+            me.promiseForwardMessage(data).then(msgData => {
+                me.sendMessage(msgData.origin, {action: 'reply', replyId: msgData.id, success: true})
+            });
+
+            me.fire('updateVdom', {data, replyId: data.id});
+            return
+        }
+
         if (action === 'reply') {
             promise = me.promises[replyId];
 
             if (!promise) {
                 if (data.data) {
                     if (data.data.autoMount || data.data.updateVdom) {
-                        data.data.autoMount  && me.fire('automount',  data);
-                        data.data.updateVdom && me.fire('updateVdom', data);
-
                         // We want to delay the message until the rendering queue has processed it
                         // See: https://github.com/neomjs/neo/issues/2864
                         me.promiseForwardMessage(data).then(msgData => {
                             me.sendMessage(msgData.destination, msgData)
-                        })
+                        });
+
+                        data.data.autoMount  && me.fire('automount',  data);
+                        data.data.updateVdom && me.fire('updateVdom', data)
                     } else {
                         me.sendMessage(dest, data)
                     }

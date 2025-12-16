@@ -94,7 +94,7 @@ class App extends Base {
      * @returns {Promise<*>}
      */
     applyDeltas(windowId, deltas) {
-         return this.promiseMessage('main', {action: 'updateDom', deltas, windowId})
+         return this.promiseMessage('main', {action: 'updateVdom', deltas, windowId})
     }
 
     /**

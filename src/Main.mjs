@@ -111,11 +111,10 @@ class Main extends core.Base {
         let me = this;
 
         WorkerManager.on({
-            'automount'        : me.onRender,
-            'message:mountDom' : me.onMountDom,
-            'message:updateDom': me.onUpdateDom,
-            'updateVdom'       : me.onUpdateVdom,
-            scope              : me
+            'automount'       : me.onRender,
+            'message:mountDom': me.onMountDom,
+            'updateVdom'      : me.onUpdateVdom,
+            scope             : me
         });
 
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
@@ -315,15 +314,6 @@ class Main extends core.Base {
     onRender(data) {
         data.data.replyId = data.replyId;
         this.queueWrite(data.data)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onUpdateDom(data) {
-        if (!data.windowId || data.windowId === WorkerManager.windowId) {
-            this.queueUpdate(data)
-        }
     }
 
     /**
