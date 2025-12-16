@@ -91,11 +91,6 @@ class Main extends core.Base {
          */
         totalFrameCount: 0,
         /**
-         * @member {Array} updateQueue=[]
-         * @protected
-         */
-        updateQueue: [],
-        /**
          * @member {Array} writeQueue=[]
          * @protected
          */
@@ -111,10 +106,9 @@ class Main extends core.Base {
         let me = this;
 
         WorkerManager.on({
-            'automount'       : me.onRender,
-            'message:mountDom': me.onMountDom,
-            'updateVdom'      : me.onUpdateVdom,
-            scope             : me
+            'automount' : me.onRender,
+            'updateVdom': me.onUpdateVdom,
+            scope       : me
         });
 
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
@@ -298,19 +292,6 @@ class Main extends core.Base {
     /**
      * @param {Object} data
      */
-    onMountDom(data) {
-        this.queueWrite(data);
-
-        WorkerManager.sendMessage(data.origin || 'app', {
-            action : 'reply',
-            replyId: data.id,
-            success: true
-        })
-    }
-
-    /**
-     * @param {Object} data
-     */
     onRender(data) {
         data.data.replyId = data.replyId;
         this.queueWrite(data.data)
@@ -321,7 +302,7 @@ class Main extends core.Base {
      */
     onUpdateVdom(data) {
         data.data.replyId = data.replyId;
-        this.queueUpdate(data.data)
+        this.queueWrite(data.data)
     }
 
     /**
@@ -343,8 +324,6 @@ class Main extends core.Base {
             } else {
                 if (mode === 'read') {
                     DomAccess.read(operation)
-                } else if (mode === 'write') {
-                    DeltaUpdates.insertNode(operation)
                 } else {
                     DeltaUpdates.update(operation)
                 }
@@ -361,20 +340,6 @@ class Main extends core.Base {
     queueRead(data) {
         let me = this;
         me.readQueue.push(data);
-
-        if (!me.running) {
-            me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me))
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    queueUpdate(data) {
-        let me = this;
-        me.updateQueue.push(data);
 
         if (!me.running) {
             me.running = true;
@@ -439,7 +404,6 @@ class Main extends core.Base {
     renderFrame() {
         let me      = this,
             read    = me.readQueue,
-            update  = me.updateQueue,
             write   = me.writeQueue,
             reading = me.mode === 'read',
             start   = new Date();
@@ -452,13 +416,6 @@ class Main extends core.Base {
         if (reading || !write.length) {
             me.mode = 'read';
             if (me.processQueue(read, start)) {
-                return
-            }
-        }
-
-        if (update.length) {
-            me.mode = 'update';
-            if (me.processQueue(update, start)) {
                 return
             }
         }

@@ -1409,6 +1409,10 @@ class Component extends Abstract {
      * Can get called after the component got vnodeInitialized. See the autoMount config as well.
      */
     async mount() {
+        // todo: discuss if we want to keep an hasUnmountedVdomChanges check
+        this.initVnode(true);
+        return;
+
         let me = this,
             child, childIds;
 
