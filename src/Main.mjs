@@ -517,7 +517,7 @@ class Main extends core.Base {
         }
 
         data.names.forEach(name => {
-            this.openWindows[name]?.close();
+            this.openWindows[name]?.win.close();
             delete this.openWindows[name]
         })
     }
@@ -527,9 +527,8 @@ class Main extends core.Base {
      * @param {Object} data
      */
     windowCloseAll(data) {
-        Object.values(this.openWindows).forEach(value => {
-            console.log(value);
-            value.close()
+        Object.values(this.openWindows).forEach(obj => {
+            obj.win.close()
         });
 
         this.openWindows = {}
@@ -543,7 +542,7 @@ class Main extends core.Base {
      * @param {String} data.y
      */
     windowMoveTo(data) {
-        this.openWindows[data.windowName]?.moveTo(data.x, data.y)
+        this.openWindows[data.windowName]?.win.moveTo(data.x, data.y)
     }
 
     /**
@@ -555,11 +554,21 @@ class Main extends core.Base {
      * @return {Boolean}
      */
     windowOpen(data) {
-        let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
+        let {windowName} = data,
+            existingWin  = this.openWindows[windowName],
+            targetName;
+
+        if (existingWin && !existingWin.win.closed) {
+            targetName = existingWin.targetName
+        } else {
+            targetName = crypto.randomUUID()
+        }
+
+        let openedWindow = window.open(data.url, targetName, data.windowFeatures),
             success      = !!openedWindow;
 
         if (success) {
-            this.openWindows[data.windowName] = openedWindow
+            this.openWindows[windowName] = {targetName, win: openedWindow}
         }
 
         return success
@@ -573,7 +582,7 @@ class Main extends core.Base {
      * @param {String} data.windowName
      */
     windowResizeTo(data) {
-        let win    = this.openWindows[data.windowName],
+        let win    = this.openWindows[data.windowName]?.win,
             height = data.height || win.outerHeight,
             width  = data.width  || win.outerWidth;
 

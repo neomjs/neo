@@ -175,13 +175,14 @@ class StrategyPanelController extends Controller {
 
         let winData               = await Neo.Main.getWindowData({windowId}),
             {height, width, x, y} = rect,
-            popupHeight           = height,
-            popupLeft             = x + winData.screenLeft,
-            popupTop              = y + (winData.outerHeight - winData.innerHeight + winData.screenTop);
+            popupHeight           = Math.round(height),
+            popupLeft             = Math.round(x + winData.screenLeft),
+            popupTop              = Math.round(y + (winData.outerHeight - winData.innerHeight + winData.screenTop)),
+            popupWidth            = Math.round(width);
 
         await Neo.Main.windowOpen({
             url,
-            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
+            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${popupWidth}`,
             windowName    : name
         });
 

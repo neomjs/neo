@@ -231,6 +231,7 @@ class DragZone extends Base {
 
         if (isContainer) {
             // We use manual deltas to move the component, so the proxy VDOM starts empty
+            config.height          = `${data.height}px`;
             config.items           = [];
             config.parentComponent = me.owner;
             config.width           = `${data.width}px`;
