@@ -117,6 +117,12 @@ class DomEvent extends Base {
                 break
             }
 
+            if (eventName === 'scroll') {
+                if (component.saveScrollPosition && typeof component.onScrollCapture === 'function') {
+                    component.onScrollCapture(data)
+                }
+            }
+
             listeners = me.items[id]?.[eventName];
 
             if (listeners) {

@@ -51,6 +51,14 @@ class VNode {
          */
 
         /**
+         * @member {Number} scrollLeft
+         */
+
+        /**
+         * @member {Number} scrollTop
+         */
+
+        /**
          * @member {String} textContent
          */
 
@@ -79,6 +87,8 @@ class VNode {
                 attributes: config.attributes || {},
                 className : normalizeClassName(config.className),
                 nodeName  : config.nodeName   || 'div',
+                scrollLeft: config.scrollLeft,
+                scrollTop : config.scrollTop,
                 style     : config.style      || {}
             });
 

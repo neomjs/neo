@@ -117,6 +117,8 @@ class Helper extends Base {
                         break
                     case 'nodeName':
                     case 'innerHTML':
+                    case 'scrollLeft':
+                    case 'scrollTop':
                     case 'textContent':
                         if (value !== oldVnode[prop]) {
                             delta[prop] = value
@@ -382,6 +384,8 @@ class Helper extends Base {
                         break
                     case 'componentId':
                     case 'id':
+                    case 'scrollLeft':
+                    case 'scrollTop':
                     case 'static':
                     case 'vtype':
                         node[key] = value;

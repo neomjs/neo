@@ -5,6 +5,7 @@ import DomEvents        from '../mixin/DomEvents.mjs';
 import Observable       from '../core/Observable.mjs';
 import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
+import VNodeUtil        from '../util/VNode.mjs';
 
 const
     closestController   = Symbol.for('closestController'),
@@ -99,6 +100,10 @@ class Abstract extends Base {
          * @reactive
          */
         parentId_: 'document.body',
+        /**
+         * @member {Boolean} saveScrollPosition=true
+         */
+        saveScrollPosition: true,
         /**
          * Optionally add a state.Provider to share state data with child components
          * @member {Object|null} stateProvider_=null
@@ -378,6 +383,26 @@ class Abstract extends Base {
     initConfig(...args) {
         super.initConfig(...args);
         this.getStateProvider()?.createBindings(this)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        let me    = this,
+            vnode;
+
+        if (me.vnode) {
+            vnode = VNodeUtil.getById(me.vnode, data.target.id);
+
+            if (vnode) {
+                // Directly updating the persistent vnode state (plain object).
+                // This does not trigger a VDOM update, but ensures the state is preserved
+                // for future re-renders (e.g. unmount/remount).
+                vnode.scrollTop  = data.scrollTop;
+                vnode.scrollLeft = data.scrollLeft
+            }
+        }
     }
 
     /**

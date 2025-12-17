@@ -410,6 +410,10 @@ class DeltaUpdates extends Base {
                     case 'outerHTML':
                         node.outerHTML = value || '';
                         break
+                    case 'scrollLeft':
+                    case 'scrollTop':
+                        node[prop] = value;
+                        break
                     case 'style':
                         if (Neo.isObject(value)) {
                             Object.entries(value).forEach(([key, val]) => {

@@ -1432,6 +1432,24 @@ class Component extends Abstract {
     /**
      * @param {Object} data
      */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
+
+        let me = this;
+
+        if (me._vdom) {
+            let vdomNode = VDomUtil.find(me._vdom, data.target.id);
+
+            if (vdomNode && vdomNode.vdom) {
+                vdomNode.vdom.scrollTop  = data.scrollTop;
+                vdomNode.vdom.scrollLeft = data.scrollLeft
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onFocusEnter(data) {
         // If we are hidden, or unmounted while we still contain focus, we have to revert
         // focus to where it came from if possible
