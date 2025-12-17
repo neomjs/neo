@@ -13,7 +13,6 @@ import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 const
     addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController = Symbol.for('closestController'),
-    {currentWorker}   = Neo,
     lengthRE          = /^\d+\w+$/;
 
 /**

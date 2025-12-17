@@ -1,6 +1,7 @@
 import Abstract         from '../../component/Abstract.mjs';
 import Effect           from '../../core/Effect.mjs';
 import NeoArray         from '../../util/Array.mjs';
+import VDomUtil         from '../../util/VDom.mjs';
 import {isHtmlTemplate} from '../util/html.mjs';
 
 const
