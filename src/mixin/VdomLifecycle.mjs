@@ -33,14 +33,6 @@ class VdomLifecycle extends Base {
          */
         autoMount: false,
         /**
-         * Internal flag for vdom changes after a component got unmounted
-         * (delta updates can no longer get applied & a new render call is required before re-mounting)
-         * @member {Boolean} hasUnmountedVdomChanges_=false
-         * @protected
-         * @reactive
-         */
-        hasUnmountedVdomChanges_: false,
-        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating_=false
          * @protected
@@ -105,29 +97,6 @@ class VdomLifecycle extends Base {
          * @reactive
          */
         vnodeInitialized_: false
-    }
-
-    /**
-     * Triggered after the hasUnmountedVdomChanges config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetHasUnmountedVdomChanges(value, oldValue) {
-        if (value || (!value && oldValue)) {
-            let parentIds = ComponentManager.getParentIds(this),
-                i         = 0,
-                len       = parentIds.length,
-                parent;
-
-            for (; i < len; i++) {
-                parent = Neo.getComponent(parentIds[i]);
-
-                if (parent) {
-                    parent._hasUnmountedVdomChanges = value // silent update
-                }
-            }
-        }
     }
 
     /**
@@ -685,8 +654,6 @@ class VdomLifecycle extends Base {
                 }
             }
         }
-
-        me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
     }
 }
 

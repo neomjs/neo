@@ -1407,54 +1407,15 @@ class Component extends Abstract {
 
     /**
      * Can get called after the component got vnodeInitialized. See the autoMount config as well.
+     * We have decided to always force a new initVnode(true) call here.
+     * Rationale:
+     * 1. The overhead of tracking hasUnmountedVdomChanges on every vdom update is removed.
+     * 2. The edge case of mounting a pre-calculated but untouched vnode tree is < 1%.
+     * 3. The cost of re-generating the vnode tree is low enough to justify the robustness and simplicity.
+     * 4. This ensures that the DOM is always mounted with the most up-to-date vdom state.
      */
     async mount() {
-        // todo: discuss if we want to keep an hasUnmountedVdomChanges check
-        this.initVnode(true);
-        return;
-
-        let me = this,
-            child, childIds;
-
-        if (!me.vnode) {
-            throw new Error('Component vnode must be generated before mounting, use Component.initVnode()');
-        }
-
-        // In case the component was already mounted, got unmounted and received vdom changes afterwards,
-        // a new initVnode() call is mandatory since delta updates could not get applied.
-        // We need to clear the hasUnmountedVdomChanges state for all child components
-        if (me.hasUnmountedVdomChanges) {
-            // todo: the hasUnmountedVdomChanges flag changes should happen on initVnode
-            me.hasUnmountedVdomChanges = false;
-
-            childIds = ComponentManager.getChildIds(me.vnode);
-
-            childIds.forEach(id => {
-                child = Neo.getComponent(id);
-
-                if (child) {
-                    child._hasUnmountedVdomChanges = false; // silent update
-                }
-            });
-            // end todo
-
-            me.initVnode(true)
-        } else {
-            await currentWorker.promiseMessage('main', {
-                action     : 'mountDom',
-                appName    : me.appName,
-                id         : me.id,
-                html       : me.vnode.outerHTML,
-                parentId   : me.getMountedParentId(),
-                parentIndex: me.getMountedParentIndex()
-            });
-
-            delete me.vdom.removeDom;
-
-            await me.timeout(30);
-
-            me.mounted = true
-        }
+        return this.initVnode(true)
     }
 
     /**
