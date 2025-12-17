@@ -206,9 +206,10 @@ class DeltaUpdates extends Base {
      * @param {Number}         delta.index                  The index at which to insert the new node within its parent.
      * @param {String}         [delta.outerHTML]            The string representation of the new node (for string-based mounting).
      * @param {String}         delta.parentId               The ID of the parent DOM node.
+     * @param {Object[]}       [delta.postMountUpdates]     Array of post-mount updates (e.g. scroll state).
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
-    insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
+    insertNode({hasLeadingTextChildren, index, outerHTML, parentId, postMountUpdates, vnode}) {
         this.checkRendererAvailability();
 
         let {render}   = Neo.main,
@@ -218,7 +219,7 @@ class DeltaUpdates extends Base {
             if (NeoConfig.useDomApiRenderer) {
                 render.DomApiRenderer.createDomTree({index, isRoot: true, parentNode, vnode})
             } else {
-                render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
+                render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode, postMountUpdates})
             }
         }
     }
