@@ -55,8 +55,8 @@ class Legit extends Base {
         const me = this;
 
         try {
-            const {openLegitFs} = await import('https://esm.sh/@legit-sdk/core');
-            const fsModule      = await import('https://esm.sh/memfs');
+            const {openLegitFs} = await import(/* webpackIgnore: true */ 'https://esm.sh/@legit-sdk/core');
+            const fsModule      = await import(/* webpackIgnore: true */ 'https://esm.sh/memfs');
 
             me.fs = fsModule.default;
 
