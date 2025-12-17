@@ -133,6 +133,23 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     *
+     */
+    checkRendererAvailability() {
+        const {render} = Neo.main;
+
+        if (NeoConfig.useDomApiRenderer) {
+            if (!render?.DomApiRenderer) {
+                throw new Error('Neo.main.DeltaUpdates: DomApiRenderer is not loaded yet!')
+            }
+        } else {
+            if (!render?.StringBasedRenderer) {
+                throw new Error('Neo.main.DeltaUpdates: StringBasedRenderer is not loaded yet!')
+            }
+        }
+    }
+
+    /**
      * @param {Object} delta
      * @param {String} delta.id
      */
@@ -202,23 +219,6 @@ class DeltaUpdates extends Base {
                 render.DomApiRenderer.createDomTree({index, isRoot: true, parentNode, vnode})
             } else {
                 render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
-            }
-        }
-    }
-
-    /**
-     *
-     */
-    checkRendererAvailability() {
-        const {render} = Neo.main;
-
-        if (NeoConfig.useDomApiRenderer) {
-            if (!render?.DomApiRenderer) {
-                throw new Error('Neo.main.DeltaUpdates: DomApiRenderer is not loaded yet!')
-            }
-        } else {
-            if (!render?.StringBasedRenderer) {
-                throw new Error('Neo.main.DeltaUpdates: StringBasedRenderer is not loaded yet!')
             }
         }
     }
