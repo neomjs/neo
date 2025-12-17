@@ -358,7 +358,20 @@ class VdomLifecycle extends Base {
 
             me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
 
-            autoMount && !useVdomWorker && me.mount();
+            if (autoMount && !useVdomWorker) {
+                // When running without a VdomWorker, Helper.create is local and returns a plain object.
+                // We must manually send the insertNode delta to the main thread.
+                await Neo.applyDeltas(me.windowId, [{
+                    action   : 'insertNode',
+                    id       : me.id,
+                    index    : me.getMountedParentIndex(),
+                    outerHTML: data.outerHTML,
+                    parentId : me.getMountedParentId(),
+                    vnode    : data.vnode
+                }]);
+
+                me.mounted = true
+            }
 
             me.resolveVdomUpdate();
 
