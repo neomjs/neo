@@ -12,6 +12,10 @@ class Blackboard extends Canvas {
          */
         className: 'AgentOS.view.Blackboard',
         /**
+         * @member {Boolean} monitorSize=true
+         */
+        monitorSize: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -28,7 +32,7 @@ class Blackboard extends Canvas {
     afterSetId(value, oldValue) {
         let me = this;
         me.vdom.cn[0].id = `${value}__canvas`;
-        super.afterSetId(value, oldValue);
+        super.afterSetId(value, oldValue)
     }
 
     /**
@@ -46,7 +50,7 @@ class Blackboard extends Canvas {
             // by the RemoteMethodAccess mixin when the Canvas worker registers it.
             await AgentOS.canvas.Blackboard.initGraph(me.getCanvasId());
 
-            await me.updateSize();
+            await me.updateSize()
         }
     }
 
@@ -55,6 +59,14 @@ class Blackboard extends Canvas {
      */
     getCanvasId() {
         return this.vdom.cn[0].id;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDomResize(data) {
+        super.onDomResize(data);
+        AgentOS.canvas.Blackboard.updateSize(data.contentRect)
     }
 
     /**
@@ -70,7 +82,7 @@ class Blackboard extends Canvas {
             rect = await me.getDomRect();
 
         if (rect) {
-            await AgentOS.canvas.Blackboard.updateSize({width: rect.width, height: rect.height});
+            await AgentOS.canvas.Blackboard.updateSize({width: rect.width, height: rect.height})
         }
     }
 }

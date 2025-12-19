@@ -17,6 +17,13 @@ class Canvas extends Component {
          */
         ntype: 'canvas',
         /**
+         * true applies a main.addon.ResizeObserver and fires a custom resize event
+         * which other instances can subscribe to.
+         * @member {Boolean} monitorSize_=true
+         * @reactive
+         */
+        monitorSize_: true,
+        /**
          * @member {Boolean} offscreen=true
          */
         offscreen: true,
@@ -47,31 +54,37 @@ class Canvas extends Component {
             id          = me.getCanvasId(),
             {offscreen} = me;
 
-        if (value && offscreen) {
-            await me.timeout(30); // next rAF tick
+        if (value) {
+            if (me.monitorSize) {
+                me.addDomListeners([{resize: me.onDomResize, scope: me}])
+            }
 
-            const data = await Neo.main.DomAccess.getOffscreenCanvas({
-                nodeId  : id,
-                windowId: me.windowId
-            });
+            if (offscreen) {
+                await me.timeout(30); // next rAF tick
 
-            if (data.offscreen) {
-                await Neo.worker.Canvas.registerCanvas({
-                    node    : data.offscreen,
+                const data = await Neo.main.DomAccess.getOffscreenCanvas({
                     nodeId  : id,
                     windowId: me.windowId
-                }, [data.offscreen]);
+                });
 
-                me.offscreenRegistered = true
-            } else if (data.transferred) {
-                if (Neo.config.useSharedWorkers) {
-                    let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
+                if (data.offscreen) {
+                    await Neo.worker.Canvas.registerCanvas({
+                        node    : data.offscreen,
                         nodeId  : id,
                         windowId: me.windowId
-                    });
+                    }, [data.offscreen]);
 
-                    if (retrieveData.hasCanvas) {
-                        me.offscreenRegistered = true
+                    me.offscreenRegistered = true
+                } else if (data.transferred) {
+                    if (Neo.config.useSharedWorkers) {
+                        let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
+                            nodeId  : id,
+                            windowId: me.windowId
+                        });
+
+                        if (retrieveData.hasCanvas) {
+                            me.offscreenRegistered = true
+                        }
                     }
                 }
             }
@@ -99,6 +112,13 @@ class Canvas extends Component {
      */
     getCanvasId() {
         return this.id
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDomResize(data) {
+        this.fire('resize', data)
     }
 }
 
