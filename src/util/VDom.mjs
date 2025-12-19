@@ -144,6 +144,41 @@ class VDom extends Base {
     }
 
     /**
+     * Finds a child vdom node inside a vdom tree by a given id
+     * @param {Object} vdom
+     * @param {String|null} id
+     * @returns {Object|null} child vdom node or null
+     */
+    static getById(vdom, id) {
+        vdom = VDom.getVdom(vdom);
+
+        let childNodes = vdom.cn || [],
+            i          = 0,
+            len        = childNodes.length,
+            childNode;
+
+        if (vdom.id === id) {
+            return vdom
+        }
+
+        for (; i < len; i++) {
+            childNode = VDom.getVdom(childNodes[i]);
+
+            if (childNode.id === id) {
+                return childNode
+            }
+
+            childNode = VDom.getById(childNode, id);
+
+            if (childNode) {
+                return childNode
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Get the ids of all child nodes of the given vdom tree
      * @param vdom
      * @param [childIds=[]]

@@ -1434,11 +1434,11 @@ class Component extends Abstract {
         let me = this;
 
         if (me._vdom) {
-            let vdomNode = VDomUtil.find(me._vdom, data.target.id);
+            let vdomNode = VDomUtil.getById(me._vdom, data.target.id);
 
-            if (vdomNode && vdomNode.vdom) {
-                vdomNode.vdom.scrollTop  = data.scrollTop;
-                vdomNode.vdom.scrollLeft = data.scrollLeft
+            if (vdomNode) {
+                vdomNode.scrollTop  = data.scrollTop;
+                vdomNode.scrollLeft = data.scrollLeft
             }
         }
     }
