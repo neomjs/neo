@@ -138,20 +138,6 @@ class StrategyPanelController extends Controller {
     /**
      * @param {Object} data
      */
-    onDragEnd(data) {
-        let me = this;
-
-        if (me.#isWindowDragging && me.draggedItem) {
-            me.getReference('strategy').remove(me.draggedItem, false, false);
-            me.draggedItem = null
-        }
-
-        me.#isWindowDragging = false
-    }
-
-    /**
-     * @param {Object} data
-     */
     async onDragBoundaryExit(data) {
         let {draggedItem, proxyRect, sortZone} = data,
             me         = this,
@@ -167,6 +153,20 @@ class StrategyPanelController extends Controller {
             dragData: data,
             ...popupData
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        let me = this;
+
+        if (me.#isWindowDragging && me.draggedItem) {
+            me.getReference('strategy').remove(me.draggedItem, false, false);
+            me.draggedItem = null
+        }
+
+        me.#isWindowDragging = false
     }
 
     /**
