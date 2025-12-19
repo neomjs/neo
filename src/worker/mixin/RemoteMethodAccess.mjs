@@ -63,7 +63,11 @@ class RemoteMethodAccess extends Base {
                 }
 
                 pkg[method] ??= me.generateRemote(remote, method)
-            })
+            });
+
+            if (remote.id) {
+                me.resolve(remote, true)
+            }
         }
     }
 
@@ -82,7 +86,7 @@ class RemoteMethodAccess extends Base {
         method = pkg[msg.remoteMethod];
 
         if (!method) {
-            throw new Error('Invalid remote method name "' + msg.remoteMethod + '"')
+            throw new Error('Invalid remote method name "' + msg.remoteMethod + '" in namespace "' + msg.remoteClassName + '"')
         }
 
         // Check for interception

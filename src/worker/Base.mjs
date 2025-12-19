@@ -86,6 +86,28 @@ class Worker extends Base {
     afterConnect() {}
 
     /**
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    hasWorker(name) {
+        switch (name) {
+            case 'app':
+            case 'data':
+                return true;
+            case 'canvas':
+                return Neo.config.useCanvasWorker;
+            case 'service':
+                return Neo.config.useServiceWorker;
+            case 'task':
+                return Neo.config.useTaskWorker;
+            case 'vdom':
+                return Neo.config.useVdomWorker;
+        }
+
+        return false
+    }
+
+    /**
      * @param {Object} opts
      * @returns {Object|null}
      */

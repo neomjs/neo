@@ -299,7 +299,15 @@ class Manager extends Base {
             return navigator.serviceWorker?.controller || this.serviceWorker
         }
 
-        return name instanceof Worker ? name : this.workers[name].worker
+        return name instanceof Worker ? name : this.workers[name]?.worker
+    }
+
+    /**
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    hasWorker(name) {
+        return !!this.getWorker(name)
     }
 
     /**
@@ -349,7 +357,8 @@ class Manager extends Base {
 
         me.constructedThreads++;
 
-        if (me.constructedThreads === me.activeWorkers) {
+        // To include the main thread as ready, we must wait for activeWorkers + 1
+        if (me.constructedThreads === me.activeWorkers + 1) {
             // better safe than sorry => all remotes need to be registered
             NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
                 me.loadApplication()

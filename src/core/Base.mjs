@@ -172,6 +172,12 @@ class Base {
      */
     #configs = {};
     /**
+     * Internal cache for all config subscription cleanup functions.
+     * @member {Function[]} #configSubscriptionCleanups=[]
+     * @private
+     */
+    #configSubscriptionCleanups = []
+    /**
      * A promise that resolves when the instance is fully initialized (after initAsync() completes).
      * @member {Promise<void>|null} #readyPromise
      * @private
@@ -184,11 +190,17 @@ class Base {
      */
     #readyResolver = null;
     /**
-     * Internal cache for all config subscription cleanup functions.
-     * @member {Function[]} #configSubscriptionCleanups=[]
+     * A promise that resolves when the remote methods are registered.
+     * @member {Promise<void>|null} #remotesReadyPromise
      * @private
      */
-    #configSubscriptionCleanups = []
+    #remotesReadyPromise = null;
+    /**
+     * A resolver function for the remotesReady promise.
+     * @member {Function|null} #remotesReadyResolver
+     * @private
+     */
+    #remotesReadyResolver = null;
     /**
      * Internal cache for all timeout ids when using this.timeout()
      * @member {Number[]} timeoutIds=[]
@@ -272,6 +284,10 @@ class Base {
         // Storing a resolver to execute inside `afterSetIsReady`.
         me.#readyPromise = new Promise(resolve => {
             me.#readyResolver = resolve
+        });
+
+        me.#remotesReadyPromise = new Promise(resolve => {
+            me.#remotesReadyResolver = resolve
         });
 
         // Triggers async logic after the construction chain is done.
@@ -580,7 +596,11 @@ class Base {
      * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
      */
     async initAsync() {
-        this.remote && this.initRemote()
+        if (this.remote) {
+            await this.initRemote()
+        }
+
+        this.#remotesReadyResolver()
     }
 
     /**
@@ -604,17 +624,20 @@ class Base {
      * Remote method access via promises
      * @protected
      */
-    initRemote() {
+    async initRemote() {
         let {className, remote} = this,
             {currentWorker}     = Neo;
 
         if (!Neo.config.isMiddleware && !Neo.config.unitTestMode) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
-                currentWorker.on('connected', () => {
-                    Base.sendRemotes(className, remote)
-                }, this, {once: true})
+                await new Promise(resolve => {
+                    currentWorker.on('connected', async () => {
+                        await Base.promiseRemotes(className, remote);
+                        resolve()
+                    }, this, {once: true})
+                })
             } else {
-                Base.sendRemotes(className, remote)
+                await Base.promiseRemotes(className, remote)
             }
         }
     }
@@ -835,6 +858,14 @@ class Base {
     }
 
     /**
+     * Returns a promise that resolves when the remote methods are registered.
+     * @returns {Promise<void>}
+     */
+    remotesReady() {
+        return this.#remotesReadyPromise
+    }
+
+    /**
      * Sends remote method registration messages to other threads (workers or main-threads).
      * This method is crucial for enabling cross-worker communication and remote method invocation
      * for singleton instances. It ensures that methods defined in the `remote` config
@@ -844,15 +875,20 @@ class Base {
      * @protected
      * @static
      */
-    static sendRemotes(className, remote) {
-        let origin;
+    static async promiseRemotes(className, remote) {
+        let origin, promises = [];
 
         Object.entries(remote).forEach(([worker, methods]) => {
             if (Neo.workerId !== worker) {
                 origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
-                origin.sendMessage(worker, {action: 'registerRemote', className, methods})
+
+                if (origin.hasWorker(worker)) {
+                    promises.push(origin.promiseMessage(worker, {action: 'registerRemote', className, methods}))
+                }
             }
-        })
+        });
+
+        await Promise.all(promises)
     }
 
     /**

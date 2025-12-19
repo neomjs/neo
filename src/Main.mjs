@@ -282,7 +282,9 @@ class Main extends core.Base {
 
         const instances = modules.map(module => me.registerAddon(module.default));
 
-        await Promise.all(instances.map(instance => instance.ready()));
+        await Promise.all(instances.map(instance => instance.remotesReady()));
+
+        await me.remotesReady();
 
         WorkerManager.onWorkerConstructed({
             origin: 'main'
@@ -378,11 +380,11 @@ class Main extends core.Base {
         if (Neo.typeOf(addon) === 'NeoClass') {
             // Addons could get imported multiple times. Ensure to only create an instance once.
             if (Neo.typeOf(Neo.ns(addon.prototype.className)) !== 'NeoInstance') {
-                addon = Neo.create(addon)
-            }
+                addon = Neo.create(addon);
 
-            // Main thread addons need to get registered as singletons inside the neo namespace
-            Neo.applyToGlobalNs(addon)
+                // Main thread addons need to get registered as singletons inside the neo namespace
+                Neo.applyToGlobalNs(addon)
+            }
         }
 
         this.addon[addon.constructor.name] = addon;
