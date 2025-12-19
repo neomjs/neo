@@ -1,7 +1,7 @@
 ---
 id: 8146
 title: Enable ResizeObserver for Canvas and Blackboard auto-resize
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-19T16:33:18Z'
-updatedAt: '2025-12-19T16:34:00Z'
+updatedAt: '2025-12-19T16:49:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8146'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-19T16:49:24Z'
 ---
 # Enable ResizeObserver for Canvas and Blackboard auto-resize
 
@@ -37,4 +38,7 @@ Implementation plan:
 - 2025-12-19 @tobiu added the `ai` label
 - 2025-12-19 @tobiu added the `core` label
 - 2025-12-19 @tobiu assigned to @tobiu
+- 2025-12-19 @tobiu referenced in commit `8582a71` - "Enable ResizeObserver for Canvas and Blackboard auto-resize #8146"
+- 2025-12-19 @tobiu referenced in commit `49eb04a` - "#8146 AgentOS.view.Blackboard: removed the monitorSize config (true is now the default value)"
+- 2025-12-19 @tobiu closed this issue
 
