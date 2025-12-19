@@ -1422,10 +1422,7 @@ class Component extends Abstract {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        me.keys?.register(me);
+        this.keys?.register(this)
     }
 
     /**
