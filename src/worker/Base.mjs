@@ -166,7 +166,7 @@ class Worker extends Base {
         // core.Base: initRemote() subscribes to this event for the SharedWorkers context
         me.fire('connected');
 
-        me.sendMessage('main', {action: 'workerConstructed', port: id});
+        me.sendMessage(id, {action: 'workerConstructed', port: id});
 
         me.afterConnect()
     }
@@ -180,7 +180,7 @@ class Worker extends Base {
         let me = this;
 
         if (!me.isSharedWorker) {
-            me.sendMessage('main', {action: 'workerConstructed'});
+            me.sendMessage(Neo.config.windowId, {action: 'workerConstructed'});
             me.afterConnect()
         }
     }

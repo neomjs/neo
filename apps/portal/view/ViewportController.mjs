@@ -235,7 +235,7 @@ class ViewportController extends Controller {
      */
     async onHashChange(value, oldValue) {
         await super.onHashChange(value, oldValue);
-        SeoService.onRouteChanged(value?.hashString)
+        SeoService.onRouteChanged(value)
     }
 
     /**

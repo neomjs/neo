@@ -78,14 +78,16 @@ class DomEvent extends Base {
      * @param {Neo.component.Base} component
      * @param {data} event
      */
-    addResizeObserver(component, event) {
-        if (!Neo.main.addon.ResizeObserver) {
-            console.error('For using resize domListeners, you must include main.addon.ResizeObserver.', event)
+    async addResizeObserver(component, event) {
+        let {id, windowId} = component,
+            ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
+
+        // ResizeObservers need to get registered to a specific target id
+        if (event.delegate?.startsWith('#')) {
+            id = event.delegate.substring(1)
         }
 
-        let {id, windowId} = component;
-
-        Neo.main.addon.ResizeObserver.register({id, windowId})
+        ResizeObserver.register({id, windowId})
     }
 
     /**
@@ -292,11 +294,10 @@ class DomEvent extends Base {
             });
 
             if (localEvents.length > 0) {
-                Neo.worker.App.promiseMessage('main', {
-                    action  : 'addDomListener',
-                    appName : component.appName,
-                    events  : localEvents,
-                    windowId: component.windowId
+                Neo.worker.App.promiseMessage(component.windowId, {
+                    action : 'addDomListener',
+                    appName: component.appName,
+                    events : localEvents
                 }).then(data => {
                     // console.log('added domListener', data);
                 }).catch(err => {
