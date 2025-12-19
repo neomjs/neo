@@ -145,7 +145,7 @@ class ViewportController extends Controller {
                 widgetName = new URL(url).searchParams.get('name');
 
             let widget = me.getReference(widgetName);
-            console.log(widgetName, widget.isDestroyed);
+
             widget.wrapperStyle = {};
 
             me.connectedWidgets.push(widgetName);
