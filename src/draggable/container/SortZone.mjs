@@ -161,19 +161,26 @@ class SortZone extends DragZone {
             if (me.dragPlaceholder) {
                 const
                     component = me.dragComponent,
+                    deltas    = [],
                     index     = me.sortableItems.indexOf(me.dragPlaceholder);
 
-                if (component && index > -1 && !me.isWindowDragging) {
-                    // Manual DOM restoration
-                    await Neo.applyDeltas(me.windowId, [{
-                        action  : 'moveNode',
-                        id      : component.id,
-                        index   : index, // Visually correct index (where placeholder is)
-                        parentId: owner.getVdomItemsRoot().id
-                    }, {
+                if (component && index > -1) {
+                    if (!me.isWindowDragging) {
+                        deltas.push({
+                            action  : 'moveNode',
+                            id      : component.id,
+                            index,    // Visually correct index (where placeholder is)
+                            parentId: owner.getVdomItemsRoot().id
+                        });
+                    }
+
+                    deltas.push({
                         action: 'removeNode',
                         id    : me.dragPlaceholder.id
-                    }])
+                    });
+
+                    // Manual DOM restoration
+                    await Neo.applyDeltas(me.windowId, deltas)
                 }
             }
 
@@ -183,7 +190,7 @@ class SortZone extends DragZone {
 
             owner.style = ownerStyle;
 
-            me.sortableItems.forEach((item, index) => {
+            me.sortableItems?.forEach((item, index) => {
                 if (me.isWindowDragging && item === me.dragComponent) {
                     return
                 }
@@ -222,13 +229,14 @@ class SortZone extends DragZone {
             }
 
             Object.assign(me, {
-                currentIndex : -1,
-                indexMap     : null,
-                itemRects    : null,
-                itemStyles   : null,
-                ownerRect    : null,
-                startIndex   : -1,
-                sortableItems: null
+                currentIndex    : -1,
+                indexMap        : null,
+                isWindowDragging: false,
+                itemRects       : null,
+                itemStyles      : null,
+                ownerRect       : null,
+                startIndex      : -1,
+                sortableItems   : null
             });
 
             await me.timeout(30);
@@ -271,6 +279,30 @@ class SortZone extends DragZone {
                     }
                 } else if (me.isWindowDragging) {
                     if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
+                        // Restore layout
+                        me.dragPlaceholder.wrapperStyle = {
+                            ...me.dragPlaceholder.wrapperStyle,
+                            visibility: 'visible'
+                        };
+
+                        // Re-applying the current state:
+                        me.itemRects.forEach((rect, index) => {
+                            let mappedIndex = me.indexMap[index];
+                            if (mappedIndex !== -1) {
+                                let item = me.owner.items[mappedIndex];
+
+                                if (item !== me.dragPlaceholder && item !== me.dragComponent) {
+                                    item.wrapperStyle = {
+                                        ...item.wrapperStyle,
+                                        height: `${rect.height}px`,
+                                        left  : `${rect.left}px`,
+                                        top   : `${rect.top}px`,
+                                        width : `${rect.width}px`
+                                    };
+                                }
+                            }
+                        });
+
                         me.fire('dragBoundaryEntry', {
                             draggedItem: me.dragComponent,
                             proxyRect,
@@ -482,6 +514,121 @@ class SortZone extends DragZone {
     }
 
     /**
+     * Calculates the expanded layout for remaining items when one is dragged out.
+     * @returns {Object[]} Array of style objects for the items
+     */
+    calculateExpandedLayout() {
+        let me           = this,
+            ownerRect    = me.ownerRect,
+            isHorizontal = me.sortDirection === 'horizontal',
+            totalSize    = isHorizontal ? ownerRect.width : ownerRect.height,
+            items        = [],
+            totalFlex    = 0,
+            usedSize     = 0,
+            rects        = [],
+            startOffset  = 0,
+            endOffset    = 0,
+            gap          = 0,
+            topOffset    = 0,
+            bottomOffset = 0,
+            leftOffset   = 0,
+            rightOffset  = 0,
+            startX       = me.adjustItemRectsToParent ? 0 : ownerRect.x,
+            startY       = me.adjustItemRectsToParent ? 0 : ownerRect.y;
+
+        // 1. Calculate offsets and gaps from the original slots (itemRects)
+        if (me.itemRects.length > 0) {
+            let r0 = me.itemRects[0],
+                rn = me.itemRects[me.itemRects.length - 1];
+
+            if (isHorizontal) {
+                startOffset  = me.adjustItemRectsToParent ? r0.x : r0.x - ownerRect.x;
+                endOffset    = totalSize - (me.adjustItemRectsToParent ? (rn.x + rn.width) : (rn.x - ownerRect.x + rn.width));
+                topOffset    = me.adjustItemRectsToParent ? r0.y : r0.y - ownerRect.y;
+                bottomOffset = ownerRect.height - (me.adjustItemRectsToParent ? (r0.y + r0.height) : (r0.y - ownerRect.y + r0.height)); // Approx from first item
+
+                if (me.itemRects.length > 1) {
+                    let r1 = me.itemRects[1];
+                    gap = r1.x - (r0.x + r0.width);
+                }
+            } else {
+                startOffset = me.adjustItemRectsToParent ? r0.y : r0.y - ownerRect.y;
+                endOffset   = totalSize - (me.adjustItemRectsToParent ? (rn.y + rn.height) : (rn.y - ownerRect.y + rn.height));
+                leftOffset  = me.adjustItemRectsToParent ? r0.x : r0.x - ownerRect.x;
+                rightOffset = ownerRect.width - (me.adjustItemRectsToParent ? (r0.x + r0.width) : (r0.x - ownerRect.x + r0.width));
+
+                if (me.itemRects.length > 1) {
+                    let r1 = me.itemRects[1];
+                    gap = r1.y - (r0.y + r0.height);
+                }
+            }
+        }
+        // 2. Filter valid items
+        for (let i = 0; i < me.itemRects.length; i++) {
+            let mappedIndex = me.indexMap[i];
+
+            if (mappedIndex === -1) {
+                 continue;
+            }
+
+            let item = me.owner.items[mappedIndex];
+
+            if (item === me.dragPlaceholder || item === me.dragComponent) {
+                continue;
+            }
+
+            let rect = me.itemRects[i];
+
+            items.push({item, rect});
+
+            if (item.flex) {
+                totalFlex += item.flex;
+            } else {
+                let size = isHorizontal ? rect.width : rect.height;
+                usedSize += size;
+            }
+        }
+
+        // 3. Calculate available space
+        let totalGaps      = Math.max(0, items.length - 1),
+            availableSpace = Math.max(0, totalSize - startOffset - endOffset - (totalGaps * gap) - usedSize);
+
+        // 4. Distribute space
+        let currentPos = startOffset;
+
+        items.forEach(({item, rect}, index) => {
+            let itemSize, style = {};
+
+            if (item.flex) {
+                itemSize = (item.flex / totalFlex) * availableSpace;
+            } else {
+                itemSize = isHorizontal ? rect.width : rect.height;
+            }
+
+            if (isHorizontal) {
+                style = {
+                    left  : `${startX + currentPos}px`,
+                    top   : `${startY + topOffset}px`,
+                    height: `${ownerRect.height - topOffset - bottomOffset}px`,
+                    width : `${itemSize}px`
+                };
+            } else {
+                style = {
+                    left  : `${startX + leftOffset}px`,
+                    top   : `${startY + currentPos}px`,
+                    height: `${itemSize}px`,
+                    width : `${ownerRect.width - leftOffset - rightOffset}px`
+                };
+            }
+
+            rects.push({item, style});
+            currentPos += itemSize + gap;
+        });
+
+        return rects;
+    }
+
+    /**
      * @returns {Promise<void>}
      */
     async scrollToIndex() {
@@ -502,6 +649,19 @@ class SortZone extends DragZone {
         // Keep the proxy active to capture mouse events, but make it invisible
         me.dragProxy.style = {opacity: 0};
         me.isWindowDragging = true;
+
+        if (me.dragPlaceholder) {
+            me.dragPlaceholder.wrapperStyle = {
+                ...me.dragPlaceholder.wrapperStyle,
+                visibility: 'hidden'
+            };
+        }
+
+        // Apply expanded layout
+        let expandedLayout = me.calculateExpandedLayout();
+        expandedLayout.forEach(({item, style}) => {
+            item.wrapperStyle = {...item.wrapperStyle, ...style};
+        });
 
         Neo.main.addon.DragDrop.startWindowDrag({
             popupHeight,
