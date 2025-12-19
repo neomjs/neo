@@ -4,8 +4,29 @@ import Rectangle from '../../util/Rectangle.mjs';
 import VDomUtil  from '../../util/VDom.mjs';
 
 /**
+ * @summary Manages the drag-and-drop reordering of items within a container, with support for window detachment.
+ *
+ * This class extends `Neo.draggable.container.DragZone` to provide sorting capabilities for `Neo.container.Base` instances.
+ * It handles the complex logic of tracking item positions, swapping them during the drag operation, and updating
+ * the container's layout upon drop.
+ *
+ * A key feature of this class is its support for **Window Detachment** (tearing tabs or items out of the main window).
+ * When an item is dragged outside the browser window boundaries:
+ * 1. The `startWindowDrag` method is triggered.
+ * 2. The drag placeholder is hidden.
+ * 3. The `calculateExpandedLayout` method dynamically computes a new layout for the remaining items, expanding them
+ *    to fill the empty space (animating `width`, `height`, `top`, and `left`).
+ * 4. If the drag re-enters the window (`onDragBoundaryEntry`), the original layout snapshot is restored, and the
+ *    placeholder reappears, allowing for a seamless return to sorting mode.
+ *
+ * This class interacts closely with:
+ * - `Neo.draggable.DragProxy`: For the visual representation of the dragged item.
+ * - `Neo.main.addon.DragDrop`: For communicating drag state across the browser/OS environment.
+ *
  * @class Neo.draggable.container.SortZone
  * @extends Neo.draggable.container.DragZone
+ * @see Neo.draggable.container.DragZone
+ * @see Neo.main.addon.DragDrop
  */
 class SortZone extends DragZone {
     static config = {
@@ -147,7 +168,16 @@ class SortZone extends DragZone {
     }
 
     /**
-     * @param {Object} data
+     * Handles the completion of the drag operation.
+     *
+     * This method is responsible for:
+     * 1.  **Finalizing the Drop:** If valid, it moves the DOM nodes to their final positions (via `Neo.applyDeltas`).
+     * 2.  **Cleanup:** Removes the drag placeholder and resets internal state flags (`isWindowDragging`, `currentIndex`, etc.).
+     * 3.  **Layout Restoration:** Resets the styles of all items (clearing the absolute positioning used during the drag)
+     *     so they return to the container's natural layout flow.
+     * 4.  **State Synchronization:** Calls `owner.moveTo()` to update the container's `items` array to reflect the new order.
+     *
+     * @param {Object} data - The drag end event data.
      */
     async onDragEnd(data) {
         let me                  = this,
@@ -246,7 +276,19 @@ class SortZone extends DragZone {
     }
 
     /**
-     * @param {Object} data
+     * Handles the drag move event. This is the core logic loop for the drag operation.
+     * 
+     * Responsibilities:
+     * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
+     *     If so, it restores the original layout snapshot (`itemRects`) and shows the placeholder, effectively
+     *     "snapping" the dashboard back to its sortable state.
+     * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
+     *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
+     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
+     *     if the threshold is crossed, updating the `currentIndex`.
+     * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
+     * 
+     * @param {Object} data - The drag move event data.
      */
     async onDragMove(data) {
         let me = this;
@@ -380,7 +422,20 @@ class SortZone extends DragZone {
     }
 
     /**
-     * @param {Object} data
+     * Initializes the drag operation.
+     * 
+     * Key actions:
+     * 1.  **Identify Drag Target:** Determines which item is being dragged (handling `dragHandleSelector` if present).
+     * 2.  **Snapshot Layout:** Captures the current DOM rectangles (`itemRects`) of all sortable items. This snapshot
+     *     is critical for:
+     *     - Calculating drag deltas for sorting.
+     *     - Restoring the layout after a window drag re-entry.
+     *     - Inferring gaps and offsets for `calculateExpandedLayout`.
+     * 3.  **Setup Proxy & Placeholder:** Configures the visual drag proxy and inserts the placeholder into the `sortableItems` list.
+     * 4.  **Apply Absolute Positioning:** Temporarily switches all items to `position: absolute` based on their captured
+     *     coordinates to enable smooth, GPU-accelerated movement during the drag.
+     * 
+     * @param {Object} data - The drag start event data.
      */
     async onDragStart(data) {
         let me                   = this,
@@ -514,8 +569,17 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Calculates the expanded layout for remaining items when one is dragged out.
-     * @returns {Object[]} Array of style objects for the items
+     * Calculates a new layout for the remaining items when one item is dragged out of the container (e.g., into a new window).
+     *
+     * This method ensures the dashboard doesn't leave a "hole" where the dragged item was. Instead, it:
+     * 1.  **Infers Gaps & Offsets:** Analyzes the cached `itemRects` to mathematically derive the container's padding
+     *     and the gaps between items, ensuring the new layout respects the original design tokens.
+     * 2.  **Identifies Remaining Items:** Filters out the dragged component and its placeholder.
+     * 3.  **Distributes Space:** Calculates the available space (Total Size - Offsets - Gaps - Fixed Items) and distributes
+     *     it among flex items proportional to their flex values.
+     * 4.  **Generates Styles:** Returns a list of style objects (`top`, `left`, `width`, `height`) to be applied to the remaining items.
+     *
+     * @returns {Object[]} Array of objects containing the `item` reference and the calculated `style` object.
      */
     calculateExpandedLayout() {
         let me           = this,
@@ -640,7 +704,19 @@ class SortZone extends DragZone {
     }
 
     /**
-     * @param {Object} data
+     * Handles the drag move event. This is the core logic loop for the drag operation.
+     *
+     * Responsibilities:
+     * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
+     *     If so, it restores the original layout snapshot (`itemRects`) and shows the placeholder, effectively
+     *     "snapping" the dashboard back to its sortable state.
+     * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
+     *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
+     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
+     *     if the threshold is crossed, updating the `currentIndex`.
+     * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
+     *
+     * @param {Object} data - The drag move event data.
      */
     startWindowDrag(data) {
         let me = this,
@@ -671,8 +747,18 @@ class SortZone extends DragZone {
     }
 
     /**
-     * @param {Number} index1
-     * @param {Number} index2
+     * Swaps two items in the sort list, updating their layout coordinates and the internal index map.
+     *
+     * This method handles the physical reordering of items during a drag operation. It performs the following:
+     * 1.  **Normalization:** Ensures indices are ordered correctly based on layout direction.
+     * 2.  **Geometry Calculation:** Swaps the dimensions (width/height) of the two items and recalculates
+     *     their positions (x/y), preserving the original gap between them. This ensures that items of different
+     *     sizes swap correctly without breaking the layout structure.
+     * 3.  **State Update:** Updates the `indexMap` to reflect the new logical order of items.
+     * 4.  **Visual Update:** Calls `updateItem` to apply the new coordinates to the DOM.
+     *
+     * @param {Number} index1 - The index of the first item to swap.
+     * @param {Number} index2 - The index of the second item to swap.
      */
     switchItems(index1, index2) {
         let me       = this,
