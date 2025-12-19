@@ -496,7 +496,7 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     startWindowDrag(data) {
-        let me            = this,
+        let me = this,
             {popupHeight, popupWidth, windowName} = data;
 
         // Keep the proxy active to capture mouse events, but make it invisible

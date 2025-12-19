@@ -232,10 +232,11 @@ class DragDrop extends Base {
 
         DomEvents.sendMessageToApp({
             ...parsedEvent,
-            isDrop : isDrop,
-            offsetX: me.offsetX,
-            offsetY: me.offsetY,
-            type   : 'drag:end'
+            dragZoneId: me.dragZoneId,
+            isDrop    : isDrop,
+            offsetX   : me.offsetX,
+            offsetY   : me.offsetY,
+            type      : 'drag:end'
         });
 
         if (isDrop) {
