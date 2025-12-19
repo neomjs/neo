@@ -47,7 +47,8 @@ class Container extends BaseContainer {
             enableProxyToPopup: true,
             listeners         : {
                 dragBoundaryEntry: data => me.fire('dragBoundaryEntry', data),
-                dragBoundaryExit : data => me.fire('dragBoundaryExit',  data)
+                dragBoundaryExit : data => me.fire('dragBoundaryExit',  data),
+                dragEnd          : data => me.fire('dragEnd',           data)
             }
         })
 

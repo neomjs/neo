@@ -51,7 +51,8 @@ class StrategyPanel extends Panel {
 
             listeners: {
                 dragBoundaryEntry: 'onDragBoundaryEntry',
-                dragBoundaryExit : 'onDragBoundaryExit'
+                dragBoundaryExit : 'onDragBoundaryExit',
+                dragEnd          : 'onDragEnd'
             },
 
             itemDefaults: {

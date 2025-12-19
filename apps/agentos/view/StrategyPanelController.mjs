@@ -82,6 +82,8 @@ class StrategyPanelController extends Controller {
     async onWindowDisconnect(data) {
         let me = this;
 
+        console.log('onWindowDisconnect', data, me.#isWindowDragging, me.#isReintegrating);
+
         if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
             return
@@ -95,6 +97,8 @@ class StrategyPanelController extends Controller {
 
             let dashboard = me.getReference('strategy'),
                 widget    = me.getReference(widgetName);
+
+            console.log('onWindowDisconnect', widgetName, dashboard, widget, me.widgetIndexMap[widgetName]);
 
             dashboard.insert(me.widgetIndexMap[widgetName], widget);
 
@@ -133,6 +137,13 @@ class StrategyPanelController extends Controller {
         sortZone.dragProxy.style = {opacity: 1};
 
         Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        this.#isWindowDragging = false
     }
 
     /**
