@@ -38,10 +38,9 @@ class InterventionPanel extends Panel {
          * @member {Object[]} items
          */
         items: [{
-            module   : GridContainer,
-            reference: 'intervention',
-            store    : Interventions,
-            columns  : [{
+            module : GridContainer,
+            store  : Interventions,
+            columns: [{
                 dataField: 'timestamp',
                 text     : 'Time',
                 width    : 100,

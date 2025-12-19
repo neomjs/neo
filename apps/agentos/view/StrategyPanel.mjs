@@ -46,7 +46,6 @@ class StrategyPanel extends Panel {
             module           : Dashboard,
             cls              : ['agent-kpi-dashboard'],
             dragProxyExtraCls: ['agent-panel-strategy', 'neo-panel'], // Ensure styles carry over to popup proxy
-            reference        : 'strategy',
             layout           : {ntype: 'hbox', align: 'stretch'},
 
             listeners: {

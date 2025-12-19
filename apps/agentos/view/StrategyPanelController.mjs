@@ -13,7 +13,6 @@ class StrategyPanelController extends Controller {
      * @member {String[]} connectedWidgets=[]
      */
     connectedWidgets = []
-
     /**
      * @member {Boolean} #isWindowDragging=false
      * @private
@@ -24,7 +23,6 @@ class StrategyPanelController extends Controller {
      * @private
      */
     #isReintegrating = false
-
     /**
      * @member {Object} widgetIndexMap
      */
@@ -47,66 +45,6 @@ class StrategyPanelController extends Controller {
             disconnect: me.onWindowDisconnect,
             scope     : me
         })
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onWindowConnect(data) {
-        if (data.appName === 'AgentOSStrategy') {
-            let me         = this,
-                app        = Neo.apps[data.windowId],
-                mainView   = app.mainView,
-                {windowId} = data,
-                url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-                widgetName = new URL(url).searchParams.get('name');
-
-            let widget = me.getReference(widgetName);
-
-            widget.wrapperStyle = {};
-
-            me.connectedWidgets.push(widgetName);
-
-            // Add the widget to the popup window
-            mainView.add(widget, false, !me.#isWindowDragging)
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onWindowDisconnect(data) {
-        let me = this;
-
-        if (me.#isWindowDragging || me.#isReintegrating) {
-            me.#isWindowDragging = false;
-            return
-        }
-
-        let {appName, windowId} = data;
-
-        if (appName === 'AgentOSStrategy') {
-            let url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-                widgetName = new URL(url).searchParams.get('name');
-
-            let dashboard = me.getReference('strategy'),
-                widget    = me.getReference(widgetName);
-
-            dashboard.insert(me.widgetIndexMap[widgetName], widget);
-
-            // Remove from connected list
-            let idx = me.connectedWidgets.indexOf(widgetName);
-            if (idx > -1) {
-                me.connectedWidgets.splice(idx, 1);
-            }
-        } else if (appName === 'AgentOS') {
-            // Main app closing, close all popups
-             Neo.Main.windowClose({names: me.connectedWidgets, windowId})
-        }
     }
 
     /**
@@ -167,6 +105,66 @@ class StrategyPanelController extends Controller {
         }
 
         me.#isWindowDragging = false
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onWindowConnect(data) {
+        if (data.appName === 'AgentOSStrategy') {
+            let me         = this,
+                app        = Neo.apps[data.windowId],
+                mainView   = app.mainView,
+                {windowId} = data,
+                url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName = new URL(url).searchParams.get('name');
+
+            let widget = me.getReference(widgetName);
+
+            widget.wrapperStyle = {};
+
+            me.connectedWidgets.push(widgetName);
+
+            // Add the widget to the popup window
+            mainView.add(widget, false, !me.#isWindowDragging)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onWindowDisconnect(data) {
+        let me = this;
+
+        if (me.#isWindowDragging || me.#isReintegrating) {
+            me.#isWindowDragging = false;
+            return
+        }
+
+        let {appName, windowId} = data;
+
+        if (appName === 'AgentOSStrategy') {
+            let url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName = new URL(url).searchParams.get('name');
+
+            let dashboard = me.getReference('strategy'),
+                widget    = me.getReference(widgetName);
+
+            dashboard.insert(me.widgetIndexMap[widgetName], widget);
+
+            // Remove from connected list
+            let idx = me.connectedWidgets.indexOf(widgetName);
+            if (idx > -1) {
+                me.connectedWidgets.splice(idx, 1);
+            }
+        } else if (appName === 'AgentOS') {
+            // Main app closing, close all popups
+            Neo.Main.windowClose({names: me.connectedWidgets, windowId})
+        }
     }
 
     /**

@@ -61,18 +61,19 @@ class Viewport extends BaseViewport {
 
             listeners: {
                 dragBoundaryEntry: 'onDragBoundaryEntry',
-                dragBoundaryExit : 'onDragBoundaryExit'
+                dragBoundaryExit : 'onDragBoundaryExit',
+                dragEnd          : 'onDragEnd'
             },
 
             items: [{
                 module   : StrategyPanel,
                 flex     : 2,
-                reference: 'strategy-panel'
+                reference: 'strategy'
             }, {
                 module   : Panel,
                 cls      : ['agent-panel-swarm'],
                 flex     : 5,
-                reference: 'swarm-panel',
+                reference: 'swarm',
                 headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
@@ -80,7 +81,6 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     module   : Blackboard,
-                    reference: 'swarm',
                     style    : {
                         backgroundColor: '#000',
                         height         : '100%',
@@ -90,7 +90,7 @@ class Viewport extends BaseViewport {
             }, {
                 module   : InterventionPanel,
                 flex     : 3,
-                reference: 'intervention-panel'
+                reference: 'intervention'
             }]
         }]
     }
