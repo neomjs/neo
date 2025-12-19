@@ -277,7 +277,7 @@ class SortZone extends DragZone {
 
     /**
      * Handles the drag move event. This is the core logic loop for the drag operation.
-     * 
+     *
      * Responsibilities:
      * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
      *     If so, it restores the original layout snapshot (`itemRects`) and shows the placeholder, effectively
@@ -287,7 +287,7 @@ class SortZone extends DragZone {
      * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
      *     if the threshold is crossed, updating the `currentIndex`.
      * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
-     * 
+     *
      * @param {Object} data - The drag move event data.
      */
     async onDragMove(data) {
@@ -423,7 +423,7 @@ class SortZone extends DragZone {
 
     /**
      * Initializes the drag operation.
-     * 
+     *
      * Key actions:
      * 1.  **Identify Drag Target:** Determines which item is being dragged (handling `dragHandleSelector` if present).
      * 2.  **Snapshot Layout:** Captures the current DOM rectangles (`itemRects`) of all sortable items. This snapshot
@@ -434,7 +434,7 @@ class SortZone extends DragZone {
      * 3.  **Setup Proxy & Placeholder:** Configures the visual drag proxy and inserts the placeholder into the `sortableItems` list.
      * 4.  **Apply Absolute Positioning:** Temporarily switches all items to `position: absolute` based on their captured
      *     coordinates to enable smooth, GPU-accelerated movement during the drag.
-     * 
+     *
      * @param {Object} data - The drag start event data.
      */
     async onDragStart(data) {
