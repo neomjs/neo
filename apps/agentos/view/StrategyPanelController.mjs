@@ -82,8 +82,6 @@ class StrategyPanelController extends Controller {
     async onWindowDisconnect(data) {
         let me = this;
 
-        console.log('onWindowDisconnect', data, me.#isWindowDragging, me.#isReintegrating);
-
         if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
             return
@@ -97,8 +95,6 @@ class StrategyPanelController extends Controller {
 
             let dashboard = me.getReference('strategy'),
                 widget    = me.getReference(widgetName);
-
-            console.log('onWindowDisconnect', widgetName, dashboard, widget, me.widgetIndexMap[widgetName]);
 
             dashboard.insert(me.widgetIndexMap[widgetName], widget);
 
@@ -143,7 +139,14 @@ class StrategyPanelController extends Controller {
      * @param {Object} data
      */
     onDragEnd(data) {
-        this.#isWindowDragging = false
+        let me = this;
+
+        if (me.#isWindowDragging && me.draggedItem) {
+            me.getReference('strategy').remove(me.draggedItem, false, false);
+            me.draggedItem = null
+        }
+
+        me.#isWindowDragging = false
     }
 
     /**
@@ -151,17 +154,19 @@ class StrategyPanelController extends Controller {
      */
     async onDragBoundaryExit(data) {
         let {draggedItem, proxyRect, sortZone} = data,
-            widgetName                         = draggedItem.reference,
+            me         = this,
+            widgetName = draggedItem.reference,
             popupData;
 
-        this.#isWindowDragging = true;
+        me.draggedItem       = draggedItem;
+        me.#isWindowDragging = true;
 
         popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
 
         sortZone.startWindowDrag({
             dragData: data,
             ...popupData
-        });
+        })
     }
 
     /**

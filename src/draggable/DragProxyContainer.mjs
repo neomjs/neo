@@ -66,6 +66,15 @@ class DragProxyContainer extends BaseContainer {
             Neo.currentWorker.insertThemeFiles(value, DragProxyComponent.prototype)
         }
     }
+
+    /**
+     * We do NOT want to destroy child items, since they get re-used.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.items = [];
+        super.destroy(...args)
+    }
 }
 
 export default Neo.setupClass(DragProxyContainer);
