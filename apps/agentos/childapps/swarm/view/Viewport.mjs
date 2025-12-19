@@ -13,6 +13,10 @@ class Viewport extends BaseViewport {
          */
         className: 'AgentOS.swarm.view.Viewport',
         /**
+         * @member {String[]} additionalThemeFiles=['AgentOS.view.Viewport']
+         */
+        additionalThemeFiles: ['AgentOS.view.Viewport'],
+        /**
          * @member {String[]} cls=['agent-os-viewport']
          * @reactive
          */

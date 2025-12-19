@@ -63,8 +63,6 @@ class ViewportController extends Controller {
 
         await Neo.Main.windowClose({names: widgetName, windowId});
 
-        widget.mounted = true;
-
         me.#isReintegrating  = false;
         me.#isWindowDragging = false;
 
@@ -99,7 +97,7 @@ class ViewportController extends Controller {
      */
     onDragEnd(data) {
         let me = this;
-console.log('drag end');
+
         if (me.#isWindowDragging && me.draggedItem) {
             me.getReference('dashboard').remove(me.draggedItem, false, false);
             me.draggedItem = null
