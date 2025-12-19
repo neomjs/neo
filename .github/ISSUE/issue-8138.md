@@ -1,7 +1,7 @@
 ---
 id: 8138
 title: Support saveScrollPosition in DomApiRenderer
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-17T14:19:56Z'
-updatedAt: '2025-12-17T14:39:12Z'
+updatedAt: '2025-12-19T09:56:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8138'
 author: tobiu
 commentsCount: 1
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-19T09:56:12Z'
 ---
 # Support saveScrollPosition in DomApiRenderer
 
@@ -64,4 +65,5 @@ Update `Neo.main.render.DomApiRenderer` to check for and apply `scrollTop` and `
 - 2025-12-17 @tobiu assigned to @tobiu
 - 2025-12-17 @tobiu referenced in commit `bae9034` - "feat: Support saveScrollPosition in DomApiRenderer #8138"
 - 2025-12-17 @tobiu cross-referenced by #8139
+- 2025-12-19 @tobiu closed this issue
 

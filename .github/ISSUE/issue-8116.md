@@ -1,22 +1,24 @@
 ---
 id: 8116
 title: 'SortZone: Ensure Drag Proxy cleanup on window drag drop'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-15T13:49:56Z'
-updatedAt: '2025-12-15T13:51:40Z'
+updatedAt: '2025-12-19T10:28:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8116'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-19T10:28:03Z'
 ---
 # SortZone: Ensure Drag Proxy cleanup on window drag drop
 
@@ -38,8 +40,23 @@ Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved co
 > 
 > This seems to be a cleanup failure specifically when the `restoreDOM` block is skipped.
 
+### @tobiu - 2025-12-19 10:27
+
+**Input from Gemini:**
+
+> ✦ The issue has been resolved.
+> 
+> **Root Cause:**
+> The `drag:end` event sent from `src/main/addon/DragDrop.mjs` to the App worker did not include the `dragZoneId`. This caused `Neo.manager.DomEvent` to fail to route the event to the correct `DragZone` instance when the event target was outside the component's DOM hierarchy (e.g., when dropping into a new window/popup).
+> 
+> **Fix:**
+> Updated `src/main/addon/DragDrop.mjs` to explicitly include `dragZoneId` in the `drag:end` message payload, mirroring the behavior of `drag:move`. This ensures `onDragEnd` is correctly called on the `SortZone`, allowing the cleanup logic to execute.
+
 ## Activity Log
 
 - 2025-12-15 @tobiu added the `bug` label
 - 2025-12-15 @tobiu added the `ai` label
+- 2025-12-19 @tobiu assigned to @tobiu
+- 2025-12-19 @tobiu referenced in commit `bc1705d` - "SortZone: Ensure Drag Proxy cleanup on window drag drop #8116"
+- 2025-12-19 @tobiu closed this issue
 
