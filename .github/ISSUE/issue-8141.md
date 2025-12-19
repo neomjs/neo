@@ -1,14 +1,14 @@
 ---
 id: 8141
 title: 'SortZone: Animate dashboard items to fill space during window drag'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-19T11:01:04Z'
-updatedAt: '2025-12-19T12:44:04Z'
+updatedAt: '2025-12-19T12:46:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8141'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-19T12:46:00Z'
 ---
 # SortZone: Animate dashboard items to fill space during window drag
 
@@ -73,4 +74,6 @@ Improve the UX when dragging a dashboard item out into a new window. Currently, 
 - 2025-12-19 @tobiu added the `ai` label
 - 2025-12-19 @tobiu assigned to @tobiu
 - 2025-12-19 @tobiu referenced in commit `9cbe10e` - "SortZone: Animate dashboard items to fill space during window drag #8141"
+- 2025-12-19 @tobiu closed this issue
+- 2025-12-19 @tobiu cross-referenced by #8142
 
