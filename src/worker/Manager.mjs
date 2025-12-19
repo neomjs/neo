@@ -299,7 +299,7 @@ class Manager extends Base {
             return navigator.serviceWorker?.controller || this.serviceWorker
         }
 
-        return name instanceof Worker ? name : this.workers[name]?.worker
+        return name instanceof Worker ? name : this.workers[name].worker
     }
 
     /**
@@ -550,6 +550,7 @@ class Manager extends Base {
 
             if (worker) {
                 opts.destination = dest;
+                opts.windowId ??= me.windowId;
 
                 message = new Message(opts);
 
