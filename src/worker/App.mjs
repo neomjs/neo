@@ -98,7 +98,7 @@ class App extends Base {
             deltas = [deltas]
         }
 
-        return this.promiseMessage('main', {action: 'updateVdom', deltas, windowId})
+        return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
     }
 
     /**
@@ -536,11 +536,12 @@ class App extends Base {
     /**
      * Only needed for SharedWorkers
      * @param {String} appName
+     * @param {String} windowId
      */
-    registerApp(appName) {
+    registerApp(appName, windowId) {
         // register the name as fast as possible
         this.onRegisterApp({appName});
-        this.sendMessage('main', {action: 'registerAppName', appName})
+        this.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 
     /**
@@ -594,7 +595,7 @@ class App extends Base {
      * @param {String} [data.priority] optionally pass 'important'
      * @param {String} data.theme=Neo.config.themes[0]
      * @param {String} data.value
-     * @param {Number} data.windowId
+     * @param {String} data.windowId
      * @returns {Promise<any>}
      */
     async setCssVariable(data) {

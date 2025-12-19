@@ -325,6 +325,10 @@ class Worker extends Base {
      * @protected
      */
     sendMessage(dest, opts, transfer) {
+        if (dest === 'main' && this.isSharedWorker) {
+            console.warn('sendMessage destination "main" is deprecated. Use a windowId instead.', opts)
+        }
+
         opts.destination = dest;
 
         let me = this,
@@ -335,7 +339,13 @@ class Worker extends Base {
         } else if (!me.isSharedWorker) {
             port = globalThis
         } else {
-            if (opts.port) {
+            // Check if dest is a direct target (Window ID or Port ID)
+            portObject = me.getPort({windowId: dest}) || me.getPort({id: dest});
+
+            if (portObject) {
+                port      = portObject.port;
+                opts.port = portObject.id
+            } else if (opts.port) {
                 port = me.getPort({id: opts.port}).port
             } else if (opts.windowId) {
                 portObject = me.getPort({windowId: opts.windowId});

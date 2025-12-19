@@ -444,7 +444,7 @@ class Manager extends Base {
             }
         }
 
-        if (dest !== 'main' && action !== 'reply') {
+        if (dest !== 'main' && dest !== me.windowId && action !== 'reply') {
             if (data.transfer) {
                 transfer = [data.transfer]
             }
@@ -462,7 +462,7 @@ class Manager extends Base {
         }
 
         // only needed for SharedWorkers
-        else if (dest === 'main' && action === 'registerAppName') {
+        else if ((dest === 'main' || dest === me.windowId) && action === 'registerAppName') {
             let {appName} = data;
 
             me.appNames.push(appName);
@@ -470,7 +470,7 @@ class Manager extends Base {
             me.broadcast({action: 'registerApp', appName})
         }
 
-        else if (dest === 'main' && action === 'remoteMethod') {
+        else if ((dest === 'main' || dest === me.windowId) && action === 'remoteMethod') {
             me.onRemoteMethod(data)
         }
     }

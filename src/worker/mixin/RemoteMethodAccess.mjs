@@ -42,9 +42,14 @@ class RemoteMethodAccess extends Base {
                 remoteMethod   : method
             };
 
+            if (origin === 'main' && data?.windowId) {
+                opts.destination = data.windowId;
+                delete data.windowId
+            }
+
             me.isSharedWorker && me.assignPort(data, opts);
 
-            return me.promiseMessage(origin, opts, buffer)
+            return me.promiseMessage(opts.destination, opts, buffer)
         }
     }
 
@@ -134,7 +139,14 @@ class RemoteMethodAccess extends Base {
             replyId: msg.id
         };
 
-        me.isSharedWorker && me.assignPort(msg, opts);
+        if (me.isSharedWorker) {
+            me.assignPort(msg, opts);
+
+            if (msg.origin === 'main' && opts.windowId) {
+                msg.origin = opts.windowId
+            }
+        }
+
         me.sendMessage(msg.origin, opts)
     }
 
@@ -159,7 +171,14 @@ class RemoteMethodAccess extends Base {
             replyId: msg.id
         };
 
-        me.isSharedWorker && me.assignPort(msg, opts);
+        if (me.isSharedWorker) {
+            me.assignPort(msg, opts);
+
+            if (msg.origin === 'main' && opts.windowId) {
+                msg.origin = opts.windowId
+            }
+        }
+
         me.sendMessage(msg.origin, opts, transfer)
     }
 }
