@@ -12,10 +12,6 @@ class Blackboard extends Canvas {
          */
         className: 'AgentOS.view.Blackboard',
         /**
-         * @member {Boolean} monitorSize=true
-         */
-        monitorSize: true,
-        /**
          * @member {Object} _vdom
          */
         _vdom:
