@@ -527,13 +527,13 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
+     * Placeholder method for util.VDom.syncVdomState to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
      * @param {Boolean} force=false
      */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
-        VDomUtil.syncVdomIds(vnode, vdom, force)
+    syncVdomState(vnode=this.vnode, vdom=this.vdom, force=false) {
+        VDomUtil.syncVdomState(vnode, vdom, force)
     }
 
     /**
@@ -554,7 +554,7 @@ class VdomLifecycle extends Base {
             start = performance.now()
         }
 
-        me.syncVdomIds();
+        me.syncVdomState();
 
         if (vnode && me.id !== vnode.id) {
             ComponentManager.registerWrapperNode(vnode.id, me)

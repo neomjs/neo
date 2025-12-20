@@ -558,6 +558,14 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
+        this.scrollManager.onContainerScroll(data)
+    }
+
+    /**
      * @param {Object} opts
      * @param {String} opts.direction
      * @param {String} opts.property

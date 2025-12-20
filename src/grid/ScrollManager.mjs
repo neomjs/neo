@@ -74,16 +74,10 @@ class ScrollManager extends Base {
         let me = this;
 
         me.gridBody.addDomListeners({
-            scroll     : me.onBodyScroll,
             touchcancel: me.onTouchCancel,
             touchend   : me.onTouchEnd,
             scope      : me
         });
-
-        me.gridContainer.addDomListeners({
-            scroll: me.onContainerScroll,
-            scope : me
-        })
     }
 
     /**

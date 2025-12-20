@@ -241,8 +241,8 @@ class DayViewComponent extends Base {
         me.vdom.cn = [];
         me.createContent(true);
 
-        // using force => we do want to keep the same ids
-        syncIds && me.syncVdomIds(me.vnode, me.vdom, true);
+        // we need to sync the new ids into the vdom
+        syncIds && me.syncVdomState(me.vnode, me.vdom, true);
 
         me.update()
     }

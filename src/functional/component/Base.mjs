@@ -270,7 +270,7 @@ class FunctionalBase extends Abstract {
         // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
         // This is crucial for functional components where the vdom is recreated on every render,
         // ensuring the diffing algorithm can track nodes correctly.
-        me.syncVdomIds();
+        me.syncVdomState();
 
         if (me.beforeUpdate() !== false) {
             me.updateVdom()
@@ -479,55 +479,6 @@ class FunctionalBase extends Abstract {
         }
 
         return vdomTree
-    }
-
-    /**
-     * Overrides the default VdomLifecycle.syncVdomIds to also hydrate scroll positions.
-     * This is critical for functional components to maintain scroll state across re-renders.
-     * @param {Neo.vdom.VNode} [vnode=this.vnode]
-     * @param {Object} [vdom=this.vdom]
-     * @param {Boolean} [force=false]
-     */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
-        // We cannot use super.syncVdomIds(), since we need to sync the scroll position
-        // in the same run as the ids to ensure performance.
-        if (vnode && vdom) {
-            vdom = VDomUtil.getVdom(vdom);
-
-            let childNodes = vdom.cn,
-                cn, i, len;
-
-            if (force) {
-                if (vnode.id && vdom.id !== vnode.id) {
-                    vdom.id = vnode.id
-                }
-            } else {
-                if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
-                    vdom.id = vnode.id
-                }
-            }
-
-            if (vnode.scrollTop) {
-                vdom.scrollTop = vnode.scrollTop
-            }
-
-            if (vnode.scrollLeft) {
-                vdom.scrollLeft = vnode.scrollLeft
-            }
-
-            if (childNodes) {
-                cn  = childNodes.map(item => VDomUtil.getVdom(item));
-                cn  = cn.filter(item => item && item.removeDom !== true);
-                i   = 0;
-                len = cn?.length || 0;
-
-                for (; i < len; i++) {
-                    if (vnode.childNodes) {
-                        this.syncVdomIds(vnode.childNodes[i], cn[i], force)
-                    }
-                }
-            }
-        }
     }
 }
 
