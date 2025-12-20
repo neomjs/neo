@@ -6,27 +6,6 @@ import Base from '../../../src/core/Base.mjs';
  * @singleton
  */
 class Blackboard extends Base {
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId   = null
-    /**
-     * @member {Object} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * @member {Object} context=null
-     */
-    context    = null
-    /**
-     * @member {Array} nodes=[]
-     */
-    nodes      = []
-    /**
-     * @member {Array} links=[]
-     */
-    links      = []
-
     static config = {
         /**
          * @member {String} className='AgentOS.canvas.Blackboard'
@@ -52,6 +31,27 @@ class Blackboard extends Base {
         singleton: true
     }
 
+    /**
+     * @member {String|null} canvasId=null
+     */
+    canvasId = null
+    /**
+     * @member {Object} canvasSize=null
+     */
+    canvasSize = null
+    /**
+     * @member {Object} context=null
+     */
+    context = null
+    /**
+     * @member {Array} links=[]
+     */
+    links = []
+    /**
+     * @member {Array} nodes=[]
+     */
+    nodes = []
+
     construct(config) {
         super.construct(config);
         // Seed some dummy data for initial render verification
@@ -68,23 +68,29 @@ class Blackboard extends Base {
 
     /**
      * Initialize the graph with a canvas ID
-     * @param {String} canvasId
+     * @param {Object} opts
+     * @param {String} opts.canvasId
+     * @param {String} opts.windowId
      */
-    initGraph(canvasId) {
-        console.log('Blackboard: initGraph', canvasId);
+    initGraph({canvasId, windowId}) {
+        let me        = this,
+            hasChange = me.canvasId !== canvasId;
+
+        console.log('Blackboard: initGraph', canvasId, hasChange);
         this.canvasId = canvasId;
 
         // Wait for the canvas to be available in the worker map
         const checkCanvas = () => {
-            const canvas = Neo.currentWorker.map[canvasId];
+            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
+
             if (canvas) {
-                this.context = canvas.getContext('2d');
-                this.render();
+                me.context = canvas.getContext('2d');
+                hasChange && me.render()
             } else {
-                setTimeout(checkCanvas, 50);
+                setTimeout(checkCanvas, 50)
             }
         };
-        checkCanvas();
+        checkCanvas()
     }
 
     updateGraphData(data) {
