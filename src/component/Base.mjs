@@ -1621,15 +1621,15 @@ class Component extends Abstract {
      *     await this.initVnode(true);
      *     await this.waitForDomRect();
      * @param {Object}          opts
-     * @param {String}          opts.appName=this.appName
      * @param {Number}          opts.attempts=10 Reruns in case the rect height or width equals 0
      * @param {Number}          opts.delay=50    Time in ms before checking again
      * @param {String[]|String} opts.id=this.id
+     * @param {String}          opts.windowId=this.windowId
      * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
-    async waitForDomRect({appName=this.appName, attempts=10, delay=50, id=this.id}) {
+    async waitForDomRect({attempts=10, delay=50, id=this.id, windowId=this.windowId} = {}) {
         let me     = this,
-            result = await me.getDomRect(id, appName),
+            result = await me.getDomRect(id),
             reRun  = false;
 
         if (Array.isArray(result)) {
@@ -1644,7 +1644,7 @@ class Component extends Abstract {
 
         if (reRun && attempts > 0) {
             await me.timeout(delay);
-            return await me.waitForDomRect({appName, attempts: attempts-1, delay, id})
+            return await me.waitForDomRect({attempts: attempts-1, delay, id, windowId})
         }
 
         return result
