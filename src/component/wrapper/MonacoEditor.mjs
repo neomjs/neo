@@ -303,6 +303,21 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        oldValue && Neo.main.addon.MonacoEditor.destroyInstance({
+            id      : this.id,
+            windowId: oldValue
+        })
+    }
+
+    /**
      * Triggered before the cursorBlinking config gets changed
      * @param {String} value
      * @param {String} oldValue
