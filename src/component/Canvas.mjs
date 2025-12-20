@@ -55,13 +55,17 @@ class Canvas extends Component {
             {offscreen} = me;
 
         if (value) {
+            await me.timeout(30); // next rAF tick
+
             if (me.monitorSize) {
-                me.addDomListeners([{resize: me.onDomResize, scope: me}])
+                me.addDomListeners([{
+                    delegate: `#${me.getCanvasId()}`,
+                    resize  : me.onDomResize,
+                    scope   : me
+                }])
             }
 
             if (offscreen) {
-                await me.timeout(30); // next rAF tick
-
                 const data = await Neo.main.DomAccess.getOffscreenCanvas({
                     nodeId  : id,
                     windowId: me.windowId
