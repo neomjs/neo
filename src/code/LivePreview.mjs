@@ -305,9 +305,8 @@ class LivePreview extends Container {
 
         let {height, left, top, width} = rect;
 
-        height -= 50; // popup header in Chrome
-        left   += winData.screenLeft;
-        top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+        left += winData.screenLeft;
+        top  += (winData.outerHeight - winData.innerHeight + winData.screenTop);
 
         Neo.Main.windowOpen({
             url           : `${me.windowUrl}?id=${me.id}`,

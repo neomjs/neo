@@ -847,7 +847,8 @@ class Component extends Abstract {
                 configuredMinWidth : me.configuredMinWidth,
                 configuredMinHeight: me.configuredMinHeight,
                 configuredMaxWidth : me.configuredMaxWidth,
-                configuredMaxHeight: me.configuredMaxHeight
+                configuredMaxHeight: me.configuredMaxHeight,
+                windowId           : me.windowId
             };
 
         if (align.target) {
