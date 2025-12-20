@@ -43,8 +43,7 @@ class RemoteMethodAccess extends Base {
             };
 
             if (origin === 'main' && data?.windowId) {
-                opts.destination = data.windowId;
-                delete data.windowId
+                opts.destination = data.windowId
             }
 
             me.isSharedWorker && me.assignPort(data, opts);

@@ -156,9 +156,9 @@ class Main extends core.Base {
      * Keep in mind that this excludes anything DOM related or instances.
      * In case your path matches a method, you can also pass params for it.
      * @example:
-     *     Neo.Main.getByPath({path: 'navigator.language'}).then(data => {})
+     *     Neo.Main.getByPath({path: 'navigator.language', windowId}).then(data => {})
      * @example:
-     *     Neo.Main.getByPath({path: 'CSS.supports', params: ['display: flex']}).then(data => {})
+     *     Neo.Main.getByPath({path: 'CSS.supports', params: ['display: flex'], windowId}).then(data => {})
      * @param {Object} data
      * @param {Array}  data.params=[]
      * @param {String} data.path
