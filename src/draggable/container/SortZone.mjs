@@ -742,7 +742,8 @@ class SortZone extends DragZone {
         Neo.main.addon.DragDrop.startWindowDrag({
             popupHeight,
             popupName: windowName,
-            popupWidth
+            popupWidth,
+            windowId : me.windowId
         });
     }
 
