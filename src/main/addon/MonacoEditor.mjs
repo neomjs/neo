@@ -73,6 +73,10 @@ class MonacoEditor extends Base {
         delete data.appName;
         delete data.id;
 
+        if (me.map[id]) {
+            return
+        }
+
         if (node) {
             editor = me.map[id] = monaco.editor.create(node, data);
 
