@@ -196,6 +196,7 @@ class StrategyPanelController extends Controller {
 
         await Neo.Main.windowOpen({
             url,
+            windowId,
             windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${popupWidth}`,
             windowName    : name
         });

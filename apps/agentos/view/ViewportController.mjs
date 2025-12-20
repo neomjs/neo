@@ -125,6 +125,7 @@ class ViewportController extends Controller {
 
         await Neo.Main.windowOpen({
             url,
+            windowId      : this.windowId,
             windowName    : name,
             windowFeatures: 'height=600,width=800,left=50,top=50'
         });
@@ -221,6 +222,7 @@ class ViewportController extends Controller {
 
         await Neo.Main.windowOpen({
             url,
+            windowId,
             windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
             windowName    : name
         });
