@@ -44,7 +44,7 @@ class Blackboard extends Canvas {
             // Direct Remote Method Access call
             // The namespace AgentOS.canvas.Blackboard is auto-generated in this worker
             // by the RemoteMethodAccess mixin when the Canvas worker registers it.
-            await AgentOS.canvas.Blackboard.initGraph(me.getCanvasId());
+            await AgentOS.canvas.Blackboard.initGraph({canvasId: me.getCanvasId(), windowId: me.windowId});
 
             await me.updateSize()
         }
@@ -62,7 +62,7 @@ class Blackboard extends Canvas {
      */
     onDomResize(data) {
         super.onDomResize(data);
-        AgentOS.canvas.Blackboard.updateSize(data.contentRect)
+        this.updateSize(data.contentRect)
     }
 
     /**
@@ -73,13 +73,14 @@ class Blackboard extends Canvas {
         await AgentOS.canvas.Blackboard.updateGraphData(data);
     }
 
-    async updateSize() {
-        let me   = this,
-            rect = await me.getDomRect();
+    async updateSize(rect) {
+        let me = this;
 
-        if (rect) {
-            await AgentOS.canvas.Blackboard.updateSize({width: rect.width, height: rect.height})
+        if (!rect || rect.width === 0 || rect.height === 0) {
+            rect = await me.waitForDomRect({id: me.getCanvasId()})
         }
+
+        await AgentOS.canvas.Blackboard.updateSize({width: rect.width, height: rect.height})
     }
 }
 
