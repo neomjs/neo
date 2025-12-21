@@ -637,7 +637,11 @@ class List extends Component {
      * @param {String} [id=this.id]
      */
     focus(id=this.id) {
-        this.mounted && Neo.main.addon.Navigator.navigateTo([id, this.navigator])
+        this.mounted && Neo.main.addon.Navigator.navigateTo({
+            data    : this.navigator,
+            target  : id,
+            windowId: this.windowId
+        })
     }
 
     /**
@@ -862,9 +866,17 @@ class List extends Component {
 
         if (me.mounted) {
             if (Neo.isNumber(value)) {
-                navigateTo([me.getHeaderlessIndex(value), me.navigator])
+                navigateTo({
+                    data    : me.navigator,
+                    target  : me.getHeaderlessIndex(value),
+                    windowId: me.windowId
+                })
             } else if (value) {
-                navigateTo([me.getItemId(value[me.getKeyProperty()]), me.navigator])
+                navigateTo({
+                    data    : me.navigator,
+                    target  : me.getItemId(value[me.getKeyProperty()]),
+                    windowId: me.windowId
+                })
             }
         } else {
             me.on('mounted', () => {

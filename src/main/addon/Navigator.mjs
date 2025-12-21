@@ -114,7 +114,7 @@ class Navigator extends Base {
         // will have respond to that in navigateFocusInHandler.
         // If not, we navigate programmatically.
         if (target && !data.findFocusable(target)) {
-            this.navigateTo(target, data);
+            this.navigateTo({data, target});
         }
     }
 
@@ -245,7 +245,7 @@ class Navigator extends Base {
 
         if (newActiveElement) {
             keyEvent.preventDefault();
-            me.navigateTo(newActiveElement, data)
+            me.navigateTo({data, target: newActiveElement})
         }
     }
 
@@ -287,18 +287,23 @@ class Navigator extends Base {
             if (data.activeItem && !data.subject.contains(data.activeItem)) {
                 const allItems = data.subject.querySelectorAll(data.selector);
 
-                allItems.length && this.navigateTo(allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)], data)
+                allItems.length && this.navigateTo({
+                    data,
+                    target: allItems[Math.max(Math.min(data.activeIndex, allItems.length - 1), 0)]
+                })
             }
         }
     }
 
     /**
-     * Navigates to the passed
-     * @param {String|Number} newActiveElement The id of the new active element in the subject
-     * element, or the index of the item.
-     * @param {Object} data The data block as passed to {@link #subscribe}
+     * Navigates to the passed target
+     * @param {Object} config
+     * @param {Object} config.data The data block as passed to {@link #subscribe}
+     * @param {HTMLElement|Number|String} config.target The new active element, id or index
      */
-    navigateTo(newActiveElement, data) {
+    navigateTo(config) {
+        let {data, target} = config;
+
         if (!data.subject) {
             // If subject has been unmounted, we cannot navigate
             if (!(data = DomAccess.getElement(data.id)?.$navigator)) {
@@ -308,27 +313,27 @@ class Navigator extends Base {
 
         // Can navigate by index. This is useful if the active item is deleted.
         // We can navigate to the same index and preserve UI stability.
-        if (typeof newActiveElement === 'number') {
-            newActiveElement = data.subject.querySelectorAll(data.selector)?.[newActiveElement]
+        if (typeof target === 'number') {
+            target = data.subject.querySelectorAll(data.selector)?.[target]
         }
-        else if (typeof newActiveElement === 'string') {
-            newActiveElement = DomAccess.getElement(newActiveElement)
+        else if (typeof target === 'string') {
+            target = DomAccess.getElement(target)
         }
 
         // Could not do what was asked because we could not find the requested item
-        if (!newActiveElement) {
+        if (!target) {
             return;
         }
 
         // Scroll the target into view smoothly before we focus it without triggering a scroll
-        newActiveElement.scrollIntoView({
+        target.scrollIntoView({
             behavior : 'smooth',
             block    : 'nearest'
         });
 
         // Find a focusable element which may be the item, or inside the item to draw focus to.
         // For example a Chip list in which .neo-list-items contain focusable Chips.
-        const focusTarget = DomUtils.query(newActiveElement, DomUtils.isFocusable);
+        const focusTarget = DomUtils.query(target, DomUtils.isFocusable);
 
         // If the item contains a focusable, we focus it and then react in navigateFocusInHandler
         if (focusTarget) {
@@ -336,7 +341,7 @@ class Navigator extends Base {
         }
         // If not, we programmatically navigate there
         else {
-            this.setActiveItem(newActiveElement, data)
+            this.setActiveItem(target, data)
         }
     }
 

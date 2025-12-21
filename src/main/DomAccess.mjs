@@ -74,8 +74,6 @@ class DomAccess extends Base {
                 'measure',
                 'monitorAutoGrow',
                 'monitorAutoGrowHandler',
-                'navigate',
-                'navigateTo',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
