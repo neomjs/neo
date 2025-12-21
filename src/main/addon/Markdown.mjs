@@ -44,10 +44,11 @@ class Markdown extends Base {
 
     /**
      * Markdown to HTML converter
-     * @param {String} markdown string to convert
+     * @param {Object} data
+     * @param {String} data.markdown string to convert
      * @protected
      */
-    markdownToHtml(markdown) {
+    markdownToHtml({markdown}) {
         let converter = new showdown.Converter();
 
         return converter.makeHtml(markdown)

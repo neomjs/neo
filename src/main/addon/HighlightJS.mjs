@@ -84,7 +84,10 @@ class HighlightJS extends Base {
 
         await Promise.all([
             DomAccess.loadScript(me.highlightJsLineNumbersPath),
-            Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath)
+            Neo.main.addon.Stylesheet.createStyleSheet({
+                id  : 'hljs-theme',
+                href: me.themePath
+            })
         ])
     }
 
@@ -111,9 +114,10 @@ class HighlightJS extends Base {
 
     /**
      * You can pass in 'light', 'dark', or a path for a custom theme
-     * @param {String} theme
+     * @param {Object} data
+     * @param {String} data.theme
      */
-    switchTheme(theme) {
+    switchTheme({theme}) {
         let definedThemes = {
                 dark : './resources/lib/highlightjs-custom-dark-theme.css',
                 light: './resources/lib/highlightjs-custom-github-theme.css'
@@ -122,7 +126,10 @@ class HighlightJS extends Base {
 
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
-        Neo.main.addon.Stylesheet.createStyleSheet(null, 'hljs-theme', switchToTheme)
+        Neo.main.addon.Stylesheet.createStyleSheet({
+            id  : 'hljs-theme',
+            href: switchToTheme
+        })
     }
 
     /**
