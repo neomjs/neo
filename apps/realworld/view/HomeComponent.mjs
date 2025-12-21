@@ -97,12 +97,13 @@ class HomeComponent extends Component {
     construct(config) {
         super.construct(config);
 
-        Neo.main.DomEvents.registerPreventDefaultTargets({
-            name: 'click',
-            cls : 'prevent-click'
-        });
-
         let me = this;
+
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name    : 'click',
+            cls     : 'prevent-click',
+            windowId: me.windowId
+        });
 
         me.addDomListeners([
             {click: {fn: me.onNavLinkClick,     delegate: '.nav-link',  scope: me}},

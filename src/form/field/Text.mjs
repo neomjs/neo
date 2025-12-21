@@ -1123,14 +1123,14 @@ class Text extends Field {
 
         if (me.disabledChars) {
             Neo.main.DomEvents.unregisterDisabledInputChars({
-                id     : me.getInputEl().id,
-                window : me.windowId
+                id      : me.getInputEl().id,
+                windowId: me.windowId
             })
         }
 
         me.triggers?.forEach(trigger => {
             trigger.destroy()
-        })
+        });
 
         super.destroy(...args)
     }
