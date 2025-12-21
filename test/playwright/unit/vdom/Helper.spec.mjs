@@ -33,14 +33,14 @@ test.describe('Neo.vdom.Helper', () => {
             vtype     : 'vnode'
         });
 
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomState(vnode, vdom);
         expect(vdom.id).toBe(vnode.id);
     });
 
     test('Modify vdom.cls', () => {
         let vdom = {tag: 'div'};
         let { vnode } = VdomHelper.create({vdom});
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
 
         // Add first class
@@ -76,7 +76,7 @@ test.describe('Neo.vdom.Helper', () => {
     test('Modify vdom.style', () => {
         let vdom = {tag: 'div', cls: ['neo-container']};
         let { vnode } = VdomHelper.create({vdom});
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
 
         // Add style
@@ -104,7 +104,7 @@ test.describe('Neo.vdom.Helper', () => {
     test('Modify vdom attributes', () => {
         let vdom = {tag: 'div', cls: ['neo-container'], style: {color: 'green'}};
         let { vnode } = VdomHelper.create({vdom});
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
 
         // Add attribute
@@ -132,7 +132,7 @@ test.describe('Neo.vdom.Helper', () => {
     test('Modify vdom cn (childNodes)', () => {
         let vdom = {tag: 'div', cls: ['neo-container'], style: {color: 'green'}};
         let { vnode } = VdomHelper.create({vdom});
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
 
         // 1. Add childNodes
@@ -140,7 +140,7 @@ test.describe('Neo.vdom.Helper', () => {
         let output = VdomHelper.update({vdom, vnode});
         let deltas = output.deltas;
         vnode = output.vnode;
-        VDomUtil.syncVdomIds(vnode, vdom);
+        VDomUtil.syncVdomState(vnode, vdom);
 
         const childIds = vnode.childNodes.map(node => node.id);
 
