@@ -330,7 +330,8 @@ class Component extends BaseComponent {
                     Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
-                        value    : data[0].height - data[1].height
+                        value    : data[0].height - data[1].height,
+                        windowId : me.windowId
                     })
                 })
             })
@@ -704,7 +705,8 @@ class Component extends BaseComponent {
                     Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
-                        value    : data.clientHeight - me.headerHeight
+                        value    : data.clientHeight - me.headerHeight,
+                        windowId : me.windowId
                     })
                 })
             }

@@ -62,10 +62,9 @@ class Viewport extends Container {
     onConstructed() {
         super.onConstructed();
 
-        let {appName, windowId} = this;
+        let {windowId} = this;
 
         this.applyBodyCls && Neo.main.DomAccess.applyBodyCls({
-            appName,
             cls: ['neo-body-viewport'],
             windowId
         })

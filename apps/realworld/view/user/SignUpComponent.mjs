@@ -199,7 +199,8 @@ class SignUpComponent extends Component {
         // we could register an oninput event to this view as well and store the changes
         Neo.main.DomAccess.getAttributes({
             id        : ids,
-            attributes: 'value'
+            attributes: 'value',
+            windowId  : me.windowId
         }).then(data => {
             userData = {
                 user: {

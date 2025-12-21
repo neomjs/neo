@@ -193,7 +193,8 @@ class CreateComponent extends Component {
         if (event.key === 'Enter') {
             Neo.main.DomAccess.getAttributes({
                 id        : event.target.id,
-                attributes: 'value'
+                attributes: 'value',
+                windowId  : me.windowId
             }).then(data => {
                 VNodeUtil.find(me.vnode, {className: 'field-tags'}).vnode.attributes.value = data.value;
                 me.tagList = [...me._tagList, data.value];
@@ -218,7 +219,8 @@ class CreateComponent extends Component {
 
         Neo.main.DomAccess.getAttributes({
             id        : ids,
-            attributes: 'value'
+            attributes: 'value',
+            windowId  : me.windowId
         }).then(data => {
             ArticleApi[me.slug ? 'put' : 'post']({
                 data: JSON.stringify({

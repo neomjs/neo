@@ -219,7 +219,7 @@ class PrefixField extends Plugin {
         el.value = clean(value).join``;
         me.ignoreSelection = true;
 
-        Neo.main.DomAccess.selectNode({id: el.getInputElId(), start: i, end: j});
+        Neo.main.DomAccess.selectNode({id: el.getInputElId(), start: i, end: j, windowId: this.owner.windowId});
         me.ignoreSelection = false;
 
         me.back = false

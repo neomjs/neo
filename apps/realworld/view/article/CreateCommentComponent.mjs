@@ -120,7 +120,8 @@ class CreateCommentComponent extends Component {
         // we could register an oninput event to this view as well and store the changes
         Neo.main.DomAccess.getAttributes({
             id        : me.getInputElId(),
-            attributes: 'value'
+            attributes: 'value',
+            windowId  : me.windowId
         }).then(data => {
             me.getController().postComment({
                 data: JSON.stringify({
@@ -130,9 +131,9 @@ class CreateCommentComponent extends Component {
                 })
             }).then(data => {
                 me.vdom.cn[0].cn[0].value = ''; // reset the textarea value
-                me.update();
-            });
-        });
+                me.update()
+            })
+        })
     }
 }
 

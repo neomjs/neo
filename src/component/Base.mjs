@@ -1210,11 +1210,11 @@ class Component extends Abstract {
     /**
      * Convenience shortcut
      * @param {String[]|String} id=this.id
-     * @param {String} appName=this.appName
+     * @param {String} windowId=this.windowId
      * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
-    async getDomRect(id=this.id, appName=this.appName) {
-        let result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
+    async getDomRect(id=this.id, windowId=this.windowId) {
+        let result = await Neo.main.DomAccess.getBoundingClientRect({id, windowId});
 
         if (Array.isArray(result)) {
             return result.map(rect => Rectangle.clone(rect))

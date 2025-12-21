@@ -20,15 +20,15 @@ class MainContainerController extends ComponentController {
      * @param {Object} config
      */
     onToggleTheme(config) {
-        const
-            add         = (this.theme === 'light') ? 'dark' : 'light',
+        let me          = this,
+            add         = (me.theme === 'light') ? 'dark' : 'light',
             remove      = add === 'light' ? 'dark' : 'light',
-            themeButton = this.getReference('theme-button'),
+            themeButton = me.getReference('theme-button'),
             buttonIcon  = add === 'light' ? 'sun' : 'moon';
 
-        this.theme = add;
+        me.theme = add;
 
-        Neo.main.DomAccess.setBodyCls({remove: ['neo-theme-' + remove] , add: ['neo-theme-' + add]});
+        Neo.main.DomAccess.setBodyCls({remove: ['neo-theme-' + remove] , add: ['neo-theme-' + add], windowId: me.windowId});
         themeButton.iconCls = 'fa fa-' + buttonIcon
     }
 }
