@@ -111,7 +111,11 @@ class Provider extends Base {
          *     }
          * @reactive
          */
-        stores_: null
+        stores_: null,
+        /**
+         * @member {String|null} windowId=null
+         */
+        windowId: null
     }
 
     /**

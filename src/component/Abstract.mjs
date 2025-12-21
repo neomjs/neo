@@ -254,6 +254,9 @@ class Abstract extends Base {
         const me = this;
 
         if (value) {
+            me.controller    && (me.controller.windowId    = value);
+            me.stateProvider && (me.stateProvider.windowId = value);
+
             Neo.currentWorker.insertThemeFiles(value, me.__proto__)
         }
 
@@ -287,7 +290,7 @@ class Abstract extends Base {
 
         if (value) {
             let me            = this,
-                defaultValues = {component: me};
+                defaultValues = {component: me, windowId: me.windowId};
 
             if (me.modelData) {
                 defaultValues.data = me.modelData
