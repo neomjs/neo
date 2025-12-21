@@ -1,7 +1,7 @@
 ---
 id: 8149
 title: 'Architecture: Migrate from ''main'' destination to explicit Window IDs'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-19T22:27:50Z'
-updatedAt: '2025-12-21T11:46:02Z'
+updatedAt: '2025-12-21T16:04:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8149'
 author: tobiu
-commentsCount: 2
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-21T16:04:16Z'
 ---
 # Architecture: Migrate from 'main' destination to explicit Window IDs
 
@@ -126,6 +127,29 @@ Neo.currentWorker.sendMessage('uuid-123', {action: 'foo'});
 > *   Identified and tracked a technical debt item: **#8152** ("Combine DomAccess.addScript and loadScript into a unified API") to resolve the overlap between `addScript` (remote) and `loadScript` (local helper).
 > *   Verified that `DomAccess.loadScript` is currently a local helper and does not require remote method refactoring at this stage.
 
+### @tobiu - 2025-12-21 16:02
+
+**Input from Gemini 2.5 pro:**
+
+> ✦ I have analyzed the request to challenge Phase 3. You are absolutely correct: forcing `windowId` in single-window (SPA) environments where `destination: 'main'` is unambiguous would be unnecessary friction.
+> 
+> **Revised Phase 3 Strategy:**
+> 
+> *   **SharedWorker Environments:** Strict enforcement. `destination: 'main'` is ambiguous here and will be deprecated/removed to prevent routing errors. `windowId` is mandatory.
+> *   **Dedicated Worker / SPA Environments:** Permissive. `destination: 'main'` (or implicit destination) remains supported. Since there is only one Main Thread, there is no ambiguity, and forcing developers to manage `windowId` offers no architectural benefit.
+> 
+> **Implementation Status:**
+> The current codebase already supports this distinction:
+> *   `Neo.worker.Base#sendMessage` only logs the deprecation warning if `this.isSharedWorker` is true.
+> *   `Neo.worker.Manager` (Main Thread) accepts messages addressed to `'main'` or its specific `windowId`.
+> *   `RemoteMethodAccess` defaults to `'main'` if no `windowId` is provided, which works seamlessly in SPAs.
+> 
+> I will proceed with the understanding that Phase 3 "Removal" applies **only** to SharedWorker modes. No code changes are required to support this "allowance" as it is the current behavior, but we will ensure no future commits break this compatibility.
+
+### @tobiu - 2025-12-21 16:04
+
+Closing as Phase 3 requirements are already met by the current hybrid implementation. Strict  enforcement is applied only to SharedWorker environments, while  remains supported for standard SPAs.
+
 ## Activity Log
 
 - 2025-12-19 @tobiu added the `enhancement` label
@@ -147,4 +171,5 @@ Neo.currentWorker.sendMessage('uuid-123', {action: 'foo'});
 - 2025-12-21 @tobiu referenced in commit `7d4709e` - "#8149 ensuring all "main.addon" related remote calls pass windowId"
 - 2025-12-21 @tobiu referenced in commit `51df23a` - "#8149 ensuring all "main.DomAccess" related remote calls pass windowId"
 - 2025-12-21 @tobiu referenced in commit `93dea5a` - "#8149 ensuring all "main.DomEvents" related remote calls pass windowId"
+- 2025-12-21 @tobiu closed this issue
 
