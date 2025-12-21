@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "11.17.0",
+    "version"    : "11.17.1",
     "description": "Neo.mjs: The first Agent Operating System for the web. A standalone, type-safe AI SDK combined with a multi-threaded, zero-build platform for building autonomous agents and desktop-class web apps.",
     "type"       : "module",
     "repository": {
