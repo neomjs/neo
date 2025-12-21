@@ -44,13 +44,13 @@ class FormContainerController extends Component {
      * @param {Object} data
      */
     async onSaveButtonClick(data) {
-        let form       = this.getReference('main-form'),
+        let form       = me.getReference('main-form'),
             formValues = await form.getSubmitValues();
 
         Neo.main.addon.LocalStorage.updateLocalStorageItem({
-            appName: this.component.appName,
-            key    : 'neo-form',
-            value  : JSON.stringify(formValues)
+            key     : 'neo-form',
+            value   : JSON.stringify(formValues),
+            windowId: this.windowId
         })
     }
 }

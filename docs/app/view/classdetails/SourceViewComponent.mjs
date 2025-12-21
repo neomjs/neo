@@ -99,9 +99,9 @@ class SourceViewComponent extends Component {
             me.timeout(50).then(() => {
                 Neo.main.addon.HighlightJS.syntaxHighlightLine({
                     addLine   : me.line,
-                    appName   : me.appName,
                     removeLine: me.previousLine,
-                    vnodeId   : me.vdom.cn[0].cn[0].id
+                    vnodeId   : me.vdom.cn[0].cn[0].id,
+                    windowId  : me.windowId
                 })
             })
         }
@@ -146,8 +146,8 @@ class SourceViewComponent extends Component {
         let me = this;
 
         Neo.main.addon.HighlightJS.syntaxHighlight({
-            appName: me.appName,
-            vnodeId: me.vdom.cn[0].cn[0].id
+            vnodeId : me.vdom.cn[0].cn[0].id,
+            windowId: me.windowId
         }).then(() => {
             if (!me.isHighlighted) {
                 me.isHighlighted = true

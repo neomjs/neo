@@ -301,7 +301,7 @@ class ViewportController extends Controller {
      */
     async onEnableWindowManagementClick(data) {
         let me       = this,
-            response = await Neo.main.addon.DragDrop.requestWindowManagementPermission(),
+            response = await Neo.main.addon.DragDrop.requestWindowManagementPermission({windowId: me.windowId}),
             button   = me.getReference('window-management-button');
 
         if (response.success) {

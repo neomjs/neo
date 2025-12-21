@@ -340,7 +340,7 @@ class MembersList extends Base {
         me.update();
 
         me.timeout(100).then(() => {
-            Neo.main.addon.HighlightJS.syntaxHighlightInit()
+            Neo.main.addon.HighlightJS.syntaxHighlightInit({windowId: me.windowId})
         })
     }
 

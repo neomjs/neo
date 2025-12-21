@@ -19,7 +19,7 @@ class MainContainerController extends ComponentController {
      */
     construct(config) {
         super.construct(config);
-        Neo.main.addon.HighlightJS.switchTheme('dark')
+        Neo.main.addon.HighlightJS.switchTheme({theme: 'dark', windowId: this.windowId})
     }
 
     /**
@@ -84,8 +84,8 @@ class MainContainerController extends ComponentController {
             oVdom  = output.vdom;
 
         Neo.main.addon.HighlightJS.syntaxHighlight({
-            appName: me.component.appName,
-            vnodeId: oVdom.cn[0].id
+            vnodeId : oVdom.cn[0].id,
+            windowId: me.windowId
         })
     }
 }

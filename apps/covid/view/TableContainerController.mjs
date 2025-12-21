@@ -232,8 +232,10 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onDailyValuesChange(data) {
-        let chartId     = this.getReference('line-chart').id,
-            logCheckbox = this.getReference('logarithmic-scale-checkbox'),
+        let me          = this,
+            {windowId}  = me,
+            chartId     = me.getReference('line-chart').id,
+            logCheckbox = me.getReference('logarithmic-scale-checkbox'),
             value       = data.value;
 
         if (value) {
@@ -252,12 +254,14 @@ class TableContainerController extends ComponentController {
                 'series.values.1.dataFields.valueY' : value ? 'dailyCases'     : 'cases',
                 'series.values.2.dataFields.valueY' : value ? 'dailyDeaths'    : 'deaths',
                 'series.values.3.dataFields.valueY' : value ? 'dailyRecovered' : 'recovered'
-            }
+            },
+            windowId
         });
 
         Neo.main.addon.AmCharts.callMethod({
-            id  : chartId,
-            path: 'invalidateData'
+            id      : chartId,
+            path    : 'invalidateData',
+            windowId
         });
     }
 
@@ -266,9 +270,10 @@ class TableContainerController extends ComponentController {
      */
     onLogarithmicScaleChange(data) {
         Neo.main.addon.AmCharts.setProperty({
-            id   : this.getReference('line-chart').id,
-            path : 'yAxes.values.0.logarithmic',
-            value: data.value
+            id      : this.getReference('line-chart').id,
+            path    : 'yAxes.values.0.logarithmic',
+            value   : data.value,
+            windowId: this.windowId
         });
     }
 

@@ -216,7 +216,7 @@ class Component extends BaseComponent {
             });
 
             me.update();
-            me.onCurrentUserChange();
+            me.onCurrentUserChange()
         }
     }
 
@@ -228,16 +228,18 @@ class Component extends BaseComponent {
      */
     afterSetBody(value, oldValue) {
         if (value) {
-            Neo.main.addon.Markdown.markdownToHtml(value).then(html => {
-                VDomUtil.getByFlag(this.vdom, 'body').cn[0] = {
-                    cn: [{
-                        tag: 'p',
-                        html
-                    }]
+            let me = this;
+
+            Neo.main.addon.Markdown.markdownToHtml({
+                markdown: value,
+                windowId: me.windowId
+            }).then(html => {
+                VDomUtil.getByFlag(me.vdom, 'body').cn[0] = {
+                    cn: [{tag: 'p', html}]
                 };
 
-                this.update();
-            });
+                me.update()
+            })
         }
     }
 
@@ -255,7 +257,7 @@ class Component extends BaseComponent {
 
             if (!me.commentComponent) {
                 module = await import('./CommentComponent.mjs');
-                me.commentComponent = module.default;
+                me.commentComponent = module.default
             }
 
             container.cn = [container.cn.shift()]; // keep the CreateCommentComponent

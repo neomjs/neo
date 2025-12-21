@@ -58,8 +58,8 @@ class ViewportStateProvider extends StateProvider {
         super.construct(config);
 
         Neo.main.addon.LocalStorage.readLocalStorageItem({
-            appName: this.component.appName,
-            key    : 'neo-form'
+            key     : 'neo-form',
+            windowId: this.windowId
         }).then(data => {
             this.formData = JSON.parse(data.value);
         })

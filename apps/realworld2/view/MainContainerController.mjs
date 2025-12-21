@@ -222,16 +222,21 @@ class MainContainerController extends ComponentController {
      * @param {Object} userData
      */
     login(userData) {
-        this.currentUser = userData;
+        let me         = this,
+            {windowId} = me;
+
+        me.currentUser = userData;
 
         Neo.main.addon.LocalStorage.createLocalStorageItem({
             key  : LOCAL_STORAGE_KEY,
-            value: userData.token
+            value: userData.token,
+            windowId
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
-            this.timeout(50).then(() => {
+            me.timeout(50).then(() => {
                 Neo.Main.setRoute({
-                    value: '/'
+                    value: '/',
+                    windowId
                 })
             })
         })
@@ -241,15 +246,20 @@ class MainContainerController extends ComponentController {
      *
      */
     logout() {
-        this.currentUser = null;
+        let me         = this,
+            {windowId} = me;
+
+        me.currentUser = null;
 
         Neo.main.addon.LocalStorage.destroyLocalStorageItem({
-            key: LOCAL_STORAGE_KEY
+            key: LOCAL_STORAGE_KEY,
+            windowId
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
             this.timeout(50).then(() => {
                 Neo.Main.setRoute({
-                    value: '/'
+                    value: '/',
+                    windowId
                 })
             })
         })
