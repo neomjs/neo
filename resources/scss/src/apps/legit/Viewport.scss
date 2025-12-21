@@ -1,0 +1,126 @@
+.legit-viewport.neo-viewport {
+    // Custom Styling for a markdown component SVG child web component
+    .neo-worker-setup {
+         align-items      : center;
+         background-color : #17141c;
+         display          : flex;
+         height           : 100%;
+         justify-content  : center;
+         padding          : 20px;
+         width            : 100%;
+         --fill-opacity   : 0.05;
+         --stroke-opacity : 0.05;
+
+        &:hover {
+            --fill-opacity  : 1;
+            --stroke-opacity: 1;
+        }
+    }
+
+    .legit-commit-grid-panel {
+        border       : none;
+        border-radius: 11px;
+        box-shadow   : rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+
+        .neo-panel-header-toolbar {
+            background-color       : #fafafa;
+            border-top-right-radius: 11px;
+            border-top-left-radius : 11px;
+            height                 : 48px;
+        }
+    }
+
+    .legit-files-tree {
+        background-color: white;
+        padding         : 8px 2px 8px 8px;
+
+        &.neo-tree-list {
+            .neo-list-container {
+                .neo-list-item {
+                    &.neo-list-item-leaf {
+                        .neo-list-item-content:after {
+                            content: none !important;
+                        }
+                    }
+
+                    .neo-list-item-content:before {
+                        content: unset !important;
+                    }
+
+                    &.neo-list-folder {
+                        .neo-list-item-content:after {
+                            content: "\f078" !important;
+                        }
+
+                        .neo-list-item-content:before {
+                            content: unset !important;
+                        }
+
+                        &.neo-folder-open {
+                            .neo-list-item-content:after {
+                                content: "\f054" !important;
+                            }
+
+                            .neo-list-item-content:before {
+                                content: unset !important;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        .neo-list-container {
+            padding: 3px;
+        }
+
+        .neo-list-container>.neo-list-item {
+            font-size  : 18px !important;
+            font-weight: 500;
+        }
+
+        .neo-list-item {
+            border-radius   : 8px;
+            margin-right    : 0 !important;
+            padding         : 0 0 0 16px !important;
+            height          : 48px;
+            display         : flex;
+            align-items     : center;
+            margin-bottom   : 3px;
+        }
+
+        .neo-list-container ul {
+            padding: 0 !important;
+
+            .neo-list-item {
+                padding: 0 0 3px 32px !important;
+            }
+
+            ul .neo-list-item {
+                padding: 0 0 0 48px !important;
+            }
+        }
+
+        .neo-list-folder {
+            .neo-list-item-content {
+                width           : 100%;
+                display         : flex;
+                justify-content : space-between;
+
+                &:after {
+                    color       : var(--list-item-glyph-color);
+                    content     : "\f0c8";
+                    display     : inline-block;
+                    font-family : 'Material Icons';
+                    font-size   : 18px;
+                    width       : 25px;
+                    padding-top : 4px;
+                }
+
+                &:before {
+                    content: unset !important;
+                }
+            }
+        }
+    }
+}

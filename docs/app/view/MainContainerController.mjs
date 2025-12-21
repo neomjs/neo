@@ -33,9 +33,9 @@ class MainContainerController extends Component {
     construct(config) {
         super.construct(config);
 
-        let me      = this,
-            appName = me.component.appName,
-            opts    = {appName, windowId: me.component.windowId};
+        let me        = this,
+            {appName} = me.component,
+            opts      = {windowId: me.windowId};
 
         if (appName === 'Portal') {
             opts.highlightJsPath = '../../docs/resources/lib/highlight/highlight.pack.js';

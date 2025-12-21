@@ -208,7 +208,7 @@ class DragDrop extends Base {
                 endDate,
                 startDate,
                 title     : 'New Event'
-            })[0];
+            }, true)[0];
 
             // we need to cache a reference to make the record accessible for onColumnDragEnd()
             me[newRecordSymbol] = record;

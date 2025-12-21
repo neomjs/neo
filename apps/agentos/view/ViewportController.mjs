@@ -10,16 +10,19 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @member {String[]} connectedApps=[]
+     * @member {String[]} connectedWidgets=[]
      */
-    connectedApps = []
-
+    connectedWidgets = []
+    /**
+     * @member {Boolean} #isReintegrating=false
+     * @private
+     */
+    #isReintegrating = false
     /**
      * @member {Boolean} #isWindowDragging=false
      * @private
      */
     #isWindowDragging = false
-
     /**
      * @member {Object} widgetIndexMap
      */
@@ -46,82 +49,25 @@ class ViewportController extends Controller {
 
     /**
      * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onWindowConnect(data) {
-        if (data.appName === 'AgentOSWidget' || data.appName === 'AgentSwarm') {
-            let me         = this,
-                app        = Neo.apps[data.windowId],
-                mainView   = app.mainView,
-                {windowId} = data,
-                url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-                widgetName = new URL(url).searchParams.get('name'),
-                widget     = me.getReference(widgetName),
-                parent     = widget.up('panel');
-
-            if (!me.#isWindowDragging) {
-                parent.hide()
-            }
-
-            me.connectedApps.push(widgetName);
-
-            // Add the widget to the popup window
-            mainView.add(widget)
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onWindowDisconnect(data) {
-        let me = this;
-
-        if (me.#isWindowDragging) {
-            me.#isWindowDragging = false;
-                return
-        }
-
-        let {appName, windowId} = data;
-
-        if (appName === 'AgentOSWidget' || appName === 'AgentSwarm') {
-            let url           = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-                dashboard     = me.getReference('dashboard'),
-                widgetName    = new URL(url).searchParams.get('name'),
-                widget        = me.getReference(widgetName),
-                itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
-                bodyContainer = itemPanel.getReference('bodyContainer');
-
-            bodyContainer.add(widget);
-            itemPanel.show();
-        } else if (appName === 'AgentOS') {
-            Neo.Main.windowClose({names: me.connectedApps, windowId})
-        }
-    }
-
-    /**
-     * @param {Object} data
      */
     async onDragBoundaryEntry(data) {
         let me            = this,
             {windowId}    = me,
             {sortZone}    = data,
-            widgetName    = data.draggedItem.reference.replace('-panel', ''),
-            widget        = me.getReference(widgetName),
-            dashboard     = me.getReference('dashboard'),
-            itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
-            bodyContainer = itemPanel.getReference('bodyContainer');
+            widgetName    = data.draggedItem.reference,
+            widget        = me.getReference(widgetName);
+
+        me.#isReintegrating = true;
+
+        sortZone.dragProxy.add(widget, true); // Silent
 
         await Neo.Main.windowClose({names: widgetName, windowId});
 
-        bodyContainer.add(widget);
-
+        me.#isReintegrating  = false;
         me.#isWindowDragging = false;
 
         sortZone.isWindowDragging = false;
-        sortZone.dragProxy.hidden = false;
+        sortZone.dragProxy.style = {opacity: 1};
 
         Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
     }
@@ -131,20 +77,33 @@ class ViewportController extends Controller {
      */
     async onDragBoundaryExit(data) {
         let {draggedItem, proxyRect, sortZone} = data,
-            widgetName                         = draggedItem.reference.replace('-panel', ''),
+            me         = this,
+            widgetName = draggedItem.reference,
             popupData;
 
-        this.#isWindowDragging = true;
-
-        // Prohibit the size reduction inside #openWidgetInPopup().
-        proxyRect.height += 50;
+        me.draggedItem       = draggedItem;
+        me.#isWindowDragging = true;
 
         popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
 
         sortZone.startWindowDrag({
             dragData: data,
             ...popupData
-        });
+        })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        let me = this;
+
+        if (me.#isWindowDragging && me.draggedItem) {
+            me.getReference('dashboard').remove(me.draggedItem, false, false);
+            me.draggedItem = null
+        }
+
+        me.#isWindowDragging = false
     }
 
     /**
@@ -166,9 +125,69 @@ class ViewportController extends Controller {
 
         await Neo.Main.windowOpen({
             url,
+            windowId      : this.windowId,
             windowName    : name,
             windowFeatures: 'height=600,width=800,left=50,top=50'
         });
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onWindowConnect(data) {
+        if (data.appName === 'AgentOSWidget' || data.appName === 'AgentSwarm') {
+            let me         = this,
+                app        = Neo.apps[data.windowId],
+                mainView   = app.mainView,
+                {windowId} = data,
+                url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName = new URL(url).searchParams.get('name');
+
+            let widget = me.getReference(widgetName);
+
+            widget.wrapperStyle = {};
+
+            me.connectedWidgets.push(widgetName);
+
+            // Add the widget to the popup window
+            mainView.add(widget, false, !me.#isWindowDragging)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Number} data.windowId
+     */
+    async onWindowDisconnect(data) {
+        let me = this;
+
+        if (me.#isWindowDragging || me.#isReintegrating) {
+            me.#isWindowDragging = false;
+            return
+        }
+
+        let {appName, windowId} = data;
+
+        if (appName === 'AgentOSWidget' || appName === 'AgentSwarm') {
+            let url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+                widgetName = new URL(url).searchParams.get('name'),
+                dashboard = me.getReference('dashboard'),
+                widget    = me.getReference(widgetName);
+
+            dashboard.insert(me.widgetIndexMap[widgetName], widget);
+
+            // Remove from connected list
+            let idx = me.connectedWidgets.indexOf(widgetName);
+            if (idx > -1) {
+                me.connectedWidgets.splice(idx, 1);
+            }
+        } else if (appName === 'AgentOS') {
+            // Main app closing, close all popups
+            Neo.Main.windowClose({names: me.connectedWidgets, windowId})
+        }
     }
 
     /**
@@ -203,6 +222,7 @@ class ViewportController extends Controller {
 
         await Neo.Main.windowOpen({
             url,
+            windowId,
             windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
             windowName    : name
         });

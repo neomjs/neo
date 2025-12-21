@@ -5,7 +5,6 @@ import DomEvents from '../DomEvents.mjs';
 /**
  * @class Neo.main.addon.ResizeObserver
  * @extends Neo.main.addon.Base
- * @singleton
  */
 class NeoResizeObserver extends Base {
     static config = {

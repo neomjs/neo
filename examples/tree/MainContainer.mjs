@@ -56,12 +56,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module        : CheckBox,
-            checked       : treeList.sortable,
+            checked       : treeList.dragResortable,
             hideLabel     : true,
             hideValueLabel: false,
-            listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
+            listeners     : {change: me.onConfigChange.bind(me, 'dragResortable')},
             style         : {marginTop: '10px'},
-            valueLabel    : 'sortable'
+            valueLabel    : 'dragResortable'
         }, {
             module   : NumberField,
             clearable: true,

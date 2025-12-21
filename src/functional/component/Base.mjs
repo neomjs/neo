@@ -1,6 +1,7 @@
 import Abstract         from '../../component/Abstract.mjs';
 import Effect           from '../../core/Effect.mjs';
 import NeoArray         from '../../util/Array.mjs';
+import VDomUtil         from '../../util/VDom.mjs';
 import {isHtmlTemplate} from '../util/html.mjs';
 
 const
@@ -269,7 +270,7 @@ class FunctionalBase extends Abstract {
         // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
         // This is crucial for functional components where the vdom is recreated on every render,
         // ensuring the diffing algorithm can track nodes correctly.
-        me.syncVdomIds();
+        me.syncVdomState();
 
         if (me.beforeUpdate() !== false) {
             me.updateVdom()

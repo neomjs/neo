@@ -471,7 +471,8 @@ class Component extends BaseComponent {
                 appName  : me.appName,
                 direction: 'left',
                 id       : scrollContainerId,
-                value    : rect.width * me.columnsBuffer / me.columnsVisible / 3
+                value    : rect.width * me.columnsBuffer / me.columnsVisible / 3,
+                windowId : me.windowId
             })
         }
     }
@@ -819,7 +820,8 @@ class Component extends BaseComponent {
                     Neo.main.DomAccess.scrollBy({
                         direction: 'left',
                         id       : me.getScrollContainer().id,
-                        value    : scrollValue
+                        value    : scrollValue,
+                        windowId : me.windowId
                     }).then(() => {
                         me.isUpdating = false
                     })

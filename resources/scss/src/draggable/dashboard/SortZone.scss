@@ -1,7 +1,7 @@
 .neo-dashboard {
     .neo-panel {
         transition-duration       : 200ms;
-        transition-property       : left, top;
+        transition-property       : height, left, top, width;
         transition-timing-function: ease-out;
     }
 }

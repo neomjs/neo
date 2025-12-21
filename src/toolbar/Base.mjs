@@ -52,33 +52,6 @@ class Toolbar extends Container {
             align    : 'center',
             direction: 'row',
             pack     : 'start'
-        },
-        /**
-         * @member {Boolean} sortable_=false
-         * @reactive
-         */
-        sortable_: false,
-        /**
-         * @member {Neo.draggable.toolbar.SortZone|null} sortZone=null
-         */
-        sortZone: null,
-        /**
-         * @member {Object} sortZoneConfig=null
-         */
-        sortZoneConfig: null
-    }
-
-    /**
-     * Triggered after the appName config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetAppName(value, oldValue) {
-        super.afterSetAppName(value, oldValue);
-
-        if (this.sortZone) {
-            this.sortZone.appName = value
         }
     }
 
@@ -108,43 +81,6 @@ class Toolbar extends Container {
         } else {
             me.layout.set(layoutConfig);
             me.cls = cls;
-        }
-    }
-
-    /**
-     * Triggered after the sortable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetSortable(value, oldValue) {
-        let me = this;
-
-        if (value && !me.sortZone) {
-            import('../draggable/toolbar/SortZone.mjs').then(module => {
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    appName            : me.appName,
-                    boundaryContainerId: me.id,
-                    owner              : me,
-                    windowId           : me.windowId,
-                    ...me.sortZoneConfig
-                })
-            })
-        }
-    }
-
-    /**
-     * Triggered after the windowId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     * @protected
-     */
-    afterSetWindowId(value, oldValue) {
-        super.afterSetWindowId(value, oldValue);
-
-        if (this.sortZone) {
-            this.sortZone.windowId = value
         }
     }
 

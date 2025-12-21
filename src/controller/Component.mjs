@@ -33,7 +33,7 @@ class Component extends Base {
          */
         references: null,
         /**
-         * @member {Number|null} windowId=null
+         * @member {String|null} windowId=null
          */
         windowId: null
     }

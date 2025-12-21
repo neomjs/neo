@@ -86,6 +86,28 @@ class Worker extends Base {
     afterConnect() {}
 
     /**
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    hasWorker(name) {
+        switch (name) {
+            case 'app':
+            case 'data':
+                return true;
+            case 'canvas':
+                return Neo.config.useCanvasWorker;
+            case 'service':
+                return Neo.config.useServiceWorker;
+            case 'task':
+                return Neo.config.useTaskWorker;
+            case 'vdom':
+                return Neo.config.useVdomWorker;
+        }
+
+        return false
+    }
+
+    /**
      * @param {Object} opts
      * @returns {Object|null}
      */
@@ -144,7 +166,7 @@ class Worker extends Base {
         // core.Base: initRemote() subscribes to this event for the SharedWorkers context
         me.fire('connected');
 
-        me.sendMessage('main', {action: 'workerConstructed', port: id});
+        me.sendMessage(id, {action: 'workerConstructed', port: id});
 
         me.afterConnect()
     }
@@ -158,7 +180,7 @@ class Worker extends Base {
         let me = this;
 
         if (!me.isSharedWorker) {
-            me.sendMessage('main', {action: 'workerConstructed'});
+            me.sendMessage(Neo.config.windowId, {action: 'workerConstructed'});
             me.afterConnect()
         }
     }
@@ -303,6 +325,10 @@ class Worker extends Base {
      * @protected
      */
     sendMessage(dest, opts, transfer) {
+        if (dest === 'main' && this.isSharedWorker) {
+            console.warn('sendMessage destination "main" is deprecated. Use a windowId instead.', opts)
+        }
+
         opts.destination = dest;
 
         let me = this,
@@ -313,7 +339,13 @@ class Worker extends Base {
         } else if (!me.isSharedWorker) {
             port = globalThis
         } else {
-            if (opts.port) {
+            // Check if dest is a direct target (Window ID or Port ID)
+            portObject = me.getPort({windowId: dest}) || me.getPort({id: dest});
+
+            if (portObject) {
+                port      = portObject.port;
+                opts.port = portObject.id
+            } else if (opts.port) {
                 port = me.getPort({id: opts.port}).port
             } else if (opts.windowId) {
                 portObject = me.getPort({windowId: opts.windowId});

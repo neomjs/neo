@@ -33,14 +33,6 @@ class VdomLifecycle extends Base {
          */
         autoMount: false,
         /**
-         * Internal flag for vdom changes after a component got unmounted
-         * (delta updates can no longer get applied & a new render call is required before re-mounting)
-         * @member {Boolean} hasUnmountedVdomChanges_=false
-         * @protected
-         * @reactive
-         */
-        hasUnmountedVdomChanges_: false,
-        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating_=false
          * @protected
@@ -105,29 +97,6 @@ class VdomLifecycle extends Base {
          * @reactive
          */
         vnodeInitialized_: false
-    }
-
-    /**
-     * Triggered after the hasUnmountedVdomChanges config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetHasUnmountedVdomChanges(value, oldValue) {
-        if (value || (!value && oldValue)) {
-            let parentIds = ComponentManager.getParentIds(this),
-                i         = 0,
-                len       = parentIds.length,
-                parent;
-
-            for (; i < len; i++) {
-                parent = Neo.getComponent(parentIds[i]);
-
-                if (parent) {
-                    parent._hasUnmountedVdomChanges = value // silent update
-                }
-            }
-        }
     }
 
     /**
@@ -248,7 +217,6 @@ class VdomLifecycle extends Base {
                     await Neo.applyDeltas(me.windowId, data.deltas)
                 }
 
-                me.isVdomUpdating = false;
                 me.resolveVdomUpdate(data)
             }
         } catch (err) {
@@ -371,6 +339,9 @@ class VdomLifecycle extends Base {
         if (me.vdom) {
             me.isVdomUpdating = true;
 
+            // Ensure child components do not trigger updates while the vnode generation is in progress
+            VDomUpdate.registerInFlightUpdate(me.id, -1);
+
             delete me.vdom.removeDom;
 
             me._needsVdomUpdate = false;
@@ -386,9 +357,21 @@ class VdomLifecycle extends Base {
             }));
 
             me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
-            me.isVdomUpdating = false;
 
-            autoMount && !useVdomWorker && me.mount();
+            if (autoMount && !useVdomWorker) {
+                // When running without a VdomWorker, Helper.create is local and returns a plain object.
+                // We must manually send the insertNode delta to the main thread.
+                await Neo.applyDeltas(me.windowId, [{
+                    action   : 'insertNode',
+                    id       : me.id,
+                    index    : me.getMountedParentIndex(),
+                    outerHTML: data.outerHTML,
+                    parentId : me.getMountedParentId(),
+                    vnode    : data.vnode
+                }]);
+
+                me.mounted = true
+            }
 
             me.resolveVdomUpdate();
 
@@ -526,6 +509,8 @@ class VdomLifecycle extends Base {
     resolveVdomUpdate(data) {
         let me = this;
 
+        me.isVdomUpdating = false;
+
         // Execute callbacks for merged updates
         VDomUpdate.executeCallbacks(me.id, data);
 
@@ -542,13 +527,13 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
+     * Placeholder method for util.VDom.syncVdomState to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
      * @param {Boolean} force=false
      */
-    syncVdomIds(vnode=this.vnode, vdom=this.vdom, force=false) {
-        VDomUtil.syncVdomIds(vnode, vdom, force)
+    syncVdomState(vnode=this.vnode, vdom=this.vdom, force=false) {
+        VDomUtil.syncVdomState(vnode, vdom, force)
     }
 
     /**
@@ -569,7 +554,7 @@ class VdomLifecycle extends Base {
             start = performance.now()
         }
 
-        me.syncVdomIds();
+        me.syncVdomState();
 
         if (vnode && me.id !== vnode.id) {
             ComponentManager.registerWrapperNode(vnode.id, me)
@@ -682,8 +667,6 @@ class VdomLifecycle extends Base {
                 }
             }
         }
-
-        me.hasUnmountedVdomChanges = !mounted && me.hasBeenMounted
     }
 }
 

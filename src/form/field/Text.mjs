@@ -406,9 +406,9 @@ class Text extends Field {
             let me = this;
 
             Neo.main.DomEvents.registerDisabledInputChars({
-                appName: me.appName,
-                chars  : value,
-                id     : me.getInputEl().id
+                chars   : value,
+                id      : me.getInputEl().id,
+                windowId: me.windowId
             })
         }
     }
@@ -1123,14 +1123,14 @@ class Text extends Field {
 
         if (me.disabledChars) {
             Neo.main.DomEvents.unregisterDisabledInputChars({
-                appName: me.appName,
-                id     : me.getInputEl().id
+                id      : me.getInputEl().id,
+                windowId: me.windowId
             })
         }
 
         me.triggers?.forEach(trigger => {
             trigger.destroy()
-        })
+        });
 
         super.destroy(...args)
     }

@@ -163,8 +163,9 @@ class MainContainer extends Viewport {
         }
 
         Neo.main.DomAccess.setBodyCls({
-            add   : [theme],
-            remove: [oldTheme]
+            add     : [theme],
+            remove  : [oldTheme],
+            windowId: this.windowId
         });
 
         button.set({

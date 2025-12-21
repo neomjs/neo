@@ -176,7 +176,6 @@ class TextArea extends Text {
         if (me.autoGrow && me.mounted && me.readOnly) {
             me.timeout(50).then(() => {
                 Neo.main.DomAccess.monitorAutoGrowHandler({
-                    appName : me.appName,
                     id      : inputEl.id,
                     windowId: me.windowId
                 })
@@ -214,9 +213,9 @@ class TextArea extends Text {
         if (me.mounted && me.autoGrow) {
             // Delegate monitoring of sizes to the main thread.
             Neo.main.DomAccess.monitorAutoGrow({
-                appName  : me.appName,
                 id       : me.getInputElId(),
-                autoGrow : me.autoGrow
+                autoGrow : me.autoGrow,
+                windowId : me.windowId
             })
         }
     }

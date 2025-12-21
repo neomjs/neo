@@ -57,7 +57,7 @@ class ListModel extends Model {
     /**
      * @param {Object} data
      */
-    onListClick({ currentTarget }) {
+    onListClick({currentTarget}) {
         let {view} = this,
             record;
 

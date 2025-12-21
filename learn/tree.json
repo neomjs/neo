@@ -35,6 +35,7 @@
             {"name": "Codebase Overview",                              "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/CodebaseOverview"},
             {"name": "Application Bootstrap",                          "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ApplicationBootstrap"},
             {"name": "Instance Lifecycle",                             "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/InstanceLifecycle"},
+            {"name": "Worker Architecture & Messaging",                "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/WorkerArchitecture"},
             {"name": "Declarative Component Trees VS Imperative Vdom", "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom"},
             {"name": "Declarative VDOM with Effects",                  "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeVDOMWithEffects"},
             {"name": "Config System Deep Dive",                        "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ConfigSystemDeepDive"},

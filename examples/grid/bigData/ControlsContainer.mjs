@@ -43,9 +43,9 @@ class ControlsContainer extends Container {
             handler: 'up.onControlsToggleButtonClick',
             iconCls: 'fas fa-bars'
         }, {
-            module  : TabContainer,
-            cls     : ['neo-examples-bigdata-controls-container-content'],
-            sortable: true,
+            module        : TabContainer,
+            cls           : ['neo-examples-bigdata-controls-container-content'],
+            dragResortable: true,
 
             headerToolbar: {
                 sortZoneConfig: {

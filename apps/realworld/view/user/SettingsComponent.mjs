@@ -203,7 +203,8 @@ class SettingsComponent extends Component {
 
         Neo.main.DomAccess.getAttributes({
             id        : [bio.id, email.id, image.id, password.id, userName.id],
-            attributes: 'value'
+            attributes: 'value',
+            windowId  : me.windowId
         }).then(data => {
             me.getController().updateSettings({
                 data: JSON.stringify({

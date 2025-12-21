@@ -91,11 +91,6 @@ class Main extends core.Base {
          */
         totalFrameCount: 0,
         /**
-         * @member {Array} updateQueue=[]
-         * @protected
-         */
-        updateQueue: [],
-        /**
          * @member {Array} writeQueue=[]
          * @protected
          */
@@ -111,11 +106,9 @@ class Main extends core.Base {
         let me = this;
 
         WorkerManager.on({
-            'automount'        : me.onRender,
-            'message:mountDom' : me.onMountDom,
-            'message:updateDom': me.onUpdateDom,
-            'updateVdom'       : me.onUpdateVdom,
-            scope              : me
+            'automount' : me.onRender,
+            'updateVdom': me.onUpdateVdom,
+            scope       : me
         });
 
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
@@ -163,9 +156,9 @@ class Main extends core.Base {
      * Keep in mind that this excludes anything DOM related or instances.
      * In case your path matches a method, you can also pass params for it.
      * @example:
-     *     Neo.Main.getByPath({path: 'navigator.language'}).then(data => {})
+     *     Neo.Main.getByPath({path: 'navigator.language', windowId}).then(data => {})
      * @example:
-     *     Neo.Main.getByPath({path: 'CSS.supports', params: ['display: flex']}).then(data => {})
+     *     Neo.Main.getByPath({path: 'CSS.supports', params: ['display: flex'], windowId}).then(data => {})
      * @param {Object} data
      * @param {Array}  data.params=[]
      * @param {String} data.path
@@ -289,23 +282,12 @@ class Main extends core.Base {
 
         const instances = modules.map(module => me.registerAddon(module.default));
 
-        await Promise.all(instances.map(instance => instance.ready()));
+        await Promise.all(instances.map(instance => instance.remotesReady()));
+
+        await me.remotesReady();
 
         WorkerManager.onWorkerConstructed({
             origin: 'main'
-        })
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMountDom(data) {
-        this.queueWrite(data);
-
-        WorkerManager.sendMessage(data.origin || 'app', {
-            action : 'reply',
-            replyId: data.id,
-            success: true
         })
     }
 
@@ -320,18 +302,9 @@ class Main extends core.Base {
     /**
      * @param {Object} data
      */
-    onUpdateDom(data) {
-        if (!data.windowId || data.windowId === WorkerManager.windowId) {
-            this.queueUpdate(data)
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
     onUpdateVdom(data) {
         data.data.replyId = data.replyId;
-        this.queueUpdate(data.data)
+        this.queueWrite(data.data)
     }
 
     /**
@@ -353,8 +326,6 @@ class Main extends core.Base {
             } else {
                 if (mode === 'read') {
                     DomAccess.read(operation)
-                } else if (mode === 'write') {
-                    DeltaUpdates.insertNode(operation)
                 } else {
                     DeltaUpdates.update(operation)
                 }
@@ -371,20 +342,6 @@ class Main extends core.Base {
     queueRead(data) {
         let me = this;
         me.readQueue.push(data);
-
-        if (!me.running) {
-            me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me))
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    queueUpdate(data) {
-        let me = this;
-        me.updateQueue.push(data);
 
         if (!me.running) {
             me.running = true;
@@ -423,11 +380,11 @@ class Main extends core.Base {
         if (Neo.typeOf(addon) === 'NeoClass') {
             // Addons could get imported multiple times. Ensure to only create an instance once.
             if (Neo.typeOf(Neo.ns(addon.prototype.className)) !== 'NeoInstance') {
-                addon = Neo.create(addon)
-            }
+                addon = Neo.create(addon);
 
-            // Main thread addons need to get registered as singletons inside the neo namespace
-            Neo.applyToGlobalNs(addon)
+                // Main thread addons need to get registered as singletons inside the neo namespace
+                Neo.applyToGlobalNs(addon)
+            }
         }
 
         this.addon[addon.constructor.name] = addon;
@@ -449,7 +406,6 @@ class Main extends core.Base {
     renderFrame() {
         let me      = this,
             read    = me.readQueue,
-            update  = me.updateQueue,
             write   = me.writeQueue,
             reading = me.mode === 'read',
             start   = new Date();
@@ -462,13 +418,6 @@ class Main extends core.Base {
         if (reading || !write.length) {
             me.mode = 'read';
             if (me.processQueue(read, start)) {
-                return
-            }
-        }
-
-        if (update.length) {
-            me.mode = 'update';
-            if (me.processQueue(update, start)) {
                 return
             }
         }
@@ -517,7 +466,7 @@ class Main extends core.Base {
         }
 
         data.names.forEach(name => {
-            this.openWindows[name]?.close();
+            this.openWindows[name]?.win.close();
             delete this.openWindows[name]
         })
     }
@@ -527,9 +476,8 @@ class Main extends core.Base {
      * @param {Object} data
      */
     windowCloseAll(data) {
-        Object.values(this.openWindows).forEach(value => {
-            console.log(value);
-            value.close()
+        Object.values(this.openWindows).forEach(obj => {
+            obj.win.close()
         });
 
         this.openWindows = {}
@@ -543,23 +491,37 @@ class Main extends core.Base {
      * @param {String} data.y
      */
     windowMoveTo(data) {
-        this.openWindows[data.windowName]?.moveTo(data.x, data.y)
+        this.openWindows[data.windowName]?.win.moveTo(data.x, data.y)
     }
 
     /**
-     * Open a new popup window and return if successful
-     * @param {Object} data
-     * @param {String} data.url
-     * @param {String} data.windowFeatures
-     * @param {String} data.windowName
+     * Open a new popup window and return true if successful
+     * @param {Object}  data
+     * @param {String}  data.url
+     * @param {Boolean} [data.useTotalHeight=true] Using this flag will set outerHeight to innerHeight, ignoring header tools
+     * @param {String}  data.windowFeatures
+     * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen(data) {
-        let openedWindow = window.open(data.url, data.windowName, data.windowFeatures),
+    windowOpen({url, useTotalHeight=true, windowFeatures, windowName}) {
+        let existingWin  = this.openWindows[windowName],
+            targetName;
+
+        if (existingWin && !existingWin.win.closed) {
+            targetName = existingWin.targetName
+        } else {
+            targetName = crypto.randomUUID()
+        }
+
+        let openedWindow = window.open(url, targetName, windowFeatures),
             success      = !!openedWindow;
 
         if (success) {
-            this.openWindows[data.windowName] = openedWindow
+            if (useTotalHeight) {
+                openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
+            }
+
+            this.openWindows[windowName] = {targetName, win: openedWindow}
         }
 
         return success
@@ -573,7 +535,7 @@ class Main extends core.Base {
      * @param {String} data.windowName
      */
     windowResizeTo(data) {
-        let win    = this.openWindows[data.windowName],
+        let win    = this.openWindows[data.windowName]?.win,
             height = data.height || win.outerHeight,
             width  = data.width  || win.outerWidth;
 

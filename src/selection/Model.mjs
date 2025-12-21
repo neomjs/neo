@@ -236,7 +236,13 @@ class Model extends Base {
 
         let me      = this,
             {view}  = me,
-            records = [...items]; // Potential records
+            records = items.map(item => {
+                if (item.isRecord) return item;
+
+                const recordId = view.getItemRecordId?.(item);
+
+                return recordId && view.store?.get(recordId) || item
+            });
 
         // We hold vdom ids for now, so all incoming selections must be converted.
         items = items.map(item => item.isRecord ? view.getItemId(item) : Neo.isObject(item) ? item.id : item);
@@ -263,6 +269,11 @@ class Model extends Base {
 
             view.parent?.onSelect?.(items); // grid.Container & table.Container
             view.onSelect?.(items);
+
+            view.fire('select', {
+                records,
+                selection: itemCollection
+            });
 
             me.fire('selectionChange', {
                 records,

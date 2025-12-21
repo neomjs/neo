@@ -10,15 +10,20 @@ const DomApiRenderer = {
      * 2. If `isRoot` is false (default for recursive calls):
      *   Appends created DOM nodes directly to the provided `parentNode` (which is the DOM element of the direct parent VNode).
      *
+     * In addition, this method handles post-processing for nodes that require a live DOM context (e.g., applying scroll state).
+     * It collects these nodes in `postMountUpdates` during the recursive build phase and applies the updates immediately
+     * after the root element is inserted into the document.
+     *
      * @param {Object}      config
-     * @param {Number}      [config.index]           The index within `parentNode` to insert the root fragment (used when `isRoot` is true).
-     * @param {Boolean}     [config.isRoot=false]    If true, this is the root call for the VNode tree.
-     * @param {HTMLElement} [config.parentNode=null] The parent DOM node to insert into. Its role changes based on `isRoot`.
-     * @param {Object}      config.vnode             The VNode object to convert to a real DOM element.
+     * @param {Number}      [config.index]               The index within `parentNode` to insert the root fragment (used when `isRoot` is true).
+     * @param {Boolean}     [config.isRoot=false]        If true, this is the root call for the VNode tree.
+     * @param {HTMLElement} [config.parentNode=null]     The parent DOM node to insert into. Its role changes based on `isRoot`.
+     * @param {Object[]}    [config.postMountUpdates=[]] Array to store nodes that need post-mount updates (e.g. scroll state).
+     * @param {Object}      config.vnode                 The VNode object to convert to a real DOM element.
      * @returns {DocumentFragment|HTMLElement|null}  The created DOM node, the root DocumentFragment, or null.
      * @private
      */
-    createDomTree({index, isRoot=false, parentNode, vnode}) {
+    createDomTree({index, isRoot=false, parentNode, postMountUpdates=[], vnode}) {
         let domNode;
 
         // No node or just a reference node, opt out
@@ -96,9 +101,13 @@ const DomApiRenderer = {
             return null
         }
 
+        if (vnode.nodeName && (vnode.scrollTop || vnode.scrollLeft)) {
+            postMountUpdates.push({node: domNode, vnode})
+        }
+
         // Recursively process children
         vnode.childNodes.forEach(childVnode => {
-            this.createDomTree({parentNode: domNode, vnode: childVnode})
+            this.createDomTree({parentNode: domNode, postMountUpdates, vnode: childVnode})
         })
 
         // Final step: handle insertion based on `isRoot` and `parentNode`
@@ -113,6 +122,11 @@ const DomApiRenderer = {
                 } else {
                     parentNode.appendChild(nodeToInsert)
                 }
+
+                postMountUpdates.forEach(({node, vnode}) => {
+                    if (vnode.scrollLeft) {node.scrollLeft = vnode.scrollLeft}
+                    if (vnode.scrollTop)  {node.scrollTop  = vnode.scrollTop}
+                });
 
                 // Return the actual root DOM node (or fragment for text) that was inserted
                 return domNode

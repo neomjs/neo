@@ -32,9 +32,9 @@ class MainContainer extends Viewport {
             module              : TabContainer,
             activateInsertedTabs: true,
             activeIndex         : null, // mount no items initially
+            dragResortable      : true,
             flex                : 1,
             reference           : 'tab-container',
-            sortable            : true,
             style               : {margin: '10px', marginTop: 0},
 
             items: [{

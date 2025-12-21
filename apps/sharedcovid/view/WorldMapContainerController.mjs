@@ -22,18 +22,22 @@ class WorldMapContainerController extends ComponentController {
     }
 
     changeHeatRule(value) {
-        const chartId = this.getReference('worldmap').id;
+        let me         = this,
+            {windowId} = me,
+            chartId    = me.getReference('worldmap').id;
 
         Neo.main.addon.AmCharts.setProperty({
-            id     : this.getReference('worldmap').id,
-            path   : 'series.values.0.heatRules.values.0.maxValue',
-            value  : value
+            id  : me.getReference('worldmap').id,
+            path: 'series.values.0.heatRules.values.0.maxValue',
+            value,
+            windowId
         });
 
         Neo.main.addon.AmCharts.callMethod({
             id  : chartId,
-            path: 'series.values.0.invalidateData'
-        });
+            path: 'series.values.0.invalidateData',
+            windowId
+        })
     }
 
     /**
@@ -53,33 +57,36 @@ class WorldMapContainerController extends ComponentController {
      * @param {Object} data
      */
     onSeriesButtonClick(data) {
-        const me          = this,
-              chartId     = me.getReference('worldmap').id,
-              countryData = [...me.getParent().data];
-
-        const colorMap = {
-            active   : '#64b5f6',
-            cases    : '#bbbbbb',
-            deaths   : '#fb6767',
-            recovered: '#28ca68'
-        };
+        let me          = this,
+            {windowId}  = me,
+            chartId     = me.getReference('worldmap').id,
+            countryData = [...me.getParent().data],
+            colorMap    = {
+                active   : '#64b5f6',
+                cases    : '#bbbbbb',
+                deaths   : '#fb6767',
+                recovered: '#28ca68'
+            };
 
         Neo.main.addon.AmCharts.setProperty({
             id     : chartId,
             isColor: true,
             path   : 'series.values.0.heatRules.values.0.max',
-            value  : colorMap[data.component.series]
+            value  : colorMap[data.component.series],
+            windowId
         });
 
         Neo.main.addon.AmCharts.setProperty({
             id   : chartId,
             path : 'series.values.0.dataFields.value',
-            value: data.component.series
+            value: data.component.series,
+            windowId
         });
 
         Neo.main.addon.AmCharts.callMethod({
             id  : chartId,
-            path: 'series.values.0.invalidateData'
+            path: 'series.values.0.invalidateData',
+            windowId
         }).then(() => {
             me.getReference('currentMapViewLabel').text = 'Current view: ' + Neo.capitalize(data.component.series);
 

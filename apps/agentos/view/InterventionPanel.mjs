@@ -60,11 +60,11 @@ class InterventionPanel extends Panel {
             }, {
                 dataField: 'priority',
                 text     : 'Priority',
-                width    : 80,
+                width    : 100,
                 renderer : ({value}) => {
                     return {
                         cls : ['agent-priority', `agent-priority-${value}`],
-                        html: value
+                        text: value
                     };
                 }
             }]

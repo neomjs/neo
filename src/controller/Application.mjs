@@ -84,7 +84,7 @@ class Application extends Base {
         Neo.appsByName[name] ??= [];
         Neo.appsByName[name].push(me);
 
-        Neo.currentWorker.registerApp(name);
+        Neo.currentWorker.registerApp(name, me.windowId);
 
         if (mainView) {
             me.mainView = mainView

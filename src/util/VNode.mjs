@@ -167,7 +167,7 @@ class VNode extends Base {
      * @returns {Object}
      */
     static getVnode(vnode) {
-        if (vnode.componentId) {
+        if (vnode?.componentId) {
             const component = ComponentManager.get(vnode.componentId);
 
             if (!component) {

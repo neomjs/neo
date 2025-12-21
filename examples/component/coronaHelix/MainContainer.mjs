@@ -429,9 +429,10 @@ class MainContainer extends Viewport {
         if (me.showGitHubStarButton) {
             me.on('mounted', () => {
                 Neo.main.DomAccess.addScript({
-                    async: true,
-                    defer: true,
-                    src  : 'https://buttons.github.io/buttons.js'
+                    async   : true,
+                    defer   : true,
+                    src     : 'https://buttons.github.io/buttons.js',
+                    windowId: me.windowId
                 })
             })
         }

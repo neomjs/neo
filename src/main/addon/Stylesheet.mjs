@@ -55,7 +55,9 @@ class Stylesheet extends Base {
                     faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
                 }
 
-                this.createStyleSheet(null, null, faPath)
+                this.createStyleSheet({
+                    href: faPath
+                })
             }
 
             if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
@@ -82,11 +84,9 @@ class Stylesheet extends Base {
                 folder = folder.substring(4)
             }
 
-            this.createStyleSheet(
-                null,
-                null,
-                `${rootPath}${path}css/${folder}/Global.css`
-            )
+            this.createStyleSheet({
+                href: `${rootPath}${path}css/${folder}/Global.css`
+            })
         })
     }
 
@@ -112,11 +112,9 @@ class Stylesheet extends Base {
 
         data.folders.forEach(folder => {
             if (folder === 'src' || folder.includes('theme-') && config.themes.includes(`neo-${folder}`)) {
-                promises.push(this.createStyleSheet(
-                    null,
-                    null,
-                    `${rootPath}${path}css/${folder}/${className}.css`
-                ))
+                promises.push(this.createStyleSheet({
+                    href: `${rootPath}${path}css/${folder}/${className}.css`
+                }))
             }
         });
 
@@ -125,12 +123,13 @@ class Stylesheet extends Base {
 
     /**
      * Use either name for a neo theme (e.g. 'neo-theme-dark.css') or pass a href
-     * @param {String} [name]
-     * @param {String} [id]
-     * @param {String} [href]
+     * @param {Object} data
+     * @param {String} [data.name]
+     * @param {String} [data.id]
+     * @param {String} [data.href]
      * @returns {Promise<void>}
      */
-    async createStyleSheet(name, id, href) {
+    async createStyleSheet({name, id, href}) {
         if (!name && !href) {
             throw new Error('createStyleSheet: you need to either pass a name or a href')
         }

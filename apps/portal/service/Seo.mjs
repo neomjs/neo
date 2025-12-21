@@ -34,12 +34,12 @@ class Seo extends Base {
     }
 
     /**
-     * Stores the most recent route hash received from `onRouteChanged()`.
+     * Stores the most recent route received from `onRouteChanged()`.
      * This is used to process a pending route update if the service becomes ready after a route change occurred.
-     * @member {String|null} #lastRouteHash=null
+     * @member {Object|null} #lastRouteHash=null
      * @private
      */
-    #lastRouteHash = null
+    #lastRoute = null
     /**
      * Caches the SEO metadata fetched from `apps/portal/resources/data/seo.json`.
      * This object maps route hash strings to their corresponding title and description.
@@ -57,8 +57,8 @@ class Seo extends Base {
      * @protected
      */
     afterSetIsReady(value, oldValue) {
-        if (value && this.#lastRouteHash) {
-            this.#updateDocumentHeadIfNeeded(this.#lastRouteHash)
+        if (value && this.#lastRoute) {
+            this.#updateDocumentHeadIfNeeded(this.#lastRoute)
         }
     }
 
@@ -86,7 +86,7 @@ class Seo extends Base {
             if (!response.ok) {
                 throw new Error(`HTTP error with status: ${response.status}`)
             }
-            this.#metadata = await response.json();
+            this.#metadata = await response.json()
         } catch (error) {
             console.error('Error fetching SEO metadata:', error)
         }
@@ -97,11 +97,13 @@ class Seo extends Base {
      * This method stores the new route hash and attempts to update the document head.
      * If the service is not yet ready (i.e., `initAsync` is still running), the update
      * is deferred until `isReady` becomes true.
-     * @param {String} hash The new route hash string.
+     * @param {Object} config          The configuration object.
+     * @param {String} config.hash     The new route hash string.
+     * @param {String} config.windowId The windowId matching the route.
      */
-    onRouteChanged(hash) {
-        this.#lastRouteHash = hash;
-        this.#updateDocumentHeadIfNeeded(hash)
+    onRouteChanged(config) {
+        this.#lastRoute = config;
+        this.#updateDocumentHeadIfNeeded(config)
     }
 
     /**
@@ -111,12 +113,11 @@ class Seo extends Base {
      * @param {Object} config The configuration object containing `description` and `title`.
      * @param {String} config.description The new meta-description for the document.
      * @param {String} config.title The new title for the document.
+     * @param {String} config.windowId The new title for the document.
      * @private
      */
-    async #updateDocumentHead({description, title}) {
-        let {windowId}   = this,
-            DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
-
+    async #updateDocumentHead({description, title, windowId}) {
+        let DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
         await DocumentHead.update({description, title, windowId})
     }
 
@@ -126,18 +127,18 @@ class Seo extends Base {
      * and call `#updateDocumentHead`. If an update occurs, it clears `#lastRouteHash`.
      * This prevents multiple updates for the same route if `onRouteChanged` is called
      * before `initAsync` completes.
-     * @param {String} hash The route hash for which to update the document head.
+     * @param {Object} config The route hash for which to update the document head.
      * @private
      */
-    #updateDocumentHeadIfNeeded(hash) {
+    #updateDocumentHeadIfNeeded(config) {
         let me = this;
 
         if (me.isReady) {
-            let metadata = me.getMetadata(hash);
+            let metadata = me.getMetadata(config.hashString);
 
             if (metadata) {
-                me.#updateDocumentHead(metadata);
-                me.#lastRouteHash = null
+                me.#updateDocumentHead({...metadata, windowId: config.windowId});
+                me.#lastRoute = null
             }
         }
     }

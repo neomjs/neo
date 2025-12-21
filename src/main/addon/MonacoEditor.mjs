@@ -73,6 +73,10 @@ class MonacoEditor extends Base {
         delete data.appName;
         delete data.id;
 
+        if (me.map[id]) {
+            return
+        }
+
         if (node) {
             editor = me.map[id] = monaco.editor.create(node, data);
 
@@ -97,7 +101,7 @@ class MonacoEditor extends Base {
      * @returns {Object}
      */
     getValue(data) {
-        return this.map[data.id].getModel().getValue()
+        return this.map[data.id]?.getModel().getValue()
     }
 
     /**
@@ -106,7 +110,7 @@ class MonacoEditor extends Base {
      * @param {String} data.id
      */
     layoutEditor(data) {
-        this.map[data.id].layout()
+        this.map[data.id]?.layout()
     }
 
     /**

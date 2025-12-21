@@ -93,13 +93,13 @@ class Base extends CoreBase {
 
                 me.onReady(token);
                 Base.isReady = true;
-                Base.fire('ready', token);
-            });
+                Base.fire('ready', token)
+            })
         } else {
             Base.on({
                 ready: me.onReady,
                 scope: me
-            });
+            })
         }
     }
 
@@ -117,7 +117,7 @@ class Base extends CoreBase {
             return API_URL + opts.url;
         }
 
-        return API_URL + (opts.resource || this.resource) + (opts.slug ? '/' + opts.slug : '');
+        return API_URL + (opts.resource || this.resource) + (opts.slug ? '/' + opts.slug : '')
     }
 
     /**
@@ -143,8 +143,8 @@ class Base extends CoreBase {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         }).catch(error => {
-            console.log('RealWorld.api.Base:get()', error);
-        });
+            console.log('RealWorld.api.Base:get()', error)
+        })
     }
 
     /**
@@ -170,8 +170,8 @@ class Base extends CoreBase {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         }).catch(error => {
-            console.log('RealWorld.api.Base:get()', error);
-        });
+            console.log('RealWorld.api.Base:get()', error)
+        })
     }
 
     /**
@@ -187,7 +187,7 @@ class Base extends CoreBase {
         }
 
         me.isReady = true;
-        me.fire('ready', token);
+        me.fire('ready', token)
     }
 
     /**
@@ -199,8 +199,6 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     post(opts={}) {
-        // console.log('post', opts);
-
         const params = opts.params;
         delete opts.params;
 
@@ -217,7 +215,7 @@ class Base extends CoreBase {
             }
         }).catch(error => {
             console.log('RealWorld.api.Base:post()', error);
-        });
+        })
     }
 
     /**
@@ -246,8 +244,8 @@ class Base extends CoreBase {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         }).catch(error => {
-            console.log('RealWorld.api.Base:put()', error);
-        });
+            console.log('RealWorld.api.Base:put()', error)
+        })
     }
 }
 

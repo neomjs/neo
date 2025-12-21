@@ -5,13 +5,15 @@ import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
 import Sorter     from './Sorter.mjs';
 
-const countMutations   = Symbol('countMutations'),
-      isFiltered       = Symbol('isFiltered'),
-      isSorted         = Symbol('isSorted'),
-      silentUpdateMode = Symbol('silentUpdateMode'),
-      toAddArray       = Symbol('toAddArray'),
-      toRemoveArray    = Symbol('toRemoveArray'),
-      updatingIndex    = Symbol('updatingIndex');
+const
+    countMutations     = Symbol('countMutations'),
+    initialIndexSymbol = Symbol.for('initialIndex'),
+    isFiltered         = Symbol('isFiltered'),
+    isSorted           = Symbol('isSorted'),
+    silentUpdateMode   = Symbol('silentUpdateMode'),
+    toAddArray         = Symbol('toAddArray'),
+    toRemoveArray      = Symbol('toRemoveArray'),
+    updatingIndex      = Symbol('updatingIndex');
 
 /**
  * @class Neo.collection.Base
@@ -115,6 +117,11 @@ class Collection extends Base {
          */
         sourceId_: null
     }
+
+    /**
+     * @member {Number} initialIndexCounter=0
+     */
+    initialIndexCounter = 0
 
     /**
      * @param config
@@ -412,7 +419,8 @@ class Collection extends Base {
      * Removes all items and clears the map
      */
     clear() {
-        this.splice(0, this.count)
+        this.splice(0, this.count);
+        this.initialIndexCounter = 0
     }
 
     /**
@@ -1252,6 +1260,14 @@ class Collection extends Base {
                     me.keyPropertyIndex--
                 }
 
+                // Check if the item has the symbol defined (e.g., initialized to null via RecordFactory).
+                // We only want to assign the counter to items that opt-in to this feature to support
+                // restoring the original insertion order (e.g., Store.sort() with no args).
+                // This prevents polluting plain objects in standard Collections.
+                if (Object.hasOwn(item, initialIndexSymbol)) {
+                    item[initialIndexSymbol] = me.initialIndexCounter++
+                }
+
                 if (!map.has(key) && !me.isFilteredItem(item)) {
                     addedItems.push(item);
                     map.set(key, item)
@@ -1276,7 +1292,7 @@ class Collection extends Base {
                 }
 
                 if (me.autoSort && me._sorters.length > 0) {
-                    me.doSort()
+                    me.doSort(undefined, true)
                 }
             }
         }

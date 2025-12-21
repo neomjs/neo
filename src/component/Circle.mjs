@@ -157,13 +157,14 @@ class Circle extends Component {
     construct(config) {
         super.construct(config);
 
-        Neo.main.DomEvents.registerPreventDefaultTargets({
-            name: 'contextmenu',
-            cls : ['neo-circle', 'neo-circle-back']
-        });
-
         let me              = this,
             {resourcesPath} = Neo.config;
+
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name    : 'contextmenu',
+            cls     : ['neo-circle', 'neo-circle-back'],
+            windowId: me.windowId
+        });
 
         if (!me.backsideIconPath) {
             me.backsideIconPath = resourcesPath + 'images/circle/'

@@ -6,6 +6,7 @@ import aiConfig                                        from './config.mjs';
 import logger                                          from './logger.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import RepositoryService                               from './services/RepositoryService.mjs';
+import SyncService                                     from './services/SyncService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
@@ -87,7 +88,11 @@ class Server extends Base {
             await RepositoryService.fetchAndCacheViewerPermission();
         }
 
-        // 5. Connect Transport
+        // 5. Wait for dependent services
+        // SyncService (singleton) might be performing a startup sync. We wait for it to be ready.
+        await SyncService.ready();
+
+        // 6. Connect Transport
         this.transport = new StdioServerTransport();
         await this.mcpServer.connect(this.transport);
 

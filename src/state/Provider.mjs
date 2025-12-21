@@ -111,7 +111,11 @@ class Provider extends Base {
          *     }
          * @reactive
          */
-        stores_: null
+        stores_: null,
+        /**
+         * @member {String|null} windowId=null
+         */
+        windowId: null
     }
 
     /**
@@ -136,6 +140,19 @@ class Provider extends Base {
     construct(config) {
         Neo.isUsingStateProviders = true;
         super.construct(config)
+    }
+
+    /**
+     * @param {*} value
+     * @returns {*}
+     * @protected
+     */
+    adjustValue(value) {
+        if (value instanceof Date) {
+            return new Date(value.valueOf())
+        }
+
+        return value
     }
 
     /**
@@ -574,6 +591,8 @@ class Provider extends Base {
         Object.entries(obj).forEach(([key, value]) => {
             const fullPath = path ? `${path}.${key}` : key;
 
+            value = me.adjustValue(value);
+
             // Ensure a Config instance exists for the current fullPath
             if (me.#dataConfigs[fullPath]) {
                 me.#dataConfigs[fullPath].set(value)
@@ -612,6 +631,8 @@ class Provider extends Base {
      * @private
      */
     #setConfigValue(provider, path, newValue, oldVal) {
+        newValue = provider.adjustValue(newValue);
+
         let currentConfig = provider.getDataConfig(path),
             hasChange     = true,
             oldValue      = oldVal;

@@ -992,7 +992,15 @@ class GridBody extends Component {
     }
 
     /**
-     *
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
+        this.parent.scrollManager.onBodyScroll(data)
+    }
+
+    /**
+     * @param {Object} data
      */
     onStoreFilter() {
         this.onStoreLoad({items: this.store.items})

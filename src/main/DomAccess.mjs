@@ -69,12 +69,11 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'getOffscreenCanvas',
                 'getScrollingDimensions',
                 'measure',
                 'monitorAutoGrow',
                 'monitorAutoGrowHandler',
-                'navigate',
-                'navigateTo',
                 'scrollBy',
                 'scrollIntoView',
                 'scrollTo',
@@ -688,19 +687,27 @@ class DomAccess extends Base {
      * @param {String} data.id
      * @param {String} data.nodeId
      */
-    onGetOffscreenCanvas(data) {
+    getOffscreenCanvas(data) {
         let me        = this,
             node      = me.getElement(data.nodeId),
+            offscreen;
+
+        if (!node) {
+            return {
+                result: {success: false}
+            }
+        }
+
+        try {
             offscreen = node.transferControlToOffscreen();
 
-        data.offscreen = offscreen;
-
-        Neo.worker.Manager.sendMessage(data.origin, {
-            action : 'reply',
-            data,
-            replyId: data.id,
-            success: true
-        }, [offscreen])
+            return {
+                result  : {offscreen},
+                transfer: [offscreen]
+            }
+        } catch (e) {
+            return {transferred: true}
+        }
     }
 
     /**

@@ -216,7 +216,7 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 ntype: 'label',
-                text : [
+                html : [
                     '<b>Navigation Concept</b>',
                     '<p>You can use the Arrow Keys to walk through the items.</p>'
                 ].join(''),
@@ -232,7 +232,7 @@ class Viewport extends BaseViewport {
             }, {
                 ntype: 'label',
                 cls  : ['neo-link-color'],
-                text : [
+                html : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/disease-sh/API">disease-sh/API</a>.</p>',
@@ -257,8 +257,9 @@ class Viewport extends BaseViewport {
     construct(config) {
         super.construct(config);
 
-        let me  = this,
-            url = Neo.config.useFallbackApi ?
+        let me         = this,
+            {windowId} = me,
+            url        = Neo.config.useFallbackApi ?
                 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json' :
                 'https://disease.sh/v3/covid-19/countries';
 
@@ -278,9 +279,9 @@ class Viewport extends BaseViewport {
             .then(data => me.addStoreItems(data));
 
         Neo.Main.setNeoConfig({
-            key     : 'renderCountDeltas',
-            value   : true,
-            windowId: me.windowId
+            key  : 'renderCountDeltas',
+            value: true,
+            windowId
         });
 
         if (me.showGitHubStarButton) {
@@ -288,7 +289,8 @@ class Viewport extends BaseViewport {
                 Neo.main.DomAccess.addScript({
                     async: true,
                     defer: true,
-                    src  : 'https://buttons.github.io/buttons.js'
+                    src  : 'https://buttons.github.io/buttons.js',
+                    windowId
                 })
             })
         }

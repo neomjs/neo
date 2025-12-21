@@ -306,15 +306,14 @@ class List extends Component {
         if (value) {
             // Set up item navigation in the list
             if (!me.hasNavigator) {
-                me.navigator = {
+                me.navigator = Neo.merge({
                     appName       : me.appName,
                     autoClick     : me.selectOnFocus,
                     id            : me.id,
                     keepFocusIndex: me.keepFocusIndex,
                     selector      : `.${me.itemCls}:not(.neo-disabled,.neo-list-header)`,
-                    windowId      : me.windowId,
-                    ...me.navigator
-                };
+                    windowId      : me.windowId
+                }, me.navigator);
 
                 me.hasNavigator = true
             }
@@ -422,8 +421,8 @@ class List extends Component {
 
     /**
      * Triggered after the windowId config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {String} value
+     * @param {String} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {
@@ -431,7 +430,7 @@ class List extends Component {
 
         let {navigator} = this;
 
-        if (navigator) {
+        if (value && navigator) {
             navigator.windowId = value
         }
     }
@@ -638,7 +637,11 @@ class List extends Component {
      * @param {String} [id=this.id]
      */
     focus(id=this.id) {
-        this.mounted && Neo.main.addon.Navigator.navigateTo([id, this.navigator])
+        this.mounted && Neo.main.addon.Navigator.navigateTo({
+            data    : this.navigator,
+            target  : id,
+            windowId: this.windowId
+        })
     }
 
     /**
@@ -863,9 +866,17 @@ class List extends Component {
 
         if (me.mounted) {
             if (Neo.isNumber(value)) {
-                navigateTo([me.getHeaderlessIndex(value), me.navigator])
+                navigateTo({
+                    data    : me.navigator,
+                    target  : me.getHeaderlessIndex(value),
+                    windowId: me.windowId
+                })
             } else if (value) {
-                navigateTo([me.getItemId(value[me.getKeyProperty()]), me.navigator])
+                navigateTo({
+                    data    : me.navigator,
+                    target  : me.getItemId(value[me.getKeyProperty()]),
+                    windowId: me.windowId
+                })
             }
         } else {
             me.on('mounted', () => {

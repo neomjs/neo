@@ -1,10 +1,9 @@
-import BaseSortZone from '../../../toolbar/SortZone.mjs';
-import NeoArray     from  '../../../../util/Array.mjs';
+import BaseSortZone from '../../../container/SortZone.mjs';
 import VdomUtil     from  '../../../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.grid.header.toolbar.SortZone
- * @extends Neo.draggable.toolbar.SortZone
+ * @extends Neo.draggable.container.SortZone
  */
 class SortZone extends BaseSortZone {
     static config = {
@@ -97,7 +96,7 @@ class SortZone extends BaseSortZone {
                 Neo.main.DomAccess.scrollTo({
                     id      : bodyWrapperId,
                     value   : body.scrollTop,
-                    windowId: this.windowId
+                    windowId: me.windowId
                 })
             }
         };

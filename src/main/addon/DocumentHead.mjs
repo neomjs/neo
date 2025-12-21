@@ -43,9 +43,10 @@ class DocumentHead extends Base {
 
     /**
      * Retrieves the href of the canonical link tag.
+     * @param {Object} [data]
      * @returns {String|null} The canonical URL, or null if not found.
      */
-    getCanonical() {
+    getCanonical(data) {
         let canonical = document.head.querySelector('link[rel="canonical"]');
         return canonical?.href || null
     }
@@ -53,9 +54,10 @@ class DocumentHead extends Base {
     /**
      * Retrieves the content of the meta-tag with the name "description" from the document.
      * If such a meta-tag is not present, it returns null.
+     * @param {Object} [data]
      * @returns {String|null} The content of the "description" meta-tag or null if not found.
      */
-    getDescription() {
+    getDescription(data) {
         return document.querySelector('meta[name="description"]')?.content || null
     }
 
@@ -124,9 +126,10 @@ class DocumentHead extends Base {
 
     /**
      * Retrieves the current document title.
+     * @param {Object} [data]
      * @returns {String}
      */
-    getTitle() {
+    getTitle(data) {
         return document.title
     }
 

@@ -3,6 +3,7 @@ import Dashboard          from '../../../src/dashboard/Container.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import Blackboard         from './Blackboard.mjs';
 import InterventionPanel  from './InterventionPanel.mjs';
+import StrategyPanel      from './StrategyPanel.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -39,7 +40,7 @@ class Viewport extends BaseViewport {
             items: [{
                 ntype: 'component',
                 cls  : ['agent-logo'],
-                html : '<img src="../../resources/images/logo/neo_logo_white.svg" alt="Neo.mjs Logo">'
+                html : '<img src="../../resources/images/logo/neo_logo_cyberpunk.svg" alt="Neo.mjs Logo">'
             }, {
                 ntype: 'label',
                 text : 'Agent OS Command Center'
@@ -60,44 +61,19 @@ class Viewport extends BaseViewport {
 
             listeners: {
                 dragBoundaryEntry: 'onDragBoundaryEntry',
-                dragBoundaryExit : 'onDragBoundaryExit'
+                dragBoundaryExit : 'onDragBoundaryExit',
+                dragEnd          : 'onDragEnd'
             },
 
             items: [{
-                module   : Panel,
-                cls      : ['agent-panel-strategy'],
-                flex     : 1,
-                reference: 'strategy-panel',
-                headers  : [{
-                    dock: 'top',
-                    cls : ['neo-draggable'],
-                    text: 'Strategy Dashboard'
-                }],
-                items    : [{
-                    ntype    : 'component',
-                    cls      : ['agent-kpi-container'],
-                    reference: 'strategy',
-                    style    : {padding: '20px', backgroundColor: 'var(--agent-bg-dark)'},
-                    html     : `
-                        <div class="agent-kpi-card">
-                            <div class="agent-kpi-value">85%</div>
-                            <div class="agent-kpi-label">Velocity</div>
-                        </div>
-                        <div class="agent-kpi-card">
-                            <div class="agent-kpi-value">12</div>
-                            <div class="agent-kpi-label">Active Epics</div>
-                        </div>
-                        <div class="agent-kpi-card">
-                            <div class="agent-kpi-value">98.5%</div>
-                            <div class="agent-kpi-label">Uptime</div>
-                        </div>
-                    `
-                }]
+                module   : StrategyPanel,
+                flex     : 2,
+                reference: 'strategy'
             }, {
                 module   : Panel,
                 cls      : ['agent-panel-swarm'],
-                flex     : 1,
-                reference: 'swarm-panel',
+                flex     : 5,
+                reference: 'swarm',
                 headers  : [{
                     dock: 'top',
                     cls : ['neo-draggable'],
@@ -105,7 +81,6 @@ class Viewport extends BaseViewport {
                 }],
                 items    : [{
                     module   : Blackboard,
-                    reference: 'swarm',
                     style    : {
                         backgroundColor: '#000',
                         height         : '100%',
@@ -114,8 +89,8 @@ class Viewport extends BaseViewport {
                 }]
             }, {
                 module   : InterventionPanel,
-                flex     : 1,
-                reference: 'intervention-panel'
+                flex     : 3,
+                reference: 'intervention'
             }]
         }]
     }

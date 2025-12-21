@@ -21,10 +21,10 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-table-header-toolbar'],
         /**
-         * @member {Boolean} draggable_=true
+         * @member {Boolean} dragResortable=true
          * @reactive
          */
-        draggable_: true,
+        dragResortable: true,
         /**
          * @member {String} layout='base'
          * @reactive
@@ -45,10 +45,10 @@ class Toolbar extends BaseToolbar {
         /**
          * Convenience shortcut to pass sortable to all toolbar items.
          * If set to true, header clicks will sort the matching column (ASC, DESC, null)
-         * @member {Boolean} sortable=true
+         * @member {Boolean} sortable_=true
          * @reactive
          */
-        sortable: true,
+        sortable_: true,
         /**
          * @member {Object} _vdom={tag:'thead',cn:[{tag:'tr',cn:[]}]}
          */
@@ -56,31 +56,6 @@ class Toolbar extends BaseToolbar {
         {tag: 'thead', cn: [
             {tag: 'tr', cn: []}
         ]}
-    }
-
-    /**
-     * Triggered after the draggable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetDraggable(value, oldValue) {
-        let me = this;
-
-        if (value && !me.sortZone) {
-            import('../../draggable/table/header/toolbar/SortZone.mjs').then(module => {
-                let {appName, id, windowId} = me;
-
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    appName,
-                    boundaryContainerId: id,
-                    owner              : me,
-                    windowId,
-                    ...me.sortZoneConfig
-                })
-            })
-        }
     }
 
     /**
@@ -224,6 +199,13 @@ class Toolbar extends BaseToolbar {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../../draggable/table/header/toolbar/SortZone.mjs')
     }
 }
 

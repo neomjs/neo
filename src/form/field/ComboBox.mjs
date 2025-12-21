@@ -376,7 +376,8 @@ class ComboBox extends Picker {
      * @returns {Neo.list.Base}
      */
     createPickerComponent() {
-        const me = this;
+        let me         = this,
+            {windowId} = me;
 
         me.list = Neo.create({
             module        : List,
@@ -385,12 +386,12 @@ class ComboBox extends Picker {
             itemRole      : 'option',
             itemsFocusable: false,
             keepFocusIndex: true,
-            navigator     : {eventSource: me.getInputElId()},
+            navigator     : {eventSource: me.getInputElId(), windowId},
             parentId      : me.id,
             role          : 'listbox',
             selectionModel: {stayInList: false},
             store         : me.store,
-            windowId      : me.windowId,
+            windowId,
             ...me.listConfig
         });
 

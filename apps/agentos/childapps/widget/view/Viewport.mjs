@@ -12,6 +12,10 @@ class Viewport extends BaseViewport {
          */
         className: 'AgentOSWidget.view.Viewport',
         /**
+         * @member {String[]} additionalThemeFiles=['AgentOS.view.Viewport']
+         */
+        additionalThemeFiles: ['AgentOS.view.Viewport'],
+        /**
          * @member {String[]} cls=['agent-os-viewport']
          * @reactive
          */

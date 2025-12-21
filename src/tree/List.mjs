@@ -31,6 +31,11 @@ class Tree extends Base {
          */
         disableSelection: false,
         /**
+         * @member {Boolean} dragResortable_=false
+         * @reactive
+         */
+        dragResortable_: false,
+        /**
          * @member {Neo.draggable.tree.DragZone|null} dragZone=null
          */
         dragZone: null,
@@ -42,11 +47,6 @@ class Tree extends Base {
          * @member {Boolean} showCollapseExpandAllIcons=true
          */
         showCollapseExpandAllIcons: true,
-        /**
-         * @member {Boolean} sortable_=false
-         * @reactive
-         */
-        sortable_: false,
         /**
          * @member {Neo.draggable.tree.SortZone|null} sortZone=null
          */
@@ -64,9 +64,9 @@ class Tree extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                    {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
-                ]}
+        {cn: [
+            {tag: 'ul', cls: ['neo-list-container', 'neo-list'], tabIndex: -1, cn: []}
+        ]}
     }
 
     /**
@@ -79,8 +79,8 @@ class Tree extends Base {
         let me = this;
 
         if (value) {
-            if (me.sortable) {
-                console.error('tree.List can be either draggable or sortable, not both.', me.id)
+            if (me.dragResortable) {
+                console.error('tree.List can be either draggable or dragResortable, not both.', me.id)
             } else if (!me.dragZone) {
                 import('../draggable/tree/DragZone.mjs').then(module => {
                     me.dragZone = Neo.create({
@@ -96,17 +96,17 @@ class Tree extends Base {
     }
 
     /**
-     * Triggered after the sortable config got changed
+     * Triggered after the dragResortable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetSortable(value, oldValue) {
+    afterSetDragResortable(value, oldValue) {
         let me = this;
 
         if (value) {
             if (me.draggable) {
-                console.error('tree.List can be either draggable or sortable, not both.', me.id)
+                console.error('tree.List can be either draggable or dragResortable, not both.', me.id)
             } else if (!me.sortZone) {
                 import('../draggable/tree/SortZone.mjs').then(module => {
                     me.sortZone = Neo.create({

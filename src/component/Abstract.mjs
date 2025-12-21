@@ -4,6 +4,8 @@ import ComponentManager from '../manager/Component.mjs';
 import DomEvents        from '../mixin/DomEvents.mjs';
 import Observable       from '../core/Observable.mjs';
 import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
+import VDomUpdate       from '../manager/VDomUpdate.mjs';
+import VNodeUtil        from '../util/VNode.mjs';
 
 const
     closestController   = Symbol.for('closestController'),
@@ -29,6 +31,12 @@ class Abstract extends Base {
          * @protected
          */
         ntype: 'abstract-component',
+        /**
+         * Additional namespaces to load theme files for.
+         * @member {String[]|null} additionalThemeFiles=null
+         * @example ['AgentOSStrategy.view.Viewport']
+         */
+        additionalThemeFiles: null,
         /**
          * The name of the App this component belongs to
          * @member {String|null} appName_=null
@@ -92,6 +100,10 @@ class Abstract extends Base {
          * @reactive
          */
         parentId_: 'document.body',
+        /**
+         * @member {Boolean} saveScrollPosition=true
+         */
+        saveScrollPosition: true,
         /**
          * Optionally add a state.Provider to share state data with child components
          * @member {Object|null} stateProvider_=null
@@ -207,7 +219,15 @@ class Abstract extends Base {
             if (value) { // mount
                 me.initDomEvents?.();
                 me.mountedPromiseResolve?.(this);
-                delete me.mountedPromiseResolve
+                delete me.mountedPromiseResolve;
+
+                // When a component becomes mounted, it might have pending VDOM update promises
+                // (e.g. from a set() call that was deferred because the component wasn't mounted yet).
+                // If the mount happened because a Parent component updated (implicitly covering this component),
+                // this component's own pending update cycle might be skipped or not yet triggered.
+                // We explicitly execute the callbacks here to ensure those pending promises are resolved immediately
+                // upon mount, preventing deadlocks where code awaits a VDOM update that effectively already happened.
+                VDomUpdate.executeCallbacks(me.id)
             } else { // unmount
                 delete me._mountedPromise
             }
@@ -234,6 +254,9 @@ class Abstract extends Base {
         const me = this;
 
         if (value) {
+            me.controller    && (me.controller.windowId    = value);
+            me.stateProvider && (me.stateProvider.windowId = value);
+
             Neo.currentWorker.insertThemeFiles(value, me.__proto__)
         }
 
@@ -267,7 +290,7 @@ class Abstract extends Base {
 
         if (value) {
             let me            = this,
-                defaultValues = {component: me};
+                defaultValues = {component: me, windowId: me.windowId};
 
             if (me.modelData) {
                 defaultValues.data = me.modelData
@@ -363,6 +386,26 @@ class Abstract extends Base {
     initConfig(...args) {
         super.initConfig(...args);
         this.getStateProvider()?.createBindings(this)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        let me    = this,
+            vnode;
+
+        if (me.vnode) {
+            vnode = VNodeUtil.getById(me.vnode, data.target.id);
+
+            if (vnode) {
+                // Directly updating the persistent vnode state (plain object).
+                // This does not trigger a VDOM update, but ensures the state is preserved
+                // for future re-renders (e.g. unmount/remount).
+                vnode.scrollTop  = data.scrollTop;
+                vnode.scrollLeft = data.scrollLeft
+            }
+        }
     }
 
     /**

@@ -94,7 +94,11 @@ class App extends Base {
      * @returns {Promise<*>}
      */
     applyDeltas(windowId, deltas) {
-         return this.promiseMessage('main', {action: 'updateDom', deltas, windowId})
+        if (!Array.isArray(deltas)) {
+            deltas = [deltas]
+        }
+
+        return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
     }
 
     /**
@@ -337,7 +341,7 @@ class App extends Base {
                 classPath, classRoot, fileName, lClassRoot, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
-                me.themeFilesCache.push([windowId, proto])
+                me.themeFilesCache.push([windowId, proto, className])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
@@ -348,8 +352,12 @@ class App extends Base {
                     className[0] === 'view' && className.shift();
 
                     mapClassName = `apps.${Neo.apps[classRoot]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
-                    className    = `apps.${lClassRoot}.${className.join('.')}`;
+                    className    = `apps.${lClassRoot}.${className.join('.')}`
                 }
+
+                proto?.additionalThemeFiles?.forEach(ns => {
+                    me.insertThemeFiles(windowId, null, ns)
+                });
 
                 if (parent && parent !== Neo.core.Base.prototype) {
                     if (!Neo.ns(`${windowId}.${parent.className}`, false, cssMap)) {
@@ -528,11 +536,12 @@ class App extends Base {
     /**
      * Only needed for SharedWorkers
      * @param {String} appName
+     * @param {String} windowId
      */
-    registerApp(appName) {
+    registerApp(appName, windowId) {
         // register the name as fast as possible
         this.onRegisterApp({appName});
-        this.sendMessage('main', {action: 'registerAppName', appName})
+        this.sendMessage(windowId, {action: 'registerAppName', appName})
     }
 
     /**
@@ -586,7 +595,7 @@ class App extends Base {
      * @param {String} [data.priority] optionally pass 'important'
      * @param {String} data.theme=Neo.config.themes[0]
      * @param {String} data.value
-     * @param {Number} data.windowId
+     * @param {String} data.windowId
      * @returns {Promise<any>}
      */
     async setCssVariable(data) {

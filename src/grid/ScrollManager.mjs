@@ -74,15 +74,9 @@ class ScrollManager extends Base {
         let me = this;
 
         me.gridBody.addDomListeners({
-            scroll     : me.onBodyScroll,
             touchcancel: me.onTouchCancel,
             touchend   : me.onTouchEnd,
             scope      : me
-        });
-
-        me.gridContainer.addDomListeners({
-            scroll: me.onContainerScroll,
-            scope : me
         })
     }
 
@@ -114,7 +108,8 @@ class ScrollManager extends Base {
                 deltaX !== 0 && Neo.main.DomAccess.scrollTo({
                     direction: 'left',
                     id       : me.gridContainer.id,
-                    value    : me.scrollLeft + deltaX
+                    value    : me.scrollLeft + deltaX,
+                    windowId : me.windowId
                 })
 
                 me.lastTouchX = lastTouchX
@@ -162,7 +157,8 @@ class ScrollManager extends Base {
                     deltaY !== 0 && Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : body.vdom.id,
-                        value    : me.scrollTop + deltaY
+                        value    : me.scrollTop + deltaY,
+                        windowId : me.windowId
                     })
 
                     me.lastTouchY = lastTouchY

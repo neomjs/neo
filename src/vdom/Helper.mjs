@@ -117,6 +117,8 @@ class Helper extends Base {
                         break
                     case 'nodeName':
                     case 'innerHTML':
+                    case 'scrollLeft':
+                    case 'scrollTop':
                     case 'textContent':
                         if (value !== oldVnode[prop]) {
                             delta[prop] = value
@@ -170,8 +172,9 @@ class Helper extends Base {
      * @returns {Object}
      */
     create(opts) {
-        let me     = this,
-            {util} = Neo.vdom,
+        let me               = this,
+            {util}           = Neo.vdom,
+            postMountUpdates = [],
             returnValue, vnode;
 
         vnode       = me.createVnode(opts.vdom);
@@ -184,7 +187,11 @@ class Helper extends Base {
                 throw new Error('VDom Helper render utilities are not loaded yet!')
             }
 
-            returnValue.outerHTML = util.StringFromVnode.create(vnode)
+            returnValue.outerHTML = util.StringFromVnode.create(vnode, null, postMountUpdates);
+
+            if (postMountUpdates.length > 0) {
+                returnValue.postMountUpdates = postMountUpdates
+            }
         }
 
         return returnValue
@@ -382,6 +389,8 @@ class Helper extends Base {
                         break
                     case 'componentId':
                     case 'id':
+                    case 'scrollLeft':
+                    case 'scrollTop':
                     case 'static':
                     case 'vtype':
                         node[key] = value;
@@ -554,8 +563,14 @@ class Helper extends Base {
             // For direct DOM API mounting, pass the pruned VNode tree
             delta.vnode = Neo.vdom.util.DomApiVnodeCreator.create(vnode, movedNodes)
         } else {
+            let postMountUpdates = [];
+
             // For string-based mounting, pass a string excluding moved nodes
-            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes)
+            delta.outerHTML = Neo.vdom.util.StringFromVnode.create(vnode, movedNodes, postMountUpdates);
+
+            if (postMountUpdates.length > 0) {
+                delta.postMountUpdates = postMountUpdates
+            }
         }
 
         deltas.default.push(delta);

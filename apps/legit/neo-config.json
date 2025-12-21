@@ -1,0 +1,9 @@
+{
+    "appPath"         : "apps/legit/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MonacoEditor", "Navigator", "ResizeObserver", "Stylesheet", "WebComponent"],
+    "themes"          : ["neo-theme-neo-light", "neo-theme-dark"],
+    "useSharedWorkers": true
+}

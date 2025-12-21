@@ -28,6 +28,13 @@ class MonacoEditor extends Base {
      * @static
      */
     static editorThemes = ['hc-black', 'hc-light', 'vs', 'vs-dark']
+    /**
+     * Valid values for language
+     * @member {String[]} languages=['javascript','markdown']
+     * @protected
+     * @static
+     */
+    static languages = ['javascript', 'markdown']
 
     static config = {
         /**
@@ -296,6 +303,21 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        oldValue && Neo.main.addon.MonacoEditor.destroyInstance({
+            id      : this.id,
+            windowId: oldValue
+        })
+    }
+
+    /**
      * Triggered before the cursorBlinking config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -315,6 +337,17 @@ class MonacoEditor extends Base {
      */
     beforeSetEditorTheme(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'editorTheme')
+    }
+
+    /**
+     * Triggered before the language config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetLanguage(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'language')
     }
 
     /**
@@ -370,6 +403,7 @@ class MonacoEditor extends Base {
             scrollBeyondLastLine: me.scrollBeyondLastLine,
             theme               : me.editorTheme,
             value               : me.stringifyValue(me.value),
+            windowId            : me.windowId,
 
             scrollbar: {
                 alwaysConsumeMouseWheel: false // enables page scrolling when over-scrolling the content box

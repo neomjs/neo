@@ -38,17 +38,18 @@ class Mwc extends Base {
     }
 
     /**
-     * @param {String} id
+     * @param {Object} data
+     * @param {String} data.id
      * @returns {Boolean}
      */
-    checkValidity(id) {
+    checkValidity({id}) {
         return document.getElementById(id).checkValidity()
     }
 
     /**
-     *
+     * @param {Object} [data]
      */
-    loadButtonModule() {
+    loadButtonModule(data) {
         if (Neo.config.environment === 'development') {
             import(
                 /* webpackIgnore: true */
@@ -61,9 +62,9 @@ class Mwc extends Base {
     }
 
     /**
-     *
+     * @param {Object} [data]
      */
-    loadTextFieldModule() {
+    loadTextFieldModule(data) {
         if (Neo.config.environment === 'development') {
             import(
                 /* webpackIgnore: true */
@@ -76,10 +77,11 @@ class Mwc extends Base {
     }
 
     /**
-     * @param {String} id
+     * @param {Object} data
+     * @param {String} data.id
      * @returns {Boolean}
      */
-    reportValidity(id) {
+    reportValidity({id}) {
         return document.getElementById(id).reportValidity()
     }
 }

@@ -2,32 +2,32 @@
 <urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://neomjs.com/about-us</loc>
-    <lastmod>2025-11-20T12:38:26+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://neomjs.com/blog</loc>
-    <lastmod>2025-11-20T12:38:26+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/docs</loc>
-    <lastmod>2025-11-20T12:38:26+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/examples</loc>
-    <lastmod>2025-11-20T12:38:26+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/home</loc>
-    <lastmod>2025-11-20T12:38:26+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/services</loc>
-    <lastmod>2025-11-20T12:38:26+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
@@ -181,6 +181,10 @@
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/InstanceLifecycle</loc>
     <lastmod>2025-07-31T21:54:15+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/fundamentals/WorkerArchitecture</loc>
+    <lastmod>2025-12-17T05:28:18+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom</loc>
@@ -426,7 +430,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/agentos/index.html</loc>
-    <lastmod>2025-12-05T04:30:03+01:00</lastmod>
+    <lastmod>2025-12-20T03:06:28+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/ai/neural-link/index.html</loc>
@@ -434,11 +438,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/colors/index.html</loc>
-    <lastmod>2025-12-04T15:26:43+01:00</lastmod>
+    <lastmod>2025-12-21T13:36:23+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/covid/index.html</loc>
-    <lastmod>2025-07-31T21:20:24+02:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -450,19 +454,23 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/form/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-21T13:36:23+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/apps/legit/index.html</loc>
+    <lastmod>2025-12-17T02:13:56+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2025-12-02T20:12:36+01:00</lastmod>
+    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
-    <lastmod>2025-11-20T12:23:34+01:00</lastmod>
+    <lastmod>2025-12-21T13:58:06+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld2/index.html</loc>
-    <lastmod>2025-08-12T02:02:10+02:00</lastmod>
+    <lastmod>2025-12-21T13:58:06+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/route/index.html</loc>
@@ -470,11 +478,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/sharedcovid/index.html</loc>
-    <lastmod>2025-11-20T12:23:34+01:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/shareddialog/index.html</loc>
-    <lastmod>2025-11-20T21:53:53+01:00</lastmod>
+    <lastmod>2025-12-21T13:36:23+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/button/base/index.html</loc>
@@ -522,11 +530,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/coronaGallery/index.html</loc>
-    <lastmod>2025-07-11T21:54:21+02:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/coronaHelix/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/dateSelector/index.html</loc>
@@ -534,7 +542,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/gallery/index.html</loc>
-    <lastmod>2025-07-11T21:54:21+02:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/helix/index.html</loc>
@@ -598,15 +606,15 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/timer/index.html</loc>
-    <lastmod>2024-08-17T23:57:34+02:00</lastmod>
+    <lastmod>2025-12-21T13:36:23+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/toast/index.html</loc>
-    <lastmod>2025-06-16T15:24:29+02:00</lastmod>
+    <lastmod>2025-12-21T13:36:23+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/video/index.html</loc>
-    <lastmod>2024-08-17T23:57:34+02:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/wrapper/cesiumJS/index.html</loc>
@@ -646,7 +654,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/dialog/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/fields/index.html</loc>
@@ -750,11 +758,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/bigData/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-11T20:56:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/cellEditing/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-11T20:56:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/container/index.html</loc>
@@ -878,15 +886,15 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/tab/container/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-11T20:56:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/table/cellEditing/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-11T20:56:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/table/container/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-11T20:56:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/table/covid/index.html</loc>
@@ -930,7 +938,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/tree/index.html</loc>
-    <lastmod>2025-11-19T16:52:23+01:00</lastmod>
+    <lastmod>2025-12-11T20:56:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/treeAccordion/index.html</loc>

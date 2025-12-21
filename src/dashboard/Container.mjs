@@ -1,4 +1,5 @@
-import BaseContainer from '../container/Base.mjs';
+import BaseContainer      from '../container/Base.mjs';
+import DragProxyContainer from '../draggable/DragProxyContainer.mjs';
 
 /**
  * @class Neo.dashboard.Container
@@ -27,39 +28,38 @@ class Container extends BaseContainer {
          */
         dragProxyExtraCls: [],
         /**
-         * @member {Boolean} sortable_=true
+         * @member {Boolean} dragResortable=true
          * @reactive
          */
-        sortable_: true
+        dragResortable: true
     }
 
     /**
-     * Triggered after the sortable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
+     * @param {Object} config
      */
-    afterSetSortable(value, oldValue) {
+    createSortZone(config) {
         let me = this;
 
-        if (value && !me.sortZone) {
-            import('../draggable/dashboard/SortZone.mjs').then(module => {
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    allowOverdrag      : true,
-                    appName            : me.appName,
-                    boundaryContainerId: me.id,
-                    dragProxyExtraCls  : me.dragProxyExtraCls,
-                    enableProxyToPopup : true,
-                    owner              : me,
-                    windowId           : me.windowId,
-                    listeners          : {
-                        dragBoundaryEntry: data => me.fire('dragBoundaryEntry', data),
-                        dragBoundaryExit : data => me.fire('dragBoundaryExit',  data)
-                    }
-                })
-            })
-        }
+        Neo.merge(config, {
+            allowOverdrag     : true,
+            dragProxyConfig   : {module: DragProxyContainer, ...me.dragProxyConfig},
+            dragProxyExtraCls : me.dragProxyExtraCls,
+            enableProxyToPopup: true,
+            listeners         : {
+                dragBoundaryEntry: data => me.fire('dragBoundaryEntry', data),
+                dragBoundaryExit : data => me.fire('dragBoundaryExit',  data),
+                dragEnd          : data => me.fire('dragEnd',           data)
+            }
+        })
+
+        super.createSortZone(config)
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../draggable/dashboard/SortZone.mjs')
     }
 }
 

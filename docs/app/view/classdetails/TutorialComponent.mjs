@@ -80,7 +80,7 @@ class TutorialComponent extends Component {
      *
      */
     static syntaxHighlight() {
-        Neo.main.addon.HighlightJS.syntaxHighlightInit()
+        Neo.main.addon.HighlightJS.syntaxHighlightInit({windowId: this.windowId})
     }
 }
 

@@ -67,6 +67,13 @@ class Container extends BaseContainer {
          */
         bodyContainerId: null,
         /**
+         * true enables sorting tabs via drag&drop.
+         * The config gets passed to the header toolbar
+         * @member {Boolean} dragResortable=false
+         * @reactive
+         */
+        dragResortable: false,
+        /**
          * Default configs for the tab.HeaderToolbar
          * @member {Object|null} headerToolbar=null
          */
@@ -82,19 +89,12 @@ class Container extends BaseContainer {
          * @reactive
          */
         plain_: true,
-        /*
+        /**
          * Remove the DOM of inactive cards (TabContainer Body).
          * This will keep the instances & vdom trees
          * @member {Boolean} removeInactiveCards=true
          */
         removeInactiveCards: true,
-        /**
-         * true enables sorting tabs via drag&drop.
-         * The config gets passed to the header toolbar
-         * @member {Boolean} sortable_=false
-         * @reactive
-         */
-        sortable_: false,
         /**
          * @member {String|null} tabBarId=null
          */
@@ -186,14 +186,14 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Passes the `sortable` config down to the `HeaderToolbar` instance.
-     * @param {Boolean} value The new value for `sortable`.
-     * @param {Boolean} oldValue The old value for `sortable`.
+     * Passes the `dragResortable` config down to the `HeaderToolbar` instance.
+     * @param {Boolean} value The new value for `dragResortable`.
+     * @param {Boolean} oldValue The old value for `dragResortable`.
      * @protected
      */
-    afterSetSortable(value, oldValue) {
+    afterSetDragResortable(value, oldValue) {
         if (oldValue !== undefined) {
-            this.getTabBar().sortable = value
+            this.getTabBar().dragResortable = value
         }
     }
 
@@ -287,10 +287,10 @@ class Container extends BaseContainer {
         me.items = [{
             module  : HeaderToolbar,
             dock    : me.tabBarPosition,
+            dragResortable: me.dragResortable,
             flex    : 'none',
             id      : me.tabBarId,
             items   : tabButtons,
-            sortable: me.sortable,
             useActiveTabIndicator,
             ...me.headerToolbar
         }, {

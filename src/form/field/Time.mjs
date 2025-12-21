@@ -94,7 +94,8 @@ class Time extends Picker {
         super.construct(config);
 
         let me           = this,
-            clearTrigger = me.getTrigger('clear');
+            clearTrigger = me.getTrigger('clear'),
+            {windowId}   = me;
 
         me.originalConfig.value = me.formatTime(me.value);
 
@@ -110,8 +111,9 @@ class Time extends Picker {
             module        : List,
             displayField  : 'value',
             itemsFocusable: false,
-            navigator     : {eventSource: me.getInputElId()},
+            navigator     : {eventSource: me.getInputElId(), windowId},
             store         : me.collection,
+            windowId,
             ...me.listConfig
         });
 

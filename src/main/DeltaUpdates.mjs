@@ -133,6 +133,23 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     *
+     */
+    checkRendererAvailability() {
+        const {render} = Neo.main;
+
+        if (NeoConfig.useDomApiRenderer) {
+            if (!render?.DomApiRenderer) {
+                throw new Error('Neo.main.DeltaUpdates: DomApiRenderer is not loaded yet!')
+            }
+        } else {
+            if (!render?.StringBasedRenderer) {
+                throw new Error('Neo.main.DeltaUpdates: StringBasedRenderer is not loaded yet!')
+            }
+        }
+    }
+
+    /**
      * @param {Object} delta
      * @param {String} delta.id
      */
@@ -189,9 +206,10 @@ class DeltaUpdates extends Base {
      * @param {Number}         delta.index                  The index at which to insert the new node within its parent.
      * @param {String}         [delta.outerHTML]            The string representation of the new node (for string-based mounting).
      * @param {String}         delta.parentId               The ID of the parent DOM node.
+     * @param {Object[]}       [delta.postMountUpdates]     Array of post-mount updates (e.g. scroll state).
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
      */
-    insertNode({hasLeadingTextChildren, index, outerHTML, parentId, vnode}) {
+    insertNode({hasLeadingTextChildren, index, outerHTML, parentId, postMountUpdates, vnode}) {
         this.checkRendererAvailability();
 
         let {render}   = Neo.main,
@@ -201,24 +219,7 @@ class DeltaUpdates extends Base {
             if (NeoConfig.useDomApiRenderer) {
                 render.DomApiRenderer.createDomTree({index, isRoot: true, parentNode, vnode})
             } else {
-                render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode})
-            }
-        }
-    }
-
-    /**
-     *
-     */
-    checkRendererAvailability() {
-        const {render} = Neo.main;
-
-        if (NeoConfig.useDomApiRenderer) {
-            if (!render?.DomApiRenderer) {
-                throw new Error('Neo.main.DeltaUpdates: DomApiRenderer is not loaded yet!')
-            }
-        } else {
-            if (!render?.StringBasedRenderer) {
-                throw new Error('Neo.main.DeltaUpdates: StringBasedRenderer is not loaded yet!')
+                render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode, postMountUpdates})
             }
         }
     }
@@ -410,6 +411,10 @@ class DeltaUpdates extends Base {
                     case 'outerHTML':
                         node.outerHTML = value || '';
                         break
+                    case 'scrollLeft':
+                    case 'scrollTop':
+                        node[prop] = value;
+                        break
                     case 'style':
                         if (Neo.isObject(value)) {
                             Object.entries(value).forEach(([key, val]) => {
@@ -494,12 +499,6 @@ class DeltaUpdates extends Base {
         for (; i < len; i++) {
             me[deltas[i].action || 'updateNode'](deltas[i])
         }
-
-        Neo.worker.Manager.sendMessage(data.origin || 'app', {
-            action : 'reply',
-            replyId: data.id,
-            success: true
-        })
     }
 }
 

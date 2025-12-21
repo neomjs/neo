@@ -2,7 +2,6 @@ import Controller        from '../../../src/controller/Component.mjs';
 import CubeLayout        from '../../../src/layout/Cube.mjs';
 import NeoArray          from '../../../src/util/Array.mjs';
 import SeoService        from '../service/Seo.mjs';
-import {getSearchParams} from '../Util.mjs';
 
 /**
  * @summary The main controller for the portal's viewport.
@@ -11,7 +10,7 @@ import {getSearchParams} from '../Util.mjs';
  * - **Top-Level Routing:** It uses the `routes` config to map the main URL hash changes (e.g., /home, /learn, /blog) to specific methods, which in turn control which main view is active. It's important to note that while this controller handles the top-level navigation, child views can implement their own nested routing logic (see `Portal.view.learn.MainContainerController` for an example).
  * - **Layout Management:** It manages the main content area's layout, including the "mixed" mode which uses a CubeLayout for slick transitions between views.
  * - **SEO:** It coordinates with the `DocumentHead` main thread addon to update the document's title and meta tags on each route change, ensuring the application is SEO-friendly.
- * - **Multi-Window Coordination:** It handles the connection and disconnection of child windows, such as the live code example previews.
+ * - **Multi-Window Coordination:** It handles the disconnection of child windows, such as the live code example previews.
  *
  * @class Portal.view.ViewportController
  * @extends Neo.controller.Component
@@ -163,58 +162,9 @@ class ViewportController extends Controller {
      * @param {String} data.appName
      * @param {Number} data.windowId
      */
-    async onAppConnect(data) {
-        let {appName, windowId} = data,
-            app                 = Neo.apps[windowId],
-            mainView            = app.mainView;
-
-        if (appName === 'PortalPreview') {
-            let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
-                livePreviewId   = getSearchParams(searchString).id,
-                livePreview     = Neo.getComponent(livePreviewId),
-                sourceContainer = livePreview.getReference('preview'),
-                {tabContainer}  = livePreview,
-                sourceView      = sourceContainer.removeAt(0, false);
-
-            livePreview.previewContainer = mainView;
-            mainView.add(sourceView);
-
-            tabContainer.activeIndex = 0; // switch to the source view
-
-            tabContainer.getTabAtIndex(1).disabled = true
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Number} data.windowId
-     */
-    async onAppDisconnect(data) {
-        let {appName, windowId} = data,
-            app                 = Neo.apps[windowId],
-            mainView            = app.mainView;
-
-        // Closing a code preview window needs to drop the preview back into the related main app
-        if (appName === 'PortalPreview') {
-            let searchString    = await Neo.Main.getByPath({path: 'location.search', windowId}),
-                livePreviewId   = getSearchParams(searchString).id,
-                livePreview     = Neo.getComponent(livePreviewId),
-                sourceContainer = livePreview.getReference('preview'),
-                {tabContainer}  = livePreview,
-                sourceView      = mainView.removeAt(0, false);
-
-            livePreview.previewContainer = null;
-            sourceContainer.add(sourceView);
-
-            livePreview.disableRunSource = true; // will get reset after the next activeIndex change (async)
-            tabContainer.activeIndex = 1;        // switch to the source view
-
-            livePreview.getReference('popout-window-button').disabled = false;
-            tabContainer.getTabAtIndex(1).disabled = false
-        }
+    async onAppDisconnect({appName, windowId}) {
         // Close popup windows when closing or reloading the main window
-        else if (appName === 'Portal') {
+        if (appName === 'Portal') {
             Neo.Main.windowCloseAll({windowId})
         }
     }
@@ -251,7 +201,6 @@ class ViewportController extends Controller {
         let me = this;
 
         Neo.currentWorker.on({
-            connect   : me.onAppConnect,
             disconnect: me.onAppDisconnect,
             scope     : me
         })
@@ -286,7 +235,7 @@ class ViewportController extends Controller {
      */
     async onHashChange(value, oldValue) {
         await super.onHashChange(value, oldValue);
-        SeoService.onRouteChanged(value?.hashString)
+        SeoService.onRouteChanged(value)
     }
 
     /**

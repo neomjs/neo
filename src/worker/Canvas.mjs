@@ -16,10 +16,26 @@ class Canvas extends Base {
          */
         className: 'Neo.worker.Canvas',
         /**
+         * key: value => canvasId: {windowId: OffscreenCanvas}
+         * @member {Object} canvasWindowMap={}
+         */
+        canvasWindowMap: {},
+        /**
          * key: value => canvasId: OffscreenCanvas
          * @member {Object} map={}
          */
         map: {},
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'registerCanvas',
+                'retrieveCanvas'
+            ]
+        },
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -51,14 +67,34 @@ class Canvas extends Base {
     /**
      * @param {Object} data
      */
-    onRegisterCanvas(data) {
-        this.map[data.nodeId] = data.node;
+    registerCanvas(data) {
+        let me = this;
 
-        Neo.currentWorker.sendMessage(data.origin, {
-            action : 'reply',
-            replyId: data.id,
-            success: true
-        })
+        if (data.windowId) {
+            me.canvasWindowMap[data.nodeId] ??= {};
+            me.canvasWindowMap[data.nodeId][data.windowId] = data.node
+        }
+
+        me.map[data.nodeId] = data.node;
+
+        return true
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.nodeId
+     * @param {String} data.origin
+     * @param {Number} data.windowId
+     */
+    retrieveCanvas(data) {
+        let me     = this,
+            canvas = me.canvasWindowMap[data.nodeId]?.[data.windowId];
+
+        if (canvas) {
+            me.map[data.nodeId] = canvas
+        }
+
+        return {hasCanvas: !!canvas}
     }
 
     /**

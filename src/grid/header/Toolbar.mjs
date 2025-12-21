@@ -21,10 +21,10 @@ class Toolbar extends BaseToolbar {
          */
         baseCls: ['neo-grid-header-toolbar', 'neo-toolbar'],
         /**
-         * @member {Boolean} draggable_=true
+         * @member {Boolean} dragResortable=true
          * @reactive
          */
-        draggable_: true,
+        dragResortable: true,
         /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          * @reactive
@@ -50,41 +50,15 @@ class Toolbar extends BaseToolbar {
         /**
          * Convenience shortcut to pass sortable to all toolbar items.
          * If set to true, header clicks will sort the matching column (ASC, DESC, null)
-         * @member {Boolean} sortable=true
+         * @member {Boolean} sortable_=true
          * @reactive
          */
-        sortable: true,
+        sortable_: true,
         /**
          * @member {Object} _vdom
          */
         _vdom:
         {'aria-rowindex': 1, cn: [{cn: []}]}
-    }
-
-    /**
-     * Triggered after the draggable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetDraggable(value, oldValue) {
-        let me = this;
-
-        if (value && !me.sortZone) {
-            import('../../draggable/grid/header/toolbar/SortZone.mjs').then(module => {
-                let {appName, id, scrollLeft, windowId} = me;
-
-                me.sortZone = Neo.create({
-                    module             : module.default,
-                    appName,
-                    boundaryContainerId: [id, me.parent.id],
-                    owner              : me,
-                    scrollLeft,
-                    windowId,
-                    ...me.sortZoneConfig
-                })
-            })
-        }
     }
 
     /**
@@ -192,6 +166,20 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @param {Object} config
+     */
+    createSortZone(config) {
+        let me = this;
+
+        Neo.merge(config, {
+            boundaryContainerId: [me.id, me.parent.id],
+            scrollLeft         : me.scrollLeft
+        });
+
+        super.createSortZone(config)
+    }
+
+    /**
      * @param {String} dataField
      * @returns {Neo.button.Base|null}
      */
@@ -203,6 +191,13 @@ class Toolbar extends BaseToolbar {
         }
 
         return null
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../../draggable/grid/header/toolbar/SortZone.mjs')
     }
 
     /**

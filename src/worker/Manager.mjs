@@ -14,8 +14,20 @@ navigator.serviceWorker?.addEventListener('controllerchange', function() {
 }, {once: true});
 
 /**
- * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
- * Also, responsible for sending messages from the main thread to the different workers.
+ * @summary Orchestrates the multi-threaded worker environment and handles message routing.
+ *
+ * This class is the central nervous system of the Neo.mjs runtime in the main thread. It is responsible for:
+ * 1.  **Worker Creation:** Instantiating the App, Data, VDom, and other workers based on configuration.
+ * 2.  **Message Routing:** Acting as the hub for inter-worker communication. While standard messages are routed
+ *     via the main thread, this manager also facilitates the initial handshake to establish direct
+ *     **MessageChannel** connections between workers (e.g., App <-> Canvas) for high-performance,
+ *     bi-directional communication. The VDOM update process is a notable exception, using a triangular
+ *     flow (App -> VDom -> Main -> App) by design.
+ * 3.  **DOM Update Coordination:** intercepting VDOM update requests and synchronizing them with the
+ *     browser's animation frame to ensure smooth rendering. This involves a complex promise-based
+ *     mechanism to delay worker replies until the DOM changes are actually painted.
+ * 4.  **Configuration Management:** synchronizing `Neo.config` changes across all threads.
+ *
  * @class Neo.worker.Manager
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -190,7 +202,11 @@ class Manager extends Base {
     }
 
     /**
-     * Calls createWorker for each worker inside the this.workers config.
+     * @summary Instantiates the configured worker threads.
+     *
+     * This method reads the `Neo.config` to determine which workers to create (App, Data, VDom, etc.)
+     * and whether to use `Worker` or `SharedWorker`. It injects the initial configuration and environment
+     * data (like window ID) into each worker upon creation.
      */
     createWorkers() {
         let me                   = this,
@@ -287,6 +303,46 @@ class Manager extends Base {
     }
 
     /**
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    hasWorker(name) {
+        return !!this.getWorker(name)
+    }
+
+    /**
+     * @summary Handles the queuing and processing of DOM update operations.
+     *
+     * This helper method centralizes the logic for both standard VDOM updates and direct `App.applyDeltas` calls.
+     * Its primary purpose is to enforce the **"delayed reply"** pattern:
+     * - If the update contains visual changes (deltas), it registers a promise and queues the update for the next animation frame.
+     *   The reply to the worker is sent only *after* the main thread has processed the queue, ensuring the DOM is updated.
+     * - If the update is a no-op (zero deltas), it sends an immediate reply to avoid unnecessary latency.
+     *
+     * This method also handles the firing of the `updateVdom` event, which triggers the actual processing in `Main.mjs`.
+     *
+     * @param {Object} data The message payload from the worker.
+     * @param {Object[]} deltas The array of DOM deltas to process.
+     * @param {String} replyDest The destination for the reply message (e.g., 'app').
+     * @param {Boolean} [forward=false] If true, forwards the original message as the reply (VDOM worker path).
+     *                                  If false, constructs a new success reply (App worker path).
+     */
+    handleDomUpdate(data, deltas, replyDest, forward=false) {
+        let me = this;
+
+        if (deltas?.length > 0) {
+            me.promiseForwardMessage(data).then(msgData => {
+                me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
+            });
+
+            me.fire('updateVdom', forward ? data : {data, replyId: data.id});
+            return
+        }
+
+        me.sendMessage(replyDest, forward ? data : {action: 'reply', replyId: data.id, success: true})
+    }
+
+    /**
      *
      */
     loadApplication() {
@@ -301,7 +357,8 @@ class Manager extends Base {
 
         me.constructedThreads++;
 
-        if (me.constructedThreads === me.activeWorkers) {
+        // To include the main thread as ready, we must wait for activeWorkers + 1
+        if (me.constructedThreads === me.activeWorkers + 1) {
             // better safe than sorry => all remotes need to be registered
             NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
                 me.loadApplication()
@@ -319,7 +376,17 @@ class Manager extends Base {
     }
 
     /**
-     * Handler method for worker message events
+     * Handler method for worker message events.
+     *
+     * @summary Intercepts and routes messages from workers.
+     *
+     * This method contains critical routing logic:
+     * 1.  **DOM Update Interception:** It catches `updateVdom` actions (from App) and `reply` messages (from VDom)
+     *     that contain DOM updates. It normalizes `autoMount` operations into `insertNode` deltas and delegates
+     *     them to `handleDomUpdate`.
+     * 2.  **Promise Resolution:** It resolves pending promises for `reply` messages (e.g., remote method calls).
+     * 3.  **Message Forwarding:** It routes messages between workers (e.g., App -> Data).
+     *
      * @param {Object} event
      */
     onWorkerMessage(event) {
@@ -332,19 +399,38 @@ class Manager extends Base {
 
         me.fire('message:'+action, data);
 
+        if (action === 'updateVdom') {
+            data.replyId = data.id;
+            me.handleDomUpdate(data, data.deltas, data.origin, false);
+            return
+        }
+
         if (action === 'reply') {
             promise = me.promises[replyId];
 
             if (!promise) {
-                if (data.data) {
-                    data.data.autoMount  && me.fire('automount',  data);
-                    data.data.updateVdom && me.fire('updateVdom', data);
+                let payload = data.data;
 
-                    // We want to delay the message until the rendering queue has processed it
-                    // See: https://github.com/neomjs/neo/issues/2864
-                    me.promiseForwardMessage(data).then(msgData => {
-                        me.sendMessage(msgData.destination, msgData)
-                    })
+                if (payload) {
+                    if (payload.autoMount || payload.updateVdom) {
+                        let deltas = payload.deltas;
+
+                        if (payload.autoMount) {
+                            deltas = [{
+                                action   : 'insertNode',
+                                index    : payload.parentIndex,
+                                outerHTML: payload.outerHTML,
+                                parentId : payload.parentId,
+                                vnode    : payload.vnode
+                            }];
+
+                            payload.deltas = deltas
+                        }
+
+                        me.handleDomUpdate(data, deltas, dest, true)
+                    } else {
+                        me.sendMessage(dest, data)
+                    }
                 }
             } else {
                 if (dest === 'main') {
@@ -358,7 +444,7 @@ class Manager extends Base {
             }
         }
 
-        if (dest !== 'main' && action !== 'reply') {
+        if (dest !== 'main' && dest !== me.windowId && action !== 'reply') {
             if (data.transfer) {
                 transfer = [data.transfer]
             }
@@ -376,7 +462,7 @@ class Manager extends Base {
         }
 
         // only needed for SharedWorkers
-        else if (dest === 'main' && action === 'registerAppName') {
+        else if ((dest === 'main' || dest === me.windowId) && action === 'registerAppName') {
             let {appName} = data;
 
             me.appNames.push(appName);
@@ -384,7 +470,7 @@ class Manager extends Base {
             me.broadcast({action: 'registerApp', appName})
         }
 
-        else if (dest === 'main' && action === 'remoteMethod') {
+        else if ((dest === 'main' || dest === me.windowId) && action === 'remoteMethod') {
             me.onRemoteMethod(data)
         }
     }
@@ -464,6 +550,7 @@ class Manager extends Base {
 
             if (worker) {
                 opts.destination = dest;
+                opts.windowId ??= me.windowId;
 
                 message = new Message(opts);
 

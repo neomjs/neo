@@ -83,12 +83,12 @@ class MainContainer extends ConfigurationViewport {
             valueLabel    : 'reversed layout sort-direction'
         }, {
             module        : CheckBox,
-            checked       : tabContainer.sortable,
+            checked       : tabContainer.dragResortable,
             hideLabel     : true,
             hideValueLabel: false,
-            listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
+            listeners     : {change: me.onConfigChange.bind(me, 'dragResortable')},
             style         : {marginTop: '10px'},
-            valueLabel    : 'sortable'
+            valueLabel    : 'dragResortable'
         }, {
             module        : Radio,
             checked       : tabContainer.tabBarPosition === 'top',
@@ -205,10 +205,10 @@ class MainContainer extends ConfigurationViewport {
      */
     createExampleComponent() {
         return Neo.create(TabContainer, {
-            height  : 300,
-            width   : 500,
-            sortable: true,
-            style   : {margin: '20px'},
+            dragResortable: true,
+            height        : 300,
+            width         : 500,
+            style         : {margin: '20px'},
 
             itemDefaults: {
                 ntype: 'component',

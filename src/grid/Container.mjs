@@ -558,6 +558,14 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
+        this.scrollManager.onContainerScroll(data)
+    }
+
+    /**
      * @param {Object} opts
      * @param {String} opts.direction
      * @param {String} opts.property
@@ -567,8 +575,7 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.store.sort(opts);
-        me.removeSortingCss(opts.property);
-        opts.direction && me.body.onStoreLoad({items: me.store.items});
+        me.removeSortingCss(opts.property)
     }
 
     /**

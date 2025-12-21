@@ -13,7 +13,6 @@ import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 const
     addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
     closestController = Symbol.for('closestController'),
-    {currentWorker}   = Neo,
     lengthRE          = /^\d+\w+$/;
 
 /**
@@ -848,7 +847,8 @@ class Component extends Abstract {
                 configuredMinWidth : me.configuredMinWidth,
                 configuredMinHeight: me.configuredMinHeight,
                 configuredMaxWidth : me.configuredMaxWidth,
-                configuredMaxHeight: me.configuredMaxHeight
+                configuredMaxHeight: me.configuredMaxHeight,
+                windowId           : me.windowId
             };
 
         if (align.target) {
@@ -1210,11 +1210,11 @@ class Component extends Abstract {
     /**
      * Convenience shortcut
      * @param {String[]|String} id=this.id
-     * @param {String} appName=this.appName
+     * @param {String} windowId=this.windowId
      * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
-    async getDomRect(id=this.id, appName=this.appName) {
-        let result = await Neo.main.DomAccess.getBoundingClientRect({appName, id, windowId: this.windowId});
+    async getDomRect(id=this.id, windowId=this.windowId) {
+        let result = await Neo.main.DomAccess.getBoundingClientRect({id, windowId});
 
         if (Array.isArray(result)) {
             return result.map(rect => Rectangle.clone(rect))
@@ -1407,50 +1407,15 @@ class Component extends Abstract {
 
     /**
      * Can get called after the component got vnodeInitialized. See the autoMount config as well.
+     * We have decided to always force a new initVnode(true) call here.
+     * Rationale:
+     * 1. The overhead of tracking hasUnmountedVdomChanges on every vdom update is removed.
+     * 2. The edge case of mounting a pre-calculated but untouched vnode tree is < 1%.
+     * 3. The cost of re-generating the vnode tree is low enough to justify the robustness and simplicity.
+     * 4. This ensures that the DOM is always mounted with the most up-to-date vdom state.
      */
     async mount() {
-        let me = this,
-            child, childIds;
-
-        if (!me.vnode) {
-            throw new Error('Component vnode must be generated before mounting, use Component.initVnode()');
-        }
-
-        // In case the component was already mounted, got unmounted and received vdom changes afterwards,
-        // a new initVnode() call is mandatory since delta updates could not get applied.
-        // We need to clear the hasUnmountedVdomChanges state for all child components
-        if (me.hasUnmountedVdomChanges) {
-            // todo: the hasUnmountedVdomChanges flag changes should happen on initVnode
-            me.hasUnmountedVdomChanges = false;
-
-            childIds = ComponentManager.getChildIds(me.vnode);
-
-            childIds.forEach(id => {
-                child = Neo.getComponent(id);
-
-                if (child) {
-                    child._hasUnmountedVdomChanges = false; // silent update
-                }
-            });
-            // end todo
-
-            me.initVnode(true)
-        } else {
-            await currentWorker.promiseMessage('main', {
-                action     : 'mountDom',
-                appName    : me.appName,
-                id         : me.id,
-                html       : me.vnode.outerHTML,
-                parentId   : me.getMountedParentId(),
-                parentIndex: me.getMountedParentIndex()
-            });
-
-            delete me.vdom.removeDom;
-
-            await me.timeout(30);
-
-            me.mounted = true
-        }
+        return this.initVnode(true)
     }
 
     /**
@@ -1458,10 +1423,25 @@ class Component extends Abstract {
      */
     onConstructed() {
         super.onConstructed();
+        this.keys?.register(this)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
 
         let me = this;
 
-        me.keys?.register(me);
+        if (me._vdom) {
+            let vdomNode = VDomUtil.getById(me._vdom, data.target.id);
+
+            if (vdomNode) {
+                vdomNode.scrollTop  = data.scrollTop;
+                vdomNode.scrollLeft = data.scrollLeft
+            }
+        }
     }
 
     /**
@@ -1642,15 +1622,15 @@ class Component extends Abstract {
      *     await this.initVnode(true);
      *     await this.waitForDomRect();
      * @param {Object}          opts
-     * @param {String}          opts.appName=this.appName
      * @param {Number}          opts.attempts=10 Reruns in case the rect height or width equals 0
      * @param {Number}          opts.delay=50    Time in ms before checking again
      * @param {String[]|String} opts.id=this.id
+     * @param {String}          opts.windowId=this.windowId
      * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
-    async waitForDomRect({appName=this.appName, attempts=10, delay=50, id=this.id}) {
+    async waitForDomRect({attempts=10, delay=50, id=this.id, windowId=this.windowId} = {}) {
         let me     = this,
-            result = await me.getDomRect(id, appName),
+            result = await me.getDomRect(id),
             reRun  = false;
 
         if (Array.isArray(result)) {
@@ -1665,7 +1645,7 @@ class Component extends Abstract {
 
         if (reRun && attempts > 0) {
             await me.timeout(delay);
-            return await me.waitForDomRect({appName, attempts: attempts-1, delay, id})
+            return await me.waitForDomRect({attempts: attempts-1, delay, id, windowId})
         }
 
         return result

@@ -32,6 +32,11 @@ class Container extends Component {
          */
         baseCls: ['neo-container'],
         /**
+         * @member {Boolean} dragResortable_=false
+         * @reactive
+         */
+        dragResortable_: false,
+        /**
          * Default configuration for child items within this container.
          * This config uses a descriptor to enable deep merging with instance based itemDefaults.
          * @member {Object} itemDefaults_={[isDescriptor]: true, merge: 'deep', value: null}
@@ -102,9 +107,6 @@ class Container extends Component {
             value         : []
         },
         /**
-         * It is crucial to define a layout before the container does get vdomInitialized.
-         * Meaning: onConstructed() is the latest life-cycle point.
-         * You can use layout: 'base', in case you do not need a layout at all.
          * @member {Object|String|null} layout_={ntype: 'vbox', align: 'stretch'}
          * @reactive
          */
@@ -112,6 +114,18 @@ class Container extends Component {
             ntype: 'vbox',
             align: 'stretch'
         },
+        /**
+         * @member {Neo.draggable.container.SortZone|null} sortZone=null
+         */
+        sortZone: null,
+        /**
+         * @member {String} sortZoneCls='Neo.draggable.container.SortZone'
+         */
+        sortZoneCls: 'Neo.draggable.container.SortZone',
+        /**
+         * @member {Object} sortZoneConfig=null
+         */
+        sortZoneConfig: null,
         /**
          * @member {Object} _vdom={cn: []}
          */
@@ -122,11 +136,13 @@ class Container extends Component {
     /**
      * Inserts an item or array of items at the last index
      * @param {Object|Array} item
+     * @param {Boolean} [silent=false]
+     * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    add(item) {
+    add(item, silent=false, removeFromPreviousParent=true) {
         let me = this;
-        return me.insert(me.items ? me.items.length : 0, item)
+        return me.insert(me.items ? me.items.length : 0, item, silent, removeFromPreviousParent)
     }
 
     /**
@@ -150,6 +166,10 @@ class Container extends Component {
 
         if (value && me.layout) {
             me.layout.appName = value
+        }
+
+        if (me.sortZone) {
+            me.sortZone.appName = value
         }
     }
 
@@ -233,6 +253,38 @@ class Container extends Component {
     }
 
     /**
+     * Triggered after the dragResortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    async afterSetDragResortable(value, oldValue) {
+        let me = this,
+            module;
+
+        if (value && !me.sortZone) {
+            if (me.sortZoneConfig?.module) {
+                module = me.sortZoneConfig.module;
+
+                if (!me.isConstructed) {
+                    await Promise.resolve()
+                }
+            } else {
+                module = await me.loadSortZoneModule();
+                module = module.default
+            }
+
+            me.createSortZone(Neo.merge({
+                module,
+                appName            : me.appName,
+                boundaryContainerId: me.id,
+                owner              : me,
+                windowId           : me.windowId
+            }, me.sortZoneConfig))
+        }
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -268,6 +320,10 @@ class Container extends Component {
 
         if (value && layout && !Neo.isString(layout)) {
             layout.windowId = value
+        }
+
+        if (me.sortZone) {
+            me.sortZone.windowId = value
         }
     }
 
@@ -314,9 +370,10 @@ class Container extends Component {
     /**
      * @param {*} item
      * @param {Number} index
+     * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Object} Object for lazy loaded items
      */
-    createItem(item, index) {
+    createItem(item, index, removeFromPreviousParent=true) {
         let me       = this,
             config   = {appName: me.appName, parentId: me.id, parentIndex: index, windowId: me.windowId},
             defaults = {...me.itemDefaults},
@@ -347,8 +404,16 @@ class Container extends Component {
                 parent = item.parent;
 
                 if (parent && parent !== me) {
-                    parent.remove?.(item, false);
-                    delete item.vdom.removeDom;
+                    if (removeFromPreviousParent) {
+                        parent.remove?.(item, false);
+                        delete item.vdom.removeDom
+                    }
+
+                    if (parent.windowId !== me.windowId) {
+                        // In case we are duplicating vdom into a different browser window, we need a silent
+                        // _mounted update to ensure that afterSetMounted() still gets triggered.
+                        item[removeFromPreviousParent ? 'mounted' : '_mounted'] = false
+                    }
 
                     // Convenience logic, especially for moving components into different browser windows:
                     // A component might rely on references & handler methods inside the previous controller realm
@@ -469,6 +534,13 @@ class Container extends Component {
     }
 
     /**
+     * @param {Object} config
+     */
+    createSortZone(config) {
+        this.sortZone = Neo.create(config)
+    }
+
+    /**
      * Destroys all components inside this.items before the super() call.
      * @param {Boolean} [updateParentVdom=false] true to remove the component from the parent vdom => real dom
      * @param {Boolean} [silent=false] true to update the vdom silently (useful for destroying multiple child items in a row)
@@ -550,9 +622,10 @@ class Container extends Component {
      * @param {Number} index
      * @param {Array|Object} item
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item, silent=false) {
+    insert(index, item, silent=false, removeFromPreviousParent=true) {
         let me      = this,
             {items} = me,
             i, len, returnArray;
@@ -564,12 +637,12 @@ class Container extends Component {
 
             for (; i < len; i++) {
                 // insert the array backwards
-                returnArray.unshift(me.insert(index, item[len - 1 - i], true))
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true, removeFromPreviousParent))
             }
 
             item = returnArray
         } else {
-            item = me.createItem(item, index);
+            item = me.createItem(item, index, removeFromPreviousParent);
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
@@ -621,6 +694,13 @@ class Container extends Component {
         }
 
         return remoteData.items
+    }
+
+    /**
+     * @returns {Promise<any>}
+     */
+    loadSortZoneModule() {
+        return import('../draggable/container/SortZone.mjs')
     }
 
     /**

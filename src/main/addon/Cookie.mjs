@@ -28,10 +28,11 @@ class Cookie extends Base {
     }
 
     /**
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.name
      * @returns {String}
      */
-    getCookie(name) {
+    getCookie({name}) {
         let {cookie} = document
             .split('; ')
             .find(row => row.startsWith(name));
@@ -40,16 +41,18 @@ class Cookie extends Base {
     }
 
     /**
+     * @param {Object} [data]
      * @returns {String}
      */
-    getCookies() {
+    getCookies(data) {
         return document.cookie
     }
 
     /**
-     * @param {String} value
+     * @param {Object} data
+     * @param {String} data.value
      */
-    setCookie(value) {
+    setCookie({value}) {
         document.cookie = value
     }
 }

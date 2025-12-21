@@ -144,6 +144,41 @@ class VDom extends Base {
     }
 
     /**
+     * Finds a child vdom node inside a vdom tree by a given id
+     * @param {Object} vdom
+     * @param {String|null} id
+     * @returns {Object|null} child vdom node or null
+     */
+    static getById(vdom, id) {
+        vdom = VDom.getVdom(vdom);
+
+        let childNodes = vdom.cn || [],
+            i          = 0,
+            len        = childNodes.length,
+            childNode;
+
+        if (vdom.id === id) {
+            return vdom
+        }
+
+        for (; i < len; i++) {
+            childNode = VDom.getVdom(childNodes[i]);
+
+            if (childNode.id === id) {
+                return childNode
+            }
+
+            childNode = VDom.getById(childNode, id);
+
+            if (childNode) {
+                return childNode
+            }
+        }
+
+        return null
+    }
+
+    /**
      * Get the ids of all child nodes of the given vdom tree
      * @param vdom
      * @param [childIds=[]]
@@ -373,13 +408,24 @@ class VDom extends Base {
     }
 
     /**
-     * Neo.vdom.Helper will create ids for each vnode which does not already have one,
-     * so we need to sync them into the vdom.
+     * Synchronizes state between the live VDOM (blueprint) and the incoming VNode (worker response).
+     *
+     * 1. **ID Synchronization (VNode -> VDOM):**
+     *    `Neo.vdom.Helper` automatically assigns dynamic IDs to any VNode that lacks one, as the
+     *    delta update engine requires unique IDs to target DOM nodes. These generated IDs are
+     *    synced back into the VDOM to ensure stability and persistent referencing for future updates.
+     *
+     * 2. **Scroll State Synchronization (Bidirectional):**
+     *    - **Preservation (VDOM -> VNode):** Ensures that the latest scroll position captured on the
+     *      Main Thread (stored in VDOM) overrides potentially stale state returning from the Worker.
+     *    - **Rehydration (VNode -> VDOM):** Ensures that new VDOM trees (e.g., from Functional Components)
+     *      inherit the persistent scroll state from the existing VNode.
+     *
      * @param {Neo.vdom.VNode} vnode
      * @param {Object} vdom
      * @param {Boolean} force=false The force param will enforce overwriting different ids
      */
-    static syncVdomIds(vnode, vdom, force=false) {
+    static syncVdomState(vnode, vdom, force=false) {
         if (vnode && vdom) {
             vdom = VDom.getVdom(vdom);
 
@@ -400,6 +446,24 @@ class VDom extends Base {
                 }
             }
 
+            // 1. Rehydration (vnode -> vdom)
+            // Used by Functional Components (vdom is new)
+            if (Neo.isNumber(vnode.scrollTop) && !Neo.isNumber(vdom.scrollTop)) {
+                vdom.scrollTop = vnode.scrollTop
+            }
+            if (Neo.isNumber(vnode.scrollLeft) && !Neo.isNumber(vdom.scrollLeft)) {
+                vdom.scrollLeft = vnode.scrollLeft
+            }
+
+            // 2. Preservation (vdom -> vnode)
+            // Used by Classic Components (vdom is source of truth via capture)
+            if (Neo.isNumber(vdom.scrollTop)) {
+                vnode.scrollTop = vdom.scrollTop
+            }
+            if (Neo.isNumber(vdom.scrollLeft)) {
+                vnode.scrollLeft = vdom.scrollLeft
+            }
+
             if (childNodes) {
                 cn  = childNodes.map(item => VDom.getVdom(item));
                 // The vnode.childNodes array is already filtered by the worker.
@@ -413,7 +477,7 @@ class VDom extends Base {
 
                 for (; i < len; i++) {
                     if (vnode.childNodes) {
-                        VDom.syncVdomIds(vnode.childNodes[i], cn[i], force)
+                        VDom.syncVdomState(vnode.childNodes[i], cn[i], force)
                     }
                 }
             }

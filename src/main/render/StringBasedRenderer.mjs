@@ -1,3 +1,5 @@
+import DomAccess from '../DomAccess.mjs';
+
 const StringBasedRenderer = {
     /**
      * @param {String} html representing a single element
@@ -18,9 +20,10 @@ const StringBasedRenderer = {
      * @param {Number}      data.index                  The index at which to insert the new node.
      * @param {String}      data.outerHTML              The HTML string of the node to insert.
      * @param {HTMLElement} data.parentNode             The parent DOM node to insert into.
+     * @param {Object[]}    [data.postMountUpdates]     Array of post-mount updates (e.g. scroll state).
      * @private
      */
-    insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode}) {
+    insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode, postMountUpdates}) {
         let me = this;
 
         // If comments detected, parse HTML string to a node and use insertBefore/appendChild on childNodes.
@@ -39,15 +42,26 @@ const StringBasedRenderer = {
 
             if (index > 0 && index >= countChildren) {
                 parentNode.insertAdjacentHTML('beforeend', outerHTML);
-                return
-            }
-            if (countChildren > 0 && countChildren > index) {
+            } else if (countChildren > 0 && countChildren > index) {
                 parentNode.children[index].insertAdjacentHTML('beforebegin', outerHTML)
             } else if (countChildren > 0) {
                 parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', outerHTML)
             } else {
                 parentNode.insertAdjacentHTML('beforeend', outerHTML)
             }
+        }
+
+        if (postMountUpdates?.length > 0) {
+            let node;
+
+            postMountUpdates.forEach(update => {
+                node = DomAccess.getElement(update.id);
+
+                if (node) {
+                    if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
+                    if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                }
+            })
         }
     }
 };

@@ -35,7 +35,7 @@ const createMockComponent = (id, parentId, vdom) => {
     component.vnode = vnode;
 
     ComponentManager.register(component);
-    VDomUtil.syncVdomIds(component.vnode, component.vdom);
+    VDomUtil.syncVdomState(component.vnode, component.vdom);
 
     return component;
 };

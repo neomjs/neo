@@ -72,10 +72,13 @@ class MainContainerController extends ComponentController {
      * @protected
      */
     afterSetDockedWindowSide(value, oldValue) {
-        if (this.hasDockedWindow()) {
+        let me = this;
+
+        if (me.hasDockedWindow()) {
             Neo.main.addon.WindowPosition.setDock({
-                name: this.dockedWindowAppName,
-                dock: value
+                name    : me.dockedWindowAppName,
+                dock    : value,
+                windowId: me.windowId
             })
         }
     }

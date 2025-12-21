@@ -6,27 +6,6 @@ import Base from '../../../src/core/Base.mjs';
  * @singleton
  */
 class Blackboard extends Base {
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId   = null
-    /**
-     * @member {Object} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * @member {Object} context=null
-     */
-    context    = null
-    /**
-     * @member {Array} nodes=[]
-     */
-    nodes      = []
-    /**
-     * @member {Array} links=[]
-     */
-    links      = []
-
     static config = {
         /**
          * @member {String} className='AgentOS.canvas.Blackboard'
@@ -52,6 +31,27 @@ class Blackboard extends Base {
         singleton: true
     }
 
+    /**
+     * @member {String|null} canvasId=null
+     */
+    canvasId = null
+    /**
+     * @member {Object} canvasSize=null
+     */
+    canvasSize = null
+    /**
+     * @member {Object} context=null
+     */
+    context = null
+    /**
+     * @member {Array} links=[]
+     */
+    links = []
+    /**
+     * @member {Array} nodes=[]
+     */
+    nodes = []
+
     construct(config) {
         super.construct(config);
         // Seed some dummy data for initial render verification
@@ -68,23 +68,29 @@ class Blackboard extends Base {
 
     /**
      * Initialize the graph with a canvas ID
-     * @param {String} canvasId
+     * @param {Object} opts
+     * @param {String} opts.canvasId
+     * @param {String} opts.windowId
      */
-    initGraph(canvasId) {
-        console.log('Blackboard: initGraph', canvasId);
+    initGraph({canvasId, windowId}) {
+        let me        = this,
+            hasChange = me.canvasId !== canvasId;
+
+        console.log('Blackboard: initGraph', canvasId, hasChange);
         this.canvasId = canvasId;
 
         // Wait for the canvas to be available in the worker map
         const checkCanvas = () => {
-            const canvas = Neo.currentWorker.map[canvasId];
+            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
+
             if (canvas) {
-                this.context = canvas.getContext('2d');
-                this.render();
+                me.context = canvas.getContext('2d');
+                hasChange && me.render()
             } else {
-                setTimeout(checkCanvas, 50);
+                setTimeout(checkCanvas, 50)
             }
         };
-        checkCanvas();
+        checkCanvas()
     }
 
     updateGraphData(data) {
@@ -94,22 +100,26 @@ class Blackboard extends Base {
     }
 
     updateSize(size) {
-        console.log('Blackboard: updateSize', size);
-        this.canvasSize = size;
-        if (this.context) {
-            this.context.canvas.width  = size.width;
-            this.context.canvas.height = size.height;
+        let me = this;
+
+        me.canvasSize = size;
+
+        if (me.context) {
+            me.context.canvas.width  = size.width;
+            me.context.canvas.height = size.height
         }
     }
 
     render() {
-        if (!this.context) {
+        let me = this;
+
+        if (!me.context) {
             return;
         }
 
-        const ctx    = this.context;
-        const width  = this.canvasSize?.width || 800;
-        const height = this.canvasSize?.height || 600;
+        const ctx    = me.context;
+        const width  = me.canvasSize?.width || 800;
+        const height = me.canvasSize?.height || 600;
 
         // Clear
         ctx.fillStyle = '#000000';
@@ -123,9 +133,9 @@ class Blackboard extends Base {
         // Draw Links
         ctx.strokeStyle = '#666';
         ctx.lineWidth   = 2;
-        this.links.forEach(link => {
-            const source = this.nodes.find(n => n.id === link.source);
-            const target = this.nodes.find(n => n.id === link.target);
+        me.links.forEach(link => {
+            const source = me.nodes.find(n => n.id === link.source);
+            const target = me.nodes.find(n => n.id === link.target);
             if (source && target) {
                 ctx.beginPath();
                 ctx.moveTo(source.x, source.y);
@@ -135,7 +145,7 @@ class Blackboard extends Base {
         });
 
         // Draw Nodes
-        this.nodes.forEach(node => {
+        me.nodes.forEach(node => {
             // Node shape
             ctx.beginPath();
             ctx.arc(node.x, node.y, 15, 0, 2 * Math.PI);
@@ -153,12 +163,12 @@ class Blackboard extends Base {
 
         // Simple animation loop
         // Just moving the first node slightly to prove it's alive
-        if (this.nodes.length > 0) {
-            this.nodes[0].x = 100 + Math.sin(Date.now() / 1000) * 20;
+        if (me.nodes.length > 0) {
+            me.nodes[0].x = 100 + Math.sin(Date.now() / 1000) * 20;
         }
 
         // Loop using setTimeout since requestAnimationFrame support varies in workers
-        setTimeout(this.render.bind(this), 1000 / 60);
+        setTimeout(me.render.bind(me), 1000 / 60);
     }
 }
 
