@@ -214,7 +214,7 @@ class TextArea extends Text {
             // Delegate monitoring of sizes to the main thread.
             Neo.main.DomAccess.monitorAutoGrow({
                 id       : me.getInputElId(),
-                autoGrow : me.autoGrow
+                autoGrow : me.autoGrow,
                 windowId : me.windowId
             })
         }
