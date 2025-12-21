@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-12-21T19:42:23.992Z",
-  "releasesLastFetched": "2025-12-21T19:42:24.003Z",
+  "lastSync": "2025-12-21T20:37:52.739Z",
+  "releasesLastFetched": "2025-12-21T20:37:52.752Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -13758,7 +13758,7 @@
     },
     "11.17.0": {
       "publishedAt": "2025-12-21T19:28:51Z",
-      "contentHash": "9f7bd5b9ee7d7c73ddce35cebd4e8e6a1a10d887d8a08cb8ccebfdc8232e8958"
+      "contentHash": "6af4dad3d686e8f4d6c58fa95d02c16331d0419949f344a8690a2049ce4139f0"
     }
   }
 }
