@@ -1,7 +1,3 @@
-<<<<<<<< HEAD:resources/scss/src/draggable/dashboard/SortZone.scss
-.neo-dashboard {
-    .neo-panel {
-========
 .neo-container .neo-draggable,
 .neo-panel .neo-draggable {
     cursor: pointer;
@@ -13,7 +9,6 @@
 
 .neo-toolbar.neo-is-dragging {
     > .neo-button {
->>>>>>>> dev:resources/scss/src/draggable/container/SortZone.scss
         transition-duration       : 200ms;
         transition-property       : left, top;
         transition-timing-function: ease-out;
