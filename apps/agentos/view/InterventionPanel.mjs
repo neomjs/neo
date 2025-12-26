@@ -1,12 +1,12 @@
-import Panel         from '../../../src/container/Panel.mjs';
-import GridContainer from '../../../src/grid/Container.mjs';
-import Interventions from '../store/Interventions.mjs';
+import DashboardPanel from '../../../src/dashboard/Panel.mjs';
+import GridContainer  from '../../../src/grid/Container.mjs';
+import Interventions  from '../store/Interventions.mjs';
 
 /**
  * @class AgentOS.view.InterventionPanel
- * @extends Neo.container.Panel
+ * @extends Neo.dashboard.Panel
  */
-class InterventionPanel extends Panel {
+class InterventionPanel extends DashboardPanel {
     static config = {
         /**
          * @member {String} className='AgentOS.view.InterventionPanel'
@@ -26,6 +26,10 @@ class InterventionPanel extends Panel {
          * @member {Object} layout={ntype: 'fit'}
          */
         layout: {ntype: 'fit'},
+        /**
+         * @member {Function|String|null} popupUrl='apps/agentos/childapps/widget/index.html'
+         */
+        popupUrl: 'apps/agentos/childapps/widget/index.html',
         /**
          * @member {Object[]} headers
          */

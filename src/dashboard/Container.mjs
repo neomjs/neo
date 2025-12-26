@@ -134,6 +134,8 @@ class Container extends BaseContainer {
 
         sortZone.dragProxy.add(widget, true); // Silent add
 
+        me.detachedItems.delete(widgetName);
+
         await Neo.Main.windowClose({names: widgetName, windowId});
 
         me.#isReintegrating  = false;
