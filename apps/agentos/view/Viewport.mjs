@@ -57,6 +57,7 @@ class Viewport extends BaseViewport {
             flex             : 1,
             popupUrl         : 'apps/agentos/childapps/widget/index.html',
             reference        : 'dashboard',
+            sortGroup        : 'neo-connected-dashboard',
             cls              : ['agent-dashboard'],
             style            : {margin: '20px'},
 
