@@ -44,6 +44,7 @@ class Viewport extends BaseViewport {
             layout   : {ntype: 'vbox', align: 'stretch'},
             popupUrl : 'apps/colors/childapps/widget/index.html',
             reference: 'dashboard',
+            sortGroup: 'neo-connected-dashboard',
 
             items: [{
                 module   : DashboardPanel,

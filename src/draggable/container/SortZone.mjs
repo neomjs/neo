@@ -1,7 +1,9 @@
-import DragZone  from './DragZone.mjs';
-import NeoArray  from '../../util/Array.mjs';
-import Rectangle from '../../util/Rectangle.mjs';
-import VDomUtil  from '../../util/VDom.mjs';
+import DragCoordinator from '../../manager/DragCoordinator.mjs';
+import DragZone        from './DragZone.mjs';
+import Component       from '../../component/Base.mjs';
+import NeoArray        from '../../util/Array.mjs';
+import Rectangle       from '../../util/Rectangle.mjs';
+import VDomUtil        from '../../util/VDom.mjs';
 
 /**
  * @summary Manages the drag-and-drop reordering of items within a container, with support for window detachment.
@@ -110,6 +112,10 @@ class SortZone extends DragZone {
          */
         sortDirection: 'horizontal',
         /**
+         * @member {String|null} sortGroup=null
+         */
+        sortGroup: null,
+        /**
          * @member {Number} startIndex=-1
          * @protected
          */
@@ -121,6 +127,11 @@ class SortZone extends DragZone {
      * @protected
      */
     isOverDragging = false
+    /**
+     * @member {Boolean} isRemoteDragging=false
+     * @protected
+     */
+    isRemoteDragging = false
     /**
      * @member {Boolean} isWindowDragging=false
      * @protected
@@ -151,421 +162,28 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Helper method, override as needed
-     * @returns {Object}
+     * @param {Neo.component.Base} draggedItem
      */
-    getDragProxyConfig() {
-        return {...this.dragProxyConfig, cls: [...this.owner.cls]}
-    }
-
-    /**
-     * Override this method for class extensions (e.g. tab.header.Toolbar)
-     * @param {Number} fromIndex
-     * @param {Number} toIndex
-     */
-    moveTo(fromIndex, toIndex) {
-        this.owner.moveTo(fromIndex, toIndex);
-    }
-
-    /**
-     * Handles the completion of the drag operation.
-     *
-     * This method is responsible for:
-     * 1.  **Finalizing the Drop:** If valid, it moves the DOM nodes to their final positions (via `Neo.applyDeltas`).
-     * 2.  **Cleanup:** Removes the drag placeholder and resets internal state flags (`isWindowDragging`, `currentIndex`, etc.).
-     * 3.  **Layout Restoration:** Resets the styles of all items (clearing the absolute positioning used during the drag)
-     *     so they return to the container's natural layout flow.
-     * 4.  **State Synchronization:** Calls `owner.moveTo()` to update the container's `items` array to reflect the new order.
-     *
-     * @param {Object} data - The drag end event data.
-     */
-    async onDragEnd(data) {
-        let me                  = this,
-            {itemStyles, owner} = me,
-            ownerStyle          = owner.style || {},
+    applyAbsolutePositioning(draggedItem) {
+        let me = this,
             itemStyle;
 
-        await me.timeout(10);
+        me.sortableItems.forEach((item, i) => {
+            let rect = me.itemRects[i];
 
-        if (owner.dragResortable) {
-            if (me.dragPlaceholder) {
-                const
-                    component = me.dragComponent,
-                    deltas    = [],
-                    index     = me.sortableItems.indexOf(me.dragPlaceholder);
+            itemStyle = item.wrapperStyle || {};
 
-                if (component && index > -1) {
-                    if (!me.isWindowDragging) {
-                        deltas.push({
-                            action  : 'moveNode',
-                            id      : component.id,
-                            index,    // Visually correct index (where placeholder is)
-                            parentId: owner.getVdomItemsRoot().id
-                        });
-                    }
+            me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
-                    deltas.push({
-                        action: 'removeNode',
-                        id    : me.dragPlaceholder.id
-                    });
-
-                    // Manual DOM restoration
-                    await Neo.applyDeltas(me.windowId, deltas)
-                }
-            }
-
-            ownerStyle.height   = me.ownerStyle.height    || null;
-            ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
-            ownerStyle.width    = me.ownerStyle.width     || null;
-
-            owner.style = ownerStyle;
-
-            me.sortableItems?.forEach((item, index) => {
-                if (me.isWindowDragging && item === me.dragComponent) {
-                    return
-                }
-
-                itemStyle = item.wrapperStyle || {};
-
-                Object.assign(itemStyle, {
-                    height  : itemStyles[index].height || null,
-                    left    : null,
-                    margin  : null,
-                    position: null,
-                    top     : null,
-                    width   : itemStyles[index].width || null
-                });
-
-                if (index === me.startIndex) {
-                    itemStyle.visibility = null
-                }
-
-                item.wrapperStyle = itemStyle
+            item.wrapperStyle = Object.assign(itemStyle, {
+                height  : `${rect.height}px`,
+                left    : `${rect.left}px`,
+                margin  : '0px',
+                position: 'absolute',
+                top     : `${rect.top}px`,
+                width   : `${rect.width}px`
             });
-
-            if (!me.isWindowDragging && me.startIndex !== me.currentIndex) {
-                let fromIndex, toIndex;
-
-                if (me.dragPlaceholder) {
-                    const component = me.dragComponent;
-                    fromIndex = me.owner.items.indexOf(component);
-                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
-                } else {
-                    fromIndex = me.owner.items.indexOf(me.sortableItems[me.startIndex]);
-                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
-                }
-
-                me.moveTo(fromIndex, toIndex);
-            }
-
-            Object.assign(me, {
-                currentIndex    : -1,
-                indexMap        : null,
-                isWindowDragging: false,
-                itemRects       : null,
-                itemStyles      : null,
-                ownerRect       : null,
-                startIndex      : -1,
-                sortableItems   : null
-            });
-
-            await me.timeout(30);
-
-            me.dragEnd(data) // we do not want to trigger the super class call here
-        }
-    }
-
-    /**
-     * Handles the drag move event. This is the core logic loop for the drag operation.
-     *
-     * Responsibilities:
-     * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
-     *     If so, it restores the original layout snapshot (`itemRects`) and shows the placeholder, effectively
-     *     "snapping" the dashboard back to its sortable state.
-     * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
-     *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
-     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
-     *     if the threshold is crossed, updating the `currentIndex`.
-     * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
-     *
-     * @param {Object} data - The drag move event data.
-     */
-    async onDragMove(data) {
-        let me = this;
-
-        // The method can trigger before we got the client rects from the main thread
-        if (!me.itemRects || me.isScrolling) {
-            return
-        }
-
-        if (me.dragProxy && me.enableProxyToPopup) {
-            const {proxyRect} = data;
-
-            if (proxyRect && me.boundaryContainerRect) {
-                const
-                    boundaryRect     = me.boundaryContainerRect,
-                    intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
-                    proxyArea        = proxyRect.width * proxyRect.height,
-                    intersectionArea = intersection ? intersection.width * intersection.height : 0;
-
-                if (!me.isWindowDragging) {
-                    if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
-                        me.isWindowDragging = true; // Set flag to prevent re-entry
-
-                        me.fire('dragBoundaryExit', {
-                            draggedItem: me.dragComponent,
-                            proxyRect,
-                            sortZone   : me
-                        });
-                        return // Stop further processing in onDragMove
-                    }
-                } else if (me.isWindowDragging) {
-                    if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
-                        // Restore layout
-                        me.dragPlaceholder.wrapperStyle = {
-                            ...me.dragPlaceholder.wrapperStyle,
-                            visibility: 'visible'
-                        };
-
-                        // Re-applying the current state:
-                        me.itemRects.forEach((rect, index) => {
-                            let mappedIndex = me.indexMap[index];
-                            if (mappedIndex !== -1) {
-                                let item = me.owner.items[mappedIndex];
-
-                                if (item !== me.dragPlaceholder && item !== me.dragComponent) {
-                                    item.wrapperStyle = {
-                                        ...item.wrapperStyle,
-                                        height: `${rect.height}px`,
-                                        left  : `${rect.left}px`,
-                                        top   : `${rect.top}px`,
-                                        width : `${rect.width}px`
-                                    };
-                                }
-                            }
-                        });
-
-                        me.fire('dragBoundaryEntry', {
-                            draggedItem: me.dragComponent,
-                            proxyRect,
-                            sortZone   : me
-                        })
-                    }
-                    return
-                }
-            }
-        }
-
-        let {clientX, clientY} = data,
-            index              = me.currentIndex,
-            {itemRects}        = me,
-            maxItems           = itemRects.length - 1,
-            ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
-            ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
-            reversed           = me.reversedLayoutDirection,
-            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
-
-        if (me.sortDirection === 'horizontal') {
-            delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
-            isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
-            isOverDraggingStart = clientX < me.boundaryContainerRect.left;
-            itemHeightOrWidth   = 'width'
-        } else {
-            delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
-            isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
-            isOverDraggingStart = clientY < me.boundaryContainerRect.top;
-            itemHeightOrWidth   = 'height'
-        }
-
-        isOverDragging = isOverDraggingEnd || isOverDraggingStart;
-        moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
-
-        if (isOverDraggingStart) {
-            if (index > 0) {
-                me.currentIndex--;
-                await me.scrollToIndex();
-                me.switchItems(index, me.currentIndex)
-            }
-        }
-
-        else if (isOverDraggingEnd) {
-            if (index < maxItems) {
-                me.currentIndex++;
-                await me.scrollToIndex();
-                me.switchItems(index, me.currentIndex)
-            }
-        }
-
-        else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
-            if (Math.abs(delta) > itemRects[index - 1][itemHeightOrWidth] * moveFactor) {
-                me.currentIndex--;
-                me.switchItems(index, me.currentIndex)
-            }
-        }
-
-        else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
-            if (Math.abs(delta) > itemRects[index + 1][itemHeightOrWidth] * moveFactor) {
-                me.currentIndex++;
-                me.switchItems(index, me.currentIndex)
-            }
-        }
-
-        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
-
-        if (me.isOverDragging) {
-            await me.timeout(30); // wait for 1 frame
-
-            if (me.isOverDragging) {
-                await me.onDragMove(data)
-            }
-        }
-    }
-
-    /**
-     * Initializes the drag operation.
-     *
-     * Key actions:
-     * 1.  **Identify Drag Target:** Determines which item is being dragged (handling `dragHandleSelector` if present).
-     * 2.  **Snapshot Layout:** Captures the current DOM rectangles (`itemRects`) of all sortable items. This snapshot
-     *     is critical for:
-     *     - Calculating drag deltas for sorting.
-     *     - Restoring the layout after a window drag re-entry.
-     *     - Inferring gaps and offsets for `calculateExpandedLayout`.
-     * 3.  **Setup Proxy & Placeholder:** Configures the visual drag proxy and inserts the placeholder into the `sortableItems` list.
-     * 4.  **Apply Absolute Positioning:** Temporarily switches all items to `position: absolute` based on their captured
-     *     coordinates to enable smooth, GPU-accelerated movement during the drag.
-     *
-     * @param {Object} data - The drag start event data.
-     */
-    async onDragStart(data) {
-        let me                   = this,
-            {adjustItemRectsToParent, dragHandleSelector, owner} = me,
-            itemStyles           = me.itemStyles = [],
-            {layout}             = owner,
-            ownerStyle           = owner.style || {},
-            draggedItem, index, indexMap, itemStyle, rect, sortableItems;
-
-        if (owner.dragResortable) {
-            if (dragHandleSelector) {
-                const handleClassName = dragHandleSelector.substring(1);
-                const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
-
-                if (!handleNode) {
-                    return;
-                }
-
-                const handleIndex = data.path.indexOf(handleNode);
-
-                for (let i = handleIndex; i < data.path.length; i++) {
-                    const potentialItemNode = data.path[i];
-                    const component = Neo.getComponent(potentialItemNode.id);
-
-                    if (component && owner.items.includes(component)) {
-                        draggedItem = component;
-                        break;
-                    }
-                }
-
-                if (!draggedItem) {
-                    return;
-                }
-
-                sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
-                    cls: dragHandleSelector.startsWith('.') ? dragHandleSelector.substring(1) : dragHandleSelector
-                }));
-                index         = sortableItems.indexOf(draggedItem);
-
-                if (index < 0) {
-                    return;
-                }
-            } else {
-                draggedItem   = Neo.getComponent(data.path[0].id);
-                sortableItems = owner.items;
-                index         = owner.indexOf(draggedItem.id);
-            }
-
-            indexMap = {};
-
-            Object.assign(me, {
-                currentIndex           : index,
-                dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
-                dragProxyConfig        : me.getDragProxyConfig(),
-                indexMap,
-                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
-                reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
-                sortableItems,
-                sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
-                startIndex             : index
-            });
-
-            me.dragComponent = draggedItem;
-
-            sortableItems.forEach((item, i) => {
-                indexMap[i] = owner.items.indexOf(item);
-
-                itemStyles.push({
-                    height: item.height ? `${item.height}px` :  item.style?.height,
-                    width : item.width  ? `${item.width}px`  :  item.style?.width
-                });
-            });
-
-            const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
-
-            me.ownerRect = itemRects.shift();
-
-            owner.style = {
-                ...ownerStyle,
-                height  : `${me.ownerRect.height}px`,
-                minWidth: `${me.ownerRect.width}px`,
-                width   : `${me.ownerRect.width}px`
-            };
-
-            adjustItemRectsToParent && itemRects.forEach(rect => {
-                rect.x -= me.ownerRect.x;
-                rect.y -= me.ownerRect.y
-            });
-
-            me.itemRects = itemRects;
-
-            await me.dragStart(data);
-
-            if (me.dragPlaceholder) {
-                const placeholderIndex = sortableItems.indexOf(draggedItem);
-                if (placeholderIndex > -1) {
-                    sortableItems[placeholderIndex] = me.dragPlaceholder;
-                }
-                me.dragElement = me.dragPlaceholder.vdom;
-            }
-
-            sortableItems.forEach((item, i) => {
-                itemStyle = item.wrapperStyle || {};
-                rect      = me.itemRects[i];
-
-                me.adjustProxyRectToParent?.(rect, me.ownerRect);
-
-                item.wrapperStyle = Object.assign(itemStyle, {
-                    height  : `${rect.height}px`,
-                    left    : `${rect.left}px`,
-                    margin  : '0px',
-                    position: 'absolute',
-                    top     : `${rect.top}px`,
-                    width   : `${rect.width}px`
-                });
-            });
-
-            await me.timeout(5);
-
-            // If we have a placeholder, the original item is already hidden/moved.
-            // But we might want to ensure the placeholder (which is now in sortableItems) matches expectations?
-            // The logic below originally hid the draggedItem.
-            // If we use placeholder, draggedItem is in proxy (visible). Placeholder is hidden.
-            // me.dragPlaceholder logic in DragZone already set it to visibility: hidden.
-            if (!me.dragPlaceholder) {
-                itemStyle = draggedItem.wrapperStyle || {};
-                itemStyle.visibility = 'hidden';
-                draggedItem.wrapperStyle = itemStyle;
-            }
-        }
+        });
     }
 
     /**
@@ -693,6 +311,477 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        DragCoordinator.register(this)
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        DragCoordinator.unregister(this);
+        super.destroy()
+    }
+
+    /**
+     * Helper method, override as needed
+     * @returns {Object}
+     */
+    getDragProxyConfig() {
+        return {...this.dragProxyConfig, cls: [...this.owner.cls]}
+    }
+
+    /**
+     * Override this method for class extensions (e.g. tab.header.Toolbar)
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    moveTo(fromIndex, toIndex) {
+        this.owner.moveTo(fromIndex, toIndex);
+    }
+
+    /**
+     * Handles the completion of the drag operation.
+     *
+     * This method is responsible for:
+     * 1.  **Finalizing the Drop:** If valid, it moves the DOM nodes to their final positions (via `Neo.applyDeltas`).
+     * 2.  **Cleanup:** Removes the drag placeholder and resets internal state flags (`isWindowDragging`, `currentIndex`, etc.).
+     * 3.  **Layout Restoration:** Resets the styles of all items (clearing the absolute positioning used during the drag)
+     *     so they return to the container's natural layout flow.
+     * 4.  **State Synchronization:** Calls `owner.moveTo()` to update the container's `items` array to reflect the new order.
+     *
+     * @param {Object} data - The drag end event data.
+     */
+    async onDragEnd(data) {
+        let me                  = this,
+            {itemStyles, owner} = me,
+            ownerStyle          = owner.style || {},
+            itemStyle;
+
+        await me.timeout(10);
+
+        if (!me.isRemoteDragging) {
+            // Signal Coordinator about end of drag
+            DragCoordinator.onDragEnd({
+                draggedItem   : me.dragComponent,
+                sourceSortZone: me
+            });
+        }
+
+        if (owner.dragResortable) {
+            if (me.dragPlaceholder) {
+                const
+                    component = me.dragComponent,
+                    deltas    = [],
+                    index     = me.sortableItems.indexOf(me.dragPlaceholder);
+
+                if (component && index > -1) {
+                    if (!me.isWindowDragging) {
+                        // Only move DOM if not window dragging or if it's a remote drag being finalized locally
+                        if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
+                             deltas.push({
+                                action  : 'moveNode',
+                                id      : component.id,
+                                index,    // Visually correct index (where placeholder is)
+                                parentId: owner.getVdomItemsRoot().id
+                            });
+                        }
+                    }
+
+                    deltas.push({
+                        action: 'removeNode',
+                        id    : me.dragPlaceholder.id
+                    });
+
+                    // Manual DOM restoration
+                    await Neo.applyDeltas(me.windowId, deltas)
+                }
+            }
+
+            ownerStyle.height   = me.ownerStyle.height    || null;
+            ownerStyle.minWidth = me.ownerStyle.minWidth  || null;
+            ownerStyle.width    = me.ownerStyle.width     || null;
+
+            owner.style = ownerStyle;
+
+            me.sortableItems?.forEach((item, index) => {
+                if (me.isWindowDragging && item === me.dragComponent) {
+                    return
+                }
+
+                itemStyle = item.wrapperStyle || {};
+
+                Object.assign(itemStyle, {
+                    height  : itemStyles[index].height || null,
+                    left    : null,
+                    margin  : null,
+                    position: null,
+                    top     : null,
+                    width   : itemStyles[index].width || null
+                });
+
+                if (index === me.startIndex) {
+                    itemStyle.visibility = null
+                }
+
+                item.wrapperStyle = itemStyle
+            });
+
+            if (!me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
+                let fromIndex, toIndex;
+
+                if (me.dragPlaceholder) {
+                    const component = me.dragComponent;
+                    fromIndex = me.owner.items.indexOf(component);
+                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+                } else {
+                    fromIndex = me.owner.items.indexOf(me.sortableItems[me.startIndex]);
+                    toIndex   = me.owner.items.indexOf(me.sortableItems[me.currentIndex]);
+                }
+
+                me.moveTo(fromIndex, toIndex);
+            }
+
+            Object.assign(me, {
+                currentIndex    : -1,
+                indexMap        : null,
+                isRemoteDragging: false,
+                isWindowDragging: false,
+                itemRects       : null,
+                itemStyles      : null,
+                ownerRect       : null,
+                startIndex      : -1,
+                sortableItems   : null
+            });
+
+            await me.timeout(30);
+
+            me.dragEnd(data) // we do not want to trigger the super class call here
+        }
+    }
+
+    /**
+     * Handles the drag move event. This is the core logic loop for the drag operation.
+     *
+     * Responsibilities:
+     * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
+     *     If so, it restores the original layout snapshot (`itemRects`) and shows the placeholder, effectively
+     *     "snapping" the dashboard back to its sortable state.
+     * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
+     *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
+     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
+     *     if the threshold is crossed, updating the `currentIndex`.
+     * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
+     *
+     * @param {Object} data - The drag move event data.
+     */
+    async onDragMove(data) {
+        let me = this;
+
+        // The method can trigger before we got the client rects from the main thread
+        if (!me.itemRects || me.isScrolling) {
+            return
+        }
+
+        if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
+            const {proxyRect} = data;
+
+            if (proxyRect && me.boundaryContainerRect) {
+                const
+                    boundaryRect     = me.boundaryContainerRect,
+                    intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
+                    proxyArea        = proxyRect.width * proxyRect.height,
+                    intersectionArea = intersection ? intersection.width * intersection.height : 0;
+
+                if (!me.isWindowDragging) {
+                    if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
+                        me.isWindowDragging = true; // Set flag to prevent re-entry
+
+                        me.fire('dragBoundaryExit', {
+                            draggedItem: me.dragComponent,
+                            proxyRect,
+                            sortZone   : me
+                        });
+                        return // Stop further processing in onDragMove
+                    }
+                } else if (me.isWindowDragging) {
+                    if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
+                        // Restore layout
+                        me.dragPlaceholder.wrapperStyle = {
+                            ...me.dragPlaceholder.wrapperStyle,
+                            visibility: 'visible'
+                        };
+
+                        // Re-applying the current state:
+                        me.itemRects.forEach((rect, index) => {
+                            let mappedIndex = me.indexMap[index];
+                            if (mappedIndex !== -1) {
+                                let item = me.owner.items[mappedIndex];
+
+                                if (item !== me.dragPlaceholder && item !== me.dragComponent) {
+                                    item.wrapperStyle = {
+                                        ...item.wrapperStyle,
+                                        height: `${rect.height}px`,
+                                        left  : `${rect.left}px`,
+                                        top   : `${rect.top}px`,
+                                        width : `${rect.width}px`
+                                    };
+                                }
+                            }
+                        });
+
+                        me.fire('dragBoundaryEntry', {
+                            draggedItem: me.dragComponent,
+                            proxyRect,
+                            sortZone   : me
+                        })
+                    } else {
+                        // Signal Coordinator
+                        DragCoordinator.onDragMove({
+                            draggedItem   : me.dragComponent,
+                            proxyRect     : data.proxyRect,
+                            screenX       : data.screenX,
+                            screenY       : data.screenY,
+                            sourceSortZone: me
+                        })
+                    }
+                    return
+                }
+            }
+        }
+
+        let {clientX, clientY} = data,
+            index              = me.currentIndex,
+            {itemRects}        = me,
+            maxItems           = itemRects.length - 1,
+            ownerX             = me.adjustItemRectsToParent ? me.ownerRect.x : 0,
+            ownerY             = me.adjustItemRectsToParent ? me.ownerRect.y : 0,
+            reversed           = me.reversedLayoutDirection,
+            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
+
+        if (me.sortDirection === 'horizontal') {
+            delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
+            isOverDraggingEnd   = clientX > me.boundaryContainerRect.right;
+            isOverDraggingStart = clientX < me.boundaryContainerRect.left;
+            itemHeightOrWidth   = 'width'
+        } else {
+            delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
+            isOverDraggingEnd   = clientY > me.boundaryContainerRect.bottom;
+            isOverDraggingStart = clientY < me.boundaryContainerRect.top;
+            itemHeightOrWidth   = 'height'
+        }
+
+        isOverDragging = isOverDraggingEnd || isOverDraggingStart;
+        moveFactor     = isOverDragging ? 0.02 : 0.55; // We can not use 0.5, since items would jump back & forth
+
+        if (isOverDraggingStart) {
+            if (index > 0) {
+                me.currentIndex--;
+                await me.scrollToIndex();
+                me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        else if (isOverDraggingEnd) {
+            if (index < maxItems) {
+                me.currentIndex++;
+                await me.scrollToIndex();
+                me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
+            if (Math.abs(delta) > itemRects[index - 1][itemHeightOrWidth] * moveFactor) {
+                me.currentIndex--;
+                me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
+            if (Math.abs(delta) > itemRects[index + 1][itemHeightOrWidth] * moveFactor) {
+                me.currentIndex++;
+                me.switchItems(index, me.currentIndex)
+            }
+        }
+
+        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
+
+        if (me.isOverDragging) {
+            await me.timeout(30); // wait for 1 frame
+
+            if (me.isOverDragging) {
+                await me.onDragMove(data)
+            }
+        }
+    }
+
+    /**
+     * Initializes the drag operation.
+     *
+     * Key actions:
+     * 1.  **Identify Drag Target:** Determines which item is being dragged (handling `dragHandleSelector` if present).
+     * 2.  **Snapshot Layout:** Captures the current DOM rectangles (`itemRects`) of all sortable items. This snapshot
+     *     is critical for:
+     *     - Calculating drag deltas for sorting.
+     *     - Restoring the layout after a window drag re-entry.
+     *     - Inferring gaps and offsets for `calculateExpandedLayout`.
+     * 3.  **Setup Proxy & Placeholder:** Configures the visual drag proxy and inserts the placeholder into the `sortableItems` list.
+     * 4.  **Apply Absolute Positioning:** Temporarily switches all items to `position: absolute` based on their captured
+     *     coordinates to enable smooth, GPU-accelerated movement during the drag.
+     *
+     * @param {Object} data - The drag start event data.
+     */
+    async onDragStart(data) {
+        let me                   = this,
+            {dragHandleSelector, owner} = me,
+            draggedItem, index, sortableItems;
+
+        if (owner.dragResortable) {
+            if (dragHandleSelector) {
+                const handleClassName = dragHandleSelector.substring(1);
+                const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
+
+                if (!handleNode) {
+                    return;
+                }
+
+                const handleIndex = data.path.indexOf(handleNode);
+
+                for (let i = handleIndex; i < data.path.length; i++) {
+                    const potentialItemNode = data.path[i];
+                    const component = Neo.getComponent(potentialItemNode.id);
+
+                    if (component && owner.items.includes(component)) {
+                        draggedItem = component;
+                        break;
+                    }
+                }
+
+                if (!draggedItem) {
+                    return;
+                }
+
+                sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
+                    cls: dragHandleSelector.startsWith('.') ? dragHandleSelector.substring(1) : dragHandleSelector
+                }));
+                index         = sortableItems.indexOf(draggedItem);
+
+                if (index < 0) {
+                    return;
+                }
+            } else {
+                draggedItem   = Neo.getComponent(data.path[0].id);
+                sortableItems = owner.items;
+                index         = owner.indexOf(draggedItem.id);
+            }
+
+            await me.setupDragState(draggedItem);
+
+            await me.dragStart(data);
+
+            if (me.dragPlaceholder) {
+                const placeholderIndex = sortableItems.indexOf(draggedItem);
+                if (placeholderIndex > -1) {
+                    sortableItems[placeholderIndex] = me.dragPlaceholder;
+                }
+                me.dragElement = me.dragPlaceholder.vdom;
+            }
+
+            me.applyAbsolutePositioning(draggedItem);
+
+            await me.timeout(5);
+
+            if (!me.dragPlaceholder) {
+                let itemStyle = draggedItem.wrapperStyle || {};
+                itemStyle.visibility = 'hidden';
+                draggedItem.wrapperStyle = itemStyle;
+            }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onRemoteDragLeave() {
+        let me = this;
+
+        if (me.isRemoteDragging) {
+            me.isRemoteDragging = false;
+            await me.onDragEnd({});
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onRemoteDragMove(data) {
+        let me = this;
+
+        if (!me.isRemoteDragging) {
+            await me.startRemoteDrag(data);
+        }
+
+        // Delegate to standard onDragMove logic, which updates the proxy
+        me.onDragMove({
+            clientX  : data.localX,
+            clientY  : data.localY,
+            proxyRect: data.proxyRect
+        })
+    }
+
+    /**
+     * @param {Neo.component.Base} draggedItem
+     */
+    async onRemoteDrop(draggedItem) {
+        let me    = this,
+            index = me.currentIndex;
+
+        // Ensure we are in remote drag mode
+        if (me.isRemoteDragging) {
+            // Cleanup placeholder but keep layout ready
+            await me.onDragEnd({});
+
+            // Remove from old parent (if not already detached)
+            draggedItem.getParent()?.remove(draggedItem, false);
+
+            // Insert into new owner
+            me.owner.insert(index, draggedItem);
+
+            me.isRemoteDragging = false;
+        }
+    }
+
+    /**
+     * @param {Neo.component.Base} draggedItem
+     */
+    onRemoteDropOut(draggedItem) {
+        // Called on the source sort zone when a drop occurred elsewhere.
+        // We need to cleanup any detached state tracking.
+        let me = this;
+
+        if (me.owner.detachedItems) {
+            for (const [key, value] of me.owner.detachedItems.entries()) {
+                if (value.widget === draggedItem) {
+                    me.owner.detachedItems.delete(key);
+                    // The window is already closed by suspendWindowDrag, so we just clean up the map.
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * @param {String} widgetName
+     * @param {DOMRect} proxyRect
+     */
+    resumeWindowDrag(widgetName, proxyRect) {
+        this.owner.resumeWindowDrag(widgetName, proxyRect)
+    }
+
+    /**
      * @returns {Promise<void>}
      */
     async scrollToIndex() {
@@ -701,6 +790,150 @@ class SortZone extends DragZone {
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
         me.isScrolling = false
+    }
+
+    /**
+     * @param {Neo.component.Base} draggedItem
+     */
+    async setupDragState(draggedItem) {
+        let me         = this,
+            {adjustItemRectsToParent, owner} = me,
+            itemStyles = me.itemStyles = [],
+            {layout}   = owner,
+            ownerStyle = owner.style || {},
+            index, indexMap, itemRects, sortableItems;
+
+        sortableItems = owner.items.filter(item => !item.isDestroyed);
+        index         = sortableItems.indexOf(draggedItem);
+
+        indexMap = {};
+
+        Object.assign(me, {
+            currentIndex           : index,
+            dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
+            dragProxyConfig        : me.getDragProxyConfig(),
+            indexMap,
+            ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
+            reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+            sortableItems,
+            sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
+            startIndex             : index
+        });
+
+        me.dragComponent = draggedItem;
+
+        sortableItems.forEach((item, i) => {
+            indexMap[i] = owner.items.indexOf(item);
+
+            itemStyles.push({
+                height: item.height ? `${item.height}px` :  item.style?.height,
+                width : item.width  ? `${item.width}px`  :  item.style?.width
+            });
+        });
+
+        itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
+
+        me.ownerRect = itemRects.shift();
+
+        owner.style = {
+            ...ownerStyle,
+            height  : `${me.ownerRect.height}px`,
+            minWidth: `${me.ownerRect.width}px`,
+            width   : `${me.ownerRect.width}px`
+        };
+
+        adjustItemRectsToParent && itemRects.forEach(rect => {
+            rect.x -= me.ownerRect.x;
+            rect.y -= me.ownerRect.y
+        });
+
+        me.itemRects = itemRects
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async startRemoteDrag(data) {
+        let me          = this,
+            {owner}     = me,
+            {proxyRect} = data,
+            draggedItem = data.draggedItem,
+            sortableItems;
+
+        me.isRemoteDragging = true;
+
+        // 1. Create Visible Proxy (simulating local drag)
+        // We use createDragProxy from DragZone, but need to mock the rect data
+        // to match the remote proxyRect translated to local space.
+        me.dragElementRect = {
+            height: proxyRect.height,
+            width : proxyRect.width,
+            x     : data.localX, // These are clientX/Y relative to window? No, localX is screenX - win.x
+            y     : data.localY,
+            left  : data.localX,
+            top   : data.localY
+        };
+
+        // We need to set the dragElement to the item's vdom (or clone)
+        // Since the item is remote, we use the passed instance
+        me.dragElement = draggedItem.vdom;
+        me.appName     = draggedItem.appName; // Ensure context match
+
+        // Create the visible proxy
+        await me.createDragProxy({
+            height: proxyRect.height,
+            width : proxyRect.width,
+            x     : data.localX,
+            y     : data.localY
+        });
+
+        // 2. Setup Layout Placeholder
+        // createDragProxy creates a placeholder if it's a container proxy (which Dashboard uses).
+        // However, we need to ensure the placeholder is inserted into the owner.
+        // The standard createDragProxy logic does this:
+        // "me.dragPlaceholder = Neo.create(...); ... me.owner.items.indexOf(component) ..."
+        // BUT: The component is NOT in the owner yet. It's remote.
+        // So createDragProxy might fail or do weird things if it expects the item to be there.
+
+        // Refined Logic:
+        // We can't use standard createDragProxy(true) blindly because it assumes local item.
+        // We might need to manually set up the placeholder if createDragProxy relies on owner.indexOf.
+        // Looking at SortZone.mjs -> createDragProxy -> it calls base DragZone.
+        // DragZone.mjs -> createDragProxy:
+        // "me.dragStartIndex = me.owner.items.indexOf(component);" -> will be -1.
+        // "me.owner.getVdomItemsRoot().id" -> exists.
+        // "await Neo.applyDeltas(..., {action: 'insertNode', index: me.dragStartIndex...})" -> -1 index might be issue.
+
+        // So, we should manually setup the placeholder for remote items *after* creating the proxy (or override logic).
+        // Actually, let's manually do what createDragProxy does for the placeholder part, but adapted for remote.
+
+        if (me.dragProxy) {
+             // If createDragProxy made a placeholder (unlikely if index is -1?), we use it.
+             // If not, we make one.
+             if (!me.dragPlaceholder) {
+                me.dragPlaceholder = Neo.create({
+                    module: Component,
+                    flex  : draggedItem.flex,
+                    style : {height: `${proxyRect.height}px`, visibility: 'hidden', width: `${proxyRect.width}px`}
+                });
+
+                // We add it to the owner to get it into the items array
+                owner.add(me.dragPlaceholder);
+             }
+        }
+
+        // 3. Setup Sort State
+        await me.setupDragState(me.dragPlaceholder);
+
+        // 4. Apply Absolute Positioning (to freeze layout for sorting)
+        me.applyAbsolutePositioning(me.dragPlaceholder);
+    }
+
+    /**
+     * @param {String} widgetName
+     */
+    suspendWindowDrag(widgetName) {
+        this.owner.suspendWindowDrag(widgetName)
     }
 
     /**

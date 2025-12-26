@@ -67,7 +67,11 @@ class Container extends BaseContainer {
         /**
          * @member {Function|String|null} popupUrl=null
          */
-        popupUrl: null
+        popupUrl: null,
+        /**
+         * @member {String|null} sortGroup=null
+         */
+        sortGroup: null
     }
 
     /**
@@ -111,7 +115,8 @@ class Container extends BaseContainer {
                 dragBoundaryEntry: data => me.onDragBoundaryEntry(data),
                 dragBoundaryExit : data => me.onDragBoundaryExit(data),
                 dragEnd          : data => me.fire('dragEnd',           data)
-            }
+            },
+            sortGroup: me.sortGroup
         })
 
         super.createSortZone(config)
@@ -297,6 +302,48 @@ class Container extends BaseContainer {
                 break
             }
         }
+    }
+
+    /**
+     * Re-opens the popup window and resumes the window drag operation.
+     * Called by the DragCoordinator when a remote drag leaves a target dashboard back into the void.
+     * @param {String} widgetName
+     * @param {DOMRect} proxyRect
+     */
+    async resumeWindowDrag(widgetName, proxyRect) {
+        let me           = this,
+            detachedItem = me.detachedItems.get(widgetName),
+            popupData;
+
+        if (detachedItem) {
+            me.#isWindowDragging = true;
+
+            popupData = await me.openWidgetInPopup(detachedItem.widget, proxyRect);
+
+            // We need to tell the DragDrop addon to resume window dragging
+            Neo.main.addon.DragDrop.startWindowDrag({
+                popupHeight: popupData.popupHeight,
+                popupName  : popupData.windowName,
+                popupWidth : popupData.popupWidth,
+                windowId   : me.windowId
+            });
+        }
+    }
+
+    /**
+     * Closes the popup window and suspends the window drag operation.
+     * Called by the DragCoordinator when a remote drag enters a target dashboard.
+     * @param {String} widgetName
+     */
+    async suspendWindowDrag(widgetName) {
+        let me = this;
+
+        // Prevent onWindowDisconnect from auto-reintegrating
+        me.#isWindowDragging = true; 
+
+        await Neo.Main.windowClose({names: [widgetName], windowId: me.windowId});
+
+        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId: me.windowId});
     }
 }
 
