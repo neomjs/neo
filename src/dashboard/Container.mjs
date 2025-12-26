@@ -2,8 +2,27 @@ import BaseContainer      from '../container/Base.mjs';
 import DragProxyContainer from '../draggable/DragProxyContainer.mjs';
 
 /**
+ * @summary A container that manages a dynamic layout of sortable items, with built-in support for detaching items into separate browser windows.
+ *
+ * This class extends `Neo.container.Base` to provide a drag-and-drop dashboard experience. Its most powerful feature is the
+ * **"Detach to Window"** capability. When a user drags a dashboard item outside the container's boundary, this class automatically:
+ * 1.  Opens a new browser popup window (app shell) based on the item's or container's `popupUrl`.
+ * 2.  Moves the item's component instance into the new window's component tree.
+ * 3.  Maintains a link between the detached item and its original dashboard slot.
+ *
+ * **Re-integration:**
+ * If the user drags the detached window back over the original dashboard, this class detects the re-entry, closes the popup,
+ * and seamlessly re-inserts the item into its previous position (or a new sort index).
+ *
+ * **Architecture:**
+ * This class leverages the `Neo.worker.App`'s shared nature. It listens for global `connect` and `disconnect` events to track
+ * the lifecycle of detached windows. It uses a robust `windowId` mapping to ensure that even if a window is closed manually by the user,
+ * the widget is correctly reclaimed and restored to the dashboard, preventing data loss or "zombie" widgets.
+ *
  * @class Neo.dashboard.Container
  * @extends Neo.container.Base
+ * @see Neo.dashboard.Panel
+ * @see Neo.draggable.container.SortZone
  */
 class Container extends BaseContainer {
     static config = {
