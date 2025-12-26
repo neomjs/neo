@@ -55,15 +55,10 @@ class Viewport extends BaseViewport {
             module           : Dashboard,
             dragProxyExtraCls: ['agent-os-viewport', 'neo-viewport'],
             flex             : 1,
+            popupUrl         : 'apps/agentos/childapps/widget/index.html',
             reference        : 'dashboard',
             cls              : ['agent-dashboard'],
             style            : {margin: '20px'},
-
-            listeners: {
-                dragBoundaryEntry: 'onDragBoundaryEntry',
-                dragBoundaryExit : 'onDragBoundaryExit',
-                dragEnd          : 'onDragEnd'
-            },
 
             items: [{
                 module   : StrategyPanel,
@@ -73,6 +68,7 @@ class Viewport extends BaseViewport {
                 module   : Panel,
                 cls      : ['agent-panel-swarm'],
                 flex     : 5,
+                popupUrl : 'apps/agentos/childapps/swarm/index.html',
                 reference: 'swarm',
                 headers  : [{
                     dock: 'top',
