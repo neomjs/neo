@@ -54,10 +54,6 @@ class Window extends Manager {
     getWindowAt(x, y) {
         let item = this.items.find(item => item.rect?.intersects({bottom: y, right: x, x, y}));
 
-        if (!item) {
-             console.log('getWindowAt failed', {x, y, windows: this.items.map(i => ({id: i.id, rect: i.rect}))});
-        }
-
         return item ? item.id : null
     }
 
@@ -74,7 +70,7 @@ class Window extends Manager {
             const {outerHeight, outerWidth, screenLeft, screenTop} = windowData;
             rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight)
         }
-        
+
         console.log('Window.onWindowConnect', {windowId, rect});
 
         this.register({appName, id: windowId, rect})
