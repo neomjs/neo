@@ -66,6 +66,15 @@ class DashboardSortZone extends SortZone {
 
             me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
+            console.log('applyAbsolutePositioning', {
+                height  : `${rect.height}px`,
+                left    : `${rect.left}px`,
+                margin  : '0px',
+                position: 'absolute',
+                top     : `${rect.top}px`,
+                width   : `${rect.width}px`
+            });
+
             item.wrapperStyle = Object.assign(itemStyle, {
                 height  : `${rect.height}px`,
                 left    : `${rect.left}px`,
@@ -234,7 +243,7 @@ class DashboardSortZone extends SortZone {
                 sourceSortZone: me
             })
         }
-
+return;
         super.onDragEnd(data)
     }
 
@@ -327,6 +336,9 @@ class DashboardSortZone extends SortZone {
     async onRemoteDrop(draggedItem) {
         let me    = this,
             index = me.currentIndex;
+
+        console.log('onRemoteDrop', draggedItem.id, index);
+        return;
 
         // Ensure we are in remote drag mode
         if (me.isRemoteDragging) {
