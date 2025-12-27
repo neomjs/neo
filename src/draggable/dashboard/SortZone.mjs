@@ -242,7 +242,7 @@ class DashboardSortZone extends SortZone {
                 sourceSortZone: me
             })
         }
-return;
+
         super.onDragEnd(data)
     }
 
@@ -281,8 +281,6 @@ return;
 
                 if (me.isWindowDragging) {
                     if (!(proxyArea > 0 && (intersectionArea / proxyArea) > 0.51)) {
-                        console.log('dragBoundaryExit', me.offsetX, me.offsetY);
-
                         // Signal Coordinator
                         DragCoordinator.onDragMove({
                             draggedItem   : me.dragComponent,
@@ -330,7 +328,12 @@ return;
             clientX  : data.localX,
             clientY  : data.localY,
             proxyRect: data.proxyRect
-        })
+        });
+
+        me.dragMove({
+            clientX: data.localX,
+            clientY: data.localY
+        }, true)
     }
 
     /**
@@ -500,6 +503,8 @@ return;
         let rects = await owner.getDomRect([owner.id]);
         me.ownerRect = rects[0];
 
+        console.log('ownerRect', me.ownerRect);
+
         // Assign the drag offsets to the instance, so that the DragZone onDragMove logic works
         me.offsetX = data.offsetX;
         me.offsetY = data.offsetY;
@@ -514,18 +519,14 @@ return;
             module          : DragProxyContainer,
             appName         : me.appName,
             cls             : ['neo-dragproxy', ...me.owner.cls],
-            height          : `${proxyRect.height}px`,
             items           : [draggedItem],
             moveInMainThread: false,
-            parentComponent : null,
-            parentId        : 'document.body',
-            width           : `${proxyRect.width}px`,
             windowId        : me.windowId,
 
             style: {
                 height: `${proxyRect.height}px`,
-                left  : `${data.localX - data.offsetX}px`,
-                top   : `${data.localY - data.offsetY}px`,
+                left  : `${data.localX - data.offsetX - me.ownerRect.x}px`,
+                top   : `${data.localY - data.offsetY - me.ownerRect.y}px`,
                 width : `${proxyRect.width}px`
             }
         };

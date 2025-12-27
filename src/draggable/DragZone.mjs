@@ -368,12 +368,13 @@ class DragZone extends Base {
 
     /**
      * @param {Object} data
+     * @param {Boolean} force=false
      */
-    dragMove(data) {
+    dragMove(data, force=false) {
         let me = this,
             style;
 
-        if (!me.moveInMainThread && me.dragProxy) {
+        if ((!me.moveInMainThread || force) && me.dragProxy) {
             style = me.dragProxy.style;
 
             if (me.moveHorizontal) {
