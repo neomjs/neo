@@ -45,6 +45,8 @@ class DragCoordinator extends Manager {
             targetWindowId = Window.getWindowAt(screenX, screenY),
             targetSortZone;
 
+        // console.log('DragCoordinator.onDragMove', {screenX, screenY, targetWindowId, sortGroup});
+
         if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
             targetSortZone = me.sortZones.get(sortGroup)?.get(targetWindowId);
 
@@ -52,6 +54,8 @@ class DragCoordinator extends Manager {
                 let targetWindow = Window.get(targetWindowId),
                     localX       = screenX - targetWindow.rect.x,
                     localY       = screenY - targetWindow.rect.y;
+
+                console.log('DragCoordinator target found', {targetWindowId, localX, localY});
 
                 // Entering a new target zone
                 if (me.activeTargetZone !== targetSortZone) {
