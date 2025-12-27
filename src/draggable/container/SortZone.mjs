@@ -1,6 +1,6 @@
+import Component       from '../../component/Base.mjs';
 import DragCoordinator from '../../manager/DragCoordinator.mjs';
 import DragZone        from './DragZone.mjs';
-import Component       from '../../component/Base.mjs';
 import NeoArray        from '../../util/Array.mjs';
 import Rectangle       from '../../util/Rectangle.mjs';
 import VDomUtil        from '../../util/VDom.mjs';
@@ -368,7 +368,7 @@ class SortZone extends DragZone {
             DragCoordinator.onDragEnd({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
-            });
+            })
         }
 
         if (owner.dragResortable) {
@@ -810,7 +810,10 @@ class SortZone extends DragZone {
             await me.onDragEnd({});
 
             // Remove from old parent (if not already detached)
-            draggedItem.getParent()?.remove(draggedItem, false);
+            const parentId = draggedItem.parentId;
+            if (parentId && parentId !== 'document.body') {
+                Neo.getComponent(parentId)?.remove(draggedItem, false)
+            }
 
             // Insert into new owner
             me.owner.insert(index, draggedItem);
@@ -919,59 +922,81 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async startRemoteDrag(data) {
-        console.log('SortZone.startRemoteDrag', data);
         let me          = this,
             {owner}     = me,
             {proxyRect} = data,
-            draggedItem = data.draggedItem;
+            draggedItem = data.draggedItem,
+            dragElement = VDomUtil.clone(draggedItem.vdom),
+            config;
 
         me.isRemoteDragging = true;
 
-        // 1. Create Visible Proxy (simulating local drag)
-        // We use createDragProxy from DragZone, but need to mock the rect data
-        // to match the remote proxyRect translated to local space.
+        // Mock the drag element rect for DragZone logic if needed
         me.dragElementRect = {
             height: proxyRect.height,
             width : proxyRect.width,
-            x     : data.localX, // These are clientX/Y relative to window? No, localX is screenX - win.x
+            x     : data.localX,
             y     : data.localY,
             left  : data.localX,
             top   : data.localY
         };
 
-        // We need to set the dragElement to the item's vdom (or clone)
-        // Since the item is remote, we use the passed instance
-        me.dragElement = draggedItem.vdom;
-        me.appName     = draggedItem.appName; // Ensure context match
+        me.appName = draggedItem.appName;
 
-        // Create the visible proxy
-        await me.createDragProxy({
-            height: proxyRect.height,
-            width : proxyRect.width,
-            x     : data.localX,
-            y     : data.localY
+        // 1. Create a local DragProxy manually (VDOM clone only, no DOM move)
+        // We use DragProxyComponent directly, not Container, as we just need the visual.
+        // We wrap the cloned VDOM to ensure styles match.
+        config = {
+            module          : Neo.draggable.DragProxyComponent,
+            appName         : me.appName,
+            cls             : ['neo-dragproxy', ...me.owner.cls, ...dragElement.cls || []],
+            height          : `${proxyRect.height}px`,
+            moveInMainThread: true,
+            parentId        : 'document.body',
+            style           : {
+                height: `${proxyRect.height}px`,
+                left  : `${data.localX}px`,
+                top   : `${data.localY}px`,
+                width : `${proxyRect.width}px`
+            },
+            vdom            : {cn: [dragElement]},
+            width           : `${proxyRect.width}px`,
+            windowId        : me.windowId
+        };
+
+        if (draggedItem.getTheme) {
+             // Safe theme retrieval? Or just trust the clone?
+             // dragElement.cls should contain theme if it was on the root.
+        }
+
+        console.log('Creating local drag proxy', config);
+
+        me.dragProxy = Neo.create(config);
+
+        console.log('Created local drag proxy', me.dragProxy);
+
+        // 2. Create Placeholder
+        me.dragPlaceholder = Neo.create({
+            module: Component,
+            flex  : draggedItem.flex,
+            style : {height: `${proxyRect.height}px`, visibility: 'hidden', width: `${proxyRect.width}px`}
         });
 
-        if (me.dragProxy) {
-             // If createDragProxy made a placeholder (unlikely if index is -1?), we use it.
-             // If not, we make one.
-             if (!me.dragPlaceholder) {
-                me.dragPlaceholder = Neo.create({
-                    module: Component,
-                    flex  : draggedItem.flex,
-                    style : {height: `${proxyRect.height}px`, visibility: 'hidden', width: `${proxyRect.width}px`}
-                });
+        console.log('Created placeholder', me.dragPlaceholder);
 
-                // We add it to the owner to get it into the items array
-                owner.add(me.dragPlaceholder)
-             }
-        }
+        owner.add(me.dragPlaceholder);
+
+        console.log('Added placeholder to owner', owner);
 
         // 3. Setup Sort State
         await me.setupDragState(me.dragPlaceholder);
 
-        // 4. Apply Absolute Positioning (to freeze layout for sorting)
-        me.applyAbsolutePositioning(me.dragPlaceholder)
+        console.log('Setup drag state done');
+
+        // 4. Apply Absolute Positioning
+        me.applyAbsolutePositioning(me.dragPlaceholder);
+
+        console.log('applyAbsolutePositioning done');
     }
 
     /**
