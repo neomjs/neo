@@ -232,7 +232,7 @@ class DashboardSortZone extends SortZone {
     /**
      * @param {Object} data The drag end event data.
      */
-    async onDragEnd(data) {
+    async onDragEnd(data) {return;
         let me = this;
 
         if (!me.isRemoteDragging) {
@@ -511,7 +511,7 @@ class DashboardSortZone extends SortZone {
 
         console.log('startRemoteDrag: ownerRect', me.ownerRect);
         console.log('startRemoteDrag: local coords', data.localX, data.localY);
-        console.log('startRemoteDrag: calculated coords', data.localX - data.offsetX, data.localY - data.offsetY);
+        console.log('startRemoteDrag: calculated coords', data.localX - me.offsetX, data.localY - me.offsetY);
 
         // 2. Create a local DragProxy manually (using DragProxyContainer to hold the live widget)
         // We use DragProxyContainer to ensure the widget remains active/connected.
@@ -524,10 +524,8 @@ class DashboardSortZone extends SortZone {
             windowId        : me.windowId,
 
             style: {
-                height: `${proxyRect.height}px`,
-                left  : `${data.localX - data.offsetX - me.ownerRect.x}px`,
-                top   : `${data.localY - data.offsetY - me.ownerRect.y}px`,
-                width : `${proxyRect.width}px`
+                left: `${data.localX - me.offsetX}px`,
+                top : `${data.localY - me.offsetY}px`
             }
         };
 
@@ -541,7 +539,7 @@ class DashboardSortZone extends SortZone {
         me.dragPlaceholder = Neo.create({
             module: Component,
             flex  : 'none',
-            style : {height: `${proxyRect.height}px`, visibility: 'hidden', width: `${proxyRect.width}px`}
+            style : {height: `${proxyRect.height}px`, visibility: 'hidden'}
         });
 
         owner.add(me.dragPlaceholder);
@@ -549,6 +547,15 @@ class DashboardSortZone extends SortZone {
         // 4. Setup Sort State
         await me.timeout(50);
         await me.setupDragState(me.dragPlaceholder);
+
+        // Update proxy size to match the measured placeholder
+        let placeholderIndex = me.sortableItems.indexOf(me.dragPlaceholder);
+
+        if (placeholderIndex > -1) {
+            let rect = me.itemRects[placeholderIndex];
+            me.dragProxy.width  = rect.width;
+            me.dragProxy.height = rect.height;
+        }
 
         await me.timeout(50);
         // 5. Apply Absolute Positioning
