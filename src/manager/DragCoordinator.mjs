@@ -39,10 +39,10 @@ class DragCoordinator extends Manager {
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      */
     onDragMove(data) {
-        let me               = this,
+        let me             = this,
             {draggedItem, proxyRect, screenX, screenY, sourceSortZone} = data,
-            {sortGroup}      = sourceSortZone,
-            targetWindowId   = Window.getWindowAt(screenX, screenY),
+            {sortGroup}    = sourceSortZone,
+            targetWindowId = Window.getWindowAt(screenX, screenY),
             targetSortZone;
 
         if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
@@ -57,16 +57,16 @@ class DragCoordinator extends Manager {
                 if (me.activeTargetZone !== targetSortZone) {
                     // Leaving previous target (if any)
                     if (me.activeTargetZone) {
-                        me.activeTargetZone.onRemoteDragLeave();
+                        me.activeTargetZone.onRemoteDragLeave()
                     }
 
                     // Suspend source drag (close popup, etc)
                     // We only do this once when leaving the void/source context
                     if (!me.activeTargetZone) {
-                        sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id);
+                        sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id)
                     }
 
-                    me.activeTargetZone = targetSortZone;
+                    me.activeTargetZone = targetSortZone
                 }
 
                 targetSortZone.onRemoteDragMove({
@@ -74,14 +74,14 @@ class DragCoordinator extends Manager {
                     localX,
                     localY,
                     proxyRect
-                });
+                })
             } else {
                 // Window exists but no matching SortZone
-                me.handleVoid(sourceSortZone, draggedItem, proxyRect);
+                me.handleVoid(sourceSortZone, draggedItem, proxyRect)
             }
         } else {
             // In void or back in source window
-            me.handleVoid(sourceSortZone, draggedItem, proxyRect);
+            me.handleVoid(sourceSortZone, draggedItem, proxyRect)
         }
     }
 
@@ -98,7 +98,7 @@ class DragCoordinator extends Manager {
             me.activeTargetZone = null;
 
             // Resume source drag (re-open popup)
-            sourceSortZone.resumeWindowDrag(draggedItem.reference || draggedItem.id, proxyRect);
+            sourceSortZone.resumeWindowDrag(draggedItem.reference || draggedItem.id, proxyRect)
         }
     }
 
@@ -116,7 +116,7 @@ class DragCoordinator extends Manager {
             // Notify source to finalize cleanup
             data.sourceSortZone.onRemoteDropOut(data.draggedItem);
 
-            me.activeTargetZone = null;
+            me.activeTargetZone = null
         } else {
             // Drag ended in void or source window (handled locally by source)
         }
@@ -126,15 +126,15 @@ class DragCoordinator extends Manager {
      * @param {Neo.draggable.container.SortZone} sortZone
      */
     register(sortZone) {
-        let me        = this,
-            sortGroup = sortZone.sortGroup,
-            windowId  = sortZone.windowId;
+        let me                    = this,
+            {sortGroup, windowId} = sortZone;
 
         if (sortGroup) {
             if (!me.sortZones.has(sortGroup)) {
-                me.sortZones.set(sortGroup, new Map());
+                me.sortZones.set(sortGroup, new Map())
             }
-            me.sortZones.get(sortGroup).set(windowId, sortZone);
+
+            me.sortZones.get(sortGroup).set(windowId, sortZone)
         }
     }
 
@@ -142,15 +142,15 @@ class DragCoordinator extends Manager {
      * @param {Neo.draggable.container.SortZone} sortZone
      */
     unregister(sortZone) {
-        let me        = this,
-            sortGroup = sortZone.sortGroup,
-            windowId  = sortZone.windowId;
+        let me                    = this,
+            {sortGroup, windowId} = sortZone;
 
         if (sortGroup && me.sortZones.has(sortGroup)) {
             let group = me.sortZones.get(sortGroup);
             group.delete(windowId);
+
             if (group.size === 0) {
-                me.sortZones.delete(sortGroup);
+                me.sortZones.delete(sortGroup)
             }
         }
     }
