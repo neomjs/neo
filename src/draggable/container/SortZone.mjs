@@ -309,6 +309,8 @@ class SortZone extends DragZone {
             return
         }
 
+        // console.log('SortZone onDragMove', me.dragProxy);
+
         if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
             const {proxyRect} = data;
 

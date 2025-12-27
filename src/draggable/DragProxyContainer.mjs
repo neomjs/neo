@@ -57,8 +57,8 @@ class DragProxyContainer extends BaseContainer {
 
     /**
      * Triggered after the windowId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {
