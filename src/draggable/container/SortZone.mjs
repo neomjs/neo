@@ -250,13 +250,13 @@ class SortZone extends DragZone {
             let mappedIndex = me.indexMap[i];
 
             if (mappedIndex === -1) {
-                 continue;
+                continue
             }
 
             let item = me.owner.items[mappedIndex];
 
             if (item === me.dragPlaceholder || item === me.dragComponent) {
-                continue;
+                continue
             }
 
             let rect = me.itemRects[i];
@@ -264,10 +264,10 @@ class SortZone extends DragZone {
             items.push({item, rect});
 
             if (item.flex) {
-                totalFlex += item.flex;
+                totalFlex += item.flex
             } else {
                 let size = isHorizontal ? rect.width : rect.height;
-                usedSize += size;
+                usedSize += size
             }
         }
 
@@ -282,9 +282,9 @@ class SortZone extends DragZone {
             let itemSize, style = {};
 
             if (item.flex) {
-                itemSize = (item.flex / totalFlex) * availableSpace;
+                itemSize = (item.flex / totalFlex) * availableSpace
             } else {
-                itemSize = isHorizontal ? rect.width : rect.height;
+                itemSize = isHorizontal ? rect.width : rect.height
             }
 
             if (isHorizontal) {
@@ -293,21 +293,21 @@ class SortZone extends DragZone {
                     top   : `${startY + topOffset}px`,
                     height: `${ownerRect.height - topOffset - bottomOffset}px`,
                     width : `${itemSize}px`
-                };
+                }
             } else {
                 style = {
                     left  : `${startX + leftOffset}px`,
                     top   : `${startY + currentPos}px`,
                     height: `${itemSize}px`,
                     width : `${ownerRect.width - leftOffset - rightOffset}px`
-                };
+                }
             }
 
             rects.push({item, style});
-            currentPos += itemSize + gap;
+            currentPos += itemSize + gap
         });
 
-        return rects;
+        return rects
     }
 
     /**
@@ -387,7 +387,7 @@ class SortZone extends DragZone {
                                 id      : component.id,
                                 index,    // Visually correct index (where placeholder is)
                                 parentId: owner.getVdomItemsRoot().id
-                            });
+                            })
                         }
                     }
 
@@ -429,6 +429,13 @@ class SortZone extends DragZone {
 
                 item.wrapperStyle = itemStyle
             });
+
+            // Restore visibility of the dragged component (it's not in sortableItems if placeholder is used)
+            if (me.dragComponent) {
+                let style = me.dragComponent.wrapperStyle || {};
+                style.visibility = null;
+                me.dragComponent.wrapperStyle = style;
+            }
 
             if (!me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
                 let fromIndex, toIndex;
@@ -528,7 +535,7 @@ class SortZone extends DragZone {
                                         left  : `${rect.left}px`,
                                         top   : `${rect.top}px`,
                                         width : `${rect.width}px`
-                                    };
+                                    }
                                 }
                             }
                         });
@@ -635,9 +642,12 @@ class SortZone extends DragZone {
      * @param {Object} data - The drag start event data.
      */
     async onDragStart(data) {
-        let me                   = this,
-            {dragHandleSelector, owner} = me,
-            draggedItem, index, sortableItems;
+        let me         = this,
+            {adjustItemRectsToParent, dragHandleSelector, owner} = me,
+            itemStyles = me.itemStyles = [],
+            {layout}   = owner,
+            ownerStyle = owner.style || {},
+            draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
         if (owner.dragResortable) {
             if (dragHandleSelector) {
@@ -645,7 +655,7 @@ class SortZone extends DragZone {
                 const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
 
                 if (!handleNode) {
-                    return;
+                    return
                 }
 
                 const handleIndex = data.path.indexOf(handleNode);
@@ -661,7 +671,7 @@ class SortZone extends DragZone {
                 }
 
                 if (!draggedItem) {
-                    return;
+                    return
                 }
 
                 sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
@@ -670,34 +680,89 @@ class SortZone extends DragZone {
                 index         = sortableItems.indexOf(draggedItem);
 
                 if (index < 0) {
-                    return;
+                    return
                 }
             } else {
                 draggedItem   = Neo.getComponent(data.path[0].id);
                 sortableItems = owner.items;
-                index         = owner.indexOf(draggedItem.id);
+                index         = owner.indexOf(draggedItem.id)
             }
 
-            await me.setupDragState(draggedItem);
+            indexMap = {};
+
+            Object.assign(me, {
+                currentIndex           : index,
+                dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
+                dragProxyConfig        : me.getDragProxyConfig(),
+                indexMap,
+                ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
+                reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+                sortableItems,
+                sortDirection          : layout.direction?.includes('column') ? 'vertical' : 'horizontal',
+                startIndex             : index
+            });
+
+            me.dragComponent = draggedItem;
+
+            sortableItems.forEach((item, i) => {
+                indexMap[i] = owner.items.indexOf(item);
+
+                itemStyles.push({
+                    height: item.height ? `${item.height}px` :  item.style?.height,
+                    width : item.width  ? `${item.width}px`  :  item.style?.width
+                })
+            });
+
+            const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
+
+            me.ownerRect = itemRects.shift();
+
+            owner.style = {
+                ...ownerStyle,
+                height  : `${me.ownerRect.height}px`,
+                minWidth: `${me.ownerRect.width}px`,
+                width   : `${me.ownerRect.width}px`
+            };
+
+            adjustItemRectsToParent && itemRects.forEach(rect => {
+                rect.x -= me.ownerRect.x;
+                rect.y -= me.ownerRect.y
+            });
+
+            me.itemRects = itemRects;
 
             await me.dragStart(data);
 
             if (me.dragPlaceholder) {
                 const placeholderIndex = sortableItems.indexOf(draggedItem);
                 if (placeholderIndex > -1) {
-                    sortableItems[placeholderIndex] = me.dragPlaceholder;
+                    sortableItems[placeholderIndex] = me.dragPlaceholder
                 }
-                me.dragElement = me.dragPlaceholder.vdom;
+                me.dragElement = me.dragPlaceholder.vdom
             }
 
-            me.applyAbsolutePositioning(draggedItem);
+            sortableItems.forEach((item, i) => {
+                itemStyle = item.wrapperStyle || {};
+                rect      = me.itemRects[i];
+
+                me.adjustProxyRectToParent?.(rect, me.ownerRect);
+
+                item.wrapperStyle = Object.assign(itemStyle, {
+                    height  : `${rect.height}px`,
+                    left    : `${rect.left}px`,
+                    margin  : '0px',
+                    position: 'absolute',
+                    top     : `${rect.top}px`,
+                    width   : `${rect.width}px`
+                })
+            });
 
             await me.timeout(5);
 
             if (!me.dragPlaceholder) {
-                let itemStyle = draggedItem.wrapperStyle || {};
+                itemStyle = draggedItem.wrapperStyle || {};
                 itemStyle.visibility = 'hidden';
-                draggedItem.wrapperStyle = itemStyle;
+                draggedItem.wrapperStyle = itemStyle
             }
         }
     }
@@ -705,12 +770,12 @@ class SortZone extends DragZone {
     /**
      * @param {Object} data
      */
-    async onRemoteDragLeave() {
+    async onRemoteDragLeave(data) {
         let me = this;
 
         if (me.isRemoteDragging) {
             me.isRemoteDragging = false;
-            await me.onDragEnd({});
+            await me.onDragEnd({})
         }
     }
 
@@ -721,7 +786,7 @@ class SortZone extends DragZone {
         let me = this;
 
         if (!me.isRemoteDragging) {
-            await me.startRemoteDrag(data);
+            await me.startRemoteDrag(data)
         }
 
         // Delegate to standard onDragMove logic, which updates the proxy
@@ -750,7 +815,7 @@ class SortZone extends DragZone {
             // Insert into new owner
             me.owner.insert(index, draggedItem);
 
-            me.isRemoteDragging = false;
+            me.isRemoteDragging = false
         }
     }
 
@@ -767,7 +832,7 @@ class SortZone extends DragZone {
                 if (value.widget === draggedItem) {
                     me.owner.detachedItems.delete(key);
                     // The window is already closed by suspendWindowDrag, so we just clean up the map.
-                    break;
+                    break
                 }
             }
         }
@@ -796,11 +861,11 @@ class SortZone extends DragZone {
      * @param {Neo.component.Base} draggedItem
      */
     async setupDragState(draggedItem) {
-        let me         = this,
+        let me                               = this,
             {adjustItemRectsToParent, owner} = me,
-            itemStyles = me.itemStyles = [],
-            {layout}   = owner,
-            ownerStyle = owner.style || {},
+            itemStyles                       = me.itemStyles = [],
+            {layout}                         = owner,
+            ownerStyle                       = owner.style || {},
             index, indexMap, itemRects, sortableItems;
 
         sortableItems = owner.items.filter(item => !item.isDestroyed);
@@ -828,7 +893,7 @@ class SortZone extends DragZone {
             itemStyles.push({
                 height: item.height ? `${item.height}px` :  item.style?.height,
                 width : item.width  ? `${item.width}px`  :  item.style?.width
-            });
+            })
         });
 
         itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
@@ -857,8 +922,7 @@ class SortZone extends DragZone {
         let me          = this,
             {owner}     = me,
             {proxyRect} = data,
-            draggedItem = data.draggedItem,
-            sortableItems;
+            draggedItem = data.draggedItem;
 
         me.isRemoteDragging = true;
 
@@ -887,26 +951,6 @@ class SortZone extends DragZone {
             y     : data.localY
         });
 
-        // 2. Setup Layout Placeholder
-        // createDragProxy creates a placeholder if it's a container proxy (which Dashboard uses).
-        // However, we need to ensure the placeholder is inserted into the owner.
-        // The standard createDragProxy logic does this:
-        // "me.dragPlaceholder = Neo.create(...); ... me.owner.items.indexOf(component) ..."
-        // BUT: The component is NOT in the owner yet. It's remote.
-        // So createDragProxy might fail or do weird things if it expects the item to be there.
-
-        // Refined Logic:
-        // We can't use standard createDragProxy(true) blindly because it assumes local item.
-        // We might need to manually set up the placeholder if createDragProxy relies on owner.indexOf.
-        // Looking at SortZone.mjs -> createDragProxy -> it calls base DragZone.
-        // DragZone.mjs -> createDragProxy:
-        // "me.dragStartIndex = me.owner.items.indexOf(component);" -> will be -1.
-        // "me.owner.getVdomItemsRoot().id" -> exists.
-        // "await Neo.applyDeltas(..., {action: 'insertNode', index: me.dragStartIndex...})" -> -1 index might be issue.
-
-        // So, we should manually setup the placeholder for remote items *after* creating the proxy (or override logic).
-        // Actually, let's manually do what createDragProxy does for the placeholder part, but adapted for remote.
-
         if (me.dragProxy) {
              // If createDragProxy made a placeholder (unlikely if index is -1?), we use it.
              // If not, we make one.
@@ -918,7 +962,7 @@ class SortZone extends DragZone {
                 });
 
                 // We add it to the owner to get it into the items array
-                owner.add(me.dragPlaceholder);
+                owner.add(me.dragPlaceholder)
              }
         }
 
@@ -926,14 +970,7 @@ class SortZone extends DragZone {
         await me.setupDragState(me.dragPlaceholder);
 
         // 4. Apply Absolute Positioning (to freeze layout for sorting)
-        me.applyAbsolutePositioning(me.dragPlaceholder);
-    }
-
-    /**
-     * @param {String} widgetName
-     */
-    suspendWindowDrag(widgetName) {
-        this.owner.suspendWindowDrag(widgetName)
+        me.applyAbsolutePositioning(me.dragPlaceholder)
     }
 
     /**
@@ -963,13 +1000,13 @@ class SortZone extends DragZone {
             me.dragPlaceholder.wrapperStyle = {
                 ...me.dragPlaceholder.wrapperStyle,
                 visibility: 'hidden'
-            };
+            }
         }
 
         // Apply expanded layout
         let expandedLayout = me.calculateExpandedLayout();
         expandedLayout.forEach(({item, style}) => {
-            item.wrapperStyle = {...item.wrapperStyle, ...style};
+            item.wrapperStyle = {...item.wrapperStyle, ...style}
         });
 
         Neo.main.addon.DragDrop.startWindowDrag({
@@ -977,7 +1014,14 @@ class SortZone extends DragZone {
             popupName: windowName,
             popupWidth,
             windowId : me.windowId
-        });
+        })
+    }
+
+    /**
+     * @param {String} widgetName
+     */
+    suspendWindowDrag(widgetName) {
+        this.owner.suspendWindowDrag(widgetName)
     }
 
     /**
@@ -1002,7 +1046,7 @@ class SortZone extends DragZone {
         if ((!reversed && index2 < index1) || (reversed && index1 < index2)) {
             tmp    = index1;
             index1 = index2;
-            index2 = tmp;
+            index2 = tmp
         }
 
         let itemRects = me.itemRects,
@@ -1023,7 +1067,7 @@ class SortZone extends DragZone {
 
             rect1.height = rect2Copy.height;
             rect2.height = rect1Copy.height;
-            rect2.y      = rect1Copy.y + rect2Copy.height + gap;
+            rect2.y      = rect1Copy.y + rect2Copy.height + gap
         }
 
         tmp         = map[index1];
@@ -1045,7 +1089,7 @@ class SortZone extends DragZone {
 
         if (mappedIndex === -1) {
             if (me.dragPlaceholder) {
-                item = me.dragPlaceholder;
+                item = me.dragPlaceholder
             } else {
                 return
             }
