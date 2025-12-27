@@ -919,6 +919,7 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     async startRemoteDrag(data) {
+        console.log('SortZone.startRemoteDrag', data);
         let me          = this,
             {owner}     = me,
             {proxyRect} = data,

@@ -325,6 +325,8 @@ class Abstract extends Base {
             config            = me[configName],
             {parentComponent} = me;
 
+        console.log('getConfigInstanceByNtype', me.id, me.className, configName, ntype, 'parent:', parentComponent?.id, 'parentId:', me.parentId);
+
         if (config && (!ntype || ntype === config.ntype)) {
             return config
         }
@@ -334,6 +336,10 @@ class Abstract extends Base {
         }
 
         if (parentComponent) {
+            if (parentComponent === me) {
+                console.error('Circular parent reference detected', me.id);
+                return null
+            }
             // todo: We need ?. until functional.component.Base supports controllers
             return parentComponent.getConfigInstanceByNtype?.(configName, ntype)
         }
