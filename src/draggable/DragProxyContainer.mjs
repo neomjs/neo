@@ -18,6 +18,10 @@ class DragProxyContainer extends BaseContainer {
          */
         ntype: 'dragproxycontainer',
         /**
+         * @member {Boolean} autoInitVnode=true
+         */
+        autoInitVnode: true,
+        /**
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
