@@ -23,6 +23,11 @@ class Window extends Manager {
          */
         className: 'Neo.manager.Window',
         /**
+         * @member {Boolean} isSafari
+         * @protected
+         */
+        isSafari: /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -52,30 +57,83 @@ class Window extends Manager {
      * @returns {String|null} The windowId of the target window, or null if no intersection.
      */
     getWindowAt(x, y) {
-        let item = this.items.find(item => item.rect?.intersects({bottom: y, right: x, x, y}));
+        let item = this.items.find(item => item.outerRect?.intersects({bottom: y, right: x, x, y}));
 
         return item ? item.id : null
     }
 
     /**
      * @param {Object} data
+     * @returns {Object} {chrome, innerRect, outerRect}
+     */
+    calculateGeometry(data) {
+        const
+            {innerHeight, innerWidth, mozInnerScreenX, mozInnerScreenY, outerHeight, outerWidth, screenLeft, screenTop} = data,
+            widthDiff    = outerWidth  - innerWidth,
+            heightDiff   = outerHeight - innerHeight,
+            // Assumption: Side borders are symmetric
+            sideBorder   = widthDiff / 2,
+            // Assumption: Bottom border matches side border (common in Windows)
+            bottomBorder = sideBorder,
+            // The rest is the top chrome (header)
+            topChrome    = heightDiff - bottomBorder;
+
+        const chrome = {
+            bottom: bottomBorder,
+            left  : sideBorder,
+            right : sideBorder,
+            top   : topChrome
+        };
+
+        let viewportLeft, viewportTop;
+
+        if (typeof mozInnerScreenX === 'number') {
+            // Firefox: explicit viewport coordinates
+            viewportLeft = mozInnerScreenX;
+            viewportTop  = mozInnerScreenY
+        } else if (this.isSafari) {
+            // Safari: screenLeft/Top is Frame position. Add chrome to get Viewport.
+            viewportLeft = screenLeft + sideBorder;
+            viewportTop  = screenTop  + topChrome
+        } else {
+            // Chrome/Edge: screenLeft/Top is Viewport position.
+            viewportLeft = screenLeft;
+            viewportTop  = screenTop
+        }
+
+        const innerRect = new Rectangle(viewportLeft, viewportTop, innerWidth, innerHeight);
+
+        const outerRect = new Rectangle(
+            viewportLeft - sideBorder,
+            viewportTop  - topChrome,
+            outerWidth,
+            outerHeight
+        );
+
+        return {chrome, innerRect, outerRect}
+    }
+
+    /**
+     * Triggered when a new browser window connects to the SharedWorker.
+     * In Shared Worker mode, `Neo.worker.App#onConnect` ensures that `windowData`
+     * is fetched from the Main Thread and included in the payload.
+     * @param {Object} data
      * @param {Number} data.appName
-     * @param {Object} [data.windowData]
+     * @param {Object} [data.windowData] Contains geometry data (screenLeft, innerHeight, etc.)
      * @param {String} data.windowId
      */
     onWindowConnect({appName, windowData, windowId}) {
-        let headerHeight = 0,
-            rect         = null;
+        let chrome    = null,
+            innerRect = null,
+            outerRect = null;
 
         if (windowData) {
-            const {innerHeight, outerHeight, outerWidth, screenLeft, screenTop} = windowData;
-            headerHeight = outerHeight - innerHeight;
-            rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight)
+            ({chrome, innerRect, outerRect} = this.calculateGeometry(windowData))
         }
 
-        console.log('Window.onWindowConnect', {windowId, appName, rect});
+        console.log('Window.onWindowConnect', {windowId, appName, chrome, innerRect, outerRect});
 
-        this.register({appName, headerHeight, id: windowId, rect})
+        this.register({appName, chrome, id: windowId, innerRect, outerRect})
     }
 
     /**
@@ -98,18 +156,22 @@ class Window extends Manager {
      * @param {Number} data.screenTop
      * @param {String} data.windowId
      */
-    onWindowPositionChange({innerHeight, outerHeight, outerWidth, screenLeft, screenTop, windowId}) {
-        let item = this.get(windowId),
-            rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight);
+    onWindowPositionChange(data) {
+        const
+            me   = this,
+            item = me.get(data.windowId),
+            {chrome, innerRect, outerRect} = me.calculateGeometry(data);
 
         if (item) {
-            item.headerHeight = outerHeight - innerHeight;
-            item.rect         = rect
+            item.chrome    = chrome;
+            item.innerRect = innerRect;
+            item.outerRect = outerRect
         } else {
-            this.register({
-                headerHeight: outerHeight - innerHeight,
-                id          : windowId,
-                rect
+            me.register({
+                chrome,
+                id: data.windowId,
+                innerRect,
+                outerRect
             })
         }
     }

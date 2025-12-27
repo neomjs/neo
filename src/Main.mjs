@@ -178,10 +178,12 @@ class Main extends core.Base {
             {screen} = win;
 
         return {
-            innerHeight: win.innerHeight,
-            innerWidth : win.innerWidth,
-            outerHeight: win.outerHeight,
-            outerWidth : win.outerWidth,
+            innerHeight    : win.innerHeight,
+            innerWidth     : win.innerWidth,
+            mozInnerScreenX: win.mozInnerScreenX, // Firefox specific
+            mozInnerScreenY: win.mozInnerScreenY, // Firefox specific
+            outerHeight    : win.outerHeight,
+            outerWidth     : win.outerWidth,
             screen: {
                 availHeight: screen.availHeight,
                 availLeft  : screen.availLeft,

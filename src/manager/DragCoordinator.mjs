@@ -52,8 +52,8 @@ class DragCoordinator extends Manager {
 
             if (targetSortZone) {
                 let targetWindow = Window.get(targetWindowId),
-                    localX       = screenX - targetWindow.rect.x,
-                    localY       = screenY - targetWindow.rect.y - (targetWindow.headerHeight || 0);
+                    localX       = screenX - targetWindow.innerRect.x,
+                    localY       = screenY - targetWindow.innerRect.y;
 
                 // console.log('DragCoordinator target found', {targetWindowId, localX, localY});
 
