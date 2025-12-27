@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-26T15:58:01Z'
-updatedAt: '2025-12-27T15:45:59Z'
+updatedAt: '2025-12-27T20:50:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8156'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -145,6 +145,41 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > **Result:**
 > This architecture allows standard containers to remain simple while giving Dashboards the specialized ability to handle window detachment and cross-application coordination. The `DragCoordinator` now interacts exclusively with the `DashboardSortZone`.
 
+### @tobiu - 2025-12-27 20:50
+
+**Input from Gemini 2.5:**
+
+> ✦ ✦ ## Cross-Window Drag Proxy & Coordination Logic Fixed
+> 
+> We have resolved several critical issues impacting the positioning, sizing, and movement of the cross-window drag proxy.
+> 
+> **Key Fixes Implemented:**
+> 
+> 1.  **Proxy Sizing & Layout Thrashing:**
+>     *   **Issue:** The drag proxy was defaulting to the full width of the source window/container (775px) instead of the target item width (716px), causing layout distortion.
+>     *   **Fix:** Updated `DashboardSortZone.startRemoteDrag` to create the `dragPlaceholder` with `flex: 'none'` and no fixed width. This allows it to naturally adopt the target container's layout dimensions (e.g., 716px) *before* `setupDragState` measures it. The proxy size is then explicitly set to match this measured placeholder size.
+> 
+> 2.  **Vertical Positioning (Browser Chrome Gap):**
+>     *   **Issue:** The proxy appeared vertically offset (lower) than the mouse cursor.
+>     *   **Root Cause:** `DragCoordinator` was calculating coordinates relative to the window frame (`screenTop`), while the proxy (in `document.body`) is positioned relative to the viewport. The difference is the browser chrome height.
+>     *   **Fix:** Updated `Neo.manager.Window` to calculate and store `headerHeight` (`outerHeight - innerHeight`). Updated `DragCoordinator.onDragMove` to subtract this `headerHeight` from `localY`, correctly mapping screen coordinates to the viewport.
+> 
+> 3.  **Horizontal Positioning & Sorting Logic:**
+>     *   **Issue:** Adjusting the proxy's visual position (`left`) independently of the logical drag offset (`offsetX`) caused the sorting logic (`onDragMove`) to miscalculate the item's position relative to slots, triggering re-ordering too early or late.
+>     *   **Fix:** Synchronized the visual and logical coordinates. In `startRemoteDrag`, we now add the dashboard's offset (`ownerRect`) to `me.offsetX` and `me.offsetY`. This ensures that both the visual style calculation (`localX - me.offsetX`) and the sorting delta (`clientX - me.offsetX - itemRect.left`) operate on the same consistent coordinate basis, incorporating the "divergence" between the viewport and the dashboard container.
+> 
+> 4.  **Remote Drag Movement:**
+>     *   **Issue:** The proxy was not updating its position during the drag.
+>     *   **Root Cause:** `DragZone.dragMove` defaults to skipping updates if `moveInMainThread` is true (which is the default for `DashboardSortZone`).
+>     *   **Fix:** Enhanced `DragZone.dragMove` to accept a `force` parameter. Updated `DashboardSortZone.onRemoteDragMove` to call `me.dragMove(..., true)`, forcing the worker-side update for remote drags without needing to toggle instance configuration state.
+> 
+> **Current Status:**
+> The cross-window drag operation now correctly creates a proxy that:
+> *   Matches the target dashboard's column width.
+> *   Aligns perfectly with the mouse cursor (accounting for window chrome and offsets).
+> *   Updates position smoothly during the drag.
+> *   Triggers sorting re-orders at the expected visual thresholds.
+
 ## Activity Log
 
 - 2025-12-26 @tobiu added the `enhancement` label
@@ -157,4 +192,10 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 - 2025-12-27 @tobiu referenced in commit `c6f1674` - "#8156 wip"
 - 2025-12-27 @tobiu referenced in commit `4ebcca3` - "#8156 wip"
 - 2025-12-27 @tobiu marked this issue as being blocked by #8159
+- 2025-12-27 @tobiu referenced in commit `0cd5e77` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `ae2aa68` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `3ab07c0` - "#8156 testing logs"
+- 2025-12-27 @tobiu referenced in commit `340cc5f` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `4d1cc24` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `da447c9` - "#8156 wip"
 
