@@ -158,6 +158,8 @@ class Container extends BaseContainer {
 
         me.#isReintegrating = true;
 
+        console.log('onDragBoundaryEntry', me.id, widget);
+
         sortZone.dragProxy.add(widget, true); // Silent add
 
         me.detachedItems.delete(widgetName);
@@ -282,11 +284,8 @@ class Container extends BaseContainer {
     async onWindowDisconnect(data) {
         let me = this;
 
-        console.log('onWindowDisconnect', me.id, data.windowId, 'isWindowDragging:', me.#isWindowDragging);
-
         if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
-            console.log('onWindowDisconnect: Skipping due to isWindowDragging/isReintegrating');
             return
         }
 
@@ -338,13 +337,14 @@ class Container extends BaseContainer {
     async suspendWindowDrag(widgetName) {
         let me = this;
 
-        console.log('suspendWindowDrag', me.id, widgetName);
-
         // Prevent onWindowDisconnect from auto-reintegrating
         me.#isWindowDragging = true;
 
         // Break the parent chain to prevent circular config lookups during handover
         let detachedItem = me.detachedItems.get(widgetName);
+
+        console.log('suspendWindowDrag', me.id, widgetName, detachedItem);
+
         if (detachedItem?.widget) {
             detachedItem.widget.parentId = null
         }

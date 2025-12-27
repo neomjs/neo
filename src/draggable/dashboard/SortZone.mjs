@@ -454,8 +454,6 @@ class DashboardSortZone extends SortZone {
             top   : data.localY
         };
 
-        // me.appName = draggedItem.appName; // Do NOT overwrite the SortZone's appName
-
         // Update dragged item to target app context
         draggedItem.appName = me.appName;
 
@@ -478,14 +476,15 @@ class DashboardSortZone extends SortZone {
             moveInMainThread: true,
             parentComponent : null,
             parentId        : 'document.body',
-            style           : {
+            width           : `${proxyRect.width}px`,
+            windowId        : me.windowId,
+
+            style: {
                 height: `${proxyRect.height}px`,
                 left  : `${data.localX}px`,
                 top   : `${data.localY}px`,
                 width : `${proxyRect.width}px`
-            },
-            width           : `${proxyRect.width}px`,
-            windowId        : me.windowId
+            }
         };
 
         console.log('Creating local drag proxy', config);
@@ -507,7 +506,7 @@ class DashboardSortZone extends SortZone {
         await me.setupDragState(me.dragPlaceholder);
 
         // 4. Apply Absolute Positioning
-        me.applyAbsolutePositioning();
+        me.applyAbsolutePositioning()
     }
 
     /**
