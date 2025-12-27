@@ -1,8 +1,10 @@
-import Component       from '../../component/Base.mjs';
-import DragCoordinator from '../../manager/DragCoordinator.mjs';
-import NeoArray        from '../../util/Array.mjs';
-import Rectangle       from '../../util/Rectangle.mjs';
-import SortZone        from '../container/SortZone.mjs';
+import Component          from '../../component/Base.mjs';
+import DragCoordinator    from '../../manager/DragCoordinator.mjs';
+import DragProxyContainer from '../DragProxyContainer.mjs';
+import NeoArray           from '../../util/Array.mjs';
+import Rectangle          from '../../util/Rectangle.mjs';
+import SortZone           from '../container/SortZone.mjs';
+import VDomUtil           from '../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.dashboard.SortZone
@@ -255,7 +257,7 @@ class DashboardSortZone extends SortZone {
         let me = this;
 
         // The method can trigger before we got the client rects from the main thread
-        if (!me.itemRects || me.isScrolling) {
+        if (!me.itemRects || !me.boundaryContainerRect || me.isScrolling) {
             return
         }
 
@@ -413,6 +415,7 @@ class DashboardSortZone extends SortZone {
         itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
         me.ownerRect = itemRects.shift();
+        me.boundaryContainerRect = me.ownerRect;
 
         owner.style = {
             ...ownerStyle,
@@ -437,7 +440,6 @@ class DashboardSortZone extends SortZone {
             {owner}     = me,
             {proxyRect} = data,
             draggedItem = data.draggedItem,
-            dragElement = VDomUtil.clone(draggedItem.vdom),
             config;
 
         me.isRemoteDragging = true;
@@ -452,17 +454,29 @@ class DashboardSortZone extends SortZone {
             top   : data.localY
         };
 
-        me.appName = draggedItem.appName;
+        // me.appName = draggedItem.appName; // Do NOT overwrite the SortZone's appName
 
-        // 1. Create a local DragProxy manually (VDOM clone only, no DOM move)
-        // We use DragProxyComponent directly, not Container, as we just need the visual.
-        // We wrap the cloned VDOM to ensure styles match.
+        // Update dragged item to target app context
+        draggedItem.appName = me.appName;
+
+        console.log('startRemoteDrag', draggedItem.id, draggedItem.windowId, draggedItem.parentId, draggedItem.parentComponent);
+
+        // Break the parent chain to prevent circular config lookups during handover
+        draggedItem.parentId        = null;
+        draggedItem.parentComponent = null;
+
+        console.log('parent cleared:', draggedItem.parentId, draggedItem.parentComponent);
+
+        // 1. Create a local DragProxy manually (using DragProxyContainer to hold the live widget)
+        // We use DragProxyContainer to ensure the widget remains active/connected.
         config = {
-            module          : Neo.draggable.DragProxyComponent,
+            module          : DragProxyContainer,
             appName         : me.appName,
-            cls             : ['neo-dragproxy', ...me.owner.cls, ...dragElement.cls || []],
+            cls             : ['neo-dragproxy', ...me.owner.cls],
             height          : `${proxyRect.height}px`,
+            items           : [draggedItem],
             moveInMainThread: true,
+            parentComponent : null,
             parentId        : 'document.body',
             style           : {
                 height: `${proxyRect.height}px`,
@@ -470,15 +484,9 @@ class DashboardSortZone extends SortZone {
                 top   : `${data.localY}px`,
                 width : `${proxyRect.width}px`
             },
-            vdom            : {cn: [dragElement]},
             width           : `${proxyRect.width}px`,
             windowId        : me.windowId
         };
-
-        if (draggedItem.getTheme) {
-            // Safe theme retrieval? Or just trust the clone?
-            // dragElement.cls should contain theme if it was on the root.
-        }
 
         console.log('Creating local drag proxy', config);
 
@@ -493,21 +501,13 @@ class DashboardSortZone extends SortZone {
             style : {height: `${proxyRect.height}px`, visibility: 'hidden', width: `${proxyRect.width}px`}
         });
 
-        console.log('Created placeholder', me.dragPlaceholder);
-
         owner.add(me.dragPlaceholder);
-
-        console.log('Added placeholder to owner', owner);
 
         // 3. Setup Sort State
         await me.setupDragState(me.dragPlaceholder);
 
-        console.log('Setup drag state done');
-
         // 4. Apply Absolute Positioning
         me.applyAbsolutePositioning();
-
-        console.log('applyAbsolutePositioning done');
     }
 
     /**

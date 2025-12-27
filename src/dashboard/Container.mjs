@@ -93,6 +93,8 @@ class Container extends BaseContainer {
 
         let me = this;
 
+        me.detachedItems = new Map();
+
         Neo.currentWorker.on({
             connect   : me.onWindowConnect,
             disconnect: me.onWindowDisconnect,
@@ -280,8 +282,11 @@ class Container extends BaseContainer {
     async onWindowDisconnect(data) {
         let me = this;
 
+        console.log('onWindowDisconnect', me.id, data.windowId, 'isWindowDragging:', me.#isWindowDragging);
+
         if (me.#isWindowDragging || me.#isReintegrating) {
             me.#isWindowDragging = false;
+            console.log('onWindowDisconnect: Skipping due to isWindowDragging/isReintegrating');
             return
         }
 
@@ -289,6 +294,7 @@ class Container extends BaseContainer {
 
         for (const [widgetName, detachedItem] of me.detachedItems.entries()) {
             if (detachedItem.windowId === windowId) {
+                console.log('onWindowDisconnect: Re-integrating widget', me.id, widgetName);
                 let {index, widget} = detachedItem;
 
                 me.insert(index, widget);
@@ -331,6 +337,8 @@ class Container extends BaseContainer {
      */
     async suspendWindowDrag(widgetName) {
         let me = this;
+
+        console.log('suspendWindowDrag', me.id, widgetName);
 
         // Prevent onWindowDisconnect from auto-reintegrating
         me.#isWindowDragging = true;
