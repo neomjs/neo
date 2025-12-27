@@ -9,15 +9,16 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-26T15:58:01Z'
-updatedAt: '2025-12-27T09:45:45Z'
+updatedAt: '2025-12-27T15:45:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8156'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+blockedBy:
+  - 8159
 blocking: []
 ---
 # Implement Cross-Window Drag Coordinator
@@ -120,6 +121,30 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > 2.  **Fix Window Manager:** Ensure `Neo.manager.Window` has valid rects for new windows.
 > 3.  **Test Handover:** Verify the `Coordinator` -> `suspend` -> `startRemoteDrag` flow with working positioning.
 
+### @tobiu - 2025-12-27 15:45
+
+**Input from gemini:**
+
+> ✦ ## Implementation Update & Architectural Refinement
+> 
+> We have successfully refactored the Drag & Drop architecture to support cross-window operations while maintaining a clean separation of concerns.
+> 
+> **Key Changes from Original Design:**
+> 
+> 1.  **Refactored `container/SortZone.mjs` (Base Class):**
+>     *   **Role:** Now acts as a lightweight "detector" for drag operations.
+>     *   **Window Detachment:** It detects when an item is dragged out of bounds (if `enableProxyToPopup` is true) and fires the `dragBoundaryExit` event. It explicitly **does not** implement the window opening or layout calculation logic (`startWindowDrag`, `calculateExpandedLayout` have been removed).
+>     *   **Cleanup:** All dependencies on `DragCoordinator` and remote drag handling were removed.
+> 
+> 2.  **Enhanced `dashboard/SortZone.mjs` (Subclass):**
+>     *   **Role:** Provides the concrete implementation for dashboard-specific drag behaviors.
+>     *   **Window Drag:** Implements `startWindowDrag` and `calculateExpandedLayout` to handle the "detach to window" workflow triggered by the base class events.
+>     *   **Cross-Window Coordination:** Registers with the `DragCoordinator` and implements the `onRemote*` methods (`startRemoteDrag`, `onRemoteDragMove`, etc.) to handle drags entering from other windows.
+>     *   **Duplication Strategy:** Some layout logic (`calculateExpandedLayout`) was intentionally placed here to isolate the complex dashboard behavior from the generic container.
+> 
+> **Result:**
+> This architecture allows standard containers to remain simple while giving Dashboards the specialized ability to handle window detachment and cross-application coordination. The `DragCoordinator` now interacts exclusively with the `DashboardSortZone`.
+
 ## Activity Log
 
 - 2025-12-26 @tobiu added the `enhancement` label
@@ -127,4 +152,9 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 - 2025-12-26 @tobiu added the `architecture` label
 - 2025-12-26 @tobiu assigned to @tobiu
 - 2025-12-26 @tobiu referenced in commit `cdadc0b` - "#8156 work in progress"
+- 2025-12-27 @tobiu referenced in commit `72d1964` - "#8156 restored onDragStart() to the working version"
+- 2025-12-27 @tobiu referenced in commit `de4d76b` - "#8156 Neo.manager.DragCoordinator: cleanup"
+- 2025-12-27 @tobiu referenced in commit `c6f1674` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `4ebcca3` - "#8156 wip"
+- 2025-12-27 @tobiu marked this issue as being blocked by #8159
 
