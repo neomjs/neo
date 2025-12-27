@@ -524,6 +524,32 @@ class SortZone extends DragZone {
 
             me.ownerRect = itemRects.shift();
 
+            // Calculate real owner dimensions based on first and last item rects (accounting for padding)
+            if (itemRects.length > 0) {
+                const firstItemRect = itemRects[0];
+                const lastItemRect  = itemRects[itemRects.length - 1];
+
+                if (me.sortDirection === 'horizontal') {
+                    if (firstItemRect.x > me.ownerRect.x) {
+                        me.ownerRect.x = firstItemRect.x
+                    }
+                    if (firstItemRect.y > me.ownerRect.y) {
+                        me.ownerRect.y = firstItemRect.y
+                    }
+                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
+                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
+                } else {
+                    if (firstItemRect.x > me.ownerRect.x) {
+                        me.ownerRect.x = firstItemRect.x
+                    }
+                    if (firstItemRect.y > me.ownerRect.y) {
+                        me.ownerRect.y = firstItemRect.y
+                    }
+                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
+                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
+                }
+            }
+
             owner.style = {
                 ...ownerStyle,
                 height  : `${me.ownerRect.height}px`,

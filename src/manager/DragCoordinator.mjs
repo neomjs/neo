@@ -34,13 +34,15 @@ class DragCoordinator extends Manager {
     /**
      * @param {Object} data
      * @param {Neo.component.Base} data.draggedItem
+     * @param {Number} data.offsetX
+     * @param {Number} data.offsetY
      * @param {Number} data.screenX
      * @param {Number} data.screenY
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      */
     onDragMove(data) {
         let me             = this,
-            {draggedItem, proxyRect, screenX, screenY, sourceSortZone} = data,
+            {draggedItem, offsetX, offsetY, proxyRect, screenX, screenY, sourceSortZone} = data,
             {sortGroup}    = sourceSortZone,
             targetWindowId = Window.getWindowAt(screenX, screenY),
             targetSortZone;
@@ -73,6 +75,8 @@ class DragCoordinator extends Manager {
                     draggedItem,
                     localX,
                     localY,
+                    offsetX,
+                    offsetY,
                     proxyRect
                 })
             } else {

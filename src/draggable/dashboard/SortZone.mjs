@@ -69,13 +69,12 @@ class DashboardSortZone extends SortZone {
             console.log('applyAbsolutePositioning', {
                 height  : `${rect.height}px`,
                 left    : `${rect.left}px`,
-                margin  : '0px',
-                position: 'absolute',
                 top     : `${rect.top}px`,
                 width   : `${rect.width}px`
             });
 
             item.wrapperStyle = Object.assign(itemStyle, {
+                flex    : 'none',
                 height  : `${rect.height}px`,
                 left    : `${rect.left}px`,
                 margin  : '0px',
@@ -282,9 +281,13 @@ return;
 
                 if (me.isWindowDragging) {
                     if (!(proxyArea > 0 && (intersectionArea / proxyArea) > 0.51)) {
+                        console.log('dragBoundaryExit', me.offsetX, me.offsetY);
+
                         // Signal Coordinator
                         DragCoordinator.onDragMove({
                             draggedItem   : me.dragComponent,
+                            offsetX       : me.offsetX,
+                            offsetY       : me.offsetY,
                             proxyRect     : data.proxyRect,
                             screenX       : data.screenX,
                             screenY       : data.screenY,
@@ -426,6 +429,15 @@ return;
 
         itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
+        itemRects.forEach(rect => {
+            console.log('itemRect', {
+                height  : `${rect.height}px`,
+                left    : `${rect.left}px`,
+                top     : `${rect.top}px`,
+                width   : `${rect.width}px`
+            });
+        });
+
         me.ownerRect = itemRects.shift();
         me.boundaryContainerRect = me.ownerRect;
 
@@ -435,6 +447,8 @@ return;
             minWidth: `${me.ownerRect.width}px`,
             width   : `${me.ownerRect.width}px`
         };
+
+        console.log('adjustItemRectsToParent', adjustItemRectsToParent);
 
         adjustItemRectsToParent && itemRects.forEach(rect => {
             rect.x -= me.ownerRect.x;
@@ -475,9 +489,26 @@ return;
         draggedItem.parentId        = null;
         draggedItem.parentComponent = null;
 
+        // Since the component was mounted in a different window, we need to reset the state
+        draggedItem.mounted          = false;
+        draggedItem.vnode            = null;
+        draggedItem.vnodeInitialized = false;
+
         console.log('parent cleared:', draggedItem.parentId, draggedItem.parentComponent);
 
-        // 1. Create a local DragProxy manually (using DragProxyContainer to hold the live widget)
+        // 1. Get Owner Rect (needed for proxy positioning)
+        let rects = await owner.getDomRect([owner.id]);
+        me.ownerRect = rects[0];
+
+        // Assign the drag offsets to the instance, so that the DragZone onDragMove logic works
+        me.offsetX = data.offsetX;
+        me.offsetY = data.offsetY;
+
+        console.log('startRemoteDrag: ownerRect', me.ownerRect);
+        console.log('startRemoteDrag: local coords', data.localX, data.localY);
+        console.log('startRemoteDrag: calculated coords', data.localX - data.offsetX, data.localY - data.offsetY);
+
+        // 2. Create a local DragProxy manually (using DragProxyContainer to hold the live widget)
         // We use DragProxyContainer to ensure the widget remains active/connected.
         config = {
             module          : DragProxyContainer,
@@ -485,7 +516,7 @@ return;
             cls             : ['neo-dragproxy', ...me.owner.cls],
             height          : `${proxyRect.height}px`,
             items           : [draggedItem],
-            moveInMainThread: true,
+            moveInMainThread: false,
             parentComponent : null,
             parentId        : 'document.body',
             width           : `${proxyRect.width}px`,
@@ -493,8 +524,8 @@ return;
 
             style: {
                 height: `${proxyRect.height}px`,
-                left  : `${data.localX}px`,
-                top   : `${data.localY}px`,
+                left  : `${data.localX - data.offsetX}px`,
+                top   : `${data.localY - data.offsetY}px`,
                 width : `${proxyRect.width}px`
             }
         };
@@ -505,19 +536,21 @@ return;
 
         console.log('Created local drag proxy', me.dragProxy);
 
-        // 2. Create Placeholder
+        // 3. Create Placeholder
         me.dragPlaceholder = Neo.create({
             module: Component,
-            flex  : draggedItem.flex,
+            flex  : 'none',
             style : {height: `${proxyRect.height}px`, visibility: 'hidden', width: `${proxyRect.width}px`}
         });
 
         owner.add(me.dragPlaceholder);
 
-        // 3. Setup Sort State
+        // 4. Setup Sort State
+        await me.timeout(50);
         await me.setupDragState(me.dragPlaceholder);
 
-        // 4. Apply Absolute Positioning
+        await me.timeout(50);
+        // 5. Apply Absolute Positioning
         me.applyAbsolutePositioning()
     }
 
