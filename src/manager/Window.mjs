@@ -64,16 +64,18 @@ class Window extends Manager {
      * @param {String} data.windowId
      */
     onWindowConnect({appName, windowData, windowId}) {
-        let rect = null;
+        let headerHeight = 0,
+            rect         = null;
 
         if (windowData) {
-            const {outerHeight, outerWidth, screenLeft, screenTop} = windowData;
+            const {innerHeight, outerHeight, outerWidth, screenLeft, screenTop} = windowData;
+            headerHeight = outerHeight - innerHeight;
             rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight)
         }
 
         console.log('Window.onWindowConnect', {windowId, appName, rect});
 
-        this.register({appName, id: windowId, rect})
+        this.register({appName, headerHeight, id: windowId, rect})
     }
 
     /**
@@ -89,20 +91,26 @@ class Window extends Manager {
      * Updates the geometric state of a window based on data from the Main Thread.
      * This method is called via direct delegation from the App Worker to minimize overhead.
      * @param {Object} data
+     * @param {Number} data.innerHeight
      * @param {Number} data.outerHeight
      * @param {Number} data.outerWidth
      * @param {Number} data.screenLeft
      * @param {Number} data.screenTop
      * @param {String} data.windowId
      */
-    onWindowPositionChange({outerHeight, outerWidth, screenLeft, screenTop, windowId}) {
+    onWindowPositionChange({innerHeight, outerHeight, outerWidth, screenLeft, screenTop, windowId}) {
         let item = this.get(windowId),
             rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight);
 
         if (item) {
-            item.rect = rect
+            item.headerHeight = outerHeight - innerHeight;
+            item.rect         = rect
         } else {
-            this.register({id: windowId, rect})
+            this.register({
+                headerHeight: outerHeight - innerHeight,
+                id          : windowId,
+                rect
+            })
         }
     }
 }
