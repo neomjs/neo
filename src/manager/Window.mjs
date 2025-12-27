@@ -71,7 +71,7 @@ class Window extends Manager {
             rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight)
         }
 
-        console.log('Window.onWindowConnect', {windowId, rect});
+        console.log('Window.onWindowConnect', {windowId, appName, rect});
 
         this.register({appName, id: windowId, rect})
     }
