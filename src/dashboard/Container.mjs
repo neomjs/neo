@@ -179,7 +179,6 @@ class Container extends BaseContainer {
     async onDragBoundaryExit(data) {
         let me = this,
             {draggedItem, proxyRect, sortZone} = data,
-            widgetName = draggedItem.reference || draggedItem.id,
             popupData;
 
         me.#isWindowDragging = true;
@@ -203,14 +202,13 @@ class Container extends BaseContainer {
      * @returns {Promise<Object>}
      */
     async openWidgetInPopup(widget, rect) {
-        let me                      = this,
-            {windowId}              = me,
-            {config, windowConfigs} = Neo,
-            {environment}           = config,
-            firstWindowId           = Object.keys(windowConfigs)[0],
-            {basePath}              = windowConfigs[firstWindowId],
-            widgetName              = widget.reference || widget.id,
-            url                     = me.getPopupUrl(widget);
+        let me              = this,
+            {windowId}      = me,
+            {windowConfigs} = Neo,
+            firstWindowId   = Object.keys(windowConfigs)[0],
+            {basePath}      = windowConfigs[firstWindowId],
+            widgetName      = widget.reference || widget.id,
+            url             = me.getPopupUrl(widget);
 
         if (!url) {
             console.error('No popupUrl defined for dashboard item', widget);
@@ -218,11 +216,7 @@ class Container extends BaseContainer {
         }
 
         if (!url.startsWith('http')) {
-            if (environment !== 'development' && !url.includes(environment)) {
-                 // Adjust logic for production paths if needed, but assuming relative to base
-                 // Ideally the provided URL should be correct relative to app base
-            }
-            url = basePath + url;
+            url = basePath + url
         }
 
         // Append identification params
@@ -339,11 +333,17 @@ class Container extends BaseContainer {
         let me = this;
 
         // Prevent onWindowDisconnect from auto-reintegrating
-        me.#isWindowDragging = true; 
+        me.#isWindowDragging = true;
+
+        // Break the parent chain to prevent circular config lookups during handover
+        let detachedItem = me.detachedItems.get(widgetName);
+        if (detachedItem?.widget) {
+            detachedItem.widget.parentId = null
+        }
 
         await Neo.Main.windowClose({names: [widgetName], windowId: me.windowId});
 
-        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId: me.windowId});
+        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId: me.windowId})
     }
 }
 
