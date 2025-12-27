@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-26T15:58:01Z'
-updatedAt: '2025-12-26T17:29:39Z'
+updatedAt: '2025-12-27T09:45:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8156'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -79,10 +79,52 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > **Next Step:**
 > Start implementation of `Neo.manager.DragCoordinator`.
 
+### @tobiu - 2025-12-26 20:21
+
+**Input from Gemini 3:**
+
+> ✦ # Session Handoff: Cross-Window Drag Implementation Status
+> 
+> We have made significant architectural progress but introduced regressions in the core drag logic. This comment serves as the recovery plan for the next session.
+> 
+> ## 1. Implemented Architecture (Do Not Discard)
+> We established a robust "Handover Protocol" for dragging items between windows:
+> *   **`Neo.manager.DragCoordinator`**: Implemented. Acts as the traffic controller.
+>     *   Detects when a drag leaves the Source Window and enters a Target Window.
+>     *   Orchestrates the handover.
+> *   **`Neo.dashboard.Container`**:
+>     *   Added `suspendWindowDrag(widgetName)`: Closes the popup and stops the Source's window-drag mode.
+>     *   Added `resumeWindowDrag(widgetName, proxyRect)`: Re-opens the popup if the drag leaves the Target back into the void.
+>     *   **Sort Groups:** Both `AgentOS` and `Colors` apps now use `sortGroup: 'neo-connected-dashboard'`.
+> *   **`Neo.draggable.container.SortZone` (New Logic Only):**
+>     *   Registers/Unregisters with Coordinator.
+>     *   `startRemoteDrag`: Designed to create a **visible** local proxy in the Target, simulating a native drag.
+>     *   `onRemoteDragMove/Drop`: Handles the target-side lifecycle.
+> 
+> ## 2. Resolved Concepts
+> *   **The "Visible Proxy" Handover:** We agreed that the Source "Popup Window" should vanish upon entering the Target, replaced instantly by a local, visible `DragProxy` in the Target. This provides the best UX (looks like a native in-app drag).
+> *   **State Ownership:** The Source Dashboard MUST be the one to call `suspendWindowDrag` because it owns the `detachedItems` map and the context to talk to the correct `DragDrop` addon instance.
+> 
+> ## 3. Critical Regressions & Open Issues (Immediate Actions Required)
+> **The current state of `src/draggable/container/SortZone.mjs` is broken.**
+> 
+> 1.  **Local Drag Broken:** In our rush, we modified core methods like `applyAbsolutePositioning` and `setupDragState`, breaking standard local drag operations (positioning drift, `adjustItemRectsToParent` issues).
+>     *   **Recovery:** Compare `SortZone.mjs` with `tmpSortZone.mjs` (the pre-session backup). **Revert** the core positioning logic to the backup version. *Only* re-apply the Coordinator hooks (`register`, `suspend`, `resume`) and the *new* remote methods (`startRemoteDrag`, etc.).
+> 2.  **`onDragEnd` Errors:** We are seeing `TypeError: Cannot read properties of null (reading 'indexOf')` in `onDragEnd`. This indicates state corruption (likely `sortableItems` or `dragComponent` becoming null/invalid).
+> 3.  **Code Quality:** There are unused parameters (e.g., in `applyAbsolutePositioning`) and messy logic. Needs a strict cleanup.
+> 4.  **Window Manager Initialization:** `Neo.manager.Window.getWindowAt()` fails for new windows because `Window` manager doesn't fetch initial DOM rects on `connect`.
+>     *   [x] **Action:** Update `Neo.manager.Window` to query window bounds immediately upon registration.
+> 
+> ## Next Steps
+> 1.  **Restore SortZone:** Use `tmpSortZone.mjs` to fix the regressions in `SortZone.mjs`.
+> 2.  **Fix Window Manager:** Ensure `Neo.manager.Window` has valid rects for new windows.
+> 3.  **Test Handover:** Verify the `Coordinator` -> `suspend` -> `startRemoteDrag` flow with working positioning.
+
 ## Activity Log
 
 - 2025-12-26 @tobiu added the `enhancement` label
 - 2025-12-26 @tobiu added the `ai` label
 - 2025-12-26 @tobiu added the `architecture` label
 - 2025-12-26 @tobiu assigned to @tobiu
+- 2025-12-26 @tobiu referenced in commit `cdadc0b` - "#8156 work in progress"
 
