@@ -232,7 +232,7 @@ class DashboardSortZone extends SortZone {
     /**
      * @param {Object} data The drag end event data.
      */
-    async onDragEnd(data) {return;
+    async onDragEnd(data) {
         let me = this;
 
         if (!me.isRemoteDragging) {
@@ -342,9 +342,6 @@ class DashboardSortZone extends SortZone {
     async onRemoteDrop(draggedItem) {
         let me    = this,
             index = me.currentIndex;
-
-        console.log('onRemoteDrop', draggedItem.id, index);
-        return;
 
         // Ensure we are in remote drag mode
         if (me.isRemoteDragging) {
