@@ -45,8 +45,6 @@ class DragCoordinator extends Manager {
             targetWindowId = Window.getWindowAt(screenX, screenY),
             targetSortZone;
 
-        // console.log('DragCoordinator.onDragMove', {screenX, screenY, targetWindowId, sortGroup});
-
         if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
             targetSortZone = me.sortZones.get(sortGroup)?.get(targetWindowId);
 
@@ -55,14 +53,12 @@ class DragCoordinator extends Manager {
                     localX       = screenX - targetWindow.rect.x,
                     localY       = screenY - targetWindow.rect.y;
 
-                console.log('DragCoordinator target found', {targetWindowId, localX, localY});
+                // console.log('DragCoordinator target found', {targetWindowId, localX, localY});
 
                 // Entering a new target zone
                 if (me.activeTargetZone !== targetSortZone) {
                     // Leaving previous target (if any)
-                    if (me.activeTargetZone) {
-                        me.activeTargetZone.onRemoteDragLeave()
-                    }
+                    me.activeTargetZone?.onRemoteDragLeave();
 
                     // Suspend source drag (close popup, etc)
                     // We only do this once when leaving the void/source context
