@@ -408,6 +408,25 @@ class App extends Base {
     }
 
     /**
+     * @param {Object} data
+     */
+    async onConnect(data) {
+        // short delay to ensure app VCs are in place
+        await this.timeout(10);
+
+        let {appName, windowId} = data,
+            windowData;
+
+        try {
+            windowData = await Neo.Main.getWindowData({windowId})
+        } catch (e) {
+            console.error('onConnect: getWindowData failed', e)
+        }
+
+        this.fire('connect', {appName, windowData, windowId})
+    }
+
+    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */

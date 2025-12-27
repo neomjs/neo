@@ -60,10 +60,18 @@ class Window extends Manager {
     /**
      * @param {Object} data
      * @param {Number} data.appName
+     * @param {Object} [data.windowData]
      * @param {String} data.windowId
      */
-    onWindowConnect({appName, windowId}) {
-        this.register({appName, id: windowId, rect: null})
+    onWindowConnect({appName, windowData, windowId}) {
+        let rect = null;
+
+        if (windowData) {
+            const {outerHeight, outerWidth, screenLeft, screenTop} = windowData;
+            rect = new Rectangle(screenLeft, screenTop, outerWidth, outerHeight)
+        }
+
+        this.register({appName, id: windowId, rect})
     }
 
     /**
