@@ -1,7 +1,7 @@
 ---
 id: 8156
 title: Implement Cross-Window Drag Coordinator
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-26T15:58:01Z'
-updatedAt: '2025-12-27T20:50:25Z'
+updatedAt: '2025-12-27T22:53:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8156'
 author: tobiu
-commentsCount: 4
+commentsCount: 5
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -20,6 +20,7 @@ subIssuesTotal: 0
 blockedBy:
   - 8159
 blocking: []
+closedAt: '2025-12-27T22:53:35Z'
 ---
 # Implement Cross-Window Drag Coordinator
 
@@ -180,6 +181,10 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > *   Updates position smoothly during the drag.
 > *   Triggers sorting re-orders at the expected visual thresholds.
 
+### @tobiu - 2025-12-27 22:53
+
+closing the ticket, since we reached the poc state.
+
 ## Activity Log
 
 - 2025-12-26 @tobiu added the `enhancement` label
@@ -198,4 +203,18 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 - 2025-12-27 @tobiu referenced in commit `340cc5f` - "#8156 wip"
 - 2025-12-27 @tobiu referenced in commit `4d1cc24` - "#8156 wip"
 - 2025-12-27 @tobiu referenced in commit `da447c9` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `26c1f84` - "#8156 cleanup"
+- 2025-12-27 @tobiu referenced in commit `d0c916d` - "#8156 work in progress"
+- 2025-12-27 @tobiu referenced in commit `7de06ab` - "#8156 restored onDragStart() to the working version"
+- 2025-12-27 @tobiu referenced in commit `5053551` - "#8156 Neo.manager.DragCoordinator: cleanup"
+- 2025-12-27 @tobiu referenced in commit `6c4e9e9` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `001b84f` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `8b907fa` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `8816181` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `546e620` - "#8156 testing logs"
+- 2025-12-27 @tobiu referenced in commit `a174715` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `000d4cf` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `41d1e59` - "#8156 wip"
+- 2025-12-27 @tobiu referenced in commit `8f52386` - "#8156 cleanup"
+- 2025-12-27 @tobiu closed this issue
 

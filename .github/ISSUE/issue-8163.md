@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-27T21:26:45Z'
-updatedAt: '2025-12-27T21:26:45Z'
+updatedAt: '2025-12-27T22:48:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8163'
 author: tobiu
 commentsCount: 0
@@ -59,4 +60,5 @@ This epic tracks the advanced refinement and functional expansion of the Cross-W
 - 2025-12-27 @tobiu added sub-issue #8165
 - 2025-12-27 @tobiu added sub-issue #8166
 - 2025-12-27 @tobiu added sub-issue #8167
+- 2025-12-27 @tobiu assigned to @tobiu
 
