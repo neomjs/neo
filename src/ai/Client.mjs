@@ -118,13 +118,14 @@ class Client extends Base {
      * @param {Object} data
      */
     async onSocketMessage({data}) {
-        try {
-            if (data.method) {
+        if (data.method) {
+            try {
                 const result = await this.handleRequest(data.method, data.params);
                 this.sendResponse(data.id, result)
+            } catch (e) {
+                console.error('Neo.ai.Client: Failed to handle message', e);
+                this.sendError(data.id, e.message, e.stack)
             }
-        } catch (e) {
-            console.error('Neo.ai.Client: Failed to handle message', e)
         }
     }
 
@@ -356,6 +357,26 @@ class Client extends Base {
                 jsonrpc: '2.0',
                 method,
                 params
+            }))
+        }
+    }
+
+    /**
+     * Sends a JSON-RPC error response
+     * @param {Number|String} id
+     * @param {String} message
+     * @param {String} [stack]
+     */
+    sendError(id, message, stack) {
+        if (this.isConnected) {
+            this.socket.sendMessage(JSON.stringify({
+                jsonrpc: '2.0',
+                id,
+                error: {
+                    code   : -32603, // Internal error
+                    message: message,
+                    data   : {stack}
+                }
             }))
         }
     }
