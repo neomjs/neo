@@ -287,9 +287,9 @@ components:
         property:
           type: string
           description: The property name to retrieve
-        windowId:
+        sessionId:
           type: string
-          description: The target window ID
+          description: The target App Worker Session ID
 
     GetComponentTreeRequest:
       type: object
@@ -300,16 +300,16 @@ components:
         depth:
           type: integer
           description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
-        windowId:
+        sessionId:
           type: string
-          description: The target window ID
+          description: The target App Worker Session ID
 
     ReloadPageRequest:
       type: object
       properties:
-        windowId:
+        sessionId:
           type: string
-          description: The target window ID
+          description: The target App Worker Session ID
 
     SetComponentPropertyRequest:
       type: object
@@ -326,9 +326,9 @@ components:
           description: The property name to set
         value:
           description: The value to set
-        windowId:
+        sessionId:
           type: string
-          description: The target window ID
+          description: The target App Worker Session ID
 
     ErrorResponse:
       type: object

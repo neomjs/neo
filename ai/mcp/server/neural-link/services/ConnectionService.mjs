@@ -141,6 +141,32 @@ class ConnectionService extends Base {
                     return
                 }
 
+                if (message.method === 'window_connected') {
+                    const meta = this.sessionData.get(sessionId);
+
+                    if (meta) {
+                        meta.windows = meta.windows || new Map();
+                        meta.windows.set(message.params.windowId, {
+                            ...message.params,
+                            connectedAt: Date.now()
+                        });
+                        logger.info(`Window connected: ${message.params.windowId} (Session: ${sessionId})`)
+                    }
+
+                    return
+                }
+
+                if (message.method === 'window_disconnected') {
+                    const meta = this.sessionData.get(sessionId);
+
+                    if (meta && meta.windows) {
+                        meta.windows.delete(message.params.windowId);
+                        logger.info(`Window disconnected: ${message.params.windowId} (Session: ${sessionId})`)
+                    }
+
+                    return
+                }
+
                 logger.info(`Received method from browser (${sessionId}):`, message.method, message.params);
                 // TODO: Forward to Agent via MCP Notification if needed.
                 return;
@@ -171,28 +197,28 @@ class ConnectionService extends Base {
     }
 
     /**
-     * Sends a JSON-RPC request to a specific window.
-     * @param {String} windowId    The target window ID.
+     * Sends a JSON-RPC request to a specific session.
+     * @param {String} sessionId    The target session ID.
      * @param {String} method      The RPC method name.
      * @param {Object} [params={}] The RPC parameters.
      * @returns {Promise<any>} Resolves with the RPC result or rejects with an error.
      * @private
      */
-    #call(windowId, method, params={}) {
+    #call(sessionId, method, params={}) {
         return new Promise((resolve, reject) => {
-            const ws = this.sessions.get(windowId);
+            const ws = this.sessions.get(sessionId);
 
-            // If no windowId provided, try to pick the most recent one
+            // If no sessionId provided, try to pick the most recent one
             if (!ws) {
-                if (!windowId && this.sessions.size > 0) {
+                if (!sessionId && this.sessions.size > 0) {
                     // Pick the last connected session
                     const lastId = Array.from(this.sessions.keys()).pop();
-                    logger.warn(`No windowId provided. Defaulting to ${lastId}`);
+                    logger.warn(`No sessionId provided. Defaulting to ${lastId}`);
                     // Recursive call with the found ID
                     return this.#call(lastId, method, params).then(resolve).catch(reject);
                 }
-                logger.error(`Session not found. Requested: ${windowId}, Active: ${Array.from(this.sessions.keys()).join(', ')}`);
-                return reject(new Error(`Session not found: ${windowId || 'No active sessions'}`));
+                logger.error(`Session not found. Requested: ${sessionId}, Active: ${Array.from(this.sessions.keys()).join(', ')}`);
+                return reject(new Error(`Session not found: ${sessionId || 'No active sessions'}`));
             }
 
             const id = ++this.msgId;
@@ -240,11 +266,11 @@ class ConnectionService extends Base {
      * @param {Object} opts The options object.
      * @param {String} opts.id The component ID.
      * @param {String} opts.property The property name to retrieve.
-     * @param {String} [opts.windowId] The target window ID.
+     * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<any>} The value of the property.
      */
-    async getComponentProperty({id, property, windowId}) {
-        return await this.#call(windowId, 'get_component_property', {id, property})
+    async getComponentProperty({id, property, sessionId}) {
+        return await this.#call(sessionId, 'get_component_property', {id, property})
     }
 
     /**
@@ -252,11 +278,11 @@ class ConnectionService extends Base {
      * @param {Object} opts            The options object.
      * @param {Number} [opts.depth]    The depth limit.
      * @param {String} [opts.rootId]   Optional root component ID.
-     * @param {String} [opts.windowId] The target window ID.
+     * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The component tree structure.
      */
-    async getComponentTree({depth, rootId, windowId}) {
-        return await this.#call(windowId, 'get_component_tree', {depth, rootId})
+    async getComponentTree({depth, rootId, sessionId}) {
+        return await this.#call(sessionId, 'get_component_tree', {depth, rootId})
     }
 
     /**
@@ -264,11 +290,11 @@ class ConnectionService extends Base {
      * @param {Object} opts            The options object.
      * @param {Number} [opts.depth]    The depth limit.
      * @param {String} [opts.rootId]   Optional root component ID.
-     * @param {String} [opts.windowId] The target window ID.
+     * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The VDOM tree structure.
      */
-    async getVdomTree({depth, rootId, windowId}) {
-        return await this.#call(windowId, 'get_vdom_tree', {depth, rootId})
+    async getVdomTree({depth, rootId, sessionId}) {
+        return await this.#call(sessionId, 'get_vdom_tree', {depth, rootId})
     }
 
     /**
@@ -276,11 +302,11 @@ class ConnectionService extends Base {
      * @param {Object} opts            The options object.
      * @param {Number} [opts.depth]    The depth limit.
      * @param {String} [opts.rootId]   Optional root component ID.
-     * @param {String} [opts.windowId] The target window ID.
+     * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The VNode tree structure.
      */
-    async getVnodeTree({depth, rootId, windowId}) {
-        return await this.#call(windowId, 'get_vnode_tree', {depth, rootId})
+    async getVnodeTree({depth, rootId, sessionId}) {
+        return await this.#call(sessionId, 'get_vnode_tree', {depth, rootId})
     }
 
     /**
@@ -298,33 +324,21 @@ class ConnectionService extends Base {
      * @returns {Promise<Object[]>} List of windows.
      */
     async getWindowTopology() {
-        const promises = [];
+        const windows = [];
 
-        for (const sessionId of this.sessions.keys()) {
-            promises.push(this.#call(sessionId, 'get_window_info', {})
-                .then(res => res.windows || [])
-                .catch(err => {
-                    logger.error(`Failed to get window info from session ${sessionId}:`, err);
-                    return []
-                })
-            )
-        }
-
-        const results = await Promise.all(promises);
-        const windows = results.flat();
-
-        // Deduplicate by Application Window ID (not Session ID)
-        const uniqueWindows = [];
-        const seenIds = new Set();
-
-        for (const win of windows) {
-            if (win && win.id && !seenIds.has(win.id)) {
-                seenIds.add(win.id);
-                uniqueWindows.push(win)
+        for (const meta of this.sessionData.values()) {
+            if (meta.windows) {
+                for (const win of meta.windows.values()) {
+                    windows.push({
+                        ...win,
+                        appWorkerId: meta.appWorkerId, // Enrich with worker ID
+                        sessionId: meta.sessionId
+                    })
+                }
             }
         }
 
-        return uniqueWindows
+        return windows
     }
 
     /**
@@ -338,11 +352,11 @@ class ConnectionService extends Base {
     /**
      * Reloads the application page.
      * @param {Object} opts            The options object.
-     * @param {String} [opts.windowId] The target window ID.
+     * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<void>}
      */
-    async reloadPage({windowId}) {
-        return await this.#call(windowId, 'reload_page', {})
+    async reloadPage({sessionId}) {
+        return await this.#call(sessionId, 'reload_page', {})
     }
 
     /**
@@ -351,11 +365,11 @@ class ConnectionService extends Base {
      * @param {String} opts.id         The component ID.
      * @param {String} opts.property   The property name to set.
      * @param {*}      opts.value      The value to set.
-     * @param {String} [opts.windowId] The target window ID.
+     * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<void>}
      */
-    async setComponentProperty({id, property, value, windowId}) {
-        return await this.#call(windowId, 'set_component_property', {id, property, value})
+    async setComponentProperty({id, property, value, sessionId}) {
+        return await this.#call(sessionId, 'set_component_property', {id, property, value})
     }
 }
 

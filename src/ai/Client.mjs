@@ -50,6 +50,13 @@ class Client extends Base {
      */
     construct(config) {
         super.construct(config);
+
+        Neo.currentWorker.on({
+            connect   : this.onAppWorkerWindowConnect,
+            disconnect: this.onAppWorkerWindowDisconnect,
+            scope     : this
+        });
+
         this.connect();
     }
 
@@ -70,6 +77,36 @@ class Client extends Base {
                 scope  : me
             }
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onAppWorkerWindowConnect(data) {
+        if (this.isConnected) {
+            const
+                win = Neo.manager.Window.get(data.windowId),
+                {appName, windowId} = data;
+
+            this.sendNotification('window_connected', {
+                appName,
+                chrome   : win?.chrome,
+                innerRect: win?.innerRect,
+                outerRect: win?.outerRect,
+                windowId
+            })
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onAppWorkerWindowDisconnect(data) {
+        if (this.isConnected) {
+            this.sendNotification('window_disconnected', {
+                windowId: data.windowId
+            })
+        }
     }
 
     /**
@@ -97,6 +134,7 @@ class Client extends Base {
 
         const appWorker = Neo.worker.App;
 
+        // 1. Register the worker
         this.socket.sendMessage(JSON.stringify({
             jsonrpc: '2.0',
             method : 'register',
@@ -106,7 +144,32 @@ class Client extends Base {
                 isSharedWorker: appWorker.isSharedWorker,
                 userAgent     : navigator.userAgent
             }
-        }))
+        }));
+
+        // 2. Rehydrate window topology
+        const windowManager = Neo.manager?.Window;
+
+        if (windowManager) {
+            windowManager.items.forEach(win => {
+                this.sendNotification('window_connected', {
+                    appName  : win.appName,
+                    chrome   : win.chrome,
+                    innerRect: win.innerRect,
+                    outerRect: win.outerRect,
+                    windowId : win.id
+                })
+            })
+        }
+
+        // 3. Rehydrate drag state (if active)
+        const dragCoordinator = Neo.manager?.DragCoordinator;
+
+        if (dragCoordinator?.activeTargetZone) {
+            this.sendNotification('drag_active', {
+                sortGroup : dragCoordinator.activeTargetZone.sortGroup,
+                sourceZone: dragCoordinator.activeTargetZone.id
+            })
+        }
     }
 
     /**
@@ -251,6 +314,21 @@ class Client extends Base {
         }
 
         return value
+    }
+
+    /**
+     * Sends a JSON-RPC notification (no id)
+     * @param {String} method
+     * @param {Object} params
+     */
+    sendNotification(method, params) {
+        if (this.isConnected) {
+            this.socket.sendMessage(JSON.stringify({
+                jsonrpc: '2.0',
+                method,
+                params
+            }))
+        }
     }
 
     /**
