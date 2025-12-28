@@ -1,23 +1,24 @@
 ---
 id: 8161
 title: Refine Cross-Window Drag Intersection to Target SortZone Rect
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-27T21:06:24Z'
-updatedAt: '2025-12-27T23:53:54Z'
+updatedAt: '2025-12-28T00:07:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8161'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8163
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-28T00:07:22Z'
 ---
 # Refine Cross-Window Drag Intersection to Target SortZone Rect
 
@@ -34,6 +35,26 @@ Dragging an item into a window's blank space, headers, or even DevTools area (if
 **Goal:**
 Update `DragCoordinator` (or delegate to `SortZone`) to verify that the drag coordinates (or proxy rect) actually intersect with the target `SortZone`'s `ownerRect` before initiating the remote drag sequence. This ensures the "drop target" effect only activates when visually appropriate.
 
+## Comments
+
+### @tobiu - 2025-12-28 00:03
+
+**Input from gemini:**
+
+> ✦ I have implemented the enhanced intersection logic for cross-window drag operations.
+> 
+> **Key Changes:**
+> 
+> 1.  **`Neo.draggable.dashboard.SortZone`:**
+>     *   Added `acceptsRemoteDrag(localX, localY)`: This method performs a precise point-in-rect check against the dashboard's `ownerRect`. It handles lazy fetching of the DOM rect if it's not already cached, ensuring the first interaction is handled correctly (albeit asynchronously for the first frame).
+> 
+> 2.  **`Neo.manager.DragCoordinator`:**
+>     *   Refactored `onDragMove` to use this new validation method.
+>     *   **Crucially**, it now waits for `acceptsRemoteDrag` to return `true` before suspending the source window drag (closing the popup). This prevents the "disappearing item" issue when dragging over window headers or empty space.
+>     *   Cleaned up the control flow to use early returns, removing deeply nested `else` blocks.
+> 
+> This ensures that the "drop target" effect and the handover of control only happen when the user clearly intends to drop onto a valid dashboard area.
+
 ## Activity Log
 
 - 2025-12-27 @tobiu added the `enhancement` label
@@ -41,4 +62,5 @@ Update `DragCoordinator` (or delegate to `SortZone`) to verify that the drag coo
 - 2025-12-27 @tobiu added parent issue #8163
 - 2025-12-27 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu referenced in commit `711a59b` - "Neo.manager.DragCoordinator: Refactor onDragMove for clarity and efficient early returns - #8161"
+- 2025-12-28 @tobiu closed this issue
 
