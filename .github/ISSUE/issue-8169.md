@@ -21,8 +21,11 @@ subIssues:
   - 8016
   - 8173
   - 8174
-subIssuesCompleted: 4
-subIssuesTotal: 6
+  - 8175
+  - 8176
+  - 8177
+subIssuesCompleted: 8
+subIssuesTotal: 9
 blockedBy: []
 blocking: []
 ---
@@ -56,4 +59,14 @@ Empower AI agents to "see" and "touch" the runtime application, moving beyond st
 - 2025-12-28 @tobiu added sub-issue #8016
 - 2025-12-28 @tobiu added sub-issue #8173
 - 2025-12-28 @tobiu added sub-issue #8174
+- 2025-12-28 @tobiu added sub-issue #8175
+- 2025-12-28 @tobiu added sub-issue #8176
+- 2025-12-28 @tobiu added sub-issue #8177
+- 2025-12-28 @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)
+
+- Refactor API: Rename windowId to sessionId for clarity (#8174)
+- Feat: Implement window connect/disconnect notifications (#8175)
+- Feat: Add state rehydration on reconnect (#8176)
+- Update Client to track lifecycle and sync topology
+- Update ConnectionService to cache window state and serve topology instantly"
 
