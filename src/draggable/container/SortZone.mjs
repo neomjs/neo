@@ -56,6 +56,12 @@ class SortZone extends DragZone {
          */
         currentIndex: -1,
         /**
+         * The intersection ratio (0-1) required to detach an item into a new window.
+         * Lower values mean the item must be dragged further out.
+         * @member {Number} detachThreshold=0.8
+         */
+        detachThreshold: 0.8,
+        /**
          * A CSS selector to identify the drag handle within a component.
          * If specified, the drag is initiated on this element, but the owning component is dragged.
          * @member {String|null} dragHandleSelector=null
@@ -81,6 +87,11 @@ class SortZone extends DragZone {
          */
         itemStyles: null,
         /**
+         * @member {Number} lastIntersectionRatio=1
+         * @protected
+         */
+        lastIntersectionRatio: 1,
+        /**
          * @member {Object} ownerRect=null
          * @protected
          */
@@ -90,6 +101,12 @@ class SortZone extends DragZone {
          * @protected
          */
         ownerStyle: null,
+        /**
+         * The intersection ratio (0-1) required to re-attach a window-dragged item back into the container.
+         * Higher values mean the item must be dragged further in.
+         * @member {Number} reattachThreshold=0.6
+         */
+        reattachThreshold: 0.6,
         /**
          * @member {Boolean} alwaysFireDragMove=false
          * @protected
@@ -312,17 +329,22 @@ class SortZone extends DragZone {
         // console.log('SortZone onDragMove', me.dragProxy);
 
         if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
-            const {proxyRect} = data;
+            let {proxyRect} = data;
 
             if (proxyRect && me.boundaryContainerRect) {
                 const
-                    boundaryRect     = me.boundaryContainerRect,
-                    intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
-                    proxyArea        = proxyRect.width * proxyRect.height,
-                    intersectionArea = intersection ? intersection.width * intersection.height : 0;
+                    boundaryRect      = me.boundaryContainerRect,
+                    intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
+                    proxyArea         = proxyRect.width * proxyRect.height,
+                    intersectionArea  = intersection ? intersection.width * intersection.height : 0,
+                    intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
+                    isMovingIn        = intersectionRatio > me.lastIntersectionRatio,
+                    isMovingOut       = intersectionRatio < me.lastIntersectionRatio;
+
+                me.lastIntersectionRatio = intersectionRatio;
 
                 if (!me.isWindowDragging) {
-                    if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
+                    if (isMovingOut && intersectionRatio < me.detachThreshold) {
                         me.isWindowDragging = true; // Set flag to prevent re-entry
 
                         me.fire('dragBoundaryExit', {
@@ -333,7 +355,7 @@ class SortZone extends DragZone {
                         return // Stop further processing in onDragMove
                     }
                 } else if (me.isWindowDragging) {
-                    if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
+                    if (isMovingIn && intersectionRatio > me.reattachThreshold) {
                         // Restore layout
                         me.dragPlaceholder.wrapperStyle = {
                             ...me.dragPlaceholder.wrapperStyle,
@@ -504,6 +526,7 @@ class SortZone extends DragZone {
                 dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
+                lastIntersectionRatio  : 1,
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 sortableItems,

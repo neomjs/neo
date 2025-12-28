@@ -53,6 +53,33 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
+     * Checks if the remote drag coordinates intersect with the sort zone.
+     * Triggers an async fetch of ownerRect if not currently cached.
+     * @param {Number} x
+     * @param {Number} y
+     * @returns {Boolean}
+     */
+    acceptsRemoteDrag(x, y) {
+        let me = this;
+
+        if (!me.ownerRect) {
+            if (!me.isFetchingRect) {
+                me.isFetchingRect = true;
+                me.owner.getDomRect([me.owner.id]).then(rects => {
+                    me.ownerRect = rects[0];
+                    me.isFetchingRect = false
+                })
+            }
+            return false
+        }
+
+        return x >= me.ownerRect.x &&
+               x <= me.ownerRect.x + me.ownerRect.width &&
+               y >= me.ownerRect.y &&
+               y <= me.ownerRect.y + me.ownerRect.height
+    }
+
+    /**
      *
      */
     applyAbsolutePositioning() {
@@ -270,17 +297,21 @@ class DashboardSortZone extends SortZone {
         }
 
         if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
-            const {proxyRect} = data;
+            let {proxyRect} = data;
 
             if (proxyRect && me.boundaryContainerRect) {
                 const
-                    boundaryRect     = me.boundaryContainerRect,
-                    intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
-                    proxyArea        = proxyRect.width * proxyRect.height,
-                    intersectionArea = intersection ? intersection.width * intersection.height : 0;
+                    boundaryRect      = me.boundaryContainerRect,
+                    intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
+                    proxyArea         = proxyRect.width * proxyRect.height,
+                    intersectionArea  = intersection ? intersection.width * intersection.height : 0,
+                    intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
+                    isMovingIn        = intersectionRatio > me.lastIntersectionRatio;
 
                 if (me.isWindowDragging) {
-                    if (!(proxyArea > 0 && (intersectionArea / proxyArea) > 0.51)) {
+                    if (!(isMovingIn && intersectionRatio > me.reattachThreshold)) {
+                        me.lastIntersectionRatio = intersectionRatio;
+
                         // Signal Coordinator
                         DragCoordinator.onDragMove({
                             draggedItem   : me.dragComponent,

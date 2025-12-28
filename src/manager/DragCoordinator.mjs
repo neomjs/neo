@@ -1,5 +1,6 @@
-import Manager from './Base.mjs';
-import Window  from './Window.mjs';
+import Manager   from './Base.mjs';
+import Rectangle from '../util/Rectangle.mjs';
+import Window    from './Window.mjs';
 
 /**
  * @class Neo.manager.DragCoordinator
@@ -70,7 +71,13 @@ class DragCoordinator extends Manager {
             if (targetSortZone) {
                 let targetWindow = Window.get(targetWindowId),
                     localX       = screenX - targetWindow.innerRect.x,
-                    localY       = screenY - targetWindow.innerRect.y;
+                    localY       = screenY - targetWindow.innerRect.y,
+                    targetProxyRect = new Rectangle(
+                        localX - offsetX,
+                        localY - offsetY,
+                        proxyRect.width,
+                        proxyRect.height
+                    );
 
                 if (targetSortZone.acceptsRemoteDrag(localX, localY)) {
                     // console.log('DragCoordinator target found', {targetWindowId, localX, localY});
@@ -95,7 +102,7 @@ class DragCoordinator extends Manager {
                         localY,
                         offsetX,
                         offsetY,
-                        proxyRect
+                        proxyRect: targetProxyRect
                     });
 
                     return
