@@ -74,6 +74,18 @@ class ComponentService extends Base {
     }
 
     /**
+     * Queries components based on a selector object (e.g. {ntype: 'button', text: 'Save'}).
+     * @param {Object} opts            The options object.
+     * @param {Object} opts.selector   The selector object to match against.
+     * @param {String} [opts.rootId]   Optional root component ID to limit the search scope.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The list of matching components.
+     */
+    async queryComponent({selector, rootId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'query_component', {selector, rootId});
+    }
+
+    /**
      * Sets a property on a component by its ID.
      * @param {Object} opts            The options object.
      * @param {String} opts.id         The component ID.

@@ -207,6 +207,32 @@ class Client extends Base {
                 if (!component) throw new Error(`Component not found: ${params.id}`);
                 return {value: me.safeSerialize(component[params.property])};
 
+            case 'query_component':
+                let {selector, rootId} = params,
+                    matches = [];
+
+                if (rootId) {
+                    component = Neo.getComponent(rootId);
+                    if (!component) throw new Error(`Root component not found: ${rootId}`);
+                    // down() returns a single item or array based on returnFirstMatch param.
+                    // We want all matches, so we pass false.
+                    matches = component.down(selector, false)
+                } else {
+                    matches = Neo.manager.Component.find(selector)
+                }
+
+                if (!Array.isArray(matches)) {
+                    matches = matches ? [matches] : []
+                }
+
+                return {
+                    components: matches.map(c => ({
+                        id       : c.id,
+                        className: c.className,
+                        ntype    : c.ntype
+                    }))
+                };
+
             case 'get_component_tree':
                 return {tree: me.serializeComponent(me.getComponentRoot(params.rootId), params.depth || -1)};
 

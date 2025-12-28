@@ -209,6 +209,37 @@ paths:
               schema:
                 type: object
 
+  /component/query:
+    post:
+      summary: Query Components
+      operationId: query_component
+      x-pass-as-object: true
+      description: |
+        Finds components matching a set of properties (semantic query).
+        Example: `query_component({selector: {ntype: 'button', text: 'Save'}})`
+
+        **When to Use:**
+        To find components without knowing their ID, using fuzzy matching on properties.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryComponentRequest'
+      responses:
+        '200':
+          description: List of matching components
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  components:
+                    type: array
+                    items:
+                      type: object
+
   /page/reload:
     post:
       summary: Reload Page
@@ -443,6 +474,21 @@ components:
         property:
           type: string
           description: The property name to retrieve
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    QueryComponentRequest:
+      type: object
+      required:
+        - selector
+      properties:
+        selector:
+          type: object
+          description: JSON object with property/value pairs to match (e.g., {ntype: 'button', text: 'Save'}).
+        rootId:
+          type: string
+          description: Optional ID of a component to search within (scoped search).
         sessionId:
           type: string
           description: The target App Worker Session ID

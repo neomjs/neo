@@ -20,6 +20,7 @@ const serviceMapping = {
     get_window_topology   : RuntimeService.getWindowTopology.bind(RuntimeService),
     get_worker_topology   : RuntimeService.getWorkerTopology.bind(RuntimeService),
     healthcheck           : HealthService.healthcheck.bind(HealthService),
+    query_component       : ComponentService.queryComponent.bind(ComponentService),
     reload_page           : RuntimeService.reloadPage.bind(RuntimeService),
     set_component_property: ComponentService.setComponentProperty.bind(ComponentService),
     start_ws_server       : ConnectionService.startServer.bind(ConnectionService),
