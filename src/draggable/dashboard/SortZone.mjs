@@ -296,40 +296,7 @@ class DashboardSortZone extends SortZone {
             return
         }
 
-        if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
-            let {proxyRect} = data;
-
-            if (proxyRect && me.boundaryContainerRect) {
-                const
-                    boundaryRect      = me.boundaryContainerRect,
-                    intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
-                    proxyArea         = proxyRect.width * proxyRect.height,
-                    intersectionArea  = intersection ? intersection.width * intersection.height : 0,
-                    intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
-                    isMovingIn        = intersectionRatio > me.lastIntersectionRatio;
-
-                if (me.isWindowDragging) {
-                    if (!(isMovingIn && intersectionRatio > me.reattachThreshold)) {
-                        me.lastIntersectionRatio = intersectionRatio;
-
-                        // Signal Coordinator
-                        DragCoordinator.onDragMove({
-                            draggedItem   : me.dragComponent,
-                            offsetX       : me.offsetX,
-                            offsetY       : me.offsetY,
-                            proxyRect     : data.proxyRect,
-                            screenX       : data.screenX,
-                            screenY       : data.screenY,
-                            sourceSortZone: me
-                        });
-
-                        return
-                    }
-                }
-            }
-        }
-
-        super.onDragMove(data)
+        await super.onDragMove(data)
     }
 
     /**
@@ -409,6 +376,25 @@ class DashboardSortZone extends SortZone {
                 }
             }
         }
+    }
+
+    /**
+     * @param {Number} intersectionRatio
+     * @param {Object} data
+     */
+    onWindowDragContinue(intersectionRatio, data) {
+        let me = this;
+
+        // Signal Coordinator
+        DragCoordinator.onDragMove({
+            draggedItem   : me.dragComponent,
+            offsetX       : me.offsetX,
+            offsetY       : me.offsetY,
+            proxyRect     : data.proxyRect,
+            screenX       : data.screenX,
+            screenY       : data.screenY,
+            sourceSortZone: me
+        })
     }
 
     /**

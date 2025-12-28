@@ -168,6 +168,78 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @param {Object} data
+     * @returns {Boolean} true if the method processing should stop
+     */
+    checkWindowBoundary(data) {
+        let me = this,
+            {proxyRect} = data;
+
+        if (proxyRect && me.boundaryContainerRect) {
+            const
+                boundaryRect      = me.boundaryContainerRect,
+                intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
+                proxyArea         = proxyRect.width * proxyRect.height,
+                intersectionArea  = intersection ? intersection.width * intersection.height : 0,
+                intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
+                isMovingIn        = intersectionRatio > me.lastIntersectionRatio,
+                isMovingOut       = intersectionRatio < me.lastIntersectionRatio;
+
+            me.lastIntersectionRatio = intersectionRatio;
+
+            if (!me.isWindowDragging) {
+                if (isMovingOut && intersectionRatio < me.detachThreshold) {
+                    me.isWindowDragging = true; // Set flag to prevent re-entry
+
+                    me.fire('dragBoundaryExit', {
+                        draggedItem: me.dragComponent,
+                        proxyRect,
+                        sortZone   : me
+                    });
+                    return true // Stop further processing in onDragMove
+                }
+            } else if (me.isWindowDragging) {
+                if (isMovingIn && intersectionRatio > me.reattachThreshold) {
+                    // Restore layout
+                    me.dragPlaceholder.wrapperStyle = {
+                        ...me.dragPlaceholder.wrapperStyle,
+                        visibility: 'visible'
+                    };
+
+                    // Re-applying the current state:
+                    me.itemRects.forEach((rect, index) => {
+                        let mappedIndex = me.indexMap[index];
+                        if (mappedIndex !== -1) {
+                            let item = me.owner.items[mappedIndex];
+
+                            if (item !== me.dragPlaceholder && item !== me.dragComponent) {
+                                item.wrapperStyle = {
+                                    ...item.wrapperStyle,
+                                    height: `${rect.height}px`,
+                                    left  : `${rect.left}px`,
+                                    top   : `${rect.top}px`,
+                                    width : `${rect.width}px`
+                                }
+                            }
+                        }
+                    });
+
+                    me.fire('dragBoundaryEntry', {
+                        draggedItem: me.dragComponent,
+                        proxyRect,
+                        sortZone   : me
+                    })
+                } else {
+                    me.onWindowDragContinue(intersectionRatio, data)
+                }
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Helper method, override as needed
      * @returns {Object}
      */
@@ -329,65 +401,8 @@ class SortZone extends DragZone {
         // console.log('SortZone onDragMove', me.dragProxy);
 
         if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
-            let {proxyRect} = data;
-
-            if (proxyRect && me.boundaryContainerRect) {
-                const
-                    boundaryRect      = me.boundaryContainerRect,
-                    intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
-                    proxyArea         = proxyRect.width * proxyRect.height,
-                    intersectionArea  = intersection ? intersection.width * intersection.height : 0,
-                    intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
-                    isMovingIn        = intersectionRatio > me.lastIntersectionRatio,
-                    isMovingOut       = intersectionRatio < me.lastIntersectionRatio;
-
-                me.lastIntersectionRatio = intersectionRatio;
-
-                if (!me.isWindowDragging) {
-                    if (isMovingOut && intersectionRatio < me.detachThreshold) {
-                        me.isWindowDragging = true; // Set flag to prevent re-entry
-
-                        me.fire('dragBoundaryExit', {
-                            draggedItem: me.dragComponent,
-                            proxyRect,
-                            sortZone   : me
-                        });
-                        return // Stop further processing in onDragMove
-                    }
-                } else if (me.isWindowDragging) {
-                    if (isMovingIn && intersectionRatio > me.reattachThreshold) {
-                        // Restore layout
-                        me.dragPlaceholder.wrapperStyle = {
-                            ...me.dragPlaceholder.wrapperStyle,
-                            visibility: 'visible'
-                        };
-
-                        // Re-applying the current state:
-                        me.itemRects.forEach((rect, index) => {
-                            let mappedIndex = me.indexMap[index];
-                            if (mappedIndex !== -1) {
-                                let item = me.owner.items[mappedIndex];
-
-                                if (item !== me.dragPlaceholder && item !== me.dragComponent) {
-                                    item.wrapperStyle = {
-                                        ...item.wrapperStyle,
-                                        height: `${rect.height}px`,
-                                        left  : `${rect.left}px`,
-                                        top   : `${rect.top}px`,
-                                        width : `${rect.width}px`
-                                    }
-                                }
-                            }
-                        });
-
-                        me.fire('dragBoundaryEntry', {
-                            draggedItem: me.dragComponent,
-                            proxyRect,
-                            sortZone   : me
-                        })
-                    }
-                    return
-                }
+            if (me.checkWindowBoundary(data)) {
+                return
             }
         }
 
@@ -624,6 +639,12 @@ class SortZone extends DragZone {
             }
         }
     }
+
+    /**
+     * @param {Number} intersectionRatio
+     * @param {Object} data
+     */
+    onWindowDragContinue(intersectionRatio, data) {}
 
     /**
      * @returns {Promise<void>}
