@@ -32,6 +32,23 @@ class DragCoordinator extends Manager {
     activeTargetZone = null
 
     /**
+     * @param {Neo.draggable.container.SortZone} sourceSortZone
+     * @param {Neo.component.Base} draggedItem
+     * @param {DOMRect} proxyRect
+     */
+    handleVoid(sourceSortZone, draggedItem, proxyRect) {
+        let me = this;
+
+        if (me.activeTargetZone) {
+            me.activeTargetZone.onRemoteDragLeave();
+            me.activeTargetZone = null;
+
+            // Resume source drag (re-open popup)
+            sourceSortZone.resumeWindowDrag(draggedItem.reference || draggedItem.id, proxyRect)
+        }
+    }
+
+    /**
      * @param {Object} data
      * @param {Neo.component.Base} data.draggedItem
      * @param {Number} data.offsetX
@@ -55,55 +72,39 @@ class DragCoordinator extends Manager {
                     localX       = screenX - targetWindow.innerRect.x,
                     localY       = screenY - targetWindow.innerRect.y;
 
-                // console.log('DragCoordinator target found', {targetWindowId, localX, localY});
+                if (targetSortZone.acceptsRemoteDrag(localX, localY)) {
+                    // console.log('DragCoordinator target found', {targetWindowId, localX, localY});
 
-                // Entering a new target zone
-                if (me.activeTargetZone !== targetSortZone) {
-                    // Leaving previous target (if any)
-                    me.activeTargetZone?.onRemoteDragLeave();
+                    // Entering a new target zone
+                    if (me.activeTargetZone !== targetSortZone) {
+                        // Leaving previous target (if any)
+                        me.activeTargetZone?.onRemoteDragLeave();
 
-                    // Suspend source drag (close popup, etc)
-                    // We only do this once when leaving the void/source context
-                    if (!me.activeTargetZone) {
-                        sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id)
+                        // Suspend source drag (close popup, etc)
+                        // We only do this once when leaving the void/source context
+                        if (!me.activeTargetZone) {
+                            sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id)
+                        }
+
+                        me.activeTargetZone = targetSortZone
                     }
 
-                    me.activeTargetZone = targetSortZone
+                    targetSortZone.onRemoteDragMove({
+                        draggedItem,
+                        localX,
+                        localY,
+                        offsetX,
+                        offsetY,
+                        proxyRect
+                    });
+
+                    return
                 }
-
-                targetSortZone.onRemoteDragMove({
-                    draggedItem,
-                    localX,
-                    localY,
-                    offsetX,
-                    offsetY,
-                    proxyRect
-                })
-            } else {
-                // Window exists but no matching SortZone
-                me.handleVoid(sourceSortZone, draggedItem, proxyRect)
             }
-        } else {
-            // In void or back in source window
-            me.handleVoid(sourceSortZone, draggedItem, proxyRect)
         }
-    }
 
-    /**
-     * @param {Neo.draggable.container.SortZone} sourceSortZone
-     * @param {Neo.component.Base} draggedItem
-     * @param {DOMRect} proxyRect
-     */
-    handleVoid(sourceSortZone, draggedItem, proxyRect) {
-        let me = this;
-
-        if (me.activeTargetZone) {
-            me.activeTargetZone.onRemoteDragLeave();
-            me.activeTargetZone = null;
-
-            // Resume source drag (re-open popup)
-            sourceSortZone.resumeWindowDrag(draggedItem.reference || draggedItem.id, proxyRect)
-        }
+        // In void or back in source window
+        me.handleVoid(sourceSortZone, draggedItem, proxyRect)
     }
 
     /**
