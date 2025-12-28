@@ -181,6 +181,77 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /data/store/inspect:
+    post:
+      summary: Inspect Store
+      operationId: inspect_store
+      x-pass-as-object: true
+      description: |
+        Inspects a specific data store.
+
+        **When to Use:**
+        To see the actual records, filters, sorters, and count of a Store.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectStoreRequest'
+      responses:
+        '200':
+          description: Store details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  count:
+                    type: integer
+                  model:
+                    type: string
+                  filters:
+                    type: array
+                  sorters:
+                    type: array
+                  items:
+                    type: array
+
+  /data/store/list:
+    post:
+      summary: List Stores
+      operationId: list_stores
+      x-pass-as-object: true
+      description: |
+        Lists all active data stores.
+
+        **When to Use:**
+        To find available stores in the application.
+      tags: [Data]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListStoresRequest'
+      responses:
+        '200':
+          description: List of stores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    model:
+                      type: string
+                    count:
+                      type: integer
+
   /drag/state:
     post:
       summary: Get Drag State
@@ -528,6 +599,25 @@ components:
           description: The property name to set
         value:
           description: The value to set
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    InspectStoreRequest:
+      type: object
+      required:
+        - storeId
+      properties:
+        storeId:
+          type: string
+          description: The ID of the store to inspect
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    ListStoresRequest:
+      type: object
+      properties:
         sessionId:
           type: string
           description: The target App Worker Session ID

@@ -3,6 +3,7 @@ import Collection      from '../collection/Base.mjs';
 import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import RecordFactory   from './RecordFactory.mjs';
+import StoreManager    from '../manager/Store.mjs';
 
 const initialIndexSymbol = Symbol.for('initialIndex');
 
@@ -174,7 +175,18 @@ class Store extends Collection {
             mutate: me.onCollectionMutate,
             sort  : me.onCollectionSort,
             scope : me
-        })
+        });
+
+        StoreManager.register(me)
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        StoreManager.unregister(this);
+
+        super.destroy()
     }
 
     /**

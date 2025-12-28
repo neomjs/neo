@@ -3,6 +3,7 @@ import {fileURLToPath}   from 'url';
 import ToolService       from '../../../ToolService.mjs';
 import ComponentService  from './ComponentService.mjs';
 import ConnectionService from './ConnectionService.mjs';
+import DataService       from './DataService.mjs';
 import HealthService     from './HealthService.mjs';
 import InteractionService from './InteractionService.mjs';
 import RuntimeService    from './RuntimeService.mjs';
@@ -20,6 +21,8 @@ const serviceMapping = {
     get_window_topology   : RuntimeService.getWindowTopology.bind(RuntimeService),
     get_worker_topology   : RuntimeService.getWorkerTopology.bind(RuntimeService),
     healthcheck           : HealthService.healthcheck.bind(HealthService),
+    inspect_store         : DataService.inspectStore.bind(DataService),
+    list_stores           : DataService.listStores.bind(DataService),
     query_component       : ComponentService.queryComponent.bind(ComponentService),
     reload_page           : RuntimeService.reloadPage.bind(RuntimeService),
     set_component_property: ComponentService.setComponentProperty.bind(ComponentService),
