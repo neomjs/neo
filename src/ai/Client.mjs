@@ -65,10 +65,13 @@ class Client extends Base {
      * Uses Neo.data.connection.WebSocket for robust connection management.
      */
     connect() {
-        let me = this;
+        let me  = this,
+            url = new URL(me.url);
+
+        url.searchParams.set('appWorkerId', Neo.worker.App.id);
 
         me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
-            serverAddress: me.url,
+            serverAddress: url.toString(),
             listeners    : {
                 close  : me.onSocketClose,
                 error  : me.onSocketError,

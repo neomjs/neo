@@ -86,8 +86,8 @@ class ConnectionService extends Base {
 
         this.wss = new WebSocketServer({port: this.port});
 
-        this.wss.on('connection', (ws)  => this.#handleConnection(ws));
-        this.wss.on('error',      (err) => logger.error('WebSocket Server Error:', err));
+        this.wss.on('connection', (ws, req) => this.#handleConnection(ws, req));
+        this.wss.on('error',      (err)     => logger.error('WebSocket Server Error:', err));
 
         logger.info(`WebSocket Server listening on port ${this.port}`);
     }
@@ -127,15 +127,39 @@ class ConnectionService extends Base {
     /**
      * Handles a new WebSocket connection.
      * @param {WebSocket} ws
+     * @param {IncomingMessage} req
      * @private
      */
-    #handleConnection(ws) {
-        const sessionId = crypto.randomUUID();
+    #handleConnection(ws, req) {
+        let sessionId;
+
+        try {
+            const url         = new URL(req.url, `http://${req.headers.host}`);
+            const appWorkerId = url.searchParams.get('appWorkerId');
+
+            if (appWorkerId) {
+                sessionId = appWorkerId;
+                logger.info(`Reconnecting session from App Worker ID: ${sessionId}`);
+
+                // If a session with this ID already exists, close the old socket
+                if (this.sessions.has(sessionId)) {
+                    logger.warn(`Closing stale connection for session: ${sessionId}`);
+                    const oldWs = this.sessions.get(sessionId);
+                    oldWs.terminate(); // Force close
+                    this.sessions.delete(sessionId);
+                }
+            } else {
+                sessionId = crypto.randomUUID();
+            }
+        } catch (e) {
+            logger.error('Error parsing connection URL:', e);
+            sessionId = crypto.randomUUID();
+        }
 
         this.sessions.set(sessionId, ws);
         this.sessionData.set(sessionId, {
             connectedAt: Date.now(),
-            sessionId
+            sessionId // This might now be the appWorkerId
         });
 
         logger.info(`App Worker connected. Session: ${sessionId}`);
@@ -223,6 +247,53 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Waits for a session to connect with the given ID.
+     * @param {String} sessionId
+     * @param {Number} [timeoutMs=10000]
+     * @returns {Promise<WebSocket>}
+     */
+    async waitForSession(sessionId, timeoutMs=10000) {
+        if (!this.wss) {
+            await this.startServer();
+        }
+
+        if (this.sessions.has(sessionId)) {
+            return this.sessions.get(sessionId);
+        }
+
+        let connectionListener;
+
+        const connectionPromise = new Promise(resolve => {
+            connectionListener = (ws, req) => {
+                try {
+                    const url         = new URL(req.url, `http://${req.headers.host}`);
+                    const appWorkerId = url.searchParams.get('appWorkerId');
+
+                    if (appWorkerId === sessionId) {
+                        resolve(ws);
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            };
+            this.wss.on('connection', connectionListener);
+        });
+
+        try {
+            return await Promise.race([
+                connectionPromise,
+                this.timeout(timeoutMs).then(() => {
+                    throw new Error(`Timeout waiting for session: ${sessionId}`);
+                })
+            ]);
+        } finally {
+            if (this.wss && connectionListener) {
+                this.wss.off('connection', connectionListener);
+            }
+        }
+    }
+
+    /**
      * Resolves a pending RPC request.
      * @param {Object} message
      * @private
@@ -249,8 +320,8 @@ class ConnectionService extends Base {
      * @returns {Promise<any>} Resolves with the RPC result or rejects with an error.
      */
     call(sessionId, method, params={}) {
-        return new Promise((resolve, reject) => {
-            const ws = this.sessions.get(sessionId);
+        return new Promise(async (resolve, reject) => {
+            let ws = this.sessions.get(sessionId);
 
             // If no sessionId provided, try to pick the most recent one
             if (!ws) {
@@ -261,8 +332,19 @@ class ConnectionService extends Base {
                     // Recursive call with the found ID
                     return this.call(lastId, method, params).then(resolve).catch(reject);
                 }
-                logger.error(`Session not found. Requested: ${sessionId}, Active: ${Array.from(this.sessions.keys()).join(', ')}`);
-                return reject(new Error(`Session not found: ${sessionId || 'No active sessions'}`));
+
+                // If we have a specific sessionId (likely an appWorkerId), wait for it to reconnect
+                if (sessionId) {
+                    logger.info(`Session ${sessionId} not found. Waiting for reconnection...`);
+                    try {
+                        ws = await this.waitForSession(sessionId);
+                    } catch (e) {
+                        return reject(e);
+                    }
+                } else {
+                    logger.error(`Session not found. Requested: ${sessionId}, Active: ${Array.from(this.sessions.keys()).join(', ')}`);
+                    return reject(new Error(`Session not found: ${sessionId || 'No active sessions'}`));
+                }
             }
 
             const id = ++this.msgId;
