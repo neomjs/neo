@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-27T21:06:24Z'
-updatedAt: '2025-12-27T21:06:24Z'
+updatedAt: '2025-12-27T23:53:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8161'
 author: tobiu
 commentsCount: 0
@@ -38,4 +39,6 @@ Update `DragCoordinator` (or delegate to `SortZone`) to verify that the drag coo
 - 2025-12-27 @tobiu added the `enhancement` label
 - 2025-12-27 @tobiu added the `ai` label
 - 2025-12-27 @tobiu added parent issue #8163
+- 2025-12-27 @tobiu assigned to @tobiu
+- 2025-12-28 @tobiu referenced in commit `711a59b` - "Neo.manager.DragCoordinator: Refactor onDragMove for clarity and efficient early returns - #8161"
 

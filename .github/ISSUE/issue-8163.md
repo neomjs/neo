@@ -22,7 +22,7 @@ subIssues:
   - 8165
   - 8166
   - 8167
-subIssuesCompleted: 0
+subIssuesCompleted: 1
 subIssuesTotal: 7
 blockedBy: []
 blocking: []
