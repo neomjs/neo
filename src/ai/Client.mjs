@@ -93,7 +93,20 @@ class Client extends Base {
      */
     onSocketOpen(event) {
         console.log('Neo.ai.Client: Connected to MCP Server');
-        this.isConnected = true
+        this.isConnected = true;
+
+        const appWorker = Neo.worker.App;
+
+        this.socket.sendMessage(JSON.stringify({
+            jsonrpc: '2.0',
+            method : 'register',
+            params : {
+                appWorkerId   : appWorker.id,
+                environment   : Neo.config.environment,
+                isSharedWorker: appWorker.isSharedWorker,
+                userAgent     : navigator.userAgent
+            }
+        }))
     }
 
     /**
@@ -140,6 +153,23 @@ class Client extends Base {
                 component = me.getComponentRoot(params.rootId);
                 if (!component) throw new Error('Root component not found');
                 return {vnode: component.vnode};
+
+            case 'get_window_info':
+                const windowManager = Neo.manager?.Window;
+
+                if (windowManager) {
+                    return {
+                        windows: windowManager.items.map(win => ({
+                            id       : win.id,
+                            appName  : win.appName,
+                            chrome   : win.chrome,
+                            innerRect: win.innerRect,
+                            outerRect: win.outerRect
+                        }))
+                    }
+                }
+
+                return {windows: []};
 
             case 'reload_page':
                 Neo.Main.reloadWindow();

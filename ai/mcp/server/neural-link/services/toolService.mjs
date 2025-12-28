@@ -12,6 +12,8 @@ const serviceMapping = {
     get_component_tree    : ConnectionService.getComponentTree.bind(ConnectionService),
     get_vdom_tree         : ConnectionService.getVdomTree.bind(ConnectionService),
     get_vnode_tree        : ConnectionService.getVnodeTree.bind(ConnectionService),
+    get_window_topology   : ConnectionService.getWindowTopology.bind(ConnectionService),
+    get_worker_topology   : ConnectionService.getWorkerTopology.bind(ConnectionService),
     reload_page           : ConnectionService.reloadPage.bind(ConnectionService),
     set_component_property: ConnectionService.setComponentProperty.bind(ConnectionService)
 };

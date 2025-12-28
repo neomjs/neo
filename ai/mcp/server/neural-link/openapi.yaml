@@ -156,6 +156,72 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /worker/topology:
+    post:
+      summary: Get Worker Topology
+      operationId: get_worker_topology
+      description: Retrieves the topology of all connected App Workers.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: List of App Workers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    sessionId:
+                      type: string
+                    appWorkerId:
+                      type: string
+                    isSharedWorker:
+                      type: boolean
+                    userAgent:
+                      type: string
+                    environment:
+                      type: string
+                    connectedAt:
+                      type: number
+
+  /window/topology:
+    post:
+      summary: Get Window Topology
+      operationId: get_window_topology
+      description: Retrieves the topology of all connected windows.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: List of windows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    appName:
+                      type: string
+                    innerRect:
+                      type: object
+                    outerRect:
+                      type: object
+                    chrome:
+                      type: object
+
   /component/property/set:
     post:
       summary: Set Component Property

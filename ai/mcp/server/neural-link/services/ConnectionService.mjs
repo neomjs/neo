@@ -4,20 +4,20 @@ import Base              from '../../../../../src/core/Base.mjs';
 import logger            from '../logger.mjs';
 
 /**
- * @summary Manages WebSocket connections and JSON-RPC communication with the browser.
+ * @summary Manages WebSocket connections and JSON-RPC communication with the App Worker(s).
  *
- * This service acts as the **gateway** between the MCP server and the Neo.mjs application running in the browser.
- * It maintains active WebSocket sessions, handles the JSON-RPC handshake, and manages the lifecycle of
- * remote procedure calls (RPC).
+ * This service acts as the **gateway** between the MCP server and the Neo.mjs App Worker
+ * (SharedWorker or DedicatedWorker). It maintains active WebSocket sessions and manages
+ * the lifecycle of remote procedure calls (RPC).
  *
  * Key responsibilities include:
- * 1.  **Session Management**: Tracking active browser windows (`windowId`) and their WebSocket connections.
- * 2.  **RPC Orchestration**: Sending requests to the browser (`call`) and resolving the corresponding promises when a response is received.
- * 3.  **Message Routing**: Handling incoming notifications and responses from the browser.
+ * 1.  **Session Management**: Tracking active App Worker sessions and their WebSocket connections.
+ * 2.  **RPC Orchestration**: Sending requests to the App Worker (`call`) and resolving the corresponding promises when a response is received.
+ * 3.  **Message Routing**: Handling incoming notifications and responses from the App Worker.
  * 4.  **Error Handling**: Managing timeouts and connection errors to ensure robust communication.
  *
  * This class implements the **Request-Response** pattern over WebSockets, allowing the agent to execute
- * code within the browser context asynchronously.
+ * code within the App Worker context asynchronously.
  *
  * @class Neo.ai.mcp.server.neural-link.services.ConnectionService
  * @extends Neo.core.Base
@@ -53,9 +53,14 @@ class ConnectionService extends Base {
     pendingRequests = new Map()
     /**
      * Active WebSocket sessions.
-     * Map<windowId, WebSocket>
+     * Map<sessionId, WebSocket>
      */
     sessions = new Map()
+    /**
+     * Session Metadata.
+     * Map<sessionId, Object>
+     */
+    sessionData = new Map()
     /**
      * WebSocket Server instance.
      */
@@ -80,39 +85,42 @@ class ConnectionService extends Base {
      * @private
      */
     #handleConnection(ws) {
-        // Temporary ID until handshake.
-        // For now, we assume the browser sends a 'register' message or we assign a random ID.
-        // Let's assign a random ID first.
-        const windowId = crypto.randomUUID();
+        const sessionId = crypto.randomUUID();
 
-        this.sessions.set(windowId, ws);
-        logger.info(`Client connected: ${windowId}`);
+        this.sessions.set(sessionId, ws);
+        this.sessionData.set(sessionId, {
+            connectedAt: Date.now(),
+            sessionId
+        });
 
-        ws.on('message', (data) => this.#handleMessage(windowId, data));
-        ws.on('close',   ()     => this.#handleDisconnect(windowId));
-        ws.on('error',   (err)  => logger.error(`Client error (${windowId}):`, err));
+        logger.info(`App Worker connected. Session: ${sessionId}`);
+
+        ws.on('message', (data) => this.#handleMessage(sessionId, data));
+        ws.on('close',   ()     => this.#handleDisconnect(sessionId));
+        ws.on('error',   (err)  => logger.error(`Session error (${sessionId}):`, err));
     }
 
     /**
      * Handles disconnection.
-     * @param {String} windowId
+     * @param {String} sessionId
      * @private
      */
-    #handleDisconnect(windowId) {
-        this.sessions.delete(windowId);
-        logger.info(`Client disconnected: ${windowId}`);
+    #handleDisconnect(sessionId) {
+        this.sessions.delete(sessionId);
+        this.sessionData.delete(sessionId);
+        logger.info(`App Worker disconnected. Session: ${sessionId}`);
     }
 
     /**
      * Handles incoming messages from Browser.
-     * @param {String} windowId
+     * @param {String} sessionId
      * @param {Buffer|String} data
      * @private
      */
-    #handleMessage(windowId, data) {
+    #handleMessage(sessionId, data) {
         try {
             const message = JSON.parse(data.toString());
-            logger.debug(`Received message from ${windowId}:`, message);
+            logger.debug(`Received message from ${sessionId}:`, message);
 
             // 1. Response to a pending request
             if (message.id && (message.result !== undefined || message.error !== undefined)) {
@@ -122,7 +130,18 @@ class ConnectionService extends Base {
 
             // 2. Notification / Request from Browser (e.g. log)
             if (message.method) {
-                logger.info(`Received method from browser (${windowId}):`, message.method, message.params);
+                if (message.method === 'register') {
+                    const meta = this.sessionData.get(sessionId);
+
+                    if (meta) {
+                        Object.assign(meta, message.params);
+                        logger.info(`Registered App Worker: ${meta.appWorkerId} (Session: ${sessionId})`)
+                    }
+
+                    return
+                }
+
+                logger.info(`Received method from browser (${sessionId}):`, message.method, message.params);
                 // TODO: Forward to Agent via MCP Notification if needed.
                 return;
             }
@@ -262,6 +281,48 @@ class ConnectionService extends Base {
      */
     async getVnodeTree({depth, rootId, windowId}) {
         return await this.#call(windowId, 'get_vnode_tree', {depth, rootId})
+    }
+
+    /**
+     * Retrieves the topology of all connected windows.
+     * @returns {Promise<Object[]>} List of windows.
+     */
+    async getWindowTopology() {
+        const promises = [];
+
+        for (const sessionId of this.sessions.keys()) {
+            promises.push(this.#call(sessionId, 'get_window_info', {})
+                .then(res => res.windows || [])
+                .catch(err => {
+                    logger.error(`Failed to get window info from session ${sessionId}:`, err);
+                    return []
+                })
+            )
+        }
+
+        const results = await Promise.all(promises);
+        const windows = results.flat();
+
+        // Deduplicate by Application Window ID (not Session ID)
+        const uniqueWindows = [];
+        const seenIds = new Set();
+
+        for (const win of windows) {
+            if (win && win.id && !seenIds.has(win.id)) {
+                seenIds.add(win.id);
+                uniqueWindows.push(win)
+            }
+        }
+
+        return uniqueWindows
+    }
+
+    /**
+     * Retrieves the topology of all connected App Workers.
+     * @returns {Promise<Object[]>}
+     */
+    async getWorkerTopology() {
+        return Array.from(this.sessionData.values())
     }
 
     /**
