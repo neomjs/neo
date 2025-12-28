@@ -1,0 +1,39 @@
+import Base              from '../../../../../src/core/Base.mjs';
+import ConnectionService from './ConnectionService.mjs';
+
+/**
+ * @summary Manages interaction inspection for the Neural Link MCP Server.
+ *
+ * This service provides tools for inspecting user interactions, such as Drag & Drop state,
+ * focus, and selection.
+ *
+ * @class Neo.ai.mcp.server.neural-link.services.InteractionService
+ * @extends Neo.core.Base
+ * @singleton
+ */
+class InteractionService extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.neural-link.services.InteractionService'
+         * @protected
+         */
+        className: 'Neo.ai.mcp.server.neural-link.services.InteractionService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
+
+    /**
+     * Retrieves the state of the DragCoordinator.
+     * @param {Object} opts
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async getDragState({sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_drag_state', {})
+    }
+}
+
+export default Neo.setupClass(InteractionService);

@@ -261,16 +261,6 @@ class ConnectionService extends Base {
     }
 
     /**
-     * Retrieves the state of the DragCoordinator.
-     * @param {Object} opts
-     * @param {String} [opts.sessionId]
-     * @returns {Promise<Object>}
-     */
-    async getDragState({sessionId}) {
-        return await this.call(sessionId, 'get_drag_state', {})
-    }
-
-    /**
      * Returns the current status of the server.
      * @returns {Object}
      */
