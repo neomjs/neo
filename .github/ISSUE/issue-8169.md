@@ -24,8 +24,12 @@ subIssues:
   - 8175
   - 8176
   - 8177
-subIssuesCompleted: 8
-subIssuesTotal: 9
+  - 8178
+  - 8179
+  - 8180
+  - 8181
+subIssuesCompleted: 13
+subIssuesTotal: 13
 blockedBy: []
 blocking: []
 ---
@@ -69,4 +73,8 @@ Empower AI agents to "see" and "touch" the runtime application, moving beyond st
 - Feat: Add state rehydration on reconnect (#8176)
 - Update Client to track lifecycle and sync topology
 - Update ConnectionService to cache window state and serve topology instantly"
+- 2025-12-28 @tobiu added sub-issue #8178
+- 2025-12-28 @tobiu added sub-issue #8179
+- 2025-12-28 @tobiu added sub-issue #8180
+- 2025-12-28 @tobiu added sub-issue #8181
 
