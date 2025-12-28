@@ -202,9 +202,8 @@ class ConnectionService extends Base {
      * @param {String} method      The RPC method name.
      * @param {Object} [params={}] The RPC parameters.
      * @returns {Promise<any>} Resolves with the RPC result or rejects with an error.
-     * @private
      */
-    #call(sessionId, method, params={}) {
+    call(sessionId, method, params={}) {
         return new Promise((resolve, reject) => {
             const ws = this.sessions.get(sessionId);
 
@@ -215,7 +214,7 @@ class ConnectionService extends Base {
                     const lastId = Array.from(this.sessions.keys()).pop();
                     logger.warn(`No sessionId provided. Defaulting to ${lastId}`);
                     // Recursive call with the found ID
-                    return this.#call(lastId, method, params).then(resolve).catch(reject);
+                    return this.call(lastId, method, params).then(resolve).catch(reject);
                 }
                 logger.error(`Session not found. Requested: ${sessionId}, Active: ${Array.from(this.sessions.keys()).join(', ')}`);
                 return reject(new Error(`Session not found: ${sessionId || 'No active sessions'}`));
@@ -262,61 +261,13 @@ class ConnectionService extends Base {
     }
 
     /**
-     * Retrieves a property from a component by its ID.
-     * @param {Object} opts The options object.
-     * @param {String} opts.id The component ID.
-     * @param {String} opts.property The property name to retrieve.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<any>} The value of the property.
-     */
-    async getComponentProperty({id, property, sessionId}) {
-        return await this.#call(sessionId, 'get_component_property', {id, property})
-    }
-
-    /**
-     * Retrieves the full component tree of the application.
-     * @param {Object} opts            The options object.
-     * @param {Number} [opts.depth]    The depth limit.
-     * @param {String} [opts.rootId]   Optional root component ID.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<Object>} The component tree structure.
-     */
-    async getComponentTree({depth, rootId, sessionId}) {
-        return await this.#call(sessionId, 'get_component_tree', {depth, rootId})
-    }
-
-    /**
-     * Retrieves the VDOM tree of a component.
-     * @param {Object} opts            The options object.
-     * @param {Number} [opts.depth]    The depth limit.
-     * @param {String} [opts.rootId]   Optional root component ID.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<Object>} The VDOM tree structure.
-     */
-    async getVdomTree({depth, rootId, sessionId}) {
-        return await this.#call(sessionId, 'get_vdom_tree', {depth, rootId})
-    }
-
-    /**
-     * Retrieves the VNode tree of a component.
-     * @param {Object} opts            The options object.
-     * @param {Number} [opts.depth]    The depth limit.
-     * @param {String} [opts.rootId]   Optional root component ID.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<Object>} The VNode tree structure.
-     */
-    async getVnodeTree({depth, rootId, sessionId}) {
-        return await this.#call(sessionId, 'get_vnode_tree', {depth, rootId})
-    }
-
-    /**
      * Retrieves the state of the DragCoordinator.
      * @param {Object} opts
      * @param {String} [opts.sessionId]
      * @returns {Promise<Object>}
      */
     async getDragState({sessionId}) {
-        return await this.#call(sessionId, 'get_drag_state', {})
+        return await this.call(sessionId, 'get_drag_state', {})
     }
 
     /**
@@ -377,21 +328,9 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async reloadPage({sessionId}) {
-        return await this.#call(sessionId, 'reload_page', {})
+        return await this.call(sessionId, 'reload_page', {})
     }
 
-    /**
-     * Sets a property on a component by its ID.
-     * @param {Object} opts            The options object.
-     * @param {String} opts.id         The component ID.
-     * @param {String} opts.property   The property name to set.
-     * @param {*}      opts.value      The value to set.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<void>}
-     */
-    async setComponentProperty({id, property, value, sessionId}) {
-        return await this.#call(sessionId, 'set_component_property', {id, property, value})
-    }
 }
 
 export default Neo.setupClass(ConnectionService);
