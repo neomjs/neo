@@ -4,6 +4,7 @@ import ToolService       from '../../../ToolService.mjs';
 import ComponentService  from './ComponentService.mjs';
 import ConnectionService from './ConnectionService.mjs';
 import HealthService     from './HealthService.mjs';
+import RuntimeService    from './RuntimeService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -15,10 +16,10 @@ const serviceMapping = {
     get_drag_state        : ConnectionService.getDragState.bind(ConnectionService),
     get_vdom_tree         : ComponentService.getVdomTree.bind(ComponentService),
     get_vnode_tree        : ComponentService.getVnodeTree.bind(ComponentService),
-    get_window_topology   : ConnectionService.getWindowTopology.bind(ConnectionService),
-    get_worker_topology   : ConnectionService.getWorkerTopology.bind(ConnectionService),
+    get_window_topology   : RuntimeService.getWindowTopology.bind(RuntimeService),
+    get_worker_topology   : RuntimeService.getWorkerTopology.bind(RuntimeService),
     healthcheck           : HealthService.healthcheck.bind(HealthService),
-    reload_page           : ConnectionService.reloadPage.bind(ConnectionService),
+    reload_page           : RuntimeService.reloadPage.bind(RuntimeService),
     set_component_property: ComponentService.setComponentProperty.bind(ComponentService)
 };
 

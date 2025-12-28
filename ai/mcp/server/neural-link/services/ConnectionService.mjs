@@ -271,36 +271,6 @@ class ConnectionService extends Base {
     }
 
     /**
-     * Retrieves the topology of all connected windows.
-     * @returns {Promise<Object[]>} List of windows.
-     */
-    async getWindowTopology() {
-        const windows = [];
-
-        for (const meta of this.sessionData.values()) {
-            if (meta.windows) {
-                for (const win of meta.windows.values()) {
-                    windows.push({
-                        ...win,
-                        appWorkerId: meta.appWorkerId, // Enrich with worker ID
-                        sessionId: meta.sessionId
-                    })
-                }
-            }
-        }
-
-        return windows
-    }
-
-    /**
-     * Retrieves the topology of all connected App Workers.
-     * @returns {Promise<Object[]>}
-     */
-    async getWorkerTopology() {
-        return Array.from(this.sessionData.values())
-    }
-
-    /**
      * Returns the current status of the server.
      * @returns {Object}
      */
@@ -319,18 +289,7 @@ class ConnectionService extends Base {
             sessions: this.sessions.size,
             windows
         }
+        }
     }
-
-    /**
-     * Reloads the application page.
-     * @param {Object} opts            The options object.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<void>}
-     */
-    async reloadPage({sessionId}) {
-        return await this.call(sessionId, 'reload_page', {})
-    }
-
-}
-
-export default Neo.setupClass(ConnectionService);
+    
+    export default Neo.setupClass(ConnectionService);
