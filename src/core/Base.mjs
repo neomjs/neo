@@ -259,7 +259,7 @@ class Base {
             }
         });
 
-        me.id = config.id || IdGenerator.getId(this.getIdKey());
+        me.id = config.id || me.constructor.config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
 
         // Assign class field values prior to configs

@@ -25,6 +25,13 @@ class App extends Base {
          */
         countLoadingThemeFiles_: 0,
         /**
+         * Using crypto.randomUUID() as a unique window identifier.
+         * This is especially important for the neural link, where multiple App workers can connect.
+         * @member {String} id=crypto.randomUUID()
+         * @protected
+         */
+        id: crypto.randomUUID(),
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
