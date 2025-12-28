@@ -28,8 +28,19 @@ subIssues:
   - 8179
   - 8180
   - 8181
+  - 8183
+  - 8184
+  - 8185
+  - 8186
+  - 8187
+  - 8188
+  - 8189
+  - 8190
+  - 8191
+  - 8192
+  - 8193
 subIssuesCompleted: 13
-subIssuesTotal: 13
+subIssuesTotal: 24
 blockedBy: []
 blocking: []
 ---
@@ -77,4 +88,15 @@ Empower AI agents to "see" and "touch" the runtime application, moving beyond st
 - 2025-12-28 @tobiu added sub-issue #8179
 - 2025-12-28 @tobiu added sub-issue #8180
 - 2025-12-28 @tobiu added sub-issue #8181
+- 2025-12-28 @tobiu added sub-issue #8183
+- 2025-12-28 @tobiu added sub-issue #8184
+- 2025-12-28 @tobiu added sub-issue #8185
+- 2025-12-28 @tobiu added sub-issue #8186
+- 2025-12-28 @tobiu added sub-issue #8187
+- 2025-12-28 @tobiu added sub-issue #8188
+- 2025-12-28 @tobiu added sub-issue #8189
+- 2025-12-28 @tobiu added sub-issue #8190
+- 2025-12-28 @tobiu added sub-issue #8191
+- 2025-12-28 @tobiu added sub-issue #8192
+- 2025-12-28 @tobiu added sub-issue #8193
 

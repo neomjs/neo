@@ -1,6 +1,6 @@
 {
-  "lastSync": "2025-12-28T19:22:58.415Z",
-  "releasesLastFetched": "2025-12-28T19:22:59.090Z",
+  "lastSync": "2025-12-28T21:38:17.265Z",
+  "releasesLastFetched": "2025-12-28T21:38:17.911Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -13245,7 +13245,7 @@
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8169.md",
       "closedAt": null,
       "updatedAt": "2025-12-28T13:36:59Z",
-      "contentHash": "a446966420da07a11eba8dd549ecdc0ce12a66f79796a4d661a51dea5eb5ae4a"
+      "contentHash": "dbbde74e20f25aa34fc26b737c15cfbb24ef154f9f66ab1ed3c66bbc63b97036"
     },
     "8170": {
       "state": "CLOSED",
@@ -13330,6 +13330,90 @@
       "closedAt": "2025-12-28T19:22:49Z",
       "updatedAt": "2025-12-28T19:22:49Z",
       "contentHash": "8a6b23797a48730f13fa424561f880b60d8fc8f4dc436a9defc21abbf41a9e77"
+    },
+    "8182": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8182.md",
+      "closedAt": "2025-12-28T19:48:27Z",
+      "updatedAt": "2025-12-28T19:48:27Z",
+      "contentHash": "be64059eaa8e2cd64aebfd312b3957152e61e5ce384d7c9ba01a6922e30691c9"
+    },
+    "8183": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8183.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T20:55:36Z",
+      "contentHash": "0b9724c091ea1f15b0dda0711803e29ad07a92ca1fdad18cd2e0b826467ff613"
+    },
+    "8184": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8184.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T20:58:50Z",
+      "contentHash": "a9c7457a783da6f33a80bc1bdb968e6091d98358ab21c829808d42eaec0afeda"
+    },
+    "8185": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8185.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:03:26Z",
+      "contentHash": "24883de082face9ecdf0012bd4eb50da680f74eaa50dce8ba26aaf0a8540cc3f"
+    },
+    "8186": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8186.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:06:28Z",
+      "contentHash": "21a9768aab8aea6b2638c7fe4bceab6b82e451fecaf048cfab25f1ee81c300c2"
+    },
+    "8187": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8187.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:12:24Z",
+      "contentHash": "d21dcd595e8175206a129f555c3bdaec34ed4926bbb6249352c2a24683f5d393"
+    },
+    "8188": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8188.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:16:41Z",
+      "contentHash": "a05229e587bb85c3e78a2e0d05196ecedda519d125080f470acfe47bf8f6d76a"
+    },
+    "8189": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8189.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:19:33Z",
+      "contentHash": "18702cf9e518a9eca0b4023794dcaa5bb6fc2b63779476af43435ca4b726be1b"
+    },
+    "8190": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8190.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:26:17Z",
+      "contentHash": "86f3c363f06968f7923c227cc7353b3a084703b42c4edb0baa788515746538b7"
+    },
+    "8191": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8191.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:30:46Z",
+      "contentHash": "38bbe7996d184abacff12acead11042e0bac8fae089ce9fd331868c454e871b7"
+    },
+    "8192": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8192.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:32:41Z",
+      "contentHash": "3b6cb7aa9f34d82d0d435fdbb8a04b4a0e18472663a9424db09a9c2a39242f92"
+    },
+    "8193": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8193.md",
+      "closedAt": null,
+      "updatedAt": "2025-12-28T21:37:35Z",
+      "contentHash": "dd14b345fe514f0ffb157f7953c8ba137e8b9ea30147a5b941ba77dd03406cf1"
     }
   },
   "releases": {
