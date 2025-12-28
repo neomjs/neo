@@ -21,7 +21,7 @@ subIssues:
   - 8016
   - 8173
   - 8174
-subIssuesCompleted: 3
+subIssuesCompleted: 4
 subIssuesTotal: 6
 blockedBy: []
 blocking: []
