@@ -45,6 +45,18 @@ class DataService extends Base {
     async listStores({sessionId}) {
         return await ConnectionService.call(sessionId, 'list_stores', {});
     }
+
+    /**
+     * Retrieves a specific record.
+     * @param {Object} opts The options object.
+     * @param {String} opts.recordId The ID of the record.
+     * @param {String} [opts.storeId] Optional Store ID.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The record data.
+     */
+    async getRecord({recordId, storeId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_record', {recordId, storeId});
+    }
 }
 
 export default Neo.setupClass(DataService);

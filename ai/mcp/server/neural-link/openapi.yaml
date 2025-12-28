@@ -252,6 +252,31 @@ paths:
                     count:
                       type: integer
 
+  /data/record/get:
+    post:
+      summary: Get Record
+      operationId: get_record
+      x-pass-as-object: true
+      description: |
+        Retrieves a specific data record.
+
+        **When to Use:**
+        To inspect the full data of a single record.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetRecordRequest'
+      responses:
+        '200':
+          description: Record data
+          content:
+            application/json:
+              schema:
+                type: object
+
   /drag/state:
     post:
       summary: Get Drag State
@@ -618,6 +643,21 @@ components:
     ListStoresRequest:
       type: object
       properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetRecordRequest:
+      type: object
+      required:
+        - recordId
+      properties:
+        recordId:
+          type: string
+          description: The ID of the record to retrieve
+        storeId:
+          type: string
+          description: Optional Store ID to scope the search
         sessionId:
           type: string
           description: The target App Worker Session ID

@@ -1,6 +1,7 @@
 import Base            from '../core/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Socket          from '../data/connection/WebSocket.mjs';
+import StoreManager    from '../manager/Store.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -266,6 +267,32 @@ class Client extends Base {
                 if (!component) throw new Error('Root component not found');
                 return {vnode: component.vnode};
 
+            case 'get_record':
+                let {recordId, storeId} = params,
+                    record;
+
+                if (storeId) {
+                    const store = Neo.get(storeId);
+                    if (!store) throw new Error(`Store not found: ${storeId}`);
+                    record = store.get(recordId)
+                } else {
+                    const matches = [];
+                    StoreManager.items.forEach(store => {
+                        const rec = store.get(recordId);
+                        if (rec) matches.push(rec)
+                    });
+
+                    if (matches.length > 1) {
+                        throw new Error(`Multiple records found with ID ${recordId}. Please specify storeId.`)
+                    } else if (matches.length === 1) {
+                        record = matches[0]
+                    }
+                }
+
+                if (!record) throw new Error(`Record not found: ${recordId}`);
+
+                return record.toJSON();
+
             case 'get_window_info':
                 const windowManager = Neo.manager?.Window;
 
@@ -307,11 +334,8 @@ class Client extends Base {
                 };
 
             case 'list_stores':
-                const storeManager = Neo.manager?.Store;
-                if (!storeManager) return {stores: []};
-
                 return {
-                    stores: storeManager.items.map(s => ({
+                    stores: StoreManager.items.map(s => ({
                         id      : s.id,
                         model   : s.model?.className || 'N/A',
                         count   : s.count,

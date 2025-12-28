@@ -16,6 +16,7 @@ const serviceMapping = {
     get_component_property: ComponentService.getComponentProperty.bind(ComponentService),
     get_component_tree    : ComponentService.getComponentTree.bind(ComponentService),
     get_drag_state        : InteractionService.getDragState.bind(InteractionService),
+    get_record            : DataService.getRecord.bind(DataService),
     get_vdom_tree         : ComponentService.getVdomTree.bind(ComponentService),
     get_vnode_tree        : ComponentService.getVnodeTree.bind(ComponentService),
     get_window_topology   : RuntimeService.getWindowTopology.bind(RuntimeService),
