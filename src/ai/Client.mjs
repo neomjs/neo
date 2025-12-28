@@ -144,6 +144,25 @@ class Client extends Base {
             case 'get_component_tree':
                 return {tree: me.serializeComponent(me.getComponentRoot(params.rootId), params.depth || -1)};
 
+            case 'get_drag_state':
+                const dragCoordinator = Neo.manager?.DragCoordinator;
+
+                if (dragCoordinator) {
+                    return {
+                        activeTargetZone: dragCoordinator.activeTargetZone ? {
+                            id       : dragCoordinator.activeTargetZone.id,
+                            sortGroup: dragCoordinator.activeTargetZone.sortGroup,
+                            windowId : dragCoordinator.activeTargetZone.windowId
+                        } : null,
+                        sortZones: Array.from(dragCoordinator.sortZones.entries()).map(([group, map]) => ({
+                            group,
+                            windows: Array.from(map.keys())
+                        }))
+                    }
+                }
+
+                return {};
+
             case 'get_vdom_tree':
                 component = me.getComponentRoot(params.rootId);
                 if (!component) throw new Error('Root component not found');

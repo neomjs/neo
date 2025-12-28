@@ -129,6 +129,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /drag/state:
+    post:
+      summary: Get Drag State
+      operationId: get_drag_state
+      x-pass-as-object: true
+      description: Retrieves the state of the DragCoordinator.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+      responses:
+        '200':
+          description: Drag Coordinator State
+          content:
+            application/json:
+              schema:
+                type: object
+
   /page/reload:
     post:
       summary: Reload Page

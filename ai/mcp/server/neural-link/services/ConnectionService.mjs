@@ -284,6 +284,16 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Retrieves the state of the DragCoordinator.
+     * @param {Object} opts
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async getDragState({sessionId}) {
+        return await this.#call(sessionId, 'get_drag_state', {})
+    }
+
+    /**
      * Retrieves the topology of all connected windows.
      * @returns {Promise<Object[]>} List of windows.
      */
