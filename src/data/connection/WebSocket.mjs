@@ -27,6 +27,10 @@ class Socket extends Base {
          */
         ntype: 'socket-connection',
         /**
+         * @member {Function} backoffStrategy=attempt=>Math.min(1000*Math.pow(2,attempt-1),30000)
+         */
+        backoffStrategy: attempt => Math.min(1000 * Math.pow(2, attempt - 1), 30000),
+        /**
          * @member {WebSocket|null} socket_=null
          * @protected
          * @reactive
@@ -74,19 +78,36 @@ class Socket extends Base {
      * @param {Function} callback
      * @param {Object} scope
      */
-    attemptReconnect(callback, scope) {
+    async attemptReconnect(callback, scope) {
         let me = this;
 
         me.reconnectAttempts++;
 
         if (me.reconnectAttempts < me.maxReconnectAttempts) {
-            me.createSocket();
+            const delay = me.backoffStrategy(me.reconnectAttempts);
 
-            callback && me.on('open', {
-                callback,
-                scope : scope || me,
-                single: true
-            })
+            me.fire('reconnecting', {
+                attempt    : me.reconnectAttempts,
+                maxAttempts: me.maxReconnectAttempts,
+                delay
+            });
+
+            console.log(`WebSocket reconnect attempt ${me.reconnectAttempts}/${me.maxReconnectAttempts} in ${delay}ms`);
+
+            await me.timeout(delay);
+
+            if (!me.isDestroyed) {
+                me.createSocket();
+
+                callback && me.on('open', {
+                    callback,
+                    scope : scope || me,
+                    single: true
+                })
+            }
+        } else {
+            console.error('Max reconnection attempts reached');
+            me.fire('reconnect_failed')
         }
     }
 
@@ -171,7 +192,13 @@ class Socket extends Base {
      * @param {Boolean}    wasClean Indicates whether or not the connection was cleanly closed.
      */
     onClose(event, reason, wasClean) {
-        this.fire('close', {event, reason, wasClean})
+        this.fire('close', {event, reason, wasClean});
+
+        // Auto-reconnect on abnormal closure
+        if (!wasClean || event.code !== 1000) {
+            console.warn('WebSocket closed abnormally, attempting reconnect...');
+            this.attemptReconnect()
+        }
     }
 
     /**
@@ -200,6 +227,7 @@ class Socket extends Base {
      *
      */
     onOpen() {
+        this.reconnectAttempts = 0;
         this.fire('open', {scope: this})
     }
 
