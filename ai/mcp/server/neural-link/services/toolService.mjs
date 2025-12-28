@@ -10,6 +10,8 @@ const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 const serviceMapping = {
     get_component_property: ConnectionService.getComponentProperty.bind(ConnectionService),
     get_component_tree    : ConnectionService.getComponentTree.bind(ConnectionService),
+    get_vdom_tree         : ConnectionService.getVdomTree.bind(ConnectionService),
+    get_vnode_tree        : ConnectionService.getVnodeTree.bind(ConnectionService),
     reload_page           : ConnectionService.reloadPage.bind(ConnectionService),
     set_component_property: ConnectionService.setComponentProperty.bind(ConnectionService)
 };

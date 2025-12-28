@@ -231,11 +231,37 @@ class ConnectionService extends Base {
     /**
      * Retrieves the full component tree of the application.
      * @param {Object} opts            The options object.
+     * @param {Number} [opts.depth]    The depth limit.
+     * @param {String} [opts.rootId]   Optional root component ID.
      * @param {String} [opts.windowId] The target window ID.
      * @returns {Promise<Object>} The component tree structure.
      */
-    async getComponentTree({windowId}) {
-        return await this.#call(windowId, 'get_component_tree', {})
+    async getComponentTree({depth, rootId, windowId}) {
+        return await this.#call(windowId, 'get_component_tree', {depth, rootId})
+    }
+
+    /**
+     * Retrieves the VDOM tree of a component.
+     * @param {Object} opts            The options object.
+     * @param {Number} [opts.depth]    The depth limit.
+     * @param {String} [opts.rootId]   Optional root component ID.
+     * @param {String} [opts.windowId] The target window ID.
+     * @returns {Promise<Object>} The VDOM tree structure.
+     */
+    async getVdomTree({depth, rootId, windowId}) {
+        return await this.#call(windowId, 'get_vdom_tree', {depth, rootId})
+    }
+
+    /**
+     * Retrieves the VNode tree of a component.
+     * @param {Object} opts            The options object.
+     * @param {Number} [opts.depth]    The depth limit.
+     * @param {String} [opts.rootId]   Optional root component ID.
+     * @param {String} [opts.windowId] The target window ID.
+     * @returns {Promise<Object>} The VNode tree structure.
+     */
+    async getVnodeTree({depth, rootId, windowId}) {
+        return await this.#call(windowId, 'get_vnode_tree', {depth, rootId})
     }
 
     /**

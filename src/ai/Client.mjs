@@ -119,26 +119,89 @@ class Client extends Base {
      * @returns {Promise<*>} The result of the operation
      */
     async handleRequest(method, params) {
+        let me = this,
+            component;
+
         switch (method) {
+            case 'get_component_property':
+                component = Neo.getComponent(params.id);
+                if (!component) throw new Error(`Component not found: ${params.id}`);
+                return {value: me.safeSerialize(component[params.property])};
+
+            case 'get_component_tree':
+                return {tree: me.serializeComponent(me.getComponentRoot(params.rootId), params.depth || -1)};
+
+            case 'get_vdom_tree':
+                component = me.getComponentRoot(params.rootId);
+                if (!component) throw new Error('Root component not found');
+                return {vdom: component.vdom};
+
+            case 'get_vnode_tree':
+                component = me.getComponentRoot(params.rootId);
+                if (!component) throw new Error('Root component not found');
+                return {vnode: component.vnode};
+
             case 'reload_page':
                 Neo.Main.reloadWindow();
                 return {status: 'reloading'};
 
-            case 'get_component_tree':
-                // TODO: Implement actual tree retrieval
-                return {root: 'viewport'};
-
-            case 'get_component_property':
-                // TODO: Implement property retrieval
-                return {value: null};
-
             case 'set_component_property':
-                // TODO: Implement property setting
+                component = Neo.getComponent(params.id);
+                if (!component) throw new Error(`Component not found: ${params.id}`);
+                component[params.property] = params.value;
                 return {success: true};
 
             default:
                 throw new Error(`Unknown method: ${method}`);
         }
+    }
+
+    /**
+     * @param {String} [rootId]
+     * @returns {Neo.component.Base|null}
+     */
+    getComponentRoot(rootId) {
+        if (rootId) {
+            return Neo.getComponent(rootId)
+        }
+
+        const apps = Object.values(Neo.apps || {});
+
+        if (apps.length > 0) {
+            return apps[0].mainView
+        }
+
+        return null
+    }
+
+    /**
+     * @param {*} value
+     * @returns {*}
+     */
+    safeSerialize(value) {
+        const type = Neo.typeOf(value);
+
+        if (type === 'NeoInstance') {
+            return {
+                neoInstance: true,
+                id         : value.id,
+                className  : value.className
+            }
+        }
+
+        if (type === 'Object') {
+            const result = {};
+            Object.entries(value).forEach(([k, v]) => {
+                result[k] = this.safeSerialize(v)
+            });
+            return result
+        }
+
+        if (type === 'Array') {
+            return value.map(v => this.safeSerialize(v))
+        }
+
+        return value
     }
 
     /**
@@ -154,6 +217,32 @@ class Client extends Base {
                 result
             }))
         }
+    }
+
+    /**
+     * @param {Neo.component.Base} component
+     * @param {Number} maxDepth
+     * @param {Number} currentDepth
+     * @returns {Object}
+     */
+    serializeComponent(component, maxDepth, currentDepth=1) {
+        if (!component) return null;
+
+        const result = {
+            id       : component.id,
+            className: component.className,
+            ntype    : component.ntype
+        };
+
+        if (maxDepth === -1 || currentDepth < maxDepth) {
+            const children = Neo.manager.Component.getChildren(component);
+
+            if (children && children.length > 0) {
+                result.items = children.map(child => this.serializeComponent(child, maxDepth, currentDepth + 1))
+            }
+        }
+
+        return result
     }
 }
 

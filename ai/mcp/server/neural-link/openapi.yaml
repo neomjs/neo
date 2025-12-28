@@ -67,6 +67,68 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/vdom/get:
+    post:
+      summary: Get Component VDOM Tree
+      operationId: get_vdom_tree
+      x-pass-as-object: true
+      description: Retrieves the VDOM tree of a component.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComponentTreeRequest'
+      responses:
+        '200':
+          description: The VDOM tree structure
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/vnode/get:
+    post:
+      summary: Get Component VNode Tree
+      operationId: get_vnode_tree
+      x-pass-as-object: true
+      description: Retrieves the VNode tree of a component.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComponentTreeRequest'
+      responses:
+        '200':
+          description: The VNode tree structure
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /page/reload:
     post:
       summary: Reload Page
@@ -143,6 +205,12 @@ components:
     GetComponentTreeRequest:
       type: object
       properties:
+        rootId:
+          type: string
+          description: Optional root component ID. Defaults to the App's MainView if available.
+        depth:
+          type: integer
+          description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
         windowId:
           type: string
           description: The target window ID
