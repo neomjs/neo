@@ -2,6 +2,7 @@ import path              from 'path';
 import {fileURLToPath}   from 'url';
 import ToolService       from '../../../ToolService.mjs';
 import ConnectionService from './ConnectionService.mjs';
+import HealthService     from './HealthService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -15,6 +16,7 @@ const serviceMapping = {
     get_vnode_tree        : ConnectionService.getVnodeTree.bind(ConnectionService),
     get_window_topology   : ConnectionService.getWindowTopology.bind(ConnectionService),
     get_worker_topology   : ConnectionService.getWorkerTopology.bind(ConnectionService),
+    healthcheck           : HealthService.healthcheck.bind(HealthService),
     reload_page           : ConnectionService.reloadPage.bind(ConnectionService),
     set_component_property: ConnectionService.setComponentProperty.bind(ConnectionService)
 };

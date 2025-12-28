@@ -3,12 +3,49 @@ info:
   title: Neo.mjs Neural Link MCP Server
   version: 1.0.0
 paths:
+  /health:
+    post:
+      summary: Health Check
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Checks the health of the Neural Link server, including WebSocket connectivity and active sessions.
+
+        **When to Use:**
+        Use this as a first-step diagnostic tool to ensure the Neural Link bridge to the browser is operational.
+      tags: [Health]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/property/get:
     post:
       summary: Get Component Property
       operationId: get_component_property
       x-pass-as-object: true
-      description: Retrieves a property from a component by its ID.
+      description: |
+        Retrieves a property from a component by its ID.
+
+        **When to Use:**
+        To inspect the current state of a component (e.g., `width`, `store`, `value`).
+      tags: [Component]
       requestBody:
         required: true
         content:
@@ -40,7 +77,12 @@ paths:
       summary: Get Component Tree
       operationId: get_component_tree
       x-pass-as-object: true
-      description: Retrieves the full component tree of the application.
+      description: |
+        Retrieves the full component tree of the application.
+
+        **When to Use:**
+        To understand the structure of the UI, find component IDs, or debug hierarchy issues.
+      tags: [Component]
       requestBody:
         content:
           application/json:
@@ -72,7 +114,12 @@ paths:
       summary: Get Component VDOM Tree
       operationId: get_vdom_tree
       x-pass-as-object: true
-      description: Retrieves the VDOM tree of a component.
+      description: |
+        Retrieves the VDOM tree of a component.
+
+        **When to Use:**
+        To inspect the Virtual DOM structure of a component for rendering issues.
+      tags: [Component]
       requestBody:
         content:
           application/json:
@@ -103,7 +150,12 @@ paths:
       summary: Get Component VNode Tree
       operationId: get_vnode_tree
       x-pass-as-object: true
-      description: Retrieves the VNode tree of a component.
+      description: |
+        Retrieves the VNode tree of a component.
+
+        **When to Use:**
+        To inspect the actual DOM-aligned VNodes (after VDOM processing). Useful for deep rendering debugging.
+      tags: [Component]
       requestBody:
         content:
           application/json:
@@ -134,7 +186,12 @@ paths:
       summary: Get Drag State
       operationId: get_drag_state
       x-pass-as-object: true
-      description: Retrieves the state of the DragCoordinator.
+      description: |
+        Retrieves the state of the DragCoordinator.
+
+        **When to Use:**
+        To debug drag-and-drop operations, checking what is being dragged and where.
+      tags: [Inspection]
       requestBody:
         content:
           application/json:
@@ -157,7 +214,12 @@ paths:
       summary: Reload Page
       operationId: reload_page
       x-pass-as-object: true
-      description: Reloads the application page.
+      description: |
+        Reloads the application page.
+
+        **When to Use:**
+        To force a full reload of the connected application window.
+      tags: [Lifecycle]
       requestBody:
         content:
           application/json:
@@ -183,7 +245,12 @@ paths:
     post:
       summary: Get Worker Topology
       operationId: get_worker_topology
-      description: Retrieves the topology of all connected App Workers.
+      description: |
+        Retrieves the topology of all connected App Workers.
+
+        **When to Use:**
+        To discover connected workers, their session IDs, and environments.
+      tags: [Topology]
       requestBody:
         content:
           application/json:
@@ -217,7 +284,12 @@ paths:
     post:
       summary: Get Window Topology
       operationId: get_window_topology
-      description: Retrieves the topology of all connected windows.
+      description: |
+        Retrieves the topology of all connected windows.
+
+        **When to Use:**
+        To map logical window IDs to physical browser windows and their dimensions.
+      tags: [Topology]
       requestBody:
         content:
           application/json:
@@ -250,7 +322,12 @@ paths:
       summary: Set Component Property
       operationId: set_component_property
       x-pass-as-object: true
-      description: Sets a property on a component by its ID.
+      description: |
+        Sets a property on a component by its ID.
+
+        **When to Use:**
+        To modify the runtime state of a component (e.g., change text, toggle visibility).
+      tags: [Component]
       requestBody:
         required: true
         content:
@@ -275,6 +352,33 @@ paths:
 
 components:
   schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        server:
+          type: object
+          properties:
+            port:
+              type: integer
+            activeSessions:
+              type: integer
+            connectedWindows:
+              type: integer
+        details:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+        uptime:
+          type: number
+
     GetComponentPropertyRequest:
       type: object
       required:

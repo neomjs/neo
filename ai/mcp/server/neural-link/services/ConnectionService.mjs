@@ -350,6 +350,27 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Returns the current status of the server.
+     * @returns {Object}
+     */
+    getStatus() {
+        const windows = [];
+
+        for (const meta of this.sessionData.values()) {
+            if (meta.windows) {
+                for (const win of meta.windows.values()) {
+                    windows.push(win)
+                }
+            }
+        }
+
+        return {
+            sessions: this.sessions.size,
+            windows
+        }
+    }
+
+    /**
      * Reloads the application page.
      * @param {Object} opts            The options object.
      * @param {String} [opts.sessionId] The target session ID.

@@ -5,6 +5,7 @@ import Base from '../../../../src/core/Base.mjs';
 import aiConfig from './config.mjs';
 import logger from './logger.mjs';
 import ConnectionService from './services/ConnectionService.mjs';
+import HealthService from './services/HealthService.mjs';
 import { listTools, callTool } from './services/toolService.mjs';
 
 /**
@@ -56,16 +57,33 @@ class Server extends Base {
         // 3. Setup Handlers
         this.setupRequestHandlers();
 
-        // 4. Start Connection Service (WebSocket)
-        if (!ConnectionService.isReady) {
-            // Ensure initialized
-        }
+        // 4. Wait for Connection Service
+        await ConnectionService.ready();
 
-        // 5. Connect Transport (Stdio)
+        // 5. Perform Health Check & Log Status
+        const health = await HealthService.healthcheck();
+        this.logStartupStatus(health);
+
+        // 6. Connect Transport (Stdio)
         this.transport = new StdioServerTransport();
         await this.mcpServer.connect(this.transport);
 
         logger.info('Neural Link MCP Server started');
+    }
+
+    /**
+     * Logs the health status of the server during startup.
+     * @param {Object} health The health check result object.
+     */
+    logStartupStatus(health) {
+        if (health.status === 'unhealthy') {
+            logger.warn('⚠️  [Startup] Neural Link is unhealthy. Server will start but tools will fail until resolved.');
+            health.details.forEach(detail => logger.warn(`    ${detail}`));
+        } else {
+            logger.info('✅ [Startup] Neural Link health check passed');
+            logger.info(`   - Active Sessions: ${health.server.activeSessions}`);
+            logger.info(`   - Connected Windows: ${health.server.connectedWindows}`);
+        }
     }
 
     setupRequestHandlers() {
@@ -91,8 +109,24 @@ class Server extends Base {
         // Call Tool Handler
         this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const { name, arguments: args } = request.params;
+
             try {
                 logger.debug(`[MCP] Calling tool: ${name} with params:`, JSON.stringify(request.params));
+
+                // Health Check Gate
+                if (name !== 'healthcheck') {
+                    const health = await HealthService.healthcheck();
+                    if (health.status !== 'healthy') {
+                         return {
+                            content: [{
+                                type: 'text',
+                                text: `Cannot execute ${name}: Neural Link is unhealthy.\nDetails: ${health.details.join(', ')}`
+                            }],
+                            isError: true
+                        };
+                    }
+                }
+
                 const result = await callTool(name, args);
 
                 return {
