@@ -21,7 +21,9 @@ const serviceMapping = {
     get_worker_topology   : RuntimeService.getWorkerTopology.bind(RuntimeService),
     healthcheck           : HealthService.healthcheck.bind(HealthService),
     reload_page           : RuntimeService.reloadPage.bind(RuntimeService),
-    set_component_property: ComponentService.setComponentProperty.bind(ComponentService)
+    set_component_property: ComponentService.setComponentProperty.bind(ComponentService),
+    start_ws_server       : ConnectionService.startServer.bind(ConnectionService),
+    stop_ws_server        : ConnectionService.stopServer.bind(ConnectionService)
 };
 
 const toolService = Neo.create(ToolService, {

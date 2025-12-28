@@ -241,6 +241,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /server/start:
+    post:
+      summary: Start WebSocket Server
+      operationId: start_ws_server
+      description: |
+        Starts the WebSocket server to accept connections from the Neo.mjs app.
+
+        **When to Use:**
+        Use this to recover the bridge if the server was previously stopped or crashed.
+      tags: [Lifecycle]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: Server started successfully
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /server/stop:
+    post:
+      summary: Stop WebSocket Server
+      operationId: stop_ws_server
+      description: |
+        Stops the WebSocket server and closes all active connections.
+
+        **When to Use:**
+        Use this to simulate a network disconnect or to perform a clean shutdown of the bridge.
+      tags: [Lifecycle]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: Server stopped successfully
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /worker/topology:
     post:
       summary: Get Worker Topology

@@ -71,12 +71,57 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
+        await this.startServer();
+    }
+
+    /**
+     * Starts the WebSocket server.
+     * @returns {Promise<void>}
+     */
+    async startServer() {
+        if (this.wss) {
+            logger.warn('WebSocket Server is already running.');
+            return;
+        }
+
         this.wss = new WebSocketServer({port: this.port});
 
         this.wss.on('connection', (ws)  => this.#handleConnection(ws));
         this.wss.on('error',      (err) => logger.error('WebSocket Server Error:', err));
 
         logger.info(`WebSocket Server listening on port ${this.port}`);
+    }
+
+    /**
+     * Stops the WebSocket server and closes all active connections.
+     * @returns {Promise<void>}
+     */
+    async stopServer() {
+        if (!this.wss) {
+            logger.warn('WebSocket Server is not running.');
+            return;
+        }
+
+        logger.info('Stopping WebSocket Server...');
+
+        // Close all active sessions
+        for (const [sessionId, ws] of this.sessions) {
+            ws.close();
+            this.#handleDisconnect(sessionId);
+        }
+
+        return new Promise((resolve, reject) => {
+            this.wss.close((err) => {
+                if (err) {
+                    logger.error('Error closing WebSocket Server:', err);
+                    reject(err);
+                } else {
+                    logger.info('WebSocket Server stopped.');
+                    this.wss = null;
+                    resolve();
+                }
+            });
+        });
     }
 
     /**
