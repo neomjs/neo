@@ -51,6 +51,11 @@ Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and documentati
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
 - **If the healthcheck is successful:** The Memory Core is active.
     - **Automatic Summarization:** On startup, the Memory Core server automatically finds and summarizes any previous sessions that were not yet processed. You do not need to trigger this manually.
+    - **Establish Context (Mandatory):** You **MUST** call `get_all_summaries({ limit: 5 })`.
+        - **Why:** This "Contextual Ledger" provides critical institutional memory. It prevents you from repeating recent mistakes (Anti-Regression), clarifies architectural decisions (Origin Stories), and aligns you with the current strategic direction.
+        - **Drill Down Strategy:** Deep-diving into a full session (30+ turns) is expensive.
+            - **Ask First:** If a summary seems relevant but you are unsure of the current session's goal, ask the user: *"I see a relevant past session about [Topic]. Should I load its full context?"*
+            - **Autonomy:** You are authorized to proactively load a session if it contains critical technical details (e.g., a failed attempt at the same task) that will prevent you from making mistakes.
     - **Your First Turn:** Your only responsibility is to save your work for the current session. The initialization process itself is your first turn. **Before** you send your first response to the user (e.g., "I am ready"), you **MUST** call `add_memory` to save this initialization turn. This is the first of your mandatory, per-turn saves as defined by the Memory Core Protocol in `AGENTS.md`.
 - **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 
