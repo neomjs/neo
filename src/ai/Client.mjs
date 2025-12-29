@@ -78,6 +78,7 @@ class Client extends Base {
             get_dom_rect        : me.services.component,
             get_vdom            : me.services.component,
             get_vnode           : me.services.component,
+            highlight_component : me.services.component,
             query_component     : me.services.component,
             set_component       : me.services.component,
 

@@ -34,6 +34,21 @@ class InteractionService extends Base {
     async getDragState({sessionId}) {
         return await ConnectionService.call(sessionId, 'get_drag_state', {})
     }
+
+    /**
+     * Highlights a component visually for debugging purposes.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @param {String} opts.componentId
+     * @param {Object} [opts.options]
+     * @returns {Promise<void>}
+     */
+    async highlightComponent({sessionId, componentId, options}) {
+        return await ConnectionService.call(sessionId, 'highlight_component', {
+            componentId,
+            options
+        })
+    }
 }
 
 export default Neo.setupClass(InteractionService);

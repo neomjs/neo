@@ -51,6 +51,47 @@ class ComponentService extends Service {
 
     /**
      * @param {Object} params
+     * @param {String} params.componentId
+     * @param {Object} [params.options]
+     * @returns {Object}
+     */
+    highlightComponent({componentId, options}) {
+        let component = Neo.getComponent(componentId),
+            originalStyle;
+
+        if (!component) {
+            throw new Error(`Component not found: ${componentId}`)
+        }
+
+        options = options || {};
+
+        const
+            color    = options.color    || 'red',
+            duration = options.duration || 2000,
+            mode     = options.style    || 'outline'; // 'outline' or 'box-shadow'
+
+        originalStyle = component.style || {};
+
+        let highlightStyle = {};
+
+        if (mode === 'outline') {
+            highlightStyle.outline       = `2px solid ${color}`;
+            highlightStyle.outlineOffset = '-2px'
+        } else {
+            highlightStyle.boxShadow = `0 0 10px ${color}, inset 0 0 10px ${color}`
+        }
+
+        component.style = {...originalStyle, ...highlightStyle};
+
+        setTimeout(() => {
+            component.style = originalStyle
+        }, duration);
+
+        return {success: true}
+    }
+
+    /**
+     * @param {Object} params
      * @returns {Object}
      */
     getComponentTree(params) {

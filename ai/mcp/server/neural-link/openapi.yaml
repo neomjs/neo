@@ -716,6 +716,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/highlight:
+    post:
+      summary: Highlight Component
+      operationId: highlight_component
+      x-pass-as-object: true
+      description: |
+        Highlights a component visually for debugging purposes.
+
+        **When to Use:**
+        To visually identify a component on the page during debugging or interaction sessions.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HighlightComponentRequest'
+      responses:
+        '200':
+          description: Component highlighted successfully
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
@@ -912,6 +945,31 @@ components:
         data:
           type: object
           description: The data object to merge into the provider
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    HighlightComponentRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The component ID
+        options:
+          type: object
+          properties:
+            color:
+              type: string
+              description: Highlight color (default 'red')
+            duration:
+              type: integer
+              description: Duration in ms (default 2000)
+            style:
+              type: string
+              enum: [outline, box-shadow]
+              description: Highlight style (default 'outline')
         sessionId:
           type: string
           description: The target App Worker Session ID
