@@ -581,7 +581,7 @@ components:
       properties:
         selector:
           type: object
-          description: JSON object with property/value pairs to match (e.g., {ntype: 'button', text: 'Save'}).
+          description: "JSON object with property/value pairs to match (e.g., {ntype: 'button', text: 'Save'})."
         rootId:
           type: string
           description: Optional ID of a component to search within (scoped search).

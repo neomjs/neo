@@ -71,7 +71,7 @@ class SummaryService extends Base {
                 return {
                     id,
                     sessionId   : metadata.sessionId,
-                    timestamp   : metadata.timestamp,
+                    timestamp   : new Date(metadata.timestamp).toISOString(),
                     title       : metadata.title,
                     summary     : document,
                     category    : metadata.category,
@@ -144,7 +144,7 @@ class SummaryService extends Base {
                 return {
                     id,
                     sessionId   : metadata.sessionId,
-                    timestamp   : metadata.timestamp,
+                    timestamp   : new Date(metadata.timestamp).toISOString(),
                     title       : metadata.title,
                     summary     : document,
                     category    : metadata.category,
