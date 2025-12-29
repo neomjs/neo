@@ -169,14 +169,14 @@ class ToolService_tmp extends Base {
         if (!limit) {
             return {
                 tools     : me.allToolsForListing,
-                nextCursor: null
+                nextCursor: undefined
             };
         }
 
         const start      = cursor;
         const end        = start + limit;
         const toolsSlice = me.allToolsForListing.slice(start, end);
-        const nextCursor = end < me.allToolsForListing.length ? String(end) : null;
+        const nextCursor = end < me.allToolsForListing.length ? String(end) : undefined;
 
         return {
             tools: toolsSlice,

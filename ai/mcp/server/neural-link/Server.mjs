@@ -102,7 +102,7 @@ class Server extends Base {
                 return { tools: mcpTools, nextCursor: nextCursor || undefined };
             } catch (error) {
                 logger.error('[MCP] Error listing tools:', error);
-                return { tools: [], nextCursor: null, error: error.message };
+                return { tools: [], nextCursor: undefined, error: error.message };
             }
         });
 

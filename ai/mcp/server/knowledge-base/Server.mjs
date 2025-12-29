@@ -156,7 +156,7 @@ class Server extends Base {
                 return result;
             } catch (error) {
                 logger.error('[MCP] Error listing tools:', error);
-                return {tools: [], nextCursor: null, error: error.message};
+                return {tools: [], nextCursor: undefined, error: error.message};
             }
         });
 

@@ -116,7 +116,11 @@ function buildZodSchemaFromResponse(doc, schema) {
         }
         zodSchema = z.object(shape);
     } else if (schema.type === 'array') {
-        zodSchema = z.array(buildZodSchemaFromResponse(doc, schema.items));
+        if (schema.items) {
+            zodSchema = z.array(buildZodSchemaFromResponse(doc, schema.items));
+        } else {
+            zodSchema = z.array(z.any());
+        }
     } else if (schema.type === 'string') {
         zodSchema = z.string();
     } else if (schema.type === 'integer') {
