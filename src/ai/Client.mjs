@@ -1,7 +1,9 @@
-import Base            from '../core/Base.mjs';
-import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Socket          from '../data/connection/WebSocket.mjs';
-import StoreManager    from '../manager/Store.mjs';
+import Base             from '../core/Base.mjs';
+import ClassSystemUtil  from '../util/ClassSystem.mjs';
+import ComponentService from './client/ComponentService.mjs';
+import DataService      from './client/DataService.mjs';
+import RuntimeService   from './client/RuntimeService.mjs';
+import Socket           from '../data/connection/WebSocket.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -41,6 +43,17 @@ class Client extends Base {
      */
     isConnected = false
     /**
+     * Map JSON-RPC method prefixes to service instances
+     * @member {Object} serviceMap
+     * @protected
+     */
+    serviceMap = null
+    /**
+     * @member {Object} services=null
+     * @protected
+     */
+    services = null
+    /**
      * @member {Neo.data.connection.WebSocket|null} socket=null
      * @protected
      */
@@ -52,13 +65,37 @@ class Client extends Base {
     construct(config) {
         super.construct(config);
 
+        let me = this;
+
+        me.services = {
+            component: Neo.create(ComponentService, {client: me}),
+            data     : Neo.create(DataService,      {client: me}),
+            runtime  : Neo.create(RuntimeService,   {client: me})
+        };
+
+        me.serviceMap = {
+            get_component       : me.services.component,
+            get_vdom            : me.services.component,
+            get_vnode           : me.services.component,
+            query_component     : me.services.component,
+            set_component       : me.services.component,
+
+            get_record          : me.services.data,
+            inspect_store       : me.services.data,
+            list_stores         : me.services.data,
+
+            get_drag            : me.services.runtime,
+            get_window          : me.services.runtime,
+            reload_page         : me.services.runtime
+        };
+
         Neo.currentWorker.on({
-            connect   : this.onAppWorkerWindowConnect,
-            disconnect: this.onAppWorkerWindowDisconnect,
-            scope     : this
+            connect   : me.onAppWorkerWindowConnect,
+            disconnect: me.onAppWorkerWindowDisconnect,
+            scope     : me
         });
 
-        this.connect();
+        me.connect();
     }
 
     /**
@@ -200,210 +237,26 @@ class Client extends Base {
      * @returns {Promise<*>} The result of the operation
      */
     async handleRequest(method, params) {
-        let me = this,
-            component;
+        let me      = this,
+            service = null,
+            prefix;
 
-        switch (method) {
-            case 'get_component_property':
-                component = Neo.getComponent(params.id);
-                if (!component) throw new Error(`Component not found: ${params.id}`);
-                return {value: me.safeSerialize(component[params.property])};
-
-            case 'query_component':
-                let {selector, rootId} = params,
-                    matches = [];
-
-                if (rootId) {
-                    component = Neo.getComponent(rootId);
-                    if (!component) throw new Error(`Root component not found: ${rootId}`);
-                    // down() returns a single item or array based on returnFirstMatch param.
-                    // We want all matches, so we pass false.
-                    matches = component.down(selector, false)
-                } else {
-                    matches = Neo.manager.Component.find(selector)
-                }
-
-                if (!Array.isArray(matches)) {
-                    matches = matches ? [matches] : []
-                }
-
-                return {
-                    components: matches.map(c => ({
-                        id       : c.id,
-                        className: c.className,
-                        ntype    : c.ntype
-                    }))
-                };
-
-            case 'get_component_tree':
-                return {tree: me.serializeComponent(me.getComponentRoot(params.rootId), params.depth || -1)};
-
-            case 'get_drag_state':
-                const dragCoordinator = Neo.manager?.DragCoordinator;
-
-                if (dragCoordinator) {
-                    return {
-                        activeTargetZone: dragCoordinator.activeTargetZone ? {
-                            id       : dragCoordinator.activeTargetZone.id,
-                            sortGroup: dragCoordinator.activeTargetZone.sortGroup,
-                            windowId : dragCoordinator.activeTargetZone.windowId
-                        } : null,
-                        sortZones: Array.from(dragCoordinator.sortZones.entries()).map(([group, map]) => ({
-                            group,
-                            windows: Array.from(map.keys())
-                        }))
-                    }
-                }
-
-                return {};
-
-            case 'get_vdom_tree':
-                component = me.getComponentRoot(params.rootId);
-                if (!component) throw new Error('Root component not found');
-                return {vdom: component.vdom};
-
-            case 'get_vnode_tree':
-                component = me.getComponentRoot(params.rootId);
-                if (!component) throw new Error('Root component not found');
-                return {vnode: component.vnode};
-
-            case 'get_record':
-                let {recordId, storeId} = params,
-                    record;
-
-                if (storeId) {
-                    const store = Neo.get(storeId);
-                    if (!store) throw new Error(`Store not found: ${storeId}`);
-                    record = store.get(recordId)
-                } else {
-                    const matches = [];
-                    StoreManager.items.forEach(store => {
-                        const rec = store.get(recordId);
-                        if (rec) matches.push(rec)
-                    });
-
-                    if (matches.length > 1) {
-                        throw new Error(`Multiple records found with ID ${recordId}. Please specify storeId.`)
-                    } else if (matches.length === 1) {
-                        record = matches[0]
-                    }
-                }
-
-                if (!record) throw new Error(`Record not found: ${recordId}`);
-
-                return record.toJSON();
-
-            case 'get_window_info':
-                const windowManager = Neo.manager?.Window;
-
-                if (windowManager) {
-                    return {
-                        windows: windowManager.items.map(win => ({
-                            id       : win.id,
-                            appName  : win.appName,
-                            chrome   : win.chrome,
-                            innerRect: win.innerRect,
-                            outerRect: win.outerRect
-                        }))
-                    }
-                }
-
-                return {windows: []};
-
-            case 'inspect_store':
-                const store = Neo.get(params.storeId);
-                if (!store) throw new Error(`Store not found: ${params.storeId}`);
-
-                const items = [];
-                const limit = Math.min(store.count, 50);
-
-                for (let i = 0; i < limit; i++) {
-                    const record = store.getAt(i);
-                    if (record) {
-                        items.push(record.toJSON())
-                    }
-                }
-
-                return {
-                    id     : store.id,
-                    count  : store.count,
-                    model  : store.model?.className || 'N/A',
-                    filters: store.exportFilters?.() || [],
-                    sorters: store.exportSorters?.() || [],
-                    items
-                };
-
-            case 'list_stores':
-                return {
-                    stores: StoreManager.items.map(s => ({
-                        id      : s.id,
-                        model   : s.model?.className || 'N/A',
-                        count   : s.count,
-                        isLoaded: s.isLoaded
-                    }))
-                };
-
-            case 'reload_page':
-                Neo.Main.reloadWindow();
-                return {status: 'reloading'};
-
-            case 'set_component_property':
-                component = Neo.getComponent(params.id);
-                if (!component) throw new Error(`Component not found: ${params.id}`);
-                component[params.property] = params.value;
-                return {success: true};
-
-            default:
-                throw new Error(`Unknown method: ${method}`);
-        }
-    }
-
-    /**
-     * @param {String} [rootId]
-     * @returns {Neo.component.Base|null}
-     */
-    getComponentRoot(rootId) {
-        if (rootId) {
-            return Neo.getComponent(rootId)
-        }
-
-        const apps = Object.values(Neo.apps || {});
-
-        if (apps.length > 0) {
-            return apps[0].mainView
-        }
-
-        return null
-    }
-
-    /**
-     * @param {*} value
-     * @returns {*}
-     */
-    safeSerialize(value) {
-        const type = Neo.typeOf(value);
-
-        if (type === 'NeoInstance') {
-            return {
-                neoInstance: true,
-                id         : value.id,
-                className  : value.className
+        // Find matching service based on prefix
+        // e.g. "get_component_property" -> matches "get_component" prefix
+        for (prefix in me.serviceMap) {
+            if (method.startsWith(prefix)) {
+                service = me.serviceMap[prefix];
+                break
             }
         }
 
-        if (type === 'Object') {
-            const result = {};
-            Object.entries(value).forEach(([k, v]) => {
-                result[k] = this.safeSerialize(v)
-            });
-            return result
+        const fnName = Neo.snakeToCamel(method);
+
+        if (service && typeof service[fnName] === 'function') {
+            return service[fnName](params)
         }
 
-        if (type === 'Array') {
-            return value.map(v => this.safeSerialize(v))
-        }
-
-        return value
+        throw new Error(`Unknown method: ${method}`);
     }
 
     /**
@@ -454,32 +307,6 @@ class Client extends Base {
                 result
             }))
         }
-    }
-
-    /**
-     * @param {Neo.component.Base} component
-     * @param {Number} maxDepth
-     * @param {Number} currentDepth
-     * @returns {Object}
-     */
-    serializeComponent(component, maxDepth, currentDepth=1) {
-        if (!component) return null;
-
-        const result = {
-            id       : component.id,
-            className: component.className,
-            ntype    : component.ntype
-        };
-
-        if (maxDepth === -1 || currentDepth < maxDepth) {
-            const children = Neo.manager.Component.getChildren(component);
-
-            if (children && children.length > 0) {
-                result.items = children.map(child => this.serializeComponent(child, maxDepth, currentDepth + 1))
-            }
-        }
-
-        return result
     }
 }
 
