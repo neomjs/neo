@@ -75,6 +75,7 @@ class Client extends Base {
 
         me.serviceMap = {
             get_component       : me.services.component,
+            get_dom_rect        : me.services.component,
             get_vdom            : me.services.component,
             get_vnode           : me.services.component,
             query_component     : me.services.component,

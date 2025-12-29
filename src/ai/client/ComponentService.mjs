@@ -28,6 +28,31 @@ class ComponentService extends Service {
      * @param {Object} params
      * @returns {Object}
      */
+    async getDomRect(params) {
+        const ids = params.componentIds;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            throw new Error('componentIds must be a non-empty array')
+        }
+
+        // Use the first component to resolve the windowId context
+        const component = Neo.getComponent(ids[0]);
+
+        if (!component) {
+            throw new Error(`Component not found: ${ids[0]}`)
+        }
+
+        const rects = await component.getDomRect(ids);
+
+        return {
+            rects: Array.isArray(rects) ? rects : [rects]
+        }
+    }
+
+    /**
+     * @param {Object} params
+     * @returns {Object}
+     */
     getComponentTree(params) {
         return {tree: this.serializeComponent(this.getComponentRoot(params.rootId), params.depth || -1)};
     }

@@ -72,6 +72,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/rect/get:
+    post:
+      summary: Get Component DOM Rects
+      operationId: get_dom_rect
+      x-pass-as-object: true
+      description: |
+        Retrieves the DOM rectangles for one or more components.
+
+        **When to Use:**
+        To inspect the physical layout and visibility of components.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDomRectRequest'
+      responses:
+        '200':
+          description: List of DOMRects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rects:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/tree:
     post:
       summary: Get Component Tree
@@ -657,6 +699,20 @@ components:
         property:
           type: string
           description: The property name to retrieve
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetDomRectRequest:
+      type: object
+      required:
+        - componentIds
+      properties:
+        componentIds:
+          type: array
+          items:
+            type: string
+          description: List of component IDs to inspect.
         sessionId:
           type: string
           description: The target App Worker Session ID

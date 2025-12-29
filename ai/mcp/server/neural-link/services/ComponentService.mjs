@@ -38,6 +38,17 @@ class ComponentService extends Base {
     }
 
     /**
+     * Retrieves the DOM rectangles for one or more components.
+     * @param {Object} opts            The options object.
+     * @param {String[]} opts.componentIds The list of component IDs.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The list of DOMRects.
+     */
+    async getDomRect({componentIds, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_dom_rect', {componentIds})
+    }
+
+    /**
      * Retrieves the full component tree of the application.
      * @param {Object} opts            The options object.
      * @param {Number} [opts.depth]    The depth limit.

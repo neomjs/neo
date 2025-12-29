@@ -15,6 +15,7 @@ const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 const serviceMapping = {
     get_component_property: ComponentService  .getComponentProperty.bind(ComponentService),
     get_component_tree    : ComponentService  .getComponentTree    .bind(ComponentService),
+    get_dom_rect          : ComponentService  .getDomRect          .bind(ComponentService),
     get_drag_state        : InteractionService.getDragState        .bind(InteractionService),
     get_record            : DataService       .getRecord           .bind(DataService),
     get_route_history     : RuntimeService    .getRouteHistory     .bind(RuntimeService),
