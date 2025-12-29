@@ -54,4 +54,11 @@ The current Neural Link implementation overloads the term `windowId` to mean bot
 - 2025-12-28 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu added parent issue #8169
 - 2025-12-28 @tobiu closed this issue
+- 2025-12-28 @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)
+
+- Refactor API: Rename windowId to sessionId for clarity (#8174)
+- Feat: Implement window connect/disconnect notifications (#8175)
+- Feat: Add state rehydration on reconnect (#8176)
+- Update Client to track lifecycle and sync topology
+- Update ConnectionService to cache window state and serve topology instantly"
 

@@ -15,18 +15,18 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7030
-  - 7031
-  - 7032
-  - 7033
-  - 7034
-  - 7035
-  - 7036
-  - 7037
-  - 7038
-  - 7039
-  - 7040
-  - 7041
+  - '[x] 7030'
+  - '[x] 7031'
+  - '[x] 7032'
+  - '[x] 7033'
+  - '[x] 7034'
+  - '[x] 7035'
+  - '[x] 7036'
+  - '[x] 7037'
+  - '[x] 7038'
+  - '[x] 7039'
+  - '[x] 7040'
+  - '[x] 7041'
 subIssuesCompleted: 12
 subIssuesTotal: 12
 blockedBy: []

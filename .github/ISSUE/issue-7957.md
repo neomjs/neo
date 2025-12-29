@@ -42,4 +42,5 @@ Reference: `.github/AGENT_ARCHITECTURE.md`
 - 2025-11-30 @tobiu added the `epic` label
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu added the `architecture` label
+- 2025-12-01 @tobiu cross-referenced by #7961
 

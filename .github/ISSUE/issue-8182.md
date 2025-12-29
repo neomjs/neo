@@ -12,7 +12,7 @@ updatedAt: '2025-12-28T19:48:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8182'
 author: tobiu
 commentsCount: 1
-parentIssue: null
+parentIssue: 8169
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
@@ -63,4 +63,5 @@ Enhance `Neural Link` connection logic to support session recovery via a persist
 - Updated ConnectionService to use appWorkerId as session key
 - Implemented call recovery with waitForSession"
 - 2025-12-28 @tobiu closed this issue
+- 2025-12-28 @tobiu added parent issue #8169
 

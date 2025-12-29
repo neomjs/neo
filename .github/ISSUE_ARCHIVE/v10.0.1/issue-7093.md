@@ -14,10 +14,10 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7094
-  - 7095
-  - 7096
-  - 7097
+  - '[x] 7094'
+  - '[x] 7095'
+  - '[x] 7096'
+  - '[x] 7097'
 subIssuesCompleted: 4
 subIssuesTotal: 4
 blockedBy: []

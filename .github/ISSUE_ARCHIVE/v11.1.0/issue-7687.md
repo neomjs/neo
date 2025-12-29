@@ -14,8 +14,8 @@ author: tobiu
 commentsCount: 3
 parentIssue: null
 subIssues:
-  - 7714
-  - 7713
+  - '[x] 7714'
+  - '[x] 7713'
 subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []

@@ -14,11 +14,11 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7428
-  - 7429
-  - 7430
-  - 7431
-  - 7432
+  - '[x] 7428'
+  - '[x] 7429'
+  - '[x] 7430'
+  - '[x] 7431'
+  - '[x] 7432'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

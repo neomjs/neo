@@ -13,13 +13,13 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 6585
-  - 6586
-  - 6587
-  - 6588
-  - 6589
-  - 6590
-  - 6591
+  - '[x] 6585'
+  - '[x] 6586'
+  - '[x] 6587'
+  - '[x] 6588'
+  - '[x] 6589'
+  - '[x] 6590'
+  - '[x] 6591'
 subIssuesCompleted: 7
 subIssuesTotal: 7
 blockedBy: []

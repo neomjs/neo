@@ -15,12 +15,12 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7962
-  - 7963
-  - 7964
-  - 7965
-  - 7966
-  - 7968
+  - '[x] 7962'
+  - '[x] 7963'
+  - '[x] 7964'
+  - '[x] 7965'
+  - '[x] 7966'
+  - '[x] 7968'
 subIssuesCompleted: 6
 subIssuesTotal: 6
 blockedBy: []

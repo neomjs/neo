@@ -16,14 +16,14 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7591
-  - 7592
-  - 7593
-  - 7594
-  - 7595
-  - 7598
-  - 7599
-  - 7600
+  - '[x] 7591'
+  - '[x] 7592'
+  - '[x] 7593'
+  - '[x] 7594'
+  - '[x] 7595'
+  - '[x] 7598'
+  - '[x] 7599'
+  - '[x] 7600'
 subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []

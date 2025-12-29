@@ -14,14 +14,14 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7521
-  - 7522
-  - 7523
-  - 7524
-  - 7525
-  - 7526
-  - 7527
-  - 7528
+  - '[x] 7521'
+  - '[x] 7522'
+  - '[x] 7523'
+  - '[x] 7524'
+  - '[x] 7525'
+  - '[x] 7526'
+  - '[x] 7527'
+  - '[x] 7528'
 subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []

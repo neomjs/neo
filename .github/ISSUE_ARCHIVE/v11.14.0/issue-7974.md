@@ -33,4 +33,5 @@ Also update JSDoc to reflect that `Object` is a valid type for these configs.
 - 2025-12-01 @tobiu added the `refactoring` label
 - 2025-12-01 @tobiu assigned to @tobiu
 - 2025-12-01 @tobiu closed this issue
+- 2025-12-01 @tobiu referenced in commit `a4e04c1` - "refactor #7974 Loop configs to be reactive"
 

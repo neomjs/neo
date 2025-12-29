@@ -13,9 +13,9 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7923
-  - 7924
-  - 7925
+  - '[ ] 7923'
+  - '[ ] 7924'
+  - '[ ] 7925'
 subIssuesCompleted: 0
 subIssuesTotal: 3
 blockedBy: []

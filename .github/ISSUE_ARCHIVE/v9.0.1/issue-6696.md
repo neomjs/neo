@@ -13,12 +13,12 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 6697
-  - 6698
-  - 6699
-  - 6700
-  - 6701
-  - 6702
+  - '[x] 6697'
+  - '[x] 6698'
+  - '[x] 6699'
+  - '[x] 6700'
+  - '[x] 6701'
+  - '[x] 6702'
 subIssuesCompleted: 6
 subIssuesTotal: 6
 blockedBy: []

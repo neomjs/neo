@@ -15,11 +15,11 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7849
-  - 7850
-  - 7851
-  - 7852
-  - 7853
+  - '[x] 7849'
+  - '[x] 7850'
+  - '[x] 7851'
+  - '[x] 7852'
+  - '[x] 7853'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

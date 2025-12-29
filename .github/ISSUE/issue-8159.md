@@ -19,7 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
-  - 8156
+  - '[x] 8156'
 closedAt: '2025-12-27T15:46:36Z'
 ---
 # Refactor Cross-Window Drag Logic to Dashboard SortZone
@@ -76,4 +76,5 @@ Connecting dashboards and handling cross-window coordination does not belong in 
 - 2025-12-27 @tobiu assigned to @tobiu
 - 2025-12-27 @tobiu referenced in commit `c19446c` - "Refactor Cross-Window Drag Logic to Dashboard SortZone #8159"
 - 2025-12-27 @tobiu closed this issue
+- 2025-12-27 @tobiu referenced in commit `ffb4590` - "Refactor Cross-Window Drag Logic to Dashboard SortZone #8159"
 

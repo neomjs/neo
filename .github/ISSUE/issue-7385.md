@@ -17,11 +17,11 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7386
-  - 7387
-  - 7388
-  - 7389
-  - 7390
+  - '[x] 7386'
+  - '[x] 7387'
+  - '[ ] 7388'
+  - '[ ] 7389'
+  - '[ ] 7390'
 subIssuesCompleted: 2
 subIssuesTotal: 5
 blockedBy: []

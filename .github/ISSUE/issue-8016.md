@@ -70,4 +70,10 @@ The Neural Link MCP Server requires hardening to match the standards set by `mem
 - 2025-12-28 @tobiu added parent issue #8169
 - 2025-12-28 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu closed this issue
+- 2025-12-28 @tobiu referenced in commit `7663897` - "feat(ai): Harden Neural Link MCP Server (#8016)
+
+- Implement HealthService for WebSocket and session monitoring
+- Add startup health checks and logging in Server.mjs
+- Update ConnectionService to expose server status
+- Enhance OpenAPI specs with health endpoint and detailed descriptions"
 

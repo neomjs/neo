@@ -15,11 +15,11 @@ author: tobiu
 commentsCount: 0
 parentIssue: 7918
 subIssues:
-  - 8026
-  - 8027
-  - 8028
-  - 8029
-  - 8030
+  - '[x] 8026'
+  - '[x] 8027'
+  - '[x] 8028'
+  - '[x] 8029'
+  - '[x] 8030'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

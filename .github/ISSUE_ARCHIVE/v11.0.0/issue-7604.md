@@ -15,14 +15,14 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7626
-  - 7630
-  - 7631
-  - 7658
-  - 7659
-  - 7660
-  - 7661
-  - 7662
+  - '[x] 7626'
+  - '[x] 7630'
+  - '[x] 7631'
+  - '[x] 7658'
+  - '[x] 7659'
+  - '[x] 7660'
+  - '[x] 7661'
+  - '[x] 7662'
 subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []

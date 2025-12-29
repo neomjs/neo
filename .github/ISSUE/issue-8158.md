@@ -41,4 +41,5 @@ This avoids the initial "null rect" state and ensures spatial awareness is avail
 - 2025-12-27 @tobiu assigned to @tobiu
 - 2025-12-27 @tobiu referenced in commit `5c9f443` - "Enhance onWindowConnect to include initial window data #8158"
 - 2025-12-27 @tobiu closed this issue
+- 2025-12-27 @tobiu referenced in commit `0b41363` - "Enhance onWindowConnect to include initial window data #8158"
 

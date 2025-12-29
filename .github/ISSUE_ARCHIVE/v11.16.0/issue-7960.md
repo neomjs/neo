@@ -15,16 +15,16 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 8001
-  - 8002
-  - 8003
-  - 8004
-  - 8007
-  - 8010
-  - 8008
-  - 8013
-  - 8006
-  - 8014
+  - '[x] 8001'
+  - '[x] 8002'
+  - '[x] 8003'
+  - '[x] 8004'
+  - '[x] 8007'
+  - '[x] 8010'
+  - '[x] 8008'
+  - '[x] 8013'
+  - '[x] 8006'
+  - '[x] 8014'
 subIssuesCompleted: 10
 subIssuesTotal: 10
 blockedBy: []

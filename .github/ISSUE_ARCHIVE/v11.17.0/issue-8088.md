@@ -48,4 +48,5 @@ Updated `Neo.manager.DomEvent#register` to prioritize the Logical Component ID (
 - 2025-12-11 @tobiu assigned to @tobiu
 - 2025-12-11 @tobiu referenced in commit `bce961a` - "Fix DOM event mapping for components with wrapper nodes #8088"
 - 2025-12-11 @tobiu closed this issue
+- 2025-12-11 @tobiu cross-referenced by #8089
 

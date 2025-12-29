@@ -15,15 +15,15 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7202
-  - 7203
-  - 7204
-  - 7205
-  - 7206
-  - 7207
-  - 7208
-  - 7209
-  - 7210
+  - '[ ] 7202'
+  - '[ ] 7203'
+  - '[x] 7204'
+  - '[ ] 7205'
+  - '[ ] 7206'
+  - '[x] 7207'
+  - '[x] 7208'
+  - '[x] 7209'
+  - '[x] 7210'
 subIssuesCompleted: 5
 subIssuesTotal: 9
 blockedBy: []

@@ -15,13 +15,13 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 8160
-  - 8161
-  - 8162
-  - 8164
-  - 8165
-  - 8166
-  - 8167
+  - '[ ] 8160'
+  - '[x] 8161'
+  - '[ ] 8162'
+  - '[x] 8164'
+  - '[ ] 8165'
+  - '[ ] 8166'
+  - '[ ] 8167'
 subIssuesCompleted: 2
 subIssuesTotal: 7
 blockedBy: []
