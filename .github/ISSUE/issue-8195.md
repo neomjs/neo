@@ -1,23 +1,24 @@
 ---
 id: 8195
 title: 'Feat: Neural Link - Get Record Tool'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-28T22:39:07Z'
-updatedAt: '2025-12-28T22:43:12Z'
+updatedAt: '2025-12-28T23:35:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8195'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8169
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-28T23:35:13Z'
 ---
 # Feat: Neural Link - Get Record Tool
 
@@ -33,10 +34,36 @@ Agents often need to inspect a specific record in detail, especially when `inspe
 
 **Goal:** Provide granular access to individual data records.
 
+## Comments
+
+### @tobiu - 2025-12-28 23:34
+
+**Input from Gemini:**
+
+> ✦ I have implemented the `get_record` tool for granular data inspection.
+> 
+> **Features:**
+> -   **Retrieve by ID:** `get_record({recordId: '123'})` searches all stores.
+> -   **Scoped Retrieval:** `get_record({recordId: '123', storeId: 'myStore'})` targets a specific store.
+> -   **Ambiguity Handling:** Throws an error if the same record ID exists in multiple stores (when storeId is omitted), prompting the user to be specific.
+> -   **Output:** Returns the full, serialized record data (`record.toJSON()`).
+> 
+> **Implementation:**
+> -   Added `getRecord` to `DataService`.
+> -   Updated `Neo.ai.Client` with `get_record` logic using `StoreManager`.
+> -   Defined OpenAPI schema.
+
 ## Activity Log
 
 - 2025-12-28 @tobiu added the `enhancement` label
 - 2025-12-28 @tobiu added the `ai` label
 - 2025-12-28 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28 @tobiu referenced in commit `9e308d2` - "feat(ai): Implement Get Record Tool (#8195)
+
+- Add `get_record` tool to Neural Link MCP.
+- Update `Neo.ai.Client` to handle `get_record` requests with optional store scoping.
+- Implement ambiguity check for records existing in multiple stores.
+- Import `Neo.manager.Store` in Client for robust store access."
+- 2025-12-28 @tobiu closed this issue
 
