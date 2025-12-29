@@ -16,33 +16,34 @@ class ComponentService extends Service {
 
     /**
      * @param {Object} params
+     * @param {String} params.id
+     * @param {String} params.property
      * @returns {Object}
      */
-    getComponentProperty(params) {
-        const component = Neo.getComponent(params.id);
-        if (!component) throw new Error(`Component not found: ${params.id}`);
-        return {value: this.safeSerialize(component[params.property])};
+    getComponentProperty({id, property}) {
+        const component = Neo.getComponent(id);
+        if (!component) throw new Error(`Component not found: ${id}`);
+        return {value: this.safeSerialize(component[property])};
     }
 
     /**
-     * @param {Object} params
+     * @param {Object}   params
+     * @param {String[]} params.componentIds
      * @returns {Object}
      */
-    async getDomRect(params) {
-        const ids = params.componentIds;
-
-        if (!Array.isArray(ids) || ids.length === 0) {
+    async getDomRect({componentIds}) {
+        if (!Array.isArray(componentIds) || componentIds.length === 0) {
             throw new Error('componentIds must be a non-empty array')
         }
 
         // Use the first component to resolve the windowId context
-        const component = Neo.getComponent(ids[0]);
+        const component = Neo.getComponent(componentIds[0]);
 
         if (!component) {
-            throw new Error(`Component not found: ${ids[0]}`)
+            throw new Error(`Component not found: ${componentIds[0]}`)
         }
 
-        const rects = await component.getDomRect(ids);
+        const rects = await component.getDomRect(componentIds);
 
         return {
             rects: Array.isArray(rects) ? rects : [rects]
@@ -53,9 +54,9 @@ class ComponentService extends Service {
      * @param {Object} params
      * @param {String} params.componentId
      * @param {Object} [params.options]
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    highlightComponent({componentId, options}) {
+    async highlightComponent({componentId, options}) {
         let component = Neo.getComponent(componentId),
             originalStyle;
 
@@ -83,48 +84,53 @@ class ComponentService extends Service {
 
         component.style = {...originalStyle, ...highlightStyle};
 
-        setTimeout(() => {
-            component.style = originalStyle
-        }, duration);
+        await this.timeout(duration);
+
+        component.style = originalStyle;
 
         return {success: true}
     }
 
     /**
      * @param {Object} params
+     * @param {Number} [params.depth]
+     * @param {String} [params.rootId]
      * @returns {Object}
      */
-    getComponentTree(params) {
-        return {tree: this.serializeComponent(this.getComponentRoot(params.rootId), params.depth || -1)};
+    getComponentTree({depth, rootId}) {
+        return {tree: this.serializeComponent(this.getComponentRoot(rootId), depth || -1)}
     }
 
     /**
      * @param {Object} params
+     * @param {String} [params.rootId]
      * @returns {Object}
      */
-    getVdomTree(params) {
-        const component = this.getComponentRoot(params.rootId);
+    getVdomTree({rootId}) {
+        const component = this.getComponentRoot(rootId);
         if (!component) throw new Error('Root component not found');
-        return {vdom: component.vdom};
+        return {vdom: component.vdom}
     }
 
     /**
      * @param {Object} params
+     * @param {String} [params.rootId]
      * @returns {Object}
      */
-    getVnodeTree(params) {
-        const component = this.getComponentRoot(params.rootId);
+    getVnodeTree({rootId}) {
+        const component = this.getComponentRoot(rootId);
         if (!component) throw new Error('Root component not found');
-        return {vnode: component.vnode};
+        return {vnode: component.vnode}
     }
 
     /**
      * @param {Object} params
+     * @param {String} [params.rootId]
+     * @param {Object} params.selector
      * @returns {Object}
      */
-    queryComponent(params) {
-        let {selector, rootId} = params,
-            matches = [];
+    queryComponent({rootId, selector}) {
+        let matches = [];
 
         if (rootId) {
             const component = Neo.getComponent(rootId);
@@ -144,18 +150,21 @@ class ComponentService extends Service {
                 className: c.className,
                 ntype    : c.ntype
             }))
-        };
+        }
     }
 
     /**
      * @param {Object} params
+     * @param {String} params.id
+     * @param {String} params.property
+     * @param {*}      params.value
      * @returns {Object}
      */
-    setComponentProperty(params) {
-        const component = Neo.getComponent(params.id);
-        if (!component) throw new Error(`Component not found: ${params.id}`);
-        component[params.property] = params.value;
-        return {success: true};
+    setComponentProperty({id, property, value}) {
+        const component = Neo.getComponent(id);
+        if (!component) throw new Error(`Component not found: ${id}`);
+        component[property] = value;
+        return {success: true}
     }
 
     /**

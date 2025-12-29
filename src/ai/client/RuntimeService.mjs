@@ -41,12 +41,11 @@ class RuntimeService extends Service {
 
     /**
      * @param {Object} params
+     * @param {Number} [params.windowId]
      * @returns {Object}
      */
-    getRouteHistory(params) {
-        const
-            windowId = params.windowId,
-            stack    = HashHistory.getStack(windowId);
+    getRouteHistory({windowId}) {
+        const stack = HashHistory.getStack(windowId);
 
         return {
             count   : stack.length,
@@ -88,15 +87,17 @@ class RuntimeService extends Service {
 
     /**
      * @param {Object} params
+     * @param {String} params.hash
+     * @param {Number} [params.windowId]
      * @returns {Object}
      */
-    setRoute(params) {
+    setRoute({hash, windowId}) {
         Neo.Main.setRoute({
-            value   : params.hash,
-            windowId: params.windowId
+            value: hash,
+            windowId
         });
 
-        return {status: 'ok', hash: params.hash}
+        return {status: 'ok', hash}
     }
 }
 
