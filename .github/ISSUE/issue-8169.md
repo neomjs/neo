@@ -44,7 +44,7 @@ subIssues:
   - 8195
   - 8196
   - 8197
-subIssuesCompleted: 18
+subIssuesCompleted: 19
 subIssuesTotal: 29
 blockedBy: []
 blocking: []
