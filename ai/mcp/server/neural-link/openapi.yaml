@@ -368,6 +368,93 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /navigation/history:
+    post:
+      summary: Get Route History
+      operationId: get_route_history
+      x-pass-as-object: true
+      description: |
+        Retrieves the navigation history stack and current route information.
+
+        **When to Use:**
+        To understand where the user is in the application and how they got there.
+      tags: [Navigation]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetRouteHistoryRequest'
+      responses:
+        '200':
+          description: Route history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  windowId:
+                    type: integer
+                  history:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /navigation/route/set:
+    post:
+      summary: Set Route
+      operationId: set_route
+      x-pass-as-object: true
+      description: |
+        Navigates the application to a specific route (hash).
+
+        **When to Use:**
+        To drive the application to a specific view or state.
+      tags: [Navigation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRouteRequest'
+      responses:
+        '200':
+          description: Route set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  hash:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /server/start:
     post:
       summary: Start WebSocket Server
@@ -605,6 +692,31 @@ components:
     ReloadPageRequest:
       type: object
       properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetRouteHistoryRequest:
+      type: object
+      properties:
+        windowId:
+          type: integer
+          description: Optional window ID to get history for.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    SetRouteRequest:
+      type: object
+      required:
+        - hash
+      properties:
+        hash:
+          type: string
+          description: The new hash value to set (e.g., "#mainview=home").
+        windowId:
+          type: integer
+          description: Optional window ID to target.
         sessionId:
           type: string
           description: The target App Worker Session ID

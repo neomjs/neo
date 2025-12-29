@@ -26,6 +26,17 @@ class RuntimeService extends Base {
     }
 
     /**
+     * Retrieves the navigation history stack.
+     * @param {Object} opts            The options object.
+     * @param {String} opts.sessionId  The target session ID.
+     * @param {Number} [opts.windowId] Optional window ID.
+     * @returns {Promise<Object>}
+     */
+    async getRouteHistory({sessionId, windowId}) {
+        return await ConnectionService.call(sessionId, 'get_route_history', {windowId})
+    }
+
+    /**
      * Retrieves the topology of all connected windows.
      * @returns {Promise<Object[]>} List of windows.
      */
@@ -64,6 +75,18 @@ class RuntimeService extends Base {
      */
     async reloadPage({sessionId}) {
         return await ConnectionService.call(sessionId, 'reload_page', {})
+    }
+
+    /**
+     * Sets the application route (hash).
+     * @param {Object} opts            The options object.
+     * @param {String} opts.hash       The new hash value.
+     * @param {String} opts.sessionId  The target session ID.
+     * @param {Number} [opts.windowId] Optional window ID.
+     * @returns {Promise<Object>}
+     */
+    async setRoute({hash, sessionId, windowId}) {
+        return await ConnectionService.call(sessionId, 'set_route', {hash, windowId})
     }
 }
 

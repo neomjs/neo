@@ -85,8 +85,10 @@ class Client extends Base {
             list_stores         : me.services.data,
 
             get_drag            : me.services.runtime,
+            get_route           : me.services.runtime,
             get_window          : me.services.runtime,
-            reload_page         : me.services.runtime
+            reload_page         : me.services.runtime,
+            set_route           : me.services.runtime
         };
 
         Neo.currentWorker.on({

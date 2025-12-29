@@ -1,4 +1,5 @@
-import Service from './Service.mjs';
+import HashHistory from '../../util/HashHistory.mjs';
+import Service     from './Service.mjs';
 
 /**
  * Handles runtime environment related Neural Link requests.
@@ -42,6 +43,22 @@ class RuntimeService extends Service {
      * @param {Object} params
      * @returns {Object}
      */
+    getRouteHistory(params) {
+        const
+            windowId = params.windowId,
+            stack    = HashHistory.getStack(windowId);
+
+        return {
+            count   : stack.length,
+            history : stack,
+            windowId: windowId || null
+        }
+    }
+
+    /**
+     * @param {Object} params
+     * @returns {Object}
+     */
     getWindowInfo(params) {
         const windowManager = Neo.manager?.Window;
 
@@ -67,6 +84,19 @@ class RuntimeService extends Service {
     reloadPage(params) {
         Neo.Main.reloadWindow();
         return {status: 'reloading'};
+    }
+
+    /**
+     * @param {Object} params
+     * @returns {Object}
+     */
+    setRoute(params) {
+        Neo.Main.setRoute({
+            value   : params.hash,
+            windowId: params.windowId
+        });
+
+        return {status: 'ok', hash: params.hash}
     }
 }
 
