@@ -26,6 +26,17 @@ class DataService extends Base {
     }
 
     /**
+     * Inspects a specific state provider.
+     * @param {Object} opts The options object.
+     * @param {String} opts.providerId The ID of the provider to inspect.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The state data.
+     */
+    async inspectStateProvider({providerId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'inspect_state_provider', {providerId});
+    }
+
+    /**
      * Inspects a specific data store.
      * @param {Object} opts The options object.
      * @param {String} opts.storeId The ID of the store to inspect.
@@ -56,6 +67,18 @@ class DataService extends Base {
      */
     async getRecord({recordId, storeId, sessionId}) {
         return await ConnectionService.call(sessionId, 'get_record', {recordId, storeId});
+    }
+
+    /**
+     * Modifies the data of a specific state provider.
+     * @param {Object} opts The options object.
+     * @param {String} opts.providerId The ID of the provider to modify.
+     * @param {Object} opts.data The data object to merge into the provider.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<void>}
+     */
+    async modifyStateProvider({data, providerId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'modify_state_provider', {data, providerId});
     }
 }
 

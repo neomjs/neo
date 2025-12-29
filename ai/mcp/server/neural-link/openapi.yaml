@@ -319,6 +319,64 @@ paths:
               schema:
                 type: object
 
+  /data/state/inspect:
+    post:
+      summary: Inspect State Provider
+      operationId: inspect_state_provider
+      x-pass-as-object: true
+      description: |
+        Inspects a specific state provider.
+
+        **When to Use:**
+        To view the hierarchical data of a StateProvider.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectStateProviderRequest'
+      responses:
+        '200':
+          description: State provider data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  data:
+                    type: object
+
+  /data/state/modify:
+    post:
+      summary: Modify State Provider
+      operationId: modify_state_provider
+      x-pass-as-object: true
+      description: |
+        Modifies the data of a specific state provider.
+
+        **When to Use:**
+        To update application state stored in a StateProvider.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyStateProviderRequest'
+      responses:
+        '200':
+          description: Modification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
   /drag/state:
     post:
       summary: Get Drag State
@@ -826,6 +884,34 @@ components:
         storeId:
           type: string
           description: Optional Store ID to scope the search
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    InspectStateProviderRequest:
+      type: object
+      required:
+        - providerId
+      properties:
+        providerId:
+          type: string
+          description: The ID of the state provider to inspect
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    ModifyStateProviderRequest:
+      type: object
+      required:
+        - providerId
+        - data
+      properties:
+        providerId:
+          type: string
+          description: The ID of the state provider to modify
+        data:
+          type: object
+          description: The data object to merge into the provider
         sessionId:
           type: string
           description: The target App Worker Session ID

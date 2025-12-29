@@ -50,6 +50,20 @@ class DataService extends Service {
      * @param {Object} params
      * @returns {Object}
      */
+    inspectStateProvider(params) {
+        const provider = Neo.get(params.providerId);
+        if (!provider) throw new Error(`StateProvider not found: ${params.providerId}`);
+
+        return {
+            id  : provider.id,
+            data: provider.getHierarchyData()
+        }
+    }
+
+    /**
+     * @param {Object} params
+     * @returns {Object}
+     */
     inspectStore(params) {
         const store = Neo.get(params.storeId);
         if (!store) throw new Error(`Store not found: ${params.storeId}`);
@@ -87,6 +101,18 @@ class DataService extends Service {
                 isLoaded: s.isLoaded
             }))
         };
+    }
+
+    /**
+     * @param {Object} params
+     * @returns {Object}
+     */
+    modifyStateProvider(params) {
+        const provider = Neo.get(params.providerId);
+        if (!provider) throw new Error(`StateProvider not found: ${params.providerId}`);
+
+        provider.setData(params.data);
+        return {success: true}
     }
 }
 

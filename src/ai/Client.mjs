@@ -82,8 +82,10 @@ class Client extends Base {
             set_component       : me.services.component,
 
             get_record          : me.services.data,
+            inspect_state_provider: me.services.data,
             inspect_store       : me.services.data,
             list_stores         : me.services.data,
+            modify_state_provider: me.services.data,
 
             get_drag            : me.services.runtime,
             get_route           : me.services.runtime,

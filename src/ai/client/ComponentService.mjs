@@ -150,6 +150,10 @@ class ComponentService extends Service {
             ntype    : component.ntype
         };
 
+        if (component.stateProvider) {
+            result.stateProviderId = component.stateProvider.id
+        }
+
         if (maxDepth === -1 || currentDepth < maxDepth) {
             const children = Neo.manager.Component.getChildren(component);
 
