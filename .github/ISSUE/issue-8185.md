@@ -1,22 +1,24 @@
 ---
 id: 8185
 title: 'Feat: Neural Link - Visual Inspection (DomRect)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-28T21:03:26Z'
-updatedAt: '2025-12-28T21:03:26Z'
+updatedAt: '2025-12-29T21:12:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8185'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8169
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-29T21:12:06Z'
 ---
 # Feat: Neural Link - Visual Inspection (DomRect)
 
@@ -35,9 +37,38 @@ Agents need to understand the physical layout of components to debug visibility 
 
 **Goal:** Provide bulk physical layout inspection capabilities.
 
+## Comments
+
+### @tobiu - 2025-12-29 21:11
+
+**Input from Gemini 3:**
+
+> ✦ I have implemented the Visual Inspection (DomRect) feature.
+> 
+> **Changes:**
+> 1.  **Client-Side (`src/ai/client/ComponentService.mjs`):**
+>     -   Implemented `getDomRect` which accepts `componentIds` (array).
+>     -   It uses the first component ID to resolve the `windowId` context.
+>     -   Calls `Neo.component.Base#getDomRect` to fetch rects from the main thread.
+>     -   Updated `src/ai/Client.mjs` to map `get_dom_rect`.
+> 
+> 2.  **Server-Side (`ai/mcp/server/neural-link/`):**
+>     -   Updated `ComponentService.mjs` to expose `getDomRect`.
+>     -   Updated `toolService.mjs` to register the tool.
+>     -   Updated `openapi.yaml` to define `/component/rect/get` and the `GetDomRectRequest` schema.
+> 
+> **Note:** The implementation strictly requires `componentIds` to be an array of strings, ensuring a consistent tool shape as requested.
+
 ## Activity Log
 
 - 2025-12-28 @tobiu added the `enhancement` label
 - 2025-12-28 @tobiu added the `ai` label
 - 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-29 @tobiu assigned to @tobiu
+- 2025-12-29 @tobiu referenced in commit `6bad751` - "feat(ai): Implement Visual Inspection (DomRect) (#8185)
+
+- Add getDomRect to ComponentService (client & server)
+- Expose get_dom_rect via MCP
+- Enforce array input for componentIds for strictness"
+- 2025-12-29 @tobiu closed this issue
 
