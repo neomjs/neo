@@ -101,7 +101,7 @@ class Client extends Base {
             scope     : me
         });
 
-        me.connect();
+        me.connect()
     }
 
     /**
@@ -127,6 +127,36 @@ class Client extends Base {
     }
 
     /**
+     * Routes specific JSON-RPC methods to their corresponding implementation.
+     * This method acts as the central dispatcher for all AI-driven commands.
+     * @param {String} method The JSON-RPC method name
+     * @param {Object} params The parameters associated with the method
+     * @returns {Promise<*>} The result of the operation
+     */
+    async handleRequest(method, params) {
+        let me      = this,
+            service = null,
+            prefix;
+
+        // Find matching service based on prefix
+        // e.g. "get_component_property" -> matches "get_component" prefix
+        for (prefix in me.serviceMap) {
+            if (method.startsWith(prefix)) {
+                service = me.serviceMap[prefix];
+                break
+            }
+        }
+
+        const fnName = Neo.snakeToCamel(method);
+
+        if (service && typeof service[fnName] === 'function') {
+            return service[fnName](params)
+        }
+
+        throw new Error(`Unknown method: ${method}`);
+    }
+
+    /**
      * @param {Object} data
      */
     onAppWorkerWindowConnect(data) {
@@ -147,12 +177,11 @@ class Client extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.windowId
      */
-    onAppWorkerWindowDisconnect(data) {
+    onAppWorkerWindowDisconnect({windowId}) {
         if (this.isConnected) {
-            this.sendNotification('window_disconnected', {
-                windowId: data.windowId
-            })
+            this.sendNotification('window_disconnected', {windowId})
         }
     }
 
@@ -236,51 +265,6 @@ class Client extends Base {
     }
 
     /**
-     * Routes specific JSON-RPC methods to their corresponding implementation.
-     * This method acts as the central dispatcher for all AI-driven commands.
-     * @param {String} method The JSON-RPC method name
-     * @param {Object} params The parameters associated with the method
-     * @returns {Promise<*>} The result of the operation
-     */
-    async handleRequest(method, params) {
-        let me      = this,
-            service = null,
-            prefix;
-
-        // Find matching service based on prefix
-        // e.g. "get_component_property" -> matches "get_component" prefix
-        for (prefix in me.serviceMap) {
-            if (method.startsWith(prefix)) {
-                service = me.serviceMap[prefix];
-                break
-            }
-        }
-
-        const fnName = Neo.snakeToCamel(method);
-
-        if (service && typeof service[fnName] === 'function') {
-            return service[fnName](params)
-        }
-
-        throw new Error(`Unknown method: ${method}`);
-    }
-
-    /**
-     * Sends a JSON-RPC notification (no id)
-     * @param {String} method
-     * @param {Object} params
-     */
-    sendNotification(method, params) {
-        if (this.isConnected) {
-            this.socket.sendMessage(JSON.stringify({
-                jsonrpc: '2.0',
-                method,
-                params
-            }))
-        }
-    }
-
-    /**
      * Sends a JSON-RPC error response
      * @param {Number|String} id
      * @param {String} message
@@ -296,6 +280,21 @@ class Client extends Base {
                     message: message,
                     data   : {stack}
                 }
+            }))
+        }
+    }
+
+    /**
+     * Sends a JSON-RPC notification (no id)
+     * @param {String} method
+     * @param {Object} params
+     */
+    sendNotification(method, params) {
+        if (this.isConnected) {
+            this.socket.sendMessage(JSON.stringify({
+                jsonrpc: '2.0',
+                method,
+                params
             }))
         }
     }
