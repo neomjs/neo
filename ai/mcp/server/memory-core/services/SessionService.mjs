@@ -321,6 +321,16 @@ class SessionService extends Base {
         if (memories.ids.length === 0) return null;
 
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
+
+        // Calculate the latest timestamp from the session's memories to preserve historical timeline
+        let lastActivity = Date.now();
+        if (memories.metadatas && memories.metadatas.length > 0) {
+            const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
+            if (timestamps.length > 0) {
+                lastActivity = Math.max(...timestamps);
+            }
+        }
+
         const summaryPrompt = `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
 
@@ -360,7 +370,7 @@ ${aggregatedContent}
             documents : [summary],
             embeddings: [embedding],
             metadatas : [{
-                sessionId, timestamp: Date.now(), memoryCount: memories.ids.length,
+                sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity, technologies: technologies.join(',')
             }]
         });
