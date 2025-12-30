@@ -42,9 +42,9 @@ class DatabaseService extends Base {
      */
     async #exportCollection(collection, backupPath, filePrefix) {
         logger.log(`Fetching all documents from "${collection.name}"...`);
-        const data  = await collection.get({include: ["documents", "embeddings", "metadatas"]});
-        const count = data.ids.length;
-
+        
+        // 1. Get total count first
+        const count = await collection.count();
         if (count === 0) {
             logger.log(`No documents found in ${collection.name} to export.`);
             return 0;
@@ -57,14 +57,32 @@ class DatabaseService extends Base {
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
-        for (let i = 0; i < count; i++) {
-            const record = {
-                id       : data.ids[i],
-                embedding: data.embeddings[i],
-                metadata : data.metadatas[i],
-                document : data.documents[i]
-            };
-            writeStream.write(JSON.stringify(record) + '\n');
+        // 2. Paginated Fetch
+        const limit = 2000; // Safe batch size
+        let offset  = 0;
+        
+        while (offset < count) {
+            logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
+            
+            const batch = await collection.get({
+                include: ["documents", "embeddings", "metadatas"],
+                limit  : limit,
+                offset : offset
+            });
+
+            if (!batch.ids || batch.ids.length === 0) break;
+
+            for (let i = 0; i < batch.ids.length; i++) {
+                const record = {
+                    id       : batch.ids[i],
+                    embedding: batch.embeddings[i],
+                    metadata : batch.metadatas[i],
+                    document : batch.documents[i]
+                };
+                writeStream.write(JSON.stringify(record) + '\n');
+            }
+
+            offset += limit;
         }
 
         writeStream.end();
