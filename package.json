@@ -20,6 +20,7 @@
         "ai:mcp-server-neural-link"    : "node ./ai/mcp/server/neural-link/mcp-stdio.mjs",
         "ai:server"                    : "chroma run --path ./chroma-neo-knowledge-base",
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
+        "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
         "build-dist-esm"               : "node ./buildScripts/buildESModules.mjs",
