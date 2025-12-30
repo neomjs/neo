@@ -1,8 +1,8 @@
-import {spawn}     from 'child_process';
-import crypto      from 'crypto';
-import WebSocket   from 'ws';
-import Base        from '../../../../../src/core/Base.mjs';
-import logger      from '../logger.mjs';
+import {spawn}   from 'child_process';
+import crypto    from 'crypto';
+import WebSocket from 'ws';
+import Base      from '../../../../../src/core/Base.mjs';
+import logger    from '../logger.mjs';
 
 /**
  * @summary Manages the connection to the Neural Link Bridge and orchestrates RPC calls.
@@ -41,17 +41,22 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Active Agents connected to the Bridge.
+     * Set<agentId>
+     */
+    activeAgents = new Set()
+    /**
      * Unique ID for this Agent instance.
      */
     agentId = `agent-${crypto.randomUUID()}`
     /**
-     * The WebSocket connection to the Bridge.
-     */
-    bridgeSocket = null
-    /**
      * Bridge child process (if spawned by this service).
      */
     bridgeProcess = null
+    /**
+     * The WebSocket connection to the Bridge.
+     */
+    bridgeSocket = null
     /**
      * Message ID counter.
      */
@@ -66,11 +71,6 @@ class ConnectionService extends Base {
      * Map<sessionId, Object>
      */
     sessionData = new Map()
-    /**
-     * Active Agents connected to the Bridge.
-     * Set<agentId>
-     */
-    activeAgents = new Set()
 
     /**
      * Async initialization sequence.
@@ -78,6 +78,90 @@ class ConnectionService extends Base {
      */
     async initAsync() {
         await this.ensureBridgeAndConnect();
+    }
+
+    /**
+     * Sends a JSON-RPC request to a specific session via the Bridge.
+     * @param {String} sessionId    The target session ID.
+     * @param {String} method      The RPC method name.
+     * @param {Object} [params={}] The RPC parameters.
+     * @returns {Promise<any>}
+     */
+    async call(sessionId, method, params={}) {
+        if (!this.bridgeSocket) {
+            throw new Error('Not connected to Neural Link Bridge');
+        }
+
+        // If no sessionId, pick the most recent one (Auto-Targeting)
+        if (!sessionId) {
+            if (this.sessionData.size > 0) {
+                sessionId = Array.from(this.sessionData.keys()).pop();
+                logger.warn(`No sessionId provided. Defaulting to ${sessionId}`);
+            } else {
+                // Wait for a session?
+                throw new Error('No active App Worker sessions found.');
+            }
+        }
+
+        const id = ++this.msgId;
+        const rpcMessage = {
+            jsonrpc: '2.0',
+            method,
+            params,
+            id
+        };
+
+        const bridgePayload = {
+            target : sessionId,
+            message: rpcMessage
+        };
+
+        return new Promise((resolve, reject) => {
+            // Timeout after 30s
+            const timeout = setTimeout(() => {
+                if (this.pendingRequests.has(id)) {
+                    this.pendingRequests.delete(id);
+                    reject(new Error('Request timed out'));
+                }
+            }, 30000);
+
+            this.pendingRequests.set(id, {resolve, reject, timeout});
+
+            this.bridgeSocket.send(JSON.stringify(bridgePayload));
+        });
+    }
+
+    /**
+     * Connects to the Bridge WebSocket.
+     * @returns {Promise<void>}
+     */
+    async connectToBridge() {
+        return new Promise((resolve, reject) => {
+            const url = `ws://localhost:${this.port}?role=agent&id=${this.agentId}`;
+            const ws  = new WebSocket(url);
+
+            ws.on('open', () => {
+                logger.info(`Connected to Neural Link Bridge as ${this.agentId}`);
+                this.bridgeSocket = ws;
+                resolve();
+            });
+
+            ws.on('message', (data) => this.handleBridgeMessage(data));
+
+            ws.on('close', () => {
+                logger.warn('Disconnected from Neural Link Bridge');
+                this.bridgeSocket = null;
+                // Optional: Auto-reconnect logic could go here
+            });
+
+            ws.on('error', (err) => {
+                if (!this.bridgeSocket) {
+                    reject(err); // Reject if error happens during initial connect
+                } else {
+                    logger.error('Bridge Socket Error:', err);
+                }
+            });
+        });
     }
 
     /**
@@ -102,88 +186,26 @@ class ConnectionService extends Base {
     }
 
     /**
-     * Spawns the Bridge process.
-     * @returns {Promise<void>}
+     * Returns the current status.
+     * @returns {Object}
      */
-    async spawnBridge() {
-        return new Promise((resolve, reject) => {
-            const args = ['run', 'ai:server-neural-link'];
-            
-            this.bridgeProcess = spawn('npm', args, {
-                cwd: process.cwd(),
-                detached: true,
-                stdio: 'ignore' // or 'inherit' for debugging
-            });
+    getStatus() {
+        const windows = [];
 
-            this.bridgeProcess.unref();
-
-            // Give it a moment to start
-            setTimeout(resolve, 2000);
-        });
-    }
-
-    /**
-     * Connects to the Bridge WebSocket.
-     * @returns {Promise<void>}
-     */
-    async connectToBridge() {
-        return new Promise((resolve, reject) => {
-            const url = `ws://localhost:${this.port}?role=agent&id=${this.agentId}`;
-            const ws  = new WebSocket(url);
-
-            ws.on('open', () => {
-                logger.info(`Connected to Neural Link Bridge as ${this.agentId}`);
-                this.bridgeSocket = ws;
-                resolve();
-            });
-
-            ws.on('message', (data) => this.handleBridgeMessage(data));
-            
-            ws.on('close', () => {
-                logger.warn('Disconnected from Neural Link Bridge');
-                this.bridgeSocket = null;
-                // Optional: Auto-reconnect logic could go here
-            });
-
-            ws.on('error', (err) => {
-                if (!this.bridgeSocket) {
-                    reject(err); // Reject if error happens during initial connect
-                } else {
-                    logger.error('Bridge Socket Error:', err);
+        for (const meta of this.sessionData.values()) {
+            if (meta.windows) {
+                for (const win of meta.windows.values()) {
+                    windows.push(win)
                 }
-            });
-        });
-    }
-
-    /**
-     * Handles messages received from the Bridge.
-     * @param {Buffer} data
-     */
-    handleBridgeMessage(data) {
-        try {
-            const payload = JSON.parse(data.toString());
-
-            switch (payload.type) {
-                case 'app_connected':
-                    this.handleAppConnected(payload.appWorkerId);
-                    break;
-                case 'app_disconnected':
-                    this.handleAppDisconnected(payload.appWorkerId);
-                    break;
-                case 'app_message':
-                    this.handleAppMessage(payload.appWorkerId, payload.message);
-                    break;
-                case 'agent_connected':
-                    this.handleAgentConnected(payload.agentId);
-                    break;
-                case 'agent_disconnected':
-                    this.handleAgentDisconnected(payload.agentId);
-                    break;
-                default:
-                    logger.debug('Unknown message type from Bridge:', payload.type);
             }
-        } catch (err) {
-            logger.error('Error parsing Bridge message:', err);
+        }
+
+        return {
+            sessions       : this.sessionData.size,
+            windows,
+            bridgeConnected: !!this.bridgeSocket,
+            agentId        : this.agentId,
+            agents         : Array.from(this.activeAgents)
         }
     }
 
@@ -246,6 +268,38 @@ class ConnectionService extends Base {
     }
 
     /**
+     * Handles messages received from the Bridge.
+     * @param {Buffer} data
+     */
+    handleBridgeMessage(data) {
+        try {
+            const payload = JSON.parse(data.toString());
+
+            switch (payload.type) {
+                case 'app_connected':
+                    this.handleAppConnected(payload.appWorkerId);
+                    break;
+                case 'app_disconnected':
+                    this.handleAppDisconnected(payload.appWorkerId);
+                    break;
+                case 'app_message':
+                    this.handleAppMessage(payload.appWorkerId, payload.message);
+                    break;
+                case 'agent_connected':
+                    this.handleAgentConnected(payload.agentId);
+                    break;
+                case 'agent_disconnected':
+                    this.handleAgentDisconnected(payload.agentId);
+                    break;
+                default:
+                    logger.debug('Unknown message type from Bridge:', payload.type);
+            }
+        } catch (err) {
+            logger.error('Error parsing Bridge message:', err);
+        }
+    }
+
+    /**
      * Handles notifications (updates metadata).
      * @param {String} sessionId
      * @param {Object} message
@@ -281,7 +335,7 @@ class ConnectionService extends Base {
             }
             return;
         }
-        
+
         // Log other methods
         logger.debug(`Notification from ${sessionId}: ${message.method}`);
     }
@@ -305,78 +359,24 @@ class ConnectionService extends Base {
     }
 
     /**
-     * Sends a JSON-RPC request to a specific session via the Bridge.
-     * @param {String} sessionId    The target session ID.
-     * @param {String} method      The RPC method name.
-     * @param {Object} [params={}] The RPC parameters.
-     * @returns {Promise<any>}
+     * Spawns the Bridge process.
+     * @returns {Promise<void>}
      */
-    async call(sessionId, method, params={}) {
-        if (!this.bridgeSocket) {
-            throw new Error('Not connected to Neural Link Bridge');
-        }
-
-        // If no sessionId, pick the most recent one (Auto-Targeting)
-        if (!sessionId) {
-            if (this.sessionData.size > 0) {
-                sessionId = Array.from(this.sessionData.keys()).pop();
-                logger.warn(`No sessionId provided. Defaulting to ${sessionId}`);
-            } else {
-                // Wait for a session?
-                 throw new Error('No active App Worker sessions found.');
-            }
-        }
-
-        const id = ++this.msgId;
-        const rpcMessage = {
-            jsonrpc: '2.0',
-            method,
-            params,
-            id
-        };
-
-        const bridgePayload = {
-            target : sessionId,
-            message: rpcMessage
-        };
-
+    async spawnBridge() {
         return new Promise((resolve, reject) => {
-            // Timeout after 30s
-            const timeout = setTimeout(() => {
-                if (this.pendingRequests.has(id)) {
-                    this.pendingRequests.delete(id);
-                    reject(new Error('Request timed out'));
-                }
-            }, 30000);
+            const args = ['run', 'ai:server-neural-link'];
 
-            this.pendingRequests.set(id, {resolve, reject, timeout});
+            this.bridgeProcess = spawn('npm', args, {
+                cwd     : process.cwd(),
+                detached: true,
+                stdio   : 'ignore' // or 'inherit' for debugging
+            });
 
-            this.bridgeSocket.send(JSON.stringify(bridgePayload));
+            this.bridgeProcess.unref();
+
+            // Give it a moment to start
+            setTimeout(resolve, 2000);
         });
-    }
-
-    /**
-     * Returns the current status.
-     * @returns {Object}
-     */
-    getStatus() {
-        const windows = [];
-
-        for (const meta of this.sessionData.values()) {
-            if (meta.windows) {
-                for (const win of meta.windows.values()) {
-                    windows.push(win)
-                }
-            }
-        }
-
-        return {
-            sessions: this.sessionData.size,
-            windows,
-            bridgeConnected: !!this.bridgeSocket,
-            agentId: this.agentId,
-            agents: Array.from(this.activeAgents)
-        }
     }
 
     /**
@@ -390,7 +390,7 @@ class ConnectionService extends Base {
         const status = this.getStatus();
 
         if (status.bridgeConnected) {
-            return { message: 'Neural Link Bridge started and connected successfully.' };
+            return {message: 'Neural Link Bridge started and connected successfully.'};
         } else {
             throw new Error('Failed to connect to Neural Link Bridge after spawn attempt.');
         }
@@ -414,10 +414,10 @@ class ConnectionService extends Base {
             this.bridgeProcess.kill();
             this.bridgeProcess = null;
             logger.info('Bridge process terminated.');
-            return { message: 'Neural Link Bridge stopped.' };
+            return {message: 'Neural Link Bridge stopped.'};
         } else {
             logger.warn('No managed Bridge process found. Server might have been started externally.');
-            return { message: 'Disconnected. Bridge process was not managed by this session (not killed).' };
+            return {message: 'Disconnected. Bridge process was not managed by this session (not killed).'};
         }
     }
 }
