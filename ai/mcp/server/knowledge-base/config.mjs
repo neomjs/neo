@@ -66,12 +66,17 @@ const defaultConfig = {
      * The name of the Google Generative AI model for text embeddings.
      * @type {string}
      */
-    embeddingModel: 'text-embedding-004',
+    embeddingModel: 'gemini-embedding-001',
     /**
      * The number of chunks to process in a single batch when embedding.
      * @type {number}
      */
-    batchSize: 100,
+    batchSize: 50,
+    /**
+     * Delay in milliseconds between batches to avoid rate limits.
+     * @type {number}
+     */
+    batchDelay: 10000,
     /**
      * The maximum number of times to retry a failed embedding batch.
      * @type {number}
