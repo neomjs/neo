@@ -776,6 +776,10 @@ components:
               type: integer
             connectedWindows:
               type: integer
+            agents:
+              type: array
+              items:
+                type: string
         details:
           type: array
           items:

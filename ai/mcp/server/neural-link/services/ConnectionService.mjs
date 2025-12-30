@@ -66,6 +66,11 @@ class ConnectionService extends Base {
      * Map<sessionId, Object>
      */
     sessionData = new Map()
+    /**
+     * Active Agents connected to the Bridge.
+     * Set<agentId>
+     */
+    activeAgents = new Set()
 
     /**
      * Async initialization sequence.
@@ -168,11 +173,38 @@ class ConnectionService extends Base {
                 case 'app_message':
                     this.handleAppMessage(payload.appWorkerId, payload.message);
                     break;
+                case 'agent_connected':
+                    this.handleAgentConnected(payload.agentId);
+                    break;
+                case 'agent_disconnected':
+                    this.handleAgentDisconnected(payload.agentId);
+                    break;
                 default:
                     logger.debug('Unknown message type from Bridge:', payload.type);
             }
         } catch (err) {
             logger.error('Error parsing Bridge message:', err);
+        }
+    }
+
+    /**
+     * @param {String} agentId
+     */
+    handleAgentConnected(agentId) {
+        // Ignore self
+        if (agentId !== this.agentId) {
+            logger.info(`Agent connected: ${agentId}`);
+            this.activeAgents.add(agentId);
+        }
+    }
+
+    /**
+     * @param {String} agentId
+     */
+    handleAgentDisconnected(agentId) {
+        if (this.activeAgents.has(agentId)) {
+            logger.info(`Agent disconnected: ${agentId}`);
+            this.activeAgents.delete(agentId);
         }
     }
 
@@ -342,7 +374,8 @@ class ConnectionService extends Base {
             sessions: this.sessionData.size,
             windows,
             bridgeConnected: !!this.bridgeSocket,
-            agentId: this.agentId
+            agentId: this.agentId,
+            agents: Array.from(this.activeAgents)
         }
     }
 }

@@ -159,8 +159,18 @@ class Bridge extends Base {
         ws.on('close',   ()     => {
             logger.info(`Bridge: Agent disconnected [${id}]`);
             this.agents.delete(id);
+            this.broadcastToAgents({
+                type   : 'agent_disconnected',
+                agentId: id
+            });
         });
         ws.on('error', (err) => logger.error(`Bridge: Agent error [${id}]`, err));
+
+        // Notify other agents
+        this.broadcastToAgents({
+            type   : 'agent_connected',
+            agentId: id
+        });
     }
 
     /**

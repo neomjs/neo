@@ -51,6 +51,10 @@ class HealthService extends Base {
                 details.push(`${status.windows.length} connected window(s)`);
             }
 
+            if (status.agents && status.agents.length > 0) {
+                details.push(`${status.agents.length} other agent(s) connected`);
+            }
+
             return {
                 status   : health,
                 timestamp: new Date().toISOString(),
@@ -61,7 +65,8 @@ class HealthService extends Base {
                 },
                 session  : {
                     activeApps      : status.sessions,
-                    connectedWindows: status.windows.length
+                    connectedWindows: status.windows.length,
+                    agents          : status.agents || []
                 },
                 details,
                 version  : process.env.npm_package_version || '1.0.0',
