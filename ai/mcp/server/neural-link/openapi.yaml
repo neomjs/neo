@@ -760,12 +760,19 @@ components:
         timestamp:
           type: string
           format: date-time
-        server:
+        bridge:
           type: object
           properties:
+            connected:
+              type: boolean
+            agentId:
+              type: string
             port:
               type: integer
-            activeSessions:
+        session:
+          type: object
+          properties:
+            activeApps:
               type: integer
             connectedWindows:
               type: integer

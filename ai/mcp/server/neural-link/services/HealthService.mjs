@@ -33,8 +33,16 @@ class HealthService extends Base {
      */
     async healthcheck() {
         try {
-            const status = ConnectionService.getStatus();
+            const status  = ConnectionService.getStatus();
             const details = [];
+            let   health  = 'healthy';
+
+            if (!status.bridgeConnected) {
+                health = 'unhealthy';
+                details.push('Not connected to Neural Link Bridge');
+            } else {
+                details.push('Connected to Neural Link Bridge');
+            }
 
             if (status.sessions === 0) {
                 details.push('No active App Worker sessions');
@@ -44,11 +52,15 @@ class HealthService extends Base {
             }
 
             return {
-                status   : 'healthy',
+                status   : health,
                 timestamp: new Date().toISOString(),
-                server   : {
-                    port            : ConnectionService.port,
-                    activeSessions  : status.sessions,
+                bridge   : {
+                    connected: status.bridgeConnected,
+                    agentId  : status.agentId,
+                    port     : ConnectionService.port
+                },
+                session  : {
+                    activeApps      : status.sessions,
                     connectedWindows: status.windows.length
                 },
                 details,
