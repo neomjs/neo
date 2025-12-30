@@ -54,6 +54,12 @@ const defaultConfig = {
      */
     summarizationBatchLimit: 2000,
     /**
+     * Maximum number of concurrent session summarization requests.
+     * Prevents hitting LLM/Embedding API rate limits during bulk operations.
+     * @type {number}
+     */
+    summarizationConcurrency: 5,
+    /**
      * Configuration for the AI agent's persistent memory database.
      */
     memoryDb: {
