@@ -378,6 +378,48 @@ class ConnectionService extends Base {
             agents: Array.from(this.activeAgents)
         }
     }
+
+    /**
+     * Tool handler: Starts the standalone Bridge process (if not running) and connects to it.
+     * @returns {Promise<Object>}
+     */
+    async startServer() {
+        logger.info('Tool: start_ws_server called. Ensuring Bridge is running...');
+        await this.ensureBridgeAndConnect();
+
+        const status = this.getStatus();
+
+        if (status.bridgeConnected) {
+            return { message: 'Neural Link Bridge started and connected successfully.' };
+        } else {
+            throw new Error('Failed to connect to Neural Link Bridge after spawn attempt.');
+        }
+    }
+
+    /**
+     * Tool handler: Stops the standalone Bridge process and disconnects.
+     * @returns {Promise<Object>}
+     */
+    async stopServer() {
+        logger.info('Tool: stop_ws_server called. Stopping Bridge...');
+
+        // 1. Disconnect Client
+        if (this.bridgeSocket) {
+            this.bridgeSocket.close();
+            this.bridgeSocket = null;
+        }
+
+        // 2. Kill Process
+        if (this.bridgeProcess) {
+            this.bridgeProcess.kill();
+            this.bridgeProcess = null;
+            logger.info('Bridge process terminated.');
+            return { message: 'Neural Link Bridge stopped.' };
+        } else {
+            logger.warn('No managed Bridge process found. Server might have been started externally.');
+            return { message: 'Disconnected. Bridge process was not managed by this session (not killed).' };
+        }
+    }
 }
 
 export default Neo.setupClass(ConnectionService);
