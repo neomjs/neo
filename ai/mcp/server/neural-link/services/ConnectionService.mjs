@@ -84,12 +84,25 @@ class ConnectionService extends Base {
             return;
         }
 
-        this.wss = new WebSocketServer({port: this.port});
+        return new Promise((resolve, reject) => {
+            const wss = new WebSocketServer({port: this.port});
 
-        this.wss.on('connection', (ws, req) => this.#handleConnection(ws, req));
-        this.wss.on('error',      (err)     => logger.error('WebSocket Server Error:', err));
+            wss.on('listening', () => {
+                logger.info(`WebSocket Server listening on port ${this.port}`);
+                this.wss = wss;
+                
+                // Attach permanent handlers only after successful start
+                wss.on('connection', (ws, req) => this.#handleConnection(ws, req));
+                wss.on('error',      (err)     => logger.error('WebSocket Server Error:', err));
+                
+                resolve();
+            });
 
-        logger.info(`WebSocket Server listening on port ${this.port}`);
+            wss.on('error', (err) => {
+                logger.error('WebSocket Server Startup Error:', err);
+                reject(err);
+            });
+        });
     }
 
     /**
