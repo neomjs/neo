@@ -1,5 +1,6 @@
 import {spawn}   from 'child_process';
 import crypto    from 'crypto';
+import fs        from 'fs';
 import WebSocket from 'ws';
 import Base      from '../../../../../src/core/Base.mjs';
 import logger    from '../logger.mjs';
@@ -116,11 +117,14 @@ class ConnectionService extends Base {
             message: rpcMessage
         };
 
+        logger.info(`[ConnectionService] Sending call ${id} to ${sessionId}: ${method}`);
+
         return new Promise((resolve, reject) => {
             // Timeout after 30s
             const timeout = setTimeout(() => {
                 if (this.pendingRequests.has(id)) {
                     this.pendingRequests.delete(id);
+                    logger.error(`[ConnectionService] Call ${id} timed out`);
                     reject(new Error('Request timed out'));
                 }
             }, 30000);
@@ -257,6 +261,7 @@ class ConnectionService extends Base {
     handleAppMessage(sessionId, message) {
         // 1. Response to a pending request
         if (message.id && (message.result !== undefined || message.error !== undefined)) {
+            logger.info(`[ConnectionService] Received response for ${message.id} from ${sessionId}`);
             this.resolveRequest(message);
             return;
         }
@@ -365,11 +370,12 @@ class ConnectionService extends Base {
     async spawnBridge() {
         return new Promise((resolve, reject) => {
             const args = ['run', 'ai:server-neural-link'];
+            const logFile = fs.openSync('./bridge.log', 'a');
 
             this.bridgeProcess = spawn('npm', args, {
                 cwd     : process.cwd(),
                 detached: true,
-                stdio   : 'ignore' // or 'inherit' for debugging
+                stdio   : ['ignore', logFile, logFile]
             });
 
             this.bridgeProcess.unref();
