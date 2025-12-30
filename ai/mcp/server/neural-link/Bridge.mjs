@@ -100,10 +100,10 @@ class Bridge extends Base {
         if (!this.wss) return;
 
         logger.info('Bridge: Stopping server...');
-        
+
         this.agents.forEach(ws => ws.terminate());
         this.apps.forEach(ws => ws.terminate());
-        
+
         this.agents.clear();
         this.apps.clear();
 
@@ -180,7 +180,7 @@ class Bridge extends Base {
      */
     registerApp(id, ws, appName='Unknown') {
         logger.info(`Bridge: App connected [${id}] (${appName})`);
-        
+
         // Handle reconnects: Close old socket if exists
         if (this.apps.has(id)) {
             logger.warn(`Bridge: Closing stale connection for App [${id}]`);
@@ -217,7 +217,7 @@ class Bridge extends Base {
     handleAgentMessage(agentId, data) {
         try {
             const payload = JSON.parse(data.toString());
-            
+
             if (!payload.target || !payload.message) {
                 logger.warn(`Bridge: Invalid message format from Agent [${agentId}]`);
                 return;
@@ -230,7 +230,21 @@ class Bridge extends Base {
                 appWs.send(JSON.stringify(payload.message));
             } else {
                 logger.warn(`Bridge: Target App [${payload.target}] not found for Agent [${agentId}]`);
-                // Optional: Send error back to agent
+
+                // If the message is a request (has an id), send an immediate error response
+                if (agentWs && payload.message?.id) {
+                    agentWs.send(JSON.stringify({
+                        type       : 'app_message',
+                        appWorkerId: payload.target,
+                        message    : {
+                            id   : payload.message.id,
+                            error: {
+                                code   : -32000,
+                                message: `Target App [${payload.target}] not found`
+                            }
+                        }
+                    }));
+                }
             }
 
         } catch (err) {

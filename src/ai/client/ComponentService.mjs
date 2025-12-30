@@ -205,7 +205,7 @@ class ComponentService extends Service {
         }
 
         if (maxDepth === -1 || currentDepth < maxDepth) {
-            const children = Neo.manager.Component.getChildren(component);
+            const children = Neo.manager.Component.getChildComponents(component);
 
             if (children && children.length > 0) {
                 result.items = children.map(child => this.serializeComponent(child, maxDepth, currentDepth + 1))
