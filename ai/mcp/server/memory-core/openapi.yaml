@@ -462,6 +462,13 @@ paths:
                   description: |
                     - merge: Add new records, skip existing IDs
                     - replace: Clear existing data and import
+                reEmbed:
+                  type: boolean
+                  default: false
+                  description: |
+                    If true, ignores stored embeddings and generates new ones using the current model.
+                    Crucial for model migration (e.g., to gemini-embedding-001).
+                    NOTE: This is a slow operation due to rate limiting (batching).
               required:
                 - file
       responses:
