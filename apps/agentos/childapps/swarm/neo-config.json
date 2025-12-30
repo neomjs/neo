@@ -4,6 +4,7 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "themes"          : ["neo-theme-cyberpunk"],
+    "useAiClient"     : true,
     "useCanvasWorker" : true,
     "useSharedWorkers": true
 }
