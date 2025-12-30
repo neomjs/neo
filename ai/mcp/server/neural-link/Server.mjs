@@ -81,8 +81,8 @@ class Server extends Base {
             health.details.forEach(detail => logger.warn(`    ${detail}`));
         } else {
             logger.info('✅ [Startup] Neural Link health check passed');
-            logger.info(`   - Active Sessions: ${health.server.activeSessions}`);
-            logger.info(`   - Connected Windows: ${health.server.connectedWindows}`);
+            logger.info(`   - Active Sessions: ${health.session.activeApps}`);
+            logger.info(`   - Connected Windows: ${health.session.connectedWindows}`);
         }
     }
 
