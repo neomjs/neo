@@ -109,10 +109,19 @@ class Client extends Base {
      * Uses Neo.data.connection.WebSocket for robust connection management.
      */
     connect() {
-        let me  = this,
-            url = new URL(me.url);
+        let me      = this,
+            url     = new URL(me.url),
+            appName = 'Unknown App';
+
+        if (Neo.config.appPath) {
+            const match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
+            if (match) {
+                appName = match[1];
+            }
+        }
 
         url.searchParams.set('appWorkerId', Neo.worker.App.id);
+        url.searchParams.set('appName',     appName);
 
         me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
             serverAddress: url.toString(),

@@ -124,8 +124,9 @@ class Bridge extends Base {
     handleConnection(ws, req) {
         try {
             const url  = new URL(req.url, `http://${req.headers.host}`);
-            const role = url.searchParams.get('role'); // 'app' or 'agent'
-            const id   = url.searchParams.get('id') || url.searchParams.get('appWorkerId'); // Support legacy param
+            const role    = url.searchParams.get('role'); // 'app' or 'agent'
+            const id      = url.searchParams.get('id') || url.searchParams.get('appWorkerId'); // Support legacy param
+            const appName = url.searchParams.get('appName');
 
             if (!id) {
                 logger.warn('Bridge: Connection rejected. No ID provided.');
@@ -137,7 +138,7 @@ class Bridge extends Base {
                 this.registerAgent(id, ws);
             } else {
                 // Default to app if no role specified (backward compatibility)
-                this.registerApp(id, ws);
+                this.registerApp(id, ws, appName);
             }
 
         } catch (err) {
@@ -165,9 +166,10 @@ class Bridge extends Base {
     /**
      * @param {String} id
      * @param {WebSocket} ws
+     * @param {String} [appName='Unknown']
      */
-    registerApp(id, ws) {
-        logger.info(`Bridge: App connected [${id}]`);
+    registerApp(id, ws, appName='Unknown') {
+        logger.info(`Bridge: App connected [${id}] (${appName})`);
         
         // Handle reconnects: Close old socket if exists
         if (this.apps.has(id)) {
@@ -179,7 +181,7 @@ class Bridge extends Base {
 
         ws.on('message', (data) => this.handleAppMessage(id, data));
         ws.on('close',   ()     => {
-            logger.info(`Bridge: App disconnected [${id}]`);
+            logger.info(`Bridge: App disconnected [${id}] (${appName})`);
             this.apps.delete(id);
             this.broadcastToAgents({
                 type: 'app_disconnected',
@@ -190,8 +192,9 @@ class Bridge extends Base {
 
         // Notify agents of new app
         this.broadcastToAgents({
-            type: 'app_connected',
-            appWorkerId: id
+            type       : 'app_connected',
+            appWorkerId: id,
+            appName
         });
     }
 
