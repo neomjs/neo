@@ -1,14 +1,15 @@
 ---
 id: 8211
 title: Update ConnectionService to use Neural Link Bridge
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-30T09:18:03Z'
-updatedAt: '2025-12-30T09:41:15Z'
+updatedAt: '2025-12-30T10:15:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8211'
 author: tobiu
 commentsCount: 1
@@ -17,8 +18,9 @@ subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy:
-  - '[ ] 8210'
+  - '[x] 8210'
 blocking: []
+closedAt: '2025-12-30T10:15:36Z'
 ---
 # Update ConnectionService to use Neural Link Bridge
 
@@ -51,4 +53,6 @@ Refactor `ConnectionService.mjs` to work as a client to the new Bridge process.
 - Refactored ConnectionService to act as a client to the Bridge
 - Enables multiple MCP agents to share the same browser connection port (8081)"
 - 2025-12-30 @tobiu cross-referenced by #8210
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu closed this issue
 

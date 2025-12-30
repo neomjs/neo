@@ -1,14 +1,14 @@
 ---
 id: 8212
 title: Enhance Neural Link Health Check with detailed diagnostics
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-30T09:46:03Z'
-updatedAt: '2025-12-30T09:47:33Z'
+updatedAt: '2025-12-30T10:13:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8212'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-30T10:13:44Z'
 ---
 # Enhance Neural Link Health Check with detailed diagnostics
 
@@ -62,4 +63,6 @@ See `ai/mcp/server/memory-core/services/HealthService.mjs` for the target patter
 
 - Updated HealthService to report Bridge connection status and session details
 - Updated openapi.yaml schema for HealthCheckResponse"
+- 2025-12-30 @tobiu closed this issue
+- 2025-12-30 @tobiu cross-referenced by #8214
 

@@ -1,14 +1,15 @@
 ---
 id: 8210
 title: Create standalone Neural Link Bridge process
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-30T09:18:00Z'
-updatedAt: '2025-12-30T09:41:10Z'
+updatedAt: '2025-12-30T10:15:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8210'
 author: tobiu
 commentsCount: 1
@@ -18,7 +19,8 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
-  - '[ ] 8211'
+  - '[x] 8211'
+closedAt: '2025-12-30T10:15:21Z'
 ---
 # Create standalone Neural Link Bridge process
 
@@ -58,4 +60,6 @@ This moves the state out of the MCP Agent process, enabling multiple agents to s
 - Refactored ConnectionService to act as a client to the Bridge
 - Enables multiple MCP agents to share the same browser connection port (8081)"
 - 2025-12-30 @tobiu cross-referenced by #8211
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu closed this issue
 
