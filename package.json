@@ -13,6 +13,7 @@
     "scripts": {
         "add-config"                   : "node ./buildScripts/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/addReactiveTags.mjs",
+        "ai:download-kb"               : "node ./buildScripts/downloadKnowledgeBase.mjs",
         "ai:mcp-client"                : "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-stdio.mjs",
         "ai:mcp-server-knowledge-base" : "node ./ai/mcp/server/knowledge-base/mcp-stdio.mjs",
@@ -22,6 +23,7 @@
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
         "ai:sync-kb"                   : "node ./ai/examples/sync_knowledge_base.mjs",
+        "ai:upload-kb"                 : "node ./buildScripts/uploadKnowledgeBase.mjs",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
         "build-dist-esm"               : "node ./buildScripts/buildESModules.mjs",
@@ -36,6 +38,7 @@
         "create-class"                 : "node ./buildScripts/createClass.mjs",
         "create-component"             : "node ./buildScripts/createComponent.mjs",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",
+        "prepare"                      : "node ./buildScripts/downloadKnowledgeBase.mjs",
         "prepare-release"              : "node ./buildScripts/prepareRelease.mjs",
         "server-start"                 : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                         : "playwright test -c test/playwright/playwright.config.mjs",
