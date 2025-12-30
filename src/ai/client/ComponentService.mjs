@@ -54,9 +54,9 @@ class ComponentService extends Service {
      * @param {Object} params
      * @param {String} params.componentId
      * @param {Object} [params.options]
-     * @returns {Promise<Object>}
+     * @returns {Object}
      */
-    async highlightComponent({componentId, options}) {
+    highlightComponent({componentId, options}) {
         let component = Neo.getComponent(componentId),
             originalStyle;
 
@@ -84,9 +84,9 @@ class ComponentService extends Service {
 
         component.style = {...originalStyle, ...highlightStyle};
 
-        await this.timeout(duration);
-
-        component.style = originalStyle;
+        this.timeout(duration).then(() => {
+            component.style = originalStyle
+        });
 
         return {success: true}
     }
