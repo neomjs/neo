@@ -41,26 +41,36 @@ For this workflow, an "AI agent" is a terminal-based AI assistant capable of exe
 
 ## 3. Setup the AI Environment (Required)
 
-This section covers the mandatory steps to create the local vector database. The embedding process uses a Google
-Gemini model, so a Gemini API key is required regardless of which AI agent you choose for chatting.
+This section covers the mandatory steps to set up the local AI environment.
 
-### A Note on Cost
+### Step 3.1: Knowledge Base Setup (Automatic)
 
-This entire process uses the free tier of the Google Gemini API. The free tier is generous and more than sufficient for
-this development workflow, typically allowing up to 60 queries per minute for the embedding model used here.
-You can check your specific limits in the Google AI Studio.
+For most contributors, the Knowledge Base setup is fully automated. When you run `npm install` in the repository root, a `prepare` script automatically downloads the latest pre-built Knowledge Base artifact from the corresponding GitHub Release.
 
-### Step 3.1: Obtain a Gemini API Key
+1.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
+    Watch for the `> neo.mjs@... prepare` step. It should say: `✅ Download complete` and `🎉 Knowledge Base is ready!`.
 
-The API key authenticates your requests to Google's Gemini models.
+2.  **Verify**: Check if the `chroma-neo-knowledge-base` folder exists in your project root.
+
+**Troubleshooting (Manual Setup):**
+If the automatic download fails (e.g., due to network issues), you can trigger it manually:
+```bash
+npm run ai:download-kb
+```
+
+### Step 3.2: Obtain a Gemini API Key
+
+The Knowledge Base artifact allows you to start quickly, but you still need a Gemini API Key to run the AI Agent (for chat/generation) and for incremental updates to the knowledge base.
 
 1.  **Visit Google AI Studio**: Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
 2.  **Sign In**: Use your Google account credentials. Complete any two-factor authentication (2FA) if prompted.
 3.  **Create API Key**: Click the "Create API key" button. The key will be generated instantly.
-4.  **Copy and Secure the Key**: Click the copy icon next to the key. **Treat this key like a password and never commit
-    it to version control.**
+4.  **Copy and Secure the Key**: Click the copy icon next to the key. **Treat this key like a password and never commit it to version control.**
 
-### Step 3.2: Configure Your Local Environment
+### Step 3.3: Configure Your Local Environment
 
 1.  **Navigate to Repo Root**: Make sure you are in the root directory of your cloned `neo` repository.
 2.  **Create `.env` file**: Create a new file named `.env`.
@@ -70,30 +80,30 @@ The API key authenticates your requests to Google's Gemini models.
     ```
     This file is already listed in `.gitignore` to prevent you from accidentally committing your key.
 
-### Step 3.3: Initial Knowledge Base Setup
-
-The first time you use the AI tooling, the knowledge base needs to be embedded. The MCP servers will handle this automatically when launched by your AI agent (e.g., Gemini CLI).
-
-**Optional - For Debugging Only**: If you want to manually verify the knowledge base embedding or troubleshoot ChromaDB issues, you can run:
-```bash
-npm run ai:server-all
-```
-This will start the servers directly so you can see their logs. However, this is **not required** for normal usage - your AI agent will start them automatically.
+### Step 3.4: Understanding the Workflow
 
 **Subsequent Sessions:**
-- The MCP servers are automatically started by the Gemini CLI when you run `gemini`
-- The knowledge base is cached - full embedding only runs on first launch
-- File changes are detected and incrementally updated
-- **You do not need to manually start servers** unless debugging
+- The MCP servers are automatically started by the Gemini CLI when you run `gemini`.
+- The knowledge base is cached. Incremental updates (when you modify files) are fast and consume very little API quota.
+- **You do not need to manually start servers** unless debugging.
 
-### Step 3.4: Verify the Setup
+**Critical Rate Limit Warning (Manual Rebuilds):**
+The free tier of the Gemini API has a strict limit of **1,000 requests per day** for the embedding model.
+*   **Do NOT** run `npm run ai:sync-kb` (full rebuild) unless absolutely necessary. A full rebuild requires ~153 requests and takes ~25 minutes due to rate-limiting delays.
+*   The pre-built artifact saves you from this cost and delay.
 
-After starting the servers, the knowledge base will be embedded automatically. This process takes 2-5 minutes on the first run (depending on your hardware).
+### Step 3.5: Advanced Configuration (Optional)
 
-**How to verify it's ready:**
-The agent will perform a healthcheck on the `neo.mjs-knowledge-base` server during its initialization. If the healthcheck is successful, you can assume the embedding is complete.
+You can tune the embedding process (e.g., for paid tier usage) by modifying `ai/mcp/server/knowledge-base/config.mjs` or by loading a custom config file.
 
-**Troubleshooting:** If you see errors about missing API keys, verify your `.env` file contains a valid `GEMINI_API_KEY`.
+*   **`batchSize`**: Number of documents per API request (Default: 50).
+*   **`batchDelay`**: Wait time between batches in ms (Default: 10000).
+
+Higher batch sizes or lower delays may trigger `429 Too Many Requests` errors on the free tier.
+
+**Model Compatibility Warning:**
+The pre-built Knowledge Base artifact is generated using **`gemini-embedding-001`**.
+If you change the `embeddingModel` in the configuration (e.g., to a newer model), the existing database will be incompatible. You **MUST** run `npm run ai:sync-kb` to rebuild the database from scratch with the new model. Querying with a mismatched model will return irrelevant results.
 
 ## 4. Installing the Gemini CLI Agent
 
