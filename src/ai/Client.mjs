@@ -149,6 +149,16 @@ class Client extends Base {
 
         const fnName = Neo.snakeToCamel(method);
 
+        if (service) {
+            const fn = service[fnName];
+
+            if (Neo.isFunction(fn)) {
+                return fn.call(service, params)
+            } else if (Neo.isPromise(fn)) {
+                return await fn.call(service, params)
+            }
+        }
+
         if (service && typeof service[fnName] === 'function') {
             return service[fnName](params)
         }
