@@ -114,7 +114,9 @@ class Server extends Base {
                 logger.debug(`[MCP] Calling tool: ${name} with params:`, JSON.stringify(request.params));
 
                 // Health Check Gate
-                if (name !== 'healthcheck') {
+                const exemptFromHealthCheck = ['healthcheck', 'start_ws_server', 'stop_ws_server'];
+
+                if (!exemptFromHealthCheck.includes(name)) {
                     const health = await HealthService.healthcheck();
                     if (health.status !== 'healthy') {
                          return {
