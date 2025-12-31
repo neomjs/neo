@@ -1000,6 +1000,21 @@ class Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * Subclasses should override this to include their specific relevant state.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            className  : this.className,
+            id         : this.id,
+            isDestroyed: this.isDestroyed,
+            ntype      : this.ntype,
+            remote     : this.remote
+        }
+    }
+
+    /**
      * <p>Enhancing the toString() method, e.g.</p>
      * `Neo.create('Neo.button.Base').toString() => "[object Neo.button.Base]"`
      * @returns {String}
