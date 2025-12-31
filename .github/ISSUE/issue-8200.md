@@ -14,9 +14,14 @@ githubUrl: 'https://github.com/neomjs/neo/issues/8200'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 8224'
+  - '[x] 8226'
+  - '[x] 8225'
+  - '[x] 8227'
+  - '[x] 8228'
+subIssuesCompleted: 5
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -58,4 +63,9 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2025-12-29 @tobiu added the `ai` label
 - 2025-12-29 @tobiu added the `architecture` label
 - 2025-12-29 @tobiu assigned to @tobiu
+- 2025-12-31 @tobiu added sub-issue #8224
+- 2025-12-31 @tobiu added sub-issue #8226
+- 2025-12-31 @tobiu added sub-issue #8225
+- 2025-12-31 @tobiu added sub-issue #8227
+- 2025-12-31 @tobiu added sub-issue #8228
 
