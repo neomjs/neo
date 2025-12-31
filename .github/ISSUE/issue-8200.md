@@ -21,8 +21,9 @@ subIssues:
   - '[x] 8227 [Neural Link] Implement toJSON in button.Base'
   - '[x] 8228 [Neural Link] Implement toJSON in container.Base'
   - '[x] 8232 [Neural Link] Implement toJSON in state.Provider'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 8233 [Neural Link] Implement toJSON in layout.Base'
+subIssuesCompleted: 7
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -71,4 +72,5 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2025-12-31 @tobiu added sub-issue #8228
 - 2025-12-31 @tobiu added sub-issue #8232
 - 2025-12-31 @tobiu referenced in commit `665b841` - "docs(issue): Update ticket state for #8200 and #8232"
+- 2025-12-31 @tobiu added sub-issue #8233
 
