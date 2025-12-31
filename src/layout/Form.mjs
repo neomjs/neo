@@ -32,6 +32,17 @@ class Form extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            gap: this.gap
+        }
+    }
+
+    /**
      * Updates the Container style to add a gap to display:flex
      * @param {String|null} value
      * @param {String|null} oldValue
