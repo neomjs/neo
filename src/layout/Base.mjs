@@ -111,6 +111,20 @@ class Layout extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            appName     : this.appName,
+            containerCls: this.containerCls,
+            containerId : this.containerId,
+            windowId    : this.windowId
+        }
+    }
+
+    /**
      * Returns the container stateProvider or its closest parent stateProvider
      * @param {String} [ntype]
      * @returns {Neo.state.Provider|null}
