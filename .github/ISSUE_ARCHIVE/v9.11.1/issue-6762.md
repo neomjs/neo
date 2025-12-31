@@ -1,8 +1,6 @@
 ---
 id: 6762
-title: >-
-  tab.Strip: getActiveTabRectThenMove() => opt out in case the old tab got
-  removed
+title: 'tab.Strip: getActiveTabRectThenMove() => opt out in case the old tab got removed'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 7358
-title: >-
-  Refactor `summarizeSession.mjs` to automatically summarize all un-summarized
-  sessions
+title: Refactor `summarizeSession.mjs` to automatically summarize all un-summarized sessions
 state: CLOSED
 labels:
   - enhancement

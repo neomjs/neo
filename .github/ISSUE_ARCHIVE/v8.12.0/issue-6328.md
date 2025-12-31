@@ -1,8 +1,6 @@
 ---
 id: 6328
-title: >-
-  grid.header.Toolbar: enhance the column drag&drop to be at the same level as
-  tab headers
+title: 'grid.header.Toolbar: enhance the column drag&drop to be at the same level as tab headers'
 state: CLOSED
 labels:
   - enhancement

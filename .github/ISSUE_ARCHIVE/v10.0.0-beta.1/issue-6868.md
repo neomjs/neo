@@ -1,8 +1,6 @@
 ---
 id: 6868
-title: >-
-  draggable.table.header.toolbar.SortZone: honor the table.View => table.Body
-  refactoring
+title: 'draggable.table.header.toolbar.SortZone: honor the table.View => table.Body refactoring'
 state: CLOSED
 labels:
   - enhancement

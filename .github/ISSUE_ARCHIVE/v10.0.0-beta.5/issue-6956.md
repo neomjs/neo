@@ -1,8 +1,6 @@
 ---
 id: 6956
-title: >-
-  Enhance `Neo.core.Config` with ID-based Subscriptions for Improved Debugging &
-  Diagnostics
+title: Enhance `Neo.core.Config` with ID-based Subscriptions for Improved Debugging & Diagnostics
 state: CLOSED
 labels:
   - enhancement

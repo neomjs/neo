@@ -1,8 +1,6 @@
 ---
 id: 6805
-title: >-
-  main.mixin.DeltaUpdates: du_insertNode: honor the parent index for
-  Neo.config.useStringBasedMounting = false
+title: 'main.mixin.DeltaUpdates: du_insertNode: honor the parent index for Neo.config.useStringBasedMounting = false'
 state: CLOSED
 labels:
   - enhancement

@@ -70,4 +70,5 @@ Sanitized Title:
 - Applies to main title and related issue lists (subIssues, blockedBy, blocking)
 - Prevents YAML parsing errors for multiline titles"
 - 2025-12-31 @tobiu closed this issue
+- 2025-12-31 @tobiu cross-referenced by #8231
 

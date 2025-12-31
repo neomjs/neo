@@ -1,8 +1,6 @@
 ---
 id: 6623
-title: >-
-  buildScripts/webpack.config.appworker: honor different urls for
-  remotes-api.json
+title: 'buildScripts/webpack.config.appworker: honor different urls for remotes-api.json'
 state: CLOSED
 labels:
   - enhancement

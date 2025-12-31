@@ -1,8 +1,6 @@
 ---
 id: 6619
-title: >-
-  EINVAL / EPERM error when running build script on Windows due to D:\System
-  Volume Information
+title: 'EINVAL / EPERM error when running build script on Windows due to D:\System Volume Information'
 state: CLOSED
 labels:
   - bug

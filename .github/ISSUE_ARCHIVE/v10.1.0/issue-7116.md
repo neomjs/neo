@@ -1,8 +1,6 @@
 ---
 id: 7116
-title: >-
-  Neo.selection.Model: select() => pass potential record items to the
-  selectionChange event
+title: 'Neo.selection.Model: select() => pass potential record items to the selectionChange event'
 state: CLOSED
 labels:
   - enhancement

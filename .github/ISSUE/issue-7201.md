@@ -21,9 +21,7 @@ subIssues:
   - '[ ] 7205 Phase 4: Framework-Level Dashboard Abstraction'
   - '[ ] 7206 Initial Dashboard Drag & Drop'
   - '[x] 7207 Enhance container.SortZone for Complex Layouts'
-  - >-
-    [x] 7208 main.addon.DragDrop: onDragMove() => pass the dragElement rect to
-    the app worker
+  - '[x] 7208 main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker'
   - '[x] 7209 draggable.dashboard.SortZone: moveTo() => regression bug'
   - '[x] 7210 Implement Window Management Permission Request'
 subIssuesCompleted: 5

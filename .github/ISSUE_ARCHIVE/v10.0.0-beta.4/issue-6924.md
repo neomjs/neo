@@ -1,8 +1,6 @@
 ---
 id: 6924
-title: >-
-  Portal.view.learn.MainContainerController: onRouteLearnItem() => param
-  destructuring
+title: 'Portal.view.learn.MainContainerController: onRouteLearnItem() => param destructuring'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 7748
-title: >-
-  Bug: `copySeoFiles.mjs` Fails to Copy SEO Files to Correct `dist` Paths for
-  Applications
+title: 'Bug: `copySeoFiles.mjs` Fails to Copy SEO Files to Correct `dist` Paths for Applications'
 state: CLOSED
 labels:
   - bug

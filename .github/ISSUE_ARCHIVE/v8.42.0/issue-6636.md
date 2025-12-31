@@ -1,8 +1,6 @@
 ---
 id: 6636
-title: >-
-  examples.grid.nestedRecordFields.ViewportController: adjust the theme switch
-  logic
+title: 'examples.grid.nestedRecordFields.ViewportController: adjust the theme switch logic'
 state: CLOSED
 labels:
   - enhancement

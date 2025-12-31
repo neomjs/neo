@@ -1,8 +1,6 @@
 ---
 id: 6576
-title: >-
-  data.Store: onConstructed() => the callback needs to check if the instance
-  still exists
+title: 'data.Store: onConstructed() => the callback needs to check if the instance still exists'
 state: CLOSED
 labels:
   - bug

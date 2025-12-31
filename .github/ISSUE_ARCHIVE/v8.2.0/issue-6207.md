@@ -1,8 +1,6 @@
 ---
 id: 6207
-title: >-
-  worker.App: countLoadingThemeFiles_, insertThemeFiles() => keep track of the
-  CSS loading & fire an event when all current files got loaded
+title: 'worker.App: countLoadingThemeFiles_, insertThemeFiles() => keep track of the CSS loading & fire an event when all current files got loaded'
 state: CLOSED
 labels:
   - enhancement

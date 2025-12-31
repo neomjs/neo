@@ -1,8 +1,6 @@
 ---
 id: 5599
-title: >-
-  calendar.view.EditEventContainer: immediately closing once a TimeField
-  (PickerField) gets focussed
+title: 'calendar.view.EditEventContainer: immediately closing once a TimeField (PickerField) gets focussed'
 state: CLOSED
 labels:
   - bug

@@ -1,8 +1,6 @@
 ---
 id: 6347
-title: >-
-  selection.table.RowModel: update record based annotations (in case they exist)
-  on manual selections
+title: 'selection.table.RowModel: update record based annotations (in case they exist) on manual selections'
 state: CLOSED
 labels:
   - enhancement

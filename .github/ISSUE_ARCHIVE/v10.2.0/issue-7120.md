@@ -1,8 +1,6 @@
 ---
 id: 7120
-title: >-
-  Add "Designing Functional Components for a Multi-Threaded World" to the Portal
-  App
+title: Add "Designing Functional Components for a Multi-Threaded World" to the Portal App
 state: CLOSED
 labels: []
 assignees:

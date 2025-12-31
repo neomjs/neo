@@ -1,8 +1,6 @@
 ---
 id: 8084
-title: >-
-  Optimize LivePreview and NeoExecutor container updates by merging remove and
-  add
+title: Optimize LivePreview and NeoExecutor container updates by merging remove and add
 state: CLOSED
 labels:
   - enhancement

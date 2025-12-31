@@ -1,8 +1,6 @@
 ---
 id: 6829
-title: >-
-  calendar.view.calendars.List: createItemContent() => ensure there are no space
-  separated cls items inside the vdom
+title: 'calendar.view.calendars.List: createItemContent() => ensure there are no space separated cls items inside the vdom'
 state: CLOSED
 labels:
   - bug

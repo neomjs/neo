@@ -1,8 +1,6 @@
 ---
 id: 6690
-title: >-
-  tab.Container: createItems() => override insert() & remove() for the content
-  container
+title: 'tab.Container: createItems() => override insert() & remove() for the content container'
 state: CLOSED
 labels:
   - enhancement

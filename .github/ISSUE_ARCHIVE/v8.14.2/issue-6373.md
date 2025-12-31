@@ -1,8 +1,6 @@
 ---
 id: 6373
-title: >-
-  draggable.grid.header.toolbar.SortZone: switchItems() => add support for
-  different column widths
+title: 'draggable.grid.header.toolbar.SortZone: switchItems() => add support for different column widths'
 state: CLOSED
 labels:
   - enhancement

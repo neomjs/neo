@@ -1,8 +1,6 @@
 ---
 id: 7084
-title: >-
-  Feature Request: Introduce `beforeUpdate()` Lifecycle Hook for Functional
-  Components
+title: 'Feature Request: Introduce `beforeUpdate()` Lifecycle Hook for Functional Components'
 state: CLOSED
 labels:
   - enhancement

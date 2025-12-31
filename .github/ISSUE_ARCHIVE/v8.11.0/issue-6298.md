@@ -1,8 +1,6 @@
 ---
 id: 6298
-title: >-
-  examples.tableFiltering.MainContainer: the country ComboBox filter no longer
-  works
+title: 'examples.tableFiltering.MainContainer: the country ComboBox filter no longer works'
 state: CLOSED
 labels:
   - bug

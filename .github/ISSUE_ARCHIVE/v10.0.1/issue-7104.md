@@ -1,8 +1,6 @@
 ---
 id: 7104
-title: >-
-  Add "Frontend Reactivity Revolution: Named vs. Anonymous State" to the neo
-  website
+title: 'Add "Frontend Reactivity Revolution: Named vs. Anonymous State" to the neo website'
 state: CLOSED
 labels:
   - Blog Post

@@ -1,8 +1,6 @@
 ---
 id: 6315
-title: >-
-  main.DomAccess: getAttributes() => breaks when not passing an array for
-  attributes
+title: 'main.DomAccess: getAttributes() => breaks when not passing an array for attributes'
 state: CLOSED
 labels:
   - bug

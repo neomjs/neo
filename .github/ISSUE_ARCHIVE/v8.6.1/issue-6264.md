@@ -1,8 +1,6 @@
 ---
 id: 6264
-title: >-
-  form.field.ComboBox: doFilter() => apply selections & list focus depending on
-  the current value config
+title: 'form.field.ComboBox: doFilter() => apply selections & list focus depending on the current value config'
 state: CLOSED
 labels:
   - bug

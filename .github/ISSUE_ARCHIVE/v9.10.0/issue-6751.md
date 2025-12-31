@@ -1,8 +1,6 @@
 ---
 id: 6751
-title: >-
-  buildScripts/buildESModules: keep the neo-config.json main path the repo way
-  for workspaces
+title: 'buildScripts/buildESModules: keep the neo-config.json main path the repo way for workspaces'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6692
-title: >-
-  container.Base: createItem() => moving an instance => keeping the previous
-  controller chain, if needed
+title: 'container.Base: createItem() => moving an instance => keeping the previous controller chain, if needed'
 state: CLOSED
 labels:
   - enhancement

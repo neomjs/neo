@@ -1,8 +1,6 @@
 ---
 id: 6366
-title: >-
-  examples.grid.nestedRecordFields.Viewport: editRenderer() => adjust to the new
-  index params
+title: 'examples.grid.nestedRecordFields.Viewport: editRenderer() => adjust to the new index params'
 state: CLOSED
 labels:
   - enhancement

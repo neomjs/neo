@@ -1,8 +1,6 @@
 ---
 id: 7099
-title: >-
-  Refactor `state.Provider` to Support Intuitive Deep-Merging and Runtime Data
-  Creation
+title: Refactor `state.Provider` to Support Intuitive Deep-Merging and Runtime Data Creation
 state: CLOSED
 labels:
   - enhancement

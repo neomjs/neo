@@ -1,8 +1,6 @@
 ---
 id: 6379
-title: >-
-  draggable.toolbar.DragZone: onItemInsert() => use the wrapperCls instead of
-  class
+title: 'draggable.toolbar.DragZone: onItemInsert() => use the wrapperCls instead of class'
 state: CLOSED
 labels:
   - enhancement

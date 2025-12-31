@@ -1,8 +1,6 @@
 ---
 id: 7650
-title: >-
-  Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related
-  Commits
+title: 'Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related Commits'
 state: CLOSED
 labels:
   - enhancement

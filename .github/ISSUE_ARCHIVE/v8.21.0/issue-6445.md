@@ -1,8 +1,6 @@
 ---
 id: 6445
-title: >-
-  examples.grid.bigData.ControlsContainer: update the rows label based on store
-  events
+title: 'examples.grid.bigData.ControlsContainer: update the rows label based on store events'
 state: CLOSED
 labels:
   - enhancement

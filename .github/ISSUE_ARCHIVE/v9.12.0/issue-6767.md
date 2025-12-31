@@ -1,8 +1,6 @@
 ---
 id: 6767
-title: >-
-  Docs.view.MainContainer: onConstructed() => keep the data fetching in sync to
-  the store logic
+title: 'Docs.view.MainContainer: onConstructed() => keep the data fetching in sync to the store logic'
 state: CLOSED
 labels:
   - enhancement

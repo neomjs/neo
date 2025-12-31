@@ -1,8 +1,6 @@
 ---
 id: 6643
-title: >-
-  component.wrapper.AmChart: remove the root level height & width style
-  attributes
+title: 'component.wrapper.AmChart: remove the root level height & width style attributes'
 state: CLOSED
 labels:
   - enhancement

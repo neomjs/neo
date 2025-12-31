@@ -1,8 +1,6 @@
 ---
 id: 6561
-title: >-
-  grid.plugin.AnimateRows, list.plugin.Animate: updateTransitionDetails() =>
-  delete, then add
+title: 'grid.plugin.AnimateRows, list.plugin.Animate: updateTransitionDetails() => delete, then add'
 state: CLOSED
 labels:
   - bug

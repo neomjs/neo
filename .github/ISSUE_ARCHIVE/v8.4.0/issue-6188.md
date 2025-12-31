@@ -1,8 +1,6 @@
 ---
 id: 6188
-title: >-
-  grid.Container: create a new example containing a massive amount of rows &
-  columns
+title: 'grid.Container: create a new example containing a massive amount of rows & columns'
 state: CLOSED
 labels:
   - enhancement

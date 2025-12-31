@@ -1,8 +1,6 @@
 ---
 id: 7005
-title: >-
-  Neo.effect() => register a shortcut to the Neo namespace for developer
-  convenience
+title: Neo.effect() => register a shortcut to the Neo namespace for developer convenience
 state: CLOSED
 labels:
   - enhancement

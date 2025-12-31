@@ -1,8 +1,6 @@
 ---
 id: 6432
-title: >-
-  table.plugin.CellEditing: unmountEditor() => smarter view vdom items access
-  needed
+title: 'table.plugin.CellEditing: unmountEditor() => smarter view vdom items access needed'
 state: CLOSED
 labels:
   - enhancement

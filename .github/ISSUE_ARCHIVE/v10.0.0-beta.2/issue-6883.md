@@ -1,8 +1,6 @@
 ---
 id: 6883
-title: >-
-  grid.Body, table.Body: applyRendererOutput() => add support for text =>
-  alternative to html
+title: 'grid.Body, table.Body: applyRendererOutput() => add support for text => alternative to html'
 state: CLOSED
 labels:
   - enhancement

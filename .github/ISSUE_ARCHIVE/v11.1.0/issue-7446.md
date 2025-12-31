@@ -22,21 +22,11 @@ subIssues:
   - '[x] 7460 Refactor SEO Generator Script with Correct Data Sources'
   - '[x] 7742 Enhance Sitemap Generation: Add `lastmod` based on Git History'
   - '[x] 7743 Enhance Sitemap Generation: Include Top-Level Application Routes'
-  - >-
-    [x] 7744 Refactor Release Preparation Script: Rename `injectPackageVersion`
-    to `prepareRelease` and Integrate SEO File Generation
-  - >-
-    [x] 7745 Refactor `generate-seo-files.mjs`: Implement CLI Option Parsing
-    with Commander
-  - >-
-    [x] 7746 Enhance Release Preparation: Auto-update `datePublished` in
-    `index.html`
-  - >-
-    [x] 7747 Integrate SEO File Copying into `buildAll.mjs` for Application
-    Builds
-  - >-
-    [x] 7748 Bug: `copySeoFiles.mjs` Fails to Copy SEO Files to Correct `dist`
-    Paths for Applications
+  - '[x] 7744 Refactor Release Preparation Script: Rename `injectPackageVersion` to `prepareRelease` and Integrate SEO File Generation'
+  - '[x] 7745 Refactor `generate-seo-files.mjs`: Implement CLI Option Parsing with Commander'
+  - '[x] 7746 Enhance Release Preparation: Auto-update `datePublished` in `index.html`'
+  - '[x] 7747 Integrate SEO File Copying into `buildAll.mjs` for Application Builds'
+  - '[x] 7748 Bug: `copySeoFiles.mjs` Fails to Copy SEO Files to Correct `dist` Paths for Applications'
 subIssuesCompleted: 13
 subIssuesTotal: 13
 blockedBy: []

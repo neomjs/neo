@@ -1,8 +1,6 @@
 ---
 id: 6354
-title: >-
-  examples.table.covid.Util: flag icons are not getting displayed inside the
-  website deployment
+title: 'examples.table.covid.Util: flag icons are not getting displayed inside the website deployment'
 state: CLOSED
 labels:
   - bug

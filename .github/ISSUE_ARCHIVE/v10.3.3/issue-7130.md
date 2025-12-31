@@ -26,9 +26,7 @@ subIssues:
   - '[x] 7143 Code Quality Refinement'
   - '[x] 7144 Create a Real-World Example'
   - '[x] 7146 Fix Conditional Rendering and Add Tests'
-  - >-
-    [x] 7147 Refactor `render` to `initVnode` and `createTemplateVdom` to
-    `render`
+  - '[x] 7147 Refactor `render` to `initVnode` and `createTemplateVdom` to `render`'
   - '[x] 7148 Create a Robust VDOM-to-String Serializer'
   - '[x] 7149 Refactor Build-Time Parser to be AST-Based for Robustness'
   - '[x] 7150 Build-Time `html` Template to VDOM Conversion'

@@ -1,8 +1,6 @@
 ---
 id: 8216
-title: >-
-  Fix Neural Link server startup crash due to missing startServer/stopServer
-  methods
+title: Fix Neural Link server startup crash due to missing startServer/stopServer methods
 state: CLOSED
 labels:
   - bug

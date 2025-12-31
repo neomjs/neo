@@ -1,8 +1,6 @@
 ---
 id: 6981
-title: >-
-  Implement a Proxy set trap for Neo.state.Provider data to enable direct
-  reactive assignments
+title: Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6620
-title: >-
-  grid.View: applyRendererOutput() => pointing the default scope to the grid
-  view
+title: 'grid.View: applyRendererOutput() => pointing the default scope to the grid view'
 state: CLOSED
 labels:
   - enhancement

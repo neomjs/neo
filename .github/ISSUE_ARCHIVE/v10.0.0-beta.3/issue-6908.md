@@ -1,8 +1,6 @@
 ---
 id: 6908
-title: >-
-  Portal.view.learn.ContentComponent: updateContentSectionsStore() => headline
-  code got lost
+title: 'Portal.view.learn.ContentComponent: updateContentSectionsStore() => headline code got lost'
 state: CLOSED
 labels:
   - bug

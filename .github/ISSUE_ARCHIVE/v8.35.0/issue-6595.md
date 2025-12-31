@@ -1,8 +1,6 @@
 ---
 id: 6595
-title: >-
-  Finance.view.ViewportController: onStartButtonClick(), onStopButtonClick()
-  logic
+title: 'Finance.view.ViewportController: onStartButtonClick(), onStopButtonClick() logic'
 state: CLOSED
 labels:
   - enhancement

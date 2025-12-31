@@ -1,8 +1,6 @@
 ---
 id: 6258
-title: >-
-  data.RecordFactory: isModified(), isModifiedField() => adapt to the new
-  concept
+title: 'data.RecordFactory: isModified(), isModifiedField() => adapt to the new concept'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6276
-title: >-
-  data.RecordFactory: isModifiedField() => move the method to the record
-  prototype
+title: 'data.RecordFactory: isModifiedField() => move the method to the record prototype'
 state: CLOSED
 labels:
   - enhancement

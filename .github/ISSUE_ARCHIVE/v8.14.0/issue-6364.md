@@ -1,8 +1,6 @@
 ---
 id: 6364
-title: >-
-  draggable.grid.header.toolbar.SortZone: createDragProxy() => add the current
-  theme cls to the proxy node
+title: 'draggable.grid.header.toolbar.SortZone: createDragProxy() => add the current theme cls to the proxy node'
 state: CLOSED
 labels:
   - enhancement

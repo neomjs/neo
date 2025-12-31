@@ -1,8 +1,6 @@
 ---
 id: 6403
-title: >-
-  grid.Scrollbar: updateScrollHeight() => keep the height in sync to the view
-  stretcher
+title: 'grid.Scrollbar: updateScrollHeight() => keep the height in sync to the view stretcher'
 state: CLOSED
 labels:
   - enhancement

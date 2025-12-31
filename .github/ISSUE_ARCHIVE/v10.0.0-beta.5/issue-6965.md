@@ -1,8 +1,6 @@
 ---
 id: 6965
-title: >-
-  Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state
-  provider data access
+title: 'Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access'
 state: CLOSED
 labels:
   - enhancement

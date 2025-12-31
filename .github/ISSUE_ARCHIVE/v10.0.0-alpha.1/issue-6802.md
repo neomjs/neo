@@ -1,8 +1,6 @@
 ---
 id: 6802
-title: >-
-  main.mixin.DeltaUpdates: createDomTree() => move the id generation outside of
-  attributes
+title: 'main.mixin.DeltaUpdates: createDomTree() => move the id generation outside of attributes'
 state: CLOSED
 labels:
   - enhancement

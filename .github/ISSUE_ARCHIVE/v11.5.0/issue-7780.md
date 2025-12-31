@@ -1,8 +1,6 @@
 ---
 id: 7780
-title: >-
-  test/playwright/mcp/github-workflow/ghIntegrationGate.spec.mjs breaks testing
-  suite
+title: test/playwright/mcp/github-workflow/ghIntegrationGate.spec.mjs breaks testing suite
 state: CLOSED
 labels:
   - bug

@@ -1,8 +1,6 @@
 ---
 id: 6665
-title: >-
-  grid.column.AnimatedChange: onRecordChange() => adjust to the new
-  view.getCellId() signature
+title: 'grid.column.AnimatedChange: onRecordChange() => adjust to the new view.getCellId() signature'
 state: CLOSED
 labels:
   - enhancement

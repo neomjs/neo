@@ -1,8 +1,6 @@
 ---
 id: 7793
-title: >-
-  Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer: pushToGitHub()
-  exclude activity log
+title: 'Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer: pushToGitHub() exclude activity log'
 state: CLOSED
 labels:
   - bug

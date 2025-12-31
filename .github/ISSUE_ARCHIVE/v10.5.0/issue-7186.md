@@ -1,8 +1,6 @@
 ---
 id: 7186
-title: >-
-  Enhanced Store & Grid Performance with Lazy Record Instantiation and
-  Configurable Chunking
+title: Enhanced Store & Grid Performance with Lazy Record Instantiation and Configurable Chunking
 state: CLOSED
 labels:
   - enhancement

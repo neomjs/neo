@@ -1,8 +1,6 @@
 ---
 id: 6700
-title: >-
-  Portal.view.ViewportController: setMainContentIndex() => only use the first
-  timeout for cube layout switches
+title: 'Portal.view.ViewportController: setMainContentIndex() => only use the first timeout for cube layout switches'
 state: CLOSED
 labels:
   - enhancement

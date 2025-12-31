@@ -1,8 +1,6 @@
 ---
 id: 6329
-title: >-
-  main.addon.DragDrop: onDragMove() => be more restrictive with left & top
-  positioning
+title: 'main.addon.DragDrop: onDragMove() => be more restrictive with left & top positioning'
 state: CLOSED
 labels:
   - enhancement

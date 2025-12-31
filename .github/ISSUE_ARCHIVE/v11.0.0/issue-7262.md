@@ -29,42 +29,24 @@ subIssues:
   - '[x] 7272 Convert VdomCalendar.mjs Test from Siesta to Playwright'
   - '[x] 7273 Convert config/AfterSetConfig.mjs Test from Siesta to Playwright'
   - '[x] 7274 Convert config/Basic.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7275 Convert config/CircularDependencies.mjs Test from Siesta to
-    Playwright
+  - '[x] 7275 Convert config/CircularDependencies.mjs Test from Siesta to Playwright'
   - '[x] 7276 Convert config/CustomFunctions.mjs Test from Siesta to Playwright'
   - '[x] 7277 Convert config/Hierarchy.mjs Test from Siesta to Playwright'
   - '[x] 7278 Convert config/MemoryLeak.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7279 Convert config/MultiLevelHierarchy.mjs Test from Siesta to
-    Playwright
+  - '[x] 7279 Convert config/MultiLevelHierarchy.mjs Test from Siesta to Playwright'
   - '[x] 7280 Convert core/EffectBatching.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7281 Convert form/field/AfterSetValueSequence.mjs Test from Siesta to
-    Playwright
+  - '[x] 7281 Convert form/field/AfterSetValueSequence.mjs Test from Siesta to Playwright'
   - '[x] 7282 Convert functional/Button.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7283 Convert functional/HtmlTemplateComponent.mjs Test from Siesta to
-    Playwright
-  - >-
-    [x] 7284 Convert functional/Parse5Processor.mjs Test from Siesta to
-    Playwright
+  - '[x] 7283 Convert functional/HtmlTemplateComponent.mjs Test from Siesta to Playwright'
+  - '[x] 7284 Convert functional/Parse5Processor.mjs Test from Siesta to Playwright'
   - '[x] 7285 Convert neo/MixinStaticConfig.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7286 Convert state/createHierarchicalDataProxy.mjs Test from Siesta to
-    Playwright
+  - '[x] 7286 Convert state/createHierarchicalDataProxy.mjs Test from Siesta to Playwright'
   - '[x] 7287 Convert state/FeedbackLoop.mjs Test from Siesta to Playwright'
   - '[x] 7288 Convert state/Provider.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7289 Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to
-    Playwright
+  - '[x] 7289 Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright'
   - '[x] 7290 Convert vdom/Advanced.mjs Test from Siesta to Playwright'
-  - >-
-    [x] 7291 Convert vdom/VdomAsymmetricUpdates.mjs Test from Siesta to
-    Playwright
-  - >-
-    [x] 7292 Convert vdom/VdomRealWorldUpdates.mjs Test from Siesta to
-    Playwright
+  - '[x] 7291 Convert vdom/VdomAsymmetricUpdates.mjs Test from Siesta to Playwright'
+  - '[x] 7292 Convert vdom/VdomRealWorldUpdates.mjs Test from Siesta to Playwright'
   - '[x] 7293 Convert vdom/layout/Cube.mjs Test from Siesta to Playwright'
   - '[x] 7294 Convert vdom/table/Container.mjs Test from Siesta to Playwright'
 subIssuesCompleted: 35

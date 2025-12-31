@@ -1,8 +1,6 @@
 ---
 id: 7744
-title: >-
-  Refactor Release Preparation Script: Rename `injectPackageVersion` to
-  `prepareRelease` and Integrate SEO File Generation
+title: 'Refactor Release Preparation Script: Rename `injectPackageVersion` to `prepareRelease` and Integrate SEO File Generation'
 state: CLOSED
 labels:
   - enhancement

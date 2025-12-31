@@ -1,8 +1,6 @@
 ---
 id: 6704
-title: >-
-  container.Base: createItem() => soften the parent.remove() call for existing
-  instances
+title: 'container.Base: createItem() => soften the parent.remove() call for existing instances'
 state: CLOSED
 labels:
   - bug

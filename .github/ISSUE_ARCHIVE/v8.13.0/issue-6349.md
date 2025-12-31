@@ -1,8 +1,6 @@
 ---
 id: 6349
-title: >-
-  main.addon.AmCharts: loadFiles() => promises loop in case both paths fail to
-  load
+title: 'main.addon.AmCharts: loadFiles() => promises loop in case both paths fail to load'
 state: CLOSED
 labels:
   - bug

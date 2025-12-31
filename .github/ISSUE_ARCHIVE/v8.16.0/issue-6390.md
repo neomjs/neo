@@ -1,8 +1,6 @@
 ---
 id: 6390
-title: >-
-  draggable.toolbar.SortZone: scrollToIndex() => reduce the redundancy inside
-  onDragMove()
+title: 'draggable.toolbar.SortZone: scrollToIndex() => reduce the redundancy inside onDragMove()'
 state: CLOSED
 labels:
   - enhancement

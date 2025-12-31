@@ -1,8 +1,6 @@
 ---
 id: 6941
-title: >-
-  Implement Class-Aware Merging for Nested Configs via Dynamic `Neo.mergeConfig`
-  Replacement
+title: Implement Class-Aware Merging for Nested Configs via Dynamic `Neo.mergeConfig` Replacement
 state: OPEN
 labels:
   - enhancement

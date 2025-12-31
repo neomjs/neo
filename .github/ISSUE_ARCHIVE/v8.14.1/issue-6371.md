@@ -1,8 +1,6 @@
 ---
 id: 6371
-title: >-
-  Guides: Getting Started => Shared bindable data => switch vms to state
-  providers
+title: 'Guides: Getting Started => Shared bindable data => switch vms to state providers'
 state: CLOSED
 labels:
   - enhancement

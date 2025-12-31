@@ -1,8 +1,6 @@
 ---
 id: 7999
-title: >-
-  Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is
-  missing
+title: Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is missing
 state: CLOSED
 labels:
   - bug

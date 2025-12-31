@@ -1,8 +1,6 @@
 ---
 id: 6333
-title: >-
-  draggable.toolbar.DragZone: adjustToolbarItemCls() => the wrapperCls does not
-  always get applied
+title: 'draggable.toolbar.DragZone: adjustToolbarItemCls() => the wrapperCls does not always get applied'
 state: CLOSED
 labels:
   - bug

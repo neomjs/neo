@@ -1,8 +1,6 @@
 ---
 id: 6689
-title: >-
-  container.Base: createItem() => automatically remove items from existing
-  parents
+title: 'container.Base: createItem() => automatically remove items from existing parents'
 state: CLOSED
 labels:
   - enhancement

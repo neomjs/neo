@@ -1,8 +1,6 @@
 ---
 id: 6557
-title: >-
-  grid.plugin.AnimateRows: onStoreLoad() => logic for creating new view
-  positions
+title: 'grid.plugin.AnimateRows: onStoreLoad() => logic for creating new view positions'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 7179
-title: >-
-  Refactor `collection.Base#construct` to prevent race conditions during
-  instantiation.
+title: Refactor `collection.Base#construct` to prevent race conditions during instantiation.
 state: CLOSED
 labels:
   - bug

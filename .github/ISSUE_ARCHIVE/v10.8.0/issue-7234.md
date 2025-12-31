@@ -1,8 +1,6 @@
 ---
 id: 7234
-title: >-
-  Portal App, add the blog post: AI-Native, Not AI-Assisted: A Platform That
-  Answers Your Questions
+title: 'Portal App, add the blog post: AI-Native, Not AI-Assisted: A Platform That Answers Your Questions'
 state: CLOSED
 labels:
   - enhancement

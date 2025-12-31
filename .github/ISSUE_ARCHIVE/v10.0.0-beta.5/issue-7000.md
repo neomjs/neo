@@ -1,8 +1,6 @@
 ---
 id: 7000
-title: >-
-  grid.Container: afterSetColumns() => fine-tune the condition, when
-  header.Toolbar items need to get processed
+title: 'grid.Container: afterSetColumns() => fine-tune the condition, when header.Toolbar items need to get processed'
 state: CLOSED
 labels:
   - enhancement

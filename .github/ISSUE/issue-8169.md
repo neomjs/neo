@@ -45,25 +45,17 @@ subIssues:
   - '[x] 8196 Refactor: Neural Link - Client-Side Service Architecture'
   - '[ ] 8197 Feat: Neural Link - Export Domain Services in AI SDK'
   - '[x] 8206 Refactor Client Services to use Parameter Destructuring'
-  - >-
-    [x] 8207 ai.Client: Enhance handleRequest to support sync and async
-    execution
+  - '[x] 8207 ai.Client: Enhance handleRequest to support sync and async execution'
   - '[x] 8208 ai.client.ComponentService: Make highlightComponent non-blocking'
   - '[x] 8210 Create standalone Neural Link Bridge process'
   - '[x] 8211 Update ConnectionService to use Neural Link Bridge'
   - '[x] 8209 Fix silent failure in Neural Link ConnectionService startup'
   - '[x] 8212 Enhance Neural Link Health Check with detailed diagnostics'
   - '[x] 8213 Log App Name in Neural Link Bridge connections'
-  - >-
-    [x] 8214 Fix Neural Link Server startup crash due to health check schema
-    mismatch
+  - '[x] 8214 Fix Neural Link Server startup crash due to health check schema mismatch'
   - '[x] 8215 Expose connected agents in Neural Link health check'
-  - >-
-    [x] 8216 Fix Neural Link server startup crash due to missing
-    startServer/stopServer methods
-  - >-
-    [x] 8222 Fix Neural Link Recovery: Exempt server control tools from health
-    check gate
+  - '[x] 8216 Fix Neural Link server startup crash due to missing startServer/stopServer methods'
+  - '[x] 8222 Fix Neural Link Recovery: Exempt server control tools from health check gate'
   - '[x] 8223 Investigate and Fix get_component_tree Timeout'
 subIssuesCompleted: 36
 subIssuesTotal: 42

@@ -1,8 +1,6 @@
 ---
 id: 7797
-title: >-
-  ai.mcp.server.github-workflow.services.IssueService: listIssues() uses 2 not
-  imported constants
+title: 'ai.mcp.server.github-workflow.services.IssueService: listIssues() uses 2 not imported constants'
 state: CLOSED
 labels:
   - bug

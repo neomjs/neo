@@ -1,8 +1,6 @@
 ---
 id: 6356
-title: >-
-  grid.header.Toolbar: passSizeToView() => add the dataField to each
-  columnPosition
+title: 'grid.header.Toolbar: passSizeToView() => add the dataField to each columnPosition'
 state: CLOSED
 labels:
   - enhancement

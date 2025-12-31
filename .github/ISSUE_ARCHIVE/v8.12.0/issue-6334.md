@@ -1,8 +1,6 @@
 ---
 id: 6334
-title: >-
-  component.Base: afterSetWrapperCls() => use this.update() instead of custom
-  logic
+title: 'component.Base: afterSetWrapperCls() => use this.update() instead of custom logic'
 state: CLOSED
 labels:
   - enhancement

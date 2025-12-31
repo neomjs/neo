@@ -1,8 +1,6 @@
 ---
 id: 7194
-title: >-
-  Create a copy of the sample wrapper component for Google maps utilitizing the
-  Open Streetmaps addon
+title: Create a copy of the sample wrapper component for Google maps utilitizing the Open Streetmaps addon
 state: CLOSED
 labels: []
 assignees: []

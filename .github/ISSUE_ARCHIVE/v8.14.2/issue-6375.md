@@ -1,8 +1,6 @@
 ---
 id: 6375
-title: >-
-  draggable.grid.header.toolbar.SortZone: add support for the row scroll
-  position
+title: 'draggable.grid.header.toolbar.SortZone: add support for the row scroll position'
 state: CLOSED
 labels:
   - enhancement

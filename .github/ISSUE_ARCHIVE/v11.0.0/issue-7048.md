@@ -18,9 +18,7 @@ subIssues:
   - '[x] 7051 Task: Refactor MainView Styles to SCSS'
   - '[x] 7052 Phase 2: Email List View'
   - '[x] 7056 Phase 4: Compose Email Functionality'
-  - >-
-    [x] 7058 Email.view.ComposeView: use a scss file and polish the internal
-    code
+  - '[x] 7058 Email.view.ComposeView: use a scss file and polish the internal code'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

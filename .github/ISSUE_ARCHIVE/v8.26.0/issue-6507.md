@@ -1,8 +1,6 @@
 ---
 id: 6507
-title: >-
-  draggable.toolbar.SortZone: onDragMove(), onDragStart() => smarter positioning
-  logic
+title: 'draggable.toolbar.SortZone: onDragMove(), onDragStart() => smarter positioning logic'
 state: CLOSED
 labels:
   - enhancement

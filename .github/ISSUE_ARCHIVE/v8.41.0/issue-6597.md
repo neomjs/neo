@@ -1,8 +1,6 @@
 ---
 id: 6597
-title: >-
-  Calendar - Basic - Windows Browsers (all of them) - Maximum Call Stack Size
-  Exceeded error
+title: Calendar - Basic - Windows Browsers (all of them) - Maximum Call Stack Size Exceeded error
 state: CLOSED
 labels:
   - bug

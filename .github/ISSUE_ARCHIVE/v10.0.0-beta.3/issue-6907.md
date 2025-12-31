@@ -1,8 +1,6 @@
 ---
 id: 6907
-title: >-
-  Portal.view.learn.ContentComponent: improve the styling for inline code inside
-  headlines
+title: 'Portal.view.learn.ContentComponent: improve the styling for inline code inside headlines'
 state: CLOSED
 labels:
   - enhancement

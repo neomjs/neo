@@ -1,8 +1,6 @@
 ---
 id: 6911
-title: >-
-  Portal.view.learn.ContentComponent: processReadonlyCodeBlocks() => styling for
-  code blocks inside lists
+title: 'Portal.view.learn.ContentComponent: processReadonlyCodeBlocks() => styling for code blocks inside lists'
 state: CLOSED
 labels:
   - enhancement

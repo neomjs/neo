@@ -1,8 +1,6 @@
 ---
 id: 6381
-title: >-
-  draggable.grid.header.toolbar.SortZone: limit the boundary rect to match the
-  grid container width
+title: 'draggable.grid.header.toolbar.SortZone: limit the boundary rect to match the grid container width'
 state: CLOSED
 labels:
   - enhancement

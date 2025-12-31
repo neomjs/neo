@@ -1,8 +1,6 @@
 ---
 id: 6359
-title: >-
-  draggable.DragZone: createDragProxy() => add a 2nd param =>
-  createComponent=true
+title: 'draggable.DragZone: createDragProxy() => add a 2nd param => createComponent=true'
 state: CLOSED
 labels:
   - enhancement

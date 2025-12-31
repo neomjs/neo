@@ -1,8 +1,6 @@
 ---
 id: 6970
-title: >-
-  core.Effect: isRunning class field => ensure that effects can not re-trigger
-  themselves while running
+title: 'core.Effect: isRunning class field => ensure that effects can not re-trigger themselves while running'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6372
-title: >-
-  Portal.view.learn: moving a live preview into a popup sometimes renders the
-  cmp into the same window again
+title: 'Portal.view.learn: moving a live preview into a popup sometimes renders the cmp into the same window again'
 state: CLOSED
 labels:
   - bug

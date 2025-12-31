@@ -1,8 +1,6 @@
 ---
 id: 6232
-title: >-
-  examples.grid.bigData.MainContainer: comboBox to change the new
-  bufferColumnRange
+title: 'examples.grid.bigData.MainContainer: comboBox to change the new bufferColumnRange'
 state: CLOSED
 labels:
   - enhancement

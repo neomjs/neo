@@ -1,8 +1,6 @@
 ---
 id: 6440
-title: >-
-  examples.grid.bigData.ControlsContainer: add filter fields for the firstname &
-  lastname columns
+title: 'examples.grid.bigData.ControlsContainer: add filter fields for the firstname & lastname columns'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6177
-title: >-
-  grid.header.Toolbar: afterSetMounted() => pass the header button positions to
-  the grid.View
+title: 'grid.header.Toolbar: afterSetMounted() => pass the header button positions to the grid.View'
 state: CLOSED
 labels:
   - enhancement

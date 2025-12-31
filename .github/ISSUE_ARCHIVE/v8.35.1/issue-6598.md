@@ -1,8 +1,6 @@
 ---
 id: 6598
-title: >-
-  calendar.view.week.plugin.EventResizable: onMouseMove() => simplify the check
-  condition
+title: 'calendar.view.week.plugin.EventResizable: onMouseMove() => simplify the check condition'
 state: CLOSED
 labels:
   - enhancement

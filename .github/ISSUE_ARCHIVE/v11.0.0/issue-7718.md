@@ -1,8 +1,6 @@
 ---
 id: 7718
-title: >-
-  Architectural Fix: Implement 'FIRST ACTION PROTOCOL' to ensure reliable
-  session initialization
+title: 'Architectural Fix: Implement ''FIRST ACTION PROTOCOL'' to ensure reliable session initialization'
 state: CLOSED
 labels:
   - bug

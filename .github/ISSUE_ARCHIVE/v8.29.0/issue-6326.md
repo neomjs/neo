@@ -1,8 +1,6 @@
 ---
 id: 6326
-title: >-
-  selection.grid.BaseModel: enhance the internal structure for buffered
-  rendering
+title: 'selection.grid.BaseModel: enhance the internal structure for buffered rendering'
 state: CLOSED
 labels:
   - enhancement

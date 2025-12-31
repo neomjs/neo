@@ -25,17 +25,13 @@ subIssues:
   - '[x] 7546 Convert textEmbeddingService to TextEmbeddingService Neo.mjs Class'
   - '[x] 7547 Enhance DatabaseLifecycleService with Eventing'
   - '[x] 7549 Create ChromaManager and Adjust KB Server Entry Point'
-  - >-
-    [x] 7550 Convert databaseLifecycleService to DatabaseLifecycleService
-    Neo.mjs Class
+  - '[x] 7550 Convert databaseLifecycleService to DatabaseLifecycleService Neo.mjs Class'
   - '[x] 7551 Convert databaseService to DatabaseService Neo.mjs Class'
   - '[x] 7552 Convert documentService to DocumentService Neo.mjs Class'
   - '[x] 7553 Refactor HealthService to Match Superior Memory Core Pattern'
   - '[x] 7554 Convert queryService to QueryService Neo.mjs Class'
   - '[x] 7555 Centralize ChromaDB Client Warning Suppression in ChromaManager'
-  - >-
-    [x] 7556 Convert GitHub Workflow healthService to HealthService Neo.mjs
-    Class
+  - '[x] 7556 Convert GitHub Workflow healthService to HealthService Neo.mjs Class'
   - '[x] 7557 Convert issueService to IssueService Neo.mjs Class'
   - '[x] 7558 Convert labelService to LabelService Neo.mjs Class'
   - '[x] 7559 Convert pullRequestService to PullRequestService Neo.mjs Class'

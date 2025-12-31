@@ -1,8 +1,6 @@
 ---
 id: 6222
-title: >-
-  grid.header.Toolbar: createItems() => for the mounted state (run-time change)
-  we need to trigger passSizeToView()
+title: 'grid.header.Toolbar: createItems() => for the mounted state (run-time change) we need to trigger passSizeToView()'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6613
-title: >-
-  data.RecordFactory: createRecordClass() => only set the isModified symbol in
-  case trackModifiedFields is false
+title: 'data.RecordFactory: createRecordClass() => only set the isModified symbol in case trackModifiedFields is false'
 state: CLOSED
 labels:
   - enhancement

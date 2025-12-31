@@ -1,8 +1,6 @@
 ---
 id: 6235
-title: >-
-  grid.View: create a PoC to have the vertical scrollbar at the right edge of
-  the wrapper container
+title: 'grid.View: create a PoC to have the vertical scrollbar at the right edge of the wrapper container'
 state: CLOSED
 labels:
   - enhancement

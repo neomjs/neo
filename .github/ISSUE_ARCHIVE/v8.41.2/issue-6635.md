@@ -1,8 +1,6 @@
 ---
 id: 6635
-title: >-
-  core.Observable: not removing listeners with "once" properly, for multiple
-  occurences on the same event target
+title: 'core.Observable: not removing listeners with "once" properly, for multiple occurences on the same event target'
 state: CLOSED
 labels:
   - bug

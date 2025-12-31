@@ -1,8 +1,6 @@
 ---
 id: 6430
-title: >-
-  examples.grid.cellEditing.MainContainer: selectionModel needs to get mapped to
-  the view
+title: 'examples.grid.cellEditing.MainContainer: selectionModel needs to get mapped to the view'
 state: CLOSED
 labels:
   - bug

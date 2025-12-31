@@ -41,24 +41,14 @@ subIssues:
   - '[x] 7046 Reactive Updates for Nested Components in Functional VDOM'
   - '[ ] 7047 Task: Create Example for Deeply Nested Components'
   - '[x] 7050 Task: Enhance functional.component.Base with Core Configs'
-  - >-
-    [x] 7053 Architectural Enhancement: Implement VDOM Config Diffing in
-    FunctionalBase
-  - >-
-    [x] 7054 Architectural Enhancement: Recursive VDOM Config Diffing for Nested
-    Components
-  - >-
-    [x] 7055 examples.ConfigurationViewport: make
-    createConfigurationComponents() optionally async
+  - '[x] 7053 Architectural Enhancement: Implement VDOM Config Diffing in FunctionalBase'
+  - '[x] 7054 Architectural Enhancement: Recursive VDOM Config Diffing for Nested Components'
+  - '[x] 7055 examples.ConfigurationViewport: make createConfigurationComponents() optionally async'
   - '[x] 7057 Enable support for nesting functional components'
   - '[x] 7062 functional.component.Base: enhance the `destroy()` signature'
   - '[x] 7069 Enhance LivePreview for Modern JavaScript and Functional Components'
-  - >-
-    [x] 7070 learn/tutorials/TodoList: create a `functional.component.Base`
-    version
-  - >-
-    [x] 7071 layout.Flexbox: applyChildAttributes() => opt out for functional
-    cmps
+  - '[x] 7070 learn/tutorials/TodoList: create a `functional.component.Base` version'
+  - '[x] 7071 layout.Flexbox: applyChildAttributes() => opt out for functional cmps'
   - '[x] 7074 Improve Functional Component Initial Render Timing'
   - '[x] 7075 Enable Granular VDOM Updates for Functional Components'
 subIssuesCompleted: 35

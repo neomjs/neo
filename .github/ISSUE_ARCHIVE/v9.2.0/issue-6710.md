@@ -1,8 +1,6 @@
 ---
 id: 6710
-title: >-
-  container.Base: mergeConfig() => do not merge object & array based item
-  combinations
+title: 'container.Base: mergeConfig() => do not merge object & array based item combinations'
 state: CLOSED
 labels:
   - enhancement

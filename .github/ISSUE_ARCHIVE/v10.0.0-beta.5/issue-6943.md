@@ -1,8 +1,6 @@
 ---
 id: 6943
-title: >-
-  Implement Hierarchical `static config` Value Merging based on
-  `configDescriptors` in `Neo.setupClass`
+title: Implement Hierarchical `static config` Value Merging based on `configDescriptors` in `Neo.setupClass`
 state: CLOSED
 labels:
   - enhancement

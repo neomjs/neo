@@ -1,8 +1,6 @@
 ---
 id: 6616
-title: >-
-  grid.View, table.View: applyRendererOutput() => add support for non-leaf based
-  field renderer values
+title: 'grid.View, table.View: applyRendererOutput() => add support for non-leaf based field renderer values'
 state: CLOSED
 labels:
   - enhancement

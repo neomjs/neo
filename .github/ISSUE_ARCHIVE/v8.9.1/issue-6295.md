@@ -1,8 +1,6 @@
 ---
 id: 6295
-title: >-
-  dialog.Base: animateShow() => dragging, hiding & showing leeds to an initial
-  rendering inside the visible area
+title: 'dialog.Base: animateShow() => dragging, hiding & showing leeds to an initial rendering inside the visible area'
 state: CLOSED
 labels:
   - bug

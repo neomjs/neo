@@ -1,8 +1,6 @@
 ---
 id: 6697
-title: >-
-  layout.Base: applyRenderAttributes() => should trigger applyChildAttributes()
-  internally
+title: 'layout.Base: applyRenderAttributes() => should trigger applyChildAttributes() internally'
 state: CLOSED
 labels:
   - enhancement

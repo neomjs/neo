@@ -1,8 +1,6 @@
 ---
 id: 7008
-title: >-
-  Update the State Providers guide to reflect effects-based reactivity and
-  direct store binding
+title: Update the State Providers guide to reflect effects-based reactivity and direct store binding
 state: CLOSED
 labels:
   - enhancement

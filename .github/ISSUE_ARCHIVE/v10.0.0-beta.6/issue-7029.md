@@ -25,9 +25,7 @@ subIssues:
   - '[x] 7037 Overview.md: add a comparison table and remove redundancy'
   - '[x] 7038 Update guides based on more LLM input'
   - '[x] 7039 Feature: Add Neo.mjs vs. Vue.js Comparison Article'
-  - >-
-    [x] 7040 Feature: Compare Next.js (SSR/Build) vs. Neo.mjs (Zero-Build Dev
-    Mode)
+  - '[x] 7040 Feature: Compare Next.js (SSR/Build) vs. Neo.mjs (Zero-Build Dev Mode)'
   - '[x] 7041 Overview => comparison table => add multi-window support'
 subIssuesCompleted: 12
 subIssuesTotal: 12

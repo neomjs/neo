@@ -1,8 +1,6 @@
 ---
 id: 7212
-title: >-
-  Designing a State Manager for Performance: A Deep Dive into Hierarchical
-  Reactivity
+title: 'Designing a State Manager for Performance: A Deep Dive into Hierarchical Reactivity'
 state: CLOSED
 labels:
   - Blog Post

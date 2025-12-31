@@ -1,8 +1,6 @@
 ---
 id: 6640
-title: >-
-  grid.column.Component: cellRenderer() => renew bound controller configs on
-  each change
+title: 'grid.column.Component: cellRenderer() => renew bound controller configs on each change'
 state: CLOSED
 labels:
   - enhancement

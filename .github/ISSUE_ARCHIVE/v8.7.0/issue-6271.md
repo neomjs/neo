@@ -1,8 +1,6 @@
 ---
 id: 6271
-title: >-
-  data.RecordFactory: setRecordFields() => pass initialFields to nested
-  sub-calls
+title: 'data.RecordFactory: setRecordFields() => pass initialFields to nested sub-calls'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6698
-title: >-
-  layout.Base: removeRenderAttributes() => should trigger
-  removeChildAttributes() internally
+title: 'layout.Base: removeRenderAttributes() => should trigger removeChildAttributes() internally'
 state: CLOSED
 labels:
   - enhancement

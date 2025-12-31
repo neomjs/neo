@@ -1,8 +1,6 @@
 ---
 id: 6223
-title: >-
-  examples.grid.bigData.MainStore: afterSetAmountColumns() => add record
-  creation benchmarks
+title: 'examples.grid.bigData.MainStore: afterSetAmountColumns() => add record creation benchmarks'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6532
-title: >-
-  draggable.grid.header.toolbar.SortZone: moveTo() => adjust for the new columns
-  collection
+title: 'draggable.grid.header.toolbar.SortZone: moveTo() => adjust for the new columns collection'
 state: CLOSED
 labels:
   - enhancement

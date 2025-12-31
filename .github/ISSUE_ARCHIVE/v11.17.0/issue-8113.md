@@ -1,8 +1,6 @@
 ---
 id: 8113
-title: >-
-  Neo.container.Base: Add optional support to keep items in previous parent on
-  add/insert
+title: 'Neo.container.Base: Add optional support to keep items in previous parent on add/insert'
 state: CLOSED
 labels:
   - enhancement

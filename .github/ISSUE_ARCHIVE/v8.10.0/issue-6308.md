@@ -1,8 +1,6 @@
 ---
 id: 6308
-title: >-
-  selection.grid & table: move the initialisation of custom item arrays outside
-  of construct()
+title: 'selection.grid & table: move the initialisation of custom item arrays outside of construct()'
 state: CLOSED
 labels:
   - enhancement

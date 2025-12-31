@@ -1,8 +1,6 @@
 ---
 id: 6228
-title: >-
-  collection.Base: splice() => performance for adding massive amounts of items
-  in Safari
+title: 'collection.Base: splice() => performance for adding massive amounts of items in Safari'
 state: CLOSED
 labels:
   - bug

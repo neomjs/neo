@@ -1,8 +1,6 @@
 ---
 id: 7814
-title: >-
-  Fix regression: Replace deprecated parseConfig with createBindings in
-  Layout.mjs
+title: 'Fix regression: Replace deprecated parseConfig with createBindings in Layout.mjs'
 state: CLOSED
 labels:
   - bug

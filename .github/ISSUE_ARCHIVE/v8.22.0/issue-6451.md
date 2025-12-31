@@ -1,8 +1,6 @@
 ---
 id: 6451
-title: >-
-  examples.grid.bigData.ControlsContainer: add a TabContainer for separating
-  settings options
+title: 'examples.grid.bigData.ControlsContainer: add a TabContainer for separating settings options'
 state: CLOSED
 labels:
   - enhancement

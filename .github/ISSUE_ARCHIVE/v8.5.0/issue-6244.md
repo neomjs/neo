@@ -1,8 +1,6 @@
 ---
 id: 6244
-title: >-
-  component.Base: resolveVdomUpdate() => add a smarter way to merge scheduled
-  child updates
+title: 'component.Base: resolveVdomUpdate() => add a smarter way to merge scheduled child updates'
 state: CLOSED
 labels:
   - enhancement

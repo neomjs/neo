@@ -1,8 +1,6 @@
 ---
 id: 6299
-title: >-
-  grid.Container: addResizeObserver() => lazy load the addon, in case it is not
-  inside mainThreadAddons
+title: 'grid.Container: addResizeObserver() => lazy load the addon, in case it is not inside mainThreadAddons'
 state: CLOSED
 labels:
   - enhancement

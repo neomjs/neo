@@ -1,8 +1,6 @@
 ---
 id: 6365
-title: >-
-  draggable.grid.header.toolbar.SortZone: createDragProxy() => add the header
-  toolbar cls to the proxy vdom
+title: 'draggable.grid.header.toolbar.SortZone: createDragProxy() => add the header toolbar cls to the proxy vdom'
 state: CLOSED
 labels:
   - enhancement

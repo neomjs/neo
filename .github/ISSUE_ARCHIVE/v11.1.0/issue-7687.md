@@ -14,9 +14,7 @@ author: tobiu
 commentsCount: 3
 parentIssue: null
 subIssues:
-  - >-
-    [x] 7714 ci(testing): gate GitHub-integration tests and add diagnostics
-    polish
+  - '[x] 7714 ci(testing): gate GitHub-integration tests and add diagnostics polish'
   - '[x] 7713 health(github-workflow): reproduce gh-absent'
 subIssuesCompleted: 2
 subIssuesTotal: 2

@@ -1,8 +1,6 @@
 ---
 id: 6699
-title: >-
-  layout.Cube: destroy() => move the transformation logic into
-  removeRenderAttributes()
+title: 'layout.Cube: destroy() => move the transformation logic into removeRenderAttributes()'
 state: CLOSED
 labels:
   - enhancement

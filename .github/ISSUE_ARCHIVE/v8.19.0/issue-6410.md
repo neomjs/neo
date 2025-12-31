@@ -1,8 +1,6 @@
 ---
 id: 6410
-title: >-
-  form.field.Combobox: fireChangeEvent() needs to happen once the entire
-  afterSetValue parent chain is done
+title: 'form.field.Combobox: fireChangeEvent() needs to happen once the entire afterSetValue parent chain is done'
 state: CLOSED
 labels:
   - enhancement

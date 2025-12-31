@@ -1,8 +1,6 @@
 ---
 id: 6957
-title: >-
-  Introduce `Neo.core.Base#observeConfig()` for Lifecycle-Aware Config
-  Subscriptions
+title: Introduce `Neo.core.Base#observeConfig()` for Lifecycle-Aware Config Subscriptions
 state: CLOSED
 labels:
   - enhancement

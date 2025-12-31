@@ -1,8 +1,6 @@
 ---
 id: 6588
-title: >-
-  worker.ServiceBase: onFetch() => limit caching to event.request.method ===
-  'GET'
+title: 'worker.ServiceBase: onFetch() => limit caching to event.request.method === ''GET'''
 state: CLOSED
 labels:
   - enhancement

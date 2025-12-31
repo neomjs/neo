@@ -19,12 +19,8 @@ parentIssue: null
 subIssues:
   - '[x] 7365 Document and Configure GitHub CLI Authentication'
   - '[x] 7366 Enable Agent to List GitHub Issues and PRs'
-  - >-
-    [x] 7367 Create Script to Automate GitHub Issue Creation from Markdown
-    Ticket
-  - >-
-    [x] 7368 Enhance Issue Creation Script to Sync GitHub ID back to Markdown
-    File
+  - '[x] 7367 Create Script to Automate GitHub Issue Creation from Markdown Ticket'
+  - '[x] 7368 Enhance Issue Creation Script to Sync GitHub ID back to Markdown File'
   - '[x] 7369 Update Agent Workflow to use Automated GitHub Issue Creation'
   - '[x] 7370 Enable Agent to Checkout PR Branches'
   - '[x] 7371 Enable Agent to Diff a Pull Request'

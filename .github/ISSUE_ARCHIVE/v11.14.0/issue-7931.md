@@ -21,9 +21,7 @@ subIssues:
   - '[x] 7939 Feat: Implement Dynamic Tool Proxies for MCP Client'
   - '[x] 7940 Feat: Add Neo.snakeToCamel utility function'
   - '[x] 7941 Investigate Multi-Server Tool Namespacing for MCP Client'
-  - >-
-    [x] 7942 Feat: Enable External Configuration and Generic Runner for MCP
-    Client CLI
+  - '[x] 7942 Feat: Enable External Configuration and Generic Runner for MCP Client CLI'
   - '[x] 7945 Refactor: MCP Client Lifecycle and CLI Runner Renaming'
   - '[x] 7946 Feat: Implement Client-Side Tool Validation in MCP Client'
   - '[x] 7949 Refactor Shared Tool Validation Service for MCP Client and Server'

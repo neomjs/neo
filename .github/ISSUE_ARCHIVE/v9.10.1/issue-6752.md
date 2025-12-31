@@ -1,8 +1,6 @@
 ---
 id: 6752
-title: >-
-  buildScripts/buildESModules: enhance the import regex callback to update neo
-  paths inside workspaces
+title: 'buildScripts/buildESModules: enhance the import regex callback to update neo paths inside workspaces'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 5429
-title: >-
-  tab.Container: getLayoutConfig() => replace the switch block with an object
-  (map)
+title: 'tab.Container: getLayoutConfig() => replace the switch block with an object (map)'
 state: CLOSED
 labels:
   - enhancement

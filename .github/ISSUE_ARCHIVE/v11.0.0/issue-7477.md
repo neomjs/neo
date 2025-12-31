@@ -32,9 +32,7 @@ subIssues:
   - '[x] 7496 Add Annotations to MCP Tool Definitions'
   - '[x] 7497 Refine `mcp-stdio.mjs` for MCP Compliance and Clarity'
   - '[x] 7498 Fix Gemini CLI Client Compatibility for MCP `tools/list` Response'
-  - >-
-    [x] 7499 Implement Conditional Omission of Optional Fields in MCP Tool
-    Definitions
+  - '[x] 7499 Implement Conditional Omission of Optional Fields in MCP Tool Definitions'
   - '[x] 7500 Simplify Description Handling in Zod Schema Generation'
 subIssuesCompleted: 20
 subIssuesTotal: 20

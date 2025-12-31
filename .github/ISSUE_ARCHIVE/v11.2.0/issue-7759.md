@@ -1,8 +1,6 @@
 ---
 id: 7759
-title: >-
-  Move "blocked by" and "blocking" relationship information to frontmatter in
-  `IssueSyncer.mjs`
+title: Move "blocked by" and "blocking" relationship information to frontmatter in `IssueSyncer.mjs`
 state: CLOSED
 labels:
   - enhancement

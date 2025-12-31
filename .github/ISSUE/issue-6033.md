@@ -1,8 +1,6 @@
 ---
 id: 6033
-title: >-
-  examples/button/Base: opening the menu list does no longer allow using the
-  arrow keys to navigate right away
+title: 'examples/button/Base: opening the menu list does no longer allow using the arrow keys to navigate right away'
 state: OPEN
 labels:
   - bug

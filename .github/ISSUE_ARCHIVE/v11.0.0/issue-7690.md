@@ -1,8 +1,6 @@
 ---
 id: 7690
-title: >-
-  Enhancement: Clarify Memory Core healthcheck response for hybrid database
-  strategy
+title: 'Enhancement: Clarify Memory Core healthcheck response for hybrid database strategy'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6478
-title: >-
-  component.MagicMoveText: add a cache for each measure result inside a given
-  rotation
+title: 'component.MagicMoveText: add a cache for each measure result inside a given rotation'
 state: CLOSED
 labels:
   - enhancement

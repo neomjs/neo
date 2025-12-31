@@ -1,8 +1,6 @@
 ---
 id: 6659
-title: >-
-  examples/grid/bigData: column component based buttons sometimes lose their
-  content
+title: 'examples/grid/bigData: column component based buttons sometimes lose their content'
 state: CLOSED
 labels:
   - bug
