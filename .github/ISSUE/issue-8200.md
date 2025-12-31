@@ -25,8 +25,9 @@ subIssues:
   - '[x] 8234 [Neural Link] Implement toJSON in layout.Flexbox'
   - '[x] 8235 [Neural Link] Implement toJSON in layout.Card'
   - '[x] 8236 [Neural Link] Implement toJSON in layout.Form'
-subIssuesCompleted: 10
-subIssuesTotal: 10
+  - '[x] 8237 [Neural Link] Implement toJSON in layout.Cube'
+subIssuesCompleted: 11
+subIssuesTotal: 11
 blockedBy: []
 blocking: []
 ---
@@ -79,4 +80,5 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2025-12-31 @tobiu added sub-issue #8234
 - 2025-12-31 @tobiu added sub-issue #8235
 - 2025-12-31 @tobiu added sub-issue #8236
+- 2025-12-31 @tobiu added sub-issue #8237
 
