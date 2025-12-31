@@ -23,8 +23,9 @@ subIssues:
   - '[x] 8232 [Neural Link] Implement toJSON in state.Provider'
   - '[x] 8233 [Neural Link] Implement toJSON in layout.Base'
   - '[x] 8234 [Neural Link] Implement toJSON in layout.Flexbox'
-subIssuesCompleted: 8
-subIssuesTotal: 8
+  - '[x] 8235 [Neural Link] Implement toJSON in layout.Card'
+subIssuesCompleted: 9
+subIssuesTotal: 9
 blockedBy: []
 blocking: []
 ---
@@ -75,4 +76,5 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2025-12-31 @tobiu referenced in commit `665b841` - "docs(issue): Update ticket state for #8200 and #8232"
 - 2025-12-31 @tobiu added sub-issue #8233
 - 2025-12-31 @tobiu added sub-issue #8234
+- 2025-12-31 @tobiu added sub-issue #8235
 
