@@ -456,6 +456,28 @@ class Abstract extends Base {
     setState(...args) {
         this.getStateProvider().setData(...args)
     }
+
+    /**
+     * Serializes the component into a JSON-compatible object.
+     * Extends the core.Base serialization with component-specific properties.
+     * @returns {Object}
+     */
+    toJSON() {
+        const
+            me     = this,
+            result = super.toJSON();
+
+        Object.assign(result, {
+            appName      : me.appName,
+            bind         : me.bind ? Object.keys(me.bind) : null,
+            mounted      : me.mounted,
+            parentId     : me.parentId,
+            stateProvider: me.stateProvider?.toJSON(),
+            windowId     : me.windowId
+        });
+
+        return result
+    }
 }
 
 export default Neo.setupClass(Abstract);
