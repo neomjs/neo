@@ -69,6 +69,20 @@ class Card extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            activeIndex        : this.activeIndex,
+            containerCls       : this.containerCls,
+            removeInactiveCards: this.removeInactiveCards,
+            slideDirection     : this.slideDirection
+        }
+    }
+
+    /**
      * Modifies the CSS classes of the container items this layout is bound to.
      * Automatically gets triggered after changing the value of activeIndex.
      * Lazy loads items which use a module config containing a function.
