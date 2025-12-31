@@ -673,6 +673,31 @@ class Provider extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        const
+            me     = this,
+            stores = {};
+
+        if (me.stores) {
+            Object.entries(me.stores).forEach(([key, value]) => {
+                stores[key] = value.toJSON()
+            })
+        }
+
+        return {
+            ...super.toJSON(),
+            component: me.component?.id,
+            data     : me.data,
+            parent   : me.parent?.id,
+            stores,
+            windowId : me.windowId
+        }
+    }
+
+    /**
      * Use this method instead of setData() in case you want to enforce
      * setting all keys on this instance instead of looking for matches inside parent stateProviders.
      *
