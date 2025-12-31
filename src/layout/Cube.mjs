@@ -98,27 +98,6 @@ class Cube extends Card {
     }
 
     /**
-     * Serializes the instance into a JSON-compatible object for the Neural Link.
-     * @returns {Object}
-     */
-    toJSON() {
-        return {
-            ...super.toJSON(),
-            activeFace                : this.activeFace,
-            activeIndex               : this.activeIndex,
-            fitContainer              : this.fitContainer,
-            hideInactiveCardsOnDestroy: this.hideInactiveCardsOnDestroy,
-            perspective               : this.perspective,
-            rotateX                   : this.rotateX,
-            rotateY                   : this.rotateY,
-            rotateZ                   : this.rotateZ,
-            sideX                     : this.sideX,
-            sideY                     : this.sideY,
-            sideZ                     : this.sideZ
-        }
-    }
-
-    /**
      * @member {Function|null} #cachedVdomItemsRoot=null
      * @private
      */
@@ -451,6 +430,29 @@ class Cube extends Card {
         if (Neo.isNumber(z)) {me._rotateZ = z; style['--rot-z'] = z + 'deg'}
 
         container.style = style
+    }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            activeFace                : me.activeFace,
+            activeIndex               : me.activeIndex,
+            fitContainer              : me.fitContainer,
+            hideInactiveCardsOnDestroy: me.hideInactiveCardsOnDestroy,
+            perspective               : me.perspective,
+            rotateX                   : me.rotateX,
+            rotateY                   : me.rotateY,
+            rotateZ                   : me.rotateZ,
+            sideX                     : me.sideX,
+            sideY                     : me.sideY,
+            sideZ                     : me.sideZ
+        }
     }
 
     /**

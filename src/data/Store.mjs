@@ -779,21 +779,23 @@ class Store extends Collection {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
             ...super.toJSON(),
-            autoInitRecords : this.autoInitRecords,
-            autoLoad        : this.autoLoad,
-            currentPage     : this.currentPage,
-            initialChunkSize: this.initialChunkSize,
-            isGrouped       : this.isGrouped,
-            isLoaded        : this.isLoaded,
-            isLoading       : this.isLoading,
-            model           : this.model?.toJSON(),
-            pageSize        : this.pageSize,
-            remoteFilter    : this.remoteFilter,
-            remoteSort      : this.remoteSort,
-            totalCount      : this.totalCount,
-            url             : this.url
+            autoInitRecords : me.autoInitRecords,
+            autoLoad        : me.autoLoad,
+            currentPage     : me.currentPage,
+            initialChunkSize: me.initialChunkSize,
+            isGrouped       : me.isGrouped,
+            isLoaded        : me.isLoaded,
+            isLoading       : me.isLoading,
+            model           : me.model?.toJSON(),
+            pageSize        : me.pageSize,
+            remoteFilter    : me.remoteFilter,
+            remoteSort      : me.remoteSort,
+            totalCount      : me.totalCount,
+            url             : me.url
         }
     }
 }

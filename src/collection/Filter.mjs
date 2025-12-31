@@ -220,12 +220,14 @@ class Filter extends Base {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
             ...super.toJSON(),
-            disabled: this.disabled,
-            operator: this.operator,
-            property: this.property,
-            value   : this.value
+            disabled: me.disabled,
+            operator: me.operator,
+            property: me.property,
+            value   : me.value
         }
     }
 

@@ -288,14 +288,16 @@ class Flexbox extends Base {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
             ...super.toJSON(),
-            align    : this.align,
-            direction: this.direction,
-            gap      : this.gap,
-            pack     : this.pack,
-            prefix   : this.prefix,
-            wrap     : this.wrap
+            align    : me.align,
+            direction: me.direction,
+            gap      : me.gap,
+            pack     : me.pack,
+            prefix   : me.prefix,
+            wrap     : me.wrap
         }
     }
 

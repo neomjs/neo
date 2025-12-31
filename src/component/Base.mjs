@@ -1603,11 +1603,10 @@ class Component extends Abstract {
      * @returns {Object}
      */
     toJSON() {
-        const
-            me     = this,
-            result = super.toJSON();
+        let me = this;
 
-        Object.assign(result, {
+        return {
+            ...super.toJSON(),
             cls         : me.cls,
             disabled    : me.disabled,
             height      : me.height,
@@ -1621,9 +1620,7 @@ class Component extends Abstract {
             width       : me.width,
             wrapperCls  : me.wrapperCls,
             wrapperStyle: me.wrapperStyle
-        });
-
-        return result
+        }
     }
 
     /**

@@ -463,20 +463,17 @@ class Abstract extends Base {
      * @returns {Object}
      */
     toJSON() {
-        const
-            me     = this,
-            result = super.toJSON();
+        let me = this;
 
-        Object.assign(result, {
+        return {
+            ...super.toJSON(),
             appName      : me.appName,
             bind         : me.bind ? Object.keys(me.bind) : null,
             mounted      : me.mounted,
             parentId     : me.parentId,
             stateProvider: me.stateProvider?.toJSON(),
             windowId     : me.windowId
-        });
-
-        return result
+        }
     }
 }
 

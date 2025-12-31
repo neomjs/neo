@@ -1005,12 +1005,14 @@ class Base {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
-            className  : this.className,
-            id         : this.id,
-            isDestroyed: this.isDestroyed,
-            ntype      : this.ntype,
-            remote     : this.remote
+            className  : me.className,
+            id         : me.id,
+            isDestroyed: me.isDestroyed,
+            ntype      : me.ntype,
+            remote     : me.remote
         }
     }
 

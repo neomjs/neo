@@ -916,18 +916,15 @@ class Container extends Component {
      * @returns {Object}
      */
     toJSON() {
-        const
-            me     = this,
-            result = super.toJSON();
+        let me = this;
 
-        Object.assign(result, {
+        return {
+            ...super.toJSON(),
             dragResortable: me.dragResortable,
             itemCount     : me.items?.length || 0,
             itemDefaults  : me.itemDefaults,
             layout        : me.layout?.toJSON()
-        });
-
-        return result
+        }
     }
 }
 

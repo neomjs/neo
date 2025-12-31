@@ -673,6 +673,25 @@ class Provider extends Base {
     }
 
     /**
+     * Use this method instead of setData() in case you want to enforce
+     * setting all keys on this instance instead of looking for matches inside parent stateProviders.
+     *
+     * All updates within a single call are batched to ensure that reactive effects (bindings and formulas)
+     * are run only once.
+     *
+     * @param {Object|String} key
+     * @param {*}             value
+     */
+    setDataAtSameLevel(key, value) {
+        EffectManager.pause();
+        try {
+            this.internalSetData(key, value)
+        } finally {
+            EffectManager.resume()
+        }
+    }
+
+    /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */
@@ -694,25 +713,6 @@ class Provider extends Base {
             parent   : me.parent?.id,
             stores,
             windowId : me.windowId
-        }
-    }
-
-    /**
-     * Use this method instead of setData() in case you want to enforce
-     * setting all keys on this instance instead of looking for matches inside parent stateProviders.
-     *
-     * All updates within a single call are batched to ensure that reactive effects (bindings and formulas)
-     * are run only once.
-     *
-     * @param {Object|String} key
-     * @param {*}             value
-     */
-    setDataAtSameLevel(key, value) {
-        EffectManager.pause();
-        try {
-            this.internalSetData(key, value)
-        } finally {
-            EffectManager.resume()
         }
     }
 }

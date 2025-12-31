@@ -102,12 +102,14 @@ class Model extends Base {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
             ...super.toJSON(),
-            fields             : this.fields,
-            keyProperty        : this.keyProperty,
-            storeId            : this.storeId,
-            trackModifiedFields: this.trackModifiedFields
+            fields             : me.fields,
+            keyProperty        : me.keyProperty,
+            storeId            : me.storeId,
+            trackModifiedFields: me.trackModifiedFields
         }
     }
 

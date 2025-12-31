@@ -636,12 +636,11 @@ class Button extends Component {
      * @returns {Object}
      */
     toJSON() {
-        const
-            me      = this,
-            handler = me.handler,
-            result  = super.toJSON();
+        let me      = this,
+            handler = me.handler;
 
-        Object.assign(result, {
+        return {
+            ...super.toJSON(),
             badgePosition: me.badgePosition,
             badgeText    : me.badgeText,
             handler      : Neo.isString(handler) ? handler : (Neo.isFunction(handler) ? 'function' : null),
@@ -653,9 +652,7 @@ class Button extends Component {
             text         : me.text,
             url          : me.url,
             urlTarget    : me.urlTarget
-        });
-
-        return result
+        }
     }
 
     /**

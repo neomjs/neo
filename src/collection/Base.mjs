@@ -1360,13 +1360,15 @@ class Collection extends Base {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
             ...super.toJSON(),
-            count      : this.count,
-            filters    : this.filters.map(filter => filter.toJSON()),
-            keyProperty: this.keyProperty,
-            sorters    : this.sorters.map(sorter => sorter.toJSON()),
-            sourceId   : this.sourceId
+            count      : me.count,
+            filters    : me.filters.map(filter => filter.toJSON()),
+            keyProperty: me.keyProperty,
+            sorters    : me.sorters.map(sorter => sorter.toJSON()),
+            sourceId   : me.sourceId
         }
     }
 
