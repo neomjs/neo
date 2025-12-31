@@ -20,8 +20,9 @@ subIssues:
   - '[x] 8225 [Neural Link] Implement toJSON in component.Base'
   - '[x] 8227 [Neural Link] Implement toJSON in button.Base'
   - '[x] 8228 [Neural Link] Implement toJSON in container.Base'
+  - '[ ] 8232 [Neural Link] Implement toJSON in state.Provider'
 subIssuesCompleted: 5
-subIssuesTotal: 5
+subIssuesTotal: 6
 blockedBy: []
 blocking: []
 ---
@@ -68,4 +69,5 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2025-12-31 @tobiu added sub-issue #8225
 - 2025-12-31 @tobiu added sub-issue #8227
 - 2025-12-31 @tobiu added sub-issue #8228
+- 2025-12-31 @tobiu added sub-issue #8232
 
