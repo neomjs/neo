@@ -15,11 +15,11 @@ author: tobiu
 commentsCount: 0
 parentIssue: 7918
 subIssues:
-  - '[x] 8026'
-  - '[x] 8027'
-  - '[x] 8028'
-  - '[x] 8029'
-  - '[x] 8030'
+  - '[x] 8026 Scaffold Neo Cyberpunk Theme Structure'
+  - '[x] 8027 Implement Panel Styles for Neo Cyberpunk'
+  - '[x] 8028 Implement Grid Styles for Neo Cyberpunk'
+  - '[x] 8029 Implement Button Styles for Neo Cyberpunk'
+  - '[x] 8030 Implement Toolbar Styles for Neo Cyberpunk'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

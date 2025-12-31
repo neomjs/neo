@@ -50,4 +50,5 @@ subIssues:
 - 2025-12-29 @tobiu assigned to @tobiu
 - 2025-12-29 @tobiu referenced in commit `182486c` - "Enhance sub-issue status visibility in markdown frontmatter #8205"
 - 2025-12-29 @tobiu closed this issue
+- 2025-12-31 @tobiu cross-referenced by #8229
 

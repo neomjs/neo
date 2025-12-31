@@ -14,10 +14,10 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 7094'
-  - '[x] 7095'
-  - '[x] 7096'
-  - '[x] 7097'
+  - '[x] 7094 Create Deep-Dive Blog Post for State Providers'
+  - '[x] 7095 Create Deep-Dive Blog Post for the Reactive Core'
+  - '[x] 7096 Create Deep-Dive Blog Post for Performance & Security'
+  - '[x] 7097 Create Deep-Dive Blog Post for Functional Components'
 subIssuesCompleted: 4
 subIssuesTotal: 4
 blockedBy: []

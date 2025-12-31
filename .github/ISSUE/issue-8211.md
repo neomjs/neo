@@ -18,7 +18,7 @@ subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy:
-  - '[x] 8210'
+  - '[x] 8210 Create standalone Neural Link Bridge process'
 blocking: []
 closedAt: '2025-12-30T10:15:36Z'
 ---

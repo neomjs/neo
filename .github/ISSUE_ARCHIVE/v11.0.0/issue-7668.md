@@ -15,8 +15,8 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 7669'
-  - '[x] 7670'
+  - '[x] 7669 Refactor: Enhance OpenAPI spec for Knowledge Base Server'
+  - '[x] 7670 Refactor: Shorten AGENTS.md by removing query tool documentation'
 subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []

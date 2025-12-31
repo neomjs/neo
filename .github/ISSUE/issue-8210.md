@@ -19,7 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
-  - '[x] 8211'
+  - '[x] 8211 Update ConnectionService to use Neural Link Bridge'
 closedAt: '2025-12-30T10:15:21Z'
 ---
 # Create standalone Neural Link Bridge process

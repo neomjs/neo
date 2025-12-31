@@ -13,13 +13,19 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[x] 6585'
-  - '[x] 6586'
-  - '[x] 6587'
-  - '[x] 6588'
-  - '[x] 6589'
-  - '[x] 6590'
-  - '[x] 6591'
+  - '[x] 6585 worker.ServiceBase: create a separate cache for each version'
+  - '[x] 6586 worker.ServiceBase: onInstall() => remove the skipWaiting() call'
+  - >-
+    [x] 6587 worker.Manager: add controllerchange SW listener as early as
+    possible
+  - >-
+    [x] 6588 worker.ServiceBase: onFetch() => limit caching to
+    event.request.method === 'GET'
+  - '[x] 6589 main.addon.ServiceWorker: registerServiceWorker()'
+  - >-
+    [x] 6590 main.addon.ServiceWorker: registerServiceWorker() => updatefound
+    listener
+  - '[x] 6591 worker.ServiceBase: onActivate() => clear previous caches'
 subIssuesCompleted: 7
 subIssuesTotal: 7
 blockedBy: []

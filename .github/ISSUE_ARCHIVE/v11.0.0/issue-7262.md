@@ -14,41 +14,59 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[x] 7256'
-  - '[x] 7261'
-  - '[x] 7260'
-  - '[x] 7258'
-  - '[x] 7255'
-  - '[x] 7254'
-  - '[x] 7263'
-  - '[x] 7267'
-  - '[x] 7268'
-  - '[x] 7269'
-  - '[x] 7270'
-  - '[x] 7271'
-  - '[x] 7272'
-  - '[x] 7273'
-  - '[x] 7274'
-  - '[x] 7275'
-  - '[x] 7276'
-  - '[x] 7277'
-  - '[x] 7278'
-  - '[x] 7279'
-  - '[x] 7280'
-  - '[x] 7281'
-  - '[x] 7282'
-  - '[x] 7283'
-  - '[x] 7284'
-  - '[x] 7285'
-  - '[x] 7286'
-  - '[x] 7287'
-  - '[x] 7288'
-  - '[x] 7289'
-  - '[x] 7290'
-  - '[x] 7291'
-  - '[x] 7292'
-  - '[x] 7293'
-  - '[x] 7294'
+  - '[x] 7256 Refactor Playwright Setup Function for Test-Specific Configurations'
+  - '[x] 7261 Convert core/Effect.mjs Siesta Test to Playwright'
+  - '[x] 7260 Correct Playwright Output Directory'
+  - '[x] 7258 Refactor Playwright Setup and Convert VdomHelper Test'
+  - '[x] 7255 Refactor Playwright Test Configuration'
+  - '[x] 7254 Install Playwright and Convert First Siesta Test'
+  - '[x] 7263 Plan Remaining Siesta to Playwright Test Migrations'
+  - '[x] 7267 Convert ClassConfigsAndFields.mjs Test from Siesta to Playwright'
+  - '[x] 7268 Convert ClassSystem.mjs Test from Siesta to Playwright'
+  - '[x] 7269 Convert CollectionBase.mjs Test from Siesta to Playwright'
+  - '[x] 7270 Convert ManagerInstance.mjs Test from Siesta to Playwright'
+  - '[x] 7271 Convert Rectangle.mjs Test from Siesta to Playwright'
+  - '[x] 7272 Convert VdomCalendar.mjs Test from Siesta to Playwright'
+  - '[x] 7273 Convert config/AfterSetConfig.mjs Test from Siesta to Playwright'
+  - '[x] 7274 Convert config/Basic.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7275 Convert config/CircularDependencies.mjs Test from Siesta to
+    Playwright
+  - '[x] 7276 Convert config/CustomFunctions.mjs Test from Siesta to Playwright'
+  - '[x] 7277 Convert config/Hierarchy.mjs Test from Siesta to Playwright'
+  - '[x] 7278 Convert config/MemoryLeak.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7279 Convert config/MultiLevelHierarchy.mjs Test from Siesta to
+    Playwright
+  - '[x] 7280 Convert core/EffectBatching.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7281 Convert form/field/AfterSetValueSequence.mjs Test from Siesta to
+    Playwright
+  - '[x] 7282 Convert functional/Button.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7283 Convert functional/HtmlTemplateComponent.mjs Test from Siesta to
+    Playwright
+  - >-
+    [x] 7284 Convert functional/Parse5Processor.mjs Test from Siesta to
+    Playwright
+  - '[x] 7285 Convert neo/MixinStaticConfig.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7286 Convert state/createHierarchicalDataProxy.mjs Test from Siesta to
+    Playwright
+  - '[x] 7287 Convert state/FeedbackLoop.mjs Test from Siesta to Playwright'
+  - '[x] 7288 Convert state/Provider.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7289 Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to
+    Playwright
+  - '[x] 7290 Convert vdom/Advanced.mjs Test from Siesta to Playwright'
+  - >-
+    [x] 7291 Convert vdom/VdomAsymmetricUpdates.mjs Test from Siesta to
+    Playwright
+  - >-
+    [x] 7292 Convert vdom/VdomRealWorldUpdates.mjs Test from Siesta to
+    Playwright
+  - '[x] 7293 Convert vdom/layout/Cube.mjs Test from Siesta to Playwright'
+  - '[x] 7294 Convert vdom/table/Container.mjs Test from Siesta to Playwright'
 subIssuesCompleted: 35
 subIssuesTotal: 35
 blockedBy: []

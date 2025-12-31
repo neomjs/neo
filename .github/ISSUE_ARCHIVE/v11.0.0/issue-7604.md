@@ -15,14 +15,14 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 7626'
-  - '[x] 7630'
-  - '[x] 7631'
-  - '[x] 7658'
-  - '[x] 7659'
-  - '[x] 7660'
-  - '[x] 7661'
-  - '[x] 7662'
+  - '[x] 7626 Cache Viewer Permission on Server Startup'
+  - '[x] 7630 docs: Update AGENTS.md to Reflect MCP Server Architecture'
+  - '[x] 7631 refactor: Remove obsolete buildScripts/ai directory'
+  - '[x] 7658 Refactor: Simplify Memory Core Protocol in AGENTS.md'
+  - '[x] 7659 Docs: Create Self-Explanatory Tools via OpenAPI Descriptions'
+  - '[x] 7660 Refine Memory Protocol: Define a "Turn" and Consolidate Sub-Turns'
+  - '[x] 7661 Refine Memory Protocol: Clarify Recovery and Prevent Skipped Turns'
+  - '[x] 7662 Docs: Add Communication Style Directive to AGENTS.md'
 subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []

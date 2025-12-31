@@ -15,11 +15,11 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 8224'
-  - '[x] 8226'
-  - '[x] 8225'
-  - '[x] 8227'
-  - '[x] 8228'
+  - '[x] 8224 [Neural Link] Implement toJSON in core.Base'
+  - '[x] 8226 [Neural Link] Implement toJSON in component.Abstract'
+  - '[x] 8225 [Neural Link] Implement toJSON in component.Base'
+  - '[x] 8227 [Neural Link] Implement toJSON in button.Base'
+  - '[x] 8228 [Neural Link] Implement toJSON in container.Base'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

@@ -15,48 +15,56 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 8170'
-  - '[x] 8171'
-  - '[x] 8172'
-  - '[x] 8016'
-  - '[x] 8173'
-  - '[x] 8174'
-  - '[x] 8175'
-  - '[x] 8176'
-  - '[x] 8177'
-  - '[x] 8178'
-  - '[x] 8179'
-  - '[x] 8180'
-  - '[x] 8181'
-  - '[x] 8183'
-  - '[x] 8184'
-  - '[x] 8185'
-  - '[x] 8186'
-  - '[x] 8187'
-  - '[x] 8188'
-  - '[ ] 8189'
-  - '[ ] 8190'
-  - '[ ] 8191'
-  - '[ ] 8192'
-  - '[ ] 8193'
-  - '[x] 8182'
-  - '[x] 8194'
-  - '[x] 8195'
-  - '[x] 8196'
-  - '[ ] 8197'
-  - '[x] 8206'
-  - '[x] 8207'
-  - '[x] 8208'
-  - '[x] 8210'
-  - '[x] 8211'
-  - '[x] 8209'
-  - '[x] 8212'
-  - '[x] 8213'
-  - '[x] 8214'
-  - '[x] 8215'
-  - '[x] 8216'
-  - '[x] 8222'
-  - '[x] 8223'
+  - '[x] 8170 Implement Neural Link Client Core (Tree & Props)'
+  - '[x] 8171 Implement Neural Link Window Topology Discovery'
+  - '[x] 8172 Implement Neural Link Drag & Drop Inspection'
+  - '[x] 8016 Harden Neural Link MCP Server'
+  - '[x] 8173 Implement Unique App Worker Identification & Worker Topology'
+  - '[x] 8174 Refactor Neural Link Routing: Standardize Session vs Window ID'
+  - '[x] 8175 Implement Window Connect/Disconnect Notifications for Neural Link'
+  - '[x] 8176 Implement Neural Link State Rehydration on Reconnect'
+  - '[x] 8177 Harden WebSocket Connection: Backoff & Auto-Reconnect'
+  - '[x] 8178 Refactor: Extract ComponentService from ConnectionService'
+  - '[x] 8179 Refactor: Extract RuntimeService from ConnectionService'
+  - '[x] 8180 Refactor: Extract InteractionService from ConnectionService'
+  - '[x] 8181 Feat: ConnectionService Lifecycle Tools'
+  - '[x] 8183 Feat: Neural Link - Data Store Inspection & Manager'
+  - '[x] 8184 Feat: Neural Link - Navigation Control & History'
+  - '[x] 8185 Feat: Neural Link - Visual Inspection (DomRect)'
+  - '[x] 8186 Feat: Neural Link - Semantic Component Query'
+  - '[x] 8187 Feat: Neural Link - State Provider Inspection & Modification'
+  - '[x] 8188 Feat: Neural Link - Visual Highlighting'
+  - '[ ] 8189 Feat: Neural Link - Advanced Event Simulation'
+  - '[ ] 8190 Feat: Neural Link - Runtime Code Hot-Patching'
+  - '[ ] 8191 Feat: Neural Link - Global Config Management'
+  - '[ ] 8192 Feat: Neural Link - Log & Error Streaming'
+  - '[ ] 8193 Feat: Neural Link - Namespace Discovery'
+  - '[x] 8182 Feat: Neural Link Identity and Recovery'
+  - '[x] 8194 Feat: Neural Link - Propagate Runtime Errors to Agent'
+  - '[x] 8195 Feat: Neural Link - Get Record Tool'
+  - '[x] 8196 Refactor: Neural Link - Client-Side Service Architecture'
+  - '[ ] 8197 Feat: Neural Link - Export Domain Services in AI SDK'
+  - '[x] 8206 Refactor Client Services to use Parameter Destructuring'
+  - >-
+    [x] 8207 ai.Client: Enhance handleRequest to support sync and async
+    execution
+  - '[x] 8208 ai.client.ComponentService: Make highlightComponent non-blocking'
+  - '[x] 8210 Create standalone Neural Link Bridge process'
+  - '[x] 8211 Update ConnectionService to use Neural Link Bridge'
+  - '[x] 8209 Fix silent failure in Neural Link ConnectionService startup'
+  - '[x] 8212 Enhance Neural Link Health Check with detailed diagnostics'
+  - '[x] 8213 Log App Name in Neural Link Bridge connections'
+  - >-
+    [x] 8214 Fix Neural Link Server startup crash due to health check schema
+    mismatch
+  - '[x] 8215 Expose connected agents in Neural Link health check'
+  - >-
+    [x] 8216 Fix Neural Link server startup crash due to missing
+    startServer/stopServer methods
+  - >-
+    [x] 8222 Fix Neural Link Recovery: Exempt server control tools from health
+    check gate
+  - '[x] 8223 Investigate and Fix get_component_tree Timeout'
 subIssuesCompleted: 36
 subIssuesTotal: 42
 blockedBy: []

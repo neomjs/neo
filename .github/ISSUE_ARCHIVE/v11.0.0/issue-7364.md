@@ -17,23 +17,27 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[x] 7365'
-  - '[x] 7366'
-  - '[x] 7367'
-  - '[x] 7368'
-  - '[x] 7369'
-  - '[x] 7370'
-  - '[x] 7371'
-  - '[x] 7372'
-  - '[x] 7373'
-  - '[x] 7376'
-  - '[x] 7377'
-  - '[x] 7378'
-  - '[x] 7381'
-  - '[x] 7391'
-  - '[x] 7393'
-  - '[x] 7414'
-  - '[x] 7418'
+  - '[x] 7365 Document and Configure GitHub CLI Authentication'
+  - '[x] 7366 Enable Agent to List GitHub Issues and PRs'
+  - >-
+    [x] 7367 Create Script to Automate GitHub Issue Creation from Markdown
+    Ticket
+  - >-
+    [x] 7368 Enhance Issue Creation Script to Sync GitHub ID back to Markdown
+    File
+  - '[x] 7369 Update Agent Workflow to use Automated GitHub Issue Creation'
+  - '[x] 7370 Enable Agent to Checkout PR Branches'
+  - '[x] 7371 Enable Agent to Diff a Pull Request'
+  - '[x] 7372 Enable Agent to Comment on Pull Requests'
+  - '[x] 7373 Define a Clear Pull Request Review Protocol for the Agent'
+  - '[x] 7376 Define Hybrid API vs. Knowledge Base Workflow for Agent'
+  - '[x] 7377 Create Script to Sync New GitHub Issues to Local Markdown Files'
+  - '[x] 7378 Enhance Knowledge Base to Include GitHub Comments'
+  - '[x] 7381 Create a Robust GitHub CLI Setup and Verification Script'
+  - '[x] 7391 Refactor createGhIssue.mjs to use fs-extra for consistency'
+  - '[x] 7393 Move PR workflows to separate guide in learn/guides/ai'
+  - '[x] 7414 Implement GitHub Action to Prevent Issue Reopening'
+  - '[x] 7418 Refine and Integrate GitHub CLI Guide'
 subIssuesCompleted: 17
 subIssuesTotal: 17
 blockedBy: []

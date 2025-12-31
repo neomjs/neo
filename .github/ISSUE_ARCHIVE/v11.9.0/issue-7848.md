@@ -15,11 +15,11 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[x] 7849'
-  - '[x] 7850'
-  - '[x] 7851'
-  - '[x] 7852'
-  - '[x] 7853'
+  - '[x] 7849 Documentation: Create Guide for "Introduction to MCP & Agent OS"'
+  - '[x] 7850 Documentation: Create Guide for "The Knowledge Base Server"'
+  - '[x] 7851 Documentation: Create Guide for "The Memory Core Server"'
+  - '[x] 7852 Documentation: Create Guide for "The GitHub Workflow Server"'
+  - '[x] 7853 Documentation: Create Guide for "Code Execution with MCP"'
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

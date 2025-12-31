@@ -14,8 +14,8 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[ ] 7926'
-  - '[x] 7930'
+  - '[ ] 7926 Feat: Add Cross-Repo Capabilities to GitHub Workflow MCP'
+  - '[x] 7930 Bug: GitHub HealthService fails in standalone SDK scripts'
 subIssuesCompleted: 1
 subIssuesTotal: 2
 blockedBy: []

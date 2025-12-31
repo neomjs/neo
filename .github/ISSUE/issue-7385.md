@@ -17,11 +17,11 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 7386'
-  - '[x] 7387'
-  - '[ ] 7388'
-  - '[ ] 7389'
-  - '[ ] 7390'
+  - '[x] 7386 Configure MCP Server for Project'
+  - '[x] 7387 Create Guide for Chrome DevTools MCP Server'
+  - '[ ] 7388 Define the "Sighted" Development Workflow'
+  - '[ ] 7389 Investigate Worker Console Access with MCP'
+  - '[ ] 7390 Create a "Sighted" Development Demo'
 subIssuesCompleted: 2
 subIssuesTotal: 5
 blockedBy: []

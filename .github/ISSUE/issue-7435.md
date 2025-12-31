@@ -16,22 +16,22 @@ author: tobiu
 commentsCount: 7
 parentIssue: null
 subIssues:
-  - '[x] 7436'
-  - '[x] 7437'
-  - '[x] 7438'
-  - '[x] 7439'
-  - '[x] 7440'
-  - '[x] 7441'
-  - '[x] 7442'
-  - '[x] 7443'
-  - '[x] 7444'
-  - '[x] 7445'
-  - '[x] 7469'
-  - '[x] 7470'
-  - '[x] 7471'
-  - '[ ] 7677'
-  - '[x] 7703'
-  - '[ ] 7737'
+  - '[x] 7436 Create Component Test Harness Config'
+  - '[x] 7437 Create Empty Viewport App for Component Tests'
+  - '[x] 7438 Create RMA Helper Scripts for Component Tests'
+  - '[x] 7439 Convert Component Test button/Base.mjs to Playwright'
+  - '[x] 7440 Convert Component Test component/Base.mjs to Playwright'
+  - '[x] 7441 Convert Component Test component/DateSelector.mjs to Playwright'
+  - '[x] 7442 Convert Component Test form/field/ComboBox.mjs to Playwright'
+  - '[x] 7443 Convert Component Test form/field/Text.mjs to Playwright'
+  - '[x] 7444 Create Component Test form/field/Number.mjs in Playwright'
+  - '[x] 7445 Add `loadModule` RMA Method to App Worker'
+  - '[x] 7469 Refactor: Consolidate and Refine Playwright Test Harness'
+  - '[x] 7470 PoC: Create Component Test for component.Image'
+  - '[x] 7471 Refactor: Implement Granular Playwright Test Configurations'
+  - '[ ] 7677 Create Playwright Component Test for Neo.form.field.Password'
+  - '[x] 7703 Convert Component Test list/Chip.mjs to Playwright'
+  - '[ ] 7737 Create Playwright Component Test for Neo.component.Label'
 subIssuesCompleted: 14
 subIssuesTotal: 16
 blockedBy: []

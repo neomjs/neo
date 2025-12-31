@@ -14,21 +14,23 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 7935'
-  - '[x] 7936'
-  - '[x] 7937'
-  - '[x] 7938'
-  - '[x] 7939'
-  - '[x] 7940'
-  - '[x] 7941'
-  - '[x] 7942'
-  - '[x] 7945'
-  - '[x] 7946'
-  - '[x] 7949'
-  - '[x] 7950'
-  - '[x] 7951'
-  - '[x] 7952'
-  - '[x] 7953'
+  - '[x] 7935 Feat: Implement MCP Client SDK and Demo Agent'
+  - '[x] 7936 Feat: Implement MCP Client Configuration'
+  - '[x] 7937 Feat: Implement MCP Client CLI and NPM Script'
+  - '[x] 7938 Refactor: Standardize MCP Client CLI Filename'
+  - '[x] 7939 Feat: Implement Dynamic Tool Proxies for MCP Client'
+  - '[x] 7940 Feat: Add Neo.snakeToCamel utility function'
+  - '[x] 7941 Investigate Multi-Server Tool Namespacing for MCP Client'
+  - >-
+    [x] 7942 Feat: Enable External Configuration and Generic Runner for MCP
+    Client CLI
+  - '[x] 7945 Refactor: MCP Client Lifecycle and CLI Runner Renaming'
+  - '[x] 7946 Feat: Implement Client-Side Tool Validation in MCP Client'
+  - '[x] 7949 Refactor Shared Tool Validation Service for MCP Client and Server'
+  - '[x] 7950 Refactor ToolService to Class-based Architecture'
+  - '[x] 7951 Enhance MCP Client with Connection State and Env Validation'
+  - '[x] 7952 Fix ToolService.mjs Git Case Sensitivity Issue'
+  - '[x] 7953 Refactor Client Configuration Consistency'
 subIssuesCompleted: 15
 subIssuesTotal: 15
 blockedBy: []

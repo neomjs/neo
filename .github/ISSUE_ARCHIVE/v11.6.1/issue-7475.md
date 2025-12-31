@@ -17,9 +17,9 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[x] 7476'
-  - '[x] 7488'
-  - '[x] 7489'
+  - '[x] 7476 Create Test Plan for form.field.Password'
+  - '[x] 7488 Create Test Plan for component.Label'
+  - '[x] 7489 Create Test Plan for component.Video'
 subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []

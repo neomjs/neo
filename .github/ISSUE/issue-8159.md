@@ -19,7 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
-  - '[x] 8156'
+  - '[x] 8156 Implement Cross-Window Drag Coordinator'
 closedAt: '2025-12-27T15:46:36Z'
 ---
 # Refactor Cross-Window Drag Logic to Dashboard SortZone

@@ -14,31 +14,35 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[x] 7537'
-  - '[x] 7538'
-  - '[x] 7539'
-  - '[x] 7540'
-  - '[x] 7542'
-  - '[x] 7543'
-  - '[x] 7544'
-  - '[x] 7545'
-  - '[x] 7546'
-  - '[x] 7547'
-  - '[x] 7549'
-  - '[x] 7550'
-  - '[x] 7551'
-  - '[x] 7552'
-  - '[x] 7553'
-  - '[x] 7554'
-  - '[x] 7555'
-  - '[x] 7556'
-  - '[x] 7557'
-  - '[x] 7558'
-  - '[x] 7559'
-  - '[x] 7560'
-  - '[x] 7561'
-  - '[x] 7562'
-  - '[x] 7563'
+  - '[x] 7537 PoC: Refactor ChromaManager to a Neo.mjs Class'
+  - '[x] 7538 Convert DatabaseLifecycleService to a Neo.mjs Class'
+  - '[x] 7539 Improve isDbRunning() in DatabaseLifecycleService'
+  - '[x] 7540 Convert dbService to DatabaseService Neo.mjs Class'
+  - '[x] 7542 Convert healthService to HealthService Neo.mjs Class'
+  - '[x] 7543 Convert memoryService to MemoryService Neo.mjs Class'
+  - '[x] 7544 Convert sessionService to SessionService Neo.mjs Class'
+  - '[x] 7545 Convert summaryService to SummaryService Neo.mjs Class'
+  - '[x] 7546 Convert textEmbeddingService to TextEmbeddingService Neo.mjs Class'
+  - '[x] 7547 Enhance DatabaseLifecycleService with Eventing'
+  - '[x] 7549 Create ChromaManager and Adjust KB Server Entry Point'
+  - >-
+    [x] 7550 Convert databaseLifecycleService to DatabaseLifecycleService
+    Neo.mjs Class
+  - '[x] 7551 Convert databaseService to DatabaseService Neo.mjs Class'
+  - '[x] 7552 Convert documentService to DocumentService Neo.mjs Class'
+  - '[x] 7553 Refactor HealthService to Match Superior Memory Core Pattern'
+  - '[x] 7554 Convert queryService to QueryService Neo.mjs Class'
+  - '[x] 7555 Centralize ChromaDB Client Warning Suppression in ChromaManager'
+  - >-
+    [x] 7556 Convert GitHub Workflow healthService to HealthService Neo.mjs
+    Class
+  - '[x] 7557 Convert issueService to IssueService Neo.mjs Class'
+  - '[x] 7558 Convert labelService to LabelService Neo.mjs Class'
+  - '[x] 7559 Convert pullRequestService to PullRequestService Neo.mjs Class'
+  - '[x] 7560 Centralize GitHub Workflow Configuration'
+  - '[x] 7561 Refactor AI Config for Server-Specific Namespacing'
+  - '[x] 7562 Refactor MCP Service ClassNames to Use Full Server Names'
+  - '[x] 7563 Standardize ChromaDB Collection Naming Convention'
 subIssuesCompleted: 25
 subIssuesTotal: 25
 blockedBy: []

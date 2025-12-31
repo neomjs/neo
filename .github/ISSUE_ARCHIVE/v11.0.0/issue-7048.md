@@ -14,11 +14,13 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[x] 7049'
-  - '[x] 7051'
-  - '[x] 7052'
-  - '[x] 7056'
-  - '[x] 7058'
+  - '[x] 7049 Phase 1: Foundation and Basic Layout'
+  - '[x] 7051 Task: Refactor MainView Styles to SCSS'
+  - '[x] 7052 Phase 2: Email List View'
+  - '[x] 7056 Phase 4: Compose Email Functionality'
+  - >-
+    [x] 7058 Email.view.ComposeView: use a scss file and polish the internal
+    code
 subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []

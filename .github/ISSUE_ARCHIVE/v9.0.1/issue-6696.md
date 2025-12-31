@@ -13,12 +13,20 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 6697'
-  - '[x] 6698'
-  - '[x] 6699'
-  - '[x] 6700'
-  - '[x] 6701'
-  - '[x] 6702'
+  - >-
+    [x] 6697 layout.Base: applyRenderAttributes() => should trigger
+    applyChildAttributes() internally
+  - >-
+    [x] 6698 layout.Base: removeRenderAttributes() => should trigger
+    removeChildAttributes() internally
+  - >-
+    [x] 6699 layout.Cube: destroy() => move the transformation logic into
+    removeRenderAttributes()
+  - >-
+    [x] 6700 Portal.view.ViewportController: setMainContentIndex() => only use
+    the first timeout for cube layout switches
+  - '[x] 6701 layout.Base: applyRenderAttributes() => add a silent param'
+  - '[x] 6702 layout.Cube: getPlaneId()'
 subIssuesCompleted: 6
 subIssuesTotal: 6
 blockedBy: []

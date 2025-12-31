@@ -14,12 +14,12 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 6601'
-  - '[x] 6602'
-  - '[x] 6604'
-  - '[x] 6605'
-  - '[x] 6606'
-  - '[x] 6608'
+  - '[x] 6601 apps/email: basic setup using npm run create-app'
+  - '[x] 6602 Email.view.MainContainer => Email.view.Viewport'
+  - '[x] 6604 Email.model.Email'
+  - '[x] 6605 Email.store.Emails'
+  - '[x] 6606 Email.view.ViewportStateProvider'
+  - '[x] 6608 Email.store.Emails: create a first json data file'
 subIssuesCompleted: 6
 subIssuesTotal: 6
 blockedBy: []

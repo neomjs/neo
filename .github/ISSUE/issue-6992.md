@@ -14,43 +14,53 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[x] 6993'
-  - '[x] 6994'
-  - '[x] 6995'
-  - '[x] 6996'
-  - '[ ] 6997'
-  - '[x] 7010'
-  - '[x] 7011'
-  - '[x] 7012'
-  - '[x] 7013'
-  - '[x] 7014'
-  - '[x] 7015'
-  - '[x] 7016'
-  - '[x] 7017'
-  - '[x] 7019'
-  - '[x] 7021'
-  - '[x] 7022'
-  - '[x] 7027'
-  - '[x] 7025'
-  - '[x] 7024'
-  - '[x] 7023'
-  - '[x] 7026'
-  - '[x] 7028'
-  - '[x] 7042'
-  - '[x] 7043'
-  - '[x] 7046'
-  - '[ ] 7047'
-  - '[x] 7050'
-  - '[x] 7053'
-  - '[x] 7054'
-  - '[x] 7055'
-  - '[x] 7057'
-  - '[x] 7062'
-  - '[x] 7069'
-  - '[x] 7070'
-  - '[x] 7071'
-  - '[x] 7074'
-  - '[x] 7075'
+  - '[x] 6993 Create `Neo.component.mixin.VdomLifecycle`'
+  - '[x] 6994 Create `Neo.functional.component.Base`'
+  - '[x] 6995 Create Interoperability Layer'
+  - '[x] 6996 Encourage Pure VDOM Effects'
+  - '[ ] 6997 Implement Effect Memoization'
+  - '[x] 7010 Proof of Concept: Beginner Mode Functional Component'
+  - '[x] 7011 DOM Event Handling for Beginner Mode Functional Components'
+  - '[x] 7012 Create `Neo.functional.useConfig` Hook'
+  - '[x] 7013 Create `Neo.functional.defineComponent` Factory'
+  - '[x] 7014 Enhance `Neo.functional.component.Base` for Hook Support'
+  - '[x] 7015 Enhance `Neo.core.Effect` Constructor'
+  - '[x] 7016 functional.component.Base: enhance the module export'
+  - '[x] 7017 mixin.component.VdomLifecycle => mixin.VdomLifecycle'
+  - '[x] 7019 Refactor `defineComponent` and Enhance Config System Documentation'
+  - '[x] 7021 mixin.VdomLifecycle: createVdomReference()'
+  - '[x] 7022 examples.functional.defineComponent'
+  - '[x] 7027 Feature: Robust Synchronous Updates for Functional Components'
+  - '[x] 7025 Fix: EffectBatchManager.endBatch() Infinite Loop Prevention'
+  - '[x] 7024 Refactor `Neo.core.Effect` to Use a Reactive `isRunning` State'
+  - '[x] 7023 Enhance `Neo.core.Config` for Robust Subscriptions with Scope'
+  - '[x] 7026 Feature: Fine-grained Reactivity Control with EffectManager.pause()'
+  - '[x] 7028 Feature: Centralized Functional Component Exports via _export.mjs'
+  - '[x] 7042 Regression: Neo.core.Effect.run() executes twice'
+  - '[x] 7043 Refactor: Extract DOM Event Handling to `DomEvents` Mixin'
+  - '[x] 7046 Reactive Updates for Nested Components in Functional VDOM'
+  - '[ ] 7047 Task: Create Example for Deeply Nested Components'
+  - '[x] 7050 Task: Enhance functional.component.Base with Core Configs'
+  - >-
+    [x] 7053 Architectural Enhancement: Implement VDOM Config Diffing in
+    FunctionalBase
+  - >-
+    [x] 7054 Architectural Enhancement: Recursive VDOM Config Diffing for Nested
+    Components
+  - >-
+    [x] 7055 examples.ConfigurationViewport: make
+    createConfigurationComponents() optionally async
+  - '[x] 7057 Enable support for nesting functional components'
+  - '[x] 7062 functional.component.Base: enhance the `destroy()` signature'
+  - '[x] 7069 Enhance LivePreview for Modern JavaScript and Functional Components'
+  - >-
+    [x] 7070 learn/tutorials/TodoList: create a `functional.component.Base`
+    version
+  - >-
+    [x] 7071 layout.Flexbox: applyChildAttributes() => opt out for functional
+    cmps
+  - '[x] 7074 Improve Functional Component Initial Render Timing'
+  - '[x] 7075 Enable Granular VDOM Updates for Functional Components'
 subIssuesCompleted: 35
 subIssuesTotal: 37
 blockedBy: []

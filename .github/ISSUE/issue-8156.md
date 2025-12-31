@@ -18,7 +18,7 @@ subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy:
-  - '[x] 8159'
+  - '[x] 8159 Refactor Cross-Window Drag Logic to Dashboard SortZone'
 blocking: []
 closedAt: '2025-12-27T22:53:35Z'
 ---

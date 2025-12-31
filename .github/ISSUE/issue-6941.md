@@ -46,4 +46,5 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-10-03 @github-actions added the `stale` label
 - 2025-10-03 @tobiu removed the `stale` label
 - 2025-10-03 @tobiu added the `no auto close` label
+- 2025-12-31 @tobiu cross-referenced by #8230
 

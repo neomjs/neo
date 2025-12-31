@@ -14,26 +14,28 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[x] 7478'
-  - '[x] 7479'
-  - '[x] 7480'
-  - '[x] 7481'
-  - '[x] 7482'
-  - '[x] 7483'
-  - '[x] 7484'
-  - '[x] 7485'
-  - '[x] 7486'
-  - '[x] 7487'
-  - '[x] 7491'
-  - '[x] 7492'
-  - '[x] 7493'
-  - '[x] 7494'
-  - '[x] 7495'
-  - '[x] 7496'
-  - '[x] 7497'
-  - '[x] 7498'
-  - '[x] 7499'
-  - '[x] 7500'
+  - '[x] 7478 Define Initial OpenAPI Specification for GitHub Workflow Server'
+  - '[x] 7479 Scaffold GitHub Workflow MCP Server'
+  - '[x] 7480 Refine Health Check for GitHub Workflow Server'
+  - '[x] 7481 Implement Pull Request API Endpoints'
+  - '[x] 7482 Enhance PR Listing and Checkout Logic'
+  - '[x] 7483 Implement PR Commenting Endpoint'
+  - '[x] 7484 Get PR Conversation History'
+  - '[x] 7485 Manage Repository Labels'
+  - '[x] 7486 Refactor to an MCP Tool-Providing Server'
+  - '[x] 7487 Enhance Tools List with OpenAPI Schema'
+  - '[x] 7491 Implement MCP Stdio Server for GitHub Workflow'
+  - '[x] 7492 Refactor to Direct MCP Tool Definitions'
+  - '[x] 7493 Implement Dynamic Tool Discovery via OpenAPI'
+  - '[x] 7494 Implement Zod-based Validation with JSON Schema Conversion'
+  - '[x] 7495 Add outputSchema to MCP Tool Definitions'
+  - '[x] 7496 Add Annotations to MCP Tool Definitions'
+  - '[x] 7497 Refine `mcp-stdio.mjs` for MCP Compliance and Clarity'
+  - '[x] 7498 Fix Gemini CLI Client Compatibility for MCP `tools/list` Response'
+  - >-
+    [x] 7499 Implement Conditional Omission of Optional Fields in MCP Tool
+    Definitions
+  - '[x] 7500 Simplify Description Handling in Zod Schema Generation'
 subIssuesCompleted: 20
 subIssuesTotal: 20
 blockedBy: []

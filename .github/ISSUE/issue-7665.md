@@ -14,8 +14,8 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[x] 7664'
-  - '[x] 7666'
+  - '[x] 7664 Docs: Create Codebase Overview Guide'
+  - '[x] 7666 Docs: Update AGENTS.md to use new Codebase Overview Guide'
 subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []
