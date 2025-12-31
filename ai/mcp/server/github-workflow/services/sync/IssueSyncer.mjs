@@ -70,11 +70,11 @@ class IssueSyncer extends Base {
             author            : issue.author.login,
             commentsCount     : comments.length,
             parentIssue       : issue.parent ? issue.parent.number : null,
-            subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number}`) || [],
+            subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title}`) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
             subIssuesTotal    : issue.subIssuesSummary?.total || 0,
-            blockedBy         : issue.blockedBy?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number}`) || [],
-            blocking          : issue.blocking?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number}`) || []
+            blockedBy         : issue.blockedBy?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title}`) || [],
+            blocking          : issue.blocking?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title}`) || []
         };
 
         if (issue.closedAt) {
