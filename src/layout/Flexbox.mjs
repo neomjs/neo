@@ -284,6 +284,22 @@ class Flexbox extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            align    : this.align,
+            direction: this.direction,
+            gap      : this.gap,
+            pack     : this.pack,
+            prefix   : this.prefix,
+            wrap     : this.wrap
+        }
+    }
+
+    /**
      * Updates the Container CSS wrapperCls
      * @param {String|null} value
      * @param {String|null} oldValue
