@@ -56,8 +56,8 @@ subIssues:
   - '[x] 8215'
   - '[x] 8216'
   - '[x] 8222'
-  - '[ ] 8223'
-subIssuesCompleted: 35
+  - '[x] 8223'
+subIssuesCompleted: 36
 subIssuesTotal: 42
 blockedBy: []
 blocking: []
