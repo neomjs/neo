@@ -110,7 +110,7 @@ class IssueSyncer extends Base {
             body += '\n';
         }
 
-        return matter.stringify(body, frontmatter);
+        return matter.stringify(body, frontmatter, {lineWidth: -1});
     }
 
     /**
