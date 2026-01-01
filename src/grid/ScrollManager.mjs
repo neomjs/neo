@@ -184,6 +184,17 @@ class ScrollManager extends Base {
         me.lastTouchX     = 0;
         me.lastTouchY     = 0
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            scrollLeft: this.scrollLeft,
+            scrollTop : this.scrollTop
+        }
+    }
 }
 
 export default Neo.setupClass(ScrollManager);
