@@ -696,10 +696,13 @@ class GridContainer extends BaseContainer {
 
         return {
             ...super.toJSON(),
+            body             : me.body?.toJSON(),
             cellEditing      : me.cellEditing,
             columns          : me.columns?.items.map(item => item.toJSON()),
+            headerToolbar    : me.headerToolbar?.toJSON(),
             rowHeight        : me.rowHeight,
             scrollbar        : me.scrollbar?.toJSON(),
+            scrollManager    : me.scrollManager?.toJSON(),
             showHeaderFilters: me.showHeaderFilters,
             sortable         : me.sortable,
             store            : me.store?.toJSON()
