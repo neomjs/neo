@@ -63,9 +63,9 @@ subIssues:
   - '[x] 8274 [Neural Link] Parameterize inspectStore limit and offset'
   - '[ ] 8278 [Neural Link] Feature: Tool get_dom_event_listeners'
   - '[ ] 8279 [Neural Link] Feature: Tool get_dom_event_summary'
-  - '[ ] 8280 [Neural Link] Feature: Tool inspect_class'
+  - '[x] 8280 [Neural Link] Feature: Tool inspect_class'
   - '[x] 8281 [Neural Link] Feature: Tool get_computed_styles'
-subIssuesCompleted: 41
+subIssuesCompleted: 42
 subIssuesTotal: 50
 blockedBy: []
 blocking: []

@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-28T21:26:17Z'
-updatedAt: '2025-12-28T21:26:17Z'
+updatedAt: '2026-01-01T22:44:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8190'
 author: tobiu
 commentsCount: 0
@@ -45,4 +46,5 @@ To support true "Self-Healing" capabilities, agents need a mechanism to apply fi
 - 2025-12-28 @tobiu added the `ai` label
 - 2025-12-28 @tobiu added the `architecture` label
 - 2025-12-28 @tobiu added parent issue #8169
+- 2026-01-01 @tobiu assigned to @tobiu
 
