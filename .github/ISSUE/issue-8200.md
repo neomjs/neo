@@ -38,8 +38,15 @@ subIssues:
   - '[x] 8247 [Neural Link] Implement toJSON in grid.column.AnimatedCurrency'
   - '[x] 8248 [Neural Link] Implement toJSON in grid.column.Progress'
   - '[x] 8249 [Neural Link] Implement toJSON in grid.Container'
-subIssuesCompleted: 23
-subIssuesTotal: 23
+  - '[x] 8251 [Neural Link] Implement toJSON in toolbar.Base'
+  - '[x] 8252 [Neural Link] Implement toJSON in grid.header.Toolbar'
+  - '[x] 8253 [Neural Link] Implement toJSON in grid.ScrollManager'
+  - '[x] 8254 [Neural Link] Implement toJSON in grid.header.Button'
+  - '[x] 8255 [Neural Link] Implement toJSON in grid.Body'
+  - '[x] 8256 [Neural Link] Implement toJSON in component.Base (add role)'
+  - '[x] 8257 [Neural Link] Implement toJSON in grid.Container (add body, headerToolbar, scrollManager)'
+subIssuesCompleted: 30
+subIssuesTotal: 30
 blockedBy: []
 blocking: []
 ---
@@ -106,4 +113,11 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2026-01-01 @tobiu added sub-issue #8247
 - 2026-01-01 @tobiu added sub-issue #8248
 - 2026-01-01 @tobiu added sub-issue #8249
+- 2026-01-01 @tobiu added sub-issue #8251
+- 2026-01-01 @tobiu added sub-issue #8252
+- 2026-01-01 @tobiu added sub-issue #8253
+- 2026-01-01 @tobiu added sub-issue #8254
+- 2026-01-01 @tobiu added sub-issue #8255
+- 2026-01-01 @tobiu added sub-issue #8256
+- 2026-01-01 @tobiu added sub-issue #8257
 
