@@ -88,11 +88,13 @@ class AnimatedCurrency extends AnimatedChange {
      * @returns {Object}
      */
     toJSON() {
+        let me = this;
+
         return {
             ...super.toJSON(),
-            compareField: this.compareField,
-            currency    : this.currency,
-            locale      : this.locale
+            compareField: me.compareField,
+            currency    : me.currency,
+            locale      : me.locale
         }
     }
 }
