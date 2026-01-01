@@ -1,14 +1,14 @@
 ---
 id: 8274
 title: '[Neural Link] Parameterize inspectStore limit and offset'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2026-01-01T17:58:25Z'
-updatedAt: '2026-01-01T17:58:45Z'
+updatedAt: '2026-01-01T18:09:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8274'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-01T18:09:56Z'
 ---
 # [Neural Link] Parameterize inspectStore limit and offset
 
@@ -35,4 +36,5 @@ Requirements:
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added parent issue #8169
 - 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-01 @tobiu closed this issue
 
