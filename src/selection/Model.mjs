@@ -299,6 +299,28 @@ class Model extends Base {
     }
 
     /**
+     * @returns {Object}
+     */
+    toJSON() {
+        const
+            me    = this,
+            items = (me.items || []).map(item => {
+                if (Neo.isRecord(item)) {
+                    return item.toJSON()
+                }
+
+                return item
+            });
+
+        return {
+            ...super.toJSON(),
+            items,
+            selectedCls : me.selectedCls,
+            singleSelect: me.singleSelect
+        }
+    }
+
+    /**
      *
      */
     unregister() {
