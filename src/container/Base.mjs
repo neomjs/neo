@@ -923,7 +923,25 @@ class Container extends Component {
             dragResortable: me.dragResortable,
             itemCount     : me.items?.length || 0,
             itemDefaults  : me.itemDefaults,
-            layout        : me.layout?.toJSON()
+            items         : me.items?.map(item => {
+                const itemType = Neo.typeOf(item);
+
+                if (itemType === 'NeoInstance') {
+                    return item.id
+                }
+
+                if (itemType === 'Object') {
+                    if (Neo.isFunction(item.module) && !item.module.isClass) {
+                        return {
+                            ...item,
+                            module: item.module.toString()
+                        }
+                    }
+                }
+
+                return me.serializeConfig(item)
+            }),
+            layout: me.layout?.toJSON()
         }
     }
 }
