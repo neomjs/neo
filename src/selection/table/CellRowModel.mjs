@@ -131,6 +131,16 @@ class CellRowModel extends CellModel {
     }
 
     /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            selectedRowIds: this.selectedRowIds
+        }
+    }
+
+    /**
      *
      */
     unregister() {
