@@ -45,8 +45,9 @@ subIssues:
   - '[x] 8255 [Neural Link] Implement toJSON in grid.Body'
   - '[x] 8256 [Neural Link] Implement toJSON in component.Base (add role)'
   - '[x] 8257 [Neural Link] Implement toJSON in grid.Container (add body, headerToolbar, scrollManager)'
-subIssuesCompleted: 30
-subIssuesTotal: 30
+  - '[x] 8258 [Neural Link] Implement toJSON in container.Base items'
+subIssuesCompleted: 31
+subIssuesTotal: 31
 blockedBy: []
 blocking: []
 ---
@@ -120,4 +121,5 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2026-01-01 @tobiu added sub-issue #8255
 - 2026-01-01 @tobiu added sub-issue #8256
 - 2026-01-01 @tobiu added sub-issue #8257
+- 2026-01-01 @tobiu added sub-issue #8258
 
