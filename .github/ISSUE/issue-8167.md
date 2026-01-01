@@ -6,9 +6,10 @@ labels:
   - bug
   - QA
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-27T21:33:28Z'
-updatedAt: '2025-12-27T21:33:28Z'
+updatedAt: '2026-01-01T17:04:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8167'
 author: tobiu
 commentsCount: 0
@@ -41,4 +42,5 @@ Audit and harden this flow. Ensure `onDragBoundaryEntry` in the Source correctly
 - 2025-12-27 @tobiu added the `QA` label
 - 2025-12-27 @tobiu added the `ai` label
 - 2025-12-27 @tobiu added parent issue #8163
+- 2026-01-01 @tobiu assigned to @tobiu
 

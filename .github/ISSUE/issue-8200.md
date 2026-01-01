@@ -46,8 +46,18 @@ subIssues:
   - '[x] 8256 [Neural Link] Implement toJSON in component.Base (add role)'
   - '[x] 8257 [Neural Link] Implement toJSON in grid.Container (add body, headerToolbar, scrollManager)'
   - '[x] 8258 [Neural Link] Implement toJSON in container.Base items'
-subIssuesCompleted: 31
-subIssuesTotal: 31
+  - '[x] 8259 [Neural Link] Implement toJSON in selection.Model'
+  - '[x] 8260 [Neural Link] Implement toJSON in selection.DateSelectorModel'
+  - '[x] 8261 [Neural Link] Implement toJSON in selection.GalleryModel'
+  - '[x] 8262 [Neural Link] Implement toJSON in selection.HelixModel'
+  - '[x] 8263 [Neural Link] Implement toJSON in selection.grid.BaseModel'
+  - '[x] 8264 [Neural Link] Implement toJSON in selection.grid.CellColumnModel'
+  - '[x] 8265 [Neural Link] Implement toJSON in selection.grid.CellColumnRowModel'
+  - '[x] 8266 [Neural Link] Implement toJSON in selection.table.CellColumnModel'
+  - '[x] 8267 [Neural Link] Implement toJSON in selection.table.CellRowModel'
+  - '[x] 8268 [Neural Link] Implement toJSON in selection.table.CellColumnRowModel'
+subIssuesCompleted: 41
+subIssuesTotal: 41
 blockedBy: []
 blocking: []
 ---
@@ -122,4 +132,17 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2026-01-01 @tobiu added sub-issue #8256
 - 2026-01-01 @tobiu added sub-issue #8257
 - 2026-01-01 @tobiu added sub-issue #8258
+- 2026-01-01 @tobiu cross-referenced by #8259
+- 2026-01-01 @tobiu cross-referenced by #8260
+- 2026-01-01 @tobiu cross-referenced by #8261
+- 2026-01-01 @tobiu cross-referenced by #8262
+- 2026-01-01 @tobiu added sub-issue #8259
+- 2026-01-01 @tobiu added sub-issue #8260
+- 2026-01-01 @tobiu added sub-issue #8261
+- 2026-01-01 @tobiu added sub-issue #8262
+- 2026-01-01 @tobiu cross-referenced by #8263
+- 2026-01-01 @tobiu added sub-issue #8263
+- 2026-01-01 @tobiu cross-referenced by #8264
+- 2026-01-01 @tobiu cross-referenced by #8265
+- 2026-01-01 @tobiu added sub-issue #8264
 
