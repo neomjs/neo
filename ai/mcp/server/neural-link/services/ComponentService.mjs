@@ -49,6 +49,18 @@ class ComponentService extends Base {
     }
 
     /**
+     * Retrieves the computed styles for a component.
+     * @param {Object} opts            The options object.
+     * @param {String} opts.componentId The component ID.
+     * @param {String[]} opts.variables The list of style properties/variables to retrieve.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The computed styles.
+     */
+    async getComputedStyles({componentId, variables, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_computed_styles', {componentId, variables});
+    }
+
+    /**
      * Retrieves the full component tree of the application.
      * @param {Object} opts            The options object.
      * @param {Number} [opts.depth]    The depth limit.

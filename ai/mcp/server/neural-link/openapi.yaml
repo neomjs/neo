@@ -72,6 +72,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/styles/get:
+    post:
+      summary: Get Computed Styles
+      operationId: get_computed_styles
+      x-pass-as-object: true
+      description: |
+        Retrieves the computed styles for a component.
+
+        **When to Use:**
+        To verify visual state and theming (The "Visual Gap").
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComputedStylesRequest'
+      responses:
+        '200':
+          description: Computed styles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  styles:
+                    type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/rect/get:
     post:
       summary: Get Component DOM Rects
@@ -801,6 +841,24 @@ components:
         property:
           type: string
           description: The property name to retrieve
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetComputedStylesRequest:
+      type: object
+      required:
+        - componentId
+        - variables
+      properties:
+        componentId:
+          type: string
+          description: The component ID
+        variables:
+          type: array
+          items:
+            type: string
+          description: The list of style properties/variables to retrieve
         sessionId:
           type: string
           description: The target App Worker Session ID

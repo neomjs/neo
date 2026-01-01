@@ -28,6 +28,27 @@ class ComponentService extends Service {
 
     /**
      * @param {Object}   params
+     * @param {String}   params.componentId
+     * @param {String[]} params.variables
+     * @returns {Object}
+     */
+    async getComputedStyles({componentId, variables}) {
+        const component = Neo.getComponent(componentId);
+
+        if (!component) {
+            throw new Error(`Component not found: ${componentId}`)
+        }
+
+        const styles = await Neo.main.DomAccess.getComputedStyle({
+            id   : component.id,
+            style: variables
+        });
+
+        return {styles}
+    }
+
+    /**
+     * @param {Object}   params
      * @param {String[]} params.componentIds
      * @returns {Object}
      */

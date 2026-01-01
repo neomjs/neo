@@ -69,6 +69,7 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'getComputedStyle',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
                 'measure',
@@ -401,6 +402,31 @@ class DomAccess extends Base {
         }
 
         return rect
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String|String[]} data.style
+     * @returns {Object}
+     */
+    getComputedStyle({id, style}) {
+        let node   = this.getElement(id),
+            styles = {};
+
+        if (node) {
+            let computedStyle = window.getComputedStyle(node);
+
+            if (!Array.isArray(style)) {
+                style = [style]
+            }
+
+            style.forEach(prop => {
+                styles[prop] = computedStyle.getPropertyValue(prop)
+            })
+        }
+
+        return styles
     }
 
     /**
