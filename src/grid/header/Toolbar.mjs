@@ -250,6 +250,20 @@ class Toolbar extends BaseToolbar {
             windowId: this.windowId
         })
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            scrollLeft       : me.scrollLeft,
+            showHeaderFilters: me.showHeaderFilters,
+            sortable         : me.sortable
+        }
+    }
 }
 
 export default Neo.setupClass(Toolbar);
