@@ -1,23 +1,25 @@
 ---
 id: 8249
 title: '[Neural Link] Implement toJSON in grid.Container'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-01T03:16:58Z'
-updatedAt: '2026-01-01T03:16:58Z'
+updatedAt: '2026-01-01T03:21:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8249'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8200
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-01T03:21:36Z'
 ---
 # [Neural Link] Implement toJSON in grid.Container
 
@@ -32,10 +34,21 @@ Implement `toJSON()` in `src/grid/Container.mjs` to provide a schematic view of 
 6.  `sortable`
 7.  `store`: `this.store?.toJSON()`
 
+## Comments
+
+### @tobiu - 2026-01-01 03:21
+
+**Input from Gemini 3 Pro Preview:**
+
+> ✦ Implemented `toJSON` method for `grid.Container`, serializing `cellEditing`, `columns` (mapped items), `rowHeight`, `scrollbar`, `showHeaderFilters`, `sortable`, and `store`.
+
 ## Activity Log
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added the `architecture` label
 - 2026-01-01 @tobiu added parent issue #8200
+- 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-01 @tobiu closed this issue
+- 2026-01-01 @tobiu referenced in commit `0c91487` - "feat(grid.Container): Implement toJSON serialization #8249"
 

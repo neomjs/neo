@@ -37,8 +37,8 @@ subIssues:
   - '[x] 8246 [Neural Link] Implement toJSON in grid.column.AnimatedChange'
   - '[x] 8247 [Neural Link] Implement toJSON in grid.column.AnimatedCurrency'
   - '[x] 8248 [Neural Link] Implement toJSON in grid.column.Progress'
-  - '[ ] 8249 [Neural Link] Implement toJSON in grid.Container'
-subIssuesCompleted: 22
+  - '[x] 8249 [Neural Link] Implement toJSON in grid.Container'
+subIssuesCompleted: 23
 subIssuesTotal: 23
 blockedBy: []
 blocking: []
