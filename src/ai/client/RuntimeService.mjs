@@ -180,7 +180,6 @@ class RuntimeService extends Service {
         return {status: 'reloading'};
     }
 
-
     /**
      * @param {Object} params
      * @param {String} params.hash
