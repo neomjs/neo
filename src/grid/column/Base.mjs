@@ -80,6 +80,24 @@ class Column extends Base {
     cellRenderer({value}) {
         return value
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me  = this,
+            out = super.toJSON();
+
+        out.dataField = me.dataField;
+        out.type      = me.type;
+
+        if (Neo.isString(me.renderer)) {
+            out.renderer = me.renderer
+        }
+
+        return out
+    }
 }
 
 export default Neo.setupClass(Column);
