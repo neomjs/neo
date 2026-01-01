@@ -892,6 +892,9 @@ class Base {
     }
 
     /**
+     * Serializes a config object/array to be JSON-compatible.
+     * Use this method when a config might contain references to Neo classes (constructors)
+     * which need to be converted to their className strings for serialization.
      * @param {Array|Object} config
      * @returns {Array|Object}
      */
