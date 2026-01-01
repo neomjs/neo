@@ -789,6 +789,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /class/inspect:
+    post:
+      summary: Inspect Class
+      operationId: inspect_class
+      x-pass-as-object: true
+      description: |
+        Inspects a Neo.mjs class to retrieve its schema (configs, mixins, superclass, methods).
+
+        **When to Use:**
+        To understand the capabilities, available configurations, and inheritance structure of a class at runtime.
+      tags: [Introspection]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectClassRequest'
+      responses:
+        '200':
+          description: Class schema
+          content:
+            application/json:
+              schema:
+                type: object
+
 components:
   schemas:
     HealthCheckResponse:
@@ -1047,6 +1072,18 @@ components:
               type: string
               enum: [outline, box-shadow]
               description: Highlight style (default 'outline')
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    InspectClassRequest:
+      type: object
+      required:
+        - className
+      properties:
+        className:
+          type: string
+          description: The fully qualified class name (e.g., "Neo.button.Base").
         sessionId:
           type: string
           description: The target App Worker Session ID
