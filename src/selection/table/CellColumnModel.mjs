@@ -99,6 +99,17 @@ class CellColumnModel extends CellModel {
     }
 
     /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            selectedColumnCellCls: this.selectedColumnCellCls,
+            selectedColumnCellIds: this.selectedColumnCellIds
+        }
+    }
+
+    /**
      *
      */
     unregister() {
