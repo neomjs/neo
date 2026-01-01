@@ -1612,6 +1612,7 @@ class Component extends Abstract {
             height      : me.height,
             hidden      : me.hidden,
             reference   : me.reference,
+            role        : me.role,
             style       : me.style,
             theme       : me.theme,
             ui          : me.ui,
