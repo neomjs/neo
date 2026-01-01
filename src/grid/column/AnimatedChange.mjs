@@ -79,6 +79,17 @@ class AnimatedChange extends Column {
             }
         }
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            animationCls: this.animationCls
+        }
+    }
 }
 
 export default Neo.setupClass(AnimatedChange);
