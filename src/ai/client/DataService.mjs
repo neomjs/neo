@@ -56,10 +56,7 @@ class DataService extends Service {
         const provider = Neo.get(providerId);
         if (!provider) throw new Error(`StateProvider not found: ${providerId}`);
 
-        return {
-            id  : provider.id,
-            data: provider.getHierarchyData()
-        }
+        return provider.toJSON()
     }
 
     /**
@@ -82,11 +79,7 @@ class DataService extends Service {
         }
 
         return {
-            id     : store.id,
-            count  : store.count,
-            model  : store.model?.className || 'N/A',
-            filters: store.exportFilters?.() || [],
-            sorters: store.exportSorters?.() || [],
+            ...store.toJSON(),
             items
         }
     }

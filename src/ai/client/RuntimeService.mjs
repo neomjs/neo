@@ -23,17 +23,7 @@ class RuntimeService extends Service {
         const dragCoordinator = Neo.manager?.DragCoordinator;
 
         if (dragCoordinator) {
-            return {
-                activeTargetZone: dragCoordinator.activeTargetZone ? {
-                    id       : dragCoordinator.activeTargetZone.id,
-                    sortGroup: dragCoordinator.activeTargetZone.sortGroup,
-                    windowId : dragCoordinator.activeTargetZone.windowId
-                } : null,
-                sortZones: Array.from(dragCoordinator.sortZones.entries()).map(([group, map]) => ({
-                    group,
-                    windows: Array.from(map.keys())
-                }))
-            }
+            return dragCoordinator.toJSON()
         }
 
         return {};
@@ -62,15 +52,7 @@ class RuntimeService extends Service {
         const windowManager = Neo.manager?.Window;
 
         if (windowManager) {
-            return {
-                windows: windowManager.items.map(win => ({
-                    id       : win.id,
-                    appName  : win.appName,
-                    chrome   : win.chrome,
-                    innerRect: win.innerRect,
-                    outerRect: win.outerRect
-                }))
-            }
+            return windowManager.toJSON()
         }
 
         return {windows: []};

@@ -175,6 +175,22 @@ class Window extends Manager {
             })
         }
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            className: this.className,
+            windows  : this.items.map(win => ({
+                id       : win.id,
+                appName  : win.appName,
+                chrome   : win.chrome,
+                innerRect: win.innerRect,
+                outerRect: win.outerRect
+            }))
+        }
+    }
 }
 
 export default Neo.setupClass(Window);

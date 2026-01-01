@@ -145,11 +145,7 @@ class ComponentService extends Service {
         }
 
         return {
-            components: matches.map(c => ({
-                id       : c.id,
-                className: c.className,
-                ntype    : c.ntype
-            }))
+            components: matches.map(c => c.toJSON())
         }
     }
 
@@ -194,15 +190,7 @@ class ComponentService extends Service {
     serializeComponent(component, maxDepth, currentDepth=1) {
         if (!component) return null;
 
-        const result = {
-            id       : component.id,
-            className: component.className,
-            ntype    : component.ntype
-        };
-
-        if (component.stateProvider) {
-            result.stateProviderId = component.stateProvider.id
-        }
+        const result = component.toJSON();
 
         if (maxDepth === -1 || currentDepth < maxDepth) {
             const children = Neo.manager.Component.getChildComponents(component);

@@ -56,8 +56,10 @@ subIssues:
   - '[x] 8266 [Neural Link] Implement toJSON in selection.table.CellColumnModel'
   - '[x] 8267 [Neural Link] Implement toJSON in selection.table.CellRowModel'
   - '[x] 8268 [Neural Link] Implement toJSON in selection.table.CellColumnRowModel'
+  - '[ ] 8269 [Neural Link] Implement toJSON in manager.DragCoordinator'
+  - '[ ] 8270 [Neural Link] Implement toJSON in manager.Window'
 subIssuesCompleted: 41
-subIssuesTotal: 41
+subIssuesTotal: 43
 blockedBy: []
 blocking: []
 ---

@@ -57,8 +57,11 @@ subIssues:
   - '[x] 8216 Fix Neural Link server startup crash due to missing startServer/stopServer methods'
   - '[x] 8222 Fix Neural Link Recovery: Exempt server control tools from health check gate'
   - '[x] 8223 Investigate and Fix get_component_tree Timeout'
+  - '[ ] 8271 [Neural Link] Refactor ComponentService to use toJSON protocol'
+  - '[ ] 8272 [Neural Link] Refactor DataService to use toJSON protocol'
+  - '[ ] 8273 [Neural Link] Refactor RuntimeService to use toJSON protocol'
 subIssuesCompleted: 36
-subIssuesTotal: 42
+subIssuesTotal: 45
 blockedBy: []
 blocking: []
 ---
@@ -135,4 +138,7 @@ Empower AI agents to "see" and "touch" the runtime application, moving beyond st
 - 2025-12-30 @tobiu added sub-issue #8216
 - 2025-12-30 @tobiu added sub-issue #8222
 - 2025-12-30 @tobiu added sub-issue #8223
+- 2026-01-01 @tobiu added sub-issue #8271
+- 2026-01-01 @tobiu added sub-issue #8272
+- 2026-01-01 @tobiu added sub-issue #8273
 

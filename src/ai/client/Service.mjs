@@ -27,11 +27,7 @@ class Service extends Base {
         const type = Neo.typeOf(value);
 
         if (type === 'NeoInstance') {
-            return {
-                neoInstance: true,
-                id         : value.id,
-                className  : value.className
-            }
+            return value.toJSON()
         }
 
         if (type === 'Object') {

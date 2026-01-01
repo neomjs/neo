@@ -166,6 +166,26 @@ class DragCoordinator extends Manager {
             }
         }
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            className       : me.className,
+            activeTargetZone: me.activeTargetZone ? {
+                id       : me.activeTargetZone.id,
+                sortGroup: me.activeTargetZone.sortGroup,
+                windowId : me.activeTargetZone.windowId
+            } : null,
+            sortZones: Array.from(me.sortZones.entries()).map(([group, map]) => ({
+                group,
+                windows: Array.from(map.keys())
+            }))
+        }
+    }
 }
 
 export default Neo.setupClass(DragCoordinator);
