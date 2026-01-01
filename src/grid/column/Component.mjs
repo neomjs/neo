@@ -141,6 +141,24 @@ class Component extends Column {
             return `${me.id}-component-${rowIndex % (body.availableRows + 2 * body.bufferRowRange)}`
         }
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me  = this,
+            out = super.toJSON();
+
+        out.recordProperty = me.recordProperty;
+        out.useBindings    = me.useBindings;
+
+        if (Neo.isObject(me.component)) {
+            out.component = me.serializeConfig(me.component)
+        }
+
+        return out
+    }
 }
 
 export default Neo.setupClass(Component);

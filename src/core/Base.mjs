@@ -866,6 +866,43 @@ class Base {
     }
 
     /**
+     * @param {Array|Object} config
+     * @returns {Array|Object}
+     */
+    serializeConfig(config) {
+        let me   = this,
+            type = Neo.typeOf(config);
+
+        if (type === 'Array') {
+            return config.map(item => me.serializeConfig(item))
+        }
+
+        if (type !== 'Object') {
+            return type === 'NeoClass' ? config.prototype.className : config
+        }
+
+        let out = {};
+
+        Object.entries(config).forEach(([key, value]) => {
+            type = Neo.typeOf(value);
+
+            if (type === 'NeoClass') {
+                if (key === 'module') {
+                    out.className = value.prototype.className
+                } else {
+                    out[key] = value.prototype.className
+                }
+            } else if (type === 'Object' || type === 'Array') {
+                out[key] = me.serializeConfig(value)
+            } else if (type !== 'Function') {
+                out[key] = value
+            }
+        });
+
+        return out
+    }
+
+    /**
      * Sends remote method registration messages to other threads (workers or main-threads).
      * This method is crucial for enabling cross-worker communication and remote method invocation
      * for singleton instances. It ensures that methods defined in the `remote` config

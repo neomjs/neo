@@ -31,8 +31,10 @@ subIssues:
   - '[x] 8240 [Neural Link] Implement toJSON in collection.Sorter'
   - '[x] 8241 [Neural Link] Implement toJSON in data.Model'
   - '[x] 8242 [Neural Link] Implement toJSON in data.Store'
-subIssuesCompleted: 16
-subIssuesTotal: 16
+  - '[x] 8243 [Neural Link] Implement toJSON in grid.column.Base'
+  - '[ ] 8244 [Neural Link] Implement toJSON in grid.column subclasses'
+subIssuesCompleted: 17
+subIssuesTotal: 18
 blockedBy: []
 blocking: []
 ---
@@ -91,4 +93,7 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 - 2025-12-31 @tobiu added sub-issue #8240
 - 2025-12-31 @tobiu added sub-issue #8241
 - 2025-12-31 @tobiu added sub-issue #8242
+- 2025-12-31 @tobiu referenced in commit `3aa70f1` - "#8200 method order, this => me where applicable"
+- 2026-01-01 @tobiu added sub-issue #8243
+- 2026-01-01 @tobiu added sub-issue #8244
 
