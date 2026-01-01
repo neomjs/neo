@@ -1,13 +1,14 @@
 ---
 id: 8269
 title: '[Neural Link] Implement toJSON in manager.DragCoordinator'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-01T17:26:33Z'
-updatedAt: '2026-01-01T17:26:33Z'
+updatedAt: '2026-01-01T17:53:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8269'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-01T17:52:09Z'
 ---
 # [Neural Link] Implement toJSON in manager.DragCoordinator
 
@@ -27,4 +29,6 @@ Implement `toJSON` for the singleton `manager.DragCoordinator` to expose `active
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added parent issue #8200
+- 2026-01-01 @tobiu closed this issue
+- 2026-01-01 @tobiu assigned to @tobiu
 

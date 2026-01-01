@@ -906,6 +906,14 @@ components:
         storeId:
           type: string
           description: The ID of the store to inspect
+        limit:
+          type: integer
+          default: 50
+          description: Maximum number of records to return
+        offset:
+          type: integer
+          default: 0
+          description: The record index to start from
         sessionId:
           type: string
           description: The target App Worker Session ID

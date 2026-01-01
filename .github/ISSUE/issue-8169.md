@@ -57,11 +57,12 @@ subIssues:
   - '[x] 8216 Fix Neural Link server startup crash due to missing startServer/stopServer methods'
   - '[x] 8222 Fix Neural Link Recovery: Exempt server control tools from health check gate'
   - '[x] 8223 Investigate and Fix get_component_tree Timeout'
-  - '[ ] 8271 [Neural Link] Refactor ComponentService to use toJSON protocol'
-  - '[ ] 8272 [Neural Link] Refactor DataService to use toJSON protocol'
-  - '[ ] 8273 [Neural Link] Refactor RuntimeService to use toJSON protocol'
-subIssuesCompleted: 36
-subIssuesTotal: 45
+  - '[x] 8271 [Neural Link] Refactor ComponentService to use toJSON protocol'
+  - '[x] 8272 [Neural Link] Refactor DataService to use toJSON protocol'
+  - '[x] 8273 [Neural Link] Refactor RuntimeService to use toJSON protocol'
+  - '[ ] 8274 [Neural Link] Parameterize inspectStore limit and offset'
+subIssuesCompleted: 39
+subIssuesTotal: 46
 blockedBy: []
 blocking: []
 ---

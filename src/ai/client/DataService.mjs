@@ -61,26 +61,18 @@ class DataService extends Service {
 
     /**
      * @param {Object} params
+     * @param {Number} [params.limit=50]
+     * @param {Number} [params.offset=0]
      * @param {String} params.storeId
      * @returns {Object}
      */
-    inspectStore({storeId}) {
+    inspectStore({limit=50, offset=0, storeId}) {
         const store = Neo.get(storeId);
         if (!store) throw new Error(`Store not found: ${storeId}`);
 
-        const items = [];
-        const limit = Math.min(store.count, 50);
-
-        for (let i = 0; i < limit; i++) {
-            const record = store.getAt(i);
-            if (record) {
-                items.push(record.toJSON())
-            }
-        }
-
         return {
             ...store.toJSON(),
-            items
+            items: store.getRange(offset, offset + limit).map(record => record.toJSON())
         }
     }
 

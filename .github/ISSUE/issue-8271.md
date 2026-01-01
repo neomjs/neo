@@ -1,13 +1,14 @@
 ---
 id: 8271
 title: '[Neural Link] Refactor ComponentService to use toJSON protocol'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-01T17:26:40Z'
-updatedAt: '2026-01-01T17:26:40Z'
+updatedAt: '2026-01-01T17:53:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8271'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-01T17:52:10Z'
 ---
 # [Neural Link] Refactor ComponentService to use toJSON protocol
 
@@ -30,4 +32,6 @@ Update `src/ai/client/ComponentService.mjs` to rely on the newly implemented `to
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added the `refactoring` label
 - 2026-01-01 @tobiu added parent issue #8169
+- 2026-01-01 @tobiu closed this issue
+- 2026-01-01 @tobiu assigned to @tobiu
 

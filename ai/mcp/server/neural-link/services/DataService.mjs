@@ -40,11 +40,13 @@ class DataService extends Base {
      * Inspects a specific data store.
      * @param {Object} opts The options object.
      * @param {String} opts.storeId The ID of the store to inspect.
+     * @param {Number} [opts.limit=50] Optional limit.
+     * @param {Number} [opts.offset=0] Optional offset.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} Store details (count, filters, sorters, items sample).
      */
-    async inspectStore({storeId, sessionId}) {
-        return await ConnectionService.call(sessionId, 'inspect_store', {storeId});
+    async inspectStore({limit=50, offset=0, storeId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'inspect_store', {limit, offset, storeId});
     }
 
     /**
