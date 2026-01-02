@@ -430,11 +430,23 @@ class DomAccess extends Base {
     }
 
     /**
-     * @param {String|HTMLElement} nodeId
-     * @returns {HTMLElement|null}
+     * @param {String|HTMLElement|Window|Document} nodeId
+     * @returns {HTMLElement|Window|Document|null}
      * @protected
      */
     getElement(nodeId) {
+        if (nodeId === 'window') {
+            return globalThis
+        }
+
+        if (nodeId === 'document') {
+            return document
+        }
+
+        if (nodeId === 'document.body' || nodeId === 'body') {
+            return document.body
+        }
+
         let node = nodeId?.nodeType ?
             nodeId : Neo.config.useDomIds ?
                 document.getElementById(nodeId) :
@@ -453,7 +465,7 @@ class DomAccess extends Base {
             return null
         }
 
-        return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId)
+        return this.getElement(nodeId)
     }
 
     /**
