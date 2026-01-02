@@ -1,9 +1,10 @@
 import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import ComponentService from './client/ComponentService.mjs';
-import DataService      from './client/DataService.mjs';
-import RuntimeService   from './client/RuntimeService.mjs';
-import Socket           from '../data/connection/WebSocket.mjs';
+import ComponentService   from './client/ComponentService.mjs';
+import DataService        from './client/DataService.mjs';
+import InteractionService from './client/InteractionService.mjs';
+import RuntimeService     from './client/RuntimeService.mjs';
+import Socket             from '../data/connection/WebSocket.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -68,12 +69,13 @@ class Client extends Base {
         let me = this;
 
         me.services = {
-            component: Neo.create(ComponentService, {client: me}),
-            data     : Neo.create(DataService,      {client: me}),
-            runtime  : Neo.create(RuntimeService,   {client: me})
+            component  : Neo.create(ComponentService,   {client: me}),
+            data       : Neo.create(DataService,        {client: me}),
+            interaction: Neo.create(InteractionService, {client: me}),
+            runtime    : Neo.create(RuntimeService,     {client: me})
         };
 
-        const {component, data, runtime} = me.services;
+        const {component, data, interaction, runtime} = me.services;
 
         me.serviceMap = {
             get_component         : component,
@@ -95,7 +97,8 @@ class Client extends Base {
             get_route             : runtime,
             get_window            : runtime,
             reload_page           : runtime,
-            set_route             : runtime
+            set_route             : runtime,
+            simulate_event        : interaction
         };
 
         Neo.currentWorker.on({

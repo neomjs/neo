@@ -49,6 +49,19 @@ class InteractionService extends Base {
             options
         })
     }
+
+    /**
+     * Simulates a native DOM event sequence.
+     * @param {Object} opts
+     * @param {Object[]} opts.events
+     * @param {String} opts.sessionId
+     * @returns {Promise<Boolean>}
+     */
+    async simulateEvent({events, sessionId}) {
+        return await ConnectionService.call(sessionId, 'simulate_event', {
+            events
+        })
+    }
 }
 
 export default Neo.setupClass(InteractionService);
