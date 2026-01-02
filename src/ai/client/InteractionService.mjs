@@ -34,7 +34,12 @@ class InteractionService extends Service {
                 await me.timeout(event.delay)
             }
 
-            await me.dispatch(event.targetId, event.type, event.options, event.windowId)
+            await me.dispatch({
+                id      : event.targetId,
+                options : event.options,
+                type    : event.type,
+                windowId: event.windowId
+            })
         }
 
         return true
@@ -42,13 +47,14 @@ class InteractionService extends Service {
 
     /**
      * Helper to dispatch a single event to the correct window
-     * @param {String} id
-     * @param {String} type
-     * @param {Object} options
-     * @param {String} windowId
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.options
+     * @param {String} data.type
+     * @param {String} data.windowId
      * @returns {Promise<Boolean>}
      */
-    async dispatch(id, type, options, windowId) {
+    async dispatch({id, options, type, windowId}) {
         await Neo.Main.importAddon({name: 'EventSimulator', windowId});
 
         return await Neo.main.addon.EventSimulator.dispatch({
