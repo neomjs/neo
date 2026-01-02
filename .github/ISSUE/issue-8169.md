@@ -61,11 +61,11 @@ subIssues:
   - '[x] 8272 [Neural Link] Refactor DataService to use toJSON protocol'
   - '[x] 8273 [Neural Link] Refactor RuntimeService to use toJSON protocol'
   - '[x] 8274 [Neural Link] Parameterize inspectStore limit and offset'
-  - '[ ] 8278 [Neural Link] Feature: Tool get_dom_event_listeners'
-  - '[ ] 8279 [Neural Link] Feature: Tool get_dom_event_summary'
+  - '[x] 8278 [Neural Link] Feature: Tool get_dom_event_listeners'
+  - '[x] 8279 [Neural Link] Feature: Tool get_dom_event_summary'
   - '[x] 8280 [Neural Link] Feature: Tool inspect_class'
   - '[x] 8281 [Neural Link] Feature: Tool get_computed_styles'
-subIssuesCompleted: 43
+subIssuesCompleted: 45
 subIssuesTotal: 52
 blockedBy: []
 blocking: []

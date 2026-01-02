@@ -1,14 +1,14 @@
 ---
 id: 8278
 title: '[Neural Link] Feature: Tool get_dom_event_listeners'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2026-01-01T18:46:58Z'
-updatedAt: '2026-01-01T18:47:54Z'
+updatedAt: '2026-01-02T09:42:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8278'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-02T09:42:45Z'
 ---
 # [Neural Link] Feature: Tool get_dom_event_listeners
 
@@ -39,4 +40,5 @@ To debug event delegation and interaction logic on a specific component.
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added parent issue #8169
 - 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-02 @tobiu closed this issue
 
