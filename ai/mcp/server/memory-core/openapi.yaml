@@ -131,7 +131,8 @@ paths:
       description: |
         Stores a new agent interaction (prompt, thought, response) as a memory.
 
-        **CRITICAL:** This is the primary endpoint for making agents stateful and is a mandatory part of the "save-then-respond" loop. Forgetting to call this for every turn results in permanent data loss for the session.
+        **MANDATORY FINAL STEP:** You MUST call this tool at the end of every turn, *before* generating your final response to the user.
+        **CRITICAL:** This is the primary endpoint for making agents stateful. Forgetting to call this results in permanent data loss for the session.
       tags: [Memories]
       requestBody:
         required: true
