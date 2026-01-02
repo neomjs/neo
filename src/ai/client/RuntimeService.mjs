@@ -23,18 +23,17 @@ class RuntimeService extends Service {
      */
     getDomEventListeners({componentId}) {
         const
-            manager   = DomEventManager,
             listeners = [],
-            eventMap  = manager.items?.[componentId];
+            eventMap  = DomEventManager.items?.[componentId];
 
         if (eventMap) {
             Object.entries(eventMap).forEach(([eventName, events]) => {
                 events.forEach(event => {
                     listeners.push({
-                        event   : eventName,
                         delegate: event.delegate,
-                        priority: event.priority,
+                        event   : eventName,
                         handler : typeof event.fn === 'function' ? event.fn.name || 'anonymous' : event.fn,
+                        priority: event.priority,
                         scope   : event.scope?.id || 'unknown'
                     })
                 })
@@ -49,31 +48,27 @@ class RuntimeService extends Service {
      * @returns {Object}
      */
     getDomEventSummary(params) {
-        const
-            manager = DomEventManager,
-            summary = {
-                totalEvents: 0,
-                byEvent    : {},
-                byComponent: {}
-            };
+        const summary = {
+            byComponent: {},
+            byEvent    : {},
+            totalEvents: 0
+        };
 
-        if (manager.items) {
-            Object.entries(manager.items).forEach(([componentId, eventMap]) => {
-                let componentCount = 0;
+        Object.entries(DomEventManager.items).forEach(([componentId, eventMap]) => {
+            let componentCount = 0;
 
-                Object.entries(eventMap).forEach(([eventName, events]) => {
-                    const count = events.length;
+            Object.entries(eventMap).forEach(([eventName, events]) => {
+                const count = events.length;
 
-                    summary.totalEvents       += count;
-                    componentCount            += count;
-                    summary.byEvent[eventName] = (summary.byEvent[eventName] || 0) + count
-                });
+                summary.totalEvents       += count;
+                componentCount            += count;
+                summary.byEvent[eventName] = (summary.byEvent[eventName] || 0) + count
+            });
 
-                if (componentCount > 0) {
-                    summary.byComponent[componentId] = componentCount
-                }
-            })
-        }
+            if (componentCount > 0) {
+                summary.byComponent[componentId] = componentCount
+            }
+        });
 
         return summary
     }
