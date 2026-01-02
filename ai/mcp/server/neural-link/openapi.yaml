@@ -795,10 +795,19 @@ paths:
       operationId: inspect_class
       x-pass-as-object: true
       description: |
-        Inspects a Neo.mjs class to retrieve its schema (configs, mixins, superclass, methods).
+        Inspects a Neo.mjs class to retrieve its **Rich Blueprint**.
+
+        Returns a detailed schema including:
+        - **Hierarchy:** Full `ntypeChain` and `superClass`.
+        - **Mixins:** Resolved list of applied mixins.
+        - **Methods:** Cleaned public API (filtering out lifecycle noise).
+        - **Configs:** A rich map where each key contains:
+          - `value`: The resolved default value.
+          - `meta`: Descriptor properties (e.g., `merge: 'shallow'`).
+          - `hooks`: List of active reactive hooks (`beforeSet`, `afterSet`) found on the prototype.
 
         **When to Use:**
-        To understand the capabilities, available configurations, and inheritance structure of a class at runtime.
+        To understand the *capabilities* and *reactivity* of a class. Use this to read the "manual" before instantiating or modifying a component.
       tags: [Introspection]
       requestBody:
         required: true
