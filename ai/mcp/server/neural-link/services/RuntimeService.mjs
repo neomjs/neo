@@ -4,7 +4,7 @@ import ConnectionService from './ConnectionService.mjs';
 /**
  * @summary Manages application runtime and topology operations for the Neural Link MCP Server.
  *
- * This service provides tools for inspecting the runtime structure (workers, windows) and 
+ * This service provides tools for inspecting the runtime structure (workers, windows) and
  * controlling the application lifecycle (reloading).
  *
  * @class Neo.ai.mcp.server.neural-link.services.RuntimeService
@@ -23,6 +23,25 @@ class RuntimeService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @param {Object} opts             The options object.
+     * @param {String} opts.componentId The component ID.
+     * @param {String} opts.sessionId   The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async getDomEventListeners({componentId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_dom_event_listeners', {componentId})
+    }
+
+    /**
+     * @param {Object} opts           The options object.
+     * @param {String} opts.sessionId The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async getDomEventSummary({sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_dom_event_summary', {})
     }
 
     /**

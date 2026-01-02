@@ -154,6 +154,91 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/dom/events/get:
+    post:
+      summary: Get DOM Event Listeners
+      operationId: get_dom_event_listeners
+      x-pass-as-object: true
+      description: |
+        Retrieves detailed DOM event listeners for a specific component.
+
+        **When to Use:**
+        To debug event delegation and interaction logic on a specific component.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDomEventListenersRequest'
+      responses:
+        '200':
+          description: List of event listeners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listeners:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/dom/events/summary:
+    post:
+      summary: Get DOM Event Summary
+      operationId: get_dom_event_summary
+      x-pass-as-object: true
+      description: |
+        Retrieves a high-level summary of the DomEvent manager state.
+
+        **When to Use:**
+        To understand the global event landscape and identify potential hotspots.
+      tags: [Component]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDomEventSummaryRequest'
+      responses:
+        '200':
+          description: Event summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalEvents:
+                    type: integer
+                  byEvent:
+                    type: object
+                  byComponent:
+                    type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/tree:
     post:
       summary: Get Component Tree
@@ -907,6 +992,25 @@ components:
           items:
             type: string
           description: List of component IDs to inspect.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetDomEventListenersRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The component ID to inspect
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetDomEventSummaryRequest:
+      type: object
+      properties:
         sessionId:
           type: string
           description: The target App Worker Session ID

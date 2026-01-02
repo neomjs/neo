@@ -73,26 +73,29 @@ class Client extends Base {
             runtime  : Neo.create(RuntimeService,   {client: me})
         };
 
+        const {component, data, runtime} = me.services;
+
         me.serviceMap = {
-            get_component       : me.services.component,
-            get_dom_rect        : me.services.component,
-            get_vdom            : me.services.component,
-            get_vnode           : me.services.component,
-            highlight_component : me.services.component,
-            query_component     : me.services.component,
-            set_component       : me.services.component,
+            get_component         : component,
+            get_dom_rect          : component,
+            get_vdom              : component,
+            get_vnode             : component,
+            highlight_component   : component,
+            query_component       : component,
+            set_component         : component,
 
-            get_record          : me.services.data,
-            inspect_state_provider: me.services.data,
-            inspect_store       : me.services.data,
-            list_stores         : me.services.data,
-            modify_state_provider: me.services.data,
+            get_record            : data,
+            inspect_state_provider: data,
+            inspect_store         : data,
+            list_stores           : data,
+            modify_state_provider : data,
 
-            get_drag            : me.services.runtime,
-            get_route           : me.services.runtime,
-            get_window          : me.services.runtime,
-            reload_page         : me.services.runtime,
-            set_route           : me.services.runtime
+            get_dom_event         : runtime,
+            get_drag              : runtime,
+            get_route             : runtime,
+            get_window            : runtime,
+            reload_page           : runtime,
+            set_route             : runtime
         };
 
         Neo.currentWorker.on({

@@ -1,5 +1,6 @@
-import HashHistory from '../../util/HashHistory.mjs';
-import Service     from './Service.mjs';
+import DomEventManager from '../../manager/DomEvent.mjs';
+import HashHistory     from '../../util/HashHistory.mjs';
+import Service         from './Service.mjs';
 
 /**
  * Handles runtime environment related Neural Link requests.
@@ -13,6 +14,68 @@ class RuntimeService extends Service {
          * @protected
          */
         className: 'Neo.ai.client.RuntimeService'
+    }
+
+    /**
+     * @param {Object} params
+     * @param {String} params.componentId
+     * @returns {Object}
+     */
+    getDomEventListeners({componentId}) {
+        const
+            manager   = DomEventManager,
+            listeners = [],
+            eventMap  = manager.items?.[componentId];
+
+        if (eventMap) {
+            Object.entries(eventMap).forEach(([eventName, events]) => {
+                events.forEach(event => {
+                    listeners.push({
+                        event   : eventName,
+                        delegate: event.delegate,
+                        priority: event.priority,
+                        handler : typeof event.fn === 'function' ? event.fn.name || 'anonymous' : event.fn,
+                        scope   : event.scope?.id || 'unknown'
+                    })
+                })
+            })
+        }
+
+        return {listeners}
+    }
+
+    /**
+     * @param {Object} params
+     * @returns {Object}
+     */
+    getDomEventSummary(params) {
+        const
+            manager = DomEventManager,
+            summary = {
+                totalEvents: 0,
+                byEvent    : {},
+                byComponent: {}
+            };
+
+        if (manager.items) {
+            Object.entries(manager.items).forEach(([componentId, eventMap]) => {
+                let componentCount = 0;
+
+                Object.entries(eventMap).forEach(([eventName, events]) => {
+                    const count = events.length;
+
+                    summary.totalEvents       += count;
+                    componentCount            += count;
+                    summary.byEvent[eventName] = (summary.byEvent[eventName] || 0) + count
+                });
+
+                if (componentCount > 0) {
+                    summary.byComponent[componentId] = componentCount
+                }
+            })
+        }
+
+        return summary
     }
 
     /**
