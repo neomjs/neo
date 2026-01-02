@@ -93,6 +93,13 @@ class DatabaseLifecycleService extends Base {
                 spawnedProcess.on('spawn', () => {
                     this.chromaProcess = spawnedProcess;
                     logger.log(`ChromaDB (Memory Core) process started with PID: ${this.chromaProcess.pid}`);
+
+                    // Register cleanup handlers
+                    this.cleanupHandler = this.cleanup.bind(this);
+                    process.on('exit', this.cleanupHandler);
+                    process.on('SIGINT', this.cleanupHandler);
+                    process.on('SIGTERM', this.cleanupHandler);
+
                     resolve();
                 });
 
@@ -117,6 +124,29 @@ class DatabaseLifecycleService extends Base {
                 message: error.message,
                 code   : 'DATABASE_START_ERROR'
             };
+        }
+    }
+
+    /**
+     * Handles process termination signals to ensure the child process is killed.
+     * @param {string|number} signalOrCode
+     */
+    async cleanup(signalOrCode) {
+        if (this.chromaProcess) {
+            logger.log(`[DatabaseLifecycleService] cleanup triggered by ${signalOrCode}`);
+            try {
+                // We use the synchronous kill here because async operations might not complete
+                // reliably during the 'exit' event.
+                process.kill(-this.chromaProcess.pid, 'SIGTERM');
+                this.chromaProcess = null;
+            } catch (e) {
+                // Ignore errors if process is already gone
+            }
+        }
+
+        // If this was a signal (not a normal exit), we need to exit explicitly
+        if (typeof signalOrCode === 'string') {
+            process.exit(0);
         }
     }
 
@@ -151,6 +181,15 @@ class DatabaseLifecycleService extends Base {
                 this.chromaProcess.on('exit', () => {
                     logger.log(`ChromaDB process with PID: ${pid} has been stopped.`);
                     this.chromaProcess = null;
+
+                    // Remove cleanup handlers
+                    if (this.cleanupHandler) {
+                        process.off('exit', this.cleanupHandler);
+                        process.off('SIGINT', this.cleanupHandler);
+                        process.off('SIGTERM', this.cleanupHandler);
+                        this.cleanupHandler = null;
+                    }
+
                     const result = { status: 'stopped' };
                     this.fire('processStopped', { pid, managedByService: true });
                     resolve(result);

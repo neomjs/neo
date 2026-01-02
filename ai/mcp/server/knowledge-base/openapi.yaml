@@ -61,7 +61,14 @@ paths:
       summary: Start Database
       operationId: start_database
       description: |
-        Starts the ChromaDB database instance as a background process.
+        Starts the ChromaDB database instance as a background process, or connects to an existing one.
+
+        **Behavior:**
+        - **Managed:** If no database is running on the configured port, this tool spawns a new process managed by this server. This process will be automatically cleaned up when the agent session ends.
+        - **External:** If a database is already running, this tool simply confirms the connection. The server acts as a client and will NOT kill the database on exit.
+
+        **Multi-Agent / Swarm Recommendation:**
+        For workflows involving multiple concurrent agents, it is **highly recommended** to start the database externally using `npm run ai:server` before starting the agents. This prevents unexpected disconnects for other agents when the "owner" agent exits.
 
         **When to Use:**
         Use this tool if a `healthcheck` reveals that the database process is not running.
@@ -87,8 +94,15 @@ paths:
       description: |
         Stops the running ChromaDB database instance.
 
+        **Debug / Maintenance Tool:**
+        This tool is generally **not required** for standard workflows. The server now implements automatic process cleanup (for managed instances) when the session concludes.
+
+        **Effect:**
+        - **Managed:** Stops the process spawned by this server.
+        - **External:** **No effect.** The server cannot stop a database it did not start.
+
         **When to Use:**
-        Use this tool to shut down the database process at the end of a session to free up resources.
+        Use this only for debugging, forcing a restart, or freeing up resources in a long-running environment where the agent session itself does not exit.
       tags: ["Database Lifecycle"]
       responses:
         '200':
