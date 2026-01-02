@@ -904,44 +904,49 @@ paths:
         '200':
           description: Class schema
           content:
-              /interaction/simulate_event:
-                post:
-                  summary: Simulate DOM Event
-                  operationId: simulate_event
-                  x-pass-as-object: true
-                  description: |
-                    Simulates a native DOM event on a specific component or a sequence of events.
-            
-                    **When to Use:**
-                    To trigger user interactions like clicks, keyboard input, or drag sequences for E2E testing.
-                  tags: [Interaction]
-                  requestBody:
-                    required: true
-                    content:
-                      application/json:
-                        schema:
-                          $ref: '#/components/schemas/SimulateEventRequest'
-                  responses:
-                    '200':
-                      description: Event(s) dispatched successfully
-                      content:
-                        application/json:
-                          schema:
-                            type: boolean
-                    '400':
-                      description: Invalid request body
-                      content:
-                        application/json:
-                          schema:
-                            $ref: '#/components/schemas/ErrorResponse'
-                    '500':
-                      description: Internal server error
-                      content:
-                        application/json:
-                          schema:
-                            $ref: '#/components/schemas/ErrorResponse'
-            
-            components:  schemas:
+            application/json:
+              schema:
+                type: object
+
+  /interaction/simulate_event:
+    post:
+      summary: Simulate DOM Event
+      operationId: simulate_event
+      x-pass-as-object: true
+      description: |
+        Simulates a native DOM event on a specific component or a sequence of events.
+
+        **When to Use:**
+        To trigger user interactions like clicks, keyboard input, or drag sequences for E2E testing.
+      tags: [Interaction]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateEventRequest'
+      responses:
+        '200':
+          description: Event(s) dispatched successfully
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
     HealthCheckResponse:
       type: object
       properties:
