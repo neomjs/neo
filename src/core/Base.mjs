@@ -906,6 +906,13 @@ class Base {
             return config.map(item => me.serializeConfig(item))
         }
 
+        if (type === 'NeoInstance') {
+            return {
+                className: config.className,
+                id       : config.id
+            }
+        }
+
         if (type !== 'Object') {
             return type === 'NeoClass' ? config.prototype.className : config
         }
@@ -920,6 +927,11 @@ class Base {
                     out.className = value.prototype.className
                 } else {
                     out[key] = value.prototype.className
+                }
+            } else if (type === 'NeoInstance') {
+                out[key] = {
+                    className: value.className,
+                    id       : value.id
                 }
             } else if (type === 'Object' || type === 'Array') {
                 out[key] = me.serializeConfig(value)
