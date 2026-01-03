@@ -44,6 +44,12 @@ class Client extends Base {
      */
     isConnected = false
     /**
+     * Buffer for console logs generated before connection is established
+     * @member {Array} logs=[]
+     * @protected
+     */
+    logs = []
+    /**
      * Map JSON-RPC method prefixes to service instances
      * @member {Object} serviceMap
      * @protected
@@ -233,6 +239,14 @@ class Client extends Base {
     onSocketOpen(event) {
         console.log('Neo.ai.Client: Connected to MCP Server');
         this.isConnected = true;
+
+        // Flush buffered logs
+        if (this.logs.length > 0) {
+            this.logs.forEach(log => {
+                this.sendNotification('console_log', log)
+            });
+            this.logs.length = 0
+        }
 
         const appWorker = Neo.worker.App;
 

@@ -338,9 +338,7 @@ class App extends Base {
      * Intercepts console logs and errors to forward them to the Neural Link
      */
     interceptConsole() {
-        const
-            me    = this,
-            types = ['log', 'warn', 'error', 'info'];
+        const types = ['log', 'warn', 'error', 'info'];
 
         types.forEach(type => {
             const original = console[type];
@@ -348,54 +346,72 @@ class App extends Base {
             console[type] = (...args) => {
                 original.apply(console, args);
 
-                if (Neo.ai?.Client?.isConnected) {
+                // Use the Client singleton if available (lazy check)
+                const client = Neo.ai?.Client;
+
+                if (client) {
                     try {
                         const message = args.map(arg => {
                             if (arg instanceof Error) {
-                                return arg.message + '\n' + arg.stack;
+                                return arg.message + '\n' + arg.stack
                             }
                             if (typeof arg === 'object') {
                                 try {
-                                    return JSON.stringify(arg);
+                                    return JSON.stringify(arg)
                                 } catch (e) {
-                                    return String(arg);
+                                    return String(arg)
                                 }
                             }
-                            return String(arg);
+                            return String(arg)
                         }).join(' ');
 
-                        Neo.ai.Client.sendNotification('console_log', {
+                        const logEntry = {
                             type,
                             message,
                             timestamp: Date.now(),
                             stack    : type === 'error' ? new Error().stack : undefined
-                        });
+                        };
+
+                        if (client.isConnected) {
+                            client.sendNotification('console_log', logEntry)
+                        } else {
+                            // Direct push to Client instance array
+                            client.logs.push(logEntry)
+                        }
                     } catch (err) {
                         // Prevent infinite loop if logging fails
                     }
                 }
-            };
+            }
         });
 
         // Intercept unhandled errors
         const originalOnError = globalThis.onerror;
 
         globalThis.onerror = (msg, url, lineNo, columnNo, error) => {
-            if (Neo.ai?.Client?.isConnected) {
-                Neo.ai.Client.sendNotification('console_log', {
+            const client = Neo.ai?.Client;
+
+            if (client) {
+                const logEntry = {
                     type     : 'error',
                     message  : msg,
                     timestamp: Date.now(),
                     stack    : error?.stack
-                });
+                };
+
+                if (client.isConnected) {
+                    client.sendNotification('console_log', logEntry)
+                } else {
+                    client.logs.push(logEntry)
+                }
             }
 
             if (originalOnError) {
-                return originalOnError(msg, url, lineNo, columnNo, error);
+                return originalOnError(msg, url, lineNo, columnNo, error)
             }
 
-            return false;
-        };
+            return false
+        }
     }
 
     /**
