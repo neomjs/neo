@@ -17,6 +17,18 @@ class RuntimeService extends Service {
     }
 
     /**
+     * Checks if a namespace exists in the current environment.
+     * @param {Object} params
+     * @param {String} params.namespace
+     * @returns {Object} {exists: Boolean}
+     */
+    checkNamespace({namespace}) {
+        return {
+            exists: !!Neo.ns(namespace)
+        }
+    }
+
+    /**
      * @param {Object} params
      * @param {String} params.componentId
      * @returns {Object}
@@ -85,6 +97,27 @@ class RuntimeService extends Service {
         }
 
         return {};
+    }
+
+    /**
+     * Retrieves the loaded namespace tree.
+     * @param {Object} params
+     * @param {String} [params.root='Neo'] The root namespace to start from (e.g., 'Neo', 'MyApp').
+     * @returns {Object}
+     */
+    getNamespaceTree({root='Neo'}) {
+        const
+            me        = this,
+            startNode = Neo.ns(root),
+            tree      = {};
+
+        if (!startNode) {
+            return {tree: {}, error: `Namespace '${root}' not found`}
+        }
+
+        me.#traverseNamespace(startNode, root, tree);
+
+        return {root, tree}
     }
 
     /**
@@ -251,6 +284,42 @@ class RuntimeService extends Service {
         });
 
         return {status: 'ok', hash}
+    }
+
+    /**
+     * @param {Object} node
+     * @param {String} path
+     * @param {Object} output
+     */
+    #traverseNamespace(node, path, output) {
+        Object.keys(node).forEach(key => {
+            const
+                value       = node[key],
+                type        = Neo.typeOf(value),
+                currentPath = path ? `${path}.${key}` : key;
+
+            if (type === 'NeoClass') {
+                output[key] = {
+                    type     : 'class',
+                    className: value.prototype.className
+                }
+            } else if (type === 'NeoInstance') {
+                output[key] = {
+                    type     : 'singleton',
+                    className: value.className
+                }
+            } else if (type === 'Object') {
+                // Only traverse plain objects (namespaces)
+                // Neo.typeOf returns 'Object' for plain objects
+                output[key] = {};
+                this.#traverseNamespace(value, currentPath, output[key]);
+
+                // Clean up empty packages
+                if (Object.keys(output[key]).length === 0) {
+                    delete output[key]
+                }
+            }
+        })
     }
 }
 
