@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-03T11:48:58Z'
-updatedAt: '2026-01-03T11:48:58Z'
+updatedAt: '2026-01-03T19:30:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8296'
 author: tobiu
 commentsCount: 0
@@ -37,4 +38,5 @@ Standardize serialization for Neural Link.
 - 2026-01-03 @tobiu added the `ai` label
 - 2026-01-03 @tobiu added the `architecture` label
 - 2026-01-03 @tobiu added parent issue #8200
+- 2026-01-03 @tobiu assigned to @tobiu
 

@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-03T11:48:51Z'
-updatedAt: '2026-01-03T11:48:51Z'
+updatedAt: '2026-01-03T19:26:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8295'
 author: tobiu
 commentsCount: 0
@@ -21,17 +22,22 @@ blocking: []
 ---
 # [Neural Link] Implement toJSON in form.field.trigger.Base
 
+# [Neural Link] Implement toJSON in form.field.trigger.Base
+
 Implement `toJSON` serialization for `Neo.form.field.trigger.Base`.
 
 **Scope:**
-Export the following configs (without underscores):
-- `align`
+Export the following configs/properties:
 - `iconCls`
+- `showOnHover`
+- `type`
 - `weight`
+
+**Note:**
+- `align` is handled by `component.Base` (base class).
 
 **Goal:**
 Standardize serialization for Neural Link.
-
 
 ## Activity Log
 
@@ -39,4 +45,6 @@ Standardize serialization for Neural Link.
 - 2026-01-03 @tobiu added the `ai` label
 - 2026-01-03 @tobiu added the `architecture` label
 - 2026-01-03 @tobiu added parent issue #8200
+- 2026-01-03 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu referenced in commit `a3dee2f` - "feat(form): Implement toJSON in form.field.trigger.Base (#8295)"
 

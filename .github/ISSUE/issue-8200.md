@@ -58,15 +58,15 @@ subIssues:
   - '[x] 8268 [Neural Link] Implement toJSON in selection.table.CellColumnRowModel'
   - '[x] 8269 [Neural Link] Implement toJSON in manager.DragCoordinator'
   - '[x] 8270 [Neural Link] Implement toJSON in manager.Window'
-  - '[ ] 8275 [Neural Link] Export controller in component.Base.toJSON'
+  - '[x] 8275 [Neural Link] Export controller in component.Base.toJSON'
   - '[ ] 8276 [Neural Link] Implement toJSON in core.Observable'
   - '[ ] 8277 [Neural Link] Sanitize fields in data.Model.toJSON'
   - '[x] 8289 [Neural Link] Implement toJSON in form.field.Base'
   - '[x] 8290 [Neural Link] Implement toJSON in form.field.Text'
   - '[x] 8291 [Neural Link] Implement toJSON in form.field.Number'
-  - '[ ] 8292 [Neural Link] Implement toJSON in form.field.CheckBox'
-subIssuesCompleted: 46
-subIssuesTotal: 56
+  - '[x] 8292 [Neural Link] Implement toJSON in form.field.CheckBox'
+subIssuesCompleted: 56
+subIssuesTotal: 60
 blockedBy: []
 blocking: []
 ---

@@ -1,14 +1,15 @@
 ---
 id: 8292
 title: '[Neural Link] Implement toJSON in form.field.CheckBox'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-03T11:48:28Z'
-updatedAt: '2026-01-03T13:06:42Z'
+updatedAt: '2026-01-03T19:13:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8292'
 author: tobiu
 commentsCount: 1
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-03T19:11:47Z'
 ---
 # [Neural Link] Implement toJSON in form.field.CheckBox
 
@@ -64,4 +66,6 @@ Standardize serialization for Neural Link.
 - 2026-01-03 @tobiu added the `architecture` label
 - 2026-01-03 @tobiu added parent issue #8200
 - 2026-01-03 @tobiu referenced in commit `aeb96cc` - "feat(form): Implement toJSON for form.field.CheckBox #8292"
+- 2026-01-03 @tobiu closed this issue
+- 2026-01-03 @tobiu assigned to @tobiu
 
