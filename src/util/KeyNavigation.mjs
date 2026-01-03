@@ -198,6 +198,20 @@ class KeyNavigation extends Base {
     unregister() {
         // todo: remove the dom listener from the owner component
     }
+
+    /**
+     * Serializes the KeyNavigation into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            component: me.serializeConfig(me.component),
+            keys     : me.serializeConfig(me.keys)
+        }
+    }
 }
 
 export default Neo.setupClass(KeyNavigation);
