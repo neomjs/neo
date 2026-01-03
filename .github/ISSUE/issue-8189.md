@@ -1,14 +1,14 @@
 ---
 id: 8189
 title: 'Feat: Neural Link - Advanced Event Simulation'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-28T21:19:33Z'
-updatedAt: '2026-01-02T11:44:36Z'
+updatedAt: '2026-01-02T11:52:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8189'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-02T11:52:14Z'
 ---
 # Feat: Neural Link - Advanced Event Simulation
 
@@ -78,4 +79,6 @@ Agents need to verify interactions beyond simple clicks. Simulating keyboard eve
 - 2025-12-28 @tobiu added parent issue #8169
 - 2026-01-02 @tobiu assigned to @tobiu
 - 2026-01-02 @tobiu referenced in commit `097fee8` - "Feat: Neural Link - Advanced Event Simulation #8189"
+- 2026-01-02 @tobiu referenced in commit `e34a877` - "#8189 yaml file fix"
+- 2026-01-02 @tobiu closed this issue
 
