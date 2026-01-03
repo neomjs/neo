@@ -1607,6 +1607,7 @@ class Component extends Abstract {
 
         return {
             ...super.toJSON(),
+            align       : me.align,
             cls         : me.cls,
             disabled    : me.disabled,
             height      : me.height,
