@@ -330,6 +330,26 @@ class Picker extends Text {
         let picker = this.getPicker();
         picker.hidden = !picker.hidden
     }
+
+    /**
+     * Serializes the field into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            clientRects      : me.clientRects,
+            picker           : me.picker?.toJSON(),
+            pickerConfig     : me.serializeConfig(me.pickerConfig),
+            pickerHeight     : me.pickerHeight,
+            pickerIsMounted  : me.pickerIsMounted,
+            pickerMaxHeight  : me.pickerMaxHeight,
+            pickerWidth      : me.pickerWidth,
+            showPickerOnFocus: me.showPickerOnFocus
+        }
+    }
 }
 
 export default Neo.setupClass(Picker);
