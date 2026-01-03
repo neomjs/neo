@@ -204,6 +204,22 @@ class Base extends Component {
             scope[me.handler].call(scope)
         }
     }
+
+    /**
+     * Serializes the trigger into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            iconCls    : me.iconCls,
+            showOnHover: me.showOnHover,
+            type       : me.type,
+            weight     : me.weight
+        }
+    }
 }
 
 export default Neo.setupClass(Base);
