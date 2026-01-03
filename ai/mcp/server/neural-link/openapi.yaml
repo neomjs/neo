@@ -732,6 +732,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /console/logs/get:
+    post:
+      summary: Get Console Logs
+      operationId: get_console_logs
+      x-pass-as-object: true
+      description: |
+        Retrieves the console logs from the App Worker.
+
+        **When to Use:**
+        To see the App Worker's console output (log, warn, error) and exceptions.
+      tags: [Inspection]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetConsoleLogsRequest'
+      responses:
+        '200':
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    message:
+                      type: string
+                    timestamp:
+                      type: number
+                    stack:
+                      type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /worker/topology:
     post:
       summary: Get Worker Topology
@@ -1079,6 +1126,20 @@ components:
         sessionId:
           type: string
           description: The target App Worker Session ID
+
+    GetConsoleLogsRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        filter:
+          type: string
+          description: Optional string to filter logs by message content.
+        type:
+          type: string
+          enum: [log, warn, error, info]
+          description: Optional filter by log type.
 
     ReloadPageRequest:
       type: object

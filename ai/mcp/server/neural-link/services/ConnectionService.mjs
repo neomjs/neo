@@ -190,6 +190,42 @@ class ConnectionService extends Base {
     }
 
     /**
+     * @param {Object} params
+     * @param {String} params.sessionId
+     * @param {String} [params.filter]
+     * @param {String} [params.type]
+     */
+    getConsoleLogs({sessionId, filter, type}) {
+        // If no sessionId, pick the most recent one (Auto-Targeting)
+        if (!sessionId) {
+            if (this.sessionData.size > 0) {
+                sessionId = Array.from(this.sessionData.keys()).pop();
+                logger.warn(`No sessionId provided. Defaulting to ${sessionId}`);
+            } else {
+                throw new Error('No active App Worker sessions found.');
+            }
+        }
+
+        const meta = this.sessionData.get(sessionId);
+        if (!meta || !meta.logs) {
+            return [];
+        }
+
+        let logs = meta.logs;
+
+        if (type) {
+            logs = logs.filter(log => log.type === type);
+        }
+
+        if (filter) {
+            const lowerFilter = filter.toLowerCase();
+            logs = logs.filter(log => log.message && log.message.toLowerCase().includes(lowerFilter));
+        }
+
+        return logs
+    }
+
+    /**
      * Returns the current status.
      * @returns {Object}
      */
@@ -241,6 +277,7 @@ class ConnectionService extends Base {
         logger.info(`App Worker connected: ${appWorkerId}`);
         this.sessionData.set(appWorkerId, {
             connectedAt: Date.now(),
+            logs       : [],
             sessionId  : appWorkerId
         });
     }
@@ -310,6 +347,19 @@ class ConnectionService extends Base {
      * @param {Object} message
      */
     handleNotification(sessionId, message) {
+        if (message.method === 'console_log') {
+            const meta = this.sessionData.get(sessionId);
+            if (meta) {
+                meta.logs = meta.logs || [];
+                meta.logs.push(message.params);
+                // Keep last 1000 logs
+                if (meta.logs.length > 1000) {
+                    meta.logs.shift();
+                }
+            }
+            return;
+        }
+
         if (message.method === 'register') {
             const meta = this.sessionData.get(sessionId);
             if (meta) {
