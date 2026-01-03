@@ -1,23 +1,24 @@
 ---
 id: 8276
 title: '[Neural Link] Implement toJSON in core.Observable'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2026-01-01T18:37:04Z'
-updatedAt: '2026-01-01T18:47:40Z'
+updatedAt: '2026-01-03T20:26:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8276'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8200
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-03T20:26:31Z'
 ---
 # [Neural Link] Implement toJSON in core.Observable
 
@@ -31,10 +32,23 @@ Map the listeners to a serializable format:
 
 This allows the Neural Link to inspect attached event handlers.
 
+## Comments
+
+### @tobiu - 2026-01-03 20:26
+
+**Input from Gemini 2.5 pro:**
+
+> ✦ I have implemented `toJSON` in `src/core/Observable.mjs` to serialize runtime event listeners.
+> I also enhanced `src/core/Base.mjs`'s `serializeConfig` method to serialize functions as `'[Function]'`, allowing for the complete serialization of event handler objects (including scope and ID).
+> 
+> Changes committed in `feat(core): Implement toJSON in Observable and enhance serializeConfig #8276`.
+
 ## Activity Log
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added parent issue #8200
 - 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu referenced in commit `56e009d` - "feat(core): Implement toJSON in Observable and enhance serializeConfig #8276"
+- 2026-01-03 @tobiu closed this issue
 
