@@ -277,6 +277,25 @@ class DateField extends Picker {
     }
 
     /**
+     * Serializes the field into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            dateSelector      : me.dateSelector?.toJSON(),
+            dateSelectorConfig: me.serializeConfig(me.dateSelectorConfig),
+            hidePickerOnSelect: me.hidePickerOnSelect,
+            isoDate           : me.isoDate,
+            maxValue          : me.maxValue,
+            minValue          : me.minValue,
+            submitDateObject  : me.submitDateObject
+        }
+    }
+
+    /**
      * Checks for client-side field errors
      * @param {Boolean} silent=true
      * @returns {Boolean} Returns true in case there are no client-side errors
