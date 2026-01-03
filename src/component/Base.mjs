@@ -1613,6 +1613,7 @@ class Component extends Abstract {
             disabled    : me.disabled,
             height      : me.height,
             hidden      : me.hidden,
+            keys        : me.keys?.toJSON(),
             reference   : me.reference,
             role        : me.role,
             style       : me.style,
