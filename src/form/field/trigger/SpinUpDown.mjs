@@ -67,6 +67,20 @@ class SpinUpDown extends Base {
             me.field.onSpinButtonUpClick()
         }
     }
+
+    /**
+     * Serializes the trigger into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            spinButtonDownIconCls: me.spinButtonDownIconCls,
+            spinButtonUpIconCls  : me.spinButtonUpIconCls
+        }
+    }
 }
 
 export default Neo.setupClass(SpinUpDown);
