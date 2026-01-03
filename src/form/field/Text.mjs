@@ -1706,6 +1706,7 @@ class Text extends Field {
             minLength      : me.minLength,
             placeholderText: me.placeholderText,
             readOnly       : me.readOnly,
+            required       : me.required,
             triggers       : me.triggers?.map(trigger => trigger.toJSON())
         }
     }

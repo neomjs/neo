@@ -408,7 +408,6 @@ class Field extends Component {
             isTouched: me.isTouched,
             isValid  : me.isValid(),
             name     : me.name,
-            required : me.required,
             value    : me.value
         }
     }

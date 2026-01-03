@@ -755,6 +755,7 @@ class CheckBox extends Field {
             labelPosition : me.labelPosition,
             labelText     : me.labelText,
             labelWidth    : me.labelWidth,
+            required      : me.required,
             uncheckedValue: me.uncheckedValue,
             valueLabel    : me.valueLabel
         }
