@@ -937,6 +937,8 @@ class Base {
                 out[key] = me.serializeConfig(value)
             } else if (type !== 'Function') {
                 out[key] = value
+            } else {
+                out[key] = '[Function]'
             }
         });
 

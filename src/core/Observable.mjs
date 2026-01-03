@@ -355,6 +355,29 @@ class Observable extends Base {
     un(...args) {
         this.removeListener(...args);
     }
+
+    /**
+     * Serializes the observable state into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me        = this,
+            listeners = {},
+            eventMap  = me[eventMapSymbol];
+
+        if (eventMap) {
+            Object.entries(eventMap).forEach(([eventName, handlers]) => {
+                if (handlers.length > 0) {
+                    listeners[eventName] = handlers.map(handler => me.serializeConfig(handler))
+                }
+            })
+        }
+
+        return {
+            ...super.toJSON(),
+            listeners
+        }
+    }
 }
 
 export default Neo.setupClass(Observable);
