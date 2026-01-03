@@ -106,7 +106,7 @@ class Model extends Base {
 
         return {
             ...super.toJSON(),
-            fields             : me.fields,
+            fields             : me.serializeConfig(me.fields),
             keyProperty        : me.keyProperty,
             storeId            : me.storeId,
             trackModifiedFields: me.trackModifiedFields
