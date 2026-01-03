@@ -166,6 +166,24 @@ class AmChart extends Component {
     onChartMounted() {
 
     }
+
+    /**
+     * Serializes the AmChart into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            chartConfig         : me.serializeConfig(me.chartConfig),
+            chartData           : me.serializeConfig(me.chartData),
+            chartType           : me.chartType,
+            combineSeriesTooltip: me.combineSeriesTooltip,
+            dataPath            : me.dataPath,
+            package             : me.package
+        }
+    }
 }
 
 export default Neo.setupClass(AmChart);

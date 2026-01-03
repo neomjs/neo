@@ -464,6 +464,30 @@ class MonacoEditor extends Base {
             })
         }
     }
+
+    /**
+     * Serializes the MonacoEditor into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            contextmenu         : me.contextmenu,
+            cursorBlinking      : me.cursorBlinking,
+            domReadOnly         : me.domReadOnly,
+            editorTheme         : me.editorTheme,
+            fontSize            : me.fontSize,
+            language            : me.language,
+            minimap             : me.serializeConfig(me.minimap),
+            options             : me.serializeConfig(me.options),
+            readOnly            : me.readOnly,
+            scrollBeyondLastLine: me.scrollBeyondLastLine,
+            showLineNumbers     : me.showLineNumbers,
+            value               : me.stringifyValue(me.value)
+        }
+    }
 }
 
 export default Neo.setupClass(MonacoEditor);
