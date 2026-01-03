@@ -433,6 +433,21 @@ class Number extends Text {
 
         return returnValue
     }
+    /**
+     * Serializes the field into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            maxValue      : me.maxValue,
+            minValue      : me.minValue,
+            stepSize      : me.stepSize,
+            useSpinButtons: me.useSpinButtons
+        }
+    }
 }
 
 export default Neo.setupClass(Number);
