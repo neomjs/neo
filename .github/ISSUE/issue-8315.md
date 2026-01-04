@@ -17,9 +17,9 @@ parentIssue: null
 subIssues:
   - '[x] 8316 MCP: Optimize Memory Core Tool Count'
   - '[x] 8317 MCP: Optimize Knowledge Base Tool Count'
-  - '[ ] 8318 MCP: Optimize GitHub Workflow Tool Count'
+  - '[x] 8318 MCP: Optimize GitHub Workflow Tool Count'
   - '[ ] 8319 MCP: Optimize Neural Link Tool Count'
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 4
 blockedBy: []
 blocking: []
