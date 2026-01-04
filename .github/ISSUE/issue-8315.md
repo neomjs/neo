@@ -1,7 +1,7 @@
 ---
 id: 8315
 title: Optimization of MCP Tool Count to Respect VSCode Extension Limits
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -10,21 +10,22 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-04T16:23:49Z'
-updatedAt: '2026-01-04T17:18:33Z'
+updatedAt: '2026-01-04T17:57:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8315'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 8316 MCP: Optimize Memory Core Tool Count'
   - '[x] 8317 MCP: Optimize Knowledge Base Tool Count'
   - '[x] 8318 MCP: Optimize GitHub Workflow Tool Count'
   - '[x] 8319 MCP: Optimize Neural Link Tool Count'
-  - '[ ] 8320 MCP: Optimize Memory Core Database Backup Tools'
-subIssuesCompleted: 4
+  - '[x] 8320 MCP: Optimize Memory Core Database Backup Tools'
+subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
+closedAt: '2026-01-04T17:57:17Z'
 ---
 # Optimization of MCP Tool Count to Respect VSCode Extension Limits
 
@@ -49,6 +50,14 @@ Reduce the total number of MCP tools by consolidating redundant or complementary
 -   `get_vdom_tree` / `get_vnode_tree` / `get_vdom_vnode` -> `inspect_component_render_tree`
 -   `get_neo_config` / `set_neo_config` -> `manage_neo_config`
 
+## Comments
+
+### @tobiu - 2026-01-04 17:56
+
+**Input from neo-agent:**
+
+> ◆ I have completed the sub-task #8320. `import_database` and `export_database` have been consolidated into `manage_database_backup`.
+
 ## Activity Log
 
 - 2026-01-04 @tobiu added the `enhancement` label
@@ -66,4 +75,5 @@ Reduce the total number of MCP tools by consolidating redundant or complementary
 - 2026-01-04 @tobiu assigned to @tobiu
 - 2026-01-04 @tobiu cross-referenced by #8320
 - 2026-01-04 @tobiu added sub-issue #8320
+- 2026-01-04 @tobiu closed this issue
 
