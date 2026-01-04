@@ -57,16 +57,24 @@ class Server extends Base {
         // 3. Setup Handlers
         this.setupRequestHandlers();
 
-        // 4. Wait for Connection Service
-        await ConnectionService.ready();
-
-        // 5. Perform Health Check & Log Status
-        const health = await HealthService.healthcheck();
-        this.logStartupStatus(health);
-
-        // 6. Connect Transport (Stdio)
+        // 4. Connect Transport (Stdio)
+        // We connect early to ensure the MCP client handshake succeeds even if the Bridge is down.
         this.transport = new StdioServerTransport();
         await this.mcpServer.connect(this.transport);
+        logger.info('Neural Link MCP Server transport connected');
+
+        // 5. Wait for Connection Service
+        // This might take time if spawning a new Bridge process
+        try {
+            await ConnectionService.ready();
+        } catch (e) {
+            logger.error('ConnectionService failed to initialize:', e);
+            // We do not throw here, so the server stays alive to report health errors
+        }
+
+        // 6. Perform Health Check & Log Status
+        const health = await HealthService.healthcheck();
+        this.logStartupStatus(health);
 
         logger.info('Neural Link MCP Server started');
     }
@@ -119,7 +127,7 @@ class Server extends Base {
                 if (!exemptFromHealthCheck.includes(name)) {
                     const health = await HealthService.healthcheck();
                     if (health.status !== 'healthy') {
-                         return {
+                        return {
                             content: [{
                                 type: 'text',
                                 text: `Cannot execute ${name}: Neural Link is unhealthy.\nDetails: ${health.details.join(', ')}`
