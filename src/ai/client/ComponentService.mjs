@@ -153,7 +153,7 @@ class ComponentService extends Service {
      * @param {String} [params.rootId]
      * @returns {Object}
      */
-    getVdomAndVnode({depth, rootId}) {
+    getVdomVnode({depth, rootId}) {
         const component = this.getComponentRoot(rootId);
         if (!component) throw new Error('Root component not found');
         return {
