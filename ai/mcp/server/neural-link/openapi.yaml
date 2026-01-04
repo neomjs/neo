@@ -35,7 +35,69 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /component/property/get:
+  /check_namespace:
+    post:
+      summary: Checks if a namespace exists in the current environment.
+      operationId: check_namespace
+      x-handler: check_namespace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                namespace:
+                  type: string
+                  description: The namespace to check (e.g., 'Neo.button.Base').
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
+              required:
+                - namespace
+      responses:
+        '200':
+          description: Result indicating if the namespace exists.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+
+  /get_namespace_tree:
+    post:
+      summary: Retrieves the loaded namespace tree from the runtime.
+      operationId: get_namespace_tree
+      x-handler: get_namespace_tree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root:
+                  type: string
+                  description: Optional root namespace to start from (defaults to 'Neo').
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
+      responses:
+        '200':
+          description: The namespace tree structure.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: string
+                  tree:
+                    type: object
+
+  /get_component_property:
     post:
       summary: Get Component Property
       operationId: get_component_property

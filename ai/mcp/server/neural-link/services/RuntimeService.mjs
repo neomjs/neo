@@ -26,6 +26,17 @@ class RuntimeService extends Base {
     }
 
     /**
+     * Checks if a namespace exists.
+     * @param {Object} opts            The options object.
+     * @param {String} opts.namespace  The namespace to check.
+     * @param {String} opts.sessionId  The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async checkNamespace({namespace, sessionId}) {
+        return await ConnectionService.call(sessionId, 'check_namespace', {namespace})
+    }
+
+    /**
      * @param {Object} opts             The options object.
      * @param {String} opts.componentId The component ID.
      * @param {String} opts.sessionId   The target session ID.
@@ -42,6 +53,17 @@ class RuntimeService extends Base {
      */
     async getDomEventSummary({sessionId}) {
         return await ConnectionService.call(sessionId, 'get_dom_event_summary', {})
+    }
+
+    /**
+     * Retrieves the loaded namespace tree.
+     * @param {Object} opts            The options object.
+     * @param {String} [opts.root]     The root namespace.
+     * @param {String} opts.sessionId  The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async getNamespaceTree({root, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_namespace_tree', {root})
     }
 
     /**
