@@ -409,7 +409,7 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               type: object
               required:
@@ -428,8 +428,7 @@ paths:
                   description: (Export only) Which collections to export.
                 file:
                   type: string
-                  format: binary
-                  description: (Import only) The JSONL backup file to import.
+                  description: (Import only) The absolute path to the JSONL backup file to import.
                 mode:
                   type: string
                   enum: [merge, replace]
@@ -449,12 +448,7 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/ImportResponse'
-                  - type: object
-                    properties:
-                      message:
-                        type: string
+                $ref: '#/components/schemas/BackupActionResponse'
         '400':
           description: Invalid request
           content:
@@ -933,24 +927,32 @@ components:
           type: string
           example: "All summaries successfully deleted"
 
-    ImportResponse:
+    BackupActionResponse:
       type: object
       properties:
+        message:
+          type: string
+          example: "Database operation completed successfully"
         imported:
           type: integer
-          description: Number of records imported
+          nullable: true
+          description: Number of records imported (Import only)
           example: 150
+        total:
+          type: integer
+          nullable: true
+          description: Total records in collection after operation (Import only)
+          example: 155
         skipped:
           type: integer
-          description: Number of records skipped (if mode=merge)
+          nullable: true
+          description: Number of records skipped (Import only)
           example: 5
         mode:
           type: string
-          enum: [merge, replace]
+          nullable: true
+          description: Import mode used (Import only)
           example: "merge"
-        message:
-          type: string
-          example: "Database import completed successfully"
 
     ErrorResponse:
       type: object

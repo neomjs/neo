@@ -212,7 +212,12 @@ class DatabaseService extends Base {
 
             const count = await collection.count();
             logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
-            return {imported: records.length, total: count, mode};
+            return {
+                message : `Import complete. Collection "${collection.name}" now contains ${count} documents.`,
+                imported: records.length,
+                total   : count,
+                mode
+            };
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
             return {
