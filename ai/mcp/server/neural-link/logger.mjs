@@ -12,8 +12,8 @@ const createLogMethod = (level, stream = process.stderr) => {
 
 const logger = {
     debug: createLogMethod('debug'),
-    info: createLogMethod('info'),
-    warn: createLogMethod('warn'),
+    info : createLogMethod('info'),
+    warn : createLogMethod('warn'),
     error: createLogMethod('error')
 };
 
