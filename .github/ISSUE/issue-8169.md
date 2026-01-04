@@ -65,8 +65,8 @@ subIssues:
   - '[x] 8279 [Neural Link] Feature: Tool get_dom_event_summary'
   - '[x] 8280 [Neural Link] Feature: Tool inspect_class'
   - '[x] 8281 [Neural Link] Feature: Tool get_computed_styles'
-subIssuesCompleted: 58
-subIssuesTotal: 59
+subIssuesCompleted: 59
+subIssuesTotal: 60
 blockedBy: []
 blocking: []
 ---
