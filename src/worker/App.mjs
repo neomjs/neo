@@ -584,7 +584,7 @@ class App extends Base {
 
         Neo.windowConfigs = Neo.windowConfigs || {};
 
-        Neo.windowConfigs[data.windowId] = data;
+        Neo.windowConfigs[data.windowId] = Neo.clone(data, true);
 
         if (config.environment === 'development' || config.environment === 'dist/esm') {
             url = `../../${url}`
