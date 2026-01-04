@@ -79,14 +79,21 @@ class RuntimeService extends Base {
     }
 
     /**
-     * Retrieves the global Neo.config or a specific window's boot config.
+     * Manages the global Neo.config.
      * @param {Object} opts            The options object.
+     * @param {String} opts.action     'get' | 'set'
+     * @param {Object} [opts.config]   The partial config object (for set action).
      * @param {String} opts.sessionId  The target session ID.
-     * @param {String} [opts.windowId] Optional window ID to retrieve specific boot config.
+     * @param {String} [opts.windowId] Optional window ID (for get action).
      * @returns {Promise<Object>}
      */
-    async getNeoConfig({sessionId, windowId}) {
-        return await ConnectionService.call(sessionId, 'get_neo_config', {windowId})
+    async manageNeoConfig({action, config, sessionId, windowId}) {
+        if (action === 'get') {
+            return await ConnectionService.call(sessionId, 'get_neo_config', {windowId});
+        } else if (action === 'set') {
+            return await ConnectionService.call(sessionId, 'set_neo_config', {config});
+        }
+        throw new Error(`Invalid action: ${action}`);
     }
 
     /**
@@ -164,17 +171,6 @@ class RuntimeService extends Base {
      */
     async reloadPage({sessionId}) {
         return await ConnectionService.call(sessionId, 'reload_page', {})
-    }
-
-    /**
-     * Updates the global Neo.config.
-     * @param {Object} opts            The options object.
-     * @param {Object} opts.config     The partial config object to merge.
-     * @param {String} opts.sessionId  The target session ID.
-     * @returns {Promise<Object>}
-     */
-    async setNeoConfig({config, sessionId}) {
-        return await ConnectionService.call(sessionId, 'set_neo_config', {config})
     }
 
     /**

@@ -73,39 +73,32 @@ class ComponentService extends Base {
     }
 
     /**
-     * Retrieves the VDOM tree of a component.
+     * Inspects the render tree (VDOM/VNode) of a component.
      * @param {Object} opts             The options object.
      * @param {Number} [opts.depth]     The depth limit.
      * @param {String} [opts.rootId]    Optional root component ID.
      * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<Object>} The VDOM tree structure.
+     * @param {String} opts.type        'vdom' | 'vnode' | 'both'
+     * @returns {Promise<Object>} The requested tree structure.
      */
-    async getVdomTree({depth, rootId, sessionId}) {
-        return await ConnectionService.call(sessionId, 'get_vdom_tree', {depth, rootId});
-    }
+    async inspectComponentRenderTree({depth, rootId, sessionId, type}) {
+        let method;
 
-    /**
-     * Retrieves the VNode tree of a component.
-     * @param {Object} opts             The options object.
-     * @param {Number} [opts.depth]     The depth limit.
-     * @param {String} [opts.rootId]    Optional root component ID.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<Object>} The VNode tree structure.
-     */
-    async getVnodeTree({depth, rootId, sessionId}) {
-        return await ConnectionService.call(sessionId, 'get_vnode_tree', {depth, rootId});
-    }
+        switch (type) {
+            case 'vdom':
+                method = 'get_vdom_tree';
+                break;
+            case 'vnode':
+                method = 'get_vnode_tree';
+                break;
+            case 'both':
+                method = 'get_vdom_and_vnode';
+                break;
+            default:
+                throw new Error(`Invalid type: ${type}`);
+        }
 
-    /**
-     * Retrieves both the VDOM and VNode trees of a component.
-     * @param {Object} opts             The options object.
-     * @param {Number} [opts.depth]     The depth limit.
-     * @param {String} [opts.rootId]    Optional root component ID.
-     * @param {String} [opts.sessionId] The target session ID.
-     * @returns {Promise<Object>} The VDOM and VNode tree structures.
-     */
-    async getVdomAndVnode({depth, rootId, sessionId}) {
-        return await ConnectionService.call(sessionId, 'get_vdom_and_vnode', {depth, rootId});
+        return await ConnectionService.call(sessionId, method, {depth, rootId});
     }
 
     /**

@@ -338,106 +338,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /component/vdom/get:
+  /component/render-tree/inspect:
     post:
-      summary: Get Component VDOM Tree
-      operationId: get_vdom_tree
+      summary: Inspect Component Render Tree
+      operationId: inspect_component_render_tree
       x-pass-as-object: true
       description: |
-        Retrieves the VDOM tree of a component.
+        Retrieves the render tree (VDOM/VNode) of a component.
 
         **When to Use:**
-        To inspect the Virtual DOM structure of a component for rendering issues.
+        To inspect the Virtual DOM (VDOM) structure, the actual DOM-aligned VNodes, or both for debugging rendering issues.
       tags: [Component]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GetComponentTreeRequest'
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum: [vdom, vnode, both]
+                  description: "The type of tree to retrieve."
+                rootId:
+                  type: string
+                  description: Optional root component ID. Defaults to the App's MainView if available.
+                depth:
+                  type: integer
+                  description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
       responses:
         '200':
-          description: The VDOM tree structure
+          description: The requested tree structure(s)
           content:
             application/json:
               schema:
                 type: object
-        '400':
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /component/vnode/get:
-    post:
-      summary: Get Component VNode Tree
-      operationId: get_vnode_tree
-      x-pass-as-object: true
-      description: |
-        Retrieves the VNode tree of a component.
-
-        **When to Use:**
-        To inspect the actual DOM-aligned VNodes (after VDOM processing). Useful for deep rendering debugging.
-      tags: [Component]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetComponentTreeRequest'
-      responses:
-        '200':
-          description: The VNode tree structure
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /component/vdom-vnode/get:
-    post:
-      summary: Get Component VDOM and VNode Trees
-      operationId: get_vdom_vnode
-      x-pass-as-object: true
-      description: |
-        Retrieves both the VDOM and VNode trees of a component in a single, atomic operation.
-
-        **When to Use:**
-        To inspect both the next intended state (VDOM) and current live DOM state (VNode) simultaneously, avoiding race conditions during high-frequency updates.
-      tags: [Component]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetComponentTreeRequest'
-      responses:
-        '200':
-          description: The VDOM and VNode tree structures
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  vdom:
-                    type: object
-                  vnode:
-                    type: object
         '400':
           description: Invalid request body
           content:
@@ -783,51 +723,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /server/start:
+  /connection/manage:
     post:
-      summary: Start WebSocket Server
-      operationId: start_ws_server
+      summary: Manage WebSocket Server
+      operationId: manage_connection
       description: |
-        Starts the WebSocket server to accept connections from the Neo.mjs app.
+        Manages the WebSocket server connection (start/stop).
 
         **When to Use:**
-        Use this to recover the bridge if the server was previously stopped or crashed.
+        Use this to recover the bridge if the server was previously stopped or crashed, or to simulate a disconnect.
       tags: [Lifecycle]
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
-              properties: {}
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop]
+                  description: "The action to perform: 'start' to launch the server, 'stop' to shut it down."
       responses:
         '200':
-          description: Server started successfully
-        '500':
-          description: Internal server error
+          description: Action completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request body
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-  /server/stop:
-    post:
-      summary: Stop WebSocket Server
-      operationId: stop_ws_server
-      description: |
-        Stops the WebSocket server and closes all active connections.
-
-        **When to Use:**
-        Use this to simulate a network disconnect or to perform a clean shutdown of the bridge.
-      tags: [Lifecycle]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-      responses:
-        '200':
-          description: Server stopped successfully
         '500':
           description: Internal server error
           content:
@@ -1144,71 +1078,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /runtime/config/get:
+  /runtime/config/manage:
     post:
-      summary: Get Neo Config
-      operationId: get_neo_config
+      summary: Manage Neo Config
+      operationId: manage_neo_config
       x-pass-as-object: true
       description: |
-        Retrieves the global Neo.config object.
-        If `windowId` is provided, returns the specific boot configuration for that window.
+        Manages the global Neo.config object (get/set).
 
         **When to Use:**
-        To inspect the global configuration or a specific window's startup config.
-      tags: [Configuration]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetNeoConfigRequest'
-      responses:
-        '200':
-          description: The Neo.config object
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /runtime/config/set:
-    post:
-      summary: Set Neo Config
-      operationId: set_neo_config
-      x-pass-as-object: true
-      description: |
-        Updates the global Neo.config object.
-
-        **When to Use:**
-        To modify the global configuration of the framework at runtime.
-        **Warning:** Changing boot-time configs (e.g., environment, useSharedWorkers) at runtime may not have the desired effect or could cause instability.
+        To inspect or modify the global configuration of the framework at runtime.
       tags: [Configuration]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetNeoConfigRequest'
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [get, set]
+                  description: "The action to perform: 'get' to retrieve, 'set' to update."
+                config:
+                  type: object
+                  description: "The partial config object to merge (required for 'set')."
+                windowId:
+                  type: string
+                  description: "Optional window ID to retrieve specific boot config (only for 'get')."
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
       responses:
         '200':
-          description: Configuration updated successfully
+          description: Configuration result
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  status:
-                    type: string
         '400':
           description: Invalid request body
           content:
@@ -1647,25 +1556,3 @@ components:
         error:
           type: string
           description: Error message
-
-    GetNeoConfigRequest:
-      type: object
-      properties:
-        sessionId:
-          type: string
-          description: The target App Worker Session ID
-        windowId:
-          type: string
-          description: Optional window ID to retrieve specific boot config (Neo.windowConfigs). If omitted, returns global Neo.config.
-
-    SetNeoConfigRequest:
-      type: object
-      required:
-        - config
-      properties:
-        config:
-          type: object
-          description: The partial config object to merge into Neo.config
-        sessionId:
-          type: string
-          description: The target App Worker Session ID
