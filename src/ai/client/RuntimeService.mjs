@@ -300,6 +300,74 @@ class RuntimeService extends Service {
     }
 
     /**
+     * Replaces a method implementation on a class prototype at runtime.
+     * RESTRICTED: Requires Neo.config.enableHotPatching = true.
+     *
+     * @param {Object} params
+     * @param {String} params.className  The fully qualified class name (e.g., 'Neo.button.Base')
+     * @param {String} params.methodName The name of the method to patch
+     * @param {String} params.source     The new function source code (e.g., 'function(args) { ... }' or 'async (args) => { ... }')
+     * @returns {Object} {success: Boolean, error?: String}
+     */
+    patchCode({className, methodName, source}) {
+        if (Neo.config.enableHotPatching !== true) {
+            return {
+                success: false,
+                error  : 'Hot patching is disabled. Set Neo.config.enableHotPatching = true to enable.'
+            }
+        }
+
+        const cls = Neo.ns(className);
+
+        if (!cls) {
+            return {
+                success: false,
+                error  : `Class '${className}' not found`
+            }
+        }
+
+        if (!cls.prototype) {
+            return {
+                success: false,
+                error  : `Class '${className}' has no prototype (is it a singleton?)`
+            }
+        }
+
+        try {
+            // Use new Function to parse the source code safely into a function object.
+            // This avoids direct use of eval() and ensures the code runs in the global scope.
+            // eslint-disable-next-line no-new-func
+            const fn = new Function('return ' + source)();
+
+            if (typeof fn !== 'function') {
+                return {
+                    success: false,
+                    error  : 'Source did not evaluate to a function'
+                }
+            }
+
+            // 1. Log the patch for audit
+            console.warn(`[Neo.ai.client.RuntimeService] Hot-patching ${className}.prototype.${methodName}`);
+
+            // 2. Apply the patch
+            cls.prototype[methodName] = fn;
+
+            // 3. Mark method as patched (useful for debugging)
+            fn.$isPatched = true;
+            fn.$originalSource = source;
+
+            return {success: true}
+
+        } catch (e) {
+            console.error('[Neo.ai.client.RuntimeService] Hot patch failed:', e);
+            return {
+                success: false,
+                error  : e.message
+            }
+        }
+    }
+
+    /**
      * @param {Object} params
      * @returns {Object}
      */

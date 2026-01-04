@@ -1058,6 +1058,47 @@ paths:
               schema:
                 type: object
 
+  /code/patch:
+    post:
+      summary: Patch Code
+      operationId: patch_code
+      x-pass-as-object: true
+      description: |
+        Replaces a method implementation on a class prototype at runtime.
+        **Requires** `Neo.config.enableHotPatching = true`.
+
+        **When to Use:**
+        To hot-patch a bug in a live application without reloading.
+      tags: [Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchCodeRequest'
+      responses:
+        '200':
+          description: Patch successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /runtime/config/get:
     post:
       summary: Get Neo Config
@@ -1481,6 +1522,26 @@ components:
           enum: [standard, compact]
           default: standard
           description: Level of detail to return. 'compact' returns only own configs/methods. 'standard' returns full inheritance.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    PatchCodeRequest:
+      type: object
+      required:
+        - className
+        - methodName
+        - source
+      properties:
+        className:
+          type: string
+          description: The fully qualified class name.
+        methodName:
+          type: string
+          description: The name of the method to patch.
+        source:
+          type: string
+          description: "The new function source code (e.g., 'function(args) { ... }')."
         sessionId:
           type: string
           description: The target App Worker Session ID

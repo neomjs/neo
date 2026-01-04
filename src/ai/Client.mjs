@@ -103,6 +103,7 @@ class Client extends Base {
             get_drag              : runtime,
             get_route             : runtime,
             get_window            : runtime,
+            patch_code            : runtime,
             reload_page           : runtime,
             set_route             : runtime,
             simulate_event        : interaction

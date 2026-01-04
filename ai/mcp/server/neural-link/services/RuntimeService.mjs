@@ -132,6 +132,19 @@ class RuntimeService extends Base {
     }
 
     /**
+     * Replaces a method implementation on a class prototype at runtime.
+     * @param {Object} opts            The options object.
+     * @param {String} opts.className  The fully qualified class name.
+     * @param {String} opts.methodName The name of the method to patch.
+     * @param {String} opts.sessionId  The target session ID.
+     * @param {String} opts.source     The new function source code.
+     * @returns {Promise<Object>}
+     */
+    async patchCode({className, methodName, sessionId, source}) {
+        return await ConnectionService.call(sessionId, 'patch_code', {className, methodName, source})
+    }
+
+    /**
      * Reloads the application page.
      * @param {Object} opts            The options object.
      * @param {String} [opts.sessionId] The target session ID.
