@@ -21,6 +21,7 @@ const serviceMapping = {
     get_dom_rect          : ComponentService  .getDomRect          .bind(ComponentService),
     get_drag_state        : InteractionService.getDragState        .bind(InteractionService),
     get_namespace_tree    : RuntimeService    .getNamespaceTree    .bind(RuntimeService),
+    get_neo_config        : RuntimeService    .getNeoConfig        .bind(RuntimeService),
     get_record            : DataService       .getRecord           .bind(DataService),
     get_route_history     : RuntimeService    .getRouteHistory     .bind(RuntimeService),
     get_vdom_tree         : ComponentService  .getVdomTree         .bind(ComponentService),
@@ -35,6 +36,7 @@ const serviceMapping = {
     query_component       : ComponentService  .queryComponent      .bind(ComponentService),
     reload_page           : RuntimeService    .reloadPage          .bind(RuntimeService),
     set_component_property: ComponentService  .setComponentProperty.bind(ComponentService),
+    set_neo_config        : RuntimeService    .setNeoConfig        .bind(RuntimeService),
     set_route             : RuntimeService    .setRoute            .bind(RuntimeService),
     start_ws_server       : ConnectionService .startServer         .bind(ConnectionService),
     stop_ws_server        : ConnectionService .stopServer          .bind(ConnectionService)

@@ -67,10 +67,21 @@ class RuntimeService extends Base {
     }
 
     /**
+     * Retrieves the global Neo.config or a specific window's boot config.
+     * @param {Object} opts            The options object.
+     * @param {String} opts.sessionId  The target session ID.
+     * @param {String} [opts.windowId] Optional window ID to retrieve specific boot config.
+     * @returns {Promise<Object>}
+     */
+    async getNeoConfig({sessionId, windowId}) {
+        return await ConnectionService.call(sessionId, 'get_neo_config', {windowId})
+    }
+
+    /**
      * Retrieves the navigation history stack.
      * @param {Object} opts            The options object.
      * @param {String} opts.sessionId  The target session ID.
-     * @param {Number} [opts.windowId] Optional window ID.
+     * @param {String} [opts.windowId] Optional window ID.
      * @returns {Promise<Object>}
      */
     async getRouteHistory({sessionId, windowId}) {
@@ -130,11 +141,22 @@ class RuntimeService extends Base {
     }
 
     /**
+     * Updates the global Neo.config.
+     * @param {Object} opts            The options object.
+     * @param {Object} opts.config     The partial config object to merge.
+     * @param {String} opts.sessionId  The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async setNeoConfig({config, sessionId}) {
+        return await ConnectionService.call(sessionId, 'set_neo_config', {config})
+    }
+
+    /**
      * Sets the application route (hash).
      * @param {Object} opts            The options object.
      * @param {String} opts.hash       The new hash value.
      * @param {String} opts.sessionId  The target session ID.
-     * @param {Number} [opts.windowId] Optional window ID.
+     * @param {String} [opts.windowId] Optional window ID.
      * @returns {Promise<Object>}
      */
     async setRoute({hash, sessionId, windowId}) {

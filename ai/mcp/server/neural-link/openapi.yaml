@@ -1017,6 +1017,84 @@ paths:
               schema:
                 type: object
 
+  /runtime/config/get:
+    post:
+      summary: Get Neo Config
+      operationId: get_neo_config
+      x-pass-as-object: true
+      description: |
+        Retrieves the global Neo.config object.
+        If `windowId` is provided, returns the specific boot configuration for that window.
+
+        **When to Use:**
+        To inspect the global configuration or a specific window's startup config.
+      tags: [Configuration]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetNeoConfigRequest'
+      responses:
+        '200':
+          description: The Neo.config object
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /runtime/config/set:
+    post:
+      summary: Set Neo Config
+      operationId: set_neo_config
+      x-pass-as-object: true
+      description: |
+        Updates the global Neo.config object.
+
+        **When to Use:**
+        To modify the global configuration of the framework at runtime.
+        **Warning:** Changing boot-time configs (e.g., environment, useSharedWorkers) at runtime may not have the desired effect or could cause instability.
+      tags: [Configuration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetNeoConfigRequest'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /interaction/simulate_event:
     post:
       summary: Simulate DOM Event
@@ -1214,7 +1292,7 @@ components:
       type: object
       properties:
         windowId:
-          type: integer
+          type: string
           description: Optional window ID to get history for.
         sessionId:
           type: string
@@ -1229,7 +1307,7 @@ components:
           type: string
           description: The new hash value to set (e.g., "#mainview=home").
         windowId:
-          type: integer
+          type: string
           description: Optional window ID to target.
         sessionId:
           type: string
@@ -1401,3 +1479,25 @@ components:
         error:
           type: string
           description: Error message
+
+    GetNeoConfigRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        windowId:
+          type: string
+          description: Optional window ID to retrieve specific boot config (Neo.windowConfigs). If omitted, returns global Neo.config.
+
+    SetNeoConfigRequest:
+      type: object
+      required:
+        - config
+      properties:
+        config:
+          type: object
+          description: The partial config object to merge into Neo.config
+        sessionId:
+          type: string
+          description: The target App Worker Session ID

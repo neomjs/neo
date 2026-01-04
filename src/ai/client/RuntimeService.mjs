@@ -122,7 +122,19 @@ class RuntimeService extends Service {
 
     /**
      * @param {Object} params
-     * @param {Number} [params.windowId]
+     * @param {String} [params.windowId]
+     * @returns {Object}
+     */
+    getNeoConfig({windowId}) {
+        if (windowId) {
+            return Neo.windowConfigs?.[windowId] || null
+        }
+        return Neo.config
+    }
+
+    /**
+     * @param {Object} params
+     * @param {String} [params.windowId]
      * @returns {Object}
      */
     getRouteHistory({windowId}) {
@@ -273,8 +285,18 @@ class RuntimeService extends Service {
 
     /**
      * @param {Object} params
+     * @param {Object} params.config
+     * @returns {Object}
+     */
+    setNeoConfig({config}) {
+        Neo.setGlobalConfig(config);
+        return {status: 'ok'}
+    }
+
+    /**
+     * @param {Object} params
      * @param {String} params.hash
-     * @param {Number} [params.windowId]
+     * @param {String} [params.windowId]
      * @returns {Object}
      */
     setRoute({hash, windowId}) {
