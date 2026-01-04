@@ -25,6 +25,7 @@ const serviceMapping = {
     get_record            : DataService       .getRecord           .bind(DataService),
     get_route_history     : RuntimeService    .getRouteHistory     .bind(RuntimeService),
     get_vdom_tree         : ComponentService  .getVdomTree         .bind(ComponentService),
+    get_vdom_vnode        : ComponentService  .getVdomAndVnode     .bind(ComponentService),
     get_vnode_tree        : ComponentService  .getVnodeTree        .bind(ComponentService),
     get_window_topology   : RuntimeService    .getWindowTopology   .bind(RuntimeService),
     get_worker_topology   : RuntimeService    .getWorkerTopology   .bind(RuntimeService),

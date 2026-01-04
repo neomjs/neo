@@ -27,9 +27,9 @@ class ComponentService extends Base {
 
     /**
      * Retrieves a property from a component by its ID.
-     * @param {Object} opts The options object.
-     * @param {String} opts.id The component ID.
-     * @param {String} opts.property The property name to retrieve.
+     * @param {Object} opts             The options object.
+     * @param {String} opts.id          The component ID.
+     * @param {String} opts.property    The property name to retrieve.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<any>} The value of the property.
      */
@@ -39,9 +39,9 @@ class ComponentService extends Base {
 
     /**
      * Retrieves the DOM rectangles for one or more components.
-     * @param {Object} opts            The options object.
+     * @param {Object} opts                The options object.
      * @param {String[]} opts.componentIds The list of component IDs.
-     * @param {String} [opts.sessionId] The target session ID.
+     * @param {String} [opts.sessionId]    The target session ID.
      * @returns {Promise<Object>} The list of DOMRects.
      */
     async getDomRect({componentIds, sessionId}) {
@@ -50,7 +50,7 @@ class ComponentService extends Base {
 
     /**
      * Retrieves the computed styles for a component.
-     * @param {Object} opts            The options object.
+     * @param {Object} opts             The options object.
      * @param {String} opts.componentId The component ID.
      * @param {String[]} opts.variables The list of style properties/variables to retrieve.
      * @param {String} [opts.sessionId] The target session ID.
@@ -62,9 +62,9 @@ class ComponentService extends Base {
 
     /**
      * Retrieves the full component tree of the application.
-     * @param {Object} opts            The options object.
-     * @param {Number} [opts.depth]    The depth limit.
-     * @param {String} [opts.rootId]   Optional root component ID.
+     * @param {Object} opts             The options object.
+     * @param {Number} [opts.depth]     The depth limit.
+     * @param {String} [opts.rootId]    Optional root component ID.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The component tree structure.
      */
@@ -74,9 +74,9 @@ class ComponentService extends Base {
 
     /**
      * Retrieves the VDOM tree of a component.
-     * @param {Object} opts            The options object.
-     * @param {Number} [opts.depth]    The depth limit.
-     * @param {String} [opts.rootId]   Optional root component ID.
+     * @param {Object} opts             The options object.
+     * @param {Number} [opts.depth]     The depth limit.
+     * @param {String} [opts.rootId]    Optional root component ID.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The VDOM tree structure.
      */
@@ -86,9 +86,9 @@ class ComponentService extends Base {
 
     /**
      * Retrieves the VNode tree of a component.
-     * @param {Object} opts            The options object.
-     * @param {Number} [opts.depth]    The depth limit.
-     * @param {String} [opts.rootId]   Optional root component ID.
+     * @param {Object} opts             The options object.
+     * @param {Number} [opts.depth]     The depth limit.
+     * @param {String} [opts.rootId]    Optional root component ID.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The VNode tree structure.
      */
@@ -97,10 +97,22 @@ class ComponentService extends Base {
     }
 
     /**
+     * Retrieves both the VDOM and VNode trees of a component.
+     * @param {Object} opts             The options object.
+     * @param {Number} [opts.depth]     The depth limit.
+     * @param {String} [opts.rootId]    Optional root component ID.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The VDOM and VNode tree structures.
+     */
+    async getVdomAndVnode({depth, rootId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_vdom_and_vnode', {depth, rootId});
+    }
+
+    /**
      * Queries components based on a selector object (e.g. {ntype: 'button', text: 'Save'}).
-     * @param {Object} opts            The options object.
-     * @param {Object} opts.selector   The selector object to match against.
-     * @param {String} [opts.rootId]   Optional root component ID to limit the search scope.
+     * @param {Object} opts             The options object.
+     * @param {Object} opts.selector    The selector object to match against.
+     * @param {String} [opts.rootId]    Optional root component ID to limit the search scope.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The list of matching components.
      */
@@ -110,10 +122,10 @@ class ComponentService extends Base {
 
     /**
      * Sets a property on a component by its ID.
-     * @param {Object} opts            The options object.
-     * @param {String} opts.id         The component ID.
-     * @param {String} opts.property   The property name to set.
-     * @param {*}      opts.value      The value to set.
+     * @param {Object} opts             The options object.
+     * @param {String} opts.id          The component ID.
+     * @param {String} opts.property    The property name to set.
+     * @param {*}      opts.value       The value to set.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<void>}
      */

@@ -149,6 +149,21 @@ class ComponentService extends Service {
 
     /**
      * @param {Object} params
+     * @param {Number} [params.depth]
+     * @param {String} [params.rootId]
+     * @returns {Object}
+     */
+    getVdomAndVnode({depth, rootId}) {
+        const component = this.getComponentRoot(rootId);
+        if (!component) throw new Error('Root component not found');
+        return {
+            vdom : TreeBuilder.getVdomTree(component.vdom, depth),
+            vnode: TreeBuilder.getVnodeTree(component.vnode, depth)
+        }
+    }
+
+    /**
+     * @param {Object} params
      * @param {String} [params.rootId]
      * @param {Object} params.selector
      * @returns {Object}

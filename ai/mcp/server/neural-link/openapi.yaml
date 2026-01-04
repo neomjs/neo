@@ -410,6 +410,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/vdom-vnode/get:
+    post:
+      summary: Get Component VDOM and VNode Trees
+      operationId: get_vdom_vnode
+      x-pass-as-object: true
+      description: |
+        Retrieves both the VDOM and VNode trees of a component in a single, atomic operation.
+
+        **When to Use:**
+        To inspect both the next intended state (VDOM) and current live DOM state (VNode) simultaneously, avoiding race conditions during high-frequency updates.
+      tags: [Component]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComponentTreeRequest'
+      responses:
+        '200':
+          description: The VDOM and VNode tree structures
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vdom:
+                    type: object
+                  vnode:
+                    type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /data/store/inspect:
     post:
       summary: Inspect Store
