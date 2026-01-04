@@ -165,9 +165,10 @@ class RuntimeService extends Service {
      * Inspects a class to retrieve its full schema (configs, methods, hierarchy).
      * @param {Object} params
      * @param {String} params.className
+     * @param {String} [params.detail='standard'] 'standard' | 'compact'
      * @returns {Object}
      */
-    inspectClass({className}) {
+    inspectClass({className, detail='standard'}) {
         const cls = Neo.ns(className);
 
         if (!cls) {
@@ -208,8 +209,19 @@ class RuntimeService extends Service {
         // Serialize the default values first
         const defaultValues = this.serializeConfig(ctor.config);
 
+        // Get superclass config for comparison in compact mode
+        const
+            superCtor   = ctor.__proto__,
+            superConfig = superCtor?.config || {};
+
         // Process Configs
         Object.keys(defaultValues).forEach(key => {
+            // In compact mode, only include configs that are "own" (not in super or changed)
+            if (detail === 'compact') {
+                const isOwn = !Object.hasOwn(superConfig, key) || superConfig[key] !== ctor.config[key];
+                if (!isOwn) return
+            }
+
             configs[key] = {
                 value: defaultValues[key]
             };
@@ -223,8 +235,15 @@ class RuntimeService extends Service {
             const hooks = [];
             ['beforeGet', 'beforeSet', 'afterSet'].forEach(prefix => {
                 const hookName = getHookName(prefix, key);
-                if (typeof proto[hookName] === 'function') {
-                    hooks.push(prefix)
+                // In compact mode, only check for hooks on the current prototype
+                if (detail === 'compact') {
+                    if (Object.hasOwn(proto, hookName)) {
+                        hooks.push(prefix)
+                    }
+                } else {
+                    if (typeof proto[hookName] === 'function') {
+                        hooks.push(prefix)
+                    }
                 }
             });
 
@@ -260,6 +279,12 @@ class RuntimeService extends Service {
                     }
                 }
             });
+
+            // In compact mode, we only look at the top-level prototype
+            if (detail === 'compact') {
+                break
+            }
+
             currentProto = currentProto.__proto__
         }
 

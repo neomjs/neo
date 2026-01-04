@@ -1476,6 +1476,11 @@ components:
         className:
           type: string
           description: The fully qualified class name (e.g., "Neo.button.Base").
+        detail:
+          type: string
+          enum: [standard, compact]
+          default: standard
+          description: Level of detail to return. 'compact' returns only own configs/methods. 'standard' returns full inheritance.
         sessionId:
           type: string
           description: The target App Worker Session ID

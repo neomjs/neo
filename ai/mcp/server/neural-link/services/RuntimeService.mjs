@@ -123,11 +123,12 @@ class RuntimeService extends Base {
      * Inspects a Neo.mjs class to retrieve its schema.
      * @param {Object} opts            The options object.
      * @param {String} opts.className  The fully qualified class name.
+     * @param {String} [opts.detail]   The detail level ('standard' or 'compact').
      * @param {String} opts.sessionId  The target session ID.
      * @returns {Promise<Object>}
      */
-    async inspectClass({className, sessionId}) {
-        return await ConnectionService.call(sessionId, 'inspect_class', {className})
+    async inspectClass({className, detail, sessionId}) {
+        return await ConnectionService.call(sessionId, 'inspect_class', {className, detail})
     }
 
     /**
