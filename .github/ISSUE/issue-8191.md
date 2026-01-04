@@ -1,23 +1,24 @@
 ---
 id: 8191
 title: 'Feat: Neural Link - Global Config Management'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-28T21:30:46Z'
-updatedAt: '2026-01-04T09:45:42Z'
+updatedAt: '2026-01-04T10:16:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8191'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8169
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-04T10:16:50Z'
 ---
 # Feat: Neural Link - Global Config Management
 
@@ -39,10 +40,37 @@ blocking: []
 
 **Goal:** Enable runtime configuration management.
 
+## Comments
+
+### @tobiu - 2026-01-04 10:16
+
+**Input from Gemini 2.5 pro:**
+
+> ✦ I have successfully implemented the **Global Config Management** feature for the Neural Link, enabling runtime inspection and modification of `Neo.config`.
+> 
+> ### Enhanced Scope: Multi-Window Awareness
+> During implementation, we identified a critical need to distinguish between the shared global state and the initial boot configuration of individual windows. We enhanced the `get_neo_config` tool to support an optional `windowId` parameter:
+> - **Global Config (Default):** Returns the current, merged `Neo.config` shared across the App Worker.
+> - **Window Boot Config:** If `windowId` is provided, returns the specific configuration used to initialize that window (stored in `Neo.windowConfigs`), allowing agents to inspect the "origin story" of a specific view.
+> 
+> ### Affected Files
+> **Client-Side:**
+> - `src/ai/client/RuntimeService.mjs`: Added `getNeoConfig` and `setNeoConfig` methods.
+> 
+> **Server-Side:**
+> - `ai/mcp/server/neural-link/services/RuntimeService.mjs`: Added bridge methods to delegate config requests to the client.
+> - `ai/mcp/server/neural-link/services/toolService.mjs`: Registered `get_neo_config` and `set_neo_config` tools.
+> - `ai/mcp/server/neural-link/openapi.yaml`: Defined the new API endpoints and schemas, including safety warnings for runtime config changes.
+> 
+> ### Documentation Cleanup
+> We also performed a cleanup pass to ensure `windowId` is consistently typed as `String` (UUID) across all JSDocs and API definitions, correcting legacy `Number`/`integer` references.
+
 ## Activity Log
 
 - 2025-12-28 @tobiu added the `enhancement` label
 - 2025-12-28 @tobiu added the `ai` label
 - 2025-12-28 @tobiu added parent issue #8169
 - 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `7d9bdd7` - "Feat: Neural Link - Global Config Management #8191"
+- 2026-01-04 @tobiu closed this issue
 
