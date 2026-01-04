@@ -124,30 +124,35 @@ class Client extends Base {
      * Uses Neo.data.connection.WebSocket for robust connection management.
      */
     connect() {
-        let me      = this,
-            url     = new URL(me.url),
-            appName = 'Unknown App';
+        let me = this;
 
-        if (Neo.config.appPath) {
-            const match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
-            if (match) {
-                appName = match[1];
+        try {
+            let url     = new URL(Neo.config.neuralLinkUrl || me.url),
+                appName = 'Unknown App';
+
+            if (Neo.config.appPath) {
+                const match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
+                if (match) {
+                    appName = match[1]
+                }
             }
+
+            url.searchParams.set('appWorkerId', Neo.worker.App.id);
+            url.searchParams.set('appName', appName);
+
+            me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
+                serverAddress: url.toString(),
+                listeners    : {
+                    close  : me.onSocketClose,
+                    error  : me.onSocketError,
+                    message: me.onSocketMessage,
+                    open   : me.onSocketOpen,
+                    scope  : me
+                }
+            })
+        } catch (e) {
+            console.error('Neo.ai.Client: Failed to create WebSocket connection', e)
         }
-
-        url.searchParams.set('appWorkerId', Neo.worker.App.id);
-        url.searchParams.set('appName',     appName);
-
-        me.socket = ClassSystemUtil.beforeSetInstance(me.socketConfig, Socket, {
-            serverAddress: url.toString(),
-            listeners    : {
-                close  : me.onSocketClose,
-                error  : me.onSocketError,
-                message: me.onSocketMessage,
-                open   : me.onSocketOpen,
-                scope  : me
-            }
-        })
     }
 
     /**
