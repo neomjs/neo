@@ -80,7 +80,7 @@ paths:
         Retrieves a list of all available labels in the repository.
 
         **When to Use:**
-        This is a crucial discovery tool. Call it before using `create_issue` or `add_labels` to ensure you are using valid, existing label names.
+        This is a crucial discovery tool. Call it before using `create_issue` or `manage_issue_labels` to ensure you are using valid, existing label names.
       tags: [Labels]
       responses:
         '200':
@@ -244,82 +244,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /comments:
-    post:
-      summary: Create a Comment on Issue or PR
-      operationId: create_comment
-      x-pass-as-object: true
-      x-annotations:
-        readOnlyHint: false
-      description: |
-        Adds a comment to a pull request or issue.
-        The tool automatically adds a header indicating the AI agent source and prefixes the comment with a special icon.
-
-        **When to Use:**
-
-        **For Pull Requests:**
-        This is the primary tool for providing a conclusive, final review.
-        - **To Approve a PR:** Use this tool to leave a comment indicating your approval (e.g., "LGTM, thanks for the contribution!").
-        - **To Request Changes:** Use this tool to provide a clear, actionable list of changes required for the PR to be approved. This should be a summary of your findings after a detailed review.
-
-        **For Issues:**
-        Use this tool to add general comments, such as providing status updates, asking for clarification, or summarizing discussions.
-
-        **Note on Inline Comments (PRs):**
-        While this tool is for the final, summary comment on PRs, detailed line-by-line feedback should be provided through other means if available. This tool provides the final verdict.
-      tags: [Pull Requests, Issues]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - body
-                - agent
-              properties:
-                pr_number:
-                  type: integer
-                  description: The number of the pull request (if commenting on a PR).
-                  example: 123
-                issue_number:
-                  type: integer
-                  description: The number of the issue (if commenting on an issue).
-                  example: 456
-                body:
-                  type: string
-                  description: The raw, unformatted content of the comment. The tool will handle templating.
-                  example: "This looks great!"
-                agent:
-                  type: string
-                  description: Your agent identity (e.g., "Gemini 2.5 pro"). Used to format the comment header.
-                  example: "Gemini 2.5 pro"
-      responses:
-        '201':
-          description: Comment created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          description: Bad Request (missing pr_number or issue_number).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Resource not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error, e.g., `gh` command failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /pull-requests/{pr_number}/conversation:
     get:
       summary: Get PR Conversation
@@ -348,34 +272,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /comments/{comment_id}:
-    patch:
-      summary: Update an Existing Comment
-      operationId: update_comment
+  /comments/manage:
+    post:
+      summary: Manage Comments (Create or Update)
+      operationId: manage_issue_comment
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
-        Updates the body of an existing comment on a pull request or issue. This is useful for correcting errors in previously posted comments.
+        Unified tool for creating and updating comments on issues and pull requests.
+        Supports both adding new comments and modifying existing ones.
 
-        **When to Use:**
-        - To fix errors in a comment you previously posted
-        - To update a comment with additional information
-        - To correct formatting or content mistakes
+        **Action: 'create'**
+        - Creates a new comment on an issue or PR.
+        - Requires `agent`, `body`, and either `issue_number` or `pr_number`.
+        - Automatically formats the comment with the agent's identity.
+        - **When to use:** To provide feedback, approve PRs (with "LGTM"), or ask questions.
 
-        **How to Get comment_id:**
-        The comment ID is the global node ID returned when creating a comment via `create_comment`, or it can be retrieved from the conversation using `get_conversation`. The comment ID is a string starting with "IC_" (for issue comments) or "PRRC_" (for PR review comments).
-
-        **Note:**
-        You can only update comments that were created by your authenticated user. Attempting to update another user's comment will result in an error.
-      tags: [Pull Requests]
-      parameters:
-        - name: comment_id
-          in: path
-          required: true
-          description: The global node ID of the comment to update (e.g., "IC_kwDOABcD..." or "PRRC_kwDOABcD...").
-          schema:
-            type: string
-            example: "IC_kwDOABcD1234567890"
+        **Action: 'update'**
+        - Updates an existing comment.
+        - Requires `comment_id` and `body`.
+        - **When to use:** To correct mistakes or update status in a previously posted comment.
+        - **Note:** You can only update comments created by the authenticated user.
+      tags: [Issues, Pull Requests]
       requestBody:
         required: true
         content:
@@ -383,57 +302,76 @@ paths:
             schema:
               type: object
               required:
+                - action
                 - body
               properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: The action to perform.
+                  example: create
+                issue_number:
+                  type: integer
+                  description: The number of the issue (required for 'create' if not a PR).
+                  example: 456
+                pr_number:
+                  type: integer
+                  description: The number of the pull request (required for 'create' if not an issue).
+                  example: 123
+                comment_id:
+                  type: string
+                  description: The global node ID of the comment (required for 'update').
+                  example: "IC_kwDOABcD1234567890"
                 body:
                   type: string
-                  description: The new body content for the comment. This replaces the entire comment body.
-                  example: "Updated: This looks great! I've reviewed the changes and approve."
+                  description: The content of the comment.
+                agent:
+                  type: string
+                  description: The agent identity (required for 'create').
+                  example: "Gemini 2.5 pro"
       responses:
         '200':
-          description: Comment updated successfully.
+          description: Comment created or updated successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Successfully updated comment IC_kwDOABcD1234567890"
-                  commentId:
-                    type: string
-                    example: "IC_kwDOABcD1234567890"
-                  url:
-                    type: string
-                    example: "https://github.com/neomjs/neo/pull/123#issuecomment-1234567890"
-                  updatedAt:
-                    type: string
-                    format: date-time
-                    example: "2025-11-12T10:30:00Z"
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (missing arguments or invalid action).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Comment not found or you don't have permission to update it.
+          description: Resource not found.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error, GraphQL API request failed.
+          description: Internal server error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /issues/{issue_number}/labels:
+  /issues/{issue_number}/labels/manage:
     post:
-      summary: Add labels to an issue or PR
-      operationId: add_labels
+      summary: Manage Issue Labels (Add or Remove)
+      operationId: manage_issue_labels
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
-        Adds one or more labels to a specific issue or pull request.
+        Unified tool for adding or removing labels from an issue or pull request.
 
-        **Important:** You must use the exact names of labels that already exist in the repository.
-        Use the `list_labels` tool to get a list of available labels if you are unsure.
+        **Action: 'add'**
+        - Adds one or more labels.
+        - **Important:** Use exact label names. Check with `list_labels` first.
+
+        **Action: 'remove'**
+        - Removes one or more labels.
+        - **Important:** Use exact label names.
       tags: [Issues]
       parameters:
         - name: issue_number
@@ -449,104 +387,70 @@ paths:
             schema:
               type: object
               required:
+                - action
                 - labels
               properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: The action to perform.
+                  example: add
                 labels:
                   type: array
                   items:
                     type: string
-                  example: ["bug", "enhancement"]
+                  description: An array of label names.
+                  example: ["bug", "priority"]
       responses:
         '200':
-          description: Labels added successfully.
+          description: Labels updated successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (invalid action).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Issue or pull request not found.
+          description: Issue or label not found.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error, e.g., `gh` command failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      summary: Remove labels from an issue or PR
-      operationId: remove_labels
-      x-annotations:
-        readOnlyHint: false
-        destructiveHint: true
-      description: |
-        Removes one or more labels from a specific issue or pull request.
-
-        **Important:** You must use the exact names of labels that already exist in the repository.
-        Use the `list_labels` tool to see which labels are currently on an issue or to verify their names.
-      tags: [Issues]
-      parameters:
-        - name: issue_number
-          in: path
-          required: true
-          description: The number of the issue or pull request.
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - labels
-              properties:
-                labels:
-                  type: array
-                  items:
-                    type: string
-                  example: ["bug", "enhancement"]
-      responses:
-        '200':
-          description: Labels removed successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '404':
-          description: Issue or pull request not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error, e.g., `gh` command failed.
+          description: Internal server error.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /issues/{issue_number}/assignees:
+  /issues/{issue_number}/assignees/manage:
     post:
-      summary: Assign an issue to users
-      operationId: assign_issue
+      summary: Manage Issue Assignees (Add or Remove)
+      operationId: manage_issue_assignees
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
-        Assigns one or more users to a GitHub issue. 
-        To clear all assignees from an issue, pass an empty array `[]` for the `assignees` property.
+        Unified tool for assigning or unassigning users from a GitHub issue.
+
+        **Action: 'add'**
+        - Assigns one or more users.
+
+        **Action: 'remove'**
+        - Unassigns one or more users.
 
         **Permission Check:**
-        This tool performs an internal permission check. If the authenticated user does not have `ADMIN`, `MAINTAIN`, or `WRITE` permissions, the tool will return a `403 Forbidden` error.
+        Requires `ADMIN`, `MAINTAIN`, or `WRITE` permissions. Returns 403 otherwise.
       tags: [Issues]
       parameters:
         - name: issue_number
           in: path
           required: true
-          description: The number of the issue to assign.
+          description: The number of the issue.
           schema:
             type: integer
       requestBody:
@@ -556,71 +460,29 @@ paths:
             schema:
               type: object
               required:
+                - action
                 - assignees
               properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: The action to perform.
+                  example: add
                 assignees:
                   type: array
                   items:
                     type: string
-                  description: An array of GitHub user logins to assign to the issue.
-                  example: ["tobiu", "some-contributor"]
+                  description: An array of GitHub user logins.
+                  example: ["tobiu"]
       responses:
         '200':
-          description: Issue assigned successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '500':
-          description: Internal server error, e.g., `gh` command failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      summary: Unassign users from an issue
-      operationId: unassign_issue
-      x-pass-as-object: true
-      x-annotations:
-        readOnlyHint: false
-        destructiveHint: true
-      description: |
-        Removes one or more specified assignees from a GitHub issue.
-
-        **Permission Check:**
-        This tool performs an internal permission check. If the authenticated user does not have `ADMIN`, `MAINTAIN`, or `WRITE` permissions, the tool will return a `403 Forbidden` error.
-      tags: [Issues]
-      parameters:
-        - name: issue_number
-          in: path
-          required: true
-          description: The number of the issue to unassign users from.
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - assignees
-              properties:
-                assignees:
-                  type: array
-                  items:
-                    type: string
-                  description: An array of GitHub user logins to unassign from the issue.
-                  example: ["some-contributor"]
-      responses:
-        '200':
-          description: Issue unassigned successfully.
+          description: Assignees updated successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         '403':
-          description: Forbidden. The user does not have permission to unassign issues.
+          description: Forbidden (insufficient permissions).
           content:
             application/json:
               schema:
@@ -632,7 +494,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error, e.g., `gh` command failed.
+          description: Internal server error.
           content:
             application/json:
               schema:
@@ -769,7 +631,7 @@ paths:
         - **SECONDARY:** Add other relevant labels (e.g., `documentation`) if they exist.
 
         **Post-Creation:**
-        The tool returns the new issue number. You can use this number immediately for other tools (e.g., `create_comment`, `assign_issue`).
+        The tool returns the new issue number. You can use this number immediately for other tools (e.g., `create_comment`, `manage_issue_assignees`).
         To update the issue body later, use `run_shell_command` with `gh issue edit {number} --body "..."`.
       tags: [Issues]
       requestBody:
